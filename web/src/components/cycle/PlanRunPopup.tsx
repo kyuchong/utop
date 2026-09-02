@@ -177,6 +177,22 @@ export function MakePlanRun({
   /** 오늘 — YYYY-MM-DD. 자리 채움 0 까지 맞춘다 */
   const ymd = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  /** **버전명이 성한가.**
+   *
+   *  빌드 이름은 「버전그룹_연_월_일」 이 관례다. 모양이 틀리거나 앞머리가
+   *  고른 버전그룹과 다르면 Runs 트리에서 엉뚱한 폴더에 들어간다 — 만든
+   *  뒤에 알면 옮길 길이 없다. 그래서 만들기 전에 막고 까닭을 말한다. */
+  const shape = /^[A-Za-z]\w*_\d{4}_\d{2}_\d{2}$/.test(ver.trim())
+  const head = ver.trim().split('_')[0] ?? ''
+  const match = !vg || head === vg
+  const bad = !ver.trim()
+    ? '버전명을 입력하세요'
+    : !shape
+      ? 'R100_2026_08_31 형태로 입력하세요'
+      : !match
+        ? `버전그룹이 ${vg} 인데 버전명은 ${head} 입니다`
+        : ''
+
   /** 「오늘」 단추 — 버전그룹 뒤에 오늘 날짜를 붙인다(R100_2026_09_02).
    *  빌드 이름을 손으로 치다 자릿수를 틀리는 일이 잦다. */
   const stampToday = () => {
@@ -223,9 +239,9 @@ export function MakePlanRun({
     v: string,
     set: (x: string) => void,
     opts: string[],
-    hint?: string,
+    sys = false,
   ) => (
-    <label className="cyrp-f">
+    <label className={`cyrp-f${sys ? ' sys' : ''}`}>
       <span>{label}</span>
       <select value={v} onChange={(e) => set(e.target.value)}>
         <option value="">(안 고름)</option>
@@ -234,24 +250,22 @@ export function MakePlanRun({
         ))}
         {!!v && !opts.includes(v) && <option value={v}>{v} (목록에 없음)</option>}
       </select>
-      {!!hint && <em>{hint}</em>}
     </label>
   )
 
   return (
     <div className="cyrp-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="cyrp-mk" role="dialog" aria-modal="true" aria-label="시험 실행 만들기">
-        {/* 안내는 **머리줄에 붙인다**(그림). 네모 판으로 띄워 두면 그것만
-            한 칸을 먹어, 정작 채울 칸이 밑으로 밀린다. */}
         <header>
-          <b>시험 실행 만들기</b>
-          <span>
-            {plan.cid || plan.id} 의 시험 항목 {(plan.items ?? []).length}건을 복사합니다 · 복사 뒤
-            플랜을 고쳐도 이 실행은 안 바뀝니다
-          </span>
+          <h1>시험 실행 만들기</h1>
+          <p>
+            <b>{plan.cid || plan.id}</b> 의 시험 항목 {(plan.items ?? []).length}건을 복사합니다 ·
+            복사 뒤 플랜을 고쳐도 이 실행은 안 바뀝니다
+          </p>
         </header>
-        {/* 두 칸씩 나란히(그림) — 짝이 되는 것끼리 한 줄에 선다:
-            담당자·유형 / 제품군·모델그룹 / 모델명·버전그룹 */}
+
+        {/* 두 칸씩 놓아 높이를 절반으로. 가는 줄로 세 묶음을 가른다 —
+            사람이 정하는 칸 · 물려받는 칸 · 빌드. */}
         <div className="cyrp-mb">
           <label className="cyrp-f wide">
             <span>제목</span>
@@ -261,10 +275,12 @@ export function MakePlanRun({
           {sel('담당자', who, setWho, people)}
           {sel('유형', type, setType, TYPES)}
 
+          <div className="cyrp-sep" />
+
           {sel('제품군', fam, (v) => {
             setFamTouched(true)
             setFam(v)
-          }, families)}
+          }, families, true)}
           {sel('모델그룹', mg, (v) => {
             setMg(v)
             /* 그룹을 바꾸면 그 그룹에 없는 모델은 지운다 — 안 맞는 짝이
@@ -276,37 +292,43 @@ export function MakePlanRun({
                 ? m
                 : '',
             )
-          }, groups)}
-
-          {sel('모델명', mdl, setMdl, models)}
+          }, groups, true)}
+          {sel('모델명', mdl, setMdl, models, true)}
           {sel('버전그룹', vg, (v) => {
             setVgTouched(true)
             setVg(v)
-          }, vgList)}
+          }, vgList, true)}
 
-          <label className="cyrp-f wide">
+          <div className="cyrp-sep" />
+
+          <label className="cyrp-f key wide">
             <span>버전명</span>
-            <div className="cyrp-row">
+            <div className="cyrp-verrow">
               <input
                 value={ver}
                 onChange={(e) => setVer(e.target.value)}
                 placeholder={String(plan.version ?? '') || 'R100_2026_08_31'}
+                spellCheck={false}
                 autoFocus
               />
               {/* 빌드 이름은 「버전그룹_날짜」 가 관례다 — 손으로 치다 자릿수를
                   틀리느니 눌러서 넣는다 */}
-              <button type="button" className="cyrp-btn" onClick={stampToday} title="버전그룹 뒤에 오늘 날짜를 붙입니다">
+              <button type="button" className="cyrp-today" onClick={stampToday} title="버전그룹 뒤에 오늘 날짜를 붙입니다">
                 오늘
               </button>
             </div>
-            <em>
-              실행 번호 {(mdl || mg || 'RUN')}_R0001 · Runs 트리 {vg || '–'} 폴더
-            </em>
+            {bad ? (
+              <em className="bad">{bad}</em>
+            ) : (
+              <em>
+                실행 번호 <b>{(mdl || mg || 'RUN')}_R0001</b> · Runs 트리 <b>{vg || head}</b> 폴더
+              </em>
+            )}
           </label>
 
           <label className="cyrp-f wide">
             <span>기간</span>
-            <div className="cyrp-row">
+            <div className="cyrp-daterow">
               <input type="date" value={sd} onChange={(e) => setSd(e.target.value)} />
               <i>~</i>
               <input type="date" value={ed} onChange={(e) => setEd(e.target.value)} />
@@ -318,6 +340,7 @@ export function MakePlanRun({
             )}
           </label>
         </div>
+
         <footer>
           <span className="cyrp-note2">만들면 Runs 로 갑니다</span>
           <span className="cyrp-sp" />
@@ -327,7 +350,7 @@ export function MakePlanRun({
           <button
             type="button"
             className="cyrp-btn pri"
-            disabled={busy || !ver.trim() || (!!sd && !!ed && ed < sd)}
+            disabled={busy || !!bad || (!!sd && !!ed && ed < sd)}
             onClick={() => void save()}
           >
             {busy ? '만드는 중…' : '＋ 실행 만들기'}
