@@ -111,7 +111,26 @@
   background: #eaf4ee;
   color: #2e7a53;
 }
-.rls-car { flex: none; width: 12px; color: #9aa4a9; text-align: center; }
+/* 펼침·접기 — **가운데에 오도록 상자로 잡는다**(지시).
+   예전엔 「⌄」 글자였는데, 그 글자는 제 네모칸의 아래쪽에 그려진다.
+   줄이 가운데 정렬이어도 밑으로 처져 보인 까닭이 그것이다 — 가운데에
+   그려지는 삼각형으로 바꾸고, 상자를 잡아 그 안에서 가운데로 맞춘다.
+   크기도 키웠다(지시). */
+.rls-car {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  color: #8d989e;
+  font-size: 11px;
+  line-height: 1;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.rls-car:hover { background: #e9eef1; color: #46555d; }
 .rls-right {
   margin-left: auto;
   display: flex;

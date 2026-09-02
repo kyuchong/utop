@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '@/api/client'
+import { apiFetch, tcApi } from '@/api/client'
 import { goto } from '@/api/goto'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
@@ -159,9 +159,10 @@ function jiraHtml(html: string, base: string): string {
  *  97줄이 전부 다시 그려져 화면이 무거웠다(지적). 이제 눌린 줄만 다시 그린다.
  */
 const IssueRow = memo(function IssueRow({
-  it, ver, open, tcs, tcById, resultOf, onToggle, onNew, onPick, onDrop, onDetail,
+  it, ver, open, tcs, tcById, resultOf, onToggle, onNew, onPick, onDrop, onDetail, making,
 }: {
   onNew: (ver: string, key: string, summary: string) => void
+  making: boolean
   onPick: (ver: string, key: string) => void
   onDrop: (ver: string, key: string, tcid: string) => void
   onDetail: (key: string) => void
@@ -184,7 +185,7 @@ const IssueRow = memo(function IssueRow({
           onClick={() => onToggle(`${ver}|${k}`)}
           onKeyDown={(e) => e.key === 'Enter' && onToggle(`${ver}|${k}`)}
         >
-          {open ? '⌄' : '›'}
+          {open ? '▾' : '▸'}
         </span>
         {/* 이슈 키를 누르면 **서랍**이 열린다 — 설명·댓글은 Jira 로 건너가지
             않고 여기서 본다(지시) */}
@@ -248,10 +249,11 @@ const IssueRow = memo(function IssueRow({
             <button
               type="button"
               className="rls-add"
+              disabled={making}
               title="이 이슈를 덮을 시험을 새로 만들고, 만든 뒤 그 시험 화면으로 갑니다"
-              onClick={() => onNew(ver, k, String(it.summary ?? ''))}
+              onClick={() => void onNew(ver, k, String(it.summary ?? ''))}
             >
-              ＋ TC 추가
+              {making ? '만드는 중…' : '＋ TC 추가'}
             </button>
             <button
               type="button"
@@ -289,6 +291,8 @@ export default function Releases() {
   const [detail, setDetail] = useState('')
   /** Sync 진행 — 「R1.1.2 (1/3)」. 몇 개 중 몇 번째인지 안 보이면 멈춘 줄 안다 */
   const [busy, setBusy] = useState('')
+  /** 시험을 만드는 중인 이슈 — 두 번 눌러 두 개가 생기면 안 된다 */
+  const [making, setMaking] = useState('')
 
   /** 이슈 펴기·접기 — **같은 함수**를 계속 준다. 매번 새로 만들면 memo 가
       「달라졌다」 고 보고 다 다시 그린다. */
@@ -349,6 +353,19 @@ export default function Releases() {
     return keys.map((k) => byKey.get(k) ?? { key: k, name: k })
   }, [upQ.data, utop, jiraAll])
   const allProjects = linked
+  /** **이 Jira 프로젝트에 물린 UTOP 프로젝트.**
+   *
+   *  모델그룹·모델명이 거기 적혀 있다. 새 시험은 모델을 고정해야 하는데
+   *  (합의: 판정 기준이 모델마다 갈린다), 그 값을 여기서 끌어오면 시험을
+   *  만들 때 사람에게 다시 묻지 않아도 된다 — 누르면 바로 스텝 화면이다.
+   *  둘 이상 물려 있거나 모델이 안 적혀 있으면 못 고르니, 그때만 창을 띄운다. */
+  const mine = useMemo(() => {
+    const ups = (upQ.data?.projects ?? []).filter((p) => String(p.jira_project ?? '') === proj)
+    const head = utop.length ? ups.filter((p) => utop.includes(p.id)) : ups
+    const cands = (head.length ? head : ups).filter((p) => p.model_group && p.model)
+    return cands.length === 1 ? cands[0]! : null
+  }, [upQ.data, proj, utop])
+
   /** 즐겨찾기 — Jira 설정의 fav_projects. 옛 화면과 **같은 열쇠**라 거기서
    *  정해 둔 것이 그대로 온다. */
   const cfgQ = useQuery({
@@ -682,9 +699,54 @@ export default function Releases() {
     [proj, qc],
   )
   const openPick = useCallback((ver: string, key: string) => setAddTo({ ver, key }), [])
+  /** **＋ TC 추가.** 이 이슈를 덮을 시험을 **새로 만들고**, 만든 그 자리에서
+   *  시험 화면으로 넘어간다(지시: 「TC추가하면 이 화면이 나와야」).
+   *
+   *  만들어지는 것은 **보통 시험**이다(지시: 「가로 작업 해」) — 시험 항목
+   *  목록에 다른 것들과 나란히 서고, 플랜에 담아 실행기로 돌릴 수 있고,
+   *  그 결과가 이 화면의 PASS/FAIL 칸으로 그대로 돌아온다.
+   *
+   *  ID 는 서버가 매기고(모델그룹이 앞머리다), 제목은 이슈 제목으로,
+   *  모델은 프로젝트에서 끌어온다. 물어볼 것이 없으니 창을 안 띄운다.
+   *  모델을 못 끌어오는 프로젝트에서만 예전처럼 창이 뜬다. */
   const openNew = useCallback(
-    (ver: string, key: string, summary: string) => setNewTo({ ver, key, summary }),
-    [],
+    async (ver: string, key: string, summary: string) => {
+      if (!mine) {
+        setNewTo({ ver, key, summary })
+        return
+      }
+      if (making) return
+      setMaking(key)
+      try {
+        const r = await apiFetch(`/api/tc-next-id?mg=${encodeURIComponent(mine.model_group)}`)
+        if (!r.ok) throw new Error('새 시험 번호를 받지 못했습니다')
+        const tcid = String(((await r.json()) as { tcid?: string }).tcid ?? '')
+        if (!tcid) throw new Error('새 시험 번호가 비어 있습니다')
+        await tcApi.save(tcid, {
+          tcid,
+          name: summary.trim() || `${key} 검증`,
+          req_id: '',
+          status: '작성중',
+          severity: '보통',
+          model_group: mine.model_group,
+          model: mine.model,
+          /* 어느 이슈 때문에 생긴 시험인지 남긴다 — 시험 쪽에서만 보면
+             까닭을 알 길이 없다. 저장은 payload 를 통째로 넣으므로 이
+             칸도 그대로 남는다(main.py:save_tc). */
+          jira_issue_key: key,
+        })
+        const cur = tcMap.get(`${ver}|${key}`) ?? EMPTY
+        await saveTcs(ver, key, [...cur, tcid])
+        await qc.invalidateQueries({ queryKey: ['tc-meta-rls'] })
+        goto('tc', tcid)
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : '시험을 만들지 못했습니다')
+      } finally {
+        setMaking('')
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mine, making, tcMap, saveTcs, qc],
   )
   const openDetail = useCallback((key: string) => setDetail(key), [])
   const dropTc = useCallback(
@@ -860,7 +922,7 @@ export default function Releases() {
               <div className="rls-grow" role="button" tabIndex={0}
                 onClick={() => toggle(open, `op:${op}`, setOpen)}
                 onKeyDown={(e) => e.key === 'Enter' && toggle(open, `op:${op}`, setOpen)}>
-                <span className="rls-car">{oOpen ? '⌄' : '›'}</span>
+                <span className="rls-car">{oOpen ? '▾' : '▸'}</span>
                 <b>{op}</b>
                 <span className="rls-right">
                   <span>버전 {list.length}</span>
@@ -880,7 +942,7 @@ export default function Releases() {
                       <div className="rls-vrow" role="button" tabIndex={0}
                         onClick={() => toggle(open, `v:${vn}`, setOpen)}
                         onKeyDown={(e) => e.key === 'Enter' && toggle(open, `v:${vn}`, setOpen)}>
-                        <span className="rls-car">{vOpen ? '⌄' : '›'}</span>
+                        <span className="rls-car">{vOpen ? '▾' : '▸'}</span>
                         <span className="rls-vname">{vn}</span>
                         {v?.released && <span className="rls-rel">released</span>}
                         <span className="rls-right">
@@ -932,6 +994,7 @@ export default function Releases() {
                             resultOf={resultOf}
                             onToggle={toggleIssue}
                             onNew={openNew}
+                            making={making === String(it.key ?? '')}
                             onPick={openPick}
                             onDrop={dropTc}
                             onDetail={openDetail}
