@@ -544,6 +544,44 @@ export default function RunDetail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId2])
 
+  /** **시작 시각을 여기서 기억한다.**
+   *
+   *  실행기는 「몇 번째 항목·몇 번째 스텝을 도는 중」 까지만 알려 주고,
+   *  언제부터 도는지는 안 준다. 그래서 그것이 도는 것을 **본 순간**을
+   *  적어 둔다.
+   *
+   *  이 기억은 **RunAuto 안에 두면 안 된다.** 다른 항목을 봤다 오면 그
+   *  판이 새로 서면서 기억이 비고, 대기 초읽기가 20 부터 다시 셌다(지적).
+   *  이 판(RunDetail)은 항목을 옮겨도 안 죽으므로 여기가 제자리다.
+   *  일감이 바뀌면 통째로 비운다 — 지난 실행의 시각이 남으면 안 된다. */
+  const seenAt = useRef<{ job: string; item: Record<string, number>; step: Record<string, number> }>({
+    job: '', item: {}, step: {},
+  })
+  if (seenAt.current.job !== jobId) seenAt.current = { job: jobId, item: {}, step: {} }
+  useEffect(() => {
+    if (!jobLive || !runId2) return
+    const m = seenAt.current
+    if (!m.item[runId2]) m.item[runId2] = Date.now()
+    if (runStep != null) {
+      const k = `${runId2}|${runStep}`
+      if (!m.step[k]) m.step[k] = Date.now()
+    }
+  }, [jobLive, runId2, runStep])
+
+  /** 지금 도는 항목이 **얼마나 돌았나** — 벽시계로 센다.
+   *
+   *  예전엔 여기도 기록(logs)의 걸린 시간을 더했다. 그런데 그 기록에는
+   *  **지난 실행의 값**이 남아 있어서, 경과가 7초일 때 항목에는 벌써
+   *  20s 가 떠 있었다(지적). 도는 중에는 기록을 믿지 않는다. */
+  const liveTook = (id: string): string => {
+    const at = seenAt.current.item[id]
+    if (!at) return ''
+    const sec = Math.max(0, Math.round((Date.now() - at) / 1000))
+    if (sec < 60) return `${sec}s`
+    const m = Math.floor(sec / 60)
+    return `${m}m${String(sec % 60).padStart(2, '0')}s`
+  }
+
   /** 이 항목을 도는 데 걸린 시간 — 스텝들의 걸린 시간을 더한다.
       실행기는 항목 단위 시간을 따로 안 준다. 안 돌린 항목은 비운다. */
   const tookOf = (id: string): string => {
@@ -842,7 +880,9 @@ export default function RunDetail({
               name: String(t2?.name ?? id),
               group: reqName.get(String(t2?.req_id ?? '')) ?? (t2?.req_id ? '이름 없는 요구사항' : '요구사항 없음'),
               verdict: (results[id] ?? 'n') as Verdict,
-              took: tookOf(id),
+              /* 도는 중인 항목은 벽시계로(위 liveTook 주석) — 기록에는
+                 지난 실행의 값이 남아 있다 */
+              took: jobLive && id === runId2 ? liveTook(id) : tookOf(id),
             }
           })}
           cur={cur}
@@ -977,6 +1017,13 @@ export default function RunDetail({
                다른 항목을 눌러 고정해 두었으면 판은 딴 데를 보는 것이니,
                그때는 실행기가 실제로 도는 항목을 표시한다. */
             jobLive ? (pinItem || holding.current !== cur ? runId2 : cur) : ''
+          }
+          /* 대기 초읽기의 **시작 시각**. 여기서 줘야 항목을 옮겼다 와도
+             이어서 센다(지적: 갔다 오면 20 부터 다시 줄어든다). */
+          waitAt={
+            jobLive && runId2 === cur && runStep != null
+              ? (seenAt.current.step[`${runId2}|${runStep}`] ?? null)
+              : null
           }
           dut={dut?.name ?? 'DUT'}
           logAt={log?.at}

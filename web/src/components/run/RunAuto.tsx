@@ -115,7 +115,7 @@ function RunMark() {
 
 export default function RunAuto({
   items, cur, onPick, steps, stepAt, onStep, dut, logAt,
-  runStep, runItem, past,
+  runStep, runItem, past, waitAt,
 }: {
   /** 지난 실행의 출력 — 콘솔이 이번 것 **위에** 이어 쌓는다 */
   past?: Array<{ at: string; steps: AutoStep[] }>
@@ -123,6 +123,9 @@ export default function RunAuto({
   runStep?: number | null
   /** 실행기가 지금 돌고 있는 항목 id */
   runItem?: string | null
+  /** 대기 스텝을 **언제부터** 도는가(ms). 위 판이 기억해 준다 —
+   *  여기서 세면 다른 항목을 봤다 오는 순간 다시 0 부터 센다. */
+  waitAt?: number | null
   items: AutoItem[]
   cur: string
   onPick: (id: string) => void
@@ -232,17 +235,11 @@ export default function RunAuto({
   /* ── 「대기」 스텝의 초읽기 ──
      실행기는 「몇 번째 스텝을 도는 중」 까지만 알려 준다. 남은 초는 안 준다.
      그래서 **그 스텝이 도는 것을 본 순간**부터 waitSec 에서 내려 센다.
+     그 「본 순간」 은 **위 판(RunDetail)이 기억한다**(waitAt) — 여기 두었더니
+     다른 항목을 봤다 오면 이 판이 새로 서면서 20 부터 다시 셌다(지적).
      도중에 들어오면 처음부터 세므로, 끝나면 실제 걸린 시간으로 갈아 적는다
      — 지어낸 값이 기록에 남지 않게. */
   const [, beat] = useState(0)
-  const waitFrom = useRef<{ at: number; ix: number } | null>(null)
-  useEffect(() => {
-    if (runStep == null) {
-      waitFrom.current = null
-      return
-    }
-    if (waitFrom.current?.ix !== runStep) waitFrom.current = { at: Date.now(), ix: runStep }
-  }, [runStep])
   useEffect(() => {
     if (runStep == null) return
     const t = window.setInterval(() => beat((n) => n + 1), 500)
@@ -255,8 +252,8 @@ export default function RunAuto({
   /** 대기 줄 한 줄 — 도는 중이면 초읽기, 끝났으면 걸린 시간 */
   const waitLine = (s2: AutoStep, i2: number): string => {
     const sec = Number(s2.waitSec ?? 0)
-    if (i2 === runStep && sec > 0 && waitFrom.current?.ix === i2) {
-      const gone = Math.floor((Date.now() - waitFrom.current.at) / 1000)
+    if (i2 === runStep && sec > 0 && waitAt) {
+      const gone = Math.floor((Date.now() - waitAt) / 1000)
       const left = Math.max(0, sec - gone)
       /* 콘솔처럼 **찍히게** 한다(지시) — 숫자가 하나씩 늘어서며 줄어든다.
          한 자리에서 숫자만 바뀌면 도는 건지 멎은 건지 안 보인다. */
