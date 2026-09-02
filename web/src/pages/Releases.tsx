@@ -98,6 +98,9 @@ const EMPTY: string[] = []
 /** 이 화면이 다루는 이슈 종류 — 시험으로 덮을 거리가 되는 것만(지시) */
 const KINDS = ['Defect', 'CR', '개발 Defect']
 
+/** 「이 버전을 가져왔다」 는 자국. 이슈키가 아니므로 Jira 와 안 부딪친다 */
+const SYNC_MARK = '__synced__'
+
 const tcidOf = (t: LinkTc | string): string =>
   typeof t === 'string' ? t : String(t?.tcid ?? t?.id ?? '')
 
@@ -548,10 +551,19 @@ export default function Releases() {
                옛 버전에 영영 남는다. **다만 붙여 둔 시험이 있으면 남긴다**:
                사람이 이어 둔 것을 Sync 가 조용히 지우면 안 된다. */
             for (const k of Object.keys(bag)) {
+              if (k === SYNC_MARK) continue
               if (seen.has(k)) continue
               if ((bag[k]?.tcs ?? []).length) continue
               delete bag[k]
             }
+            /* **가져왔다는 자국을 남긴다.** 이슈가 한 건도 없는 버전은
+               담을 것이 없어 빈 칸이 되고, 빈 칸은 표에서 걸러져 사라졌다 —
+               「이슈 없는 버전」 과 「동기화 실패」 가 구별이 안 됐다(지적:
+               왜 이건 못 가져오지). 시험용 빌드는 결함이 안 걸린 것이
+               정상이다.
+               이 자국은 제목·유형·시험이 다 없어 이슈 줄로는 안 선다(옛
+               화면의 빈 껍데기 거르는 규칙과 같다). */
+            bag[SYNC_MARK] = { syncedAt: at }
             next[`${proj}@@${ver}`] = bag
           }
           await apiFetch('/api/release-summary', {
@@ -630,6 +642,7 @@ export default function Releases() {
     for (const vn of savedVers) {
       const bag = store[`${proj}@@${vn}`] ?? {}
       const arr = Object.entries(bag)
+        .filter(([k]) => k !== SYNC_MARK)
         .map(([k, v]) => ({ ...(v ?? {}), key: String(v?.key ?? k) }))
         .filter((o) => String(o.summary ?? '').trim() || o.type || (o.tcs ?? []).length)
         .sort((a, b) => String(a.key).localeCompare(String(b.key), undefined, { numeric: true }))
@@ -699,11 +712,17 @@ export default function Releases() {
         const s = String(it.syncedAt ?? '')
         if (s > at) at = s
       }
+      /* 이슈가 0건인 버전도 **언제 가져왔는지**는 보여야 한다 — 그 값이
+         「가져오긴 했다」 를 말해 준다. 자국에만 남아 있다. */
+      if (!at) {
+        const mk = (store[`${proj}@@${vn}`] ?? {})[SYNC_MARK]
+        at = String(mk?.syncedAt ?? '')
+      }
       m.set(vn, { n: kept.length, tc, at })
     }
     return m
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [byVer, fType, fStat, tcMap])
+  }, [byVer, fType, fStat, tcMap, store, proj])
 
   /** 이슈에 붙은 TC 를 고쳐 저장한다. 자료 모양은 옛 화면 그대로다 —
    *  `프로젝트@@버전` 안에 이슈키별 `{tcs:[…]}`. 읽은 것 **위에 얹어** 보낸다. */
