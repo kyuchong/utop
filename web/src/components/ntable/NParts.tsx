@@ -43,9 +43,26 @@ export function Pop({
     window.addEventListener('keydown', esc)
     return () => window.removeEventListener('keydown', esc)
   }, [onClose])
+  /** **막 열렸을 때 오는 바깥 클릭은 무시한다.**
+   *
+   *  날짜·사람·고르개 칸은 **한 번 클릭**이 이 판을 연다. 그런데 표의
+   *  글자 칸은 **두 번 클릭**이라야 고쳐져서, 사람은 날짜 칸도 두 번
+   *  누른다 — 그러면 첫 클릭이 열고 둘째 클릭이 이 덮개에 떨어져 곧바로
+   *  닫혔다. 「더블클릭하면 수정 안 되네」 의 정체다(지적).
+   *
+   *  더블클릭의 두 번째는 대개 0.3초 안에 온다. 그동안만 덮개를 못 본
+   *  체한다 — 진짜로 닫으려는 클릭은 그보다 늦다. */
+  const bornRef = useRef(0)
+  if (!bornRef.current) bornRef.current = Date.now()
   return createPortal(
     <>
-      <span className="ntb-ovl" onMouseDown={onClose} />
+      <span
+        className="ntb-ovl"
+        onMouseDown={() => {
+          if (Date.now() - bornRef.current < 300) return
+          onClose()
+        }}
+      />
       <div ref={box} className={`ntb-pop ${className}`} style={{ left: x, top: y, width: w }}>
         {children}
       </div>
