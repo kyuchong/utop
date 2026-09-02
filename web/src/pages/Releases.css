@@ -526,24 +526,79 @@
 /* Jira 그림 — 칸을 넘지 않게. 눌러서 크게 본다(건너가지 않는다) */
 .rls-jira img { max-width: 100%; height: auto; border-radius: 4px; cursor: zoom-in; }
 
-/* 그림 하나만 크게 — 가운데에. 왼쪽 구석에 붙던 것을 한 번 지적받았다 */
+/* 그림 크게 보기 — 가운데에, **확대·이동이 된다**.
+   왼쪽 구석에 붙던 것을 한 번 지적받았고, 작은 그림을 못 읽는다고 또
+   지적받았다. 그래서 처음부터 화면에 맞춰 키운다. */
 .rls-lb {
   position: fixed;
   inset: 0;
   z-index: 80;
-  background: rgba(12, 18, 24, 0.72);
+  background: rgba(12, 18, 24, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 28px;
-  cursor: zoom-out;
+  overflow: hidden;
 }
 .rls-lb img {
-  max-width: 96%;
-  max-height: 96%;
-  object-fit: contain;
-  border-radius: 6px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  /* 배율은 transform 이 정한다 — max-width 로 묶으면 확대가 안 먹는다 */
+  max-width: none;
+  max-height: none;
+  transform-origin: center center;
+  border-radius: 4px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+  user-select: none;
+  -webkit-user-drag: none;
+  position: relative;
+  z-index: 1;
+}
+/* 확대 단추 줄 — 위 가운데 */
+.rls-lbbar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #c3cbd4;
+  border-radius: 8px;
+  padding: 4px 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  z-index: 3;
+}
+.rls-lbbar button,
+.rls-lbbar a {
+  border: 0;
+  background: none;
+  border-radius: 5px;
+  padding: 4px 9px;
+  font: inherit;
+  font-size: 12.5px;
+  color: #46555d;
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.2;
+}
+.rls-lbbar button:hover, .rls-lbbar a:hover { background: #e9eef1; }
+.rls-lbbar .pct {
+  min-width: 52px;
+  text-align: center;
+  font-size: 12px;
+  color: #131920;
+  font-variant-numeric: tabular-nums;
+}
+.rls-lbhint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  padding: 3px 12px;
+  pointer-events: none;
 }
 
 /* 이슈연결 한 줄 */
@@ -564,13 +619,35 @@
 /* 못 받은 그림은 안내 그림으로 그려진다 — 눌러도 크게 뜨지 않는다 */
 .rls-jira img[data-fail] { cursor: default; }
 .rls-dtitle { font-size: 14.5px; font-weight: 700; line-height: 1.45; margin-bottom: 12px; }
+/* 자세히 — **지라가 가진 칸을 그대로** 낸다. 칸이 스무 개를 넘어가므로
+   두 줄기로 흘린다(지라도 왼쪽·오른쪽 두 덩이다). 이름 폭을 넉넉히 잡는다
+   — 「OS 해결버전」·「Postpone 사유」 같은 긴 이름이 접히면 줄이 어긋난다. */
 .rls-dmeta {
-  display: grid; grid-template-columns: 58px 1fr 58px 1fr; gap: 6px 10px;
-  font-size: 11.5px; align-items: baseline;
-  border: 1px solid #e6eaec; border-radius: 8px; background: #fafbfb; padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 18px;
+  font-size: 11.5px;
+  border: 1px solid #e6eaec;
+  border-radius: 8px;
+  background: #fafbfb;
+  padding: 8px 12px;
 }
-.rls-dmeta span { color: #8a949a; }
-.rls-dmeta b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rls-dmeta .fld {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 0;
+  min-width: 0;
+}
+.rls-dmeta span { color: #8a949a; overflow: hidden; text-overflow: ellipsis; }
+.rls-dmeta b { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* 지라가 렌더한 값(링크 따위) — 여백을 없애 한 줄로 앉힌다 */
+.rls-dmeta b.rls-jira { font-size: 11.5px; color: #131920; }
+.rls-dmeta b.rls-jira p { margin: 0; }
+@media (max-width: 900px) {
+  .rls-dmeta { grid-template-columns: 1fr; }
+}
 /* 칸 이름 — **지라에 보이는 그대로**(지시). 작은 대문자 라벨로 두었더니
    Traceability 가 TRACEABILITY 로 나왔다. 지라 쪽은 보통 굵기의 검은 글자다. */
 .rls-dh {
@@ -603,6 +680,48 @@
   display: flex; align-items: center; justify-content: center;
 }
 .rls-cmth b { color: #46555d; font-weight: 700; }
+/* 활동 탭 — 지라와 같이 모두·댓글·이력 */
+.rls-acttab {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid #e6eaec;
+  margin: 0 0 10px;
+}
+.rls-acttab button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: #7c858c;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.rls-acttab button:hover { color: #46555d; background: #f6f8fa; }
+.rls-acttab button.on { color: #0a8795; border-bottom-color: #0a8795; font-weight: 700; }
+/* 「수정됨」 — 지라가 댓글 머리에 다는 그 표시 */
+.rls-fixed {
+  font-style: normal;
+  font-size: 10.5px;
+  color: #a06a2e;
+  background: #fdf4e7;
+  border-radius: 9px;
+  padding: 1px 7px;
+  margin-left: 6px;
+}
+/* 이력 한 줄 — 무슨 칸이 무엇에서 무엇으로 */
+.rls-hrow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  padding: 3px 0 3px 30px;
+  min-width: 0;
+}
+.rls-hrow .fld { flex: none; min-width: 92px; color: #8a949a; }
+.rls-hrow .was { color: #98a2a8; text-decoration: line-through; }
+.rls-hrow .arw { flex: none; color: #b0b8bd; }
+.rls-hrow .now { color: #2c3a41; font-weight: 600; min-width: 0; }
 /* 첨부 한 줄 — 이름·크기·올린 사람. 링크가 아니라 **단추**다(표를 얹어
    받아야 해서). 겉모습은 링크 그대로 둔다. */
 .rls-att {

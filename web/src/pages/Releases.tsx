@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type WheelEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isManual } from '@/lib/runMode'
@@ -201,6 +201,53 @@ async function dlAtt(url: string, filename: string): Promise<void> {
     window.alert(`${filename} 을 내려받지 못했습니다 — Jira 에서 직접 받아 주세요.`)
   }
 }
+
+/** 날짜를 **지라 꼴로** — 「2021/01/05 3:23 오후」 */
+function jdate(v: unknown): string {
+  const t = String(v ?? '').trim()
+  if (!t) return ''
+  const d = new Date(t)
+  if (Number.isNaN(d.getTime())) return t
+  const p = (n: number) => String(n).padStart(2, '0')
+  const h = d.getHours()
+  const ap = h < 12 ? '오전' : '오후'
+  const h12 = h % 12 || 12
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${h12}:${p(d.getMinutes())} ${ap}`
+}
+
+/** 지라 값 하나를 글로 — 사람·이름·값·목록을 다 같은 규칙으로 편다 */
+function jval(v: unknown): string {
+  if (v == null || v === '') return ''
+  if (Array.isArray(v)) return v.map(jval).filter(Boolean).join(', ')
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    for (const k of ['displayName', 'name', 'value', 'text']) {
+      if (o[k] != null && o[k] !== '') return String(o[k])
+    }
+    if (typeof o.watchCount === 'number') return String(o.watchCount)
+    if (typeof o.votes === 'number') return String(o.votes)
+    return ''
+  }
+  if (typeof v === 'boolean') return v ? '예' : '아니오'
+  return String(v)
+}
+
+/** 「자세히」 에서 **빼는** 칸 — 다른 자리에서 따로 내거나, 화면 잡음인 것 */
+const DETAIL_SKIP = new Set([
+  'summary', 'description', 'comment', 'attachment', 'issuelinks', 'worklog',
+  'subtasks', 'project', 'issuekey', 'thumbnail', 'timetracking', 'workratio',
+  'aggregatetimespent', 'aggregatetimeestimate', 'aggregatetimeoriginalestimate',
+  'aggregateprogress', 'progress', 'timespent', 'timeestimate', 'timeoriginalestimate',
+  'lastViewed', 'creator', 'environment',
+])
+/** 비어 있어도 「없음」 으로 내는 칸 — 지라 화면이 늘 세워 두는 것들 */
+const DETAIL_ALWAYS = [
+  'issuetype', 'priority', 'versions', 'components', 'labels',
+  'status', 'resolution', 'fixVersions',
+  'assignee', 'reporter', 'duedate', 'created', 'updated', 'resolutiondate',
+]
+/** 날짜로 다루는 칸 */
+const DATE_FIELDS = new Set(['created', 'updated', 'resolutiondate', 'duedate', 'lastViewed'])
 
 /** 로딩 중 자리 — 비워 두면 브라우저가 「깨진 그림」 자국을 그린다 */
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
@@ -1345,6 +1392,10 @@ export default function Releases() {
  *  로그인해 있지 않다).
  */
 function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onClose: () => void }) {
+  /** 크게 볼 그림 — 눌린 그림 하나. 빈 문자열이면 안 떠 있다.
+   *  **맨 위에 둔다**: 아래의 Esc 처리가 이 값을 본다(그림 창이 떠 있으면
+   *  서랍은 안 닫힌다). 선언보다 먼저 쓰면 화면이 통째로 안 뜬다. */
+  const [lb, setLb] = useState('')
   const q = useQuery({
     queryKey: ['jira-issue', ikey],
     staleTime: 60_000,
@@ -1358,19 +1409,23 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
         renderedFields?: Record<string, unknown>
         /** 칸 id → 보이는 이름. Traceability 처럼 **이름으로 찾는** 칸에 쓴다 */
         names?: Record<string, string>
+        /** 이력 — 「활동」 의 이력 탭 */
+        changelog?: { histories?: unknown[] }
       }
     },
   })
 
 
-  /* Esc 로 닫는다 — 서랍은 덮는 것이라 빠져나갈 길이 손에 있어야 한다 */
+  /* Esc 로 닫는다 — 서랍은 덮는 것이라 빠져나갈 길이 손에 있어야 한다.
+     **크게 보기가 떠 있으면 그쪽이 먼저다**: 둘 다 window 에서 Esc 를
+     듣고 있어서, 한 번 눌렀는데 그림 창과 서랍이 같이 닫혔다. */
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !lb) onClose()
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  }, [onClose, lb])
 
   const f = (q.data?.fields ?? {}) as Record<string, never>
   const rf = (q.data?.renderedFields ?? {}) as Record<string, never>
@@ -1392,6 +1447,10 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
   >
   const atts = (f.attachment ?? []) as Array<Record<string, unknown>>
   const links = (f.issuelinks ?? []) as Array<Record<string, unknown>>
+  /** 이력 — 지라 「활동」 의 이력 탭이 쓰는 그 자료다 */
+  const hist = ((q.data?.changelog as { histories?: unknown[] } | undefined)?.histories ?? []) as Array<
+    Record<string, unknown>
+  >
   const err = q.error ? String(q.error) : q.data && q.data.ok === false ? String(q.data.error ?? '') : ''
 
   /** Traceability — **보이는 이름으로** 찾는다. 칸 id(customfield_10500)는
@@ -1399,7 +1458,7 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
    *  `expand=names` 가 준 「id → 이름」 을 뒤져 이름이 맞는 칸을 집는다. */
   const trace = useMemo(() => {
     const names = (q.data?.names ?? {}) as Record<string, string>
-    const id = Object.keys(names).find((k) => /traceab/i.test(String(names[k] ?? '')))
+    const id = Object.keys(names).find((k) => /traceab|추적/i.test(String(names[k] ?? '')))
     if (!id) return null
     const html = String((rf as Record<string, unknown>)[id] ?? '')
     const raw = (f as Record<string, unknown>)[id]
@@ -1409,8 +1468,9 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
         ? pick(raw, 'value') || pick(raw, 'name')
         : String(raw ?? '')
     if (!html.trim() && !text.trim()) return null
-    return { label: String(names[id] ?? 'Traceability'), html, text }
+    return { id, label: String(names[id] ?? 'Traceability'), html, text }
   }, [q.data, f, rf])
+  const traceId = trace?.id ?? ''
 
   /* Jira 가 준 HTML 을 **한 번만** 손질해 둔다(스크립트 제거·주소 정리).
      그릴 때마다 새로 만들면 그림 주소를 모으는 자리가 매번 달라진다. */
@@ -1423,14 +1483,43 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
   /** 설명·Traceability·댓글에 든 그림을 표를 얹어 받아 둔다 */
   const imgs = useJiraImgs(useMemo(() => [descJ, traceJ, ...cmtJ], [descJ, traceJ, cmtJ]))
 
-  /** 크게 볼 그림 — 눌린 그림 하나. 빈 문자열이면 안 떠 있다. */
-  const [lb, setLb] = useState('')
-  useEffect(() => {
-    if (!lb) return
-    const h = (e: KeyboardEvent) => e.key === 'Escape' && setLb('')
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [lb])
+  /**
+   * **「자세히」 는 지라가 가진 칸을 그대로 낸다**(지적: 「지라 표현과
+   * 너가 표현하는게 차이가 많아」).
+   *
+   * 예전엔 우리가 고른 여섯 칸만 냈다 — 그런데 이 프로젝트의 이슈에는
+   * 사업자·이슈분류·발생빈도·OS 해결버전·UR 링크 같은 **커스텀 칸**이
+   * 스무 개 넘게 붙어 있다. 그 칸들이 곧 이 조직이 이슈를 보는 눈인데
+   * 우리 화면에서만 안 보였다.
+   *
+   * 이름은 서버가 준 `names`(칸 id → 보이는 이름)에서 온다. 값은
+   * 지라가 렌더한 것(renderedFields)이 있으면 그것을 쓴다 — 날짜 꼴·링크가
+   * 지라 화면과 같아진다.
+   */
+  const rows = useMemo(() => {
+    const names = (q.data?.names ?? {}) as Record<string, string>
+    const seen = new Set<string>()
+    const out: Array<{ id: string; label: string; html: string; text: string }> = []
+    const add = (id: string, always: boolean) => {
+      if (seen.has(id) || DETAIL_SKIP.has(id)) return
+      if (traceId && id === traceId) return /* Traceability 는 제 칸에서 낸다 */
+      const label = String(names[id] ?? '').trim()
+      if (!label) return
+      seen.add(id)
+      const raw = (f as Record<string, unknown>)[id]
+      const html = DATE_FIELDS.has(id) ? '' : String((rf as Record<string, unknown>)[id] ?? '')
+      const text = DATE_FIELDS.has(id) ? jdate(raw) : jval(raw)
+      if (!always && !html.trim() && !text.trim()) return
+      out.push({ id, label, html, text })
+    }
+    for (const id of DETAIL_ALWAYS) add(id, true)
+    for (const id of Object.keys(names)) add(id, false)
+    return out
+  }, [q.data, f, rf, traceId])
+
+  /** 활동 탭 — 지라와 같이 모두·댓글·이력 */
+  const [act, setAct] = useState<'all' | 'cmt' | 'his'>('cmt')
+
 
   return (
     <div className="rls-ovl" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -1475,36 +1564,20 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
 
               <h4 className="rls-dh">자세히</h4>
               <div className="rls-dmeta">
-                <span>유형</span>
-                <b>{pick(f.issuetype, 'name') || '–'}</b>
-                <span>우선순위</span>
-                <b>{pick(f.priority, 'name') || '–'}</b>
-                <span>상태</span>
-                <b>{pick(f.status, 'name') || '–'}</b>
-                <span>해결</span>
-                <b>{pick(f.resolution, 'name') || '미해결'}</b>
-                <span>보고자</span>
-                <b>{pick(f.reporter, 'displayName') || '–'}</b>
-                <span>담당자</span>
-                <b>{pick(f.assignee, 'displayName') || '–'}</b>
-                <span>버전</span>
-                <b>
-                  {((f.fixVersions ?? []) as Array<Record<string, unknown>>)
-                    .map((v) => String(v?.name ?? ''))
-                    .filter(Boolean)
-                    .join(', ') || '–'}
-                </b>
-                <span>컴포넌트</span>
-                <b>
-                  {((f.components ?? []) as Array<Record<string, unknown>>)
-                    .map((v) => String(v?.name ?? ''))
-                    .filter(Boolean)
-                    .join(', ') || '–'}
-                </b>
-                <span>만듦</span>
-                <b>{String(f.created ?? '').replace('T', ' ').slice(0, 16) || '–'}</b>
-                <span>고침</span>
-                <b>{String(f.updated ?? '').replace('T', ' ').slice(0, 16) || '–'}</b>
+                {rows.map((r) => (
+                  <div className="fld" key={r.id}>
+                    <span>{r.label}</span>
+                    {r.html.trim() ? (
+                      <b
+                        className="rls-jira"
+                        // eslint-disable-next-line react/no-danger
+                        dangerouslySetInnerHTML={{ __html: jiraHtml(r.html, base) }}
+                      />
+                    ) : (
+                      <b>{r.text || '없음'}</b>
+                    )}
+                  </div>
+                ))}
               </div>
 
               <h4 className="rls-dh">설명</h4>
@@ -1584,31 +1657,86 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
                 )
               })}
 
-              <h4 className="rls-dh">활동 {cmts.length || ''}</h4>
-              {!cmts.length && <div className="rls-dtext">(댓글 없음)</div>}
-              {cmts.map((c, i) => {
-                const who = pick(c.author, 'displayName')
-                const when = String(c.updated ?? c.created ?? '').replace('T', ' ').slice(0, 16)
-                const bh = cmtJ[i] ?? ''
-                return (
-                  <div className="rls-cmt" key={String(c.id ?? i)}>
-                    <div className="rls-cmth">
-                      <i>{who.slice(0, 1) || '?'}</i>
-                      <b>{who || '–'}</b>
-                      <span>{when}</span>
-                    </div>
-                    {bh.trim() ? (
-                      <div
-                        className="rls-jira"
-                        // eslint-disable-next-line react/no-danger
-                        dangerouslySetInnerHTML={{ __html: withImgs(bh, imgs) }}
-                      />
-                    ) : (
-                      <div className="rls-dtext">{String(c.body ?? '')}</div>
-                    )}
-                  </div>
-                )
-              })}
+              {/* ── **활동 — 지라와 같게**(지시). 지라는 모두·댓글·이력 탭이고,
+                     댓글은 「누가 댓글을 추가했습니다 - 언제」 로 적는다. ── */}
+              <h4 className="rls-dh">활동</h4>
+              <div className="rls-acttab" role="tablist">
+                {([
+                  ['all', `모두 ${cmts.length + hist.length}`],
+                  ['cmt', `댓글 ${cmts.length}`],
+                  ['his', `이력 ${hist.length}`],
+                ] as Array<['all' | 'cmt' | 'his', string]>).map(([k, t]) => (
+                  <button
+                    type="button"
+                    key={k}
+                    role="tab"
+                    aria-selected={act === k}
+                    className={act === k ? 'on' : ''}
+                    onClick={() => setAct(k)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              {act !== 'his' &&
+                (cmts.length ? (
+                  cmts.map((c, i) => {
+                    const who = pick(c.author, 'displayName')
+                    const when = jdate(c.created)
+                    const up = String(c.updated ?? '')
+                    const fixed = !!up && up !== String(c.created ?? '')
+                    const bh = cmtJ[i] ?? ''
+                    return (
+                      <div className="rls-cmt" key={String(c.id ?? i)}>
+                        <div className="rls-cmth">
+                          <i>{who.slice(0, 1) || '?'}</i>
+                          <b>{who || '–'}</b>
+                          <span>님이 댓글을 추가했습니다 - {when}</span>
+                          {fixed && <em className="rls-fixed">수정됨</em>}
+                        </div>
+                        {bh.trim() ? (
+                          <div
+                            className="rls-jira"
+                            // eslint-disable-next-line react/no-danger
+                            dangerouslySetInnerHTML={{ __html: withImgs(bh, imgs) }}
+                          />
+                        ) : (
+                          <div className="rls-dtext">{String(c.body ?? '')}</div>
+                        )}
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="rls-dtext">(댓글 없음)</div>
+                ))}
+
+              {act !== 'cmt' &&
+                (hist.length ? (
+                  hist.map((h, i) => {
+                    const who = pick(h.author, 'displayName')
+                    const items = (h.items ?? []) as Array<Record<string, unknown>>
+                    return (
+                      <div className="rls-cmt" key={String(h.id ?? `h${i}`)}>
+                        <div className="rls-cmth">
+                          <i>{who.slice(0, 1) || '?'}</i>
+                          <b>{who || '–'}</b>
+                          <span>님이 변경했습니다 - {jdate(h.created)}</span>
+                        </div>
+                        {items.map((it2, k) => (
+                          <div className="rls-hrow" key={k}>
+                            <span className="fld">{String(it2.field ?? '')}</span>
+                            <span className="was">{String(it2.fromString ?? '') || '없음'}</span>
+                            <span className="arw">→</span>
+                            <span className="now">{String(it2.toString ?? '') || '없음'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="rls-dtext">(이력 없음)</div>
+                ))}
             </>
           )}
         </div>
@@ -1617,11 +1745,113 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
       {/* 그림 하나만 크게 — **화면을 넘어가지 않는다**(지적: 「사진 클릭하면
           화면이 바뀌는데 사진만 팝업 되게」). Jira 는 그림을 첨부 주소로
           감싸 두어서, 그냥 두면 눌렀을 때 Jira 로 건너간다. */}
-      {!!lb && (
-        <div className="rls-lb" onClick={() => setLb('')} role="presentation">
-          <img src={lb} alt="" />
-        </div>
-      )}
+      {!!lb && <Lightbox src={lb} onClose={() => setLb('')} />}
+    </div>
+  )
+}
+
+/**
+ * 그림 크게 보기 — **확대·이동이 된다**(지적: 「사진이 작으면 볼수가 없어
+ * 확대 기능을 추가 해」).
+ *
+ *  · 처음엔 화면에 맞춘다. 작은 그림은 키워서 띄운다(최대 4배) — 캡처
+ *    화면은 원본이 작아 그대로 두면 읽을 수가 없다.
+ *  · 휠로 확대·축소하고 끌어서 움직인다. 두 번 누르면 1:1 ↔ 맞춤.
+ *  · 배율은 0.1 ~ 12배. 그 밖으로 나가면 되돌아올 길을 잃는다.
+ */
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  const [z, setZ] = useState(1)
+  const [at, setAt] = useState({ x: 0, y: 0 })
+  const box = useRef<HTMLDivElement>(null)
+  const img = useRef<HTMLImageElement>(null)
+  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+
+  /** 화면에 맞는 배율 — 작으면 키우고(4배까지), 크면 줄인다 */
+  const calcFit = useCallback(() => {
+    const b = box.current
+    const i = img.current
+    if (!b || !i || !i.naturalWidth) return
+    const r = b.getBoundingClientRect()
+    const f = Math.min((r.width - 40) / i.naturalWidth, (r.height - 80) / i.naturalHeight)
+    const v = Math.min(Math.max(f, 0.1), 4)
+    setZ(v)
+    setAt({ x: 0, y: 0 })
+  }, [])
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === '+' || e.key === '=') setZ((v) => Math.min(12, v * 1.25))
+      if (e.key === '-') setZ((v) => Math.max(0.1, v / 1.25))
+      if (e.key === '0') calcFit()
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose, calcFit])
+
+  const wheel = (e: WheelEvent) => {
+    e.preventDefault()
+    setZ((v) => Math.min(12, Math.max(0.1, v * (e.deltaY < 0 ? 1.12 : 1 / 1.12))))
+  }
+
+  return (
+    <div
+      className="rls-lb"
+      ref={box}
+      role="presentation"
+      onWheel={wheel}
+      /* 바탕을 눌렀을 때만 닫는다 — 그림을 끌다가 손을 떼도 안 닫힌다 */
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="rls-lbbar" role="presentation" onMouseDown={(e) => e.stopPropagation()}>
+        <button type="button" onClick={() => setZ((v) => Math.max(0.1, v / 1.25))} title="축소 (−)">
+          −
+        </button>
+        <span className="pct">{Math.round(z * 100)}%</span>
+        <button type="button" onClick={() => setZ((v) => Math.min(12, v * 1.25))} title="확대 (+)">
+          ＋
+        </button>
+        <button type="button" onClick={calcFit} title="화면에 맞춤 (0)">
+          맞춤
+        </button>
+        <button type="button" onClick={() => { setZ(1); setAt({ x: 0, y: 0 }) }} title="원래 크기">
+          1:1
+        </button>
+        <a href={src} download title="내려받기">
+          ⤓
+        </a>
+        <button type="button" onClick={onClose} title="닫기 (Esc)">
+          ✕
+        </button>
+      </div>
+      <img
+        ref={img}
+        src={src}
+        alt=""
+        draggable={false}
+        style={{ transform: `translate(${at.x}px, ${at.y}px) scale(${z})`, cursor: drag.current ? 'grabbing' : 'grab' }}
+        onLoad={calcFit}
+        onDoubleClick={() => (Math.abs(z - 1) < 0.01 ? calcFit() : (setZ(1), setAt({ x: 0, y: 0 })))}
+        onMouseDown={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          drag.current = { x: e.clientX, y: e.clientY, ox: at.x, oy: at.y }
+          const mv = (m: MouseEvent) => {
+            const d = drag.current
+            if (d) setAt({ x: d.ox + m.clientX - d.x, y: d.oy + m.clientY - d.y })
+          }
+          const up = () => {
+            drag.current = null
+            window.removeEventListener('mousemove', mv)
+            window.removeEventListener('mouseup', up)
+          }
+          window.addEventListener('mousemove', mv)
+          window.addEventListener('mouseup', up)
+        }}
+      />
+      <div className="rls-lbhint">휠 확대 · 끌어서 이동 · 두 번 눌러 1:1 ↔ 맞춤 · Esc 닫기</div>
     </div>
   )
 }
