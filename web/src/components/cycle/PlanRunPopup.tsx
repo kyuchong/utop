@@ -104,8 +104,11 @@ export function MakePlanRun({
   const [fam, setFam] = useState(String(plan.family ?? ''))
   const [famTouched, setFamTouched] = useState(false)
   const [ver, setVer] = useState('')
-  /** 버전그룹 — 버전명을 치면 첫 마디가 따라 들어온다(서버와 같은 규칙) */
-  const [vg, setVg] = useState('')
+  /** 버전그룹 — **플랜 것으로 시작한다.** 이것은 빌드 이름이 아니라
+   *  Runs 트리의 **폴더**라, 대개 플랜과 같은 자리에 담긴다. 미리 채워
+   *  두면 「오늘」 한 번으로 버전명이 완성된다.
+   *  (버전명은 비운 채로 둔다 — 그것이 곧 어떤 빌드를 돌리느냐다.) */
+  const [vg, setVg] = useState(String(plan.version_group ?? '') || String(plan.version ?? '').split('_')[0] || '')
   const [name, setName] = useState('')
   /** 담당자 — 비면 이 실행을 만든 사람. Runs 목록의 「담당자」 칸이 이 값이다 */
   const [who, setWho] = useState(owner)
