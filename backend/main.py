@@ -12203,6 +12203,23 @@ async def api_plan_run_get(run_id: str):
     return r
 
 
+_MANUAL_WORDS = {"수동", "M", "MANUAL", "MAN", "HAND", "사람"}
+_AUTO_WORDS = {"자동", "A", "AUTO", "AUTOMATIC"}
+
+
+def _is_manual(v) -> bool:
+    """이 값이 「수동」 을 뜻하나.
+
+    이 값은 SETUP 의 코드(tc_run_type)에서 오고 **사람이 이름을 바꿀 수
+    있다.** 253 은 「M」·「A」 로 쓴다. 글자를 그대로 견주면(== "수동") 그
+    서버에서는 수동 시험이 전부 자동으로 굳어, 실행기가 사람 손이 필요한
+    항목까지 그냥 돌린다.
+
+    화면 쪽 규칙(web/src/lib/runMode.ts 의 normMode)과 **같은 말**을 안다 —
+    두 쪽이 다르게 읽으면 목록과 실행이 어긋난다."""
+    return str(v or "").strip().upper() in _MANUAL_WORDS
+
+
 def _run_meta(p: dict, plan, model: str, mgroup: str) -> dict:
     """실행이 들고 다닐 메타. 만들기 창에서 고른 모델을 잃지 않는다.
 
@@ -12271,7 +12288,7 @@ async def api_plan_run_new(payload: dict):
                     keys,
                 )
             kind = {r["tcid"]: str(r["k"] or "자동") for r in rows}
-            n_man = sum(1 for k in keys if kind.get(k, "자동") == "수동")
+            n_man = sum(1 for k in keys if _is_manual(kind.get(k)))
             n_auto = len(keys) - n_man
             # 섞여 있으면 비운다 — 한쪽으로 우기면 반대쪽 화면이 안 열린다
             mode = "수동" if (n_man and not n_auto) else ("자동" if (n_auto and not n_man) else "")

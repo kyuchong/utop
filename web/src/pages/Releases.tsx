@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, tcApi } from '@/api/client'
+import { isManual } from '@/lib/runMode'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
 import TcForm from '@/components/TcForm'
@@ -237,7 +238,7 @@ const IssueRow = memo(function IssueRow({
               >
                 <span className="rls-code">{tcid}</span>
                 <span className="rls-name">{t?.name ?? '(지워진 시험 항목)'}</span>
-                <span className="rls-kind">{t?.kind === '수동' ? 'MANUAL' : t?.kind ? 'AUTO' : ''}</span>
+                <span className="rls-kind">{isManual(t?.kind) ? 'MANUAL' : t?.kind ? 'AUTO' : ''}</span>
                 <span className={`rls-res ${rv.toLowerCase()}`}>{rv ? rv.toUpperCase() : ''}</span>
                 <button
                   type="button"
@@ -1318,7 +1319,7 @@ function TcPick({
                 />
                 <span className="rls-code">{t.tcid}</span>
                 <span className="rls-name">{t.name ?? ''}</span>
-                <span className="rls-kind">{t.kind === '수동' ? 'MANUAL' : t.kind ? 'AUTO' : ''}</span>
+                <span className="rls-kind">{isManual(t.kind) ? 'MANUAL' : t.kind ? 'AUTO' : ''}</span>
               </label>
             )
           })}

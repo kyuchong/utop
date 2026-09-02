@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet } from '@/lib/prefs'
+/* 이 파일에는 항목을 받는 isManual 이 따로 있다 — 뜻 푸는 쪽만 들여온다 */
+import { normMode } from '@/lib/runMode'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch } from '@/api/client'
 import IdPill from '@/components/IdPill'
@@ -161,9 +163,13 @@ export default function CyclePlan({
       return { total, done, pass, fail, other, none: total - done }
     }
     const isManual = (it: CycleItemLite) => {
-      const rt = String(tcRun.get(it.tcid) ?? '').trim().toUpperCase()
-      if (rt === '자동' || rt === 'A' || rt === 'AUTO') return false
-      if (rt === '수동' || rt === '혼합' || rt === 'M' || rt === 'MANUAL') return true
+      const rt = String(tcRun.get(it.tcid) ?? '').trim()
+      /* 예전엔 여기서만 M·MANUAL 을 손으로 넓혀 두었다. 이제 한 곳에서
+         푼다(lib/runMode) — 팀이 코드 이름을 바꿔도 따라온다.
+         「혼합」 은 수동이 섞였다는 뜻이라 여기서는 수동으로 친다. */
+      const nm = normMode(rt)
+      if (nm === '자동') return false
+      if (nm === '수동' || rt === '혼합' || rt.toUpperCase() === 'MIXED') return true
       const kd = kindOf(it.steps ?? [])
       return !(kd === 'auto' || kd === 'mixed')
     }

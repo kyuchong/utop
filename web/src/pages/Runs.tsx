@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import { resolveMode, type ModeGot } from '@/lib/runMode'
+import { normMode, resolveMode, type ModeGot } from '@/lib/runMode'
 import { prefGet, prefRemove, prefSet } from '@/lib/prefs'
 import { onGoto, reflectUrl } from '@/api/goto'
 import NTable from '@/components/ntable/NTable'
@@ -209,8 +209,10 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
   /** 실행의 방식 — **실행에 굳은 값**이 먼저, 없으면 플랜에서 Plans 와 같은 규칙으로 뽑는다 */
   const modeOf = (r: RunLite, p?: CycleMeta): ModeGot => {
     const own = String(r.mode ?? r.meta?.mode ?? '').trim()
-    if (own) return { v: own, from: 'set', why: `${own} 시험` }
-    if (!p) return { v: '', from: 'none', why: '플랜이 없어 방식을 알 수 없습니다' }
+    /* 판정은 풀어 읽은 값으로, 화면 글자는 저장된 그대로(raw) — 팀이
+       「M」 이라 적어 두었으면 M 으로 보여야 한다 */
+    if (own) return { v: normMode(own) || own, raw: own, from: 'set', why: `${own} 시험` }
+    if (!p) return { v: '', raw: '', from: 'none', why: '플랜이 없어 방식을 알 수 없습니다' }
     return resolveMode(
       (p as unknown as Record<string, unknown>).mode as string,
       p.items as Array<{ tcid?: string }>,
@@ -232,7 +234,8 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
           id: r.id,
           name: String(r.name ?? r.id) + (r.rerun_of ? ' (재시험)' : ''),
           plan: p ? String(p.cid || p.id) : r.plan_id ? '(지워진 플랜)' : '–',
-          mode: modeOf(r, p).v,
+          /* 표에 그리는 글자는 저장된 그대로 — 판정은 modeOf().v 가 한다 */
+          mode: (() => { const g = modeOf(r, p); return g.raw || g.v })(),
           version_group: String(r.version_group ?? ''),
           version: String(r.version ?? ''),
           customer: String(p?.customer ?? meta.customer ?? ''),
@@ -489,8 +492,8 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
             if (!v) return <span className="rn-mode none">–</span>
             /* 톱니는 자동, 손은 수동 — 세 화면이 같은 뜻으로 쓴다 */
             return (
-              <span className={`rn-mode ${v === '수동' ? 'm' : 'a'}`}>
-                {v === '수동' ? '👆' : '⚙'} {v}
+              <span className={`rn-mode ${normMode(v) === '수동' ? 'm' : 'a'}`}>
+                {normMode(v) === '수동' ? '👆' : '⚙'} {v}
               </span>
             )
           }}
@@ -506,7 +509,7 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
                 </i>
               )
             }
-            const I = got.v === '수동' ? IcManual : IcAuto
+            const I = got.v === '수동' ? IcManual : IcAuto  /* got.v 는 풀어 읽은 값이다 */
             return (
               <i
                 className={`ntb-mi2 ${got.v === '수동' ? 'm' : 'a'}${got.from === 'set' ? '' : ' dim'}`}

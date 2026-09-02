@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import { isManual } from '@/lib/runMode'
 import type { CycleMeta, CycleStep } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
 import RunAuto from './RunAuto'
@@ -396,7 +397,9 @@ export default function RunDetail({
   const meta = tcById.get(cur)
   /* 방식은 **실행에 적힌 값이 먼저**다(플랜에서 손으로 정한 값이 여기까지 온다).
      없으면 지금 고른 항목의 성격에서 뽑는다 — Plans 와 같은 규칙이다. */
-  const isAuto = String(run?.mode || meta?.run_type || meta?.kind || '자동') !== '수동'
+  /* 「M」 처럼 팀이 바꾼 이름도 알아듣는다(lib/runMode). 글자를 그대로
+     견주던 탓에 253 에서는 수동 시험도 자동 작업대가 열렸다. */
+  const isAuto = !isManual(run?.mode || meta?.run_type || meta?.kind || '자동')
   /** 멈출 것이 있나 — 도는 일감이 있거나, 수동이 시작만 눌린 상태 */
   const canStop = jobLive || (!isAuto && !!run?.started_at)
 
