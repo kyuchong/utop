@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
@@ -57,18 +57,99 @@ type Store = Record<string, Record<string, { tcs?: Array<LinkTc | string>; statu
  *  memo 가 깨진다. */
 const EMPTY: string[] = []
 
+/** 이 화면이 다루는 이슈 종류 — 시험으로 덮을 거리가 되는 것만(지시) */
+const KINDS = ['Defect', 'CR', '개발 Defect']
+
 const tcidOf = (t: LinkTc | string): string =>
   typeof t === 'string' ? t : String(t?.tcid ?? t?.id ?? '')
 
+
+/** 이슈 한 줄.
+ *
+ *  **따로 떼어 memo 로 감쌌다.** 한 줄 안에 다 두었더니 이슈 하나를 펼 때마다
+ *  97줄이 전부 다시 그려져 화면이 무거웠다(지적). 이제 눌린 줄만 다시 그린다.
+ */
+const IssueRow = memo(function IssueRow({
+  it, ver, open, tcs, tcById, resultOf, onToggle,
+}: {
+  it: JiraIssue
+  ver: string
+  open: boolean
+  tcs: string[]
+  tcById: Map<string, { name: string; kind: string }>
+  resultOf: (tcid: string) => string
+  onToggle: (k: string) => void
+}) {
+  const st = String(it.fields?.status?.name ?? '')
+  const cat = String(it.fields?.status?.statusCategory?.key ?? '')
+  return (
+    <div className="rls-iblock">
+      <div className="rls-irow">
+        <span
+          className="rls-car"
+          role="button"
+          tabIndex={0}
+          onClick={() => onToggle(`${ver}|${it.key}`)}
+          onKeyDown={(e) => e.key === 'Enter' && onToggle(`${ver}|${it.key}`)}
+        >
+          {open ? '⌄' : '›'}
+        </span>
+        <span className="rls-key">{it.key}</span>
+        <span className="rls-type">{it.fields?.issuetype?.name ?? ''}</span>
+        <span className={`rls-stat ${cat}`}>{st}</span>
+        <span className="rls-person">
+          <span>보고자</span>
+          {it.fields?.reporter?.displayName ?? '–'}
+        </span>
+        <span className="rls-person">
+          <span>담당자</span>
+          {it.fields?.assignee?.displayName ?? '–'}
+        </span>
+        <span className="rls-tcn">TC {tcs.length}</span>
+      </div>
+      <div className="rls-ititle">{it.fields?.summary ?? ''}</div>
+      {open && (
+        <div className="rls-tcs">
+          {tcs.map((tcid) => {
+            const t = tcById.get(tcid)
+            const rv = resultOf(tcid)
+            return (
+              <div className="rls-tcrow" key={tcid}>
+                <span className="rls-code">{tcid}</span>
+                <span className="rls-name">{t?.name ?? '(지워진 시험 항목)'}</span>
+                <span className="rls-kind">{t?.kind === '수동' ? 'MANUAL' : t?.kind ? 'AUTO' : ''}</span>
+                <span className={`rls-res ${rv.toLowerCase()}`}>{rv ? rv.toUpperCase() : ''}</span>
+              </div>
+            )
+          })}
+          {!tcs.length && (
+            <div className="rls-tcrow rls-empty">이 이슈에 붙은 시험 항목이 없습니다.</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+})
 
 export default function Releases() {
   const qc = useQueryClient()
   const [proj, setProj] = useState(() => prefGet('utop.rls.proj') ?? '')
   const [fOp, setFOp] = useState('')
   const [fType, setFType] = useState('')
-  const fStat = ''
+  const [fStat, setFStat] = useState('')
   const [open, setOpen] = useState<Set<string>>(new Set())
-  const [q, setQ] = useState('')
+  const [openIssue, setOpenIssue] = useState<Set<string>>(new Set())
+
+  /** 이슈 펴기·접기 — **같은 함수**를 계속 준다. 매번 새로 만들면 memo 가
+      「달라졌다」 고 보고 다 다시 그린다. */
+  const toggleIssue = useCallback((k: string) => {
+    setOpenIssue((s0) => {
+      const n = new Set(s0)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
+  }, [])
 
   const toggle = (set: Set<string>, k: string, put: (s: Set<string>) => void) => {
     const n = new Set(set)
@@ -116,8 +197,8 @@ export default function Releases() {
     return arr
   }, [cfgQ.data])
   useEffect(() => {
-    /* 즐겨찾기가 있으면 그 첫 번째를, 없으면 아무것도 안 고른다 —
-       고르개에서 사람이 고른다(옛 화면과 같다). */
+    /* 즐겨찾기(fav_projects)가 있으면 그 첫 번째로 시작한다 — 옛 화면과
+       같은 열쇠라 거기서 정해 둔 것이 그대로 온다. */
     if (proj || !favs.length || !allProjects.length) return
     const f = allProjects.find((p) => favs.includes(p.key))
     if (f) setProj(f.key)
@@ -145,7 +226,12 @@ export default function Releases() {
     enabled: !!proj,
     staleTime: 60_000,
     queryFn: async () => {
-      const jql = `project = ${proj} AND fixVersion IS NOT EMPTY ORDER BY key DESC`
+      /* **이 셋만 가져온다**(지시). 나머지(Task·산출물·OS Release…)는 시험으로
+         덮을 것이 아니라 이 화면에 설 까닭이 없다. Jira 에서 걸러 오므로
+         받는 양도 그만큼 준다. */
+      const types = KINDS.map((k) => `"${k}"`).join(', ')
+      const jql =
+        `project = ${proj} AND fixVersion IS NOT EMPTY AND issuetype in (${types}) ORDER BY key DESC`
       const f = 'summary,status,issuetype,reporter,assignee,fixVersions'
       const r = await apiFetch(
         `/api/jira/search-all?jql=${encodeURIComponent(jql)}&fields=${encodeURIComponent(f)}`,
@@ -284,83 +370,56 @@ export default function Releases() {
 
   const err = projQ.data?.error || verQ.data?.error || issQ.data?.error
 
-  /* ── 왼쪽 판 폭 — 끌어서 바꾸고 계정별로 남는다(옛 화면과 같다) ── */
-  const [treeW, setTreeW] = useState(() => Number(prefGet('utop.rls.treew') ?? '') || 320)
-  const dragW = (e: React.MouseEvent) => {
-    e.preventDefault()
-    const x0 = e.clientX
-    const w0 = treeW
-    const mv = (m: MouseEvent) =>
-      setTreeW(Math.max(220, Math.min(window.innerWidth - 420, w0 + (m.clientX - x0))))
-    const up = () => {
-      window.removeEventListener('mousemove', mv)
-      window.removeEventListener('mouseup', up)
-      setTreeW((w) => {
-        prefSet('utop.rls.treew', String(w))
-        return w
-      })
-    }
-    window.addEventListener('mousemove', mv)
-    window.addEventListener('mouseup', up)
-  }
-
-  /** 고른 것 — 오른쪽 판이 이걸 그린다 */
-  const [sel, setSel] = useState<{ ver: string; key: string } | null>(null)
-  const selIssue = useMemo(
-    () => (sel ? (byVer.get(sel.ver) ?? []).find((x) => x.key === sel.key) ?? null : null),
-    [sel, byVer],
-  )
-  const selTcs = sel ? (tcMap.get(`${sel.ver}|${sel.key}`) ?? EMPTY) : EMPTY
-
-  const hit = (t: string) => !q.trim() || t.toLowerCase().includes(q.trim().toLowerCase())
-
   return (
     <div className="rls">
-      {/* ── 위 줄 — 옛 화면과 같은 차례: 이름 · 프로젝트 · 버전 · Sync · 찾기 ── */}
+      {/* ── 프로젝트 탭 ── */}
+      {/* ── 위 줄 — 프로젝트 고르개. 옛 화면에서 **이것만** 가져왔다(지시).
+             서른 개가 넘어 탭으로는 못 늘어놓는다. ── */}
       <div className="rls-top">
-        <b className="rls-h1">Jira Issue Coverage</b>
+        <b className="rls-h1">Releases</b>
         <select
-          className="rls-sel proj"
+          className="rls-sel"
           value={proj}
-          onChange={(e) => {
-            setProj(e.target.value)
-            setSel(null)
-          }}
+          onChange={(e) => setProj(e.target.value)}
           disabled={projQ.isLoading}
           title="프로젝트"
         >
-          <option value="">{projQ.isLoading ? '로드 중…' : '(프로젝트 선택)'}</option>
+          <option value="">{projQ.isLoading ? '불러오는 중…' : '(프로젝트 선택)'}</option>
           {allProjects.map((p) => (
             <option key={p.key} value={p.key}>
               {p.key} · {p.name}
             </option>
           ))}
         </select>
-        <select
-          className="rls-sel ver"
-          value={sel?.ver ?? ''}
-          onChange={(e) => setSel(e.target.value ? { ver: e.target.value, key: '' } : null)}
-          title="버전 선택"
-        >
-          <option value="">버전…</option>
-          {(verQ.data?.versions ?? [])
-            .filter((v) => !v.archived)
-            .map((v) => {
-              const vn = String(v.name ?? '')
-              const st = stat.get(vn)
-              return (
-                <option key={vn} value={vn}>
-                  {vn}
-                  {v.released ? ' ✓' : ''}
-                  {v.releaseDate ? ` · ${v.releaseDate}` : ''}
-                  {st ? ` [이슈 ${st.n}]` : ''}
-                </option>
-              )
-            })}
+        <span className="rls-kinds" title="이 세 가지만 가져옵니다">
+          {KINDS.join(' · ')}
+        </span>
+      </div>
+
+      {/* ── 거르개 ── */}
+      <div className="rls-filters">
+        <select value={fOp} onChange={(e) => setFOp(e.target.value)}>
+          <option value="">사업자 전체</option>
+          {ops.map((o) => (
+            <option key={o}>{o}</option>
+          ))}
         </select>
+        <select value={fType} onChange={(e) => setFType(e.target.value)}>
+          <option value="">이슈유형 전체</option>
+          {opts.types.map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </select>
+        <select value={fStat} onChange={(e) => setFStat(e.target.value)}>
+          <option value="">상태 전체</option>
+          {opts.stats.map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </select>
+        <span className="sp" />
         <button
           type="button"
-          className="rls-sync"
+          className="rls-btn"
           disabled={verQ.isFetching || issQ.isFetching}
           onClick={() => {
             void qc.invalidateQueries({ queryKey: ['jira-versions'] })
@@ -368,192 +427,77 @@ export default function Releases() {
             void qc.invalidateQueries({ queryKey: ['release-summary'] })
           }}
         >
-          ↻ Sync
+          ↻ Jira Sync
         </button>
-        <input
-          className="rls-find"
-          value={q}
-          placeholder="버전·이슈 검색…"
-          onChange={(e) => setQ(e.target.value)}
-        />
       </div>
 
       {err && <div className="rls-err">Jira 를 읽지 못했습니다 — {err}</div>}
 
-      <div className="rls-two">
-        {/* ── 왼쪽: 버전·이슈 트리 ── */}
-        <div className="rls-tree" style={{ flex: `0 0 ${treeW}px`, width: treeW }}>
-          <div className="rls-th">
-            <b>버전·이슈</b>
-            <span className="sp" />
-            <select value={fOp} onChange={(e) => setFOp(e.target.value)} title="사업자">
-              <option value="">사업자 전체</option>
-              {ops.map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-            <select value={fType} onChange={(e) => setFType(e.target.value)} title="이슈유형">
-              <option value="">유형 전체</option>
-              {opts.types.map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              title="전체 펼치기"
-              onClick={() => {
-                const n = new Set<string>()
-                for (const [op, vers] of tree) {
-                  n.add(`op:${op}`)
-                  for (const v of vers) n.add(`v:${String(v.name ?? '')}`)
-                }
-                setOpen(n)
-              }}
-            >
-              전체 +
-            </button>
-            <button type="button" title="전체 닫기" onClick={() => setOpen(new Set())}>
-              전체 −
-            </button>
-          </div>
-
-          <div className="rls-tb">
-            {(verQ.isLoading || issQ.isLoading) && <div className="rls-none">불러오는 중…</div>}
-            {!proj && !projQ.isLoading && <div className="rls-none">위에서 프로젝트를 고르세요.</div>}
-            {proj && !verQ.isLoading && !tree.length && !err && (
-              <div className="rls-none">이 프로젝트에는 버전이 없습니다.</div>
-            )}
-            {tree.map(([op, vers]) => {
-              const oOpen = open.has(`op:${op}`)
-              const nIss = vers.reduce((a, v) => a + (stat.get(String(v.name ?? ''))?.n ?? 0), 0)
-              return (
-                <div key={op}>
-                  <button
-                    type="button"
-                    className="rls-tn op"
-                    onClick={() => toggle(open, `op:${op}`, setOpen)}
-                  >
-                    <span className="rls-car">{oOpen ? '⌄' : '›'}</span>
-                    <b>{op}</b>
-                    <span className="rls-cnt">
-                      버전 {vers.length} · 이슈 {nIss}
-                    </span>
-                  </button>
-                  {oOpen &&
-                    vers.map((v) => {
-                      const vn = String(v.name ?? '')
-                      if (!hit(vn) && !(byVer.get(vn) ?? []).some((x) => hit(x.key) || hit(String(x.fields?.summary ?? '')))) return null
-                      const st0 = stat.get(vn) ?? { n: 0, tc: 0 }
-                      const vOpen = open.has(`v:${vn}`)
-                      return (
-                        <div key={vn}>
-                          <button
-                            type="button"
-                            className={`rls-tn ver${sel?.ver === vn && !sel?.key ? ' on' : ''}`}
-                            onClick={() => {
-                              toggle(open, `v:${vn}`, setOpen)
-                              setSel({ ver: vn, key: '' })
-                            }}
-                            title={vn}
-                          >
-                            <span className="rls-car">{vOpen ? '⌄' : '›'}</span>
-                            <span className="rls-vn">{vn}</span>
-                            {v.released && <i className="rls-rel">✓</i>}
-                            <span className="rls-cnt">{st0.n}</span>
-                          </button>
-                          {vOpen &&
-                            (byVer.get(vn) ?? [])
-                              .filter(keep)
-                              .filter((it) => hit(it.key) || hit(String(it.fields?.summary ?? '')) || hit(vn))
-                              .map((it) => {
-                                const n = (tcMap.get(`${vn}|${it.key}`) ?? EMPTY).length
-                                return (
-                                  <button
-                                    type="button"
-                                    key={it.key}
-                                    className={`rls-tn iss${sel?.key === it.key && sel?.ver === vn ? ' on' : ''}`}
-                                    onClick={() => setSel({ ver: vn, key: it.key })}
-                                    title={String(it.fields?.summary ?? '')}
-                                  >
-                                    <span className="rls-ik">{it.key}</span>
-                                    <span className="rls-is">{it.fields?.summary ?? ''}</span>
-                                    {!!n && <span className="rls-cnt">TC {n}</span>}
-                                  </button>
-                                )
-                              })}
-                        </div>
-                      )
-                    })}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* 폭 조절 막대 */}
-        <div className="rls-rail" onMouseDown={dragW} role="separator" aria-orientation="vertical" />
-
-        {/* ── 오른쪽: 고른 것의 상세 ── */}
-        <div className="rls-detail">
-          {!sel && <div className="rls-none">왼쪽에서 버전이나 이슈를 고르세요.</div>}
-          {sel && !sel.key && (
-            <div className="rls-dv">
-              <div className="rls-dh">
-                <b>{sel.ver}</b>
-                <span className="rls-cnt">
-                  이슈 {stat.get(sel.ver)?.n ?? 0} · TC {stat.get(sel.ver)?.tc ?? 0}
+      {/* ── 표 ── */}
+      <div className="rls-db">
+        {(verQ.isLoading || issQ.isLoading) && <div className="rls-none">불러오는 중…</div>}
+        {!verQ.isLoading && !tree.length && !err && (
+          <div className="rls-none">이 프로젝트에는 버전이 없습니다.</div>
+        )}
+        {tree.map(([op, vers]) => {
+          const nIss = vers.reduce((a, v) => a + (stat.get(String(v.name ?? ''))?.n ?? 0), 0)
+          const oOpen = !open.has(`op:${op}`)
+          return (
+            <div key={op}>
+              <div className="rls-grow" role="button" tabIndex={0}
+                onClick={() => toggle(open, `op:${op}`, setOpen)}
+                onKeyDown={(e) => e.key === 'Enter' && toggle(open, `op:${op}`, setOpen)}>
+                <span className="rls-car">{oOpen ? '⌄' : '›'}</span>
+                <b>{op}</b>
+                <span className="rls-right">
+                  <span>버전 {vers.length}</span>
+                  <span>이슈 {nIss}</span>
                 </span>
               </div>
-              <div className="rls-none">이슈를 고르면 그 이슈에 붙은 시험이 여기 나옵니다.</div>
-            </div>
-          )}
-          {sel && sel.key && selIssue && (
-            <div className="rls-dv">
-              <div className="rls-dh">
-                <b>{selIssue.key}</b>
-                <span className={`rls-stat ${String(selIssue.fields?.status?.statusCategory?.key ?? '')}`}>
-                  {selIssue.fields?.status?.name ?? ''}
-                </span>
-                <span className="rls-type">{selIssue.fields?.issuetype?.name ?? ''}</span>
-                <span className="sp" />
-                <span className="rls-cnt">{sel.ver}</span>
-              </div>
-              <div className="rls-dt">{selIssue.fields?.summary ?? ''}</div>
-              <div className="rls-dmeta">
-                <span>
-                  <em>보고자</em>
-                  {selIssue.fields?.reporter?.displayName ?? '–'}
-                </span>
-                <span>
-                  <em>담당자</em>
-                  {selIssue.fields?.assignee?.displayName ?? '–'}
-                </span>
-              </div>
-              <div className="rls-dsec">
-                이 이슈를 덮는 시험 <span className="rls-cnt">{selTcs.length}건</span>
-              </div>
-              <div className="rls-tcs">
-                {selTcs.map((tcid) => {
-                  const t = tcById.get(tcid)
-                  const rv = resultOf(tcid)
+              {oOpen &&
+                vers.map((v) => {
+                  const vn = String(v.name ?? '')
+                  const st0 = stat.get(vn) ?? { n: 0, tc: 0 }
+                  const vOpen = open.has(`v:${vn}`)
+                  /* 접혀 있으면 이슈 목록을 **만들지도 않는다** — 97건을
+                     걸러 놓고 안 그리는 것은 그냥 버리는 일이다. */
+                  const list = vOpen ? (byVer.get(vn) ?? []).filter(keep) : ([] as JiraIssue[])
                   return (
-                    <div className="rls-tcrow" key={tcid}>
-                      <span className="rls-code">{tcid}</span>
-                      <span className="rls-name">{t?.name ?? '(지워진 시험 항목)'}</span>
-                      <span className="rls-kind">{t?.kind === '수동' ? 'MANUAL' : t?.kind ? 'AUTO' : ''}</span>
-                      <span className={`rls-res ${rv.toLowerCase()}`}>{rv ? rv.toUpperCase() : ''}</span>
+                    <div key={vn}>
+                      <div className="rls-vrow" role="button" tabIndex={0}
+                        onClick={() => toggle(open, `v:${vn}`, setOpen)}
+                        onKeyDown={(e) => e.key === 'Enter' && toggle(open, `v:${vn}`, setOpen)}>
+                        <span className="rls-car">{vOpen ? '⌄' : '›'}</span>
+                        <span className="rls-vname">{vn}</span>
+                        {v.released && <span className="rls-rel">released</span>}
+                        <span className="rls-right">
+                          <span>Issues {st0.n}</span>
+                          <span>TC {st0.tc}</span>
+                          {v.releaseDate && <span>{v.releaseDate}</span>}
+                        </span>
+                      </div>
+                      {vOpen &&
+                        list.map((it) => (
+                          <IssueRow
+                            key={`${vn}|${it.key}`}
+                            it={it}
+                            ver={vn}
+                            open={openIssue.has(`${vn}|${it.key}`)}
+                            tcs={tcMap.get(`${vn}|${it.key}`) ?? EMPTY}
+                            tcById={tcById}
+                            resultOf={resultOf}
+                            onToggle={toggleIssue}
+                          />
+                        ))}
+                      {vOpen && !st0.n && (
+                        <div className="rls-iblock rls-empty">이 버전에 걸린 이슈가 없습니다.</div>
+                      )}
                     </div>
                   )
                 })}
-                {!selTcs.length && (
-                  <div className="rls-tcrow rls-empty">
-                    이 이슈에 붙은 시험 항목이 없습니다.
-                  </div>
-                )}
-              </div>
             </div>
-          )}
-        </div>
+          )
+        })}
       </div>
     </div>
   )
