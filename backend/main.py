@@ -12203,9 +12203,14 @@ async def api_plan_run_get(run_id: str):
     return r
 
 
-@app.post("/api/plan-runs")
 def _run_meta(p: dict, plan, model: str, mgroup: str) -> dict:
-    """실행이 들고 다닐 메타. 만들기 창에서 고른 모델을 잃지 않는다."""
+    """실행이 들고 다닐 메타. 만들기 창에서 고른 모델을 잃지 않는다.
+
+    ★ 이 함수는 **라우트 데코레이터 아래에 두면 안 된다.** 한 번 그렇게
+      넣었다가 실행 만들기 라우트가 이것에 붙어(FastAPI 는 바로 아래 함수를
+      잡는다), 만들기가 통째로 422 로 막혔다 — query 로 plan·model 을
+      내놓으라고 했다. 실사고: 213 배포 직후 실행 만들기 불가.
+    """
     meta = dict(p.get("meta") or {})
     if model:
         meta.setdefault("model", model)
@@ -12216,6 +12221,7 @@ def _run_meta(p: dict, plan, model: str, mgroup: str) -> dict:
     return meta
 
 
+@app.post("/api/plan-runs")
 async def api_plan_run_new(payload: dict):
     """실행 만들기. 플랜을 주면 그 항목을 떠 담는다(복사)."""
     p = payload or {}
