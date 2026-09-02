@@ -90,7 +90,18 @@
   gap: 8px;
 }
 .rls-c1 { flex: none; min-width: 160px; }
-.rls-c2 { flex: 1; min-width: 0; }
+/* 2열의 **칸 폭은 여기 한 곳**이다. 머리줄과 이슈줄이 같은 값을 봐야
+   글자가 칸 위에 선다 — 두 군데 적으면 하나 고칠 때 반드시 어긋난다. */
+.rls-c2 {
+  flex: 1;
+  min-width: 0;
+  --w-car: 30px;
+  --w-key: 94px;
+  --w-tc: 42px;
+  --w-type: 70px;
+  --w-stat: 80px;
+  --w-per: 104px;
+}
 /* 1열·2열 가로바 — **REQ-Coverage 와 같게**(지시). 그쪽 칸 머리는
    회색 띠가 아니라 **흰 바탕에 아래 선 하나**이고 높이가 45px 다
    (.req-search · .tc-panel .filter 와 같은 값). 여기만 회색 띠를 두면
@@ -128,6 +139,27 @@
   max-width: 46%;
 }
 .rls-cb { flex: 1; min-height: 0; overflow: auto; }
+/* 칸 이름줄 — 목록 **밖**이라 굴려도 안 사라진다 */
+.rls-ihead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-bottom: 1px solid #eceff1;
+  background: #fafbfc;
+  font-size: 11px;
+  color: #8a949a;
+  white-space: nowrap;
+}
+.rls-ihead .h-car { flex: none; width: var(--w-car); }
+.rls-ihead .h-key { flex: none; width: var(--w-key, 94px); }
+.rls-ihead .h-tc { flex: none; width: var(--w-tc, 42px); text-align: center; }
+.rls-ihead .h-title { flex: 1; min-width: 0; }
+.rls-ihead .h-type { flex: none; width: var(--w-type, 70px); }
+.rls-ihead .h-stat { flex: none; width: var(--w-stat, 80px); text-align: center; }
+.rls-ihead .h-per { flex: none; width: var(--w-per, 104px); }
 .rls-sm { font-size: 11.5px; color: #98a2a8; }
 
 /* 끌개 — 얇지만 잡히는 자리는 넉넉하게 */
@@ -222,30 +254,35 @@
    줄이 가운데 정렬이어도 밑으로 처져 보인 까닭이 그것이다 — 가운데에
    그려지는 삼각형으로 바꾸고, 상자를 잡아 그 안에서 가운데로 맞춘다.
    크기도 키웠다(지시). */
+/* 펼침·접기 — **「>」 하나를 돌려 쓴다**(지시). ▸/▾ 두 글자를 바꿔 끼우면
+   무게중심이 달라 줄이 미세하게 흔들렸다. 같은 글자를 돌리면 안 흔들리고,
+   여닫히는 것이 눈에 보인다. */
 .rls-car {
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   align-self: center;
   color: #8d989e;
-  font-size: 13px;
+  font-size: 20px;
   line-height: 1;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
 }
+.rls-car.on { transform: rotate(90deg); }
 .rls-car:hover { background: #e9eef1; color: #46555d; }
-/* 이슈 줄의 펼침·접기는 **더 크게**(지적: 「2열에서 펼침/접기 버튼이 너무
-   작아」). 이 화면에서 제일 자주 누르는 단추다 — 이슈를 펴야 시험이 보인다.
-   줄 높이가 34px 이라 28px 까지는 들어간다. */
+/* 이슈 줄의 것은 **더 크게**(지적: 「너무 작아」·「더 크게 해 줘」). 이 화면에서
+   제일 자주 누르는 단추다 — 이슈를 펴야 시험이 보인다. 줄 높이가 34px 이라
+   30px 까지 들어간다. */
 .rls-irow > .rls-car {
-  width: 28px;
-  height: 28px;
-  font-size: 16px;
+  width: 30px;
+  height: 30px;
+  font-size: 26px;
   border-radius: 6px;
-  color: #6f7c85;
+  color: #5d6b75;
 }
 .rls-irow > .rls-car:hover { background: #e3ebf1; color: #2f4a63; }
 
@@ -253,14 +290,20 @@
 .rls-iblock { border-bottom: 1px solid #eef0f2; }
 /* 이슈 한 줄 — 제목까지 **같은 줄에**(지시). 제목이 남는 자리를 먹고
    길면 … 로 자른다. */
-.rls-irow { height: 34px; padding: 0 10px; gap: 12px; }
+/* 사이 간격을 최소로(지시: 「3번 필드 간 간격을 최소화」) — 12px → 6px.
+   칸 폭은 위 머리줄과 같은 변수를 본다. */
+.rls-irow { height: 34px; padding: 0 10px; gap: 6px; }
 .rls-irow:hover { background: #f6f7f8; }
-.rls-key { font-weight: 700; color: #3b6aa5; min-width: 92px; flex: none; }
-.rls-type { min-width: 74px; flex: none; color: #6f55a0; font-size: 11.5px; }
+.rls-key { font-weight: 700; color: #3b6aa5; width: var(--w-key, 94px); flex: none; text-align: left; }
+.rls-type { width: var(--w-type, 70px); flex: none; color: #6f55a0; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rls-stat {
-  min-width: 70px;
+  width: var(--w-stat, 80px);
   flex: none;
   text-align: center;
+  /* 「In Progress」 가 두 줄로 접혀 줄 높이를 밀었다 — 안 접히게 못박는다 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 10px;
   border-radius: 10px;
   padding: 2px 7px;
@@ -269,9 +312,27 @@
 }
 .rls-stat.done { background: #eaf4ee; color: #2e7a53; }
 .rls-stat.indeterminate { background: #eaf1fb; color: #35619e; }
-.rls-person { color: #56656d; min-width: 128px; flex: none; font-size: 11.5px; }
-.rls-person > span { color: #8c969c; font-size: 10px; margin-right: 4px; }
-.rls-tcn { margin-left: auto; color: #8a949a; font-size: 11px; white-space: nowrap; }
+/* 이름만 남는다 — 「보고자」·「담당자」 라는 글자는 머리줄로 올렸다(지시) */
+.rls-person {
+  color: #56656d;
+  width: var(--w-per, 104px);
+  flex: none;
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 붙은 시험 수 — 키 바로 옆(지시). 0 이면 가라앉히고, 있으면 눈에 띈다 */
+.rls-tcn {
+  flex: none;
+  width: var(--w-tc, 42px);
+  text-align: center;
+  color: #b0b8bd;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rls-tcn.has { color: #0a8795; font-weight: 700; }
 .rls-ititle {
   flex: 1;
   min-width: 0;
@@ -462,8 +523,44 @@
 }
 .rls-dx:hover { color: #46555d; }
 .rls-dbody { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px 24px; }
-/* Jira 그림 — 칸을 넘지 않게. 못 받은 것은 자리를 알려 주는 링크로 바뀐다 */
-.rls-jira img { max-width: 100%; height: auto; border-radius: 4px; }
+/* Jira 그림 — 칸을 넘지 않게. 눌러서 크게 본다(건너가지 않는다) */
+.rls-jira img { max-width: 100%; height: auto; border-radius: 4px; cursor: zoom-in; }
+
+/* 그림 하나만 크게 — 가운데에. 왼쪽 구석에 붙던 것을 한 번 지적받았다 */
+.rls-lb {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(12, 18, 24, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  cursor: zoom-out;
+}
+.rls-lb img {
+  max-width: 96%;
+  max-height: 96%;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+/* 이슈연결 한 줄 */
+.rls-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 4px 2px;
+  border-bottom: 1px solid #f1f2f4;
+  font-size: 12.5px;
+  min-width: 0;
+}
+.rls-link .how { flex: none; color: #7c858c; font-size: 11.5px; min-width: 92px; }
+.rls-link .key { flex: none; font-weight: 700; color: #3b6aa5; text-decoration: none; min-width: 92px; }
+.rls-link .key:hover { text-decoration: underline; }
+.rls-link .sm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #424b50; }
 .rls-imgfail {
   display: inline-block;
   font-size: 12px;
@@ -482,14 +579,18 @@
 }
 .rls-dmeta span { color: #8a949a; }
 .rls-dmeta b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 칸 이름 — **지라에 보이는 그대로**(지시). 작은 대문자 라벨로 두었더니
+   Traceability 가 TRACEABILITY 로 나왔다. 지라 쪽은 보통 굵기의 검은 글자다. */
 .rls-dh {
-  margin: 18px 0 7px; font-size: 11px; font-weight: 800; color: #8a949a;
-  letter-spacing: 0.04em; text-transform: uppercase;
+  margin: 20px 0 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #3d4a52;
+  letter-spacing: 0;
 }
 .rls-dtext { font-size: 12.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; color: #46555d; }
 /* Jira 가 렌더한 HTML — 그 쪽 표·코드·그림이 여기서도 같은 꼴로 서야 한다 */
 .rls-jira { font-size: 12.5px; line-height: 1.65; word-break: break-word; color: #2c3a41; }
-.rls-jira img { max-width: 100%; height: auto; border-radius: 4px; }
 .rls-jira table { border-collapse: collapse; margin: 8px 0; display: block; overflow-x: auto; }
 .rls-jira th, .rls-jira td { border: 1px solid #dfe5e8; padding: 4px 8px; font-size: 12px; }
 .rls-jira th { background: #f4f6f7; }
@@ -510,11 +611,29 @@
   display: flex; align-items: center; justify-content: center;
 }
 .rls-cmth b { color: #46555d; font-weight: 700; }
+/* 첨부 한 줄 — 이름·크기·올린 사람. 링크가 아니라 **단추**다(표를 얹어
+   받아야 해서). 겉모습은 링크 그대로 둔다. */
 .rls-att {
-  display: block; font-size: 12px; color: #3b6aa5; text-decoration: none;
-  padding: 4px 0; border-bottom: 1px solid #f2f4f5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  color: #3b6aa5;
+  padding: 5px 2px;
+  border-bottom: 1px solid #f2f4f5;
+  cursor: pointer;
+  min-width: 0;
 }
-.rls-att:hover { text-decoration: underline; }
+.rls-att:hover { background: #f6f8fa; }
+.rls-att .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rls-att:hover .nm { text-decoration: underline; }
+.rls-att .sz { flex: none; color: #8a949a; font-variant-numeric: tabular-nums; }
+.rls-att .wh { flex: none; color: #98a2a8; font-size: 11px; white-space: nowrap; }
 
 /* ── 시험 항목 팝업 ──
       「＋ TC 추가」 로 만든 뒤에도, 붙은 시험 줄을 눌러도 여기서 열린다.

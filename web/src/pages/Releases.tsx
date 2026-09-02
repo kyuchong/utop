@@ -168,6 +168,40 @@ function jiraHtml(html: string, base: string): string {
   return s
 }
 
+/** 파일 크기 — 사람이 읽는 꼴로 */
+function fsize(n: number): string {
+  if (!n || !Number.isFinite(n)) return ''
+  const u = ['B', 'KB', 'MB', 'GB']
+  let i = 0
+  let v = n
+  while (v >= 1024 && i < u.length - 1) {
+    v /= 1024
+    i += 1
+  }
+  return `${v < 10 && i ? v.toFixed(1) : Math.round(v)}${u[i]}`
+}
+
+/** 첨부를 내려받는다 — **표를 얹어서**.
+ *
+ *  `<a href="/api/jira/attachment?url=…">` 로 두었더니 눌러도 401 만 왔다.
+ *  브라우저가 그냥 긁는 주소에는 Authorization 헤더가 안 실린다(그림이
+ *  깨진 것과 같은 까닭). 받아서 blob 으로 만들어 내려준다. */
+async function dlAtt(url: string, filename: string): Promise<void> {
+  if (!url) return
+  try {
+    const r = await apiFetch(`/api/jira/attachment?url=${encodeURIComponent(url)}`)
+    if (!r.ok) throw new Error(String(r.status))
+    const o = URL.createObjectURL(await r.blob())
+    const a = document.createElement('a')
+    a.href = o
+    a.download = filename
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(o), 30_000)
+  } catch {
+    window.alert(`${filename} 을 내려받지 못했습니다 — Jira 에서 직접 받아 주세요.`)
+  }
+}
+
 /** 적어 둔 Jira 그림을 **표를 얹어** 받아다 붙인다.
  *
  *  돌려주는 것은 뒷정리 함수다 — 만든 blob 주소를 거두지 않으면 서랍을
@@ -243,14 +277,17 @@ const IssueRow = memo(function IssueRow({
   return (
     <div className="rls-iblock">
       <div className="rls-irow">
+        {/* **「>」 하나로 쓰고 펴지면 돌린다**(지시: 「> 이런걸로 더 크게」).
+            글자를 ▸/▾ 로 바꿔 끼우면 두 글자의 무게중심이 달라 눌릴 때마다
+            줄이 미세하게 흔들린다. 같은 글자를 돌리면 안 흔들린다. */}
         <span
-          className="rls-car"
+          className={`rls-car${open ? ' on' : ''}`}
           role="button"
           tabIndex={0}
           onClick={() => onToggle(`${ver}|${k}`)}
           onKeyDown={(e) => e.key === 'Enter' && onToggle(`${ver}|${k}`)}
         >
-          {open ? '▾' : '▸'}
+          ›
         </span>
         {/* 이슈 키를 누르면 **서랍**이 열린다 — 설명·댓글은 Jira 로 건너가지
             않고 여기서 본다(지시) */}
@@ -262,6 +299,10 @@ const IssueRow = memo(function IssueRow({
         >
           {k}
         </button>
+        {/* 붙은 시험 수 — **키 바로 오른쪽**(지시). 줄 끝에 두었더니 이슈
+            제목을 읽다가 눈이 끝까지 갔다 와야 했다. 이슈와 시험은 한 쌍이라
+            붙어 있어야 읽힌다. */}
+        <span className={`rls-tcn${tcs.length ? ' has' : ''}`}>( {tcs.length} )</span>
         {/* 제목을 **같은 줄에** 둔다(지시: 「왜 2행이야」). 제목이 가운데를
             채우고, 유형·상태·사람은 오른쪽에 붙는다 — 한 이슈가 한 줄이면
             백 건을 훑을 때 눈이 위아래로 안 튄다. */}
@@ -270,15 +311,14 @@ const IssueRow = memo(function IssueRow({
         </span>
         <span className="rls-type">{it.type ?? ''}</span>
         <span className={`rls-stat ${it.statusCat ?? ''}`}>{it.status ?? ''}</span>
-        <span className="rls-person">
-          <span>보고자</span>
+        {/* 「보고자」·「담당자」 라는 글자는 뺐다(지시) — 줄마다 되풀이되면
+            이름을 가린다. 그 이름표는 위 머리줄이 한 번만 단다. */}
+        <span className="rls-person" title={`보고자 ${it.reporter || '–'}`}>
           {it.reporter || '–'}
         </span>
-        <span className="rls-person">
-          <span>담당자</span>
+        <span className="rls-person" title={`담당자 ${it.assignee || '–'}`}>
           {it.assignee || '–'}
         </span>
-        <span className="rls-tcn">TC {tcs.length}</span>
       </div>
       {open && (
         /* 펼치면 **붙은 시험이 가로로** 선다 — `E61xx_V0001`, `E61xx_V0002`.
@@ -1038,7 +1078,7 @@ export default function Releases() {
             {tree.map(([op, list]) => (
               <div key={op}>
                 <button type="button" className="rls-op" onClick={() => toggleOp(op)}>
-                  <span className="rls-car">{shut.has(op) ? '▸' : '▾'}</span>
+                  <span className={`rls-car${shut.has(op) ? '' : ' on'}`}>›</span>
                   <b>{op}</b>
                   <span className="n">{list.length}</span>
                 </button>
@@ -1134,6 +1174,21 @@ export default function Releases() {
               {selVer ? `${curStat.n}건 · TC ${curStat.tc}` : '왼쪽에서 버전을 고르세요'}
             </span>
           </div>
+          {/* **칸 이름줄**(지시: 「4번 필드 제목을 추가 해」). 줄마다 붙어
+              있던 「보고자」·「담당자」 를 여기 한 번만 단다. 목록 밖에 두어
+              굴려도 안 사라진다. */}
+          {!!selVer && !!curRows.length && (
+            <div className="rls-ihead">
+              <span className="h-car" />
+              <span className="h-key">이슈</span>
+              <span className="h-tc">TC</span>
+              <span className="h-title">제목</span>
+              <span className="h-type">유형</span>
+              <span className="h-stat">상태</span>
+              <span className="h-per">보고자</span>
+              <span className="h-per">담당자</span>
+            </div>
+          )}
           <div className="rls-cb">
             {!selVer ? (
               <div className="rls-none">왼쪽에서 버전을 고르면 그 버전의 이슈가 여기 섭니다.</div>
@@ -1269,6 +1324,8 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
         error?: string
         fields?: Record<string, unknown>
         renderedFields?: Record<string, unknown>
+        /** 칸 id → 보이는 이름. Traceability 처럼 **이름으로 찾는** 칸에 쓴다 */
+        names?: Record<string, string>
       }
     },
   })
@@ -1306,7 +1363,35 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
     Record<string, unknown>
   >
   const atts = (f.attachment ?? []) as Array<Record<string, unknown>>
+  const links = (f.issuelinks ?? []) as Array<Record<string, unknown>>
   const err = q.error ? String(q.error) : q.data && q.data.ok === false ? String(q.data.error ?? '') : ''
+
+  /** Traceability — **보이는 이름으로** 찾는다. 칸 id(customfield_10500)는
+   *  Jira 마다 달라서 박아 두면 다른 프로젝트에서 조용히 빈칸이 된다.
+   *  `expand=names` 가 준 「id → 이름」 을 뒤져 이름이 맞는 칸을 집는다. */
+  const trace = useMemo(() => {
+    const names = (q.data?.names ?? {}) as Record<string, string>
+    const id = Object.keys(names).find((k) => /traceab/i.test(String(names[k] ?? '')))
+    if (!id) return null
+    const html = String((rf as Record<string, unknown>)[id] ?? '')
+    const raw = (f as Record<string, unknown>)[id]
+    const text = Array.isArray(raw)
+      ? raw.map((v) => (typeof v === 'object' && v ? pick(v, 'value') || pick(v, 'name') : String(v))).join(', ')
+      : typeof raw === 'object' && raw
+        ? pick(raw, 'value') || pick(raw, 'name')
+        : String(raw ?? '')
+    if (!html.trim() && !text.trim()) return null
+    return { label: String(names[id] ?? 'Traceability'), html, text }
+  }, [q.data, f, rf])
+
+  /** 크게 볼 그림 — 눌린 그림 하나. 빈 문자열이면 안 떠 있다. */
+  const [lb, setLb] = useState('')
+  useEffect(() => {
+    if (!lb) return
+    const h = (e: KeyboardEvent) => e.key === 'Escape' && setLb('')
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [lb])
 
   return (
     <div className="rls-ovl" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -1325,18 +1410,40 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
           </button>
         </header>
 
-        <div className="rls-dbody" ref={bodyRef}>
+        <div
+          className="rls-dbody"
+          ref={bodyRef}
+          /* Jira 는 그림을 첨부 주소로 감싸 둔다. 그냥 두면 눌렀을 때 Jira 로
+             건너가 이 화면을 잃는다(지적) — 여기서 잡아 크게만 띄운다. */
+          onClick={(e) => {
+            const t = e.target as HTMLElement
+            if (t.tagName !== 'IMG' || !t.closest('.rls-jira')) return
+            e.preventDefault()
+            e.stopPropagation()
+            setLb((t as HTMLImageElement).src)
+          }}
+        >
           {q.isLoading && <div className="rls-none">불러오는 중…</div>}
           {!!err && <div className="rls-err">{err}</div>}
 
           {!q.isLoading && !err && (
             <>
               <div className="rls-dtitle">{String(f.summary ?? '')}</div>
+
+              {/* ── **지라와 같은 차례**(지시): 자세히 · 설명 · Traceability ·
+                     첨부 파일 · 이슈연결 · 활동. 우리 마음대로 늘어놓으면
+                     Jira 를 보던 눈이 여기서 한 번 헤맨다. ── */}
+
+              <h4 className="rls-dh">자세히</h4>
               <div className="rls-dmeta">
                 <span>유형</span>
                 <b>{pick(f.issuetype, 'name') || '–'}</b>
                 <span>우선순위</span>
                 <b>{pick(f.priority, 'name') || '–'}</b>
+                <span>상태</span>
+                <b>{pick(f.status, 'name') || '–'}</b>
+                <span>해결</span>
+                <b>{pick(f.resolution, 'name') || '미해결'}</b>
                 <span>보고자</span>
                 <b>{pick(f.reporter, 'displayName') || '–'}</b>
                 <span>담당자</span>
@@ -1348,6 +1455,15 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
                     .filter(Boolean)
                     .join(', ') || '–'}
                 </b>
+                <span>컴포넌트</span>
+                <b>
+                  {((f.components ?? []) as Array<Record<string, unknown>>)
+                    .map((v) => String(v?.name ?? ''))
+                    .filter(Boolean)
+                    .join(', ') || '–'}
+                </b>
+                <span>만듦</span>
+                <b>{String(f.created ?? '').replace('T', ' ').slice(0, 16) || '–'}</b>
                 <span>고침</span>
                 <b>{String(f.updated ?? '').replace('T', ' ').slice(0, 16) || '–'}</b>
               </div>
@@ -1363,7 +1479,73 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
                 <div className="rls-dtext">{descText.trim() || '(설명 없음)'}</div>
               )}
 
-              <h4 className="rls-dh">댓글 {cmts.length}</h4>
+              {/* Traceability — Jira 의 **커스텀 칸**이다. id(customfield_…)를
+                  박지 않고 보이는 이름으로 찾는다: 칸 id 는 Jira 마다 다르고,
+                  박아 두면 다른 프로젝트에서 조용히 빈칸이 된다. */}
+              {!!trace && (
+                <>
+                  <h4 className="rls-dh">{trace.label}</h4>
+                  {trace.html ? (
+                    <div
+                      className="rls-jira"
+                      // eslint-disable-next-line react/no-danger
+                      dangerouslySetInnerHTML={{ __html: jiraHtml(trace.html, base) }}
+                    />
+                  ) : (
+                    <div className="rls-dtext">{trace.text}</div>
+                  )}
+                </>
+              )}
+
+              <h4 className="rls-dh">첨부 파일 {atts.length || ''}</h4>
+              {!atts.length && <div className="rls-dtext">(첨부 없음)</div>}
+              {atts.map((a, i) => (
+                <button
+                  type="button"
+                  className="rls-att"
+                  key={String(a?.id ?? i)}
+                  title="눌러서 내려받습니다"
+                  /* `<a href="/api/…">` 로 두면 브라우저가 표(Authorization)를
+                     못 얹어 401 이 온다 — 그림과 같은 까닭이다. 표를 얹어
+                     받아서 내려준다. */
+                  onClick={() => void dlAtt(String(a?.content ?? ''), String(a?.filename ?? '첨부'))}
+                >
+                  <span className="nm">{String(a?.filename ?? '(이름 없음)')}</span>
+                  <span className="sz">{fsize(Number(a?.size ?? 0))}</span>
+                  <span className="wh">
+                    {pick(a?.author, 'displayName')} · {String(a?.created ?? '').replace('T', ' ').slice(0, 16)}
+                  </span>
+                </button>
+              ))}
+
+              <h4 className="rls-dh">이슈연결 {links.length || ''}</h4>
+              {!links.length && <div className="rls-dtext">(연결된 이슈 없음)</div>}
+              {links.map((l, i) => {
+                const other = (l.outwardIssue ?? l.inwardIssue) as Record<string, unknown> | undefined
+                const t = l.type as Record<string, unknown> | undefined
+                const how = String((l.outwardIssue ? t?.outward : t?.inward) ?? t?.name ?? '')
+                const of_ = (other?.fields ?? {}) as Record<string, unknown>
+                const ok2 = String(other?.key ?? '')
+                return (
+                  <div className="rls-link" key={`${ok2}|${i}`}>
+                    <span className="how">{how}</span>
+                    <a
+                      className="key"
+                      href={base ? `${base}/browse/${ok2}` : undefined}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      {ok2}
+                    </a>
+                    <span className="sm">{String(of_.summary ?? '')}</span>
+                    <span className={`rls-stat ${pick((of_.status as Record<string, unknown>)?.statusCategory, 'key')}`}>
+                      {pick(of_.status, 'name')}
+                    </span>
+                  </div>
+                )
+              })}
+
+              <h4 className="rls-dh">활동 {cmts.length || ''}</h4>
               {!cmts.length && <div className="rls-dtext">(댓글 없음)</div>}
               {cmts.map((c, i) => {
                 const who = pick(c.author, 'displayName')
@@ -1388,30 +1570,19 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
                   </div>
                 )
               })}
-
-              {!!atts.length && (
-                <>
-                  <h4 className="rls-dh">첨부 {atts.length}</h4>
-                  {atts.map((a, i) => {
-                    const url = String(a?.content ?? '')
-                    return (
-                      <a
-                        className="rls-att"
-                        key={String(a?.id ?? i)}
-                        href={`/api/jira/attachment?url=${encodeURIComponent(url)}`}
-                        target="_blank"
-                        rel="noopener"
-                      >
-                        {String(a?.filename ?? '(이름 없음)')}
-                      </a>
-                    )
-                  })}
-                </>
-              )}
             </>
           )}
         </div>
       </div>
+
+      {/* 그림 하나만 크게 — **화면을 넘어가지 않는다**(지적: 「사진 클릭하면
+          화면이 바뀌는데 사진만 팝업 되게」). Jira 는 그림을 첨부 주소로
+          감싸 두어서, 그냥 두면 눌렀을 때 Jira 로 건너간다. */}
+      {!!lb && (
+        <div className="rls-lb" onClick={() => setLb('')} role="presentation">
+          <img src={lb} alt="" />
+        </div>
+      )}
     </div>
   )
 }
