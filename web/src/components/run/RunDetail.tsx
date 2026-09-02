@@ -502,14 +502,30 @@ export default function RunDetail({
   const wentTo = useRef('')
   /** 넘어갈 곳 — 늦춰 옮기는 사이에 또 바뀌면 **늘 최신**으로 간다 */
   const nextItem = useRef('')
+  /** 지금 **붙잡고 있는** 항목 — 직전까지 돌던 것을 1.6초 더 보여 주는 중이다.
+      비어 있으면 붙잡는 중이 아니다. */
+  const holding = useRef('')
   useEffect(() => {
     if (!runId2 || wentTo.current === runId2) return
     /* 고정 중이면 **기억하지 않고** 그냥 넘긴다. 예전엔 먼저 기억해 두어,
        고정을 푼 뒤에도 그 항목 바뀜이 영영 삼켜져 화면이 안 따라갔다
        (지적: 실행기는 T0034 인데 화면은 T0033). */
     if (pinItem) return
+    const prev = wentTo.current
     wentTo.current = runId2
     nextItem.current = runId2
+    /* **처음 시작**이거나, 보고 있던 항목이 직전까지 돌던 그것이 아니면
+       붙잡지 않고 **바로** 옮긴다. 예전엔 여기서도 1.6초를 붙잡아, 지난번에
+       보던 항목(아무것도 안 돌고 있는)의 마지막 스텝에 RUN 이 찍혔다가
+       넘어갔다(지적: 처음 실행하는데 1번 그림처럼 나온다). */
+    if (!prev || cur !== prev) {
+      holding.current = ''
+      setCur(runId2)
+      setStepAt(0)
+      setPinned(false)
+      return
+    }
+    holding.current = prev
     /* **바로 안 넘어간다.** 실행기는 마지막 스텝을 올린 직후 다음 항목
        이름을 올린다 — 그 사이가 1초도 안 돼, 곧장 따라가면 방금 끝난
        항목의 마지막 결과를 아무도 못 본다(지적). 1.6초 머문 뒤 넘어간다.
@@ -517,6 +533,7 @@ export default function RunDetail({
     const t = window.setTimeout(() => {
       const go = nextItem.current
       if (!go) return
+      holding.current = ''
       setCur(go)
       setStepAt(0)
       setPinned(false)
@@ -938,7 +955,7 @@ export default function RunDetail({
                고쳐 놓은 어긋남이 반대로 다시 생긴다. */
             runId2 === cur
               ? runStep
-              : jobLive && !pinItem && msteps.length
+              : jobLive && !pinItem && holding.current === cur && msteps.length
                 ? msteps.length - 1
                 : null
           }
@@ -949,7 +966,7 @@ export default function RunDetail({
                따라가는 중이면 **판이 보고 있는 항목**을 표시한다. 사람이
                다른 항목을 눌러 고정해 두었으면 판은 딴 데를 보는 것이니,
                그때는 실행기가 실제로 도는 항목을 표시한다. */
-            jobLive ? (pinItem ? runId2 : cur) : ''
+            jobLive ? (pinItem || holding.current !== cur ? runId2 : cur) : ''
           }
           dut={dut?.name ?? 'DUT'}
           logAt={log?.at}
