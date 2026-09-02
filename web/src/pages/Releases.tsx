@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isManual } from '@/lib/runMode'
@@ -224,11 +224,10 @@ const IssueRow = memo(function IssueRow({
         <span className="rls-tcn">TC {tcs.length}</span>
       </div>
       {open && (
-        /* **탭이 가로로, 상세는 그 아래 인라인**(지시).
-         *
-         *  줄로 늘어놓고 눌러 창을 띄우던 것을 걷었다 — 창이 뜨면 이슈를
-         *  보던 자리를 잃고, 시험 둘을 견주려면 열고 닫기를 되풀이해야 한다.
-         *  탭이면 왔다 갔다 하는 것이 한 번씩이다. */
+        /* 펼치면 **붙은 시험이 가로로** 선다 — `E61xx_V0001`, `E61xx_V0002`.
+         *  누르면 **팝업**으로 그 시험이 열린다(승인). 2열 안에 통째로
+         *  얹어 보았는데 시험 화면(Info·Topology·Manual…)이 들어가기엔
+         *  칸이 좁아 글자가 접혔다. */
         <div className="rls-tcs">
           <div className="rls-tabs">
             {tcs.map((tcid) => {
@@ -241,7 +240,7 @@ const IssueRow = memo(function IssueRow({
                     type="button"
                     className="rls-tabb"
                     title={t?.name ?? '(지워진 시험 항목)'}
-                    onClick={() => onOpenTc(on ? '' : tcid)}
+                    onClick={() => onOpenTc(tcid)}
                   >
                     {tcid}
                     {!!rv && <i className={`rls-res ${rv.toLowerCase()}`}>{rv.toUpperCase()}</i>}
@@ -279,15 +278,6 @@ const IssueRow = memo(function IssueRow({
             </button>
           </div>
 
-          {/* 고른 탭의 시험이 **그 자리에서** 펼쳐진다. 시험 화면을 통째로
-              얹는다 — Info·Object·Topology·Traffic·Manual·Automation·
-              Execution·Cycle 이 그대로 서고, 스텝은 Automation 에서 적는다.
-              부품을 베껴 만들면 한쪽만 고쳐지는 날이 온다. */}
-          {!!openTc && tcs.includes(openTc) && (
-            <div className="rls-inline">
-              <TestCases embedTc={openTc} onEmbedBack={() => onOpenTc('')} />
-            </div>
-          )}
           {!tcs.length && (
             <div className="rls-tcrow rls-empty">이 이슈에 붙은 시험 항목이 없습니다.</div>
           )}
@@ -303,7 +293,28 @@ export default function Releases() {
   const [fOp, setFOp] = useState('')
   const [fType, setFType] = useState('')
   const [fStat, setFStat] = useState('')
-  const [open, setOpen] = useState<Set<string>>(new Set())
+  /** 접은 사업자 — 기본은 펴짐이다. 사업자가 서넛뿐이라 접힌 채로
+      시작하면 첫 화면이 비어 보인다. */
+  const [shut, setShut] = useState<Set<string>>(new Set())
+  const toggleOp = useCallback((op: string) => {
+    setShut((s0) => {
+      const n = new Set(s0)
+      if (!n.delete(op)) n.add(op)
+      return n
+    })
+  }, [])
+  /** **2열이 보여 줄 버전** — 한 번에 한 버전. 이슈가 백 건을 넘는 버전이
+      흔해서, 여러 버전을 한 줄기에 늘어놓으면 어디를 보고 있는지 잃는다. */
+  const [selVer, setSelVer] = useState(() => prefGet('utop.rls.ver') ?? '')
+  /** 1열 폭 — 계정별로 남는다(localStorage 직접 쓰기 금지) */
+  const [w1, setW1] = useState(() => {
+    const n = Number(prefGet('utop.rls.w1'))
+    return Number.isFinite(n) && n >= 160 && n <= 560 ? n : 268
+  })
+  /** 끌기가 끝날 때 「지금 폭」 을 읽어야 한다 — 핸들러가 잡아 둔 옛 값이
+      아니라. 이벤트 리스너는 붙을 때의 w1 만 안다. */
+  const w1Ref = useRef(w1)
+  w1Ref.current = w1
   const [openIssue, setOpenIssue] = useState<Set<string>>(new Set())
   /** 머리줄에서 고른 UTOP 프로젝트 — 바뀌면 이 화면도 따라간다 */
   const [utop, setUtop] = useState<string[]>(() => currentProjects())
@@ -331,13 +342,6 @@ export default function Releases() {
       return n
     })
   }, [])
-
-  const toggle = (set: Set<string>, k: string, put: (s: Set<string>) => void) => {
-    const n = new Set(set)
-    if (n.has(k)) n.delete(k)
-    else n.add(k)
-    put(n)
-  }
 
   /* ── 프로젝트 ── */
   /** UTOP 프로젝트들 — 어느 Jira 프로젝트에 물렸는지 여기 적혀 있다 */
@@ -724,6 +728,26 @@ export default function Releases() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [byVer, fType, fStat, tcMap, store, proj])
 
+  /** 2열이 그릴 것 — **고른 버전의 이슈만**. 필터(유형·상태)도 여기서 건다. */
+  const curRows = useMemo(
+    () => (selVer ? (byVer.get(selVer) ?? []).filter(keep) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selVer, byVer, fType, fStat],
+  )
+  const curStat = stat.get(selVer) ?? { n: 0, tc: 0, at: '' }
+
+  /* 고른 버전이 사라졌거나(치웠거나 프로젝트를 바꿨거나) 아직 없으면 —
+     맨 위 버전을 잡아 준다. 2열이 비어 있으면 「고장났다」 로 읽힌다. */
+  useEffect(() => {
+    const shown = tree.flatMap(([, list]) => list)
+    if (selVer && shown.includes(selVer)) return
+    setSelVer(shown[0] ?? '')
+  }, [tree, selVer])
+
+  useEffect(() => {
+    if (selVer) prefSet('utop.rls.ver', selVer)
+  }, [selVer])
+
   /** 이슈에 붙은 TC 를 고쳐 저장한다. 자료 모양은 옛 화면 그대로다 —
    *  `프로젝트@@버전` 안에 이슈키별 `{tcs:[…]}`. 읽은 것 **위에 얹어** 보낸다. */
   const saveTcs = useCallback(
@@ -793,7 +817,7 @@ export default function Releases() {
     <div className="rls">
       {/* ── 위 줄 — **프로젝트와 버전까지만** 불러온다(지시).
              세부는 Sync 를 눌러야 오고, 온 것은 저장된다. ── */}
-      <div className="rls-top">
+      <div className="panel rls-top">
         <b className="rls-h1">Releases</b>
         <select
           className="rls-sel"
@@ -928,64 +952,58 @@ export default function Releases() {
 
       {err && <div className="rls-err">Jira 를 읽지 못했습니다 — {err}</div>}
 
-      {/* ── 표 ── */}
-      <div className="rls-db">
-        {!allProjects.length && !upQ.isLoading && !projQ.isLoading && (
-          <div className="rls-none">
-            이 프로젝트에 물린 Jira 프로젝트가 없습니다 — 프로젝트 설정의 「Jira 프로젝트」 칸에서
-            물려 주세요.
+      {/* ── 2행 — **카드 두 장**(승인). 1열은 사업자 ▸ 버전, 2열은 고른
+             버전의 이슈. 한 줄기 트리로 늘어놓던 것을 갈랐다 — 버전이
+             다섯이고 이슈가 188건이면 한 줄기로는 어디를 보고 있는지
+             잃는다. REQ-Coverage 와 같은 배치라 익힐 것이 하나로 준다. ── */}
+      <div className="rls-split">
+
+        {/* 1열 — 사업자 ▸ 버전 */}
+        <section className="panel rls-c1" style={{ flexBasis: w1 }}>
+          <div className="rls-ch">
+            사업자 · 버전
+            <span className="n">버전 {savedVers.length}</span>
           </div>
-        )}
-        {!!allProjects.length && !sumQ.isLoading && !savedVers.length && (
-          <div className="rls-none">
-            프로젝트와 버전을 고르고 <b>Sync</b> 를 누르면 그 버전의 이슈를 가져와 <b>저장</b>합니다.
-            <br />
-            한 번 가져온 것은 다시 들어와도 그대로 있습니다.
-          </div>
-        )}
-        {sumQ.isLoading && <div className="rls-none">불러오는 중…</div>}
-        {tree.map(([op, list]) => {
-          const nIss = list.reduce((a, v) => a + (stat.get(v)?.n ?? 0), 0)
-          const oOpen = !open.has(`op:${op}`)
-          return (
-            <div key={op}>
-              <div className="rls-grow" role="button" tabIndex={0}
-                onClick={() => toggle(open, `op:${op}`, setOpen)}
-                onKeyDown={(e) => e.key === 'Enter' && toggle(open, `op:${op}`, setOpen)}>
-                <span className="rls-car">{oOpen ? '▾' : '▸'}</span>
-                <b>{op}</b>
-                <span className="rls-right">
-                  <span>버전 {list.length}</span>
-                  <span>이슈 {nIss}</span>
-                </span>
+          <div className="rls-cb">
+            {!allProjects.length && !upQ.isLoading && !projQ.isLoading && (
+              <div className="rls-none">
+                이 프로젝트에 물린 Jira 프로젝트가 없습니다 — 프로젝트 설정의 「Jira 프로젝트」
+                칸에서 물려 주세요.
               </div>
-              {oOpen &&
-                list.map((vn) => {
+            )}
+            {!!allProjects.length && !sumQ.isLoading && !savedVers.length && (
+              <div className="rls-none">
+                프로젝트와 버전을 고르고 <b>Sync</b> 를 누르면 그 버전의 이슈를 가져와{' '}
+                <b>저장</b>합니다.
+              </div>
+            )}
+            {sumQ.isLoading && <div className="rls-none">불러오는 중…</div>}
+            {tree.map(([op, list]) => (
+              <div key={op}>
+                <button type="button" className="rls-op" onClick={() => toggleOp(op)}>
+                  <span className="rls-car">{shut.has(op) ? '▸' : '▾'}</span>
+                  <b>{op}</b>
+                  <span className="n">{list.length}</span>
+                </button>
+                {!shut.has(op) && list.map((vn) => {
                   const v = verMeta.get(vn)
                   const st0 = stat.get(vn) ?? { n: 0, tc: 0, at: '' }
-                  const vOpen = open.has(`v:${vn}`)
-                  /* 접혀 있으면 이슈 목록을 **만들지도 않는다** — 97건을
-                     걸러 놓고 안 그리는 것은 그냥 버리는 일이다. */
-                  const rows = vOpen ? (byVer.get(vn) ?? []).filter(keep) : ([] as StoredIssue[])
                   return (
-                    <div key={vn}>
-                      <div className="rls-vrow" role="button" tabIndex={0}
-                        onClick={() => toggle(open, `v:${vn}`, setOpen)}
-                        onKeyDown={(e) => e.key === 'Enter' && toggle(open, `v:${vn}`, setOpen)}>
-                        <span className="rls-car">{vOpen ? '▾' : '▸'}</span>
+                    <div
+                      key={vn}
+                      className={`rls-ver${selVer === vn ? ' on' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      title={st0.at ? `마지막 Sync ${stamp(st0.at)}` : vn}
+                      onClick={() => setSelVer(vn)}
+                      onKeyDown={(e) => e.key === 'Enter' && setSelVer(vn)}
+                    >
+                      {/* **두 줄로 나눈다.** 한 줄에 이름·배지·수·단추를 다 넣었더니
+                          268px 칸에서 이름이 「E6100…」 으로 잘렸다 — 버전 이름은
+                          끝이 판별점이라 앞만 남으면 못 고른다. */}
+                      <div className="rls-vl1">
                         <span className="rls-vname">{vn}</span>
-                        {v?.released && <span className="rls-rel">released</span>}
-                        <span className="rls-right">
-                          {st0.at && (
-                            <span className="rls-at" title="마지막으로 Jira 에서 가져온 때">
-                              {stamp(st0.at)}
-                            </span>
-                          )}
-                          <span>Issues {st0.n}</span>
-                          <span>TC {st0.tc}</span>
-                          {v?.releaseDate && <span>{v.releaseDate}</span>}
-                          {/* 이 버전만 다시 가져온다(지시) — 한 버전 보려고
-                              고른 것 전부를 다시 받지 않는다 */}
+                        <span className="rls-vbs">
                           <button
                             type="button"
                             className="rls-vb"
@@ -1012,35 +1030,112 @@ export default function Releases() {
                           </button>
                         </span>
                       </div>
-                      {vOpen &&
-                        rows.map((it) => (
-                          <IssueRow
-                            key={`${vn}|${String(it.key ?? '')}`}
-                            it={it}
-                            ver={vn}
-                            open={openIssue.has(`${vn}|${String(it.key ?? '')}`)}
-                            tcs={tcMap.get(`${vn}|${String(it.key ?? '')}`) ?? EMPTY}
-                            tcById={tcById}
-                            resultOf={resultOf}
-                            onToggle={toggleIssue}
-                            onNew={openNew}
-                            onOpenTc={setTcOpen}
-                            openTc={tcOpen}
-                            onPick={openPick}
-                            onDrop={dropTc}
-                            onDetail={openDetail}
-                          />
-                        ))}
-                      {vOpen && !st0.n && (
-                        <div className="rls-iblock rls-empty">이 버전에 걸린 이슈가 없습니다.</div>
-                      )}
+                      <div className="rls-vl2">
+                        {v?.released && <span className="rls-rel">released</span>}
+                        {/* 이슈가 0건인 버전도 선다 — 「안 가져와졌다」 가 아니다 */}
+                        {st0.n ? (
+                          <span className="n">
+                            이슈 {st0.n} · TC {st0.tc}
+                          </span>
+                        ) : (
+                          <span className="rls-zero">이슈 0</span>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
-            </div>
-          )
-        })}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 끌어서 1열 폭을 바꾼다 — 폭은 계정별로 남는다 */}
+        <div
+          className="rls-sash"
+          role="separator"
+          title="끌어서 폭 조절"
+          onPointerDown={(e) => {
+            const x0 = e.clientX
+            const w0 = w1
+            const move = (m: PointerEvent) => setW1(Math.max(160, Math.min(560, w0 + m.clientX - x0)))
+            const up = () => {
+              window.removeEventListener('pointermove', move)
+              window.removeEventListener('pointerup', up)
+              prefSet('utop.rls.w1', String(w1Ref.current))
+            }
+            window.addEventListener('pointermove', move)
+            window.addEventListener('pointerup', up)
+          }}
+        />
+
+        {/* 2열 — 고른 버전의 이슈 */}
+        <section className="panel rls-c2">
+          <div className="rls-ch">
+            이슈
+            <b className="rls-cv">{selVer || '—'}</b>
+            <span className="n">
+              {selVer ? `${curStat.n}건 · TC ${curStat.tc}` : '왼쪽에서 버전을 고르세요'}
+            </span>
+          </div>
+          <div className="rls-cb">
+            {!selVer ? (
+              <div className="rls-none">왼쪽에서 버전을 고르면 그 버전의 이슈가 여기 섭니다.</div>
+            ) : !curRows.length ? (
+              <div className="rls-none">
+                이 버전에 걸린 이슈가 없습니다.
+                <br />
+                <span className="rls-sm">
+                  가져오기는 됐습니다 — {KINDS.join(' · ')} 가 한 건도 없는 빌드입니다.
+                </span>
+              </div>
+            ) : (
+              curRows.map((it) => (
+                <IssueRow
+                  key={`${selVer}|${String(it.key ?? '')}`}
+                  it={it}
+                  ver={selVer}
+                  open={openIssue.has(`${selVer}|${String(it.key ?? '')}`)}
+                  tcs={tcMap.get(`${selVer}|${String(it.key ?? '')}`) ?? EMPTY}
+                  tcById={tcById}
+                  resultOf={resultOf}
+                  onToggle={toggleIssue}
+                  onNew={openNew}
+                  onOpenTc={setTcOpen}
+                  openTc={tcOpen}
+                  onPick={openPick}
+                  onDrop={dropTc}
+                  onDetail={openDetail}
+                />
+              ))
+            )}
+          </div>
+        </section>
       </div>
+
+      {/* **시험 팝업**(승인) — 칩을 누르면 시험 항목 화면을 통째로 얹는다.
+          Info·Object·Topology·Traffic·Manual·Automation·Execution 이 그대로
+          서고 스텝도 여기서 적는다. 편집기를 두 벌 만들면 한쪽은 반드시
+          뒤처진다. */}
+      {!!tcOpen && (
+        <div
+          className="rls-scrim"
+          onMouseDown={(e) => e.target === e.currentTarget && setTcOpen('')}
+        >
+          <div className="rls-tcpop" role="dialog" aria-modal="true" aria-label={tcOpen}>
+            <header className="rls-poph">
+              <b>{tcOpen}</b>
+              <span className="rls-pn">{tcById.get(tcOpen)?.name ?? ''}</span>
+              <span className="sp" />
+              <button type="button" className="rls-popx" onClick={() => setTcOpen('')}>
+                ✕ 닫기
+              </button>
+            </header>
+            <div className="rls-popb">
+              <TestCases embedTc={tcOpen} onEmbedBack={() => setTcOpen('')} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {detail && (
         <IssueDrawer

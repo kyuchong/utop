@@ -29,6 +29,7 @@ const SYNC = new Set([
   'utop.ass.recent',
   // 끌어 맞춘 판·칸 폭(Resizer)
   'rqtcSideW', 'tcLogW', 'utop.ai.seqw', 'utop.cycle.execSideW', 'utop.tc.listW', 'utop.tc.seqW2',
+  'utop.rls.w1',
 ])
 /* 열쇠가 미리 안 정해지는 것들 — 표의 열마다 폭·숨김 열쇠가 생긴다.
    SYNC 는 정확히 맞는 열쇠만 봐서 utop.ntb.* 가 서버로 못 갔다(검증). */

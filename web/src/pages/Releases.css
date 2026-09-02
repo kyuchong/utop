@@ -1,25 +1,31 @@
 /* Releases — Jira 버전별 이슈와 그 이슈를 덮는 시험(주신 목업).
    접두어는 rls- 하나만. 이름이 겹치면 다른 화면이 조용히 망가진다. */
+/* **바깥은 카드가 아니다**(승인). 1행에 카드 한 장(도구줄), 2행에 카드 두
+   장(사업자·버전 / 이슈). 예전엔 큰 상자 하나 안에 다 넣어 두었는데,
+   그러면 어디까지가 한 덩어리인지 테두리로 읽히지 않았다. */
 .rls {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border: 1px solid var(--c-border, #e3eaec);
-  border-radius: 6px;
-  overflow: hidden;
+  gap: 8px;
+  /* 카드 **뒤**는 흰색이다 — REQ-Coverage 와 같다. 뒤를 안 깔면 카드
+     사이 8px 틈으로 화면 바탕(청록)이 그대로 비친다. 그 자리에 청록이
+     비쳐 보이는 것을 이미 한 번 지적받았다. */
+  background: var(--c-surface, #fff);
 }
 
-/* 위 줄 — 프로젝트 고르개. 옛 화면에서 이것만 가져왔다 */
-.rls-top {
+/* 위 줄 — 프로젝트 고르개. 옛 화면에서 이것만 가져왔다.
+   `.panel` 은 세로 쌓기라 **가로로 되돌려야 한다**. 클래스 하나짜리
+   선택자로 맞서면 CSS 가 읽히는 차례에 따라 도구가 한 줄에 하나씩 서
+   버린다(실제로 그랬다) — 두 클래스로 못박는다. */
+.panel.rls-top {
   flex: none;
-  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
-  padding: 8px 14px;
-  border-bottom: 1px solid #d9dde1;
-  background: #f7f8f9;
+  padding: 10px 12px;
+  flex-wrap: wrap;
 }
 .rls-h1 { font-size: 13.5px; font-weight: 800; white-space: nowrap; }
 .rls-sel {
@@ -75,34 +81,131 @@
   font-size: 12px;
 }
 
-/* 표 — 사업자 ▸ 버전 ▸ 이슈 ▸ TC */
-.rls-db { flex: 1; min-height: 0; overflow: auto; }
+/* ── 2행 — 카드 두 장 ───────────────────────────────────────────────
+   .rls-c1 사업자 ▸ 버전 (폭 조절)   .rls-c2 고른 버전의 이슈
+   가운데 .rls-sash 는 테두리가 없다 — 카드가 곧 칸이다. */
+.rls-split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 8px;
+}
+.rls-c1 { flex: none; min-width: 160px; }
+.rls-c2 { flex: 1; min-width: 0; }
+.rls-ch {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border-bottom: 1px solid #e6e8eb;
+  background: #fafbfc;
+  border-radius: var(--r-box, 6px) var(--r-box, 6px) 0 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #46555d;
+  white-space: nowrap;
+}
+.rls-ch .n {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  color: #8a949a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 2열 머리의 버전 이름 — 지금 무엇을 보고 있는지 */
+.rls-cv {
+  font-size: 12px;
+  font-weight: 800;
+  color: #3b6aa5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46%;
+}
+.rls-cb { flex: 1; min-height: 0; overflow: auto; }
+.rls-sm { font-size: 11.5px; color: #98a2a8; }
+
+/* 끌개 — 얇지만 잡히는 자리는 넉넉하게 */
+.rls-sash {
+  flex: none;
+  width: 2px;
+  margin: 0 -3px;
+  padding: 0 3px;
+  background-clip: content-box;
+  background-color: transparent;
+  cursor: col-resize;
+  z-index: 2;
+}
+.rls-sash:hover { background-color: #b9c6d4; }
+
+/* 1열 — 사업자 머리 · 버전 줄 */
+.rls-op {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid #eef0f2;
+  background: #fbfbfb;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  color: #46555d;
+  text-align: left;
+  cursor: pointer;
+}
+.rls-op:hover { background: #f3f5f7; }
+.rls-op .n { margin-left: auto; font-size: 11px; font-weight: 400; color: #8a949a; }
+/* 버전 한 칸 — 두 줄. 위는 이름(+↻·✕), 아래는 released·이슈·TC 수 */
+.rls-ver {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 8px 6px 24px;
+  border-bottom: 1px solid #f1f2f4;
+  cursor: pointer;
+  min-width: 0;
+}
+.rls-vl1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rls-vl2 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rls-ver:hover { background: #f6f7f8; }
+/* 고른 버전 — 왼쪽에 굵은 자국을 둔다. 배경색만으로는 스캔이 안 된다 */
+.rls-ver.on {
+  background: #eef4fb;
+  box-shadow: inset 3px 0 0 #3b6aa5;
+}
+.rls-ver .n {
+  font-size: 11px;
+  color: #8a949a;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* 이슈 0건 — 「못 가져왔다」 가 아니라 「가져왔는데 0건」 이다 */
+.rls-zero {
+  font-size: 10.5px;
+  color: #98a2a8;
+  background: #f1f3f5;
+  border-radius: 9px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+/* 사업자 · 버전 칸에서 ↻·✕ 는 **가리키거나 고른 줄에서만** 뜬다. 늘
+   세워 두면 좁은 1열에서 버전 이름이 밀려 잘린다 — 이름이 먼저다. */
+.rls-vbs { flex: none; display: flex; gap: 4px; visibility: hidden; }
+.rls-ver:hover .rls-vbs, .rls-ver.on .rls-vbs { visibility: visible; }
 .rls-none { padding: 26px 16px; text-align: center; color: #8a949a; font-size: 12.5px; }
 
-.rls-grow,
-.rls-vrow,
 .rls-irow {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.rls-grow {
-  height: 38px;
-  padding: 0 10px;
-  border-bottom: 1px solid #e6e8eb;
-  font-weight: 700;
-  background: #fbfbfb;
-  cursor: pointer;
-}
-.rls-grow:hover, .rls-vrow:hover { background: #f6f7f8; }
-.rls-vrow {
-  height: 36px;
-  padding: 0 10px 0 28px;
-  border-bottom: 1px solid #e6e8eb;
-  cursor: pointer;
-}
-.rls-vname { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rls-vname { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rls-rel {
   flex: none;
   font-size: 10px;
@@ -131,21 +234,12 @@
   cursor: pointer;
 }
 .rls-car:hover { background: #e9eef1; color: #46555d; }
-.rls-right {
-  margin-left: auto;
-  display: flex;
-  gap: 10px;
-  color: #8a949a;
-  font-size: 11px;
-  font-weight: 400;
-  white-space: nowrap;
-}
 
 /* 이슈 */
 .rls-iblock { border-bottom: 1px solid #eef0f2; }
 /* 이슈 한 줄 — 제목까지 **같은 줄에**(지시). 제목이 남는 자리를 먹고
    길면 … 로 자른다. */
-.rls-irow { height: 34px; padding: 0 10px 0 46px; gap: 12px; }
+.rls-irow { height: 34px; padding: 0 10px; gap: 12px; }
 .rls-irow:hover { background: #f6f7f8; }
 .rls-key { font-weight: 700; color: #3b6aa5; min-width: 92px; flex: none; }
 .rls-type { min-width: 74px; flex: none; color: #6f55a0; font-size: 11.5px; }
@@ -180,14 +274,14 @@
 .rls-tcs {
   border-top: 1px solid #f0f1f2;
   background: #fcfcfc;
-  padding: 0 12px 8px 44px;
+  padding: 0 12px 8px 30px;
 }
 .rls-tcrow {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 30px;
-  padding: 0 10px 0 64px;
+  padding: 0 10px;
   border-bottom: 1px solid #f2f3f4;
   font-size: 12px;
 }
@@ -198,7 +292,7 @@
 .rls-res { flex: none; font-size: 10px; font-weight: 800; min-width: 42px; text-align: right; }
 .rls-res.pass { color: #2c8b5b; }
 .rls-res.fail { color: #d43f5f; }
-.rls-empty { color: #98a2a8; font-size: 11.5px; padding: 10px 10px 10px 64px; }
+.rls-empty { color: #98a2a8; font-size: 11.5px; padding: 8px 10px; }
 
 
 /* 버전 고르기 — 체크박스 목록. 한 줄 고르개로는 상태·날짜·설명을 못 낸다 */
@@ -487,20 +581,63 @@
 }
 .rls-tabx:hover { color: #d43f5f; }
 
-/* 펼친 시험 — 시험 항목 화면을 통째로 얹는다 */
-.rls-inline {
-  border: 1px solid #dde3e6;
-  border-radius: 9px;
+/* 시험 팝업 — 칩을 누르면 시험 항목 화면을 통째로 얹는다(승인).
+   2열 안에 끼워 넣어 보았더니 Info·Topology·Manual 이 들어가기엔 칸이
+   좁아 글자가 접혔다. 화면을 거의 다 쓴다. */
+.rls-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(16, 24, 32, 0.34);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+}
+.rls-tcpop {
+  width: min(1480px, 96vw);
+  height: min(920px, 92vh);
   background: #fff;
-  overflow: hidden;
-  height: 620px;
+  border: 1px solid var(--c-border, #c3cbd4);
+  border-radius: 8px;
+  box-shadow: 0 18px 48px rgba(16, 24, 32, 0.26);
   display: flex;
   flex-direction: column;
-  margin-bottom: 8px;
+  overflow: hidden;
 }
-.rls-inline > * { flex: 1; min-height: 0; }
+.rls-poph {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: 1px solid #e6e8eb;
+  background: #fafbfc;
+}
+.rls-poph b { color: #0a8795; font-size: 12.5px; }
+.rls-pn {
+  font-size: 12px;
+  color: #56656d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+.rls-poph .sp { flex: 1; }
+.rls-popx {
+  border: 1px solid #d7dce0;
+  background: #fff;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: #46555d;
+  cursor: pointer;
+}
+.rls-popx:hover { background: #f6f7f8; }
+.rls-popb { flex: 1; min-height: 0; display: flex; }
+.rls-popb > * { flex: 1; min-height: 0; }
 /* 끼워 넣은 시험 화면의 제 목록 줄은 감춘다 — 여기엔 이 시험 하나뿐이다 */
-.rls-inline .rq-bar { display: none; }
-/* 「← 목록」 은 여기선 뜻이 다르다 — 돌아갈 목록은 바로 위 탭 줄이다.
-   그래서 남겨 둔다(누르면 이 판이 접힌다). 이름만 헷갈리지 않게 줄인다. */
-.rls-inline .tc-dethead { padding-left: 8px; }
+.rls-popb .rq-bar { display: none; }
+.rls-popb .tc-dethead { padding-left: 8px; }
