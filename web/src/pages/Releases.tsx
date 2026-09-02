@@ -197,6 +197,12 @@ const IssueRow = memo(function IssueRow({
         >
           {k}
         </button>
+        {/* 제목을 **같은 줄에** 둔다(지시: 「왜 2행이야」). 제목이 가운데를
+            채우고, 유형·상태·사람은 오른쪽에 붙는다 — 한 이슈가 한 줄이면
+            백 건을 훑을 때 눈이 위아래로 안 튄다. */}
+        <span className="rls-ititle" title={it.summary ?? ''}>
+          {it.summary ?? ''}
+        </span>
         <span className="rls-type">{it.type ?? ''}</span>
         <span className={`rls-stat ${it.statusCat ?? ''}`}>{it.status ?? ''}</span>
         <span className="rls-person">
@@ -209,7 +215,6 @@ const IssueRow = memo(function IssueRow({
         </span>
         <span className="rls-tcn">TC {tcs.length}</span>
       </div>
-      <div className="rls-ititle">{it.summary ?? ''}</div>
       {open && (
         <div className="rls-tcs">
           {tcs.map((tcid) => {
