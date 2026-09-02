@@ -260,7 +260,8 @@
   color: #9bacb2; text-transform: uppercase; letter-spacing: 0.3px;
 }
 .rd-lb > b { flex: none; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.rd-lb > i { font-style: normal; font-size: 11px; color: #8fa3a9; min-width: 0; }
+/* 곁들이는 값(시작 시각 등)이 너무 흐려 안 보였다(지적) — 한 급 진하게 */
+.rd-lb > i { font-style: normal; font-size: 11px; color: #6b7e85; min-width: 0; }
 .rd-lb > i .p { color: #16a05b; font-weight: 700; margin-right: 6px; }
 .rd-lb > i .f { color: #e34663; font-weight: 700; margin-right: 6px; }
 .rd-bar2 {

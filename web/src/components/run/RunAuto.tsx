@@ -33,6 +33,9 @@ export interface AutoStep {
   waitSec?: number
   /** 실제로 돌았나 — 판정이 없는 스텝과 안 돌린 스텝을 가른다 */
   ran?: boolean
+  /** 비교 스텝이 통과·실패일 때 적어 둔 문구 */
+  okMsg?: string
+  ngMsg?: string
 }
 
 export interface AutoItem {
@@ -54,6 +57,17 @@ const TITLE: Record<PanelId, string> = {
   tc: '시험 항목',
 }
 const RESN: Record<string, string> = { p: 'PASS', f: 'FAIL', b: '기타', n: 'WAIT' }
+/** 걸린 시간 — **분:초**(지시). 「20.01s」 보다 「00:20」 이 표에서 줄이 맞는다.
+ *  1초가 안 걸린 스텝은 00:00 이다 — 그건 정말 순식간이라는 뜻이다. */
+function mmss(v?: string): string {
+  const raw = String(v ?? '').trim()
+  if (!raw) return '—'
+  const sec = Number(raw.replace(/s$/, ''))
+  if (!Number.isFinite(sec)) return raw
+  const t = Math.round(sec)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(Math.floor(t / 60))}:${p(t % 60)}`
+}
 /** 이벤트 시각 — **연월일까지**(지시). 시분초만 있으면 어제 것인지 오늘
  *  것인지 알 수 없다. 자료에 ISO('…T08:01:41Z')와 'YYYY-MM-DD HH:MM:SS'
  *  두 꼴이 섞여 있어 둘 다 받는다. */
@@ -199,7 +213,13 @@ export default function RunAuto({
           at,
           step: `Step ${s.no}`,
           kind: s.mark === 'Pass' ? 'PASS' : 'FAIL',
-          text: s.mark === 'Pass' ? `${s.t} — 기준 맞음` : `${s.t} — 기준 어긋남`,
+          /* 사람이 적어 둔 판정 문구가 있으면 **그것**을 적는다(지시).
+             「기준 맞음」 은 아무것도 안 알려 준다 — 무엇이 왜 맞았는지는
+             그 문구에 있다. 없을 때만 기본 말로 떨어진다. */
+          text:
+            s.mark === 'Pass'
+              ? s.okMsg || `${s.t} — 기준 맞음`
+              : s.ngMsg || `${s.t} — 기준 어긋남`,
         })
     })
     return out
@@ -356,7 +376,7 @@ export default function RunAuto({
                         </span>
                       )}
                     </td>
-                    <td className="ra-num">{s.took || s.at || '—'}</td>
+                    <td className="ra-num">{mmss(s.took)}</td>
                   </tr>
                 ))}
               </tbody>

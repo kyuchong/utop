@@ -65,6 +65,33 @@ interface DeviceLite {
 }
 
 /** 수동 항목의 확인 절차 — TC 의 manual 스텝이 있으면 그것을, 없으면 기본 네 줄 */
+/** 이름이 없는 스텝의 **제 이름**.
+ *
+ *  대기·비교 스텝에는 desc·cli 가 없어 「스텝 2」 · 「스텝 5」 로 떴다(지적).
+ *  자료에 이미 뜻이 들어 있다 — 대기는 몇 초인지, 비교는 무엇을 견주는지.
+ */
+function autoName(raw: Record<string, unknown>): string {
+  const kind = String(raw?.kind ?? '').toLowerCase()
+  if (kind === 'wait') {
+    const sec = Number(raw?.waitSec ?? 0)
+    return sec > 0 ? `${sec}초 대기` : '대기'
+  }
+  if (kind === 'diff') {
+    /* conds 가 정본이다(l · op · r). 없으면 옛 칸(cmpLeft·cmpRight)으로. */
+    const cs = Array.isArray(raw?.conds) ? (raw.conds as Array<Record<string, unknown>>) : []
+    const join = String(raw?.condJoin ?? 'and').toLowerCase() === 'or' ? ' || ' : ' && '
+    const parts = cs
+      .map((c) => `${String(c?.l ?? '')} ${String(c?.op ?? '==')} ${String(c?.r ?? '')}`.trim())
+      .filter((x) => x.length > 2)
+    if (parts.length) return parts.join(join)
+    const l = String(raw?.cmpLeft ?? '')
+    const r = String(raw?.cmpRight ?? '')
+    if (l || r) return `${l} ${String(raw?.cmpOp ?? '==')} ${r}`.trim()
+    return '비교'
+  }
+  return ''
+}
+
 /** 스텝 하나를 화면이 아는 모양으로 바꾼다.
  *
  * 실제 자료의 칸 이름은 목업과 다르다 — 절차는 `cli`(명령)·`desc`(설명)·
@@ -74,6 +101,8 @@ interface DeviceLite {
 function asStep(raw: Record<string, unknown>, i: number): {
   no: number; t: string; cmd: string; expected: string; action: string
   session: string; out: string; mark?: string; took?: string; waitSec?: number; at?: string
+  /** 비교 스텝이 통과·실패일 때 적어 둔 문구 */
+  okMsg?: string; ngMsg?: string
   /** 이 스텝이 실제로 돌았나. 판정이 없는 스텝(대기·조회)과 **안 돌린 스텝**은 다르다 */
   ran?: boolean
 } {
@@ -98,7 +127,7 @@ function asStep(raw: Record<string, unknown>, i: number): {
     /* 「스텝 2」 같은 자리 채우개를 여기서 넣으면, 로그 쪽 채우개가 정의
        쪽 진짜 이름을 이겨 버린다(지적: Description 이 「스텝 2」). 비워
        두고, 그릴 때 채운다. */
-    t: g('desc') || g('step') || g('t') || cli,
+    t: g('desc') || g('step') || g('t') || cli || autoName(raw),
     cmd: cli,
     expected: expected || '—',
     action: g('action') || (g('kind') === 'cli' || cli ? 'command' : g('kind')) || '—',
@@ -110,6 +139,9 @@ function asStep(raw: Record<string, unknown>, i: number): {
     /* 스텝이 **언제** 돌았나. 안 실으면 이벤트 줄이 전부 항목 끝난 시각
        하나로 찍혀, 무엇이 먼저였는지 알 수 없다. */
     at: g('executed_at') || g('at') || undefined,
+    /* 사람이 적어 둔 판정 문구. 실행 이벤트가 「기준 맞음」 대신 이걸 적는다(지시) */
+    okMsg: g('msgYes') || g('trueMsg') || undefined,
+    ngMsg: g('msgNo') || g('falseMsg') || undefined,
     /* 걸린 시간이나 출력이 있으면 돈 것이다. 실행기는 판정 기준이 없는
        스텝(대기·단순 조회)에는 status 를 안 남긴다 — 그걸 「미실행」 으로
        그려서 「건너뛴 것 같다」 는 말이 나왔다(지적). */
@@ -847,6 +879,8 @@ export default function RunDetail({
                 waitSec: l.waitSec ?? d2.waitSec,
                 ran: l.ran ?? d2.ran,
                 at: l.at ?? d2.at,
+                okMsg: l.okMsg ?? d2.okMsg,
+                ngMsg: l.ngMsg ?? d2.ngMsg,
               }
             })
           })()}
