@@ -55,7 +55,7 @@ export function PlanRunPopup({
         {/* RunDetail 은 `.panel` 안에 서는 것을 전제로 만들어졌다(바탕을
             거기서 받는다) — 옷은 입히되 테두리는 창이 이미 가졌으니 뺀다. */}
         <div className="panel cyrp-body">
-          <RunDetail runId={runId} plan={plan} onBack={onClose} onGone={onClose} />
+          <RunDetail runId={runId} plan={plan} onBack={onClose} />
         </div>
       </div>
     </div>

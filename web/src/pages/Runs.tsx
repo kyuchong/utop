@@ -337,7 +337,6 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
         runId={sel}
         plan={r?.plan_id ? planOf.get(r.plan_id) : undefined}
         onBack={closeRun}
-        onGone={closeRun}
       />
     )
   }

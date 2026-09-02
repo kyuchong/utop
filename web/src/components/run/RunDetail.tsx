@@ -176,12 +176,14 @@ function manualSteps(tc?: Record<string, unknown>): Array<{ t: string; e: string
 }
 
 export default function RunDetail({
-  runId, plan, onBack, onGone,
+  runId, plan, onBack,
 }: {
   runId: string
   plan?: CycleMeta
+  /* 「이 실행이 없어졌다」 를 알리던 손잡이는 걷었다 — 그 일을 하던 삭제
+     단추를 빼면서 부를 자리가 없어졌다(지시). 지우기는 Runs 목록에서 한다.
+     안 쓰는 손잡이를 남기면 다음 사람이 살아 있는 줄로 읽는다. */
   onBack: () => void
-  onGone: () => void
 }) {
   const qc = useQueryClient()
   const [cur, setCur] = useState('')
@@ -778,18 +780,9 @@ export default function RunDetail({
             ▶ 이 항목만 실행
           </button>
         )}
-        <button
-          type="button"
-          className="rd-btn danger"
-          onClick={async () => {
-            if (!window.confirm(`실행 ${run.id} 을 지웁니다. 결과도 함께 사라집니다.`)) return
-            await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}`, { method: 'DELETE' })
-            await qc.invalidateQueries({ queryKey: ['plan-runs'] })
-            onGone()
-          }}
-        >
-          삭제
-        </button>
+        {/* 「삭제」 는 뺐다(지시). 보고 있는 것을 그 자리에서 지우는 단추는
+            누를 일보다 잘못 누를 일이 많다 — 지우기는 목록에서 골라서 한다
+            (Runs 표의 여러 건 지우기. 결과가 있는 것은 거기서 미리 알린다). */}
       </div>
 
       {/* ── 위 띠 — 목업의 네 칸 ── */}
