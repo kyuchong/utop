@@ -166,13 +166,18 @@ export function MakePlanRun({
     if (f) setFam(f)
   }, [mdl, famOf, famTouched])
 
-  /* 버전 이름을 고치면 버전그룹도 따라간다 — 사람이 따로 손대기 전까지만.
-     R100_2026_09_02 를 치면 폴더는 R100 이 되는 것이 자연스럽다. */
-  const [vgTouched, setVgTouched] = useState(false)
+  /* 버전 이름을 다 치면 버전그룹이 그 앞머리로 따라간다.
+     R101_2026_09_10 을 치면 폴더는 R101 이 되는 것이 자연스럽다.
+
+     **다 친 뒤에만** 따라간다(shape). 예전엔 한 글자마다 따라가서, 「이상한
+     이름」 을 치는 도중 그것이 통째로 버전그룹이 되고 「오늘」 이 그 위에
+     날짜를 붙였다 — 이상한이름_2026_09_02 (검증에서 잡음). */
   useEffect(() => {
-    if (vgTouched) return
-    setVg(ver.split('_')[0] ?? '')
-  }, [ver, vgTouched])
+    const v = ver.trim()
+    if (!/^[A-Za-z]\w*_\d{4}_\d{2}_\d{2}$/.test(v)) return
+    const h = v.split('_')[0] ?? ''
+    if (h) setVg(h)
+  }, [ver])
 
   /** 오늘 — YYYY-MM-DD. 자리 채움 0 까지 맞춘다 */
   const ymd = (d: Date) =>
@@ -196,8 +201,12 @@ export function MakePlanRun({
   /** 「오늘」 단추 — 버전그룹 뒤에 오늘 날짜를 붙인다(R100_2026_09_02).
    *  빌드 이름을 손으로 치다 자릿수를 틀리는 일이 잦다. */
   const stampToday = () => {
+    if (!vg) {
+      window.alert('버전그룹을 먼저 고르세요 — 그 뒤에 오늘 날짜를 붙입니다')
+      return
+    }
     const d = new Date()
-    setVer(`${vg || 'R'}_${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, '0')}_${String(d.getDate()).padStart(2, '0')}`)
+    setVer(`${vg}_${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, '0')}_${String(d.getDate()).padStart(2, '0')}`)
   }
 
   const save = async () => {
@@ -294,10 +303,7 @@ export function MakePlanRun({
             )
           }, groups, true)}
           {sel('모델명', mdl, setMdl, models, true)}
-          {sel('버전그룹', vg, (v) => {
-            setVgTouched(true)
-            setVg(v)
-          }, vgList, true)}
+          {sel('버전그룹', vg, setVg, vgList, true)}
 
           <div className="cyrp-sep" />
 
