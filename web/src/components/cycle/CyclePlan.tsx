@@ -34,7 +34,10 @@ interface Props {
   /** ← 뒤로 — 플랜이면 목록(표)으로, 실행이면 플랜으로 */
   onBack: () => void
   /** ▶ 실행 — 플랜에서 실행 화면으로 넘어간다(별도 화면) */
-  onExec: () => void
+  /** ▶ 실행 — **어느 플랜인지 여기서 준다.**
+   *  위 화면(Cycles)의 sel 은 「실행 화면에서 고른 것」 이라 플랜을 보고
+   *  있을 때는 비어 있다. 그것을 넘기고 있어서 눌러도 아무 일이 없었다. */
+  onExec: (id: string) => void
   /** ＋ 실행 만들기 — **창을 띄운다**(지시). 모델·버전을 묻고 만든다.
    *  여기서 바로 만들면 플랜 값 그대로라, 다른 모델·다른 빌드로 돌 때
    *  이름을 나중에 고치는 수밖에 없었다. */
@@ -573,7 +576,7 @@ export default function CyclePlan({
               {mode === 'plan' ? (
                 /* 플랜의 ▶ 실행 = **실행 화면으로 이동**(Testiny — 딴 화면).
                    자동 실행 UI 는 따로 온다(지시). */
-                <button type="button" className="btn small cpl-teal" onClick={onExec}>
+                <button type="button" className="btn small cpl-teal" onClick={() => onExec(cur.id)}>
                   ▶ 실행
                 </button>
               ) : (
@@ -773,7 +776,7 @@ export default function CyclePlan({
                   </div>
                   <div className="cpl-card cpl-openrun">
                     <div className="cpl-cardh">시험 실행 열기</div>
-                    <button type="button" onClick={onExec} title="실행 화면으로 갑니다">
+                    <button type="button" onClick={() => onExec(cur.id)} title="실행 화면으로 갑니다">
                       <span className="cpl-openrun-ico">▶</span>
                       <span className="cpl-openrun-id">{String(cur.ce || cur.cid || cur.id)}</span>
                     </button>
@@ -814,7 +817,7 @@ export default function CyclePlan({
                       </tr>
                     </thead>
                     <tbody>
-                      <tr onClick={onExec} title="실행 화면으로 갑니다">
+                      <tr onClick={() => onExec(cur.id)} title="실행 화면으로 갑니다">
                         <td><span className="cpl-runid">{String(cur.ce || cur.cid || cur.id)}</span></td>
                         <td>▶ {cur.name || '(이름 없음)'}</td>
                         <td>

@@ -456,7 +456,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
    *  「▶ 실행」 은 **넘어가지 않고 팝업으로 연다**(지시). 플랜에서 항목을
    *  보다가 한 번 돌려 보고 그 자리로 돌아오는 것이 원래 하던 일이다 —
    *  화면을 갈아타면 보던 자리를 잃는다. */
-  const [runPop, setRunPop] = useState('')
+  const [runPop, setRunPop] = useState<{ run: string; plan: string } | null>(null)
   const [mkRunFor, setMkRunFor] = useState('')
 
   const openRunOf = async (planId: string) => {
@@ -466,7 +466,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
       const j = r.ok ? ((await r.json()) as { runs?: Array<{ id: string }> }) : { runs: [] }
       const got = (j.runs ?? [])[0]
       if (got) {
-        setRunPop(got.id)
+        setRunPop({ run: got.id, plan: planId })
         return
       }
       const p = cycles.find((c) => c.id === planId)
@@ -480,7 +480,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
       })
       if (!mk.ok) throw new Error('실행을 만들지 못했습니다')
       const made = (await mk.json()) as { id?: string }
-      if (made.id) setRunPop(made.id)
+      if (made.id) setRunPop({ run: made.id, plan: planId })
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '실행을 열지 못했습니다')
     }
@@ -891,10 +891,10 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
              얹어, 시작·중지·항목별 실행까지 이 자리에서 된다. */}
       {runPop && (
         <PlanRunPopup
-          runId={runPop}
-          plan={cycles.find((c) => c.id === sel)}
+          runId={runPop.run}
+          plan={cycles.find((c) => c.id === runPop.plan)}
           onClose={() => {
-            setRunPop('')
+            setRunPop(null)
             void listQ.refetch()
           }}
         />
@@ -911,7 +911,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
             onClose={() => setMkRunFor('')}
             onMade={(id) => {
               setMkRunFor('')
-              setRunPop(id)
+              setRunPop({ run: id, plan: p.id })
               void listQ.refetch()
             }}
           />
@@ -998,7 +998,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
             onBack={() => goView('list')}
             /* ▶ 실행 — 이 플랜의 실행을 **Runs 에서** 연다. 이미 있으면 최근
                것으로, 없으면 하나 떠서 간다(지시: Plans 에서 실행 누르면 Runs) */
-            onExec={() => void openRunOf(sel)}
+            onExec={(id) => void openRunOf(id)}
             onMakeRun={(id) => setMkRunFor(id)}
             onEdit={(id) => setEditId(id)}
             onAddItems={(id) => setAddToId(id)}
