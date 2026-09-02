@@ -186,7 +186,6 @@ export default function RunDetail({
   const [cur, setCur] = useState('')
   const [stepAt, setStepAt] = useState(0)
   /* 판정하면 다음 항목으로 — 두 판 화면은 표에서 직접 고르므로 늘 켠다 */
-  const [bindOpen, setBindOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   /* 경과 시간 — **도는 동안에만** 1초마다 다시 그린다. 끝났는데도 계속
      세면 화면은 「끝났습니다」 라면서 시계는 올라간다(지적). */
@@ -593,6 +592,34 @@ export default function RunDetail({
     }
   }
 
+  /** **고른 항목 하나만** 돌린다(지시).
+   *  서버는 pick(플랜 항목의 자리 번호)을 받는다 — 그것만 걸면 나머지
+   *  항목의 결과는 건드리지 않는다. */
+  const startOne = async () => {
+    if (busy || !cur) return
+    const items = (plan?.items ?? []) as Array<{ tcid?: string }>
+    const at = items.findIndex((x) => String(x?.tcid ?? '') === cur)
+    if (at < 0) {
+      window.alert('이 항목이 플랜에 없습니다 — 플랜에서 빠졌는지 보세요')
+      return
+    }
+    setBusy(true)
+    try {
+      const r = await apiFetch('/api/runs', {
+        method: 'POST',
+        body: JSON.stringify({ plan_run_id: runId, pick: [at] }),
+      })
+      const j = (await r.json().catch(() => ({}))) as { run?: { id?: string }; detail?: string }
+      if (!r.ok) throw new Error(j.detail || '실행기에 걸지 못했습니다')
+      froze.current = ''
+      await save({ started_at: new Date().toISOString(), runner: run?.owner ?? '', job_id: String(j.run?.id ?? '') })
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '실행기에 걸지 못했습니다')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   /** 중지. 도는 일감이 있으면 실행기에 부탁하고(스텝 사이에서 내려온다),
       없으면 시작 기록만 지운다. */
   const stop = async () => {
@@ -615,32 +642,8 @@ export default function RunDetail({
     await save({ pmeta: { ...(run?.pmeta ?? {}), [cid]: mArr } })
   }
 
-  /** 실패·기타만 모아 같은 빌드로 다시 뜬다 — 33건 중 2건 고치자고 전체를 안 돌린다 */
-  const rerun = async () => {
-    const bad = ids.filter((k) => results[k] === 'f' || results[k] === 'b')
-    if (!bad.length) {
-      window.alert('다시 돌릴 실패 항목이 없습니다')
-      return
-    }
-    if (!window.confirm(`실패·기타 ${bad.length}건만 모아 새 실행을 만듭니다.`)) return
-    const r = await apiFetch('/api/plan-runs', {
-      method: 'POST',
-      body: JSON.stringify({
-        plan_id: run?.plan_id ?? '',
-        version: run?.version ?? '',
-        name: `${run?.name ?? runId} 재시험`,
-        rerun_of: runId,
-        results: Object.fromEntries(bad.map((k) => [k, 'n'])),
-        binds: run?.binds ?? {},
-      }),
-    })
-    if (!r.ok) {
-      window.alert('재시험을 만들지 못했습니다')
-      return
-    }
-    await qc.invalidateQueries({ queryKey: ['plan-runs'] })
-    onBack()
-  }
+  /* 「실패만 재시험」 은 뺐다(지시) — 그 길만 쓰던 rerun 도 함께 걷는다.
+     안 쓰는 길을 남겨 두면 다음 사람이 살아 있는 줄로 읽는다. */
 
   if (runQ.isLoading) return <div className="rd-empty">불러오는 중…</div>
   if (!run) return <div className="rd-empty">실행을 찾을 수 없습니다</div>
@@ -714,19 +717,26 @@ export default function RunDetail({
             {busy ? '거는 중…' : jobDone ? '▶ 다시 실행' : '▶ 시험 시작'}
           </button>
         )}
-        <button type="button" className="rd-btn" onClick={() => setBindOpen(true)}>
-          장비 배정
-        </button>
-        <button type="button" className="rd-btn" onClick={() => void rerun()}>
-          실패만 재시험
-        </button>
-        <button
-          type="button"
-          className="rd-btn"
-          onClick={() => void save({ closed_at: run.closed_at ? null : new Date().toISOString() })}
-        >
-          {run.closed_at ? '실행 열기' : '실행 닫기'}
-        </button>
+        {/* 「장비 배정」 은 뺐다 — binds 를 저장만 하고 실행기가 안 읽어,
+            배정해도 그 장비로 안 돌았다(죽은 단추였다).
+            「실패만 재시험」·「실행 닫기」 도 뺐다(지시). */}
+        {isAuto && (
+          <button
+            type="button"
+            className="rd-btn"
+            disabled={busy || !cur || jobLive}
+            title={
+              jobLive
+                ? '지금 돌고 있습니다'
+                : cur
+                  ? `${cur} 하나만 실행기에 겁니다 — 나머지 결과는 그대로 둡니다`
+                  : '먼저 시험 항목을 고르세요'
+            }
+            onClick={() => void startOne()}
+          >
+            ▶ 이 항목만 실행
+          </button>
+        )}
         <button
           type="button"
           className="rd-btn danger"
@@ -1011,74 +1021,8 @@ export default function RunDetail({
           onBug={() => void qc.invalidateQueries({ queryKey: ['plan-run', runId] })}
         />
       )}
-      {bindOpen && (
-        <BindDevices
-          binds={binds}
-          devices={devices}
-          onClose={() => setBindOpen(false)}
-          onSave={async (b) => {
-            await save({ binds: b })
-            setBindOpen(false)
-          }}
-        />
-      )}
     </div>
   )
 }
 
 /** 역할(DUT·ONU1…)에 이번 실행에서 붙일 장비를 고른다 */
-function BindDevices({
-  binds, devices, onClose, onSave,
-}: {
-  binds: Record<string, string>
-  devices: DeviceLite[]
-  onClose: () => void
-  onSave: (b: Record<string, string>) => void | Promise<void>
-}) {
-  const ROLES = ['DUT', 'ONU1', 'ONU2', 'TG1']
-  const [val, setVal] = useState<Record<string, string>>({ ...binds })
-  return (
-    <div className="rd-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="rd-modal" role="dialog" aria-modal="true" aria-label="장비 배정">
-        <header>장비 배정</header>
-        <div className="rd-mbody">
-          <p className="rd-note2">
-            시험 항목은 <b>역할</b>(DUT·ONU1…)만 가리킵니다. 이번 실행에서 그 역할에 붙일 장비를
-            고르세요. 다른 실행에는 영향이 없습니다.
-          </p>
-          {ROLES.map((role) => (
-            <label className="rd-fld" key={role}>
-              <span>{role}</span>
-              <select
-                value={val[role] ?? ''}
-                onChange={(e) => setVal((v) => ({ ...v, [role]: e.target.value }))}
-              >
-                <option value="">— 안 붙임 —</option>
-                {devices.map((d) => (
-                  <option key={String(d.id)} value={String(d.id)}>
-                    {d.name} · {d.ip ?? ''} {d.model ? `(${d.model})` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-        </div>
-        <footer>
-          <span className="rd-sp" />
-          <button type="button" className="rd-btn" onClick={onClose}>
-            취소
-          </button>
-          <button
-            type="button"
-            className="rd-btn pri"
-            onClick={() =>
-              void onSave(Object.fromEntries(Object.entries(val).filter(([, v]) => v)))
-            }
-          >
-            저장
-          </button>
-        </footer>
-      </div>
-    </div>
-  )
-}
