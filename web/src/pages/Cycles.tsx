@@ -927,6 +927,14 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
             owner={me?.name || me?.username || ''}
             /* 이미 쓰고 있는 버전그룹 — 손으로 치면 Runs 트리 폴더가 갈린다 */
             vgroups={vgQ.data?.groups ?? {}}
+            /* 표의 그 줄이 그리는 값 그대로(지시). 식이 갈리면 표와 창이
+               다른 말을 한다 — 위 nRows 의 family·model_group 과 같다. */
+            seed={{
+              family: p.family || famOf.get(p.model ?? '') || '',
+              model_group: p.model_group || mgroupOf.get(p.model ?? '') || '',
+              model: p.model ?? '',
+              version_group: p.version_group ?? '',
+            }}
             onClose={() => setMkRunFor('')}
             onMade={(id) => {
               /* 만든 뒤에는 **Runs 화면으로 넘어간다**(지시). 「▶ 실행」 은

@@ -72,12 +72,20 @@ export function PlanRunPopup({
  * 가는 일이다.
  */
 export function MakePlanRun({
-  plan, catalog, owner, vgroups = {}, onClose, onMade,
+  plan, catalog, owner, seed = {}, vgroups = {}, onClose, onMade,
 }: {
   plan: CycleMeta
   /** 장비 카탈로그 — 모델그룹·모델명을 손으로 치면 표기가 갈린다 */
   catalog: Array<{ kind?: string; name?: string; model_group?: string | null; family?: string | null }>
   owner: string
+  /** **Plans 표가 그 플랜 줄에 그리는 값**(지시).
+   *
+   *  표는 플랜에 값이 비면 카탈로그에서 채워 보여 준다
+   *  (family ← 모델의 제품군, model_group ← 모델의 그룹). 창이 플랜의
+   *  날값만 읽으면 표에는 L3·E61xx 가 떠 있는데 창은 「(안 고름)」 이
+   *  된다 — 같은 것을 두 자리에서 다르게 말하는 셈이다. 그래서 표가
+   *  쓰는 그 값을 그대로 받는다. */
+  seed?: { family?: string; model_group?: string; model?: string; version_group?: string }
   /** 이미 쓰고 있는 버전그룹 — `{ 모델: [버전그룹…] }` 꼴이다.
    *  (예전에 이 자리에 열쇠를 넣어 **모델 이름**이 버전그룹 고르개에
    *   떴다 — TMDL·E6100. 값이 버전그룹이다.) */
@@ -91,8 +99,8 @@ export function MakePlanRun({
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
     [catalog],
   )
-  const [mg, setMg] = useState(String(plan.model_group ?? ''))
-  const [mdl, setMdl] = useState(String(plan.model ?? ''))
+  const [mg, setMg] = useState(String(seed.model_group ?? plan.model_group ?? ''))
+  const [mdl, setMdl] = useState(String(seed.model ?? plan.model ?? ''))
   /** 버전은 **비운 채로 시작한다**(지시).
    *
    *  플랜의 버전을 미리 적어 두었더니, 새 빌드를 돌리려고 만든 실행이
@@ -101,14 +109,16 @@ export function MakePlanRun({
    *  빈 값이면 만들기 단추가 안 눌린다(아래 disabled). */
   /** 제품군 — 모델명에서 따라온다. 카탈로그가 정본이라 손으로 치면
    *  표기가 갈린다(L3 · L3 스위치 …). 손대기 전까지만 따라온다. */
-  const [fam, setFam] = useState(String(plan.family ?? ''))
-  const [famTouched, setFamTouched] = useState(false)
+  const [fam, setFam] = useState(String(seed.family ?? plan.family ?? ''))
+  /* 씨앗이 이미 제품군을 줬으면 모델 따라가기가 그것을 덮지 않는다 —
+     표에 뜬 값과 달라지면 안 된다 */
+  const [famTouched, setFamTouched] = useState(!!seed.family)
   const [ver, setVer] = useState('')
   /** 버전그룹 — **플랜 것으로 시작한다.** 이것은 빌드 이름이 아니라
    *  Runs 트리의 **폴더**라, 대개 플랜과 같은 자리에 담긴다. 미리 채워
    *  두면 「오늘」 한 번으로 버전명이 완성된다.
    *  (버전명은 비운 채로 둔다 — 그것이 곧 어떤 빌드를 돌리느냐다.) */
-  const [vg, setVg] = useState(String(plan.version_group ?? '') || String(plan.version ?? '').split('_')[0] || '')
+  const [vg, setVg] = useState(String(seed.version_group ?? plan.version_group ?? ''))
   const [name, setName] = useState('')
   /** 담당자 — 비면 이 실행을 만든 사람. Runs 목록의 「담당자」 칸이 이 값이다 */
   const [who, setWho] = useState(owner)
