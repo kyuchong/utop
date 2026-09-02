@@ -347,7 +347,14 @@ export default function Releases() {
     (!fStat || String(it.fields?.status?.name ?? '') === fStat)
 
   const tree = useMemo(() => {
-    const versions = (verQ.data?.versions ?? []).filter((v) => !v.archived)
+    /* **Sync 한 버전만** 그린다(지적: 1.1.3 만 Sync 했는데 다 나온다).
+       위 고르개의 버전 목록은 「고를 수 있는 것 전부」 지만, 아래 표는
+       가져온 그 버전의 것이다 — 79개를 다 늘어놓으면 무엇을 가져왔는지
+       알 수 없다. */
+    const only = synced ? synced.split('@@')[1] : ''
+    const versions = (verQ.data?.versions ?? []).filter(
+      (v) => !v.archived && (!only || String(v.name ?? '') === only),
+    )
     const g = new Map<string, JiraVersion[]>()
     for (const v of versions) {
       const op = operatorOf(String(v.name ?? ''))
@@ -357,11 +364,11 @@ export default function Releases() {
       else g.set(op, [v])
     }
     return [...g.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'))
-  }, [verQ.data, fOp])
+  }, [verQ.data, fOp, synced])
 
   const ops = useMemo(
-    () => [...new Set((verQ.data?.versions ?? []).map((v) => operatorOf(String(v.name ?? ''))))].sort(),
-    [verQ.data],
+    () => [...new Set(tree.map(([op]) => op))].sort(),
+    [tree],
   )
 
   const store = sumQ.data?.releases ?? {}
