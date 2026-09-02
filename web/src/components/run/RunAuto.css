@@ -279,3 +279,5 @@
 .ra-pastl.now { color: #7fc4ff; margin-top: 10px; }
 /* 이벤트 시각은 연월일까지 적는다 — 두 줄로 접히면 표가 들쭉날쭉해진다 */
 .ra-evt td.ra-num, .ra-evt th:first-child { white-space: nowrap; }
+/* 아직 안 돌린 실행의 콘솔 — 보낸 적 없는 명령을 찍지 않는다 */
+.ra-idle { color: #7f97a1; }

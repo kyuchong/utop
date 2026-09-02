@@ -274,6 +274,9 @@ export default function RunAuto({
    *  돈 마지막 자리 중 더 뒤쪽까지 쌓는다.
    */
   const lastRan = steps.reduce((acc, s2, i) => (s2.ran || s2.out ? i : acc), -1)
+  /** 이번 실행에서 **한 줄도 안 돌았나.** 돌고 있지도 않고 돈 자취도 없으면
+   *  콘솔에는 그릴 것이 없다 — 정의만 보고 명령을 미리 찍으면 안 된다. */
+  const noneRan = runStep == null && lastRan < 0 && !(past ?? []).length
   const seeUpTo = Math.min(
     /* **돌고 있으면 거기서 끊는다.** 뒤 스텝에 남아 있는 것은 지난 실행의
        출력이라, 그대로 이어 붙이면 지금 나온 것과 섞인다(지적: 대기 20 19
@@ -413,7 +416,13 @@ export default function RunAuto({
               </div>
             ))}
             {!!(past ?? []).length && <div className="ra-pastl now">이번 실행</div>}
-            {steps.slice(0, Math.max(0, seeUpTo) + 1).map((s2, i2) => (
+            {/* **이번 실행에서 아무것도 안 돌았으면 아무것도 안 그린다.**
+                예전엔 고른 스텝까지 무조건 그려서, 시작도 안 한 실행에
+                「DUT# show system · (출력 없음)」 이 떠 있었다 — 보낸 적
+                없는 명령이다(지적). */}
+            {noneRan
+              ? <pre className="ra-idle">아직 돌리지 않았습니다.</pre>
+              : steps.slice(0, Math.max(0, seeUpTo) + 1).map((s2, i2) => (
               <div className={`ra-blk${i2 === seeUpTo ? ' on' : ''}`} key={s2.no ?? i2} ref={i2 === seeUpTo ? conEndRef : undefined}>
                 {s2.cmd ? (
                   <div className="ra-cmd">
@@ -426,7 +435,7 @@ export default function RunAuto({
                   <pre>{s2.out || (i2 === runStep ? '…' : '(출력 없음)')}</pre>
                 )}
               </div>
-            ))}
+              ))}
             {!steps.length && <pre>아직 출력이 없습니다.</pre>}
           </div>
           <div className="ra-confoot">

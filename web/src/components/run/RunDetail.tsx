@@ -900,7 +900,25 @@ export default function RunDetail({
             const rawDef = ((oneQ.data?.steps as unknown[] | undefined)?.length
               ? (oneQ.data?.steps as unknown[])
               : ((oneQ.data?.checks as unknown[] | undefined) ?? [])) as Array<Record<string, unknown>>
-            const def = rawDef.map(asStep)
+            /** **정의는 「무엇을 하는가」 만 준다.**
+             *
+             *  TC 의 checks 에는 실행기가 적어 둔 **지난 실행의 자취**가 그대로
+             *  남아 있다(status·executed_at·took_ms·출력). 그것을 그대로 깔면,
+             *  아직 시작도 안 한 새 실행이 지난번 결과를 제 것처럼 보여 준다
+             *  — 진행 0% · 대기 2 인데 표에는 FAIL·PASS 가, 콘솔에는 지난주
+             *  출력이, 실행 이벤트에는 지난달 시각이 떠 있었다(지적).
+             *
+             *  그래서 결과 쪽(판정·시각·걸린 시간·출력·돌았나)은 **여기서
+             *  통째로 지운다.** 이번 실행에서 온 것만 얹힌다 — 로그도 없고
+             *  도는 중도 아니면 빈 채로 남는 것이 옳다. */
+            const def = rawDef.map((r0, i0) => ({
+              ...asStep(r0, i0),
+              out: '',
+              mark: undefined,
+              took: undefined,
+              at: undefined,
+              ran: false,
+            }))
             /* 도는 중에는 **실행기가 보내는 실시간 스텝**을 쓴다.
                실행기는 항목을 다 마쳐야 저장하므로, 그 전까지 저장본은
                **지난 실행의 값**이다 — 그걸 그리면 지금 것과 섞인다(지적). */
