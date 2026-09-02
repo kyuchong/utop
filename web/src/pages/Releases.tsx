@@ -74,8 +74,10 @@ const tcidOf = (t: LinkTc | string): string =>
  *  97줄이 전부 다시 그려져 화면이 무거웠다(지적). 이제 눌린 줄만 다시 그린다.
  */
 const IssueRow = memo(function IssueRow({
-  it, ver, open, tcs, tcById, resultOf, onToggle,
+  it, ver, open, tcs, tcById, resultOf, onToggle, onAdd, onDrop,
 }: {
+  onAdd: (ver: string, key: string) => void
+  onDrop: (ver: string, key: string, tcid: string) => void
   it: JiraIssue
   ver: string
   open: boolean
@@ -123,12 +125,25 @@ const IssueRow = memo(function IssueRow({
                 <span className="rls-name">{t?.name ?? '(지워진 시험 항목)'}</span>
                 <span className="rls-kind">{t?.kind === '수동' ? 'MANUAL' : t?.kind ? 'AUTO' : ''}</span>
                 <span className={`rls-res ${rv.toLowerCase()}`}>{rv ? rv.toUpperCase() : ''}</span>
+                <button
+                  type="button"
+                  className="rls-x"
+                  title="이 이슈에서 뺍니다 — 시험 항목 자체는 안 지웁니다"
+                  onClick={() => onDrop(ver, it.key, tcid)}
+                >
+                  ✕
+                </button>
               </div>
             )
           })}
           {!tcs.length && (
             <div className="rls-tcrow rls-empty">이 이슈에 붙은 시험 항목이 없습니다.</div>
           )}
+          <div className="rls-tcrow">
+            <button type="button" className="rls-add" onClick={() => onAdd(ver, it.key)}>
+              ＋ TC 추가
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -150,6 +165,8 @@ export default function Releases() {
   /** 고른 버전들 — **여러 개**를 체크해 한 번에 가져온다(지시) */
   const [vers, setVers] = useState<string[]>([])
   const [verOpen, setVerOpen] = useState(false)
+  /** TC 붙이는 창 — 어느 이슈에 붙일지 */
+  const [addTo, setAddTo] = useState<{ ver: string; key: string } | null>(null)
   const [synced, setSynced] = useState('')
 
   /** 이슈 펴기·접기 — **같은 함수**를 계속 준다. 매번 새로 만들면 memo 가
@@ -416,6 +433,32 @@ export default function Releases() {
     return m
   }, [byVer, fType, fStat, tcMap])
 
+  /** 이슈에 붙은 TC 를 고쳐 저장한다. 자료 모양은 옛 화면 그대로다 —
+   *  `프로젝트@@버전` 안에 이슈키별 `{tcs:[…]}`. 읽은 것 **위에 얹어** 보낸다. */
+  const saveTcs = useCallback(
+    async (ver: string, key: string, tcs: string[]) => {
+      const k = `${proj}@@${ver}`
+      const next: Store = {
+        ...store,
+        [k]: { ...(store[k] ?? {}), [key]: { ...(store[k]?.[key] ?? {}), tcs } },
+      }
+      await apiFetch('/api/release-summary', {
+        method: 'POST',
+        body: JSON.stringify({ releases: next }),
+      })
+      await qc.invalidateQueries({ queryKey: ['release-summary'] })
+    },
+    [store, proj, qc],
+  )
+  const openAdd = useCallback((ver: string, key: string) => setAddTo({ ver, key }), [])
+  const dropTc = useCallback(
+    (ver: string, key: string, tcid: string) => {
+      const cur = tcMap.get(`${ver}|${key}`) ?? EMPTY
+      void saveTcs(ver, key, cur.filter((x) => x !== tcid))
+    },
+    [tcMap, saveTcs],
+  )
+
   const err = projQ.data?.error || verQ.data?.error || issQ.data?.error
 
   return (
@@ -536,32 +579,29 @@ export default function Releases() {
         >
           {issQ.isFetching ? '가져오는 중…' : '↻ Sync'}
         </button>
-        <span className="rls-kinds" title="이 세 가지만 가져옵니다">
-          {KINDS.join(' · ')}
-        </span>
-      </div>
-
-      {/* ── 거르개 ── */}
-      <div className="rls-filters">
-        <select value={fOp} onChange={(e) => setFOp(e.target.value)}>
+        {/* 거르개 셋을 위 줄로 올렸다(지시) — 줄 하나가 통째로 없어진다 */}
+        <select className="rls-f" value={fOp} onChange={(e) => setFOp(e.target.value)}>
           <option value="">사업자 전체</option>
           {ops.map((o) => (
             <option key={o}>{o}</option>
           ))}
         </select>
-        <select value={fType} onChange={(e) => setFType(e.target.value)}>
+        <select className="rls-f" value={fType} onChange={(e) => setFType(e.target.value)}>
           <option value="">이슈유형 전체</option>
           {opts.types.map((o) => (
             <option key={o}>{o}</option>
           ))}
         </select>
-        <select value={fStat} onChange={(e) => setFStat(e.target.value)}>
+        <select className="rls-f" value={fStat} onChange={(e) => setFStat(e.target.value)}>
           <option value="">상태 전체</option>
           {opts.stats.map((o) => (
             <option key={o}>{o}</option>
           ))}
         </select>
         <span className="sp" />
+        <span className="rls-kinds" title="이 세 가지만 가져옵니다">
+          {KINDS.join(' · ')}
+        </span>
       </div>
 
       {err && <div className="rls-err">Jira 를 읽지 못했습니다 — {err}</div>}
@@ -631,6 +671,8 @@ export default function Releases() {
                             tcById={tcById}
                             resultOf={resultOf}
                             onToggle={toggleIssue}
+                            onAdd={openAdd}
+                            onDrop={dropTc}
                           />
                         ))}
                       {vOpen && !st0.n && (
@@ -642,6 +684,105 @@ export default function Releases() {
             </div>
           )
         })}
+      </div>
+
+      {addTo && (
+        <TcPick
+          title={`${addTo.key} 에 시험 항목 붙이기`}
+          have={tcMap.get(`${addTo.ver}|${addTo.key}`) ?? EMPTY}
+          tcs={tcQ.data?.tcs ?? []}
+          onClose={() => setAddTo(null)}
+          onSave={async (next) => {
+            await saveTcs(addTo.ver, addTo.key, next)
+            setAddTo(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/** 시험 항목 고르는 창 — 찾아서 체크하고 저장한다.
+ *  이슈 하나가 여러 시험으로 덮이는 것이 보통이라 **여러 개**를 고른다. */
+function TcPick({
+  title,
+  have,
+  tcs,
+  onClose,
+  onSave,
+}: {
+  title: string
+  have: string[]
+  tcs: Array<{ tcid: string; name?: string; kind?: string }>
+  onClose: () => void
+  onSave: (next: string[]) => Promise<void>
+}) {
+  const [pick, setPick] = useState<string[]>(have)
+  const [q, setQ] = useState('')
+  const [busy, setBusy] = useState(false)
+  const shown = useMemo(() => {
+    const n = q.trim().toLowerCase()
+    const arr = n ? tcs.filter((t) => `${t.tcid} ${t.name ?? ''}`.toLowerCase().includes(n)) : tcs
+    /* 이미 붙은 것을 위로 — 무엇이 붙어 있는지부터 보인다 */
+    return [...arr].sort((a, b) => Number(have.includes(b.tcid)) - Number(have.includes(a.tcid)))
+  }, [tcs, q, have])
+
+  return (
+    <div className="rls-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="rls-modal" role="dialog" aria-modal="true" aria-label={title}>
+        <header>
+          <b>{title}</b>
+          <span className="sp" />
+          <button type="button" onClick={onClose}>
+            ✕
+          </button>
+        </header>
+        <input
+          className="rls-find"
+          value={q}
+          placeholder="ID · 제목으로 찾기"
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <div className="rls-mlist">
+          {shown.map((t) => {
+            const on = pick.includes(t.tcid)
+            return (
+              <label key={t.tcid} className={`rls-mrow${on ? ' on' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={(e) =>
+                    setPick((a) =>
+                      e.target.checked ? [...a, t.tcid] : a.filter((x) => x !== t.tcid),
+                    )
+                  }
+                />
+                <span className="rls-code">{t.tcid}</span>
+                <span className="rls-name">{t.name ?? ''}</span>
+                <span className="rls-kind">{t.kind === '수동' ? 'MANUAL' : t.kind ? 'AUTO' : ''}</span>
+              </label>
+            )
+          })}
+          {!shown.length && <div className="rls-none">찾는 시험 항목이 없습니다.</div>}
+        </div>
+        <footer>
+          <span className="rls-cnt">{pick.length}건 고름</span>
+          <span className="sp" />
+          <button type="button" onClick={onClose}>
+            취소
+          </button>
+          <button
+            type="button"
+            className="pri"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true)
+              void onSave(pick).finally(() => setBusy(false))
+            }}
+          >
+            {busy ? '저장 중…' : '저장'}
+          </button>
+        </footer>
       </div>
     </div>
   )

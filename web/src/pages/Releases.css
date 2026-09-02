@@ -221,3 +221,54 @@
   padding: 3px 9px; font: inherit; font-size: 11.5px; cursor: pointer; color: #46555d;
 }
 .rls-vfoot button:hover { background: #f6f7f8; }
+
+/* 위 줄의 거르개 셋 */
+.rls-f {
+  border: 1px solid #d7dce0; border-radius: 6px; background: #fff;
+  color: #46555d; font: inherit; font-size: 12px; padding: 5px 7px; max-width: 150px;
+}
+/* TC 붙이기·빼기 */
+.rls-add {
+  border: 1px dashed #b9c6cc; border-radius: 6px; background: #fff;
+  color: #3b6aa5; font: inherit; font-size: 11.5px; font-weight: 700;
+  padding: 3px 12px; cursor: pointer;
+}
+.rls-add:hover { background: #f3f7fb; border-color: #7fa6d8; }
+.rls-x {
+  flex: none; border: 0; background: none; color: #b3c1c5; font: inherit;
+  font-size: 12px; cursor: pointer; padding: 0 2px; margin-left: 6px;
+}
+.rls-x:hover { color: #d43f5f; }
+
+/* 시험 항목 고르는 창 */
+.rls-scrim {
+  position: fixed; inset: 0; z-index: 60; background: rgba(20, 30, 40, 0.34);
+  display: grid; place-items: center;
+}
+.rls-modal {
+  width: min(760px, 92vw); max-height: 80vh; background: #fff;
+  border-radius: 10px; box-shadow: 0 18px 48px rgba(15, 25, 40, 0.28);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.rls-modal > header, .rls-modal > footer {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 13px;
+}
+.rls-modal > header { border-bottom: 1px solid #e6e8eb; }
+.rls-modal > footer { border-top: 1px solid #e6e8eb; background: #fbfcfc; }
+.rls-modal .sp { flex: 1; }
+.rls-modal .rls-cnt { margin-left: 0; }
+.rls-modal button {
+  border: 1px solid #d7dce0; border-radius: 6px; background: #fff;
+  padding: 5px 12px; font: inherit; font-size: 12.5px; cursor: pointer; color: #46555d;
+}
+.rls-modal button:hover { background: #f6f7f8; }
+.rls-modal button.pri { background: #0e5964; border-color: #0e5964; color: #fff; font-weight: 700; }
+.rls-modal button.pri[disabled] { opacity: 0.55; cursor: default; }
+.rls-modal > .rls-find { margin: 10px 14px 6px; max-width: none; flex: none; }
+.rls-mlist { flex: 1; min-height: 0; overflow: auto; padding: 0 6px 6px; }
+.rls-mrow {
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px;
+  border-bottom: 1px solid #f2f3f4; font-size: 12px; cursor: pointer; min-width: 0;
+}
+.rls-mrow:hover { background: #f6f7f8; }
+.rls-mrow.on { background: #f3f7fb; }
