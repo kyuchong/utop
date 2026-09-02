@@ -12288,7 +12288,15 @@ async def api_plan_run_new(payload: dict):
         # 떨어진다(db.plan_run_upsert). 만들 때 손으로 골랐는데 이름에서
         # 다시 뽑아 버리면 왼쪽 레일의 폴더가 고른 것과 달라진다.
         "version_group": str(p.get("version_group") or "").strip(),
-        "owner": str(p.get("owner") or (plan or {}).get("assignee") or ""),
+        # 담당은 **보냈으면 보낸 대로**다. 빈 문자열도 뜻이 있다 —
+        # 만들기 창의 「(안 정함)」 이 그것이다. or 로 이어 두었더니 빈 값이
+        # 플랜의 담당으로 굴러떨어져, 안 정하겠다고 고른 사람에게 엉뚱한
+        # 이름이 붙었다. 안 보낸 때(▶ 실행의 자동 만들기)만 플랜을 따른다.
+        "owner": (
+            str(p.get("owner") or "").strip()
+            if "owner" in p
+            else str((plan or {}).get("assignee") or "")
+        ),
         "start_date": str(p.get("start_date") or ""),
         "end_date": str(p.get("end_date") or ""),
         "rerun_of": str(p.get("rerun_of") or "") or None,
