@@ -870,8 +870,17 @@
   cursor: pointer;
 }
 .rls-popx:hover { background: #f6f7f8; }
-.rls-popb { flex: 1; min-height: 0; display: flex; }
-.rls-popb > * { flex: 1; min-height: 0; }
+/* 끼워 넣은 시험 화면을 감싸는 자리 — **REQ-Coverage 의 .rqtc-embed 와
+   같은 값**이어야 한다(지시: 동일하게). 그쪽 규칙 여섯 중 넷만 옮겨 와서
+   탭 줄의 좌우 넘김 화살표가 남고 본문이 가장자리에 붙었다. */
+.rls-popb {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  padding: 0 12px 10px;
+}
+.rls-popb > * { flex: 1; min-height: 0; min-width: 0; }
 /* 끼워 넣은 시험 화면의 제 목록 줄·머리줄은 감춘다.
    **REQ-Coverage 와 같은 규칙**이다(.rqtc-embed .tc-dethead): 안쪽 머리줄을
    두면 「← 목록·저장됨·⋯」 이 한 줄 더 서서 같은 단추가 두 줄로 겹친다 —
@@ -879,6 +888,9 @@
    저장·⋯ 는 팝업 머리줄이 대신 그린다. */
 .rls-popb .rq-bar { display: none; }
 .rls-popb .tc-dethead { display: none; }
+/* 탭 줄의 좌우 넘김 화살표 — 여기선 탭 여덟이 한 줄에 다 들어가 쓸 일이
+   없다. REQ-Coverage 도 같은 까닭으로 감춘다(.rqtc-embed .hrail-nav). */
+.rls-popb .hrail-nav { display: none; }
 
 /* 팝업 머리줄의 저장·⋯ */
 .rls-popsave {
