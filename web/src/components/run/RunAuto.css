@@ -169,16 +169,45 @@
   color: #1d5bb0;
 }
 .ra-tbl tr.ra-running > td b { color: #1d5bb0; }
+/* ── 지금 도는 표시 ──
+   눈에 확 들어와야 한다(지시). 셋을 겹친다: 흐르는 바탕 · 퍼지는 테 ·
+   뛰는 점. 셋 다 색은 하나(파랑)로 두어 요란하지 않게. */
 .ra-st.run {
+  position: relative;
   display: inline-flex; align-items: center; gap: 5px;
-  background: #2e70d6; color: #fff; font-weight: 800;
+  color: #fff; font-weight: 800; letter-spacing: 0.3px;
+  background: linear-gradient(100deg, #2e70d6 0%, #4d92f0 45%, #2e70d6 90%);
+  background-size: 220% 100%;
+  animation: ra-flow 1.8s linear infinite;
+  box-shadow: 0 0 0 0 rgba(46, 112, 214, 0.55);
+}
+/* 퍼지는 테 — 표에서 그 줄이 어디인지 멀리서도 잡힌다 */
+.ra-st.run::after {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  animation: ra-ring 1.8s ease-out infinite;
 }
 .ra-st.run i {
   width: 6px; height: 6px; border-radius: 50%; background: currentColor;
   animation: ra-beat 1s ease-in-out infinite;
 }
+@keyframes ra-flow { to { background-position: -220% 0; } }
+@keyframes ra-ring {
+  0% { box-shadow: 0 0 0 0 rgba(46, 112, 214, 0.5); }
+  70% { box-shadow: 0 0 0 7px rgba(46, 112, 214, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(46, 112, 214, 0); }
+}
 @keyframes ra-beat { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-@media (prefers-reduced-motion: reduce) { .ra-st.run i { animation: none; } }
+/* 도는 줄 자체도 옅게 숨 쉰다 */
+.ra-tbl tr.ra-running > td { animation: ra-row 2.4s ease-in-out infinite; }
+@keyframes ra-row {
+  0%, 100% { background: #eaf2ff; }
+  50% { background: #dfeaff; }
+}
+/* 움직임을 싫어하는 사람에겐 색만 남긴다 */
+@media (prefers-reduced-motion: reduce) {
+  .ra-st.run, .ra-st.run i, .ra-st.run::after, .ra-tbl tr.ra-running > td { animation: none; }
+}
 .ra-tc.running { background: #eaf2ff; box-shadow: inset 3px 0 0 #2e70d6; }
 .ra-tc.running .ra-tcid { color: #1d5bb0; font-weight: 800; }
 

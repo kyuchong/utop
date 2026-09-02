@@ -665,13 +665,8 @@ export default function RunDetail({
           </>
         )}
         <span className="rd-sp" />
-        <span className={`rd-mode ${isAuto ? 'a' : 'm'}`}>{isAuto ? '⚙ 자동' : '👆 수동'}</span>
-        {(jobLive || (!isAuto && run.started_at)) && (
-          <span className="rd-run">
-            <i />
-            {jobLive ? (job?.status === 'queued' ? 'QUEUED' : 'RUNNING') : 'RUNNING'}
-          </span>
-        )}
+        {/* 방식 딱지와 RUNNING/QUEUED 배지를 뺐다(지시). 상태는 위 띠의
+            「지금 스텝」 이 이미 말한다 — Step 1 / 5 (대기) 처럼. */}
         <span className="rd-sp" />
         {/* 「중지」 는 **멈출 것이 있을 때만** 선다. 자동 실행이 끝난 뒤에도
             started_at 이 남아 있어 계속 중지가 서 있었고, 눌러도 멈출 것이
@@ -733,22 +728,15 @@ export default function RunDetail({
       {/* 끝났다는 초록 띠는 뺐다(지시) — 머리줄의 「▶ 다시 실행」 과 진행
           100% 가 이미 그 말을 한다. 도는 중과 **실패**만 남긴다: 그 둘은
           다른 데서 알 수 없다(실패는 까닭이 여기에만 있다). */}
-      {isAuto && jobId && (jobLive || job?.status === 'failed') && (
-        <div className={`rd-warn${jobLive ? ' live' : ''}`}>
-          <b>{jobLive ? '▶' : '!'}</b>
-          {job?.status === 'queued'
-            ? '실행기가 집어 가기를 기다립니다 — 실행기가 꺼져 있으면 여기서 멈춰 있습니다.'
-            : job?.status === 'running'
-              ? `실행기가 돌고 있습니다 — ${job.done ?? 0} / ${job.total ?? 0}건${job.item_name ? ` · ${job.item_name}` : ''}${job.step_name ? ` · ${job.step_name}` : ''}`
-              : job?.status === 'failed'
-                ? `실행이 실패했습니다 — ${job.error || '까닭을 못 받았습니다'}`
-                : job?.status === 'stopped'
-                  ? '사람이 멈췄습니다 — 그때까지의 결과는 남아 있습니다.'
-                  : '실행이 끝났습니다 — 결과를 이 기록으로 옮겨 적었습니다.'}
+      {/* 「실행기가 집어 가기를 기다립니다」 띠도 뺐다(지시).
+          실패만 남긴다 — 까닭이 이 줄에만 있어서 지우면 알 길이 없다. */}
+      {isAuto && jobId && job?.status === 'failed' && (
+        <div className="rd-warn">
+          <b>!</b>
+          실행이 실패했습니다 — {job.error || '까닭을 못 받았습니다'}
         </div>
       )}
-      {/* 위 띠 — **한 줄**(지시). 값이 앞에 서고 곁들이는 것은 괄호 안에.
-          네 칸을 세로로 쌓으니 63px 을 먹었다 — 한 줄이면 그 절반이다. */}
+
       <div className="rd-live">
         <span className="rd-lb">
           <em>경과</em>

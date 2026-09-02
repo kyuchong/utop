@@ -217,10 +217,10 @@
   align-items: center;
   gap: 0;
   padding: 0 14px;
-  height: 34px;
+  height: 40px;
   background: #fff;
   border-bottom: 1px solid var(--c-border, #e3eaec);
-  font-size: 12px;
+  font-size: 13px;
   overflow: hidden;
   white-space: nowrap;
 }
@@ -243,7 +243,7 @@
   top: 50%;
   transform: translateY(-50%);
   width: 1px;
-  height: 14px;
+  height: 17px;
   background: #d4dee1;
 }
 .rd-lb.last::after { display: none; }
@@ -256,16 +256,17 @@
 .rd-lb.grow3 { flex: 0 1 auto; min-width: 0; }
 .rd-live .rd-sp { flex: 1 1 auto; min-width: 0; }
 .rd-lb > em {
-  flex: none; font-style: normal; font-size: 9.5px; font-weight: 800;
+  flex: none; font-style: normal; font-size: 10.5px; font-weight: 800;
   color: #9bacb2; text-transform: uppercase; letter-spacing: 0.3px;
 }
-.rd-lb > b { flex: none; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+/* 값은 **버전명만큼**(지시) — 15px. 이 줄에서 사람이 읽는 것은 이 값들이다 */
+.rd-lb > b { flex: none; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
 /* 곁들이는 값(시작 시각 등)이 너무 흐려 안 보였다(지적) — 한 급 진하게 */
-.rd-lb > i { font-style: normal; font-size: 11px; color: #6b7e85; min-width: 0; }
+.rd-lb > i { font-style: normal; font-size: 12px; color: #6b7e85; min-width: 0; }
 .rd-lb > i .p { color: #16a05b; font-weight: 700; margin-right: 6px; }
 .rd-lb > i .f { color: #e34663; font-weight: 700; margin-right: 6px; }
 .rd-bar2 {
-  display: flex; height: 6px; flex: 1 1 90px; min-width: 44px;
+  display: flex; height: 7px; flex: 1 1 90px; min-width: 44px;
   border-radius: 99px; overflow: hidden; background: #e1e8ea;
 }
 .rd-bar2 i { display: block; }
@@ -297,5 +298,6 @@
 .rd-warn.ok { background: #f1faf5; border-bottom-color: #b6ded0; color: #12684b; }
 .rd-warn.ok b { background: #16a05b; }
 /* 띠 안 글자도 한 급 줄인다 — 칸이 좁아진 만큼 */
-.rd-live .rd-sub { font-size: 10px; line-height: 1.35; color: #93a6ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rd-live .rd-lb > b { font-size: 12px; line-height: 1.2; }
+.rd-live .rd-sub { font-size: 11.5px; line-height: 1.35; color: #93a6ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 이 줄이 위의 15px 를 이기고 있었다(더 구체적이라) — 같은 값으로 맞춘다 */
+.rd-live .rd-lb > b { font-size: 15px; line-height: 1.2; }
