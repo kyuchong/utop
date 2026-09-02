@@ -334,7 +334,9 @@
       건너가면 돌아올 때 이 화면의 펼침이 다 풀린다 — 그래서 여기서 본다. */
 .rls-ovl { position: fixed; inset: 0; z-index: 70; background: rgba(20, 30, 40, 0.34); }
 .rls-drawer {
-  position: absolute; top: 0; right: 0; height: 100%; width: 640px; max-width: 94vw;
+  /* 넓혀 달라는 지시. Jira 설명은 표·코드블록·첨부 그림이 들어와 640px
+     로는 가로로 흘러 읽기 나빴다 — 화면의 절반을 넘게 준다. */
+  position: absolute; top: 0; right: 0; height: 100%; width: min(1040px, 82vw); max-width: 96vw;
   background: #fff; box-shadow: -8px 0 28px rgba(0, 0, 0, 0.16);
   display: flex; flex-direction: column;
 }
