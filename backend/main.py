@@ -5791,18 +5791,28 @@ async def req_next_id(cat: str = ""):
 
 
 @app.get("/api/tc-next-id")
-async def tc_next_id(mg: str = "", cat: str = ""):
+async def tc_next_id(mg: str = "", cat: str = "", kind: str = "T"):
     """다음 시험 ID — **모델그룹 기준**(E61xx_T0001).
 
     tcid 는 곧 PK 라 겹치면 남의 시험을 덮어쓴다. 그래서 그 앞머리의 현재
     최대 순번 +1 을 서버가 매긴다. 모델그룹은 시험 만들 때 고르는 값이라
     화면이 직접 준다(mg). 없으면 폴더(cat)로 찾아보고, 그것도 없으면 옛
     주차 규칙이다.
+
+    `kind` 는 **번호 계열**이다(합의).
+      T = 요구사항을 덮는 시험 — REQ-Coverage 가 관리한다
+      V = Jira 이슈를 덮는 시험 — Releases 가 관리한다
+    한 계열로 두면 번호만 봐서는 어느 목록에 있는 것인지 알 수 없어,
+    한쪽 화면에서 안 보일 때 「어디 갔지」 가 된다. 계열을 가르면 그 일이
+    없다 — 담는 곳(tc 표)은 하나 그대로다.
     """
+    k = (kind or "T").strip().upper()[:1]
+    if k not in ("T", "V"):
+        k = "T"
     async with db.pool().acquire() as c:
         g = (mg or "").strip() or await _group_of_cat(c, (cat or "").strip())
-        tid = await _next_id(c, g, "T")
-    return {"tcid": tid, "prefix": tid[: -4], "group": g}
+        tid = await _next_id(c, g, k)
+    return {"tcid": tid, "prefix": tid[: -4], "group": g, "kind": k}
 
 
 @app.post("/api/req/{req_id}")

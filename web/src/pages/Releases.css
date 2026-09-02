@@ -175,7 +175,13 @@
 }
 
 /* 이슈에 붙은 시험 */
-.rls-tcs { border-top: 1px solid #f0f1f2; background: #fcfcfc; }
+/* 이슈 밑에 딸린 자리 — **이슈 줄에 맞춰 들여 쓴다**. 왼쪽 끝에 붙으면
+   어느 이슈에 딸린 것인지 눈으로 안 이어진다. */
+.rls-tcs {
+  border-top: 1px solid #f0f1f2;
+  background: #fcfcfc;
+  padding: 0 12px 8px 44px;
+}
 .rls-tcrow {
   display: flex;
   align-items: center;
@@ -432,3 +438,67 @@
 /* 붙은 시험 줄 — **줄 전체가 열림쇠**다 */
 .rls-tcrow.open { cursor: pointer; }
 .rls-tcrow.open:hover { background: #f2f6f8; }
+
+/* ── 이슈 밑의 시험 탭 — 가로로 붙고, 고른 것이 아래에 펼쳐진다 ──
+      줄로 늘어놓고 눌러 창을 띄우던 것을 걷었다. 창이 뜨면 이슈를 보던
+      자리를 잃고, 시험 둘을 견주려면 열고 닫기를 되풀이해야 한다. */
+.rls-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 0 8px;
+}
+.rls-tab {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #dde3e6;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.rls-tab.on { border-color: #0a8795; box-shadow: 0 0 0 2px rgba(10, 135, 149, 0.14); }
+.rls-tabb {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: none;
+  color: #46555d;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 4px 5px 11px;
+  cursor: pointer;
+}
+.rls-tab.on .rls-tabb { color: #0a8795; }
+.rls-tabb i { font-style: normal; font-size: 9.5px; }
+.rls-tabx {
+  border: 0;
+  background: none;
+  color: #b3c1c5;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  padding: 5px 8px 5px 4px;
+  cursor: pointer;
+}
+.rls-tabx:hover { color: #d43f5f; }
+
+/* 펼친 시험 — 시험 항목 화면을 통째로 얹는다 */
+.rls-inline {
+  border: 1px solid #dde3e6;
+  border-radius: 9px;
+  background: #fff;
+  overflow: hidden;
+  height: 620px;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+}
+.rls-inline > * { flex: 1; min-height: 0; }
+/* 끼워 넣은 시험 화면의 제 목록 줄은 감춘다 — 여기엔 이 시험 하나뿐이다 */
+.rls-inline .rq-bar { display: none; }
+/* 「← 목록」 은 여기선 뜻이 다르다 — 돌아갈 목록은 바로 위 탭 줄이다.
+   그래서 남겨 둔다(누르면 이 판이 접힌다). 이름만 헷갈리지 않게 줄인다. */
+.rls-inline .tc-dethead { padding-left: 8px; }

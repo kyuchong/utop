@@ -105,7 +105,11 @@ export default function TcForm({
     void (async () => {
       try {
         const g = mg && mg !== COMMON ? mg : ''
-        const r = await apiFetch(`/api/tc-next-id?mg=${encodeURIComponent(g)}`)
+        /* **번호 계열**(합의) — 요구사항을 덮는 시험은 T, Jira 이슈를 덮는
+           시험은 V 다(E61xx_V0001). 번호만 봐도 어느 목록에 있는 것인지
+           알아야 한쪽 화면에서 안 보일 때 「어디 갔지」 가 안 생긴다. */
+        const k = presetIssue ? 'V' : 'T'
+        const r = await apiFetch(`/api/tc-next-id?mg=${encodeURIComponent(g)}&kind=${k}`)
         const j = (await r.json()) as { tcid?: string }
         if (!dead && j.tcid) setTcid(j.tcid)
       } catch {

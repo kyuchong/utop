@@ -160,7 +160,7 @@ function jiraHtml(html: string, base: string): string {
  *  97줄이 전부 다시 그려져 화면이 무거웠다(지적). 이제 눌린 줄만 다시 그린다.
  */
 const IssueRow = memo(function IssueRow({
-  it, ver, open, tcs, tcById, resultOf, onToggle, onNew, onPick, onDrop, onDetail, onOpenTc,
+  it, ver, open, tcs, tcById, resultOf, onToggle, onNew, onPick, onDrop, onDetail, onOpenTc, openTc,
 }: {
   onNew: (ver: string, key: string, summary: string) => void
   onPick: (ver: string, key: string) => void
@@ -169,6 +169,8 @@ const IssueRow = memo(function IssueRow({
   /** 붙은 시험을 연다 — **이 화면 위에 팝업**으로. 넘어가 버리면 이슈를
    *  보던 자리를 잃는다(지적: 「TC 클릭해서 내용을 확인 할 수 없어」). */
   onOpenTc: (tcid: string) => void
+  /** 이 이슈에서 지금 펼친 시험 — 탭이 눌린 것 */
+  openTc: string
   it: StoredIssue
   ver: string
   open: boolean
@@ -219,51 +221,47 @@ const IssueRow = memo(function IssueRow({
         <span className="rls-tcn">TC {tcs.length}</span>
       </div>
       {open && (
+        /* **탭이 가로로, 상세는 그 아래 인라인**(지시).
+         *
+         *  줄로 늘어놓고 눌러 창을 띄우던 것을 걷었다 — 창이 뜨면 이슈를
+         *  보던 자리를 잃고, 시험 둘을 견주려면 열고 닫기를 되풀이해야 한다.
+         *  탭이면 왔다 갔다 하는 것이 한 번씩이다. */
         <div className="rls-tcs">
-          {tcs.map((tcid) => {
-            const t = tcById.get(tcid)
-            const rv = resultOf(tcid)
-            return (
-              /* **줄 전체가 열림쇠**다. ID 만 눌리게 두었더니 제목을 눌러
-                 보고 「안 열린다」 가 됐다(지적). ✕ 는 따로 막는다. */
-              <div
-                className="rls-tcrow open"
-                key={tcid}
-                role="button"
-                tabIndex={0}
-                title="이 시험 항목을 엽니다 — 스텝을 여기서 적습니다"
-                onClick={() => onOpenTc(tcid)}
-                onKeyDown={(e) => e.key === 'Enter' && onOpenTc(tcid)}
-              >
-                <span className="rls-code">{tcid}</span>
-                <span className="rls-name">{t?.name ?? '(지워진 시험 항목)'}</span>
-                <span className="rls-kind">{isManual(t?.kind) ? 'MANUAL' : t?.kind ? 'AUTO' : ''}</span>
-                <span className={`rls-res ${rv.toLowerCase()}`}>{rv ? rv.toUpperCase() : ''}</span>
-                <button
-                  type="button"
-                  className="rls-x"
-                  title="이 이슈에서 뺍니다 — 시험 항목 자체는 안 지웁니다"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDrop(ver, k, tcid)
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            )
-          })}
-          {!tcs.length && (
-            <div className="rls-tcrow rls-empty">이 이슈에 붙은 시험 항목이 없습니다.</div>
-          )}
-          <div className="rls-tcrow">
-            {/* **＋ TC 추가 = 새로 만들어 그 자리에서 작성**(지시).
-                만들고 나면 시험 항목 화면으로 넘어간다 — 스텝을 적는 자리는
-                거기다. 여기서 반쪽짜리 편집기를 또 만들지 않는다. */}
+          <div className="rls-tabs">
+            {tcs.map((tcid) => {
+              const t = tcById.get(tcid)
+              const rv = resultOf(tcid)
+              const on = openTc === tcid
+              return (
+                <span key={tcid} className={`rls-tab${on ? ' on' : ''}`}>
+                  <button
+                    type="button"
+                    className="rls-tabb"
+                    title={t?.name ?? '(지워진 시험 항목)'}
+                    onClick={() => onOpenTc(on ? '' : tcid)}
+                  >
+                    {tcid}
+                    {!!rv && <i className={`rls-res ${rv.toLowerCase()}`}>{rv.toUpperCase()}</i>}
+                  </button>
+                  {/* 이 이슈에서만 뗀다 — 시험 항목 자체는 안 지운다 */}
+                  <button
+                    type="button"
+                    className="rls-tabx"
+                    title="이 이슈에서 뺍니다 — 시험 항목 자체는 안 지웁니다"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDrop(ver, k, tcid)
+                    }}
+                  >
+                    ✕
+                  </button>
+                </span>
+              )
+            })}
             <button
               type="button"
               className="rls-add"
-              title="이 이슈를 덮을 시험을 새로 만듭니다 — 제목을 적고 저장하면 스텝 화면이 열립니다"
+              title="이 이슈를 덮을 시험을 새로 만듭니다 — 만들면 바로 아래에 펼쳐집니다"
               onClick={() => onNew(ver, k, String(it.summary ?? ''))}
             >
               ＋ TC 추가
@@ -274,9 +272,22 @@ const IssueRow = memo(function IssueRow({
               title="이미 있는 시험 항목을 이 이슈에 붙입니다"
               onClick={() => onPick(ver, k)}
             >
-              이미 있는 것 붙이기
+              붙이기
             </button>
           </div>
+
+          {/* 고른 탭의 시험이 **그 자리에서** 펼쳐진다. 시험 화면을 통째로
+              얹는다 — Info·Object·Topology·Traffic·Manual·Automation·
+              Execution·Cycle 이 그대로 서고, 스텝은 Automation 에서 적는다.
+              부품을 베껴 만들면 한쪽만 고쳐지는 날이 온다. */}
+          {!!openTc && tcs.includes(openTc) && (
+            <div className="rls-inline">
+              <TestCases embedTc={openTc} onEmbedBack={() => onOpenTc('')} />
+            </div>
+          )}
+          {!tcs.length && (
+            <div className="rls-tcrow rls-empty">이 이슈에 붙은 시험 항목이 없습니다.</div>
+          )}
         </div>
       )}
     </div>
@@ -995,6 +1006,7 @@ export default function Releases() {
                             onToggle={toggleIssue}
                             onNew={openNew}
                             onOpenTc={setTcOpen}
+                            openTc={tcOpen}
                             onPick={openPick}
                             onDrop={dropTc}
                             onDetail={openDetail}
@@ -1010,28 +1022,6 @@ export default function Releases() {
           )
         })}
       </div>
-
-      {/* **시험 항목 팝업.** 시험 화면(TestCases)을 통째로 얹는다 —
-          Info·Object·Topology·Traffic·Manual·Automation·Execution·Cycle 이
-          그대로 서고, 스텝은 Automation 에서 적는다. 부품을 베껴 만들면
-          한쪽만 고쳐지는 날이 온다(REQ-Coverage 의 시험 창과 같은 방식). */}
-      {tcOpen && (
-        <div className="rls-ovl" onMouseDown={(e) => e.target === e.currentTarget && setTcOpen('')}>
-          <div className="rls-tcpop" role="dialog" aria-modal="true" aria-label="시험 항목">
-            <div className="rls-tch">
-              <b>시험 항목</b>
-              <span className="rls-tcid">{tcOpen}</span>
-              <span className="sp" />
-              <button type="button" className="rls-dx" onClick={() => setTcOpen('')} title="닫기">
-                ✕
-              </button>
-            </div>
-            <div className="rls-tcbody">
-              <TestCases embedTc={tcOpen} onEmbedBack={() => setTcOpen('')} />
-            </div>
-          </div>
-        </div>
-      )}
 
       {detail && (
         <IssueDrawer
@@ -1068,8 +1058,18 @@ export default function Releases() {
           presetMg={mine?.model_group ?? ''}
           presetModel={mine?.model ?? ''}
           onCreated={(tcid) => {
+            /* 시험 목록도 다시 읽는다 — 안 그러면 방금 만든 것이 그 목록에
+               없어서, 아래에 편 시험 화면이 「없는 시험」 으로 보고 목록으로
+               되돌린다(TestCases 의 openId 확인). */
             void saveTcs(newTo.ver, newTo.key, (had) => [...had, tcid])
-              .then(() => qc.invalidateQueries({ queryKey: ['tc-meta-rls'] }))
+              .then(() =>
+                Promise.all([
+                  qc.invalidateQueries({ queryKey: ['tc-meta-rls'] }),
+                  qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] }),
+                  qc.invalidateQueries({ queryKey: ['tcs'] }),
+                ]),
+              )
+              /* 만들면 그 탭이 골라져 **바로 아래에 펼쳐진다**(지시) */
               .then(() => setTcOpen(tcid))
           }}
           onClose={() => setNewTo(null)}
