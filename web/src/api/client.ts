@@ -172,7 +172,7 @@ export const projectApi = {
   /** 메타만 고친다. 이름은 폴더(categoryApi.rename)가 정본이다. */
   update: (
     id: string,
-    p: { customer: string; model_group: string; description: string },
+    p: { customer: string; model_group: string; description: string; jira_project?: string },
   ) =>
     send<{ success: boolean }>('PUT', `/api/projects/${encodeURIComponent(id)}`, {
       name: '',

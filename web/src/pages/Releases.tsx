@@ -2,6 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
+import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
+import type { Project } from '@/types'
 import './Releases.css'
 
 /**
@@ -139,6 +141,12 @@ export default function Releases() {
   const [fStat, setFStat] = useState('')
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [openIssue, setOpenIssue] = useState<Set<string>>(new Set())
+  /** 머리줄에서 고른 UTOP 프로젝트 — 바뀌면 이 화면도 따라간다 */
+  const [utop, setUtop] = useState<string[]>(() => currentProjects())
+  useEffect(() => onProjectChange(() => setUtop(currentProjects())), [])
+  /** 고른 버전. Sync 를 눌러야 세부를 가져온다 — 누른 「프로젝트@@버전」 이 synced 다 */
+  const [ver, setVer] = useState('')
+  const [synced, setSynced] = useState('')
 
   /** 이슈 펴기·접기 — **같은 함수**를 계속 준다. 매번 새로 만들면 memo 가
       「달라졌다」 고 보고 다 다시 그린다. */
@@ -159,6 +167,17 @@ export default function Releases() {
   }
 
   /* ── 프로젝트 ── */
+  /** UTOP 프로젝트들 — 어느 Jira 프로젝트에 물렸는지 여기 적혀 있다 */
+  const upQ = useQuery({
+    queryKey: ['projects'],
+    staleTime: 300_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/projects')
+      if (!r.ok) return { projects: [] as Project[] }
+      return (await r.json()) as { projects?: Project[] }
+    },
+  })
+
   const projQ = useQuery({
     queryKey: ['jira-projects'],
     staleTime: 300_000,
@@ -168,13 +187,26 @@ export default function Releases() {
       return (await r.json()) as { ok?: boolean; projects?: Array<{ key: string; name: string }>; error?: string }
     },
   })
-  const allProjects = useMemo(
+  const jiraAll = useMemo(
     () =>
       [...(projQ.data?.projects ?? [])].sort((a, b) =>
         String(a.key).localeCompare(String(b.key), undefined, { numeric: true }),
       ),
     [projQ.data],
   )
+  /** **이 화면이 다루는 Jira 프로젝트.**
+   *
+   *  머리줄에서 고른 UTOP 프로젝트에 물린 것만 띄운다(지시). 「전체
+   *  프로젝트」 면 물려 둔 것 전부. 서른 개를 늘어놓고 사람이 찾게 하지
+   *  않는다 — 물리는 자리는 프로젝트 설정의 「Jira 프로젝트」 칸이다. */
+  const linked = useMemo(() => {
+    const ups = upQ.data?.projects ?? []
+    const mine = utop.length ? ups.filter((p) => utop.includes(p.id)) : ups
+    const keys = [...new Set(mine.map((p) => String(p.jira_project ?? '')).filter(Boolean))]
+    const byKey = new Map(jiraAll.map((p) => [p.key, p]))
+    return keys.map((k) => byKey.get(k) ?? { key: k, name: k })
+  }, [upQ.data, utop, jiraAll])
+  const allProjects = linked
   /** 즐겨찾기 — Jira 설정의 fav_projects. 옛 화면과 **같은 열쇠**라 거기서
    *  정해 둔 것이 그대로 온다. 비면 「전부」 인데, 실제 Jira 는 프로젝트가
    *  서른 개가 넘어 탭이 가로로 넘쳐 못 쓴다(지적) — 그때는 고르개로 낸다. */
@@ -221,17 +253,20 @@ export default function Releases() {
   })
 
   /* ── 이슈 — 버전이 붙은 것만 한 번에 받아 화면에서 나눈다 ── */
+  /* 이슈는 **Sync 를 눌러야** 가져온다(지시). 프로젝트만 바꿔도 Jira 를
+     두드리면, 서른 개를 훑는 동안 화면이 멎는다. */
   const issQ = useQuery({
-    queryKey: ['jira-issues', proj],
-    enabled: !!proj,
+    queryKey: ['jira-issues', synced],
+    enabled: !!synced,
     staleTime: 60_000,
     queryFn: async () => {
       /* **이 셋만 가져온다**(지시). 나머지(Task·산출물·OS Release…)는 시험으로
          덮을 것이 아니라 이 화면에 설 까닭이 없다. Jira 에서 걸러 오므로
          받는 양도 그만큼 준다. */
       const types = KINDS.map((k) => `"${k}"`).join(', ')
+      const [sp, sv] = synced.split('@@')
       const jql =
-        `project = ${proj} AND fixVersion IS NOT EMPTY AND issuetype in (${types}) ORDER BY key DESC`
+        `project = ${sp} AND fixVersion = "${sv}" AND issuetype in (${types}) ORDER BY key DESC`
       const f = 'summary,status,issuetype,reporter,assignee,fixVersions'
       const r = await apiFetch(
         `/api/jira/search-all?jql=${encodeURIComponent(jql)}&fields=${encodeURIComponent(f)}`,
@@ -373,24 +408,71 @@ export default function Releases() {
   return (
     <div className="rls">
       {/* ── 프로젝트 탭 ── */}
-      {/* ── 위 줄 — 프로젝트 고르개. 옛 화면에서 **이것만** 가져왔다(지시).
-             서른 개가 넘어 탭으로는 못 늘어놓는다. ── */}
+      {/* ── 위 줄 — **프로젝트와 버전까지만** 불러온다(지시).
+             세부는 Sync 를 눌러야 온다. 프로젝트는 머리줄에서 고른 UTOP
+             프로젝트에 물린 Jira 프로젝트만 뜬다. ── */}
       <div className="rls-top">
         <b className="rls-h1">Releases</b>
         <select
           className="rls-sel"
           value={proj}
-          onChange={(e) => setProj(e.target.value)}
-          disabled={projQ.isLoading}
-          title="프로젝트"
+          onChange={(e) => {
+            setProj(e.target.value)
+            setVer('')
+            setSynced('')
+          }}
+          disabled={projQ.isLoading || upQ.isLoading}
+          title="Jira 프로젝트"
         >
-          <option value="">{projQ.isLoading ? '불러오는 중…' : '(프로젝트 선택)'}</option>
+          <option value="">
+            {projQ.isLoading || upQ.isLoading ? '불러오는 중…' : '(프로젝트 선택)'}
+          </option>
           {allProjects.map((p) => (
             <option key={p.key} value={p.key}>
               {p.key} · {p.name}
             </option>
           ))}
         </select>
+        <select
+          className="rls-sel ver"
+          value={ver}
+          onChange={(e) => setVer(e.target.value)}
+          disabled={!proj || verQ.isLoading}
+          title="버전"
+        >
+          <option value="">{verQ.isLoading ? '버전 불러오는 중…' : '(버전 선택)'}</option>
+          {(verQ.data?.versions ?? [])
+            .filter((v) => !v.archived)
+            .map((v) => {
+              const vn = String(v.name ?? '')
+              return (
+                <option key={vn} value={vn}>
+                  {vn}
+                  {v.released ? ' ✓' : ''}
+                  {v.releaseDate ? ` · ${v.releaseDate}` : ''}
+                </option>
+              )
+            })}
+        </select>
+        <button
+          type="button"
+          className="rls-sync"
+          disabled={!proj || !ver || issQ.isFetching}
+          title={
+            !proj || !ver
+              ? '프로젝트와 버전을 먼저 고르세요'
+              : '고른 버전의 이슈를 Jira 에서 가져옵니다'
+          }
+          onClick={() => {
+            const k = `${proj}@@${ver}`
+            if (synced === k) {
+              void qc.invalidateQueries({ queryKey: ['jira-issues', k] })
+              void qc.invalidateQueries({ queryKey: ['release-summary'] })
+            } else setSynced(k)
+          }}
+        >
+          {issQ.isFetching ? '가져오는 중…' : '↻ Sync'}
+        </button>
         <span className="rls-kinds" title="이 세 가지만 가져옵니다">
           {KINDS.join(' · ')}
         </span>
@@ -417,29 +499,28 @@ export default function Releases() {
           ))}
         </select>
         <span className="sp" />
-        <button
-          type="button"
-          className="rls-btn"
-          disabled={verQ.isFetching || issQ.isFetching}
-          onClick={() => {
-            void qc.invalidateQueries({ queryKey: ['jira-versions'] })
-            void qc.invalidateQueries({ queryKey: ['jira-issues'] })
-            void qc.invalidateQueries({ queryKey: ['release-summary'] })
-          }}
-        >
-          ↻ Jira Sync
-        </button>
       </div>
 
       {err && <div className="rls-err">Jira 를 읽지 못했습니다 — {err}</div>}
 
       {/* ── 표 ── */}
       <div className="rls-db">
-        {(verQ.isLoading || issQ.isLoading) && <div className="rls-none">불러오는 중…</div>}
-        {!verQ.isLoading && !tree.length && !err && (
-          <div className="rls-none">이 프로젝트에는 버전이 없습니다.</div>
+        {!allProjects.length && !upQ.isLoading && !projQ.isLoading && (
+          <div className="rls-none">
+            이 프로젝트에 물린 Jira 프로젝트가 없습니다 — 프로젝트 설정의 「Jira 프로젝트」 칸에서
+            물려 주세요.
+          </div>
         )}
-        {tree.map(([op, vers]) => {
+        {!!allProjects.length && !synced && (
+          <div className="rls-none">
+            프로젝트와 버전을 고르고 <b>Sync</b> 를 누르면 그 버전의 이슈를 가져옵니다.
+          </div>
+        )}
+        {(verQ.isLoading || issQ.isLoading) && <div className="rls-none">불러오는 중…</div>}
+        {synced && !issQ.isLoading && !tree.length && !err && (
+          <div className="rls-none">이 버전에 걸린 이슈가 없습니다.</div>
+        )}
+        {!!synced && tree.map(([op, vers]) => {
           const nIss = vers.reduce((a, v) => a + (stat.get(String(v.name ?? ''))?.n ?? 0), 0)
           const oOpen = !open.has(`op:${op}`)
           return (

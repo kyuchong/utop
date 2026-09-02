@@ -154,6 +154,9 @@ export interface Project {
   model_group: string
   model: string
   description: string
+  /** 물린 Jira 프로젝트 키(예: P274). 비면 안 물린 것이다 —
+      Releases 는 이 값으로 어느 Jira 프로젝트를 볼지 정한다. */
+  jira_project?: string
   created_at?: string
 }
 

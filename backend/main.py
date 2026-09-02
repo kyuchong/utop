@@ -4037,6 +4037,8 @@ class ProjectIn(BaseModel):
     model_group: str = ""
     model: str = ""
     description: str = ""
+    # 이 프로젝트가 물린 Jira 프로젝트 키(예: P274). 비면 안 물린 것이다.
+    jira_project: str = ""
 
 
 # ───────────────────────────────────────────
@@ -4092,7 +4094,7 @@ async def list_projects():
         rows = await c.fetch(
             """
             SELECT p.id, p.cat_id, c.name, p.customer, p.model_group, p.model,
-                   p.description, p.created_at
+                   p.description, p.jira_project, p.created_at
             FROM project p JOIN req_category c ON c.id = p.cat_id
             ORDER BY c.name
             """
@@ -4116,11 +4118,12 @@ async def create_project(body: ProjectIn):
     async with db.pool().acquire() as c:
         await c.execute(
             """
-            INSERT INTO project (id, cat_id, customer, model_group, model, description)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO project (id, cat_id, customer, model_group, model, description, jira_project)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             """,
             pid, cid, (body.customer or "").strip(), (body.model_group or "").strip(),
             (body.model or "").strip(), (body.description or "").strip(),
+            (body.jira_project or "").strip(),
         )
     return {"success": True, "id": pid, "cat_id": cid}
 
@@ -4146,10 +4149,11 @@ async def update_project(pid: str, body: ProjectIn):
             raise HTTPException(404, "프로젝트를 찾을 수 없습니다")
         await c.execute(
             """UPDATE project
-                  SET customer = $2, model_group = $3, description = $4
+                  SET customer = $2, model_group = $3, description = $4,
+                      jira_project = $5
                 WHERE id = $1""",
             pid, (body.customer or "").strip(), (body.model_group or "").strip(),
-            (body.description or "").strip(),
+            (body.description or "").strip(), (body.jira_project or "").strip(),
         )
     return {"success": True}
 

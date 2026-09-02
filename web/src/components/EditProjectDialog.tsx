@@ -24,6 +24,18 @@ export default function EditProjectDialog({ project, onSaved, onClose }: Props) 
   const [customer, setCustomer] = useState(project.customer || '')
   const [mg, setMg] = useState(project.model_group || '')
   const [desc, setDesc] = useState(project.description || '')
+  const [jira, setJira] = useState(project.jira_project || '')
+
+  /** Jira 프로젝트 목록 — 못 읽어도 화면은 뜬다(고른 값은 그대로 남는다) */
+  const jiraQ = useQuery({
+    queryKey: ['jira-projects'],
+    staleTime: 300_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/jira/projects')
+      if (!r.ok) return { projects: [] as Array<{ key: string; name: string }> }
+      return (await r.json()) as { projects?: Array<{ key: string; name: string }> }
+    },
+  })
 
   const rolesQ = useQuery({
     queryKey: ['device-roles'],
@@ -43,6 +55,7 @@ export default function EditProjectDialog({ project, onSaved, onClose }: Props) 
         customer: customer.trim(),
         model_group: mg,
         description: desc.trim(),
+        jira_project: jira.trim(),
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['projects'] })
@@ -53,7 +66,8 @@ export default function EditProjectDialog({ project, onSaved, onClose }: Props) 
   const changed =
     customer.trim() !== (project.customer || '') ||
     mg !== (project.model_group || '') ||
-    desc.trim() !== (project.description || '')
+    desc.trim() !== (project.description || '') ||
+    jira.trim() !== (project.jira_project || '')
 
   return (
     <div className="modal-back" onMouseDown={onClose}>
@@ -105,6 +119,26 @@ export default function EditProjectDialog({ project, onSaved, onClose }: Props) 
             </select>
           </label>
 
+
+          {/* 이 프로젝트가 **어느 Jira 프로젝트**인가(지시).
+              Releases 화면이 이 값을 보고, 머리줄에서 고른 프로젝트에 맞는
+              Jira 프로젝트만 띄운다 — 서른 개를 늘어놓고 찾게 하지 않는다. */}
+          <label className="fld">
+            <span>Jira 프로젝트</span>
+            <select value={jira} onChange={(e) => setJira(e.target.value)}>
+              <option value="">(안 물림)</option>
+              {(jiraQ.data?.projects ?? []).map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.key} · {p.name}
+                </option>
+              ))}
+              {/* Jira 를 못 읽어도 이미 넣어 둔 값은 남긴다 — 안 그러면
+                  창을 열자마자 비어, 저장하면 물린 것이 풀린다. */}
+              {jira && !(jiraQ.data?.projects ?? []).some((p) => p.key === jira) && (
+                <option value={jira}>{jira}</option>
+              )}
+            </select>
+          </label>
 
           <label className="fld">
             <span>설명</span>

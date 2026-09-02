@@ -563,6 +563,11 @@ ALTER TABLE cycle_run_log ADD COLUMN IF NOT EXISTS item_at INT DEFAULT -1;
 -- 실행기는 플랜(cycle)만 알고 돈다. 그 결과를 실행 기록으로 옮겨 적으려면
 -- 일감에 실행 번호가 적혀 있어야 한다. 비어 있으면 옛 방식(플랜 직접 실행).
 ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS plan_run_id TEXT;
+
+-- 이 프로젝트가 **어느 Jira 프로젝트**인가(지시).
+-- Releases 화면은 머리줄에서 고른 프로젝트에 맞는 Jira 프로젝트만 띄운다 —
+-- 서른 개를 다 늘어놓고 사람이 찾게 하지 않는다.
+ALTER TABLE project ADD COLUMN IF NOT EXISTS jira_project TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS cycle_run_plan_run_idx ON cycle_run (plan_run_id)
   WHERE plan_run_id IS NOT NULL;
 
