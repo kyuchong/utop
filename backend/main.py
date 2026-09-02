@@ -16743,17 +16743,22 @@ async def jira_attach(key: str, data: dict):
 # Release Summary — 이슈 상세(설명+댓글+첨부) lazy load
 @app.get("/api/jira/issue/{key}")
 async def jira_issue_detail(key: str):
-    # 칸을 하나하나 적지 않고 *navigable 로 받는다 — Jira 화면이 쓰는 것과
-    # 같은 묶음이라 Traceability 같은 **커스텀 칸**도 같이 온다(지시:
-    # 「자세히, 설명, Traceability, 첨부 파일, 이슈연결, 활동 이런순」).
-    # 이름을 박아 두면 Jira 에서 칸 하나 늘 때마다 여기를 고쳐야 한다.
+    # 칸을 하나하나 적지 않고 **\*all** 로 받는다 — Traceability 같은 커스텀
+    # 칸까지 같이 와야 지라와 같은 차례로 낼 수 있다(지시: 「자세히, 설명,
+    # Traceability, 첨부 파일, 이슈연결, 활동 이런순」). 이름을 박아 두면
+    # Jira 에서 칸 하나 늘 때마다 여기를 고쳐야 한다.
+    #
+    # **\*navigable 은 쓰면 안 된다**(지적: 「첨부 파일과 활동이 하나도 없어」).
+    # comment·attachment 는 navigable 이 아니어서 그 묶음에 안 들어온다 —
+    # 그래서 서랍의 첨부·활동이 통째로 비었다. 이슈 한 건씩 여는 자리라
+    # \*all 의 무게는 문제되지 않는다.
     #
     # expand:
     #   renderedFields — Jira 가 렌더한 HTML(설명·댓글·커스텀 칸) → 화면과 같은 표현
     #   names          — 칸 id → 보이는 이름. customfield_10500 이 무엇인지
     #                    이것 없이는 알 수 없다.
     r, err = _jira_call("GET", f"/rest/api/2/issue/{key}",
-                        params={"fields": "*navigable", "expand": "renderedFields,names"})
+                        params={"fields": "*all", "expand": "renderedFields,names"})
     if err:
         return err
     if not r.is_success:

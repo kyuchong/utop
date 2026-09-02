@@ -561,16 +561,8 @@
 .rls-link .key { flex: none; font-weight: 700; color: #3b6aa5; text-decoration: none; min-width: 92px; }
 .rls-link .key:hover { text-decoration: underline; }
 .rls-link .sm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #424b50; }
-.rls-imgfail {
-  display: inline-block;
-  font-size: 12px;
-  color: #a8213f;
-  background: #fff4f6;
-  border: 1px solid #f2ccd5;
-  border-radius: 5px;
-  padding: 4px 9px;
-  text-decoration: none;
-}
+/* 못 받은 그림은 안내 그림으로 그려진다 — 눌러도 크게 뜨지 않는다 */
+.rls-jira img[data-fail] { cursor: default; }
 .rls-dtitle { font-size: 14.5px; font-weight: 700; line-height: 1.45; margin-bottom: 12px; }
 .rls-dmeta {
   display: grid; grid-template-columns: 58px 1fr 58px 1fr; gap: 6px 10px;

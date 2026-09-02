@@ -202,50 +202,82 @@ async function dlAtt(url: string, filename: string): Promise<void> {
   }
 }
 
-/** 적어 둔 Jira 그림을 **표를 얹어** 받아다 붙인다.
+/** 로딩 중 자리 — 비워 두면 브라우저가 「깨진 그림」 자국을 그린다 */
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+/** 못 받은 자리 — 무엇이 빠졌는지는 보여야 한다 */
+const BADIMG =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='300' height='40'>" +
+      "<rect width='300' height='40' rx='5' fill='#fff4f6' stroke='#f2ccd5'/>" +
+      "<text x='150' y='25' text-anchor='middle' font-size='12' fill='#a8213f'" +
+      " font-family='sans-serif'>그림을 못 받았습니다</text></svg>",
+  )
+
+/** HTML 속성에 든 꼴을 원래 주소로 되돌린다 */
+const unesc = (v: string): string =>
+  v.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+
+/**
+ * Jira 그림을 **표(Authorization)를 얹어** 받아 blob 주소로 들고 있는다.
  *
- *  돌려주는 것은 뒷정리 함수다 — 만든 blob 주소를 거두지 않으면 서랍을
- *  여닫을 때마다 메모리에 쌓인다.
+ * 예전엔 화면이 그려진 뒤 DOM 을 뒤져 `img.src` 에 직접 꽂았다. 그런데
+ * React 가 그 자리를 다시 그리는 순간(예: 크게 보기 창을 닫아 이 부품이
+ * 다시 그려질 때) 심어 둔 src 가 통째로 날아갔다 — **사진이 사라졌다**
+ * (지적: 「사진클릭 후 다른곳 클릭하면 드로우 출력에 사진이 없어져」).
+ *
+ * 그래서 **React 가 주인이 되게** 바꿨다: 받은 주소를 상태로 들고,
+ * 그릴 때 HTML 문자열의 `data-jsrc` 를 `src` 로 바꿔 끼운다. 몇 번을 다시
+ * 그려도 주소가 HTML 에 박혀 있으니 사라질 수 없다.
+ *
+ * 열쇠는 **HTML 에 적힌 그대로**(이스케이프된 꼴)를 쓴다 — 그래야 되돌려
+ * 끼울 때 글자가 정확히 맞는다. 받을 때만 원래 주소로 푼다.
  */
-function loadJiraImgs(root: HTMLElement | null): () => void {
-  if (!root) return () => {}
-  const made: string[] = []
-  let dead = false
-  const imgs = [...root.querySelectorAll<HTMLImageElement>('img[data-jsrc]')]
-  for (const img of imgs) {
-    const u = img.dataset.jsrc ?? ''
-    if (!u) continue
-    delete img.dataset.jsrc /* 두 번 받지 않는다 */
-    img.alt = img.alt || '(그림 받는 중…)'
+function useJiraImgs(htmls: string[]): Map<string, string> {
+  const key = htmls.join('\u0000')
+  const urls = useMemo(() => {
+    const out = new Set<string>()
+    for (const m of key.matchAll(/\sdata-jsrc="([^"]*)"/g)) if (m[1]) out.add(m[1])
+    return [...out]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+
+  const [got, setGot] = useState<Map<string, string>>(new Map())
+  useEffect(() => {
+    if (!urls.length) return
+    let dead = false
+    const made: string[] = []
     void (async () => {
-      try {
-        const r = await apiFetch(`/api/jira/attachment?url=${encodeURIComponent(u)}`)
-        if (!r.ok) throw new Error(String(r.status))
-        const b = await r.blob()
+      for (const raw of urls) {
+        let val = ''
+        try {
+          const r = await apiFetch(`/api/jira/attachment?url=${encodeURIComponent(unesc(raw))}`)
+          if (!r.ok) throw new Error(String(r.status))
+          const o = URL.createObjectURL(await r.blob())
+          made.push(o)
+          val = o
+        } catch {
+          val = '' /* 못 받음 — 그릴 때 안내 그림으로 바뀐다 */
+        }
         if (dead) return
-        const o = URL.createObjectURL(b)
-        made.push(o)
-        img.src = o
-        img.alt = ''
-      } catch {
-        /* 못 받았으면 자리라도 알려 준다 — 깨진 자국만 남으면 무엇이
-           빠졌는지 모른다 */
-        img.replaceWith(
-          Object.assign(document.createElement('a'), {
-            href: u,
-            target: '_blank',
-            rel: 'noopener',
-            className: 'rls-imgfail',
-            textContent: '그림을 못 받았습니다 — Jira 에서 열기 ↗',
-          }),
-        )
+        setGot((m) => new Map(m).set(raw, val))
       }
     })()
-  }
-  return () => {
-    dead = true
-    for (const o of made) URL.revokeObjectURL(o)
-  }
+    return () => {
+      dead = true
+      for (const o of made) URL.revokeObjectURL(o)
+    }
+  }, [urls])
+  return got
+}
+
+/** 적어 둔 주소를 받아 둔 그림으로 바꿔 끼운다 */
+function withImgs(html: string, got: Map<string, string>): string {
+  return String(html).replace(/\sdata-jsrc="([^"]*)"/g, (_m, raw: string) => {
+    if (!got.has(raw)) return ` src="${BLANK}"` /* 아직 받는 중 */
+    const v = got.get(raw) ?? ''
+    return v ? ` src="${v}"` : ` src="${BADIMG}" data-fail="1"`
+  })
 }
 
 /** 이슈 한 줄.
@@ -1330,10 +1362,6 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
     },
   })
 
-  /** 설명·댓글이 그려진 자리 — 여기 든 Jira 그림을 받아다 붙인다 */
-  const bodyRef = useRef<HTMLDivElement>(null)
-  /* 그려진 **뒤에** 돈다. 자료가 바뀌면(다른 이슈) 다시 돈다. */
-  useEffect(() => loadJiraImgs(bodyRef.current), [q.data])
 
   /* Esc 로 닫는다 — 서랍은 덮는 것이라 빠져나갈 길이 손에 있어야 한다 */
   useEffect(() => {
@@ -1384,6 +1412,17 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
     return { label: String(names[id] ?? 'Traceability'), html, text }
   }, [q.data, f, rf])
 
+  /* Jira 가 준 HTML 을 **한 번만** 손질해 둔다(스크립트 제거·주소 정리).
+     그릴 때마다 새로 만들면 그림 주소를 모으는 자리가 매번 달라진다. */
+  const descJ = useMemo(() => jiraHtml(descHtml, base), [descHtml, base])
+  const traceJ = useMemo(() => jiraHtml(trace?.html ?? '', base), [trace, base])
+  const cmtJ = useMemo(
+    () => cmtHtml.map((c) => jiraHtml(String((c as Record<string, unknown>)?.body ?? ''), base)),
+    [cmtHtml, base],
+  )
+  /** 설명·Traceability·댓글에 든 그림을 표를 얹어 받아 둔다 */
+  const imgs = useJiraImgs(useMemo(() => [descJ, traceJ, ...cmtJ], [descJ, traceJ, cmtJ]))
+
   /** 크게 볼 그림 — 눌린 그림 하나. 빈 문자열이면 안 떠 있다. */
   const [lb, setLb] = useState('')
   useEffect(() => {
@@ -1412,12 +1451,12 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
 
         <div
           className="rls-dbody"
-          ref={bodyRef}
           /* Jira 는 그림을 첨부 주소로 감싸 둔다. 그냥 두면 눌렀을 때 Jira 로
              건너가 이 화면을 잃는다(지적) — 여기서 잡아 크게만 띄운다. */
           onClick={(e) => {
             const t = e.target as HTMLElement
             if (t.tagName !== 'IMG' || !t.closest('.rls-jira')) return
+            if (t.dataset.fail) return /* 못 받은 자리 — 크게 볼 것이 없다 */
             e.preventDefault()
             e.stopPropagation()
             setLb((t as HTMLImageElement).src)
@@ -1473,7 +1512,7 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
                 <div
                   className="rls-jira"
                   // eslint-disable-next-line react/no-danger
-                  dangerouslySetInnerHTML={{ __html: jiraHtml(descHtml, base) }}
+                  dangerouslySetInnerHTML={{ __html: withImgs(descJ, imgs) }}
                 />
               ) : (
                 <div className="rls-dtext">{descText.trim() || '(설명 없음)'}</div>
@@ -1489,7 +1528,7 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
                     <div
                       className="rls-jira"
                       // eslint-disable-next-line react/no-danger
-                      dangerouslySetInnerHTML={{ __html: jiraHtml(trace.html, base) }}
+                      dangerouslySetInnerHTML={{ __html: withImgs(traceJ, imgs) }}
                     />
                   ) : (
                     <div className="rls-dtext">{trace.text}</div>
@@ -1550,7 +1589,7 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
               {cmts.map((c, i) => {
                 const who = pick(c.author, 'displayName')
                 const when = String(c.updated ?? c.created ?? '').replace('T', ' ').slice(0, 16)
-                const bh = String((cmtHtml[i] as Record<string, unknown> | undefined)?.body ?? '')
+                const bh = cmtJ[i] ?? ''
                 return (
                   <div className="rls-cmt" key={String(c.id ?? i)}>
                     <div className="rls-cmth">
@@ -1562,7 +1601,7 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
                       <div
                         className="rls-jira"
                         // eslint-disable-next-line react/no-danger
-                        dangerouslySetInnerHTML={{ __html: jiraHtml(bh, base) }}
+                        dangerouslySetInnerHTML={{ __html: withImgs(bh, imgs) }}
                       />
                     ) : (
                       <div className="rls-dtext">{String(c.body ?? '')}</div>
