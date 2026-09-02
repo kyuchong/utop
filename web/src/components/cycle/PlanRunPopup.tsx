@@ -72,14 +72,16 @@ export function PlanRunPopup({
  * 가는 일이다.
  */
 export function MakePlanRun({
-  plan, catalog, owner, vgroups = [], onClose, onMade,
+  plan, catalog, owner, vgroups = {}, onClose, onMade,
 }: {
   plan: CycleMeta
   /** 장비 카탈로그 — 모델그룹·모델명을 손으로 치면 표기가 갈린다 */
   catalog: Array<{ kind?: string; name?: string; model_group?: string | null; family?: string | null }>
   owner: string
-  /** 이미 쓰고 있는 버전그룹들 — 손으로 치면 폴더가 갈린다 */
-  vgroups?: string[]
+  /** 이미 쓰고 있는 버전그룹 — `{ 모델: [버전그룹…] }` 꼴이다.
+   *  (예전에 이 자리에 열쇠를 넣어 **모델 이름**이 버전그룹 고르개에
+   *   떴다 — TMDL·E6100. 값이 버전그룹이다.) */
+  vgroups?: Record<string, string[]>
   onClose: () => void
   onMade: (runId: string) => void
 }) {
@@ -132,12 +134,14 @@ export function MakePlanRun({
     [nameQ.data],
   )
   const TYPES = useCodes('cycle_type', ['표준항목'])
-  /** 고를 버전그룹 — 이미 쓰고 있는 것에 플랜 것을 더한다 */
-  const vgList = useMemo(
-    () => [...new Set([...(vgroups ?? []), String(plan.version_group ?? '')].filter(Boolean))]
-      .sort((a2, b2) => b2.localeCompare(a2, undefined, { numeric: true })),
-    [vgroups, plan.version_group],
-  )
+  /** 고를 버전그룹 — **고른 모델이 쓰던 것**이 먼저다. 모델을 안 골랐거나
+   *  그 모델에 쌓인 것이 없으면 전부에서 고른다. 플랜 것은 늘 넣는다. */
+  const vgList = useMemo(() => {
+    const all = Object.values(vgroups ?? {}).flat().map(String)
+    const mine = (vgroups?.[mdl] ?? []).map(String)
+    return [...new Set([...(mine.length ? mine : all), String(plan.version_group ?? '')].filter(Boolean))]
+      .sort((a2, b2) => b2.localeCompare(a2, undefined, { numeric: true }))
+  }, [vgroups, mdl, plan.version_group])
 
   const models = useMemo(
     () => catalog
@@ -190,6 +194,7 @@ export function MakePlanRun({
   const shape = /^[A-Za-z]\w*_\d{4}_\d{2}_\d{2}$/.test(ver.trim())
   const head = ver.trim().split('_')[0] ?? ''
   const match = !vg || head === vg
+  const [verTouched, setVerTouched] = useState(false)
   const bad = !ver.trim()
     ? '버전명을 입력하세요'
     : !shape
@@ -206,6 +211,7 @@ export function MakePlanRun({
       return
     }
     const d = new Date()
+    setVerTouched(true)
     setVer(`${vg}_${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, '0')}_${String(d.getDate()).padStart(2, '0')}`)
   }
 
@@ -303,7 +309,23 @@ export function MakePlanRun({
             )
           }, groups, true)}
           {sel('모델명', mdl, setMdl, models, true)}
-          {sel('버전그룹', vg, setVg, vgList, true)}
+          {/* **고르거나 직접 치거나**(지시). 고르개만 두면 새 폴더를 못
+              만들고, 빈 칸만 두면 표기가 갈린다 — 목록을 곁들인 입력칸이
+              둘을 다 준다. */}
+          <label className="cyrp-f sys">
+            <span>버전그룹</span>
+            <input
+              list="cyrp-vglist"
+              value={vg}
+              onChange={(e) => setVg(e.target.value)}
+              placeholder="R100 — 고르거나 직접"
+            />
+            <datalist id="cyrp-vglist">
+              {vgList.map((g) => (
+                <option key={g} value={g} />
+              ))}
+            </datalist>
+          </label>
 
           <div className="cyrp-sep" />
 
@@ -312,7 +334,10 @@ export function MakePlanRun({
             <div className="cyrp-verrow">
               <input
                 value={ver}
-                onChange={(e) => setVer(e.target.value)}
+                onChange={(e) => {
+                  setVerTouched(true)
+                  setVer(e.target.value)
+                }}
                 placeholder={String(plan.version ?? '') || 'R100_2026_08_31'}
                 spellCheck={false}
                 autoFocus
@@ -323,8 +348,12 @@ export function MakePlanRun({
                 오늘
               </button>
             </div>
-            {bad ? (
+            {bad && verTouched ? (
               <em className="bad">{bad}</em>
+            ) : bad ? (
+              /* 아직 손도 안 댔으면 빨간 글씨로 다그치지 않는다 — 옅은
+                 안내글(플랜의 버전)을 값으로 오해하기 딱 좋다 */
+              <em>버전그룹을 고르고 「오늘」 을 누르거나, 빌드 이름을 적으세요</em>
             ) : (
               <em>
                 실행 번호 <b>{(mdl || mg || 'RUN')}_R0001</b> · Runs 트리 <b>{vg || head}</b> 폴더
