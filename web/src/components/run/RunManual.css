@@ -224,3 +224,25 @@
 .rm-head { box-shadow: 0 5px 9px -7px rgba(18, 40, 44, 0.35); }
 .rm-none { display: flex; flex-direction: column; gap: 4px; padding: 26px 16px; text-align: center; color: #93a6ab; font-size: 12px; line-height: 1.6; }
 .rm-none strong { font-size: 13px; color: #5b7176; }
+
+/* 구성도·스텝 사진 — 시험서에 붙인 그림을 실행 화면에서도 그대로 본다.
+   폭은 시험서에서 늘여 놓은 그대로(topo_img_w · data_img_w). */
+.rm-shot {
+  display: block;
+  max-width: 100%;
+  border: 1px solid #e3eaec;
+  border-radius: 7px;
+  background: #fff;
+  padding: 0;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.rm-shot img { display: block; width: 100%; height: auto; }
+.rm-shot:hover { border-color: #b9c6cc; }
+.rm-bigimg {
+  max-width: 94vw;
+  max-height: 94vh;
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  cursor: zoom-out;
+}

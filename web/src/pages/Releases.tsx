@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch, tcApi } from '@/api/client'
+import { apiFetch } from '@/api/client'
 import { isManual } from '@/lib/runMode'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
@@ -160,10 +160,9 @@ function jiraHtml(html: string, base: string): string {
  *  97줄이 전부 다시 그려져 화면이 무거웠다(지적). 이제 눌린 줄만 다시 그린다.
  */
 const IssueRow = memo(function IssueRow({
-  it, ver, open, tcs, tcById, resultOf, onToggle, onNew, onPick, onDrop, onDetail, onOpenTc, making,
+  it, ver, open, tcs, tcById, resultOf, onToggle, onNew, onPick, onDrop, onDetail, onOpenTc,
 }: {
   onNew: (ver: string, key: string, summary: string) => void
-  making: boolean
   onPick: (ver: string, key: string) => void
   onDrop: (ver: string, key: string, tcid: string) => void
   onDetail: (key: string) => void
@@ -264,11 +263,10 @@ const IssueRow = memo(function IssueRow({
             <button
               type="button"
               className="rls-add"
-              disabled={making}
-              title="이 이슈를 덮을 시험을 새로 만들고, 만든 뒤 그 시험 화면으로 갑니다"
-              onClick={() => void onNew(ver, k, String(it.summary ?? ''))}
+              title="이 이슈를 덮을 시험을 새로 만듭니다 — 제목을 적고 저장하면 스텝 화면이 열립니다"
+              onClick={() => onNew(ver, k, String(it.summary ?? ''))}
             >
-              {making ? '만드는 중…' : '＋ TC 추가'}
+              ＋ TC 추가
             </button>
             <button
               type="button"
@@ -306,8 +304,6 @@ export default function Releases() {
   const [detail, setDetail] = useState('')
   /** Sync 진행 — 「R1.1.2 (1/3)」. 몇 개 중 몇 번째인지 안 보이면 멈춘 줄 안다 */
   const [busy, setBusy] = useState('')
-  /** 시험을 만드는 중인 이슈 — 두 번 눌러 두 개가 생기면 안 된다 */
-  const [making, setMaking] = useState('')
   /** 팝업으로 연 시험 항목 — 스텝을 적는 자리다 */
   const [tcOpen, setTcOpen] = useState('')
 
@@ -741,60 +737,17 @@ export default function Releases() {
    *  ID 는 서버가 매기고(모델그룹이 앞머리다), 제목은 이슈 제목으로,
    *  모델은 프로젝트에서 끌어온다. 물어볼 것이 없으니 창을 안 띄운다.
    *  모델을 못 끌어오는 프로젝트에서만 예전처럼 창이 뜬다. */
+  /** **＋ TC 추가 — 늘 같은 창을 띄운다.**
+   *
+   *  REQ-Coverage 의 「＋ TC 생성」 과 **같은 창**(TcForm)이다. 만드는 길이
+   *  둘이면 규칙도 둘이 된다 — 한쪽만 제목을 받고 한쪽은 안 받는 식으로.
+   *
+   *  창 없이 바로 만들던 때는 이름을 물을 자리가 없어 「P88-1857 검증 1」
+   *  같은 것을 지어 붙였다. 시험 이름은 「무엇을 확인하는가」 라 사람이
+   *  지어야 한다 — 요구사항 제목도 이슈 제목도 베끼지 않는다(지시). */
   const openNew = useCallback(
-    async (ver: string, key: string, summary: string) => {
-      if (!mine) {
-        setNewTo({ ver, key, summary })
-        return
-      }
-      if (making) return
-      setMaking(key)
-      /* 이 이슈에 몇 번째 시험인가 — 목업의 TC1·TC2 와 같은 차례다 */
-      const nth = (tcMap.get(`${ver}|${key}`)?.length ?? 0) + 1
-      try {
-        const r = await apiFetch(`/api/tc-next-id?mg=${encodeURIComponent(mine.model_group)}`)
-        if (!r.ok) throw new Error('새 시험 번호를 받지 못했습니다')
-        const tcid = String(((await r.json()) as { tcid?: string }).tcid ?? '')
-        if (!tcid) throw new Error('새 시험 번호가 비어 있습니다')
-        await tcApi.save(tcid, {
-          tcid,
-          /* **이슈 제목을 시험 이름으로 쓰지 않는다**(지적: 지라 이슈는
-             제목이 상당히 길다). 200자짜리 결함 설명이 시험 이름이 되면
-             시험 항목 목록·플랜·실행 화면·결과서에 그게 다 따라다닌다.
-             짧고 뜻이 있는 이름으로 시작하고, 사람이 시험 화면에서 고친다 —
-             이슈 제목은 바로 윗줄에 그대로 서 있으니 잃는 것도 없다. */
-          name: `${key} 검증 ${nth}`,
-          req_id: '',
-          status: '작성중',
-          severity: '보통',
-          model_group: mine.model_group,
-          model: mine.model,
-          /* 어느 이슈 때문에 생긴 시험인지 남긴다 — 시험 쪽에서만 보면
-             까닭을 알 길이 없다. 저장은 payload 를 통째로 넣으므로 이
-             칸도 그대로 남는다(main.py:save_tc). */
-          jira_issue_key: key,
-        })
-        await saveTcs(ver, key, (had) => [...had, tcid])
-        /* **시험 목록도 다시 읽는다.** 안 그러면 방금 만든 것이 그 목록에
-           없어서, 팝업이 「없는 시험」 으로 보고 목록 화면으로 되돌린다
-           (TestCases 의 openId 확인). 세 화면이 각자 목록을 들고 있다. */
-        await Promise.all([
-          qc.invalidateQueries({ queryKey: ['tc-meta-rls'] }),
-          qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] }),
-          qc.invalidateQueries({ queryKey: ['tcs'] }),
-        ])
-        /* 넘어가지 않고 **여기서 연다**(지적: 만들고 나면 스텝을 바로
-           적어야 하는데 적을 자리가 없었다). 팝업이 곧 그 화면이다. */
-        setTcOpen(tcid)
-      } catch (e) {
-        window.alert(e instanceof Error ? e.message : '시험을 만들지 못했습니다')
-      } finally {
-        setMaking('')
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mine, making, saveTcs, qc, tcMap],
+    (ver: string, key: string, summary: string) => setNewTo({ ver, key, summary }),
+    [],
   )
   const openDetail = useCallback((key: string) => setDetail(key), [])
   const dropTc = useCallback(
@@ -1041,7 +994,6 @@ export default function Releases() {
                             resultOf={resultOf}
                             onToggle={toggleIssue}
                             onNew={openNew}
-                            making={making === String(it.key ?? '')}
                             onOpenTc={setTcOpen}
                             onPick={openPick}
                             onDrop={dropTc}
@@ -1110,7 +1062,11 @@ export default function Releases() {
         <TcForm
           editing={null}
           /* 여기서도 이슈 제목을 그대로 넣지 않는다(위 openNew 와 같은 까닭) */
-          presetName={`${newTo.key} 검증`}
+          /* 무엇을 덮는가 — 요구사항 자리에 Jira 이슈가 앉는다 */
+          presetIssue={newTo.key}
+          /* 모델은 프로젝트가 아는 값이라 미리 골라 둔다(고칠 수 있다) */
+          presetMg={mine?.model_group ?? ''}
+          presetModel={mine?.model ?? ''}
           onCreated={(tcid) => {
             void saveTcs(newTo.ver, newTo.key, (had) => [...had, tcid])
               .then(() => qc.invalidateQueries({ queryKey: ['tc-meta-rls'] }))

@@ -44,6 +44,13 @@ export interface MStep {
   expected: string
   /** 스텝 설명 — 목업의 TEST STEP 칸 */
   desc?: string
+  /** 시험서에 붙인 사진. 글자와 **따로** 담긴다 — 글자만 그리면 사진이
+   *  사라진다(지적: 이미지 추가했는데 텍스트만 나온다). 폭은 시험서에서
+   *  늘여 놓은 그대로 쓴다. */
+  dataImg?: string
+  dataW?: number
+  expImg?: string
+  expW?: number
 }
 export interface MMeta {
   at?: string
@@ -65,12 +72,15 @@ export default function RunManual({
   onAct?: (ix: number, text: string) => void
   note: string
   onNote: (v: string) => void
-  info: { purpose: string; cond: string; topo: string; crit: string }
+  info: { purpose: string; cond: string; crit: string; topoImg?: string; topoW?: number }
   planId: string
   runId: string
   onBug: () => void
 }) {
   const [w, setW] = useState(() => Number(prefGet('utop.run.man.w') ?? '') || 44)
+  /** 크게 볼 사진 — 줄여 놓으면 글자가 안 읽힌다(시험서와 같은 규칙).
+   *  새 탭으로 안 띄운다 — 돌아오면 보던 항목과 줄을 다시 찾아야 한다. */
+  const [big, setBig] = useState('')
   const [q, setQ] = useState('')
   const [rf, setRf] = useState('')
   const [per, setPer] = useState(() => Number(prefGet('utop.run.man.per') ?? '') || 50)
@@ -282,7 +292,21 @@ export default function RunManual({
                 </div>
                 <div className="rm-ic full">
                   <div className="rm-il">구성도</div>
-                  <div className="rm-iv">{info.topo || '–'}</div>
+                  {/* 구성도는 **그림**이다. 글자 칸에 넣고 있어서 늘 비어
+                      보였다 — 이름을 고쳐도 주소만 찍힐 자리였다(지적). */}
+                  {info.topoImg ? (
+                    <button
+                      type="button"
+                      className="rm-shot"
+                      style={info.topoW ? { width: info.topoW } : undefined}
+                      title="크게 보기"
+                      onClick={() => setBig(info.topoImg ?? '')}
+                    >
+                      <img src={info.topoImg} alt="구성도" />
+                    </button>
+                  ) : (
+                    <div className="rm-iv">–</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -317,11 +341,37 @@ export default function RunManual({
                         <div className="rm-cmp">
                           <div>
                             <div className="rm-bl">Test Data</div>
-                            <div className="rm-bt">{s.data || '–'}</div>
+                            {/* 글자와 사진을 **둘 다** 낸다 — 시험서에서 사진만
+                                붙인 스텝도 있어, 글자만 그리면 그 칸이 빈다 */}
+                            {!s.data && !s.dataImg ? <div className="rm-bt">–</div> : null}
+                            {s.data ? <div className="rm-bt">{s.data}</div> : null}
+                            {s.dataImg ? (
+                              <button
+                                type="button"
+                                className="rm-shot"
+                                style={s.dataW ? { width: s.dataW } : undefined}
+                                title="크게 보기"
+                                onClick={() => setBig(s.dataImg ?? '')}
+                              >
+                                <img src={s.dataImg} alt="" />
+                              </button>
+                            ) : null}
                           </div>
                           <div>
                             <div className="rm-bl">Expected Result</div>
-                            <div className="rm-bt">{s.expected || '–'}</div>
+                            {!s.expected && !s.expImg ? <div className="rm-bt">–</div> : null}
+                            {s.expected ? <div className="rm-bt">{s.expected}</div> : null}
+                            {s.expImg ? (
+                              <button
+                                type="button"
+                                className="rm-shot"
+                                style={s.expW ? { width: s.expW } : undefined}
+                                title="크게 보기"
+                                onClick={() => setBig(s.expImg ?? '')}
+                              >
+                                <img src={s.expImg} alt="" />
+                              </button>
+                            ) : null}
                           </div>
                         </div>
                         <div className="rm-cmp">
@@ -422,6 +472,14 @@ export default function RunManual({
             onBug()
           }}
         />
+      )}
+
+      {/* 사진 크게 보기 — 시험서(TcManual)와 같은 방식이다. 줄여 놓은
+          그림은 글자가 안 읽혀, 판정하려면 키워 봐야 한다. */}
+      {!!big && (
+        <div className="rm-ovl" onMouseDown={() => setBig('')} role="dialog" aria-modal="true" aria-label="사진 크게 보기">
+          <img className="rm-bigimg" src={big} alt="" onMouseDown={(e) => e.stopPropagation()} />
+        </div>
       )}
     </div>
   )

@@ -150,7 +150,10 @@ function asStep(raw: Record<string, unknown>, i: number): {
   }
 }
 
-function manualSteps(tc?: Record<string, unknown>): Array<{ t: string; e: string; d?: string; da?: string }> {
+function manualSteps(tc?: Record<string, unknown>): Array<{
+  t: string; e: string; d?: string; da?: string
+  daImg?: string; daW?: number; eImg?: string; eW?: number
+}> {
   /* 절차는 `steps` 가 아니라 **`checks`** 에 사는 항목이 많다(213 은 전부
      그렇다). 한쪽만 보면 「절차가 없습니다」 로 잘못 뜬다. */
   const raw = (tc?.steps as CycleStep[] | undefined) ?? []
@@ -166,6 +169,13 @@ function manualSteps(tc?: Record<string, unknown>): Array<{ t: string; e: string
       e: String(s.expected ?? s.criteria ?? '').trim(),
       d: String(s.desc ?? '').trim(),
       da: String((s as unknown as Record<string, unknown>).data ?? '').trim(),
+      /* **그림도 들고 온다.** 수동 스텝은 글자와 그림을 따로 담는데
+         (data / data_img) 글자만 옮기고 있었다 — 그래서 시험서에 사진을
+         붙여 놓고도 실행 화면에는 글자만 나왔다(지적). */
+      daImg: String((s as unknown as Record<string, unknown>).data_img ?? '').trim(),
+      daW: Number((s as unknown as Record<string, unknown>).data_img_w ?? 0) || undefined,
+      eImg: String((s as unknown as Record<string, unknown>).expected_img ?? '').trim(),
+      eW: Number((s as unknown as Record<string, unknown>).expected_img_w ?? 0) || undefined,
     }))
   /* 예전엔 스텝이 없으면 **기본 네 줄을 지어냈다.** 화면이 비는 걸 막으려던
      것인데 더 나빴다 — 없는 절차를 있는 것처럼 보이고, 그 껍데기에 판정·
@@ -1064,17 +1074,27 @@ export default function RunDetail({
             setCur(id)
             setStepAt(0)
           }}
-          steps={msteps.map((x) => ({ t: x.t, expected: x.e, desc: x.d, data: x.da }))}
+          steps={msteps.map((x) => ({
+            t: x.t, expected: x.e, desc: x.d, data: x.da,
+            dataImg: x.daImg, dataW: x.daW, expImg: x.eImg, expW: x.eW,
+          }))}
           pchk={pv}
           pmeta={(run.pmeta ?? {})[cur] ?? []}
           onStep={(ix, v) => void setProc(cur, ix, v)}
           onAct={(ix, t) => void setAct(cur, ix, t)}
           note={note}
           onNote={(v) => void save({ notes: { ...(run.notes ?? {}), [cur]: v } })}
+          /* **없는 칸을 읽고 있었다**(지적: 채웠는데 빈칸으로 들어간다).
+             TC 가 담는 이름은 이렇다 — 시험 목적은 object_md, 사전 준비
+             조건은 precondition_md, 구성도는 topo_img(올린 그림 주소)다.
+             purpose·precondition·topology 라는 칸은 아예 없어서 언제나
+             빈칸이었다. 채우고 말고와 상관이 없었다. */
           info={{
-            purpose: String(oneQ.data?.purpose ?? ''),
-            cond: String(oneQ.data?.precondition ?? ''),
-            topo: String(oneQ.data?.topology ?? ''),
+            purpose: String(oneQ.data?.object_md ?? oneQ.data?.purpose ?? ''),
+            cond: String(oneQ.data?.precondition_md ?? oneQ.data?.precondition ?? ''),
+            /* 구성도는 **그림**이다 — 글자 칸에 넣으면 주소만 찍힌다 */
+            topoImg: String(oneQ.data?.topo_img ?? ''),
+            topoW: Number(oneQ.data?.topo_img_w ?? 0) || undefined,
             crit: String(oneQ.data?.criteria ?? ''),
           }}
           planId={String(run.plan_id ?? '')}

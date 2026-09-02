@@ -12,9 +12,13 @@ interface Props {
   editing: TestCaseMeta | null
   /** 새로 만들 때 미리 연결해 둘 요구사항 (요구사항 화면의 「+ TC 생성」) */
   presetReqId?: string
-  /** 새로 만들 때 제목을 미리 채운다 — Releases 에서 이슈를 덮는 시험을
-   *  만들 때 그 이슈 제목으로 시작한다(같은 말을 두 번 치지 않는다) */
-  presetName?: string
+  /** 새로 만들 때 **무엇을 덮는가** — Jira 이슈 키(Releases 에서 연다).
+   *  요구사항(presetReqId)과 같은 자리의 값이다: 이 시험이 왜 있는가. */
+  presetIssue?: string
+  /** 새로 만들 때 모델을 미리 골라 둔다 — 프로젝트가 아는 값이라 사람에게
+   *  두 번 묻지 않는다. 고를 수는 있다. */
+  presetMg?: string
+  presetModel?: string
   /** 새로 만들고 나면 그 시험을 연다 — 만들기는 곧 세부 작성의 시작이다 */
   onCreated?: (tcid: string) => void
   onClose: () => void
@@ -28,7 +32,9 @@ const FB_ORIGIN = ['자체', '고객']
 /** 「공용으로 하겠다」 는 명시적 선택 — 빈 값(안 고름)과 갈라야 필수가 된다 */
 const COMMON = '*'
 
-export default function TcForm({ editing, presetReqId, presetName, onCreated, onClose }: Props) {
+export default function TcForm({
+  editing, presetReqId, presetIssue, presetMg, presetModel, onCreated, onClose,
+}: Props) {
   const qc = useQueryClient()
   const isNew = editing === null
 
@@ -62,7 +68,10 @@ export default function TcForm({ editing, presetReqId, presetName, onCreated, on
     // 새 ID 는 아래의 딴 effect 가 받는다 — 모델그룹에 따라 앞머리가
     // 갈리므로 모델그룹을 고를 때마다 다시 물어야 한다.
 
-    setName(editing?.name ?? presetName ?? '')
+    /* **제목은 비운 채로 시작한다.** 요구사항 제목도 이슈 제목도 베끼지
+       않는다 — 요구사항 하나에 시험이 셋이면 셋 다 이름이 같아지고,
+       목록에서 무엇을 확인하는 시험인지 알 수 없다. 사람이 짓는다. */
+    setName(editing?.name ?? '')
     setReqId(editing?.req_id ?? presetReqId ?? '')
     setType(editing?.type ?? '')
     setStatus(editing?.status || FB_STATUS[0]!)
@@ -70,15 +79,15 @@ export default function TcForm({ editing, presetReqId, presetName, onCreated, on
     setRunType(String(editing?.run_type ?? ''))
     setOrigin(String(editing?.origin ?? ''))
     // 기존 것: 빈 값 = 공용으로 이미 저장된 상태라 그대로 보여준다
-    setMg(editing ? String(editing.model_group ?? '') || COMMON : '')
-    setMdl(editing ? String(editing.model ?? '') || COMMON : '')
+    setMg(editing ? String(editing.model_group ?? '') || COMMON : (presetMg ?? ''))
+    setMdl(editing ? String(editing.model ?? '') || COMMON : (presetModel ?? ''))
     // 화면에 안 보이는 칸의 값까지 통째로 들고 있다가 그대로 돌려보낸다.
     // 저장이 data 를 통째로 덮어쓰므로(main.py:save_tc) 여기서 빠뜨리면
     // 숨긴 칸의 값이 조용히 사라진다.
     const c = editing?.custom
     setCustom(c && typeof c === 'object' ? { ...(c as Record<string, unknown>) } : {})
     setError('')
-  }, [editing, presetReqId, presetName])
+  }, [editing, presetReqId, presetMg, presetModel])
 
   const reqQ = useQuery({
     queryKey: ['req', 'list'],
@@ -147,6 +156,9 @@ export default function TcForm({ editing, presetReqId, presetName, onCreated, on
         // '*'(공용) 는 빈 값으로 저장 — 플랜 필터의 「미지정 = 공용」 규칙
         model_group: mg === COMMON ? '' : mg,
         model: mdl === COMMON ? '' : mdl,
+        /* 어느 이슈 때문에 생긴 시험인지 남긴다 — 시험 쪽에서만 보면
+           까닭을 알 길이 없다. 새로 만들 때만 붙인다. */
+        ...(isNew && presetIssue ? { jira_issue_key: presetIssue } : {}),
         custom,
       }),
     onSuccess: () => {
@@ -397,6 +409,12 @@ export default function TcForm({ editing, presetReqId, presetName, onCreated, on
             onChange={(k, v) => setCustom((c) => ({ ...c, [k]: v }))}
           />
 
+          {isNew && presetIssue && (
+            <div className="hint">
+              이 시험은 <b>{presetIssue}</b> 를 덮습니다 — 제목은 「무엇을 확인하는가」 로
+              적으세요(이슈 제목을 그대로 옮기지 않습니다).
+            </div>
+          )}
           {isNew ? (
             <div className="hint">
               저장하면 이 시험이 바로 열립니다 — 스텝·토폴로지 같은 세부는 거기서 적습니다.
