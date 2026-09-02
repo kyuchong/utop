@@ -749,6 +749,8 @@ export default function Releases() {
       }
       if (making) return
       setMaking(key)
+      /* 이 이슈에 몇 번째 시험인가 — 목업의 TC1·TC2 와 같은 차례다 */
+      const nth = (tcMap.get(`${ver}|${key}`)?.length ?? 0) + 1
       try {
         const r = await apiFetch(`/api/tc-next-id?mg=${encodeURIComponent(mine.model_group)}`)
         if (!r.ok) throw new Error('새 시험 번호를 받지 못했습니다')
@@ -756,7 +758,12 @@ export default function Releases() {
         if (!tcid) throw new Error('새 시험 번호가 비어 있습니다')
         await tcApi.save(tcid, {
           tcid,
-          name: summary.trim() || `${key} 검증`,
+          /* **이슈 제목을 시험 이름으로 쓰지 않는다**(지적: 지라 이슈는
+             제목이 상당히 길다). 200자짜리 결함 설명이 시험 이름이 되면
+             시험 항목 목록·플랜·실행 화면·결과서에 그게 다 따라다닌다.
+             짧고 뜻이 있는 이름으로 시작하고, 사람이 시험 화면에서 고친다 —
+             이슈 제목은 바로 윗줄에 그대로 서 있으니 잃는 것도 없다. */
+          name: `${key} 검증 ${nth}`,
           req_id: '',
           status: '작성중',
           severity: '보통',
@@ -786,7 +793,8 @@ export default function Releases() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mine, making, saveTcs, qc],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mine, making, saveTcs, qc, tcMap],
   )
   const openDetail = useCallback((key: string) => setDetail(key), [])
   const dropTc = useCallback(
@@ -1101,7 +1109,8 @@ export default function Releases() {
       {newTo && (
         <TcForm
           editing={null}
-          presetName={newTo.summary}
+          /* 여기서도 이슈 제목을 그대로 넣지 않는다(위 openNew 와 같은 까닭) */
+          presetName={`${newTo.key} 검증`}
           onCreated={(tcid) => {
             void saveTcs(newTo.ver, newTo.key, (had) => [...had, tcid])
               .then(() => qc.invalidateQueries({ queryKey: ['tc-meta-rls'] }))
