@@ -469,12 +469,27 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
         setRunPop({ run: got.id, plan: planId })
         return
       }
+      /* **실행이 하나도 없으면 지금 담긴 항목으로 하나 뜬다**(지시).
+         여기서는 버전을 묻지 않는다 — 「이 플랜을 돌려 보자」 가 뜻이고,
+         그 플랜이 가리키는 빌드가 곧 버전이다. 다른 빌드로 돌리려고
+         만드는 것은 「＋ 실행 만들기」 쪽 일이라 거기서만 묻는다. */
       const p = cycles.find((c) => c.id === planId)
+      /* 담긴 항목이 없으면 만들지 않는다 — 돌릴 것이 없는 실행만 목록에
+         쌓이고, 사람은 왜 아무 일도 안 일어났는지 알 수 없다. */
+      if (!(p?.items ?? []).length) {
+        window.alert('이 플랜에는 시험 항목이 없습니다 — 「시험 항목」 탭에서 먼저 담으세요')
+        return
+      }
       const mk = await apiFetch('/api/plan-runs', {
         method: 'POST',
         body: JSON.stringify({
           plan_id: planId,
+          /* 모델·버전그룹까지 실어 보낸다. 안 보내면 실행 번호의 앞머리와
+             왼쪽 레일 폴더를 서버가 짐작해야 한다 — 플랜이 아는 값이다. */
+          model_group: p?.model_group ?? '',
+          model: p?.model ?? '',
           version: p?.version ?? '',
+          version_group: p?.version_group ?? '',
           name: `${p?.name ?? p?.cid ?? planId} · ${p?.version ?? ''}`.trim(),
         }),
       })
