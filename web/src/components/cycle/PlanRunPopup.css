@@ -10,8 +10,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* 화면을 거의 채운다(지시) — 가장자리에만 바탕이 비친다 */
-  padding: 12px;
+  /* **화면을 통째로 채운다**(지시: 위 아래 테두리까지). 가장자리에 바탕을
+     남겨 두었더니 위아래가 잘려 보이고, 그만큼 실행 화면이 줄었다. */
+  padding: 0;
 }
 
 /* ── 실행 팝업 — **거의 전체 화면**(지시).
@@ -22,8 +23,8 @@
   width: 100%;
   height: 100%;
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 18px 48px rgba(15, 40, 44, 0.24);
+  /* 화면 끝까지 닿으니 둥근 모서리도 그림자도 뜻이 없다 */
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
