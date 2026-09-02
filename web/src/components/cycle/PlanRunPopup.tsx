@@ -64,6 +64,10 @@ export function PlanRunPopup({
  * 이제 만들기 전에 묻는다(지시): 모델그룹·모델명·버전그룹·버전명.
  * 모델명은 실행 Key 의 앞머리가 되고(E6100_R0006), 버전그룹은 Runs 왼쪽
  * 레일의 폴더가 된다.
+ *
+ * 만들고 나면 **Runs 화면으로 넘어간다**(지시). 「▶ 실행」 이 팝업인 것과
+ * 다르다 — 그것은 보던 플랜을 지키려는 것이고, 만들기는 그 실행을 돌리러
+ * 가는 일이다.
  */
 export function MakePlanRun({
   plan, catalog, owner, onClose, onMade,
@@ -212,7 +216,7 @@ export function MakePlanRun({
           </label>
         </div>
         <footer>
-          <span className="cyrp-note2">만들면 바로 열립니다</span>
+          <span className="cyrp-note2">만들면 Runs 로 갑니다</span>
           <span className="cyrp-sp" />
           <button type="button" className="cyrp-btn" onClick={onClose}>
             취소

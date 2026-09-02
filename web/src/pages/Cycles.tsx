@@ -910,9 +910,12 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
             owner={me?.name || me?.username || ''}
             onClose={() => setMkRunFor('')}
             onMade={(id) => {
+              /* 만든 뒤에는 **Runs 화면으로 넘어간다**(지시). 「▶ 실행」 은
+                 보던 자리를 지키려고 팝업이지만, 만들기는 이 플랜을 떠나
+                 그 실행을 돌리러 가는 일이라 화면을 옮기는 편이 맞다. */
               setMkRunFor('')
-              setRunPop({ run: id, plan: p.id })
               void listQ.refetch()
+              goto('run', id)
             }}
           />
         )
