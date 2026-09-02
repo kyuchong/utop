@@ -35,6 +35,8 @@ interface JiraVersion {
   released?: boolean
   archived?: boolean
   releaseDate?: string
+  startDate?: string
+  description?: string
 }
 interface JiraIssue {
   key: string
@@ -145,7 +147,9 @@ export default function Releases() {
   const [utop, setUtop] = useState<string[]>(() => currentProjects())
   useEffect(() => onProjectChange(() => setUtop(currentProjects())), [])
   /** 고른 버전. Sync 를 눌러야 세부를 가져온다 — 누른 「프로젝트@@버전」 이 synced 다 */
-  const [ver, setVer] = useState('')
+  /** 고른 버전들 — **여러 개**를 체크해 한 번에 가져온다(지시) */
+  const [vers, setVers] = useState<string[]>([])
+  const [verOpen, setVerOpen] = useState(false)
   const [synced, setSynced] = useState('')
 
   /** 이슈 펴기·접기 — **같은 함수**를 계속 준다. 매번 새로 만들면 memo 가
@@ -265,8 +269,10 @@ export default function Releases() {
          받는 양도 그만큼 준다. */
       const types = KINDS.map((k) => `"${k}"`).join(', ')
       const [sp, sv] = synced.split('@@')
+      const list = String(sv ?? '').split('|').filter(Boolean)
+      const fv = list.map((v) => `"${v}"`).join(', ')
       const jql =
-        `project = ${sp} AND fixVersion = "${sv}" AND issuetype in (${types}) ORDER BY key DESC`
+        `project = ${sp} AND fixVersion in (${fv}) AND issuetype in (${types}) ORDER BY key DESC`
       const f = 'summary,status,issuetype,reporter,assignee,fixVersions'
       const r = await apiFetch(
         `/api/jira/search-all?jql=${encodeURIComponent(jql)}&fields=${encodeURIComponent(f)}`,
@@ -351,9 +357,9 @@ export default function Releases() {
        위 고르개의 버전 목록은 「고를 수 있는 것 전부」 지만, 아래 표는
        가져온 그 버전의 것이다 — 79개를 다 늘어놓으면 무엇을 가져왔는지
        알 수 없다. */
-    const only = synced ? synced.split('@@')[1] : ''
+    const only = synced ? String(synced.split('@@')[1] ?? '').split('|').filter(Boolean) : []
     const versions = (verQ.data?.versions ?? []).filter(
-      (v) => !v.archived && (!only || String(v.name ?? '') === only),
+      (v) => !v.archived && (!only.length || only.includes(String(v.name ?? ''))),
     )
     const g = new Map<string, JiraVersion[]>()
     for (const v of versions) {
@@ -425,7 +431,7 @@ export default function Releases() {
           value={proj}
           onChange={(e) => {
             setProj(e.target.value)
-            setVer('')
+            setVers([])
             setSynced('')
           }}
           disabled={projQ.isLoading || upQ.isLoading}
@@ -440,38 +446,88 @@ export default function Releases() {
             </option>
           ))}
         </select>
-        <select
-          className="rls-sel ver"
-          value={ver}
-          onChange={(e) => setVer(e.target.value)}
-          disabled={!proj || verQ.isLoading}
-          title="버전"
-        >
-          <option value="">{verQ.isLoading ? '버전 불러오는 중…' : '(버전 선택)'}</option>
-          {(verQ.data?.versions ?? [])
-            .filter((v) => !v.archived)
-            .map((v) => {
-              const vn = String(v.name ?? '')
-              return (
-                <option key={vn} value={vn}>
-                  {vn}
-                  {v.released ? ' ✓' : ''}
-                  {v.releaseDate ? ` · ${v.releaseDate}` : ''}
-                </option>
-              )
-            })}
-        </select>
+        {/* 버전은 **체크박스로 여러 개**(지시). 고르개 한 줄로는 상태·날짜·
+            설명을 같이 낼 수 없어, 눌러서 펴는 판으로 낸다. */}
+        <div className="rls-vpick">
+          <button
+            type="button"
+            className="rls-sel ver"
+            disabled={!proj || verQ.isLoading}
+            onClick={() => setVerOpen((v) => !v)}
+            title="버전 고르기"
+          >
+            {verQ.isLoading
+              ? '버전 불러오는 중…'
+              : vers.length
+                ? `버전 ${vers.length}개 — ${vers.slice(0, 2).join(', ')}${vers.length > 2 ? ' 외' : ''}`
+                : '(버전 선택)'}
+            <i>⌄</i>
+          </button>
+          {verOpen && (
+            <div className="rls-vlist">
+              <div className="rls-vhead">
+                <span className="c1">버전</span>
+                <span className="c2">상태</span>
+                <span className="c3">시작일</span>
+                <span className="c4">배포일</span>
+                <span className="c5">설명</span>
+              </div>
+              <div className="rls-vbody">
+                {(verQ.data?.versions ?? [])
+                  .filter((v) => !v.archived)
+                  .map((v) => {
+                    const vn = String(v.name ?? '')
+                    const on = vers.includes(vn)
+                    return (
+                      <label key={vn} className={`rls-vrowp${on ? ' on' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          onChange={(e) =>
+                            setVers((a) => (e.target.checked ? [...a, vn] : a.filter((x) => x !== vn)))
+                          }
+                        />
+                        <span className="c1" title={vn}>
+                          {vn}
+                        </span>
+                        <span className="c2">
+                          <i className={v.released ? 'rel' : 'unrel'}>
+                            {v.released ? '배포됨' : '미배포'}
+                          </i>
+                        </span>
+                        <span className="c3">{v.startDate || '–'}</span>
+                        <span className="c4">{v.releaseDate || '–'}</span>
+                        <span className="c5" title={v.description || ''}>
+                          {v.description || ''}
+                        </span>
+                      </label>
+                    )
+                  })}
+              </div>
+              <div className="rls-vfoot">
+                <span className="rls-cnt">{vers.length}개 고름</span>
+                <span className="sp" />
+                <button type="button" onClick={() => setVers([])}>
+                  전부 지우기
+                </button>
+                <button type="button" onClick={() => setVerOpen(false)}>
+                  닫기
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <button
           type="button"
           className="rls-sync"
-          disabled={!proj || !ver || issQ.isFetching}
+          disabled={!proj || !vers.length || issQ.isFetching}
           title={
-            !proj || !ver
+            !proj || !vers.length
               ? '프로젝트와 버전을 먼저 고르세요'
-              : '고른 버전의 이슈를 Jira 에서 가져옵니다'
+              : `고른 버전 ${vers.length}개의 이슈를 Jira 에서 가져옵니다`
           }
           onClick={() => {
-            const k = `${proj}@@${ver}`
+            const k = `${proj}@@${[...vers].sort().join('|')}`
             if (synced === k) {
               void qc.invalidateQueries({ queryKey: ['jira-issues', k] })
               void qc.invalidateQueries({ queryKey: ['release-summary'] })
