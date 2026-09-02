@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
+import { isReleaseTc } from '@/lib/tcSeries'
 import type React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
@@ -1100,6 +1101,11 @@ export default function ReqTc({ me }: Props) {
   const tcRows = useMemo(() => {
     const n = q.trim().toLowerCase()
     const ok = (t: TestCaseMeta) => {
+      /* **릴리스 시험(_V)은 여기 안 선다**(합의: 완전 분리).
+         Jira 이슈를 덮는 시험은 Releases 가 관리한다 — 커버리지 화면에
+         커버리지와 무관한 줄이 서면 「이상하다」 가 된다. 담는 표는 하나
+         그대로고, 갈라지는 것은 보이는 목록뿐이다(lib/tcSeries). */
+      if (isReleaseTc(t.tcid)) return false
       const rid = String(t.req_id ?? '')
       if (reqOnly) return rid === reqOnly
       const r = reqById.get(rid)

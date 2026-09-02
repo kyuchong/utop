@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { isManual } from '@/lib/runMode'
+import { isReleaseTc } from '@/lib/tcSeries'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
@@ -507,6 +508,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
     const n = treeQ.trim().toLowerCase()
     const q2 = listQ.trim().toLowerCase()
     return tcs.filter((t) => {
+      /* **릴리스 시험(_V)은 이 목록에 안 선다**(합의: 완전 분리) —
+         Releases 가 관리한다. 다만 **지금 열어 둔 것**은 남긴다: 이 화면을
+         Releases 안에 끼워 그 시험을 펴는데(embedTc), 목록에서 빼 버리면
+         「없는 시험」 으로 보고 목록으로 되돌린다. */
+      if (isReleaseTc(t.tcid) && t.tcid !== openId) return false
       const r = reqByKey.get(t.req_id || '')
       /* **찾을 때는 폴더를 넘어선다.**
        *
@@ -531,7 +537,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
         return false
       return true
     })
-  }, [tcs, reqByKey, selReq, selFolder, folderSet, treeQ, listQ])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tcs, reqByKey, selReq, selFolder, folderSet, treeQ, listQ, openId])
 
   /** 열 필터까지 먹인 줄들 — 드롭다운 선택지는 필터 전(base)에서 뽑는다 */
   /**
