@@ -240,65 +240,74 @@ export default function TcForm({
 
           {/* Info 탭의 「기본」 카드와 같은 차례 — 만들 때 본 화면과 만들고
               나서 보는 화면이 같아야 눈이 헤매지 않는다. */}
-          <div className="frow tcf-2">
-            <label className="fld">
-              <span>요구사항 ID</span>
-              <input
-                value={(() => {
-                  const r = reqs.find((x) => reqPk(x) === reqId)
-                  return r ? reqLabel(r) : '–'
-                })()}
-                readOnly
-                className="ro"
-                tabIndex={-1}
-              />
-            </label>
-            <div className="fld tcf-reqc">
-              <span>요구사항 제목 (검색 · 선택)</span>
-              <input
-                value={
-                  reqOpen
-                    ? reqText
-                    : (() => {
-                        const r = reqs.find((x) => reqPk(x) === reqId)
-                        return r ? r.title || reqLabel(r) : '(연결 안 함)'
-                      })()
-                }
-                placeholder="이름·ID 로 찾기"
-                onFocus={() => {
-                  setReqOpen(true)
-                  setReqText('')
-                }}
-                onChange={(e) => setReqText(e.target.value)}
-                onBlur={() => window.setTimeout(() => setReqOpen(false), 150)}
-              />
-              {reqOpen && (
-                <div className="tcf-reqlist">
-                  <button type="button" onMouseDown={() => setReqId('')}>
-                    (연결 안 함)
-                  </button>
-                  {reqs
-                    .filter((r) => {
-                      const n = reqText.trim().toLowerCase()
-                      if (!n) return true
-                      return `${reqLabel(r)} ${r.title ?? ''}`.toLowerCase().includes(n)
-                    })
-                    .slice(0, 50)
-                    .map((r) => (
-                      <button
-                        key={reqPk(r)}
-                        type="button"
-                        className={reqPk(r) === reqId ? 'on' : ''}
-                        onMouseDown={() => setReqId(reqPk(r))}
-                      >
-                        <b>{r.title || '(제목 없음)'}</b>
-                        <i>{reqLabel(r)}</i>
-                      </button>
-                    ))}
-                </div>
-              )}
+          {/* **Releases 에서 부를 때는 요구사항 칸을 감춘다**(승인).
+              이 창이 Releases 에서 열렸다는 것은 이 시험이 **지라 이슈**를
+              덮는다는 뜻이다(presetIssue). 그런데 칸이 보이면 무심코 요구사항을
+              고르게 되고, 고르면 그 시험이 REQ-Coverage 의 커버리지 수치
+              (요구사항 줄의 TC 수·TC Map)에 섞인다 — 목록에서는 뺐는데 숫자에는
+              남아 「완전 분리」 가 반쪽이 된다(시험해서 확인했다).
+              REQ-Coverage 에서 열 때는 그대로 둔다 — 거기선 꼭 필요한 칸이다. */}
+          {!presetIssue && (
+            <div className="frow tcf-2">
+              <label className="fld">
+                <span>요구사항 ID</span>
+                <input
+                  value={(() => {
+                    const r = reqs.find((x) => reqPk(x) === reqId)
+                    return r ? reqLabel(r) : '–'
+                  })()}
+                  readOnly
+                  className="ro"
+                  tabIndex={-1}
+                />
+              </label>
+              <div className="fld tcf-reqc">
+                <span>요구사항 제목 (검색 · 선택)</span>
+                <input
+                  value={
+                    reqOpen
+                      ? reqText
+                      : (() => {
+                          const r = reqs.find((x) => reqPk(x) === reqId)
+                          return r ? r.title || reqLabel(r) : '(연결 안 함)'
+                        })()
+                  }
+                  placeholder="이름·ID 로 찾기"
+                  onFocus={() => {
+                    setReqOpen(true)
+                    setReqText('')
+                  }}
+                  onChange={(e) => setReqText(e.target.value)}
+                  onBlur={() => window.setTimeout(() => setReqOpen(false), 150)}
+                />
+                {reqOpen && (
+                  <div className="tcf-reqlist">
+                    <button type="button" onMouseDown={() => setReqId('')}>
+                      (연결 안 함)
+                    </button>
+                    {reqs
+                      .filter((r) => {
+                        const n = reqText.trim().toLowerCase()
+                        if (!n) return true
+                        return `${reqLabel(r)} ${r.title ?? ''}`.toLowerCase().includes(n)
+                      })
+                      .slice(0, 50)
+                      .map((r) => (
+                        <button
+                          key={reqPk(r)}
+                          type="button"
+                          className={reqPk(r) === reqId ? 'on' : ''}
+                          onMouseDown={() => setReqId(reqPk(r))}
+                        >
+                          <b>{r.title || '(제목 없음)'}</b>
+                          <i>{reqLabel(r)}</i>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="frow tcf-2">
             <label className="fld">
