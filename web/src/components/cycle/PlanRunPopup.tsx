@@ -142,6 +142,10 @@ export function MakePlanRun({
             만듭니다. 복사한 뒤에는 플랜을 고쳐도 이 실행은 안 바뀝니다.
           </p>
           <label className="cyrp-fld">
+            <span>제목</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="비우면 「플랜 · 버전」" />
+          </label>
+          <label className="cyrp-fld">
             <span>모델그룹</span>
             <select
               value={mg}
@@ -177,10 +181,6 @@ export function MakePlanRun({
             <em>실행 번호의 앞머리가 됩니다 — {(mdl || mg || 'RUN')}_R0001</em>
           </label>
           <label className="cyrp-fld">
-            <span>버전명</span>
-            <input value={ver} onChange={(e) => setVer(e.target.value)} placeholder="R100_2026_08_31" />
-          </label>
-          <label className="cyrp-fld">
             <span>버전그룹</span>
             <input
               value={vg}
@@ -193,8 +193,8 @@ export function MakePlanRun({
             <em>Runs 왼쪽 레일에서 이 폴더에 들어갑니다</em>
           </label>
           <label className="cyrp-fld">
-            <span>제목</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="비우면 「플랜 · 버전」" />
+            <span>버전명</span>
+            <input value={ver} onChange={(e) => setVer(e.target.value)} placeholder="R100_2026_08_31" />
           </label>
         </div>
         <footer>
