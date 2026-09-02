@@ -932,8 +932,25 @@ export default function RunDetail({
             setPinned(true)
             setStepAt(i)
           }}
-          runStep={runId2 === cur ? runStep : null}
-          runItem={runId2}
+          runStep={
+            /* 붙잡는 1.6초 동안에도 **마지막 스텝**에 표시를 남긴다.
+               안 그러면 목록에는 RUN 이 있는데 표에서만 잠깐 사라져,
+               고쳐 놓은 어긋남이 반대로 다시 생긴다. */
+            runId2 === cur
+              ? runStep
+              : jobLive && !pinItem && msteps.length
+                ? msteps.length - 1
+                : null
+          }
+          runItem={
+            /* **판과 목록이 같은 것을 가리킨다.** 항목이 바뀔 때 판은 1.6초
+               붙잡아 두는데(마지막 결과를 보라고) 목록은 안 붙잡아, 목록이
+               먼저 RUN 으로 튀고 표는 뒤늦게 따라왔다(지적).
+               따라가는 중이면 **판이 보고 있는 항목**을 표시한다. 사람이
+               다른 항목을 눌러 고정해 두었으면 판은 딴 데를 보는 것이니,
+               그때는 실행기가 실제로 도는 항목을 표시한다. */
+            jobLive ? (pinItem ? runId2 : cur) : ''
+          }
           dut={dut?.name ?? 'DUT'}
           logAt={log?.at}
         />
