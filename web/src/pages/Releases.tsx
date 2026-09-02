@@ -347,11 +347,16 @@ function withImgs(html: string, got: Map<string, string>): string {
  */
 const IssueRow = memo(function IssueRow({
   it, ver, open, tcs, tcById, resultOf, onToggle, onNew, onPick, onDrop, onDetail, onOpenTc, openTc,
+  onResync, busy,
 }: {
   onNew: (ver: string, key: string, summary: string) => void
   onPick: (ver: string, key: string) => void
   onDrop: (ver: string, key: string, tcid: string) => void
   onDetail: (key: string) => void
+  /** 이 이슈만 Jira 에서 다시 읽는다 */
+  onResync: (ver: string, key: string) => void
+  /** 지금 무언가 받는 중인가 — 그동안은 단추를 못 누른다 */
+  busy: boolean
   /** 붙은 시험을 연다 — **이 화면 위에 팝업**으로. 넘어가 버리면 이슈를
    *  보던 자리를 잃는다(지적: 「TC 클릭해서 내용을 확인 할 수 없어」). */
   onOpenTc: (tcid: string) => void
@@ -367,7 +372,7 @@ const IssueRow = memo(function IssueRow({
 }) {
   const k = String(it.key ?? '')
   return (
-    <div className="rls-iblock">
+    <div className={`rls-iblock${open ? ' on' : ''}`}>
       <div className="rls-irow">
         {/* **「>」 하나로 쓰고 펴지면 돌린다**(지시: 「> 이런걸로 더 크게」).
             글자를 ▸/▾ 로 바꿔 끼우면 두 글자의 무게중심이 달라 눌릴 때마다
@@ -411,6 +416,21 @@ const IssueRow = memo(function IssueRow({
         <span className="rls-person" title={`담당자 ${it.assignee || '–'}`}>
           {it.assignee || '–'}
         </span>
+        {/* **이 이슈만 다시 읽기**(지시). 버전 Sync 는 그 버전의 이슈를 통째로
+            받아 와서, 한 건의 상태만 바뀌었을 때 쓰기엔 무겁다. 늘 세워 두면
+            줄이 시끄러워 가리키거나 펼친 줄에만 뜬다. */}
+        <button
+          type="button"
+          className="rls-isync"
+          disabled={busy}
+          title={`${k} 만 Jira 에서 다시 읽습니다`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onResync(ver, k)
+          }}
+        >
+          ↻
+        </button>
       </div>
       {open && (
         /* 펼치면 **붙은 시험이 가로로** 선다 — `E61xx_V0001`, `E61xx_V0002`.
@@ -773,6 +793,47 @@ export default function Releases() {
   )
 
   /** 이 버전을 표에서 치운다 — 붙여 둔 시험까지 사라지므로 한 번 묻는다 */
+  /**
+   * **이슈 하나만 다시 읽는다**(지시: 「지라 이슈별로 sync 를 할 수 있나」).
+   *
+   * 버전 Sync 는 그 버전의 이슈를 전부 다시 받는다 — 188건짜리 버전에서
+   * 한 이슈의 상태만 바뀌었을 때 쓰기엔 무겁다. 이것은 그 한 건만 받아
+   * 제목·상태·담당자를 갱신한다.
+   *
+   * 저장 모양은 버전 Sync 와 **같은 함수**(shrink)를 쓴다 — 두 벌로 만들면
+   * 어느 날 칸 하나가 서로 달라진다. 붙여 둔 시험(tcs)도 그 함수가 지킨다.
+   */
+  const syncIssue = useCallback(
+    async (ver: string, key: string) => {
+      if (!proj || !ver || !key || busy) return
+      setBusy(`${key} 다시 읽는 중…`)
+      try {
+        const r = await apiFetch(`/api/jira/issue/${encodeURIComponent(key)}`)
+        const j = (await r.json()) as { ok?: boolean; error?: string; fields?: JiraIssue['fields'] }
+        if (!r.ok || j.ok === false) throw new Error(String(j.error ?? r.status))
+        const next = await readStore()
+        const kk = `${proj}@@${ver}`
+        const bag: Record<string, StoredIssue> = { ...(next[kk] ?? {}) }
+        /* Jira 에서 사라졌거나 접근이 막힌 이슈면 손대지 않는다 — 빈 값으로
+           덮어써 목록에서 지워 버리면 붙여 둔 시험까지 자리를 잃는다. */
+        if (!j.fields) throw new Error('이슈를 읽지 못했습니다')
+        bag[key] = shrink({ key, fields: j.fields }, new Date().toISOString(), bag[key])
+        next[kk] = bag
+        await apiFetch('/api/release-summary', {
+          method: 'POST',
+          body: JSON.stringify({ releases: next }),
+        })
+        await qc.invalidateQueries({ queryKey: ['release-summary'] })
+        /* 서랍이 열려 있으면 그것도 새로 — 같은 이슈를 보고 있을 수 있다 */
+        await qc.invalidateQueries({ queryKey: ['jira-issue', key] })
+      } catch (e) {
+        window.alert(`${key} 를 다시 읽지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+      }
+      setBusy('')
+    },
+    [proj, busy, readStore, qc],
+  )
+
   const dropVer = useCallback(
     async (ver: string) => {
       const bag = store[`${proj}@@${ver}`] ?? {}
@@ -1262,6 +1323,7 @@ export default function Releases() {
               <span className="h-stat">상태</span>
               <span className="h-per">보고자</span>
               <span className="h-per">담당자</span>
+              <span className="h-sync" />
             </div>
           )}
           <div className="rls-cb">
@@ -1292,6 +1354,8 @@ export default function Releases() {
                   onPick={openPick}
                   onDrop={dropTc}
                   onDetail={openDetail}
+                  onResync={syncIssue}
+                  busy={!!busy}
                 />
               ))
             )}
