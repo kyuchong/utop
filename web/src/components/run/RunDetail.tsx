@@ -1095,6 +1095,11 @@ export default function RunDetail({
             /* 구성도는 **그림**이다 — 글자 칸에 넣으면 주소만 찍힌다 */
             topoImg: String(oneQ.data?.topo_img ?? ''),
             topoW: Number(oneQ.data?.topo_img_w ?? 0) || undefined,
+            /* 그림은 없는데 배선은 있나 — 「구성도가 없다」 와 「아직 안
+               떴다」 는 사람이 할 일이 다르다 */
+            topoHas:
+              (Array.isArray(oneQ.data?.topoNodes) && (oneQ.data.topoNodes as unknown[]).length > 0) ||
+              (Array.isArray(oneQ.data?.wiring) && (oneQ.data.wiring as unknown[]).length > 0),
             crit: String(oneQ.data?.criteria ?? ''),
           }}
           planId={String(run.plan_id ?? '')}

@@ -72,7 +72,12 @@ export default function RunManual({
   onAct?: (ix: number, text: string) => void
   note: string
   onNote: (v: string) => void
-  info: { purpose: string; cond: string; crit: string; topoImg?: string; topoW?: number }
+  info: {
+    purpose: string; cond: string; crit: string
+    topoImg?: string; topoW?: number
+    /** 배선이 그려져 있나 — 그림이 없을 때 「없다」 와 「안 떴다」 를 가른다 */
+    topoHas?: boolean
+  }
   planId: string
   runId: string
   onBug: () => void
@@ -304,6 +309,15 @@ export default function RunManual({
                     >
                       <img src={info.topoImg} alt="구성도" />
                     </button>
+                  ) : info.topoHas ? (
+                    /* 배선은 그려 뒀는데 **그림으로 뜬 적이 없다.** 구성도
+                       그림은 Topology 탭의 「다시 그리기」 를 눌러야 만들어진다
+                       (자동이 아니다) — 없는 그림을 여기서 지어낼 수는 없으니
+                       할 일을 말해 준다(지적: 구성도가 이미지로 안 들어간다). */
+                    <div className="rm-iv rm-hint">
+                      배선은 있는데 구성도 <b>그림</b>이 아직 없습니다 — 시험 항목의
+                      <b> Topology</b> 탭에서 <b>「다시 그리기」</b> 를 한 번 누르면 만들어집니다.
+                    </div>
                   ) : (
                     <div className="rm-iv">–</div>
                   )}
@@ -477,7 +491,9 @@ export default function RunManual({
       {/* 사진 크게 보기 — 시험서(TcManual)와 같은 방식이다. 줄여 놓은
           그림은 글자가 안 읽혀, 판정하려면 키워 봐야 한다. */}
       {!!big && (
-        <div className="rm-ovl" onMouseDown={() => setBig('')} role="dialog" aria-modal="true" aria-label="사진 크게 보기">
+        /* 서랍용 덮개(rm-ovl)를 쓰고 있었다 — 그건 오른쪽에 붙이는
+           용도라 가운데 정렬이 없어 사진이 왼쪽 위 구석에 붙었다(지적). */
+        <div className="rm-lb" onMouseDown={() => setBig('')} role="dialog" aria-modal="true" aria-label="사진 크게 보기">
           <img className="rm-bigimg" src={big} alt="" onMouseDown={(e) => e.stopPropagation()} />
         </div>
       )}

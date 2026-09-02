@@ -239,6 +239,22 @@
 }
 .rm-shot img { display: block; width: 100%; height: auto; }
 .rm-shot:hover { border-color: #b9c6cc; }
+/* 사진 크게 보기 덮개 — **가운데**에 놓는다. 서랍용 덮개(rm-ovl)를
+   쓰고 있었는데 그건 오른쪽에 붙이는 용도라 정렬이 없어, 사진이 왼쪽 위
+   구석에 붙었다(지적). */
+.rm-lb {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(15, 25, 30, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  cursor: zoom-out;
+}
+.rm-hint { color: #7f97a1; line-height: 1.6; }
+.rm-hint b { color: #46555d; }
 .rm-bigimg {
   max-width: 94vw;
   max-height: 94vh;
