@@ -10,53 +10,73 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
+  /* 화면을 거의 채운다(지시) — 가장자리에만 바탕이 비친다 */
+  padding: 12px;
 }
 
-/* ── 실행 팝업 — 화면을 거의 채운다.
+/* ── 실행 팝업 — **거의 전체 화면**(지시).
       실행 화면은 판이 넷이라(스텝·콘솔·이벤트·항목) 작은 창에 넣으면
-      아무것도 못 읽는다. ── */
+      아무것도 못 읽는다. 창 하나에 머리줄과 알맹이를 가로선으로 가르고,
+      닫기는 머리줄 오른쪽 끝에 둔다. ── */
 .cyrp {
-  width: min(1680px, 96vw);
-  height: min(1000px, 94vh);
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(15, 40, 44, 0.24);
   display: flex;
   flex-direction: column;
-  gap: 8px;
   min-height: 0;
+  overflow: hidden;
 }
-.cyrp-head {
+.cyrp-bar {
   flex: none;
   display: flex;
   align-items: center;
   gap: 9px;
-  height: 34px;
-  padding: 0 4px;
-  color: #fff;
+  height: 46px;
+  padding: 0 10px 0 16px;
+  border-bottom: 1px solid #e3eaec;
+  background: #fbfdfd;
 }
-.cyrp-head b { font-size: 14px; font-weight: 800; }
-.cyrp-sub { font-size: 12px; color: rgba(255, 255, 255, 0.75); }
+.cyrp-bar b { font-size: 14.5px; font-weight: 700; color: #12282c; }
+.cyrp-sub {
+  font-size: 12px;
+  color: #93a6ab;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .cyrp-sp { flex: 1; }
 .cyrp-x {
   flex: none;
-  width: 28px;
-  height: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: none;
+  color: #5b7176;
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
 }
-.cyrp-x:hover { background: rgba(255, 255, 255, 0.22); }
-/* 안쪽은 진짜 화면과 같은 판이다 — RunDetail 이 .panel 을 전제로 선다 */
+.cyrp-x:hover { background: #eef3f4; border-color: #e3eaec; color: #12282c; }
+/* 알맹이 — 창이 이미 테두리를 가졌으니 안쪽 판은 옷만 입고 선은 뺀다 */
 .cyrp-body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding: 8px;
+}
+.cyrp-body.panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: #fff;
 }
 
 /* ══ 실행 만들기 창 ══

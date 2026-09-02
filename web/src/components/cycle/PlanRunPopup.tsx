@@ -38,16 +38,22 @@ export function PlanRunPopup({
   return (
     <div className="cyrp-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="cyrp" role="dialog" aria-modal="true" aria-label="시험 실행">
-        <div className="cyrp-head">
+        {/* **윗줄과 아랫부분을 가른다**(지시). 무엇을 보고 있는지는 위에,
+            닫기는 그 오른쪽 끝에 — 창을 거의 화면만큼 키웠으니 닫는 자리가
+            눈에 안 띄면 빠져나갈 길을 못 찾는다. */}
+        <header className="cyrp-bar">
           <b>시험 실행</b>
-          <span className="cyrp-sub">{plan?.cid || plan?.id || ''}</span>
+          <span className="cyrp-sub">
+            {plan?.cid || plan?.id || ''}
+            {plan?.name ? ` · ${plan.name}` : ''}
+          </span>
           <span className="cyrp-sp" />
           <button type="button" className="cyrp-x" onClick={onClose} title="닫기 (Esc) — 도는 시험은 안 멈춥니다">
             ✕
           </button>
-        </div>
-        {/* RunDetail 은 `.panel` 안에 서는 것을 전제로 만들어졌다(바탕·테두리를
-            거기서 받는다) — 팝업 안에서도 같은 옷을 입힌다. */}
+        </header>
+        {/* RunDetail 은 `.panel` 안에 서는 것을 전제로 만들어졌다(바탕을
+            거기서 받는다) — 옷은 입히되 테두리는 창이 이미 가졌으니 뺀다. */}
         <div className="panel cyrp-body">
           <RunDetail runId={runId} plan={plan} onBack={onClose} onGone={onClose} />
         </div>
