@@ -1138,10 +1138,13 @@ export default function CyclesUni({
    * 같은 저장소에 그 살림이 이미 있는데 화면마다 다른 표를 쓰면,
    * 옮겨 다닐 때마다 조작이 달라진다([[ui-unify-queue]]).
    */
-  const runCols: NCol[] = useMemo(
+  /**
+   * 실행 표의 **열 밑그림.** 이름·타입·선택지는 코드가 정본이다 —
+   * 이 표의 값은 실행이 가진 것 그대로라 서버에 정의를 둘 곳이 없다.
+   * 사람이 정하는 것(숨김·폭·차례)만 따로 기억한다.
+   */
+  const RUN_COLS: NCol[] = useMemo(
     () => [
-      /* 기본 열은 **지시한 아홉**이다. 방식·결과·상태는 숨겨 두고 「속성」
-         에서 켠다 — 노션식 표의 그 자리다. */
       { key: 'key', label: 'ID', type: 'text', width: 150, fixed: true },
       { key: 'title', label: '제목', type: 'text', width: 220 },
       { key: 'mgroup', label: '모델그룹', type: 'text', width: 100 },
@@ -1166,6 +1169,52 @@ export default function CyclesUni({
     ],
     [],
   )
+
+  /** 사람이 정한 것 — 숨김·폭·차례. 열쇠가 `utop.ntb.` 로 시작해야
+      계정을 따라간다(prefs 의 SYNC_PRE). */
+  const [colPref, setColPref] = useState<{
+    hidden: string[]
+    width: Record<string, number>
+    order: string[]
+  }>(() => {
+    try {
+      const raw = prefGet('utop.ntb.cyc.runcols')
+      const j = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+      return {
+        hidden: Array.isArray(j.hidden) ? (j.hidden as string[]) : [],
+        width: (j.width as Record<string, number>) ?? {},
+        order: Array.isArray(j.order) ? (j.order as string[]) : [],
+      }
+    } catch {
+      return { hidden: [], width: {}, order: [] }
+    }
+  })
+  useEffect(() => {
+    try {
+      prefSet('utop.ntb.cyc.runcols', JSON.stringify(colPref))
+    } catch {
+      /* 사생활 보호 모드에서 저장이 막혀도 화면은 돌아야 한다 */
+    }
+  }, [colPref])
+
+  const runCols: NCol[] = useMemo(() => {
+    const has = new Set(colPref.hidden)
+    /* 사람이 한 번이라도 손댔으면 그 숨김이 정본이다. 손댄 적 없으면
+       밑그림의 hidden(방식·결과·상태)을 그대로 쓴다. */
+    const touched = colPref.hidden.length > 0 || colPref.order.length > 0
+    const cols = RUN_COLS.map((c) => ({
+      ...c,
+      hidden: touched ? has.has(c.key) : c.hidden,
+      width: colPref.width[c.key] ?? c.width,
+    }))
+    if (!colPref.order.length) return cols
+    const at = (k: string) => {
+      const i2 = colPref.order.indexOf(k)
+      return i2 < 0 ? 999 : i2
+    }
+    return [...cols].sort((a, b) => at(a.key) - at(b.key))
+  }, [RUN_COLS, colPref])
+
   const runRows: NRow[] = useMemo(
     () =>
       shown.map((r) => {
@@ -1199,10 +1248,19 @@ export default function CyclesUni({
         rows={runRows}
         view={runView}
         onView={setRunView}
-        /* 열 정의는 잠근다 — 이 표의 열은 실행이 가진 값 그대로라,
-           이름을 바꾸거나 지워도 담아 둘 곳이 없다. */
+        /* 이름·타입·선택지는 못 고친다(담아 둘 곳이 없다) — 그래서 lockDefs.
+           **숨김·폭·차례는 사람 몫**이라 받아서 기억한다. 전에는 통째로
+           버려서 「속성」 의 토글이 아무 일도 안 했다(지적). */
         lockDefs
-        onColumns={() => undefined}
+        onColumns={(cs) =>
+          setColPref({
+            hidden: cs.filter((c) => c.hidden).map((c) => c.key),
+            width: Object.fromEntries(
+              cs.filter((c) => c.width != null).map((c) => [c.key, c.width as number]),
+            ),
+            order: cs.map((c) => c.key),
+          })
+        }
         onCell={() => undefined}
         /* 값은 실행이 가진 것 그대로라 못 고친다. 다만 방식·상태는
            readOnly 로 두면 맨 글자가 되므로(NTable:280) renderCell 이 알약을
