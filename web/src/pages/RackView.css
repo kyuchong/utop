@@ -42,11 +42,13 @@
   font-weight: 600;
   cursor: pointer;
 }
-.rv-zone:hover { border-color: var(--c-primary); }
+/* 구역 탭 — 장비·계측기와 같은 강조색(지시). 값은 Devices.css 의 :root 토큰.
+   바탕이 옅어졌으니 글자는 어둡게 — 흰 글자는 이 바탕에서 안 읽힌다. */
+.rv-zone:hover { border-color: var(--dev-acc-line); }
 .rv-zone.on {
-  background: var(--c-primary);
-  border-color: var(--c-primary);
-  color: #fff;
+  background: var(--dev-acc);
+  border-color: var(--dev-acc-line);
+  color: var(--dev-acc-ink);
 }
 .rv-zn {
   font-style: normal;
