@@ -17,7 +17,7 @@
  * 실행 화면은 **새로 만들지 않는다.** Runs 가 쓰던 그 부품을 그대로 쓴다 —
  * 베껴 만들면 한쪽만 고치는 날이 온다(이 저장소에서 이미 여러 번 겪었다).
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
@@ -163,6 +163,11 @@ export default function CyclesUni({
   const [wide, setWide] = useState(false)
   /** 1열 접기 */
   const [col1, setCol1] = useState(() => prefGet('utop.cyc.col1') !== '0')
+  /** 1열 폭 — 사람이 끌어서 정한다(지시). 계정별로 남는다 */
+  const [w1, setW1] = useState(() => {
+    const v = Number(prefGet('utop.ntb.cyc.w1') || 0)
+    return v >= 180 && v <= 620 ? v : 280
+  })
   const [tab, setTab] = useState<'ov' | 'it' | 'ai' | 'sum'>('ov')
   /** 실행 표의 보기(찾기·거르기·정렬·묶기) — 노션식 표가 쥐고 있다 */
   const [runView, setRunView] = useState<NView>(EMPTY_VIEW)
@@ -199,6 +204,39 @@ export default function CyclesUni({
 
   useEffect(() => prefSet('utop.cyc.tree', mode), [mode])
   useEffect(() => prefSet('utop.cyc.col1', col1 ? '1' : '0'), [col1])
+  useEffect(() => prefSet('utop.ntb.cyc.w1', String(w1)), [w1])
+
+  /**
+   * 열 사이를 **끌어서** 넓힌다(지시).
+   *
+   * 폴더 이름은 길이가 제각각이다 — 「사업자 ▸ 모델 ▸ 버전그룹 ▸ 버전명」
+   * 이 겨우 들어가게 280 으로 못박아 두었더니, 이름이 긴 자리에서는 잘리고
+   * 짧은 자리에서는 빈 폭만 남았다. 사람이 정하게 한다.
+   *
+   * 끄는 동안 글자가 잡히지 않도록 몸통의 선택을 잠근다 — 안 그러면 트리
+   * 이름들이 파랗게 물들며 끌린다.
+   */
+  const dragRef = useRef<{ x: number; w: number } | null>(null)
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const d = dragRef.current
+      if (!d) return
+      const next = Math.min(620, Math.max(180, d.w + (e.clientX - d.x)))
+      setW1(next)
+    }
+    const up = () => {
+      if (!dragRef.current) return
+      dragRef.current = null
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+    }
+  }, [])
 
   const runsQ = useQuery({
     queryKey: ['plan-runs'],
@@ -689,10 +727,11 @@ export default function CyclesUni({
   }, [runs, plans, mode, where, vgQ.data])
 
   const cols = [
-    /* 280px — 「사업자 ▸ 모델 ▸ 버전그룹 ▸ 버전명」 이 안 잘리는 폭이다.
-       재 보면 그 글자만 173px, 여기에 select 안여백·화살표(36)와 열의
-       여백·접기 단추(52)가 붙는다. 250 에서는 「버전」 에서 잘렸다. */
-    !wide && col1 ? '280px' : '',
+    /* 밑값 280px — 「사업자 ▸ 모델 ▸ 버전그룹 ▸ 버전명」 이 안 잘리는
+       폭이다. 재 보면 그 글자만 173px, 여기에 select 안여백·화살표(36)와
+       열의 여백(52)이 붙는다. 250 에서는 「버전」 에서 잘렸다.
+       여기서부터는 사람이 끌어서 정한다. */
+    !wide && col1 ? `${w1}px` : '',
     !wide ? 'minmax(0,1fr)' : '',
     openRun ? 'minmax(0,1.05fr)' : '',
   ].filter(Boolean).join(' ')
@@ -1591,19 +1630,10 @@ export default function CyclesUni({
       {!wide && (
         <div className="cu-top">
           <h1>Cycles</h1>
-          <span className="cu-sub">
-            트리 기준을 바꿔 계획·실행·담당 관점으로 봅니다
-          </span>
+          {/* 부제와 ＋사이클 은 걷었다(지시). 부제는 한 번 읽으면 그만인 글이라
+              늘 자리를 차지할 값어치가 없고, ＋사이클 은 결과서 옆 — 그 자리의
+              도구가 모인 곳으로 옮겼다. */}
           <span className="cu-sp" />
-          <button
-            type="button"
-            className="cu-new"
-            title="새 사이클을 만듭니다 — 사업자·모델·버전을 고르고 시험 항목을 담습니다"
-            onClick={() => setMaking(true)}
-          >
-            <i aria-hidden="true">＋</i>
-            사이클
-          </button>
         </div>
       )}
 
@@ -1611,14 +1641,9 @@ export default function CyclesUni({
         {!wide && col1 && (
           <section className="panel cu-tree">
             <div className="cu-th">
-              <button
-                type="button"
-                className="cu-colbtn"
-                title="열 접기"
-                onClick={() => setCol1(false)}
-              >
-                ◧
-              </button>
+              {/* 접기 단추는 **2열로 옮겼다**(지시) — 여닫는 단추가 열마다
+                  하나씩 있으면 지금 어느 쪽을 누르는지가 헷갈린다. 한 자리에
+                  두고 상태에 따라 방향만 바꾼다. */}
               <select value={mode} onChange={(e) => setMode(e.target.value as TreeMode)}>
                 {(Object.keys(TREE_LABEL) as TreeMode[]).map((k) => (
                   <option key={k} value={k}>
@@ -1734,22 +1759,38 @@ export default function CyclesUni({
                 </div>
               ))}
             </div>
+            {/* 끄는 손잡이 — 열 사이에 선다. 폭은 계정별로 남는다(지시).
+                두 번 누르면 밑값(280)으로 돌아온다: 끌다 보면 화면 밖으로
+                밀어 버리기 쉬운데, 되돌릴 길이 없으면 새로고침밖에 없다. */}
+            <div
+              className="cu-hsplit"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="폴더 열 너비"
+              title="끌어서 너비 조절 · 두 번 누르면 되돌림"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                dragRef.current = { x: e.clientX, w: w1 }
+                document.body.style.userSelect = 'none'
+                document.body.style.cursor = 'col-resize'
+              }}
+              onDoubleClick={() => setW1(280)}
+            />
           </section>
         )}
 
         {!wide && (
           <section className="panel cu-main">
             <div className="cu-hd">
-              {!col1 && (
-                <button
-                  type="button"
-                  className="cu-colbtn"
-                  title="폴더 열기"
-                  onClick={() => setCol1(true)}
-                >
-                  ▸
-                </button>
-              )}
+              <button
+                type="button"
+                className="cu-colbtn"
+                title={col1 ? '폴더 접기' : '폴더 열기'}
+                aria-pressed={col1}
+                onClick={() => setCol1((v) => !v)}
+              >
+                {col1 ? '◧' : '▸'}
+              </button>
               <b>{selName || '고른 것 없음'}</b>
               {sel && <span className="cu-chip">{SEL_LABEL[sel.t]}</span>}
               {isPlan && !!selPlan?.name && selPlan.name !== selPlan.cid && (
@@ -1792,6 +1833,17 @@ export default function CyclesUni({
                   onClick={openMore}
                 >
                   {busy ? '…' : '⋯'}
+                </button>
+                {/* ＋사이클 — 머리줄에서 이 자리로 옮겼다(지시). 만들기는
+                    결과를 내는 일과 같은 줄에 선다. */}
+                <button
+                  type="button"
+                  className="cu-new"
+                  title="새 사이클을 만듭니다 — 사업자·모델·버전을 고르고 시험 항목을 담습니다"
+                  onClick={() => setMaking(true)}
+                >
+                  <i aria-hidden="true">＋</i>
+                  사이클
                 </button>
                 {!!pick && (
                   <div className="cu-pickpop" role="dialog">

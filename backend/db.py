@@ -669,18 +669,22 @@ async def plan_run_delete(rid: str) -> bool:
 
 
 async def plan_run_next_key(model: str) -> str:
-    """실행 Key 는 **모델명** 기준 — E6100_R0001 (목업 규칙).
+    """실행 Key 는 **모델명** 기준 — E6100_E0001 (지시).
 
-    플랜 Key 가 모델그룹(E61xx_P0001)인 것과 일부러 다르다. 실행은 어느
-    장비로 돌렸는지가 핵심이라 모델명이 앞에 서야 목록에서 읽힌다."""
-    pre = f"{(model or 'RUN').strip()}_R"
+    플랜 Key 가 모델그룹(E61xx-P0001)인 것과 일부러 다르다. 실행은 어느
+    장비로 돌렸는지가 핵심이라 모델명이 앞에 서야 목록에서 읽힌다.
+
+    글머리는 **E**(실행)다. R 이던 것을 바꿨다 — 아래 옛 키도 함께 센다."""
+    pre = f"{(model or 'RUN').strip()}_E"
+    old = pre[:-1] + "R"  # 글머리를 바꾸기 전에 매긴 키
     async with pool().acquire() as c:
         rows = await c.fetch(
-            "SELECT id FROM plan_run WHERE id LIKE $1", pre + "%"
+            "SELECT id FROM plan_run WHERE id LIKE $1 OR id LIKE $2", pre + "%", old + "%"
         )
     n = 0
     for r in rows:
-        tail = str(r["id"])[len(pre):]
+        rid = str(r["id"])
+        tail = rid[len(pre):] if rid.startswith(pre) else rid[len(old):]
         if tail.isdigit():
             n = max(n, int(tail))
     return f"{pre}{n + 1:04d}"
