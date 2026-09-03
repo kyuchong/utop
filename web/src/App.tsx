@@ -9,6 +9,7 @@ import { goto, onGoto as onGotoEvent, reflectUrl } from '@/api/goto'
 import Dashboard from '@/pages/Dashboard'
 import ReqTc from '@/pages/ReqTc'
 import AiKb from '@/pages/AiKb'
+import CyclesUni from '@/pages/CyclesUni'
 import Wiki from '@/pages/Wiki'
 import Releases from '@/pages/Releases'
 import Settings from '@/pages/Settings'
@@ -32,7 +33,7 @@ const PAGE_KEY = 'utop.page'
 const KNOWN_PAGES = new Set([
   'dashboard', 'wiki', 'reqtc', 'cycles', 'runs', 'executions',
   'devices', 'instruments', 'rackview',
-  'defects', 'releases', 'ai-tc', 'ai-kb', 'settings',
+  'defects', 'releases', 'ai-tc', 'ai-kb', 'plans-old', 'settings',
 ])
 
 export default function App() {
@@ -307,6 +308,11 @@ export default function App() {
            묻는 말도 답하는 꼴도 달라 자리를 갈랐다(지시). */
         <AiKb />
       ) : page === 'cycles' ? (
+        /* **Cycles — 플랜과 실행을 한 화면에서**(지시: 목업 반영).
+           옛 Plans·Runs 는 아직 주소로 열린다(?p=plans-old · ?p=runs) —
+           새 화면이 자리를 잡을 때까지 되돌아갈 길을 남긴다. */
+        <CyclesUni />
+      ) : page === 'plans-old' ? (
         <Cycles me={user} entry="cycles" />
       ) : page === 'runs' ? (
         /* Runs — **제 화면**이 됐다. 플랜 1 : 실행 N 이라 실행은 플랜과

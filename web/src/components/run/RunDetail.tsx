@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isManual } from '@/lib/runMode'
@@ -186,7 +187,7 @@ function manualSteps(tc?: Record<string, unknown>): Array<{
 }
 
 export default function RunDetail({
-  runId, plan, onBack,
+  runId, plan, onBack, lead, onClose,
 }: {
   runId: string
   plan?: CycleMeta
@@ -194,6 +195,12 @@ export default function RunDetail({
      단추를 빼면서 부를 자리가 없어졌다(지시). 지우기는 Runs 목록에서 한다.
      안 쓰는 손잡이를 남기면 다음 사람이 살아 있는 줄로 읽는다. */
   onBack: () => void
+  /** 머리줄 맨 앞에 끼울 것 — Cycles 는 여기에 「전체로 확장」 을 넣는다.
+      이게 있으면 「← 목록」 은 안 선다: 곁에 트리가 있으니 돌아갈 데가
+      화면에 이미 있고, 같은 말을 두 줄로 두면 줄만 늘어난다. */
+  lead?: ReactNode
+  /** 닫기 ✕ — 곁에 열어 놓고 보는 화면에서만 쓴다 */
+  onClose?: () => void
 }) {
   const qc = useQueryClient()
   const [cur, setCur] = useState('')
@@ -727,9 +734,14 @@ export default function RunDetail({
     <div className="panel rd">
       {/* ── 머리줄 ── */}
       <div className="rd-bar">
-        <button type="button" className="rd-home" onClick={onBack}>
-          ← {run.version || '목록'}
-        </button>
+        {lead}
+        {lead ? (
+          <b className="rd-ver">{run.version || ''}</b>
+        ) : (
+          <button type="button" className="rd-home" onClick={onBack}>
+            ← {run.version || '목록'}
+          </button>
+        )}
         <span className="rd-key">{run.id}</span>
         {plan && (
           <>
@@ -793,6 +805,11 @@ export default function RunDetail({
         {/* 「삭제」 는 뺐다(지시). 보고 있는 것을 그 자리에서 지우는 단추는
             누를 일보다 잘못 누를 일이 많다 — 지우기는 목록에서 골라서 한다
             (Runs 표의 여러 건 지우기. 결과가 있는 것은 거기서 미리 알린다). */}
+        {!!onClose && (
+          <button type="button" className="rd-x" title="닫기" onClick={onClose}>
+            ✕
+          </button>
+        )}
       </div>
 
       {/* ── 위 띠 — 목업의 네 칸 ── */}

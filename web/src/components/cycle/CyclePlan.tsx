@@ -1356,7 +1356,7 @@ function GroupRows({
 /**
  * 결과 메일 창 — 미리보기를 먼저 보인다. 보낸 메일은 무를 수 없다.
  */
-function CycleMailOne({ cycle, onClose }: { cycle: CycleMeta; onClose: () => void }) {
+export function CycleMailOne({ cycle, onClose }: { cycle: CycleMeta; onClose: () => void }) {
   const [to, setTo] = useState('')
   const [subject, setSubject] = useState('')
   const [note, setNote] = useState('')

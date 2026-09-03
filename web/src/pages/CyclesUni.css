@@ -1,0 +1,217 @@
+/* Cycles — 플랜과 실행을 한 화면에서(목업 반영).
+   접두어는 cu- 하나만. 이름이 겹치면 다른 화면이 조용히 망가진다. */
+.cu {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cu-top { display: flex; align-items: baseline; gap: 10px; padding: 2px 2px 0; }
+.cu-top h1 { margin: 0; font-size: 17px; font-weight: 700; color: var(--c-text); }
+.cu-sub { font-size: 12px; color: var(--c-text-faint); }
+
+.cu-grid { flex: 1; min-height: 0; display: grid; gap: 12px; align-items: stretch; }
+.cu-grid > * { min-width: 0; min-height: 0; }
+
+/* ── 1열 트리 ── */
+.cu-tree { overflow: hidden; }
+.cu-th {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+}
+.cu-th select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--c-border, #d8dde2);
+  border-radius: var(--r-box, 6px);
+  padding: 4px 7px;
+  font: inherit;
+  font-size: 12px;
+  background: #fff;
+}
+.cu-tbody { flex: 1; min-height: 0; overflow: auto; padding: 6px; }
+.cu-n {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--c-text-muted, #5b6670);
+  cursor: pointer;
+  min-width: 0;
+}
+.cu-n:hover { background: #f4f6f6; }
+.cu-n.on { background: #e6f2f0; color: #0f766e; font-weight: 700; }
+.cu-n .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cu-n .c { flex: none; font-size: 11px; color: var(--c-text-faint, #8b949c); }
+/* 층 — 들여쓰기로 「무엇 아래」 를 말한다 */
+.cu-n.d1 { padding-left: 8px; color: var(--c-text); font-weight: 700; }
+.cu-n.d2 { padding-left: 20px; }
+.cu-n.d3 { padding-left: 32px; }
+.cu-n.d4 { padding-left: 44px; font-family: ui-monospace, Menlo, monospace; }
+
+/* ── 2열 ── */
+.cu-main { overflow: hidden; }
+.cu-hd {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+  min-width: 0;
+}
+.cu-hd b { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cu-chip {
+  flex: none;
+  border: 1px solid var(--c-border, #d8dde2);
+  border-radius: var(--r-box, 6px);
+  padding: 1px 7px;
+  font-size: 11px;
+  color: var(--c-text-muted);
+}
+.cu-tabs {
+  flex: none;
+  display: flex;
+  gap: 16px;
+  padding: 0 13px;
+  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+}
+.cu-tabs button {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 8px 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.cu-tabs button.on { color: var(--c-text); font-weight: 700; border-bottom-color: #0f766e; }
+.cu-tabs .dim { color: var(--c-text-faint); font-size: 12px; }
+.cu-sec { padding: 13px; }
+.cu-list { flex: 1; min-height: 0; overflow: auto; padding-top: 0; }
+.cu-spread { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.cu-m { font-size: 12.5px; color: var(--c-text-muted); }
+.cu-m b { font-size: 15px; color: var(--c-text); }
+
+/* 통과·실패·미실행 한 줄 막대 */
+.cu-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #eef0f1; }
+.cu-bar.sm { height: 6px; }
+.cu-bar i { display: block; height: 100%; }
+.cu-bar i.p { background: #12a67f; }
+.cu-bar i.f { background: #e04b52; }
+.cu-bar i.n { background: #cfd4d8; }
+.cu-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; margin-top: 9px; }
+.cu-legend .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block; margin-right: 5px; vertical-align: 1px;
+}
+.cu-legend .dot.p { background: #12a67f; }
+.cu-legend .dot.f { background: #e04b52; }
+
+.cu-list table { width: 100%; border-collapse: collapse; }
+.cu-list th {
+  font-size: 11.5px; color: var(--c-text-muted); font-weight: 500; text-align: left;
+  padding: 8px 9px; border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+  white-space: nowrap; position: sticky; top: 0; background: #fff; z-index: 1;
+}
+.cu-list td { padding: 8px 9px; border-bottom: 1px solid var(--c-border-soft, #dfe4ea); font-size: 12.5px; }
+.cu-list tbody tr:hover { background: #fafbfb; }
+.cu-key {
+  border: 0; background: none; padding: 0; font: inherit; font-size: 12.5px;
+  color: #0f766e; cursor: pointer;
+}
+.cu-key:hover { text-decoration: underline; }
+.cu-mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--c-text-muted); }
+.cu-sm { font-size: 11px; color: var(--c-text-muted); margin-top: 5px; }
+.cu-none { padding: 16px; text-align: center; color: var(--c-text-faint); font-size: 12px; }
+
+.cu-pill { display: inline-block; border-radius: var(--r-box, 6px); padding: 2px 8px; font-size: 11px; }
+.cu-pill.blue { background: #e5ecfd; color: #1d4db7; }
+.cu-pill.amber { background: #f6eae1; color: #8c4107; }
+.cu-pill.green { background: #e2efed; color: #0c6054; }
+.cu-pill.gray { background: #eef0f1; color: var(--c-text-muted); }
+
+/* ── 3열 실행 상세 ── */
+.cu-run { display: flex; min-width: 0; min-height: 0; }
+.cu-run > * { flex: 1; min-width: 0; min-height: 0; }
+.cu-sp { flex: 1; }
+.cu-colbtn {
+  flex: none;
+  border: 1px solid var(--c-border, #d8dde2);
+  background: #fff;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.cu-colbtn:hover { background: #f4f6f6; color: #0f766e; }
+/* 실행 화면은 `.panel` 안에 서는 것을 전제로 만들어졌다 — 그 자리를 준다 */
+
+/* ── 머리줄 단추·플랜 고르기 ─────────────────────────────────────── */
+.cu-hdbtns { position: relative; display: flex; gap: 6px; flex: none; }
+.cu-pickpop {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+  min-width: 230px; padding: 6px;
+  background: var(--c-surface, #fff); border: 1px solid var(--c-border, #d8dde2);
+  border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}
+.cu-pickpop .hd { font-size: 11px; color: var(--c-text-faint); padding: 4px 7px 6px; }
+.cu-pickpop button {
+  display: block; width: 100%; text-align: left; padding: 7px 8px;
+  background: none; border: 0; border-radius: 6px; font-size: 12.5px; cursor: pointer;
+}
+.cu-pickpop button:hover { background: #f4f6f6; }
+.cu-pickpop button i { display: block; font-style: normal; font-size: 11px; color: var(--c-text-faint); }
+.cu-pickpop button.cancel { margin-top: 4px; border-top: 1px solid var(--c-border-soft, #dfe4ea); color: var(--c-text-muted); }
+
+/* ── 개요 — 버전 정보 · 시험 실행 두 장 ─────────────────────────── */
+.cu-scroll { flex: 1; min-height: 0; overflow: auto; }
+.cu-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; padding-top: 0; }
+.cu-card {
+  padding: 13px 15px; background: var(--c-surface, #fff);
+  border: 1px solid var(--c-border-soft, #dfe4ea); border-radius: 10px;
+}
+.cu-card h2 { margin: 0 0 10px; font-size: 12.5px; font-weight: 700; color: var(--c-text-muted); }
+.cu-kv { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cu-kv td { padding: 5px 0; vertical-align: top; }
+.cu-kv td:first-child { width: 82px; color: var(--c-text-muted); }
+.cu-hint { margin-top: 9px; font-size: 11.5px; color: var(--c-text-faint); text-align: center; }
+
+.cu-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cu-tile {
+  display: block; width: 100%; text-align: left; padding: 12px;
+  background: var(--c-surface, #fff); border: 1px solid var(--c-border, #d8dde2);
+  border-radius: 10px; cursor: pointer;
+}
+.cu-tile:hover:not([disabled]) { border-color: #0f766e; background: #f6faf9; }
+.cu-tile[disabled] { opacity: .5; cursor: not-allowed; }
+.cu-tile .ico { display: block; font-size: 16px; color: #0f766e; }
+.cu-tile .tt { display: block; margin-top: 4px; font-size: 13px; font-weight: 700; color: var(--c-text); }
+.cu-tile .td { display: block; margin-top: 3px; font-size: 11.5px; color: var(--c-text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cu-tile .tn { display: block; margin: 6px 0 7px; font-size: 11px; color: var(--c-text-faint); }
+
+/* ── 시험 항목 표 ────────────────────────────────────────────────── */
+.cu-ell { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cu-st {
+  display: inline-block; min-width: 46px; padding: 2px 7px; border-radius: 5px;
+  font-size: 11px; font-weight: 700; text-align: center;
+}
+.cu-st.p { background: #e2efed; color: #0c6054; }
+.cu-st.f { background: #fbe9ea; color: #a2262c; }
+.cu-st.b { background: #f6eae1; color: #8c4107; }
+.cu-st.w { background: #eef0f1; color: var(--c-text-muted); }
+
+/* 옛 Plans 로 가는 임시 다리 — 팝업이 붙으면 지운다 */
+.cu-oldlink { font-size: 12px; color: #0f766e; text-decoration: none; }
+.cu-oldlink:hover { text-decoration: underline; }
