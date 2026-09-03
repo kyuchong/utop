@@ -18,14 +18,17 @@
  * 베껴 만들면 한쪽만 고치는 날이 온다(이 저장소에서 이미 여러 번 겪었다).
  */
 import { useEffect, useMemo, useState } from 'react'
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { normMode } from '@/lib/runMode'
 import RunDetail from '@/components/run/RunDetail'
 import type { RunFull } from '@/components/run/RunDetail'
 import CycleReport from '@/components/cycle/CycleReport'
+import CycleInsight from '@/components/cycle/CycleInsight'
 import CycleEdit from '@/components/cycle/CycleEdit'
+import { CloneDialog, exportCycleCsv, itemVerdict, verdictLabel } from '@/pages/Cycles'
+import type { CycleItemLite } from '@/pages/Cycles'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
 import { CycleMailOne } from '@/components/cycle/CyclePlan'
 import type { CycleMeta } from '@/pages/Cycles'
@@ -54,7 +57,9 @@ interface RunLite {
 type TreeMode = 'model' | 'plan' | 'owner'
 /** 고른 자리 — 트리의 어느 마디인가 */
 interface Sel {
-  t: 'cust' | 'model' | 'vg' | 'ver' | 'plan' | 'owner'
+  t: 'cust' | 'model' | 'vg' | 'ver' | 'plan' | 'owner' | 'plans' | 'run'
+  /** 자리를 가리키는 **온전한 경로**. 버전그룹·버전은 이름만으로는 모자라다 —
+      사업자·모델이 다른데 이름만 같은 자리가 흔하다(R100 이 여럿). */
   k: string
 }
 /** 트리 한 마디. run 이 있으면 누를 때 그 실행을 곁에 연다 */
@@ -74,6 +79,12 @@ const TREE_LABEL: Record<TreeMode, string> = {
 }
 const SEL_LABEL: Record<Sel['t'], string> = {
   cust: '사업자', model: '모델', vg: '버전그룹', ver: '버전', plan: '플랜', owner: '담당',
+  plans: '전체', run: '실행',
+}
+
+/** 경로 열쇠 — 사업자|모델|버전그룹|버전 을 이어 붙인다 */
+function key(...parts: string[]): string {
+  return parts.join('|')
 }
 
 /** 한 묶음의 집계 — 여러 실행을 더한다 */
@@ -95,16 +106,24 @@ function sum(rs: RunLite[]) {
   }
 }
 
-/** 통과·실패·미실행을 한 줄 막대로 */
+/** 통과·실패·기타·미실행을 한 줄 막대로.
+    기타(b)는 **사람이 남긴 판정**이지 미실행이 아니다 — 회색에 섞으면
+    「실행 3건」 이라면서 막대는 안 찬 것처럼 보인다. */
 function Bar({ s, sm }: { s: ReturnType<typeof sum>; sm?: boolean }) {
   const t = s.total || 1
   return (
     <div className={`cu-bar${sm ? ' sm' : ''}`}>
       <i className="p" style={{ width: `${(s.pass / t) * 100}%` }} />
       <i className="f" style={{ width: `${(s.fail / t) * 100}%` }} />
-      <i className="n" style={{ width: `${((s.none + s.etc) / t) * 100}%` }} />
+      <i className="b" style={{ width: `${(s.etc / t) * 100}%` }} />
+      <i className="n" style={{ width: `${(s.none / t) * 100}%` }} />
     </div>
   )
+}
+
+/** 창 머리에 쓸 플랜 이름 — 옛 화면과 같은 식(모델 · 버전) */
+function planTitle(p: CycleMeta): string {
+  return [p.model, p.version].filter(Boolean).join(' · ') || String(p.cid ?? p.id)
 }
 
 /** 겹치는 값을 하나로 — 「E6100 · E6200」 처럼 이어 붙인다 */
@@ -113,12 +132,14 @@ function uniq(vals: Array<string | null | undefined>): string {
   return out.length ? out.join(' · ') : '—'
 }
 
-/** 판정 한 글자를 사람 말로 */
+/** 판정 한 글자를 사람 말로 — **실행 화면(RunAuto)과 같은 말**이라야 한다.
+    한쪽이 「N/A」 라 하고 다른 쪽이 「미실행」 이라 하면 같은 것을 다른
+    것으로 읽는다. 서버도 n=미기록·b=기타로 나눠 센다(db.py). */
 const VERDICT: Record<string, { k: string; t: string }> = {
   p: { k: 'p', t: 'PASS' },
   f: { k: 'f', t: 'FAIL' },
-  b: { k: 'b', t: '보류' },
-  n: { k: 'w', t: 'N/A' },
+  b: { k: 'b', t: '기타' },
+  n: { k: 'w', t: '미실행' },
 }
 
 export default function CyclesUni({
@@ -146,6 +167,21 @@ export default function CyclesUni({
   const [addTo, setAddTo] = useState('')
   /** 실행 만들기 — 모델·버전을 묻는다 */
   const [mkRun, setMkRun] = useState('')
+  /** 복제 — 옛 화면의 그 창(CloneDialog)을 그대로 연다 */
+  const [clone, setClone] = useState('')
+  /** AI 요약 · 메트릭스 — **알맹이까지 받아 든 뒤에** 연다.
+      전에는 창부터 띄우고 자료를 기다렸다. 그 사이 메트릭스는 「항목 0건 ·
+      진행 0%」 를 사실처럼 그렸고, 읽기가 실패하면 그 0 이 그대로 남았다. */
+  const [insight, setInsight] = useState<
+    { id: string; title: string; mode: 'ai' | 'metrics'; items: CycleItemLite[] } | null
+  >(null)
+  /** 자료를 받아 오는 중 — 단추가 죽은 것처럼 보이지 않게 */
+  const [busy, setBusy] = useState('')
+  /** ⋯ 더보기 — 단추가 아홉이 되면 아무것도 안 보인다 */
+  const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
+  /** 전체 플랜 표에서 고른 것 — 여러 건 지우기·CSV 가 이걸 본다 */
+  const [ticked, setTicked] = useState<Set<string>>(new Set())
+  const qc = useQueryClient()
 
   useEffect(() => prefSet('utop.cyc.tree', mode), [mode])
   useEffect(() => prefSet('utop.cyc.col1', col1 ? '1' : '0'), [col1])
@@ -158,8 +194,11 @@ export default function CyclesUni({
       return (await r.json()) as { runs: RunLite[] }
     },
   })
+  /* 키는 **옛 화면과 같은 ['cycles']** 여야 한다. 서버가 플랜이 바뀌었다고
+     알릴 때(useLiveRefresh) 헐어 주는 것이 그 키다 — 나만의 이름을 쓰면
+     남이 만들거나 지운 것이 내 화면에 영영 안 들어온다. */
   const plansQ = useQuery({
-    queryKey: ['cycle', 'meta'],
+    queryKey: ['cycles'],
     staleTime: 60_000,
     queryFn: async () => {
       const r = await apiFetch('/api/cycle?meta=1')
@@ -217,11 +256,13 @@ export default function CyclesUni({
   const where = useMemo(() => {
     return (r: RunLite) => {
       const p = r.plan_id ? planOf.get(r.plan_id) : undefined
+      /* `??` 가 아니라 `||` 다. 빈 문자열은 「값이 있다」 로 통과해 버려,
+         버전이 빈 실행이 트리에서 통째로 사라졌다(마디 열쇠가 '' 이 된다). */
       return {
-        cust: String(p?.customer ?? '미지정'),
-        model: String(p?.model ?? '미지정'),
-        vg: String(r.version_group ?? p?.version_group ?? '미지정'),
-        ver: String(r.version ?? '미지정'),
+        cust: String(p?.customer || '미지정'),
+        model: String(p?.model || '미지정'),
+        vg: String(r.version_group || p?.version_group || '미지정'),
+        ver: String(r.version || '미지정'),
         plan: String(r.plan_id ?? ''),
         owner: String(r.owner || '미배정'),
       }
@@ -234,11 +275,14 @@ export default function CyclesUni({
     return runs.filter((r) => {
       const w = where(r)
       if (sel.t === 'cust') return w.cust === sel.k
-      if (sel.t === 'model') return `${w.cust}|${w.model}` === sel.k
-      if (sel.t === 'vg') return w.vg === sel.k
-      if (sel.t === 'ver') return w.ver === sel.k
+      if (sel.t === 'model') return key(w.cust, w.model) === sel.k
+      /* 버전그룹·버전은 **경로로** 견준다. 이름만 보면 사업자 A 의 R100 을
+         눌렀는데 사업자 B 의 R100 실행까지 한 덩이로 세어졌다. */
+      if (sel.t === 'vg') return key(w.cust, w.model, w.vg) === sel.k
+      if (sel.t === 'ver') return key(w.cust, w.model, w.vg, w.ver) === sel.k
       if (sel.t === 'plan') return w.plan === sel.k
       if (sel.t === 'owner') return w.owner === sel.k
+      if (sel.t === 'run') return r.id === sel.k
       return false
     })
   }, [runs, sel, where])
@@ -246,6 +290,24 @@ export default function CyclesUni({
   const agg = useMemo(() => sum(shown), [shown])
   const isVer = sel?.t === 'ver'
   const isPlan = sel?.t === 'plan'
+  const isAll = sel?.t === 'plans'
+  /** 자리의 **보이는 이름** — 열쇠는 경로(사업자|모델|버전그룹|버전)다.
+      그대로 그리면 머리줄에 `LGUPU|E6100|R100|R100_08_31` 이 뜬다. */
+  const selName = useMemo(() => {
+    if (!sel) return ''
+    if (sel.t === 'plans') return '전체 플랜'
+    if (sel.t === 'plan') {
+      const p = planOf.get(sel.k)
+      return String(p?.cid ?? p?.name ?? sel.k)
+    }
+    if (sel.t === 'run') {
+      const r = runs.find((x) => x.id === sel.k)
+      return String(r?.name || r?.version || sel.k)
+    }
+    if (sel.t === 'model') return sel.k.split('|').join(' · ')
+    if (sel.t === 'vg' || sel.t === 'ver') return sel.k.split('|').pop() ?? sel.k
+    return sel.k
+  }, [sel, planOf, runs])
   /** 플랜 자리에서 보고 있는 그 플랜 — 실행이 0건이어도 잡힌다 */
   const selPlan = isPlan ? planOf.get(sel.k) : undefined
   /** 이 자리에 걸린 플랜들 — 결과 메일·결과서를 여기서 낸다 */
@@ -291,7 +353,12 @@ export default function CyclesUni({
         out.push({
           tcid: id,
           title: String(meta?.name ?? ''),
-          man: normMode(String(meta?.kind ?? lite.mode ?? '')) === '수동',
+          /* 시험이 자동인지 수동인지는 **run_type** 에 적힌다. kind 만 보면
+             목록 API 가 그 열을 안 실어 보내 거의 모두 「자동」 으로 떴다. */
+          man:
+            normMode(
+              String(meta?.run_type ?? meta?.kind ?? lite.mode ?? ''),
+            ) === '수동',
           v: String((run.results ?? {})[id] ?? ''),
           at: at.replace('T', ' ').slice(0, 19),
           run: String(lite.name || lite.id),
@@ -306,9 +373,29 @@ export default function CyclesUni({
   /* 처음 열면 가장 최근 버전을 잡아 준다 — 빈 화면은 「고장났다」 로 읽힌다 */
   useEffect(() => {
     if (sel || !runs.length) return
-    const vs = [...new Set(runs.map((r) => String(r.version ?? '')))].filter(Boolean).sort().reverse()
-    if (vs[0]) setSel({ t: 'ver', k: vs[0] })
-  }, [runs, sel])
+    const newest = [...runs].sort((a, b) =>
+      String(b.version ?? '').localeCompare(String(a.version ?? '')),
+    )[0]
+    if (!newest) return
+    const w = where(newest)
+    setSel({ t: 'ver', k: key(w.cust, w.model, w.vg, w.ver) })
+  }, [runs, sel, where])
+
+  /* ⋯ 메뉴는 **자리가 바뀌면 닫힌다.** 메뉴와 오버레이가 selPlan 에 함께
+     묶여 있어, 자리를 옮기면 둘 다 사라지면서 moreAt 만 값이 남았다 —
+     다음에 ⋯ 를 누르면 토글이 「닫기」로 먹혀 한 번이 헛돌았다. */
+  useEffect(() => setMoreAt(null), [sel])
+
+  /* 고른 것에서 **사라진 플랜을 솎는다.** 남이 지우면 목록만 줄고 선택은
+     남아, 띠가 없는 줄을 세며 「3건 선택」 이라 말한다. */
+  useEffect(() => {
+    setTicked((cur) => {
+      if (!cur.size) return cur
+      const live = new Set(plans.map((p) => p.id))
+      const next = new Set([...cur].filter((k) => live.has(k)))
+      return next.size === cur.size ? cur : next
+    })
+  }, [plans])
 
   const openRunRow = openRun ? runs.find((r) => r.id === openRun) : undefined
   const openPlan = openRunRow?.plan_id ? planOf.get(openRunRow.plan_id) : undefined
@@ -353,9 +440,16 @@ export default function CyclesUni({
         for (const [m, m2] of [...m1].sort()) {
           out.push({ d: 2, label: `📦 ${m}`, t: 'model', k: `${c}|${m}` })
           for (const [g, m3] of [...m2].sort()) {
-            out.push({ d: 3, label: `🔖 ${g}`, t: 'vg', k: g })
+            out.push({ d: 3, label: `🔖 ${g}`, t: 'vg', k: key(c, m, g) })
             for (const [v, leaf] of [...m3].sort().reverse()) {
-              if (v) out.push({ d: 4, label: v, n: leaf.runs.length, t: 'ver', k: v })
+              if (v)
+                out.push({
+                  d: 4,
+                  label: v,
+                  n: leaf.runs.length,
+                  t: 'ver',
+                  k: key(c, m, g, v),
+                })
               for (const p of leaf.plans)
                 out.push({
                   d: 4,
@@ -374,6 +468,9 @@ export default function CyclesUni({
         const k = String(r.plan_id ?? '')
         byPlan.set(k, [...(byPlan.get(k) ?? []), r])
       }
+      /* 여러 건 지우기·CSV 는 **고르는 자리**가 있어야 한다. 트리는 한 번에
+         한 마디뿐이라, 표를 여는 마디를 맨 위에 하나 둔다. */
+      out.push({ d: 1, label: `📚 전체 플랜`, n: plans.length, t: 'plans', k: '*' })
       const seen = new Set<string>()
       const line = (p: CycleMeta) => {
         seen.add(p.id)
@@ -391,8 +488,10 @@ export default function CyclesUni({
           out.push({
             d: 3,
             label: `${normMode(r.mode) === '수동' ? '✋' : '⚙'} ${r.version || r.name || r.id}`,
-            t: 'ver',
-            k: String(r.version ?? ''),
+            /* 이 마디는 **그 실행 한 건**이다. 전에는 버전 자리로 걸어서,
+               같은 버전을 쓰는 남의 플랜 실행까지 함께 세어졌다. */
+            t: 'run',
+            k: r.id,
             run: r.id,
           })
       }
@@ -408,8 +507,8 @@ export default function CyclesUni({
             out.push({
               d: 3,
               label: `${normMode(r.mode) === '수동' ? '✋' : '⚙'} ${r.version || r.name || r.id}`,
-              t: 'ver',
-              k: String(r.version ?? ''),
+              t: 'run',
+              k: r.id,
               run: r.id,
             })
         }
@@ -425,8 +524,8 @@ export default function CyclesUni({
           out.push({
             d: 3,
             label: `${normMode(r.mode) === '수동' ? '✋' : '⚙'} ${r.name || r.id}`,
-            t: 'ver',
-            k: String(r.version ?? ''),
+            t: 'run',
+            k: r.id,
             run: r.id,
           })
       }
@@ -439,6 +538,165 @@ export default function CyclesUni({
     !wide ? 'minmax(0,1fr)' : '',
     openRun ? 'minmax(0,1.05fr)' : '',
   ].filter(Boolean).join(' ')
+
+  /**
+   * 플랜 **전문**을 지금 읽는다 — 캐시를 거치지 않는다.
+   *
+   * 목록(meta=1)의 항목은 깎여 있어 사람이 손으로 찍은 판정(result)이
+   * 빠진다. 그리고 ['cycle-full'] 캐시는 항목 담기 창이 **담기 전** 모습으로
+   * 채워 두는 자리라, 그것을 그대로 쓰면 방금 담은 항목이 빠진 파일이
+   * 떨어진다(전역 staleTime 30초 안에는 다시 읽지도 않는다).
+   */
+  async function readFull(id: string): Promise<(CycleMeta & { items?: CycleItemLite[] }) | null> {
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`)
+      if (!r.ok) return null
+      return (await r.json()) as CycleMeta & { items?: CycleItemLite[] }
+    } catch {
+      return null
+    }
+  }
+
+  /** AI 요약·메트릭스 열기 — 알맹이를 받아 든 뒤에 창을 띄운다 */
+  async function openInsight(p: CycleMeta, mode: 'ai' | 'metrics') {
+    setBusy(p.id)
+    const full = await readFull(p.id)
+    setBusy('')
+    if (!full) {
+      window.alert('플랜을 불러오지 못했습니다.')
+      return
+    }
+    setInsight({ id: p.id, title: planTitle(p), mode, items: full.items ?? [] })
+  }
+
+  /**
+   * 플랜을 CSV 로 — **한 건이든 여러 건이든 이 함수 하나**를 지난다.
+   *
+   * 한 건이면 옛 화면과 똑같은 파일(열·이름)을 낸다 — 같은 함수를 부른다.
+   * 여러 건이면 한 장에 플랜 열을 더해 담는다. 옛 화면은 고른 수만큼
+   * 내려받기를 연달아 걸었는데, 브라우저가 두 번째부터 막아 첫 파일만
+   * 떨어지고 파일 이름이 모델·버전뿐이라 같은 모델이면 서로 덮었다.
+   */
+  async function csvPlans(ids: string[]) {
+    const first = ids[0]
+    if (!first) return
+    setBusy(first)
+    try {
+      if (ids.length === 1) {
+        const c = await readFull(first)
+        if (!c) {
+          window.alert('플랜을 불러오지 못했습니다.')
+          return
+        }
+        if (!(c.items ?? []).length) {
+          window.alert('담긴 시험 항목이 없어 내보낼 것이 없습니다.')
+          return
+        }
+        exportCycleCsv(c)
+        return
+      }
+      await csvMany(ids)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function csvMany(ids: string[]) {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const lines = [['플랜', 'TC ID', '시험', '결과', '담당', '실행'].map(esc).join(',')]
+    let bad = 0
+    for (const id of ids) {
+      const c = await readFull(id)
+      if (!c) {
+        bad++
+      } else {
+        const nm = c.cid ?? c.name ?? id
+        for (const it of c.items ?? [])
+          lines.push(
+            [
+              nm,
+              it.tcid,
+              it.name ?? '',
+              verdictLabel(itemVerdict(it)),
+              it.assignee || it.executed_by || '',
+              it.executed_at ?? '',
+            ]
+              .map(esc)
+              .join(','),
+          )
+      }
+    }
+    if (lines.length === 1) {
+      /* 못 읽은 것과 「담긴 항목이 없다」 는 다른 말이다. 옛 화면은 둘을
+         한 문구로 뭉뚱그려, 서버가 다 거절해도 「항목이 없다」 고 했다. */
+      window.alert(
+        bad === ids.length
+          ? `${bad}건을 모두 읽지 못해 내보내지 못했습니다.`
+          : '담긴 시험 항목이 없어 내보낼 것이 없습니다.',
+      )
+      return
+    }
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `플랜_${ids.length}건.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    if (bad) window.alert(`${bad}건은 읽지 못해 빠졌습니다.`)
+  }
+
+  /**
+   * 플랜 지우기 — **한 건이든 여러 건이든 이 함수 하나**를 지난다.
+   *
+   * 옛 화면은 길이 두 벌이었다(표의 일괄 삭제 · 트리 우클릭). 문구가 서로
+   * 달랐고, 한쪽은 실패를 알렸고 한쪽은 삼켰다. 한 곳으로 모은다.
+   */
+  async function delPlans(ids: string[]) {
+    const list = ids.map((id) => planOf.get(id)).filter((p): p is CycleMeta => !!p)
+    if (!list.length) return
+    /* 딸린 실행 — **같이 지워지지 않는다.** 서버는 cycle 행만 지우고
+       plan_run 은 그대로 남는다(딸린 키가 없다). 옛 화면은 「실행 결과도
+       함께 사라집니다」 라고 했는데 사실이 아니었다. 남은 실행은 「플랜
+       없음」 자리로 떨어진다 — 그 말을 그대로 한다. */
+    const kids = runs.filter((r) => ids.includes(String(r.plan_id ?? '')))
+    const names = list
+      .slice(0, 5)
+      .map((p) => `· ${p.cid ?? p.name ?? p.id}${p.name && p.cid ? ` (${p.name})` : ''}`)
+      .join('\n')
+    const more = list.length > 5 ? `\n… 외 ${list.length - 5}건` : ''
+    const warn = kids.length
+      ? `\n\n딸린 시험 실행 ${kids.length}건은 지워지지 않고 「(플랜 없음)」 자리로 남습니다.`
+      : ''
+    if (
+      !window.confirm(
+        `플랜 ${list.length}건을 지웁니다. 되돌릴 수 없습니다.\n${names}${more}${warn}`,
+      )
+    )
+      return
+    let bad = 0
+    for (const id of ids) {
+      try {
+        const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`, { method: 'DELETE' })
+        if (!r.ok) bad++
+      } catch {
+        bad++
+      }
+    }
+    /* 지운 뒤 — 목록·버전그룹·실행을 다시 읽고, 가리키던 자리를 비운다.
+       옛 화면은 목록만 다시 읽어 빈 버전그룹 폴더가 남았다. */
+    await plansQ.refetch()
+    void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
+    void runsQ.refetch()
+    setTicked((cur) => new Set([...cur].filter((k) => !ids.includes(k))))
+    if (sel?.t === 'plan' && ids.includes(sel.k)) setSel(null)
+    if (bad) window.alert(`${bad}건은 지우지 못했습니다.`)
+  }
+
+  /** ⋯ 메뉴를 그 단추 아래에 연다 */
+  function openMore(e: { currentTarget: HTMLElement }) {
+    const r = e.currentTarget.getBoundingClientRect()
+    setMoreAt((v) => (v ? null : { x: Math.max(8, r.right - 176), y: r.bottom + 4 }))
+  }
 
   /** 트리 마디를 누르면 — 실행이 달린 마디는 그 실행까지 곁에 연다 */
   function pickNode(n: Node) {
@@ -541,7 +799,13 @@ export default function CyclesUni({
           <i className="dot f" />
           실패 <b>{agg.fail}</b>
         </span>
-        <span className="cu-m">미실행 {agg.none + agg.etc}</span>
+        {!!agg.etc && (
+          <span>
+            <i className="dot b" />
+            기타 <b>{agg.etc}</b>
+          </span>
+        )}
+        <span className="cu-m">미실행 {agg.none}</span>
       </div>
     </div>
   )
@@ -647,13 +911,7 @@ export default function CyclesUni({
                   ▸
                 </button>
               )}
-              <b>
-                {!sel
-                  ? '고른 것 없음'
-                  : isPlan
-                    ? (selPlan?.cid ?? selPlan?.name ?? sel.k)
-                    : sel.k.replace('|', ' · ')}
-              </b>
+              <b>{selName || '고른 것 없음'}</b>
               {sel && <span className="cu-chip">{SEL_LABEL[sel.t]}</span>}
               {isPlan && !!selPlan?.name && selPlan.name !== selPlan.cid && (
                 <span className="cu-m">{selPlan.name}</span>
@@ -717,6 +975,15 @@ export default function CyclesUni({
                 >
                   📄 고객사 결과서
                 </button>
+                <button
+                  type="button"
+                  className="btn small"
+                  disabled={!selPlan || !!busy}
+                  title="AI 요약 · 메트릭스 · CSV · 복제 · 삭제"
+                  onClick={openMore}
+                >
+                  {busy ? '…' : '⋯'}
+                </button>
                 {!!pick && (
                   <div className="cu-pickpop" role="dialog">
                     <div className="hd">어느 플랜으로 낼까요</div>
@@ -775,7 +1042,7 @@ export default function CyclesUni({
                           <tbody>
                             <tr>
                               <td>사업자</td>
-                              <td>{p0?.customer ?? '—'}</td>
+                              <td>{uniq(selPlans.map((p) => p.customer))}</td>
                             </tr>
                             <tr>
                               <td>모델</td>
@@ -789,7 +1056,7 @@ export default function CyclesUni({
                             </tr>
                             <tr>
                               <td>버전명</td>
-                              <td className="cu-mono">{sel?.k ?? '—'}</td>
+                              <td className="cu-mono">{selName || '—'}</td>
                             </tr>
                             <tr>
                               <td>플랜</td>
@@ -815,6 +1082,10 @@ export default function CyclesUni({
                         <div className="cu-hint">누르면 실행 화면이 곁에 열립니다</div>
                       </div>
                     </div>
+                    {/* 타일은 그 방식의 **첫 실행**을 연다. 같은 버전에 실행이
+                        여럿이면 나머지는 이 표에서 골라야 한다 — 표가 없으면
+                        영영 못 여는 실행이 생긴다. */}
+                    {shown.length > 2 && runTable}
                   </div>
                 ) : (
                   <div className="cu-sec cu-list">
@@ -871,6 +1142,112 @@ export default function CyclesUni({
                   </div>
                 )}
               </>
+            ) : isAll ? (
+              <div className="cu-sec cu-list">
+                {/* 고른 것이 있으면 일괄 도구줄이 뜬다 — 옛 표의 그 띠다 */}
+                {!!ticked.size && (
+                  <div className="cu-bulk">
+                    <b>{ticked.size}건 선택</b>
+                    <span className="cu-sp" />
+                    <button
+                      type="button"
+                      className="btn small"
+                      title="고른 플랜을 CSV 한 장으로 내보냅니다"
+                      onClick={() => void csvPlans([...ticked])}
+                    >
+                      CSV
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small cu-danger"
+                      onClick={() => void delPlans([...ticked])}
+                    >
+                      삭제
+                    </button>
+                    <button
+                      type="button"
+                      className="cu-colbtn"
+                      title="선택 비우기"
+                      onClick={() => setTicked(new Set())}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 34 }}>
+                        <input
+                          type="checkbox"
+                          aria-label="전부 고르기"
+                          checked={!!plans.length && plans.every((p) => ticked.has(p.id))}
+                          onChange={(e) =>
+                            setTicked(e.target.checked ? new Set(plans.map((p) => p.id)) : new Set())
+                          }
+                        />
+                      </th>
+                      <th style={{ width: '15%' }}>부여 ID</th>
+                      <th>제목</th>
+                      <th style={{ width: '16%' }}>모델</th>
+                      <th style={{ width: '12%' }}>버전그룹</th>
+                      <th style={{ width: '9%' }}>항목</th>
+                      <th style={{ width: '10%' }}>상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...plans]
+                      .sort((a, b) =>
+                        String(a.cid ?? a.name ?? a.id).localeCompare(String(b.cid ?? b.name ?? b.id)),
+                      )
+                      .map((p) => (
+                        <tr key={p.id}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              aria-label={`${p.cid ?? p.id} 고르기`}
+                              checked={ticked.has(p.id)}
+                              onChange={() =>
+                                setTicked((cur) => {
+                                  const n = new Set(cur)
+                                  if (n.has(p.id)) n.delete(p.id)
+                                  else n.add(p.id)
+                                  return n
+                                })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="cu-key"
+                              onClick={() => {
+                                setSel({ t: 'plan', k: p.id })
+                                setTab('ov')
+                              }}
+                            >
+                              {p.cid ?? p.id}
+                            </button>
+                          </td>
+                          <td className="cu-ell">{p.name || '—'}</td>
+                          <td>{[p.customer, p.model].filter(Boolean).join(' · ') || '—'}</td>
+                          <td className="cu-mono">{p.version_group ?? '—'}</td>
+                          <td>{p._item_count ?? 0}</td>
+                          <td>
+                            <span className="cu-pill gray">{p.status || '—'}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    {!plans.length && (
+                      <tr>
+                        <td colSpan={7} className="cu-none">
+                          플랜이 아직 없습니다.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             ) : isPlan ? (
               <div className="cu-scroll">
                 {summary}
@@ -977,6 +1354,71 @@ export default function CyclesUni({
         )}
       </div>
 
+      {/* ── ⋯ 더보기 ─────────────────────────────────────────────── */}
+      {!!moreAt && !!selPlan && (
+        <>
+          <span
+            className="cu-moreovl"
+            role="presentation"
+            onClick={() => setMoreAt(null)}
+          />
+          <div className="cu-menu" role="menu" style={{ left: moreAt.x, top: moreAt.y }}>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMoreAt(null)
+                void openInsight(selPlan, 'ai')
+              }}
+            >
+              AI 요약
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMoreAt(null)
+                void openInsight(selPlan, 'metrics')
+              }}
+            >
+              메트릭스
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMoreAt(null)
+                void csvPlans([selPlan.id])
+              }}
+            >
+              CSV 내보내기
+            </button>
+            <div className="cu-menusep" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMoreAt(null)
+                setClone(selPlan.id)
+              }}
+            >
+              복제
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="danger"
+              onClick={() => {
+                setMoreAt(null)
+                void delPlans([selPlan.id])
+              }}
+            >
+              삭제
+            </button>
+          </div>
+        </>
+      )}
+
       {/* ── 만들기 창들 — **옛 화면이 쓰던 그 부품**이다 ────────────── */}
       {!!edit && (
         <CycleEdit
@@ -1036,12 +1478,34 @@ export default function CyclesUni({
           }}
         />
       )}
+      {!!clone && (
+        <CloneDialog
+          cycleId={clone}
+          onClose={() => setClone('')}
+          onDone={() => {
+            setClone('')
+            void plansQ.refetch()
+            void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
+          }}
+        />
+      )}
+      {!!insight && (
+        /* items 는 **전문**에서 온다 — 목록의 깎인 항목은 사람이 찍은 판정을
+           잃어버려, 메트릭스가 실제와 다른 숫자를 말한다. */
+        <CycleInsight
+          mode={insight.mode}
+          cycleId={insight.id}
+          title={insight.title}
+          items={insight.items}
+          onClose={() => setInsight(null)}
+        />
+      )}
       {!!mailPlan && <CycleMailOne cycle={mailPlan} onClose={() => setMailPlan(null)} />}
       {!!repPlan && (
         <CycleReport
           cycleId={repPlan.id}
           model={String(repPlan.model ?? '')}
-          version={isVer ? String(sel?.k ?? '') : String(repPlan.version ?? '')}
+          version={isVer ? selName : String(repPlan.version ?? '')}
           onClose={() => setRepPlan(null)}
         />
       )}

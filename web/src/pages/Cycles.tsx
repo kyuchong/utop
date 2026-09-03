@@ -1162,7 +1162,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
 
 /** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) ⚙ 과 같은 목록 */
 
-function exportCycleCsv(c: CycleMeta): void {
+export function exportCycleCsv(c: CycleMeta): void {
   const rows = c.items ?? []
   if (!rows.length) return
   const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
@@ -4520,7 +4520,7 @@ function CycleMenu({
  * 그래서 여기도: 직전 결과 상태 체크로 항목을 고르고, 결과는 복사하지
  * 않으며(전부 미실행 시작), 담당자만 옵션으로 유지한다.
  */
-function CloneDialog({
+export function CloneDialog({
   cycleId,
   onClose,
   onDone,
