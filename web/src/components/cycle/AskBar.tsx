@@ -1695,7 +1695,7 @@ export default function AskBar({ devices }: Props) {
   return (
     /* 세 칸 + 아래 입력줄 — 옮겨 온 화면의 짜임을 우리 꼴(panel·btn·토큰)로 다시 그렸다.
        왼쪽 기록 · 가운데 작업 흐름 · 오른쪽 캔버스, 입력은 흐름부터 오른쪽 끝까지. */
-    <div className="ask">
+    <div className={`ask${!draft && !making ? ' athome' : ''}`}>
       {/* 왼쪽 「새 시험 만들기 · 최근」 칸은 걷어냈다(지시) — 첫 화면이
           한가운데에 서야 해서, 옆에 칸이 있으면 그만큼 밀린다. */}
 

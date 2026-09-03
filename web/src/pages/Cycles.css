@@ -1119,6 +1119,12 @@ select.cy-v.na { color: #999; }
 
 /* ── TC 생성 (말로 시험 만들기) ── */
 .aitc { display: flex; flex: 1; min-height: 0; }
+/* 첫 화면일 때는 **판이 없는 것처럼**(지시) — 틀의 여백·바탕을 다 걷어
+   오로라가 메뉴바 워시와 상단바에 그대로 맞닿는다. 사각형 테가 사라지고
+   한 장면이 된다. 일이 시작되면(athome 해제) 원래 판으로 돌아온다. */
+.main[data-page='ai-tc'] { padding: 0; }
+.ask.athome .ask-cols { padding: 0; }
+.ask.athome .ask-canvas { padding: 0; }
 .aitc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .aitc-head {
   display: flex;
