@@ -113,6 +113,20 @@ function RunMark() {
   )
 }
 
+/** 거르개 이름표 — 실행 화면과 같은 말(PASS·FAIL·대기) */
+const FLT_LABEL: Record<'all' | 'p' | 'f' | 'n', string> = {
+  all: '전체',
+  p: 'PASS',
+  f: 'FAIL',
+  n: '대기',
+}
+const FLT_N = (t: { total: number; p: number; f: number; n: number }) => ({
+  all: t.total,
+  p: t.p,
+  f: t.f,
+  n: t.n,
+})
+
 export default function RunAuto({
   items, cur, onPick, steps, stepAt, onStep, dut, logAt,
   runStep, runItem, past, waitAt,
@@ -319,6 +333,15 @@ export default function RunAuto({
   /** 시험 항목 거르개 — 목업의 그 고르개(전체·PASS·FAIL·대기).
       항목이 수십 건이면 「실패한 것만」 보고 싶은데 그 자리가 없었다. */
   const [flt, setFlt] = useState<'all' | 'p' | 'f' | 'n'>('all')
+  /** 거르개 목록이 열린 자리. **직접 그린다** — 브라우저 기본 select 의
+      목록은 OS 가 그려서 이 화면의 결과 전혀 안 맞는다(지적). */
+  const [fltAt, setFltAt] = useState<{ x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (!fltAt) return
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setFltAt(null)
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [fltAt])
   const shownItems = useMemo(
     () => (flt === 'all' ? items : items.filter((it) => it.verdict === flt)),
     [items, flt],
@@ -534,6 +557,32 @@ export default function RunAuto({
     )
   }
 
+  /** 거르개 목록 — 판 밖에 그린다(판은 overflow:hidden 이라 안에서 잘린다) */
+  const fltMenu = fltAt ? (
+    <>
+      <span className="ra-fovl" role="presentation" onClick={() => setFltAt(null)} />
+      <div className="ra-fmenu" role="menu" style={{ left: fltAt.x, top: fltAt.y }}>
+        {(['all', 'p', 'f', 'n'] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="menuitemradio"
+            aria-checked={flt === k}
+            className={flt === k ? 'on' : ''}
+            onClick={() => {
+              setFlt(k)
+              setFltAt(null)
+            }}
+          >
+            <i className={`d ${k}`} aria-hidden="true" />
+            <span className="l">{FLT_LABEL[k]}</span>
+            <b className="n">{FLT_N(tal)[k]}</b>
+          </button>
+        ))}
+      </div>
+    </>
+  ) : null
+
   /** 판 제목 옆 꼬리말 — 목업의 「CLI Response · Step 3 Live」 자리 */
   const subOf = (p: PanelId): string => {
     if (p === 'steps') return cur || ''
@@ -575,22 +624,24 @@ export default function RunAuto({
             {!!subOf(id) && <small>· {subOf(id)}</small>}
             <span className="ra-sp" />
             {id === 'tc' && (
-              <select
+              <button
+                type="button"
                 className={`ra-fsel${flt === 'all' ? '' : ' on'}`}
-                value={flt}
                 title="이 결과의 항목만 봅니다"
                 /* 머리줄은 끌어서 자리를 바꾸는 손잡이다 — 고르개를 누를 때
                    드래그가 걸리면 목록이 안 열린다. 여기서 멈춘다. */
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
                 onMouseDown={(e) => e.stopPropagation()}
-                onChange={(e) => setFlt(e.target.value as typeof flt)}
+                onClick={(e) => {
+                  const b = e.currentTarget.getBoundingClientRect()
+                  setFltAt((v) => (v ? null : { x: b.right, y: b.bottom + 5 }))
+                }}
               >
-                <option value="all">전체 {tal.total}</option>
-                <option value="p">PASS {tal.p}</option>
-                <option value="f">FAIL {tal.f}</option>
-                <option value="n">대기 {tal.n}</option>
-              </select>
+                <span className="l">{FLT_LABEL[flt]}</span>
+                <b className="n">{FLT_N(tal)[flt]}</b>
+                <i className="c" aria-hidden="true" />
+              </button>
             )}
             <span className="ra-grab">이동</span>
           </header>
@@ -618,6 +669,7 @@ export default function RunAuto({
           <div style={{ flex: 1, minHeight: 0 }}>{panel('RB')}</div>
         </div>
       </div>
+      {fltMenu}
     </div>
   )
 }

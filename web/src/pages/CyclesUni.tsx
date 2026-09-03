@@ -1140,23 +1140,29 @@ export default function CyclesUni({
    */
   const runCols: NCol[] = useMemo(
     () => [
-      { key: 'name', label: '실행', type: 'text', width: 150, fixed: true },
-      { key: 'version', label: '버전', type: 'text', width: 190 },
-      /* 아이콘은 REQ-Coverage 와 같은 것을 쓴다 — 수동은 손, 자동은 톱니 */
-      { key: 'mode', label: '방식', type: 'select', width: 92,
+      /* 기본 열은 **지시한 아홉**이다. 방식·결과·상태는 숨겨 두고 「속성」
+         에서 켠다 — 노션식 표의 그 자리다. */
+      { key: 'key', label: 'ID', type: 'text', width: 150, fixed: true },
+      { key: 'title', label: '제목', type: 'text', width: 220 },
+      { key: 'mgroup', label: '모델그룹', type: 'text', width: 100 },
+      { key: 'model', label: '모델명', type: 'text', width: 100 },
+      { key: 'vgroup', label: '버전그룹', type: 'text', width: 100 },
+      { key: 'version', label: '버전명', type: 'text', width: 175 },
+      { key: 'owner', label: '담당', type: 'text', width: 110 },
+      { key: 'created', label: '생성', type: 'date', width: 110 },
+      { key: 'closed', label: '종료', type: 'date', width: 110 },
+      { key: 'mode', label: '방식', type: 'select', width: 92, hidden: true,
         options: [
           { value: '자동', color: 'blue', icon: '⚙' },
           { value: '수동', color: 'orange', icon: '✋' },
         ] },
-      { key: 'cycle', label: '사이클', type: 'text', width: 130 },
-      { key: 'result', label: '결과', type: 'text', width: 190 },
-      { key: 'state', label: '상태', type: 'select', width: 92,
+      { key: 'result', label: '결과', type: 'text', width: 190, hidden: true },
+      { key: 'state', label: '상태', type: 'select', width: 92, hidden: true,
         options: [
           { value: '대기', color: 'gray' },
           { value: '진행중', color: 'blue' },
           { value: '완료', color: 'green' },
         ] },
-      { key: 'owner', label: '담당', type: 'text', width: 110 },
     ],
     [],
   )
@@ -1164,17 +1170,23 @@ export default function CyclesUni({
     () =>
       shown.map((r) => {
         const st = sum([r])
-        const p = r.plan_id ? planOf.get(r.plan_id) : undefined
+        const c = r.plan_id ? planOf.get(r.plan_id) : undefined
         return {
           __id: r.id,
-          name: String(r.name || r.id),
+          key: String(r.name || r.id),
+          /* 제목은 **사이클의 것**이다 — 실행에는 따로 없다 */
+          title: String(c?.name ?? c?.cid ?? ''),
+          mgroup: String(c?.model_group ?? ''),
+          model: String(c?.model ?? ''),
+          vgroup: String(r.version_group ?? c?.version_group ?? ''),
           version: String(r.version ?? ''),
+          owner: String(r.owner || '미배정'),
+          created: String(r.created_at ?? '').slice(0, 10),
+          closed: String(r.closed_at ?? '').slice(0, 10),
           mode: normMode(r.mode) === '수동' ? '수동' : '자동',
-          cycle: String(p?.cid ?? p?.name ?? ''),
           /* 거르기·정렬이 읽을 값은 **글자**로 둔다. 그림은 renderCell 이 그린다 */
           result: `통과 ${st.pass} · 실패 ${st.fail} · ${st.done}/${st.total}`,
           state: r.closed_at ? '완료' : st.done ? '진행중' : '대기',
-          owner: String(r.owner || '미배정'),
         }
       }),
     [shown, planOf],
@@ -1192,9 +1204,12 @@ export default function CyclesUni({
         lockDefs
         onColumns={() => undefined}
         onCell={() => undefined}
-        readOnlyKeys={runCols.map((c) => c.key)}
-        idKey="name"
-        titleKey="version"
+        /* 값은 실행이 가진 것 그대로라 못 고친다. 다만 방식·상태는
+           readOnly 로 두면 맨 글자가 되므로(NTable:280) renderCell 이 알약을
+           그린다 — 그래서 그 둘은 여기서 뺀다. */
+        readOnlyKeys={runCols.filter((c) => c.key !== 'mode' && c.key !== 'state').map((c) => c.key)}
+        idKey="key"
+        titleKey="title"
         onOpen={(id) => setOpenRun(id)}
         onBulk={(act, ids) => {
           if (act !== 'del') {

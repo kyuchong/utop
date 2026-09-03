@@ -284,37 +284,81 @@
 
 /* 시험 항목 거르개 — 판 머리 오른쪽, 「이동」 왼쪽.
    판 머리의 「이동」 배지와 **같은 결**로 맞춘다(둥근 알약·옅은 테두리·
-   같은 회색). 브라우저 기본 화살표는 크고 각져서 이 줄에서 혼자 튄다 —
-   appearance 를 끄고 작은 ▾ 을 직접 그린다. */
+   같은 회색). 목록은 **직접 그린다** — 브라우저 기본 select 의 목록은
+   OS 가 그려서 이 화면의 결과 전혀 안 맞는다(지적). */
 .ra-fsel {
   flex: none;
-  max-width: 116px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   height: 22px;
-  padding: 0 20px 0 9px;
+  padding: 0 8px 0 10px;
   font: inherit;
   font-size: 10.5px;
-  line-height: 20px;
   color: #6d8189;
-  background-color: #fbfcfc;
+  background: #fbfcfc;
   border: 1px solid #e0e7ea;
   border-radius: 999px;
   cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2394a8af' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 7px center;
-  background-size: 8px 5px;
-  transition: border-color .12s ease, color .12s ease, background-color .12s ease;
+  transition: border-color .12s ease, color .12s ease, background .12s ease;
 }
-.ra-fsel:hover { border-color: #cdd9dd; color: #4d6068; background-color: #fff; }
+.ra-fsel:hover { border-color: #cdd9dd; color: #4d6068; background: #fff; }
 .ra-fsel:focus-visible { outline: 2px solid #0f766e33; outline-offset: 1px; border-color: #0f766e; }
-/* 무엇으로 걸러 보는 중인지 — 「전체」 가 아니면 눈에 띄게 */
-.ra-fsel.on {
-  color: #0f766e;
-  font-weight: 700;
-  border-color: #b9dcd8;
-  background-color: #eff7f6;
+.ra-fsel .n { font-weight: 700; font-size: 10px; opacity: .75; }
+/* 아래를 가리키는 작은 ▾ — 글자와 같은 색이라 따로 놀지 않는다 */
+.ra-fsel .c {
+  width: 0;
+  height: 0;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-top: 4px solid currentColor;
+  opacity: .55;
+  margin-left: 1px;
 }
-/* 목록 글자는 브라우저가 그린다 — 색만 또렷하게 */
-.ra-fsel option { color: var(--c-text); font-weight: 400; }
+/* 무엇으로 걸러 보는 중인지 — 「전체」 가 아니면 눈에 띄게 */
+.ra-fsel.on { color: #0f766e; font-weight: 700; border-color: #b9dcd8; background: #eff7f6; }
+
+/* ── 거르개 목록 ── */
+.ra-fovl { position: fixed; inset: 0; z-index: 60; }
+.ra-fmenu {
+  position: fixed;
+  z-index: 61;
+  transform: translateX(-100%);
+  min-width: 132px;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid #e0e7ea;
+  border-radius: 9px;
+  box-shadow: 0 8px 22px rgb(20 40 45 / 14%);
+}
+.ra-fmenu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 11.5px;
+  color: #4d6068;
+  cursor: pointer;
+}
+.ra-fmenu button:hover { background: #f2f6f7; }
+.ra-fmenu button.on { background: #eff7f6; color: #0f766e; font-weight: 700; }
+.ra-fmenu .l { flex: 1; text-align: left; }
+.ra-fmenu .n { font-size: 10.5px; color: #92a5ab; font-weight: 700; }
+.ra-fmenu button.on .n { color: #0f766e; }
+/* 결과를 색 점으로 — 글자를 읽기 전에 눈이 먼저 잡는다 */
+.ra-fmenu .d {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: #cbd6da;
+}
+.ra-fmenu .d.p { background: var(--c-pass, #12a67f); }
+.ra-fmenu .d.f { background: var(--c-fail, #e04b52); }
+.ra-fmenu .d.n { background: #cfd4d8; }
+.ra-fmenu .d.all { background: linear-gradient(135deg, #12a67f 50%, #e04b52 50%); }
