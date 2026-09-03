@@ -9740,29 +9740,74 @@ async def add_cycle_version_group(payload: dict):
 
 @app.delete("/api/cycle-version-groups/{model}/{group}")
 async def del_cycle_version_group(model: str, group: str, force: int = 0):
-    """버전그룹 한 칸을 지운다.
+    """버전그룹 폴더를 지운다.
 
-    **안에 플랜이 있으면 막는다.** 지우면 그 플랜들이 트리에서 「(버전그룹
-    없음)」 으로 굴러떨어져, 지운 사람 눈에는 「플랜이 사라졌다」 로 보인다.
-    몇 건인지 말해 주고, 그래도 지우겠다면 force=1 을 받는다.
+    **트리의 버전그룹 마디는 두 종류다.**
+
+      ① KV(`cycle_version_groups`)에 사람이 등록한 것
+      ② 플랜·실행의 `version_group` 값에서 **파생된** 것 — 저장된 실체가 없다
+
+    ②는 지울 껍데기가 없다. 그 이름을 트리에서 없애려면 안의 플랜·실행을
+    옮기거나 지워야 한다. 전에는 이 경우에 「없는 버전그룹입니다」(404)
+    라고만 해서, 사람은 왜 안 지워지는지 알 수가 없었다(지적).
+
+    그래서 **내용물부터 센다.** 무엇이 걸려 있는지 말한 다음에 지운다.
     """
     cur = await db.kv_get(_VGROUP_KV) or {}
     arr = [str(g) for g in (cur.get(model) or [])]
-    if group not in arr:
+    in_kv = group in arr
+
+    # ── 이 폴더에 걸린 플랜과 실행
+    plans = [
+        c for c in await db.cycle_list_meta()
+        if str(c.get("model") or "") == model and str(c.get("version_group") or "") == group
+    ]
+    all_plans = {str(c.get("id") or ""): c for c in await db.cycle_list_meta()}
+    runs = []
+    for r in await db.plan_run_list():
+        if str(r.get("version_group") or "") != group:
+            continue
+        p = all_plans.get(str(r.get("plan_id") or ""))
+        # 플랜이 모델의 정본. 플랜 없는 실행은 제 메타에 모델을 들고 다닌다
+        meta = r.get("meta")
+        meta = meta if isinstance(meta, dict) else {}
+        m = str((p or {}).get("model") or meta.get("model") or "")
+        if m == model:
+            runs.append(r)
+
+    if (plans or runs) and not force:
+        what = " · ".join(
+            x for x in (
+                f"플랜 {len(plans)}건" if plans else "",
+                f"시험 실행 {len(runs)}건" if runs else "",
+            ) if x
+        )
+        raise HTTPException(409, f"이 폴더에 {what}이 있습니다 — 옮기거나 지운 뒤 다시 하세요")
+
+    if not in_kv:
+        # 파생 마디다. KV 에서 뺄 것이 없으니 force 여도 트리에서 안 사라진다.
+        if plans or runs:
+            raise HTTPException(
+                400,
+                "이 폴더는 플랜·실행이 만든 이름이라 따로 지울 것이 없습니다 — "
+                "안의 플랜·실행을 지우거나 다른 버전그룹으로 옮기세요",
+            )
         raise HTTPException(404, "없는 버전그룹입니다")
-    n = 0
-    for c in await db.cycle_list_meta():
-        if str(c.get("model") or "") == model and str(c.get("version_group") or "") == group:
-            n += 1
-    if n and not force:
-        raise HTTPException(409, f"이 폴더에 플랜 {n}건이 있습니다 — 옮기거나 지운 뒤 다시 하세요")
+
     rest = [g for g in arr if g != group]
     if rest:
         cur[model] = rest
     else:
         cur.pop(model, None)
     await db.kv_set(_VGROUP_KV, cur)
-    return {"ok": True, "groups": cur, "plans": n}
+    # kept = 이름은 뺐지만 플랜·실행이 남아 트리에는 계속 보인다
+    return {
+        "ok": True,
+        "groups": cur,
+        "plans": len(plans),
+        "runs": len(runs),
+        "kept": bool(plans or runs),
+    }
 
 
 CYCLE_FOLDERS_FILE = DATA_DIR / "state" / "cycle_folders.json"

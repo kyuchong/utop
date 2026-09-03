@@ -769,26 +769,47 @@ export default function CyclesUni({
       void vgQ.refetch()
       void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
       void plansQ.refetch()
+      void runsQ.refetch()
     }
+    type Res = { detail?: string; kept?: boolean; plans?: number; runs?: number }
     try {
       const r = await apiFetch(url, { method: 'DELETE' })
+      const j = (await r.json().catch(() => ({}))) as Res
       if (r.ok) {
         done()
+        /* 이름은 뺐지만 플랜·실행이 남아 트리에는 계속 보인다 — 지운 줄
+           알고 새로고침을 반복하지 않게 그 자리에서 말해 준다. */
+        if (j.kept)
+          window.alert(
+            `폴더 이름은 지웠지만 플랜 ${j.plans ?? 0}건 · 실행 ${j.runs ?? 0}건이 남아\n` +
+              '트리에는 계속 보입니다. 그것들을 옮기거나 지우면 사라집니다.',
+          )
         return
       }
-      const j = (await r.json().catch(() => ({}))) as { detail?: string }
+      /* 400 = 파생 마디. KV 에 실체가 없어 지울 것이 없다 —
+         「없는 버전그룹입니다」 가 아니라 무엇을 해야 하는지 말한다. */
       if (r.status !== 409) {
         window.alert(j.detail || '지우지 못했습니다.')
         return
       }
-      if (!window.confirm(`${j.detail}\n\n그래도 폴더만 지울까요? 플랜은 「(버전그룹 없음)」 으로 남습니다.`))
+      if (
+        !window.confirm(
+          `${j.detail}\n\n그래도 폴더 이름만 지울까요? 안의 플랜·실행은 그대로 남습니다.`,
+        )
+      )
         return
       const r2 = await apiFetch(`${url}?force=1`, { method: 'DELETE' })
+      const j2 = (await r2.json().catch(() => ({}))) as Res
       if (!r2.ok) {
-        window.alert('지우지 못했습니다.')
+        window.alert(j2.detail || '지우지 못했습니다.')
         return
       }
       done()
+      if (j2.kept)
+        window.alert(
+          `폴더 이름은 지웠지만 플랜 ${j2.plans ?? 0}건 · 실행 ${j2.runs ?? 0}건이 남아\n` +
+            '트리에는 계속 보입니다. 그것들을 옮기거나 지우면 사라집니다.',
+        )
     } catch {
       window.alert('지우지 못했습니다.')
     }
