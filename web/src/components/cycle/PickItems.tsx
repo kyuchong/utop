@@ -37,10 +37,6 @@ export default function PickItems({
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
-  /** 이 모델 것만 볼까 — 60여 건 중에서 고르려면 좁힐 자리가 필요하다 */
-  const [mine, setMine] = useState(true)
-  /** 공용 항목(모델이 안 적힌 것)도 볼까 — **기본은 켬** */
-  const [common, setCommon] = useState(true)
   /** 고른 요구사항 폴더 — 그 아래(하위 포함) 시험만 남긴다 */
   const [catSel, setCatSel] = useState('')
   /** 펼친 폴더 */
@@ -134,34 +130,39 @@ export default function PickItems({
   const isMan = (t: TestCaseMeta) => normMode(String(t.run_type ?? t.kind ?? '')) === '수동'
 
   const all = useMemo(() => tcQ.data?.tcs ?? [], [tcQ.data])
-  /** 모델이 안 적힌 시험 = **공용**. 어느 모델에나 쓴다.
-      213 에는 8건이 그렇고, 수동 시험 4건이 전부 여기 들었다 — 「이 모델」
-      로만 거르면 수동 탭이 통째로 0이 된다(지적: 수동을 못 가져온다). */
-  const isCommon = (t: TestCaseMeta) =>
-    !String(t.model ?? '').trim() && !String(t.model_group ?? '').trim()
-  const nMine = useMemo(() => {
-    const m = String(cycle.model ?? '')
-    const g = String(cycle.model_group ?? '')
-    return all.filter(
-      (t) =>
-        !isCommon(t) && (String(t.model ?? '') === m || String(t.model_group ?? '') === g),
-    ).length
-  }, [all, cycle])
-  const nCommon = useMemo(() => all.filter(isCommon).length, [all])
 
-  /** 이 사이클의 모델(또는 모델그룹) 것 + 공용 */
+  /** 무엇으로 걸러 보고 있나 — 안내와 빈 화면이 같은 말을 하도록 한 자리에서 */
+  const scope = [cycle.model_group, cycle.model]
+    .map((v) => String(v ?? '').trim())
+    .filter(Boolean)
+    .join(' · ')
+
+  /**
+   * 고를 수 있는 것 — **모델그룹·모델명이 맞는 시험만**(지시).
+   *
+   * 전에는 「이 모델만」·「공용 항목」 두 토글을 두어, 모델이 안 적힌 시험도
+   * 어느 사이클에나 담을 수 있었다. 그 자리를 없앤다 — 사이클은 한 모델을
+   * 시험하는 것이고, 아무 모델의 시험이나 담기면 결과서가 무엇을 시험한
+   * 것인지 말할 수 없게 된다.
+   *
+   * 그래서 **모델이 안 적힌 시험은 어디에도 안 뜬다.** 213 에 8건이 그렇다
+   * (수동 4건 포함) — 그 시험에 모델을 채워야 담을 수 있다. 빈 화면이 그
+   * 말을 한다. 모델이 아직 안 정해진 사이클에서만 모두 보인다.
+   */
   const ofModel = useMemo(() => {
-    const m = String(cycle.model ?? '')
-    const g = String(cycle.model_group ?? '')
+    const m = String(cycle.model ?? '').trim()
+    const g = String(cycle.model_group ?? '').trim()
+    if (!m && !g) return all
     return all.filter((t) => {
-      if (isCommon(t)) return common
-      if (!m && !g) return true
-      return String(t.model ?? '') === m || String(t.model_group ?? '') === g
+      const tm = String(t.model ?? '').trim()
+      const tg = String(t.model_group ?? '').trim()
+      if (!tm && !tg) return false
+      return (!!m && tm === m) || (!!g && tg === g)
     })
-  }, [all, cycle, common])
+  }, [all, cycle])
 
   /** 폴더 셈의 바탕 — 모델까지만 좁힌다(폴더로 또 좁히면 제 셈이 0이 된다) */
-  const base = mine ? ofModel : all
+  const base = ofModel
   const inCat = (t: TestCaseMeta) => {
     if (!underCat) return true
     const rid = String(t.req_id ?? '').trim()
@@ -173,8 +174,7 @@ export default function PickItems({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [ofModel, underCat, catSel],
   )
-  const wide = useMemo(() => all.filter((t) => (isCommon(t) ? common : true)), [all, common])
-  const pool = mine ? byCat : wide.filter(inCat)
+  const pool = byCat
   const nAuto = pool.filter((t) => !isMan(t)).length
   const nMan = pool.length - nAuto
 
@@ -364,17 +364,7 @@ export default function PickItems({
             placeholder="ID · 제목 찾기"
             onChange={(e) => setQ(e.target.value)}
           />
-          <span className="pki-cnt2">
-            이 모델 {nMine}건 · 공용 {nCommon}건
-          </span>
-          <label className="pki-only" title="이 사이클의 모델·모델그룹 것만 봅니다">
-            <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
-            이 모델만
-          </label>
-          <label className="pki-only" title="모델이 안 적힌 시험 — 어느 모델에나 씁니다">
-            <input type="checkbox" checked={common} onChange={(e) => setCommon(e.target.checked)} />
-            공용 항목
-          </label>
+          <span className="pki-cnt2">{scope ? `${scope} 의 시험만` : '모든 시험'}</span>
         </div>
 
         <div className="pki-body">
@@ -426,7 +416,12 @@ export default function PickItems({
           ) : !ready || tcQ.isLoading ? (
             <div className="pki-none">불러오는 중…</div>
           ) : !shown.length ? (
-            <div className="pki-none">고를 항목이 없습니다.</div>
+            <div className="pki-none">
+              고를 항목이 없습니다.
+              <br />
+              {scope ? `${scope} 의 시험만 담을 수 있습니다` : '담을 수 있는 시험이 없습니다'} —
+              시험에 모델이 안 적혀 있으면 여기 안 뜹니다.
+            </div>
           ) : (
             shown.map((t) => {
               const man = isMan(t)
