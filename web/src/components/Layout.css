@@ -269,15 +269,14 @@
   color: var(--c-nav-fg-strong);
 }
 
-/* 지금 보는 화면 — **흰 판**으로 도드라진다(지시).
-   청록 바탕 위에서 12% 짜리 옅은 얼룩은 「눌러 둔 것」 으로 안 읽혔다.
-   본문 카드가 흰색이니, 고른 메뉴가 흰색이면 그 카드와 한 줄기로 이어져
-   「여기를 보고 있다」 가 모양으로 드러난다. */
+/* 지금 보는 화면 — **청록 알약**(승인: ② 안). 바가 옅은 청록 워시가 되며
+   흰 판은 본문 카드와 구분이 안 갔다. 한 단 진한 같은 계열(#a9ced6)이
+   워시 위에서 「눌러 둔 것」 으로 읽힌다. 파란 세로줄은 걷는다 — 알약의
+   면이 이미 선택을 말한다. */
 .nav-item.on {
-  background: var(--c-surface);
-  color: var(--c-nav-fg-strong);
+  background: #a9ced6;
+  color: #123a44;
   font-weight: 700;
-  box-shadow: inset 3px 0 0 var(--c-primary);
 }
 
 .nav-item.on .nav-icon {
@@ -323,7 +322,7 @@
 .app.nav-collapsed .nav-item.on,
 .app.nav-collapsed .nav-item.on[data-key] {
   box-shadow: none;
-  background: var(--c-surface);
+  background: #a9ced6;
 }
 .app.nav-collapsed .nav-item.on::before {
   content: '';

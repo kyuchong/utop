@@ -7586,8 +7586,68 @@ a.bc-cur:hover { text-decoration: underline; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  padding: min(22vh, 230px) 24px 80px;
+  gap: 14px;
+  padding: min(18vh, 190px) 24px 80px;
+  /* A안 오로라(승인) — 청록빛 그라데이션 바탕. 왼쪽바의 옅은 청록과 한
+     공기로 이어진다. */
+  position: relative;
+  background: linear-gradient(180deg, #f8fbfc, #edf4f7);
+}
+/* 하늘은 그림, 내용은 그 위 — 겹 순서를 여기서 못 박는다 */
+.ask-homewrap > *:not(.ask-sky) { position: relative; z-index: 1; }
+.ask-sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.ask-sky > i { position: absolute; display: block; border-radius: 50%; filter: blur(90px); }
+.ask-sky .o1 { width: 520px; height: 520px; left: 10%; top: -8%; background: rgb(15 118 110 / 16%); animation: ask-drift 26s ease-in-out infinite alternate; }
+.ask-sky .o2 { width: 460px; height: 460px; right: 8%; top: 0; background: rgb(23 105 210 / 13%); animation: ask-drift 32s ease-in-out infinite alternate-reverse; }
+.ask-sky .o3 { width: 420px; height: 420px; left: 42%; top: 55%; background: rgb(124 92 255 / 10%); animation: ask-drift 38s ease-in-out infinite alternate; }
+.ask-sky .dots {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  filter: none;
+  background-image: radial-gradient(rgb(15 118 110 / 10%) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(720px 420px at 50% 32%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(720px 420px at 50% 32%, #000 30%, transparent 75%);
+}
+@keyframes ask-drift {
+  from { transform: translate(0, 0); }
+  to { transform: translate(60px, 40px); }
+}
+/* 오프너 편집은 일하는 자리다 — 하늘을 걷어 차분하게 */
+.ask-home.editing .ask-sky { display: none; }
+
+/* ✦ Test AI 뱃지 — 그라데이션 테두리 알약. 글자는 진한 청록 —
+   글자까지 그라데이션이면 ✦ 와 겹쳐 어지럽다. */
+.ask-aibadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--c-surface), var(--c-surface)) padding-box,
+    linear-gradient(90deg, #0f766e, #1769d2) border-box;
+  box-shadow: 0 4px 18px rgb(13 59 70 / 8%);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #0d4f5c;
+}
+.ask-aibadge > i {
+  font-style: normal;
+  font-size: 13px;
+  background: linear-gradient(90deg, #0f766e, #1769d2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ask-homesub {
+  margin: -4px auto 14px;
+  font-size: 15px;
+  color: #5b6d76;
+  text-align: center;
 }
 .ask-home.editing .ask-homewrap { padding-bottom: 110px; }
 /* 가운데 정렬은 **칸마다 못 박는다**(지시) — 부모의 align-items 하나에
@@ -7600,12 +7660,16 @@ a.bc-cur:hover { text-decoration: underline; }
 }
 .ask-hometitle {
   margin: 0 auto;
-  font-size: 26px;
+  font-size: 38px;
   font-weight: 800;
-  letter-spacing: -0.6px;
+  letter-spacing: -0.02em;
   text-align: center;
   width: 100%;
-  max-width: 640px;
+  max-width: 760px;
+  background: linear-gradient(92deg, #0d3b46, #0f766e 48%, #1769d2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .ask-hometools {
   position: absolute;
@@ -7651,27 +7715,32 @@ a.bc-cur:hover { text-decoration: underline; }
 }
 
 /* 입력 + 모드 한 상자 */
+/* 캡슐 입력창(A안). 상하 폭은 지시로 한 번 더 키웠다 — 이 화면의 주인공은
+   이 칸 하나라, 커도 자리를 다투는 이웃이 없다. */
 .ask-askbox2 {
   width: 100%;
-  max-width: 640px;
+  max-width: 760px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 8px 7px 18px;
+  gap: 10px;
+  padding: 14px 12px 14px 24px;
   background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.05);
+  border: 1px solid #dfe9ec;
+  border-radius: 28px;
+  box-shadow: 0 14px 44px rgb(13 59 70 / 10%);
 }
-.ask-askbox2:focus-within { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg); }
+.ask-askbox2:focus-within {
+  border-color: transparent;
+  box-shadow: 0 0 0 2px rgb(15 118 110 / 22%), 0 18px 54px rgb(15 118 110 / 14%);
+}
 .ask-askin2 {
   flex: 1;
   min-width: 0;
-  height: 38px;
+  height: 44px;
   border: 0;
   outline: none;
   background: none;
-  font-size: 14px;
+  font-size: 15.5px;
 }
 .ask-askin2::placeholder { color: #aeb7c1; }
 .ask-modewrap { position: relative; flex: none; }
@@ -7730,52 +7799,134 @@ a.bc-cur:hover { text-decoration: underline; }
 .ask-mi-tx p { margin: 2px 0 0; font-size: 11.5px; color: var(--c-text-muted); line-height: 1.5; }
 .ask-mi-tx small { display: block; margin-top: 3px; font-size: 11px; color: var(--c-text-faint); }
 .ask-send2 {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 50%;
   background: #cfd6de;
   color: #fff;
-  font-size: 14px;
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background 0.12s, box-shadow 0.12s;
 }
-.ask-send2.on { background: var(--c-primary); }
-.ask-send2.on:hover { background: var(--c-primary-ink, #0f56b8); }
+.ask-send2 svg { width: 18px; height: 18px; }
+.ask-send2.on {
+  background: linear-gradient(135deg, #0f766e, #1769d2);
+  box-shadow: 0 6px 18px rgb(15 118 110 / 35%);
+}
+.ask-send2.on:hover { filter: brightness(1.08); }
 .ask-send2:disabled { cursor: default; }
 
-/* 오프너 */
-.ask-ops { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 8px; }
+/* 「TEST AI 가 하는 일」 — 처음 온 사람에게 이 화면의 쓰임을 말하는 줄 */
+.ask-cando { margin-top: 34px; text-align: center; }
+.ask-cando > small {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #93a5ad;
+  margin-bottom: 16px;
+}
+.ask-cando-row { display: flex; justify-content: center; gap: 42px; }
+.ask-cd {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #4b5e67;
+}
+.ask-cd > i {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-style: normal;
+}
+.ask-cd > i svg { width: 20px; height: 20px; }
+.ask-cd.t1 > i { background: #e4f1ef; color: #0f766e; }
+.ask-cd.t2 > i { background: #e9f1ff; color: #1769d2; }
+.ask-cd.t3 > i { background: #f0ecff; color: #6d4fe0; }
+.ask-cd.t4 > i { background: #fdf1e2; color: #c26a05; }
+
+/* 등장 — 위에서 차례로 떠오른다. 한 번뿐이라 요란하지 않다. */
+@keyframes ask-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ask-aibadge { animation: ask-rise 0.5s 0.02s ease-out backwards; }
+.ask-hometitle { animation: ask-rise 0.5s 0.08s ease-out backwards; }
+.ask-homesub { animation: ask-rise 0.5s 0.14s ease-out backwards; }
+.ask-askbox2 { animation: ask-rise 0.5s 0.2s ease-out backwards; }
+.ask-ops { animation: ask-rise 0.5s 0.28s ease-out backwards; }
+.ask-cando { animation: ask-rise 0.5s 0.36s ease-out backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .ask-aibadge, .ask-hometitle, .ask-homesub, .ask-askbox2, .ask-ops, .ask-cando { animation: none; }
+  .ask-sky > i { animation: none; }
+}
+
+/* 오프너 — 보는 때는 알약 칩 한 줄(A안), 고치는 때는 세로 목록 그대로.
+   칩은 내용만큼만 넓어야 하므로 stretch 를 푼다. */
+.ask-ops {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+.ask-home.editing .ask-ops { max-width: 640px; flex-direction: column; gap: 8px; }
 .ask-oprow { position: relative; display: flex; align-items: stretch; }
 .ask-op {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex: 1;
+  gap: 8px;
   min-width: 0;
   text-align: left;
-  padding: 11px 40px 11px 14px;
+  padding: 10px 30px 10px 16px;
   background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  border-radius: 11px;
+  border: 1px solid #e0eaec;
+  border-radius: 999px;
   cursor: pointer;
-  color: var(--c-text-muted);
+  color: #33474f;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13.5px;
+  box-shadow: 0 3px 12px rgb(13 59 70 / 5%);
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
-.ask-op:hover { border-color: #bcd3f0; background: #f9fcff; color: var(--c-text); }
+.ask-op:hover {
+  border-color: #0f766e;
+  color: var(--c-text);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgb(13 59 70 / 9%);
+}
 .ask-op-tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ask-op-ic {
+  flex: none;
+  font-size: 12px;
+  background: linear-gradient(90deg, #0f766e, #1769d2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* 고치는 줄에서는 네모 태그가 자리 표시라 남긴다 */
+.ask-oprow.ed .ask-op-ic,
+.ask-opadd .ask-op-ic {
   width: 22px;
   height: 22px;
-  flex: none;
   display: grid;
   place-items: center;
   border-radius: 6px;
   background: var(--c-primary-bg);
   color: var(--c-primary);
-  font-size: 12px;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
 }
 .ask-op-x {
   position: absolute;

@@ -2125,7 +2125,20 @@ export default function AskBar({ devices }: Props) {
           </div>
 
           <div className="ask-homewrap">
+            {/* A안 오로라(승인) — 빛무리 셋과 점 격자. 그림일 뿐이라
+                보조기기에는 없는 것으로 친다. 움직임은 CSS 가 갖고 있고
+                prefers-reduced-motion 이면 멎는다. */}
+            <div className="ask-sky" aria-hidden="true">
+              <i className="o1" />
+              <i className="o2" />
+              <i className="o3" />
+              <i className="dots" />
+            </div>
+            <span className="ask-aibadge">
+              <i aria-hidden="true">✦</i>Test AI
+            </span>
             <h1 className="ask-hometitle">무엇을 도와드릴까요?</h1>
+            <p className="ask-homesub">말로 하면 시험을 찾고 · 만들고 · 실행합니다</p>
 
             {/* 입력 + 모드 — 한 상자 안이다(목업) */}
             <div className="ask-askbox2">
@@ -2211,7 +2224,9 @@ export default function AskBar({ devices }: Props) {
                 disabled={exEdit || !text.trim()}
                 onClick={() => void submit()}
               >
-                ➤
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h13M13 6l6 6-6 6" />
+                </svg>
               </button>
             </div>
 
@@ -2275,6 +2290,40 @@ export default function AskBar({ devices }: Props) {
                 </button>
               )}
             </div>
+
+            {/* 처음 온 사람에게 이 화면이 무엇을 하는지 — 누르는 것이 아니라
+                말해 주는 줄이다(A안). 편집 중에는 자리를 오프너에 내준다. */}
+            {!exEdit && (
+              <div className="ask-cando">
+                <small>TEST AI 가 하는 일</small>
+                <div className="ask-cando-row">
+                  <span className="ask-cd t1">
+                    <i>
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                    </i>
+                    있는 시험 실행
+                  </span>
+                  <span className="ask-cd t2">
+                    <i>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg>
+                    </i>
+                    새 시험 만들기
+                  </span>
+                  <span className="ask-cd t3">
+                    <i>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-8M21 19H3" /></svg>
+                    </i>
+                    결과 분석
+                  </span>
+                  <span className="ask-cd t4">
+                    <i>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+                    </i>
+                    지식 검색
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {exEdit && (
