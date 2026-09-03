@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
 import {
   useCreateBlockNote,
   SuggestionMenuController,
@@ -23,6 +25,7 @@ import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, projectApi } from '@/api/client'
+import PresenceBar from './PresenceBar'
 import { reqLabel, reqPk } from '@/types'
 
 /**
@@ -143,12 +146,15 @@ export default function WikiEditor({
   id,
   title,
   project,
+  me = '',
   onSaved,
 }: {
   id: string
   title: string
   /** 이 문서가 매인 프로젝트(빈 값 = 공용) */
   project?: string
+  /** 나 — 접속자 표시와 「내가 방금 저장한 것」 가려내기에 쓴다 */
+  me?: string
   onSaved?: () => void
 }) {
   const [ready, setReady] = useState(false)
@@ -186,45 +192,135 @@ export default function WikiEditor({
 
   const prjQ = useQuery({ queryKey: ['projects'], queryFn: ({ signal }) => projectApi.list(signal), staleTime: 60_000 })
 
-  const editor = useCreateBlockNote({
-    // 메뉴·말풍선을 한국어로 — 「/」 를 쳤을 때 나오는 이름들이다
-    dictionary: ko,
-    schema: SCHEMA,
-  })
+  /**
+   * **함께 쓰기** — 같은 문서를 연 사람들이 서로의 글자와 커서를 본다(지시).
+   *
+   * 여태는 「내 문서 전체를 통째로 저장」 이었다. 둘이 같이 고치면 나중에
+   * 저장한 사람이 앞사람 글을 조용히 덮었고, 남이 무엇을 하는지도 저장이
+   * 끝나야 알았다. 커서를 그리려면 글을 글자 단위로 나눠야 하고, 그렇게
+   * 나누면 실시간 반영은 저절로 따라온다 — 둘은 한 벌이다(지적).
+   *
+   * 문서 하나가 방 하나다. 서버는 글을 이해하지 않고 옮기기만 한다.
+   */
+  const ydoc = useMemo(() => new Y.Doc(), [])
+  const provider = useMemo(() => {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return new WebsocketProvider(`${proto}//${window.location.host}/ws/yjs`, `wiki-${id}`, ydoc, {
+      connect: true,
+    })
+  }, [id, ydoc])
 
-  /* 문서를 읽어 넣는다. 편집기를 다시 만들지 않고 안의 것만 갈아 끼운다 —
-     새로 만들면 커서와 되돌리기 기록이 함께 날아간다. */
+  /* 나를 남에게 알리는 이름과 색 — 커서 위에 뜬다. 같은 사람은 어느 화면
+     에서나 같은 색이 되도록 이름에서 뽑는다(PresenceBar 와 같은 셈법). */
+  const meName = me || '익명'
+  const meColor = useMemo(() => {
+    let h = 0
+    for (let i = 0; i < meName.length; i++) h = (h * 31 + meName.charCodeAt(i)) >>> 0
+    return `hsl(${h % 360}, 58%, 46%)`
+  }, [meName])
+
+  useEffect(() => {
+    return () => {
+      provider.destroy()
+      ydoc.destroy()
+    }
+  }, [provider, ydoc])
+
+  const editor = useCreateBlockNote(
+    {
+      // 메뉴·말풍선을 한국어로 — 「/」 를 쳤을 때 나오는 이름들이다
+      dictionary: ko,
+      schema: SCHEMA,
+      collaboration: {
+        provider,
+        fragment: ydoc.getXmlFragment('doc'),
+        user: { name: meName, color: meColor },
+        /* 남의 커서는 **글자 사이에 선으로** 뜬다. 이름표는 그 위에. */
+        showCursorLabels: 'activity',
+      },
+    },
+    [provider],
+  )
+
+  /**
+   * 문서를 읽어 넣는다 — **방이 비었을 때만.**
+   *
+   * 함께 쓰기에서는 먼저 와 있던 사람이 곧 정본이다. 늦게 들어오며 DB 의
+   * 글로 덮으면, 앞사람이 방금 친 것을 못 본 채 되돌려 놓는 꼴이 된다.
+   * 그래서 서버와 맞춘 뒤(sync) 방이 **비어 있을 때만** DB 에서 채운다.
+   * 남이 있으면 그 사람에게서 글이 흘러 들어온다.
+   */
   useEffect(() => {
     let dead = false
     setReady(false)
-    void (async () => {
-      try {
-        const r = await apiFetch(`/api/wiki/${encodeURIComponent(id)}`)
-        const j = (await r.json()) as { page?: { body?: PartialBlock[] } }
-        if (dead) return
-        const body = j.page?.body
-        editor.replaceBlocks(
-          editor.document,
-          Array.isArray(body) && body.length ? body : [{ type: 'paragraph' }],
-        )
-      } catch {
-        /* 못 읽으면 빈 문서로 둔다 — 못 읽은 것을 빈 글로 저장하지 않게
-           아래 dirty 로 막는다 */
-      } finally {
-        if (!dead) {
-          dirty.current = false
-          setReady(true)
-        }
+    const frag = ydoc.getXmlFragment('doc')
+
+    const seed = () => {
+      if (dead) return
+      /* 이미 글이 있다 — 먼저 온 사람에게서 받았다 */
+      if (frag.length > 0) {
+        dirty.current = false
+        setReady(true)
+        return
       }
-    })()
+      void (async () => {
+        try {
+          const r = await apiFetch(`/api/wiki/${encodeURIComponent(id)}`)
+          const j = (await r.json()) as { page?: { body?: PartialBlock[] } }
+          if (dead) return
+          /* 읽어 오는 사이 남이 들어와 채웠을 수 있다 — 그러면 그대로 둔다 */
+          if (frag.length > 0) return
+          const body = j.page?.body
+          editor.replaceBlocks(
+            editor.document,
+            Array.isArray(body) && body.length ? body : [{ type: 'paragraph' }],
+          )
+        } catch {
+          /* 못 읽으면 빈 문서로 둔다 — 못 읽은 것을 빈 글로 저장하지 않게
+             아래 dirty 로 막는다 */
+        } finally {
+          if (!dead) {
+            dirty.current = false
+            setReady(true)
+          }
+        }
+      })()
+    }
+
+    if (provider.synced) seed()
+    else provider.once('sync', seed)
+    /* 서버가 죽어 있어도 화면은 열려야 한다 — 혼자 쓰는 것으로 친다 */
+    const late = window.setTimeout(() => {
+      if (!dead && !provider.synced) seed()
+    }, 4000)
+
     return () => {
       dead = true
+      window.clearTimeout(late)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+  }, [id, provider])
 
-  const save = async () => {
+  /**
+   * 저장은 **한 사람만** 한다.
+   *
+   * 글은 Yjs 가 맞춰 주므로 누가 저장하든 내용은 같다. 그런데 셋이 보고
+   * 있으면 저장도 세 번 나고, 그때마다 지난 판(wiki_rev)이 한 줄씩 쌓여
+   * 변경 이력이 같은 시각으로 도배된다. 방에 있는 사람 중 번호가 가장 작은
+   * 하나가 맡는다 — 그 사람이 나가면 다음 사람이 이어받는다.
+   */
+  const amSaver = () => {
+    const ids = [...provider.awareness.getStates().keys()]
+    return !ids.length || Math.min(...ids) === ydoc.clientID
+  }
+
+  const save = async (force = false) => {
     if (!dirty.current) return
+    if (!force && !amSaver()) {
+      /* 내 몫이 아니다. 담당이 저장하면 같은 글이 남는다 */
+      dirty.current = false
+      return
+    }
     setState('saving')
     try {
       await apiFetch(`/api/wiki/${encodeURIComponent(id)}`, {
@@ -239,6 +335,30 @@ export default function WikiEditor({
     }
   }
 
+  /**
+   * **누가 이 문서를 보고 있나**(지시).
+   *
+   * 따로 물을 것 없이 Yjs 의 awareness 에 이미 들어 있다 — 커서를 나누려고
+   * 서로에게 「나 여기 있다」 를 계속 말하는 그 자리다. 접속이 끊기면
+   * 30초 안에 저절로 빠진다.
+   */
+  const [who, setWho] = useState<string[]>([])
+  useEffect(() => {
+    const aw = provider.awareness
+    const read = () => {
+      const names = new Set<string>()
+      aw.getStates().forEach((st) => {
+        const u = (st as { user?: { name?: string } }).user
+        const n = String(u?.name ?? '').trim()
+        if (n) names.add(n)
+      })
+      setWho([...names])
+    }
+    read()
+    aw.on('change', read)
+    return () => aw.off('change', read)
+  }, [provider])
+
   /* 창을 닫거나 다른 문서로 넘어갈 때 — 기다리던 저장을 마저 한다 */
   useEffect(() => {
     const off = () => void save()
@@ -246,7 +366,9 @@ export default function WikiEditor({
     return () => {
       window.removeEventListener('beforeunload', off)
       window.clearTimeout(timer.current)
-      void save()
+      /* 떠날 때는 **내 몫이 아니어도** 저장한다 — 담당이 먼저 나갔으면
+         아무도 안 남긴 채 마지막 글자가 사라진다. 겹쳐 저장돼도 같은 글이다. */
+      void save(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, title])
@@ -352,6 +474,8 @@ export default function WikiEditor({
     <div className="wke">
       <div className="wke-head">
         <b className="wke-title">{title || '(이름 없음)'}</b>
+        {/* 같이 보고 있는 사람 — 혼자면 안 뜬다(PresenceBar 규칙) */}
+        <PresenceBar users={who} me={meName} />
         {/* 이 문서가 **어느 프로젝트 것인가**(지시).
             만들 때의 프로젝트가 그냥 박히고 끝이면, 「전체」 로 두고 쓴 문서는
             영영 공용으로 남고 잘못 박힌 것은 고칠 길이 없다. 여기서 옮긴다.

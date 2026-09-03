@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/api/client'
+import { apiFetch, type MeUser } from '@/api/client'
 import { onGoto } from '@/api/goto'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
 import { IconChevron, IconFolder, IconSearch } from '@/components/icons'
@@ -28,7 +28,7 @@ interface Page {
   updated_at?: string | null
 }
 
-export default function Wiki() {
+export default function Wiki({ me }: { me?: MeUser | null }) {
   const [prjs, setPrjs] = useState<string[]>(currentProjects)
   useEffect(() => onProjectChange(() => setPrjs(currentProjects())), [])
   const prj = prjs[0] ?? ''
@@ -240,6 +240,7 @@ export default function Wiki() {
             id={cur.id}
             title={cur.title}
             project={cur.project}
+            me={me?.name || me?.username || ''}
             onSaved={() => void listQ.refetch()}
           />
         )}

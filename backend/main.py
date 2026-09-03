@@ -10406,7 +10406,10 @@ async def wiki_save(pid: str, payload: dict, request: Request):
                 title, json.dumps(body, ensure_ascii=False), plain,
                 int(payload.get("ord") or 0), who,
             )
-    try: asyncio.create_task(broadcast({"type": "wiki_updated", "id": pid}))
+    # **누가** 저장했는지 함께 보낸다. 받는 쪽은 그것으로 「내가 방금 한 것」
+    # 을 걸러 내고, 남이 한 것이면 이름을 말해 준다 — 「누가 고쳤는지 모르는
+    # 채 화면이 바뀌는 것」 은 고장으로 읽힌다.
+    try: asyncio.create_task(broadcast({"type": "wiki_updated", "id": pid, "user": who}))
     except Exception: pass
     return {"ok": True, "id": pid}
 
@@ -16126,6 +16129,57 @@ async def chat(req: ChatRequest):
         reply = f"[Claude API 오류] {_llm_err(e)}"
 
     return {"reply": reply}
+
+# ───────────────────────────────────────────
+# Yjs 중계 — 함께 쓰는 위키
+# ───────────────────────────────────────────
+#
+# **서버는 글을 이해하지 않는다.** 방(문서) 하나에 붙은 소켓들 사이에서
+# 받은 것을 그대로 옮겨 줄 뿐이다. 글을 맞추는 일(CRDT)과 커서를 나누는
+# 일(awareness)은 모두 브라우저의 Yjs 가 한다 — 서버가 문서 꼴을 알면
+# 편집기 스키마가 바뀔 때마다 서버도 따라 고쳐야 하고, 그 둘이 어긋나는
+# 날 글이 깨진다.
+#
+# 그래서 늦게 들어온 사람은 **먼저 있던 사람에게서** 문서를 받는다
+# (y-websocket 의 sync 규약). 아무도 없던 방은 빈 채로 열리고, 첫 사람이
+# DB 에 있던 글로 채운다 — 그 판단도 브라우저가 한다.
+_yrooms: dict[str, set[WebSocket]] = {}
+
+
+@app.websocket("/ws/yjs/{room}")
+async def yjs_relay(websocket: WebSocket, room: str):
+    await websocket.accept()
+    peers = _yrooms.setdefault(room, set())
+    peers.add(websocket)
+    try:
+        while True:
+            msg = await websocket.receive()
+            if msg.get("type") == "websocket.disconnect":
+                break
+            data = msg.get("bytes")
+            if data is None:
+                # y-websocket 은 바이너리로만 말한다. 글자가 오면 흘려보낸다
+                continue
+            dead = []
+            for p in peers:
+                if p is websocket:
+                    continue
+                try:
+                    await p.send_bytes(data)
+                except Exception:
+                    dead.append(p)
+            for p in dead:
+                peers.discard(p)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        peers.discard(websocket)
+        # 마지막 사람이 나가면 방을 접는다 — 안 접으면 빈 방이 쌓인다
+        if not peers:
+            _yrooms.pop(room, None)
+
 
 # ───────────────────────────────────────────
 # WebSocket

@@ -300,7 +300,7 @@ export default function App() {
       ) : page === 'reqtc' ? (
         <ReqTc me={user} />
       ) : page === 'wiki' ? (
-        <Wiki />
+        <Wiki me={user} />
       ) : page === 'ai-tc' ? (
         <AiTc />
       ) : page === 'ai-kb' ? (
