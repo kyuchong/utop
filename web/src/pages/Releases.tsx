@@ -1394,17 +1394,17 @@ export default function Releases() {
               {/* 저장·⋯ 는 **여기 한 곳**에서만 — 안쪽 줄은 감춘다 */}
               <button
                 type="button"
-                className={`rls-popsave${tcApi?.dirty ? ' dirty' : ''}`}
+                className={`tcx-save${tcApi?.dirty ? ' dirty' : ''}`}
                 disabled={!tcApi?.dirty || !!tcApi?.saving}
                 title={tcApi?.dirty ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
                 onClick={() => tcApi?.save()}
               >
                 {tcApi?.saving ? '저장 중…' : tcApi?.dirty ? '저장' : '저장됨'}
               </button>
-              {tcApi?.menu && <span className="rls-popmore">{tcApi.menu}</span>}
+              {tcApi?.menu && <span className="tcx-more">{tcApi.menu}</span>}
               <button
                 type="button"
-                className="rls-popx"
+                className="tcx-close"
                 onClick={() => {
                   setTcOpen('')
                   setTcApi(null)

@@ -859,17 +859,6 @@
   max-width: 60%;
 }
 .rls-poph .sp { flex: 1; }
-.rls-popx {
-  border: 1px solid #d7dce0;
-  background: #fff;
-  border-radius: 5px;
-  padding: 4px 10px;
-  font: inherit;
-  font-size: 12px;
-  color: #46555d;
-  cursor: pointer;
-}
-.rls-popx:hover { background: #f6f7f8; }
 /* 끼워 넣은 시험 화면을 감싸는 자리 — **REQ-Coverage 의 .rqtc-embed 와
    같은 값**이어야 한다(지시: 동일하게). 그쪽 규칙 여섯 중 넷만 옮겨 와서
    탭 줄의 좌우 넘김 화살표가 남고 본문이 가장자리에 붙었다. */
@@ -888,21 +877,6 @@
    저장·⋯ 는 팝업 머리줄이 대신 그린다. */
 .rls-popb .rq-bar { display: none; }
 .rls-popb .tc-dethead { display: none; }
-/* 탭 줄의 좌우 넘김 화살표 — 여기선 탭 여덟이 한 줄에 다 들어가 쓸 일이
-   없다. REQ-Coverage 도 같은 까닭으로 감춘다(.rqtc-embed .hrail-nav). */
-.rls-popb .hrail-nav { display: none; }
 
-/* 팝업 머리줄의 저장·⋯ */
-.rls-popsave {
-  border: 1px solid #d7dce0;
-  background: #fff;
-  border-radius: 5px;
-  padding: 4px 12px;
-  font: inherit;
-  font-size: 12px;
-  color: #7c858c;
-  cursor: pointer;
-}
-.rls-popsave.dirty { border-color: #0a8795; background: #0a8795; color: #fff; font-weight: 700; }
-.rls-popsave:disabled { cursor: default; }
-.rls-popmore { display: inline-flex; align-items: center; }
+/* 저장·⋯·닫기는 **공용**(components/tc/tc.css 의 .tcx-*) — 두 화면이
+   같은 것을 쓴다. 여기에 또 적으면 갈린다. */

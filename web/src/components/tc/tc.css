@@ -613,3 +613,42 @@
 /* 수동 시험서 초안 — 넣기 전에 읽는 자리 */
 .mn-prop { margin: 6px 0 4px 18px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .mn-prop li { font-size: var(--fs-sm); }
+
+/* ── 끼워 넣은 시험 상세의 **할 일 묶음** — 저장 · ⋯ · 닫기 ──────────
+   REQ-Coverage 와 Releases 가 **같은 것**을 쓴다(지시: Release TC 거로
+   통일). 두 곳에 따로 적어 두었더니 오늘 하루에만 두 번 갈렸다 —
+   「← 목록」 줄이 한 번, 탭 화살표와 여백이 한 번. 여기 한 곳에만 둔다.
+
+   저장은 고친 것이 있을 때만 살아난다: 평소엔 「저장됨」 이라 눌러도
+   할 일이 없다는 뜻이고, 고치면 청록으로 채워져 눈에 들어온다. */
+.tcx-save {
+  border: 1px solid var(--c-border, #d7dce0);
+  background: #fff;
+  border-radius: 5px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: #7c858c;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tcx-save.dirty {
+  border-color: #0a8795;
+  background: #0a8795;
+  color: #fff;
+  font-weight: 700;
+}
+.tcx-save:disabled { cursor: default; }
+.tcx-more { flex: none; display: inline-flex; align-items: center; }
+.tcx-close {
+  border: 1px solid var(--c-border, #d7dce0);
+  background: #fff;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: #46555d;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tcx-close:hover { background: #f6f8fa; }

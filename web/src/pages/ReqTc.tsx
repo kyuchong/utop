@@ -3141,6 +3141,18 @@ function TcPop({
   crumb: string[]
   onClose: () => void
 }) {
+  /** 끼워 넣은 시험이 건네는 저장·⋯ — **머리줄이 그린다**.
+   *
+   *  안쪽 머리줄은 감춰 두었는데(.rqtc-embed .tc-dethead) 저장·⋯ 를 받아
+   *  오지 않아서 **저장할 길이 아예 없었다**. Releases 팝업이 하는 것과
+   *  같게 맞춘다(지시: 「Release TC 거로 통일」). 단추 모양도 공용
+   *  (.tcx-save·.tcx-more·.tcx-close)이라 두 화면이 갈릴 수 없다. */
+  const [api, setApi] = useState<{
+    dirty: boolean
+    saving: boolean
+    save: () => void
+    menu: React.ReactNode
+  } | null>(null)
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div
@@ -3164,12 +3176,22 @@ function TcPop({
             ))}
           </nav>
           <span className="sp" />
-          <button className="btn small" type="button" onClick={onClose}>
-            닫기
+          <button
+            type="button"
+            className={`tcx-save${api?.dirty ? ' dirty' : ''}`}
+            disabled={!api?.dirty || !!api?.saving}
+            title={api?.dirty ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
+            onClick={() => api?.save()}
+          >
+            {api?.saving ? '저장 중…' : api?.dirty ? '저장' : '저장됨'}
+          </button>
+          {api?.menu && <span className="tcx-more">{api.menu}</span>}
+          <button className="tcx-close" type="button" onClick={onClose}>
+            ✕ 닫기
           </button>
         </div>
         <div className="rqtc-embed">
-          <TestCases embedTc={id} />
+          <TestCases embedTc={id} onEmbedApi={setApi} />
         </div>
       </div>
     </div>

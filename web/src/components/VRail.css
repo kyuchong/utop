@@ -243,10 +243,15 @@
 }
 .hrail-b.on .hrail-n { background: #fff; color: inherit; }
 
-/* 앞·다음 — 화살표보다 큰 표(지시) */
+/* 앞·다음 화살표 — **안 쓴다**(지시: 「인포 좌측 화살표 제거, Change
+   history 우측 화살표 제거」). 탭 여덟이 한 줄에 다 들어가서 넘길 것이
+   없다. 화면마다 따로 감추던 것을 여기 한 곳으로 모은다 — 그렇게 두면
+   새 화면이 생길 때마다 또 빠뜨린다(실제로 Releases 팝업에서 빠졌다).
+   표시(markup)는 남긴다: 탭이 늘어 한 줄을 넘기는 날 이 규칙만 걷으면
+   된다. */
 .hrail-nav {
+  display: none;
   flex: none;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 34px;
