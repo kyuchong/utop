@@ -44,7 +44,6 @@ export interface AutoItem {
   group: string
   /** 이 항목의 결과 — 아이콘과 알약이 이걸 그린다 */
   verdict: 'p' | 'f' | 'b' | 'n'
-  took?: string
   /** 언제 판정했나 — `2026-09-03 18:04:42`. 목업이 이 자리에 적는 값이다 */
   at?: string
 }
@@ -541,15 +540,9 @@ export default function RunAuto({
                   <Verdict v={it.verdict} />
                   <span className="ra-tcid">{it.id}</span>
                   <span className="ra-tcnm">{it.name}</span>
-                  {/* 목업이 이 자리에 적는 것은 **판정 시각**이다(지적:
-                      년·월·일·시·분·초). 걸린 시간은 그 뒤에 덧붙인다 —
-                      「언제」 가 먼저고 「얼마나」 는 곁가지다. */}
-                  {it.at ? (
-                    <span className="ra-tct" title={it.took ? `걸린 시간 ${it.took}` : '판정 시각'}>
-                      {it.at}
-                      {it.took ? <i className="tk"> · {it.took}</i> : null}
-                    </span>
-                  ) : null}
+                  {/* 이 자리는 **판정 시각**이다(지적). 걸린 시간은 안 적는다 —
+                      스텝 표의 Time 칸이 이미 그것을 말한다. */}
+                  {it.at ? <span className="ra-tct">{it.at}</span> : null}
                   {it.id === runItem ? <RunMark /> : (
                     <span className={`ra-res ${it.verdict}`}>{RESN[it.verdict]}</span>
                   )}

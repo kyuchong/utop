@@ -590,22 +590,6 @@ export default function RunDetail({
     }
   }, [jobLive, runId2, runStep])
 
-  /** 지금 도는 항목이 **얼마나 돌았나** — 벽시계로 센다.
-   *
-   *  예전엔 여기도 기록(logs)의 걸린 시간을 더했다. 그런데 그 기록에는
-   *  **지난 실행의 값**이 남아 있어서, 경과가 7초일 때 항목에는 벌써
-   *  20s 가 떠 있었다(지적). 도는 중에는 기록을 믿지 않는다. */
-  const liveTook = (id: string): string => {
-    const at = seenAt.current.item[id]
-    if (!at) return ''
-    const sec = Math.max(0, Math.round((Date.now() - at) / 1000))
-    if (sec < 60) return `${sec}s`
-    const m = Math.floor(sec / 60)
-    return `${m}m${String(sec % 60).padStart(2, '0')}s`
-  }
-
-  /** 이 항목을 도는 데 걸린 시간 — 스텝들의 걸린 시간을 더한다.
-      실행기는 항목 단위 시간을 따로 안 준다. 안 돌린 항목은 비운다. */
   /**
    * 이 항목을 **언제 판정했나** — 시험 항목 판에 그대로 적는다(목업).
    *
@@ -620,23 +604,6 @@ export default function RunDetail({
     return b ? b.replace('T', ' ').slice(0, 19) : ''
   }
 
-  const tookOf = (id: string): string => {
-    const st = ((run?.logs ?? {})[id]?.steps ?? []) as Array<Record<string, unknown>>
-    let ms = 0
-    let saw = false
-    for (const s2 of st) {
-      const v = Number(s2?.took_ms ?? NaN)
-      if (Number.isFinite(v)) {
-        ms += v
-        saw = true
-      }
-    }
-    if (!saw) return ''
-    const sec = Math.round(ms / 1000)
-    if (sec < 60) return `${sec}s`
-    const m = Math.floor(sec / 60)
-    return `${m}m${String(sec % 60).padStart(2, '0')}s`
-  }
 
   /** 시험 시작.
       수동은 「사람이 시작했다」는 기록이면 충분하다. 자동은 **실행기에
@@ -955,9 +922,6 @@ export default function RunDetail({
               name: String(t2?.name ?? id),
               group: reqName.get(String(t2?.req_id ?? '')) ?? (t2?.req_id ? '이름 없는 요구사항' : '요구사항 없음'),
               verdict: (results[id] ?? 'n') as Verdict,
-              /* 도는 중인 항목은 벽시계로(위 liveTook 주석) — 기록에는
-                 지난 실행의 값이 남아 있다 */
-              took: jobLive && id === runId2 ? liveTook(id) : tookOf(id),
               at: atOf(id),
             }
           })}
