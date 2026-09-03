@@ -1552,6 +1552,9 @@ export default function ReqTc({ me }: Props) {
      자동 저장은 「고치는 중」 과 「고쳤다」 를 구별하지 못한다 — 드롭다운을
      훑어 내리는 것만으로도 값이 바뀌어 나갔다. */
   const [reqDraft, setReqDraft] = useState<{ title?: string; status?: string; priority?: string }>({})
+  /** **팝업에서** 고친 값 — 3열에서 여는 것(reqDraft)과 섞이면 안 된다.
+   *  팝업은 목록에서 바로 여는 별도 창이라 보고 있는 대상이 다르다. */
+  const [popDraft, setPopDraft] = useState<{ title?: string; status?: string; priority?: string }>({})
   const [toast, setToast] = useState('')
   /* 끼워 넣은 Coverage 화면이 넘겨 준 저장·⋯ — 머리줄은 이 화면이 그린다 */
   const [tcApi2, setTcApi2] = useState<{
@@ -2967,7 +2970,17 @@ export default function ReqTc({ me }: Props) {
           id={pop.id}
           req={pop.kind === 'req' ? reqs.find((x) => reqPk(x) === pop.id) : undefined}
           tcs={pop.kind === 'req' ? (tcOf.get(pop.id) ?? []) : []}
-          onClose={() => setPop(null)}
+          /* 자리 줄 마지막 칸에 쓸 제목 — 여기엔 전체 목록이 있다 */
+          name={
+            pop.kind === 'tc'
+              ? (tcs.find((x) => x.tcid === pop.id)?.name ?? '')
+              : (reqs.find((x) => reqPk(x) === pop.id)?.title ?? '')
+          }
+
+          onClose={() => {
+            setPop(null)
+            setPopDraft({})
+          }}
           /* 이 요구사항이 앉은 자리 — 프로젝트부터 폴더까지. 창 머리줄이
              ID 조각 대신 이걸 낸다(지시). */
           crumb={(() => {
@@ -2986,20 +2999,7 @@ export default function ReqTc({ me }: Props) {
               .map((c) => cats.find((x) => x.id === String(c))?.name)
               .filter((n): n is string => !!n)
           })()}
-          /* 앞뒤 요구사항 — **지금 보고 있는 그 차례**대로 넘긴다(지시).
-             걸러 놓고 정렬해 둔 목록이 곧 사람이 보는 차례다. 원래 자료
-             순서로 넘기면 화면에 없는 것이 튀어나온다. */
-          onStep={
-            pop.kind === 'req'
-              ? (d) => {
-                  const list = reqSorted.map((r) => reqPk(r))
-                  const i = list.indexOf(pop.id)
-                  if (i < 0) return
-                  const n = list[(i + d + list.length) % list.length]
-                  if (n) setPop({ kind: 'req', id: n })
-                }
-              : undefined
-          }
+
           /* 상태·우선순위를 그 자리에서 고친다(지적: 수정이 안 된다).
              ReqDetail 은 진작 받을 준비가 되어 있었는데 창이 안 넘겼다. */
           edit={
@@ -3008,14 +3008,23 @@ export default function ReqTc({ me }: Props) {
                   const r = reqs.find((x) => reqPk(x) === pop.id)
                   if (!r) return undefined
                   return {
-                    title: String(r.title ?? ''),
-                    status: String(r.status ?? ''),
-                    priority: String(r.priority ?? ''),
+                    title: String(popDraft.title ?? r.title ?? ''),
+                    status: String(popDraft.status ?? r.status ?? ''),
+                    priority: String(popDraft.priority ?? r.priority ?? ''),
                     statuses: REQ_STATUS,
                     priorities: REQ_PRIORITY,
-                    /* 팝업은 저장 단추가 없다 — 고치면 바로 나간다(기존 결) */
+                    /* **고친 값은 들고만 있다가 저장 단추로 나간다**(지시:
+                       시험항목과 같은 저장 버튼). 전에는 고치는 즉시 나가서
+                       저장 단추를 둘 자리가 없었고, 그래서 시험 창과 결이
+                       달랐다. 3열의 요구사항도 이미 이 결이다. */
                     onChange: (p: { title?: string; status?: string; priority?: string }) =>
-                      void setOneField('req', pop.id, p),
+                      setPopDraft((d) => ({ ...d, ...p })),
+                    dirty: Object.keys(popDraft).length > 0,
+                    saving: saveState === 'saving',
+                    save: () => {
+                      if (!Object.keys(popDraft).length) return
+                      void setOneField('req', pop.id, popDraft).then(() => setPopDraft({}))
+                    },
                   }
                 })()
               : undefined
@@ -3079,15 +3088,19 @@ const REQ_TABS: Array<{ k: 'info' | 'detail' | 'tc' | 'runs' | 'history'; label:
 function DetailPop({
   kind,
   id,
+  name,
   req,
   tcs,
   crumb,
   onClose,
-  onStep,
   edit,
 }: {
   kind: 'req' | 'tc'
   id: string
+  /** 자리 줄의 **마지막 칸** — 이 시험(또는 요구사항)의 제목.
+   *  부른 쪽이 준다: 시험을 열 때 `tcs` 로는 빈 배열이 와서 여기서 찾을 수가
+   *  없었다(지적: 「MGMT 뒤에 시험항목 제목이 없어」). */
+  name?: string
   req?: Requirement
   tcs: TestCaseMeta[]
   crumb?: string[]
@@ -3100,6 +3113,11 @@ function DetailPop({
     statuses: readonly string[]
     priorities: readonly string[]
     onChange: (p: { title?: string; status?: string; priority?: string }) => void
+    /** 고친 것이 있나 · 저장 중인가 · 저장하기 — 머리줄의 저장 단추가 쓴다
+     *  (지시: 시험항목과 같은 저장 버튼) */
+    dirty?: boolean
+    saving?: boolean
+    save?: () => void
   }
 }) {
   useEffect(() => {
@@ -3115,7 +3133,6 @@ function DetailPop({
         tcs={tcs}
         crumb={crumb ?? []}
         onClose={onClose}
-        onStep={onStep}
         edit={edit}
       />
     )
@@ -3127,15 +3144,7 @@ function DetailPop({
      없습니다」** 로 보였다(지적) — 빈 화면이 거짓말을 하는 것이 제일 나쁘다.
      제대로 된 탭(Object·Traffic·Cycle 포함)은 Coverage 의 세부 판을 부품으로
      빼야 나온다. 그때까지는 **읽어서 보여 주는 것**만 정확히 한다. */
-  /* 자리 줄의 마지막 칸은 **이 시험의 제목**이다 — 목록에서 찾아 넘긴다 */
-  return (
-    <TcPop
-      id={id}
-      name={tcs.find((t) => t.tcid === id)?.name || ''}
-      crumb={crumb ?? []}
-      onClose={onClose}
-    />
-  )
+  return <TcPop id={id} name={name} crumb={crumb ?? []} onClose={onClose} />
 }
 
 /**
@@ -3218,7 +3227,6 @@ function ReqPop({
   tcs,
   crumb,
   onClose,
-  onStep,
   edit,
 }: {
   req?: Requirement
@@ -3226,8 +3234,6 @@ function ReqPop({
   /** 이 요구사항이 앉은 자리 — 프로젝트부터 폴더까지 */
   crumb: string[]
   onClose: () => void
-  /** 앞뒤 요구사항으로. 갈 곳이 없으면 안 준다 */
-  onStep?: (d: -1 | 1) => void
   edit?: {
     title: string
     status: string
@@ -3235,6 +3241,10 @@ function ReqPop({
     statuses: readonly string[]
     priorities: readonly string[]
     onChange: (p: { title?: string; status?: string; priority?: string }) => void
+    /** 고친 것이 있나 · 저장 중인가 · 저장하기 — 머리줄의 저장 단추가 쓴다 */
+    dirty?: boolean
+    saving?: boolean
+    save?: () => void
   }
 }) {
   const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
@@ -3242,39 +3252,24 @@ function ReqPop({
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div className="modal rqtc-pop wide" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <b>요구사항</b>
-          {/* **이 줄은 자리를 말한다(지시).** 전에는 ID 조각과 단추 셋이
-              있었는데, 셋 다 다른 데서도 할 수 있는 일이라 이 줄을 다
-              먹으면서 정작 「이게 어디 것인가」 는 안 보였다. ID 는 바로
-              아래 Info 첫 줄에 있다. */}
-          {/* 자리 줄 — **세 화면이 같은 꼴**(지시).
-                E61xx / Coverage / 11.HW / Spec / 제목   [E61xx-T0068]
-              폴더 길이 이미 모델그룹·화면이름으로 시작하면 부품이 건너뛴다. */}
+        {/* **시험 창과 같은 차림**(지시): 자리 줄은 왼쪽 끝, 할 일(저장·⋯·
+            닫기)은 오른쪽 끝. 「요구사항」 이라는 제목과 앞뒤 넘김 화살표는
+            걷었다 — 제목은 자리 줄이 이미 말하고, 화살표는 시험 창에 없어
+            두 창이 달라 보였다. */}
+        <div className="modal-head slim">
           <Crumb screen="Requirements" path={crumb} name={req?.title || ''} id={req ? reqLabel(req) : ''} />
           <span className="sp" />
-          {/* 앞뒤로 넘기기(지시) — 목록으로 나갔다 다시 들어오지 않아도
-              옆 것을 볼 수 있다. 갈 곳이 없으면 눌리지 않는다. */}
-          <div className="rqtc-popnav">
-            <button
-              type="button"
-              title="이전 요구사항"
-              disabled={!onStep}
-              onClick={() => onStep?.(-1)}
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              title="다음 요구사항"
-              disabled={!onStep}
-              onClick={() => onStep?.(1)}
-            >
-              ›
-            </button>
-          </div>
-          <button className="btn small" type="button" onClick={onClose}>
-            닫기
+          <button
+            type="button"
+            className={`tcx-save${edit?.dirty ? ' dirty' : ''}`}
+            disabled={!edit?.dirty || !!edit?.saving}
+            title={edit?.dirty ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
+            onClick={() => edit?.save?.()}
+          >
+            {edit?.saving ? '저장 중…' : edit?.dirty ? '저장' : '저장됨'}
+          </button>
+          <button className="tcx-close" type="button" onClick={onClose}>
+            ✕ 닫기
           </button>
         </div>
 
@@ -3310,6 +3305,10 @@ function ReqBody({
     statuses: readonly string[]
     priorities: readonly string[]
     onChange: (p: { title?: string; status?: string; priority?: string }) => void
+    /** 고친 것이 있나 · 저장 중인가 · 저장하기 — 머리줄의 저장 단추가 쓴다 */
+    dirty?: boolean
+    saving?: boolean
+    save?: () => void
   }
 }) {
   return (
