@@ -10,6 +10,7 @@ import { deviceShort } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import type { TcPortLink, TcWire } from '@/components/tc/types'
 import { STEP_ACT_ON, type StepAct } from '@/components/settings/StepActions'
+import './CycleReport.css'
 
 interface Props {
   cycleId: string
@@ -308,7 +309,7 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
   return (
     <div className="modal-back" onMouseDown={() => !busy && onClose()}>
       <div
-        className="modal cyrp"
+        className="modal rpt"
         role="dialog"
         aria-modal="true"
         aria-label="고객사 결과서 미리보기"
@@ -323,12 +324,12 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
           <span className="sp" />
           {msg && <span className="muted small">{msg}</span>}
           {!loading && slides.length > 0 && (
-            <span className="cyrp-cnt">
+            <span className="rpt-cnt">
               {cur} / {slides.length} 슬라이드
             </span>
           )}
           <button
-            className="btn cyrp-save"
+            className="btn rpt-save"
             type="button"
             disabled={busy || loading || !slides.length}
             onClick={() => void save()}
@@ -349,7 +350,7 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
         </div>
 
         <div
-          className="cyrp-body"
+          className="rpt-body"
           ref={bodyRef}
           onScroll={(e) => {
             const el = e.currentTarget
@@ -373,15 +374,15 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
                * 1280×720 을 0.78 로 줄여 998×562 로 보인다.
                */
               <div
-                className="cyrp-wrap"
+                className="rpt-wrap"
                 key={i}
                 style={{ width: Math.round(1280 * scale), height: Math.round(720 * scale) }}
               >
-                <span className="cyrp-no">
+                <span className="rpt-no">
                   {i + 1} / {slides.length}
                 </span>
                 <iframe
-                  className="cyrp-frame"
+                  className="rpt-frame"
                   title={`${i + 1}장`}
                   sandbox=""
                   style={{ width: Math.round(1280 * scale), height: Math.round(720 * scale) }}

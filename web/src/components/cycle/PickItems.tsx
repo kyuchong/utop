@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
 import { normMode } from '@/lib/runMode'
-import { IconChevron } from '@/components/icons'
+import { IconChevron, IconFolder, IconProject } from '@/components/icons'
 import { buildCategoryTree, reqPk } from '@/types'
 import type { CategoryTreeNode, Requirement, TestCaseMeta } from '@/types'
 import type { CycleMeta } from '@/pages/Cycles'
@@ -289,6 +289,11 @@ export default function PickItems({
           >
             <IconChevron />
           </button>
+          {/* REQ-Coverage 와 같은 폴더 모양 — 최상위는 프로젝트 아이콘,
+              그 아래는 폴더. 펼친 것과 닫힌 것의 모양이 다르다. */}
+          <span className="pki-ficon" aria-hidden="true">
+            {n.depth === 1 ? <IconProject /> : <IconFolder open={open} />}
+          </span>
           <span className="nm">{n.name}</span>
           <span className="c">{n2}</span>
         </div>
@@ -389,6 +394,9 @@ export default function PickItems({
                     }
                   >
                     <span className="pki-caret none" />
+                    <span className="pki-ficon" aria-hidden="true">
+                      <IconFolder />
+                    </span>
                     <span className="nm">(요구사항 없음)</span>
                     <span className="c">{nNoReq}</span>
                   </div>

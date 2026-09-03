@@ -307,22 +307,6 @@ export default function CyclesUni({
   const isVer = sel?.t === 'ver'
   const isPlan = sel?.t === 'plan'
   const isAll = sel?.t === 'plans'
-  /** 버전 자리 = **사이클 한 건**. 사이클이 사업자·모델·버전그룹·버전을
-      제 안에 갖고 있으므로 경로만 맞추면 바로 찾힌다. */
-  const selCycle = useMemo(() => {
-    if (sel?.t === 'ver')
-      return plans.find(
-        (p) =>
-          key(
-            String(p.customer || '미지정'),
-            String(p.model || '미지정'),
-            String(p.version_group || '미지정'),
-            String(p.version || p.name || '(버전 없음)'),
-          ) === sel.k,
-      )
-    if (sel?.t === 'plan') return plans.find((p) => p.id === sel.k)
-    return undefined
-  }, [plans, sel])
   /** 자리의 **보이는 이름** — 열쇠는 경로(사업자|모델|버전그룹|버전)다.
       그대로 그리면 머리줄에 `LGUPU|E6100|R100|R100_08_31` 이 뜬다. */
   const selName = useMemo(() => {
@@ -342,11 +326,33 @@ export default function CyclesUni({
   }, [sel, planOf, runs])
   /** 플랜 자리에서 보고 있는 그 플랜 — 실행이 0건이어도 잡힌다 */
   const selPlan = isPlan ? planOf.get(sel.k) : undefined
-  /** 이 자리에 걸린 플랜들 — 결과 메일·결과서를 여기서 낸다 */
+  /** 버전 자리 = **사이클 한 건**. 사이클이 사업자·모델·버전그룹·버전을
+      제 안에 갖고 있으므로 경로만 맞추면 바로 찾힌다. */
+  const selCycle = useMemo(() => {
+    if (sel?.t === 'ver')
+      return plans.find(
+        (p) =>
+          key(
+            String(p.customer || '미지정'),
+            String(p.model || '미지정'),
+            String(p.version_group || '미지정'),
+            String(p.version || p.name || '(버전 없음)'),
+          ) === sel.k,
+      )
+    if (sel?.t === 'plan') return plans.find((p) => p.id === sel.k)
+    return undefined
+  }, [plans, sel])
+
+  /** 이 자리에 걸린 사이클들 — 결과 메일·결과서를 여기서 낸다.
+      **실행이 없어도 사이클이 있으면 낼 수 있다** — 전에는 실행에서만
+      찾아, 갓 만든 사이클에서 두 단추가 죽어 있었다. */
   const selPlans = useMemo(() => {
     const ids = [...new Set(shown.map((r) => String(r.plan_id ?? '')).filter(Boolean))]
-    return ids.map((id) => planOf.get(id)).filter((p): p is CycleMeta => !!p)
-  }, [shown, planOf])
+    const list = ids.map((id) => planOf.get(id)).filter((p): p is CycleMeta => !!p)
+    const here = selCycle
+    if (here && !list.some((p) => p.id === here.id)) list.unshift(here)
+    return list
+  }, [shown, planOf, selCycle])
 
   /** 시험 항목 탭 — 그 자리 실행들의 알맹이를 읽는다(탭을 열 때만) */
   const detailQs = useQueries({
