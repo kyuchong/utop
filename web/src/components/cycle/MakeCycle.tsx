@@ -37,8 +37,8 @@ export default function MakeCycle({
 }: {
   me?: { username?: string; name?: string } | null
   onClose: () => void
-  /** 만든 사이클의 안쪽 id */
-  onMade: (id: string) => void
+  /** 만든 사이클의 안쪽 id 와 **선 자리** — 트리에서 바로 짚을 수 있게 */
+  onMade: (id: string, at: { cust: string; model: string; vg: string; ver: string }) => void
 }) {
   const [cust, setCust] = useState('')
   const [family, setFamily] = useState('')
@@ -218,7 +218,12 @@ export default function MakeCycle({
         }),
       })
       if (!r.ok) throw new Error('만들지 못했습니다')
-      onMade(id)
+      onMade(id, {
+        cust: cust || '미지정',
+        model: model || '미지정',
+        vg: vg || '미지정',
+        ver: version.trim(),
+      })
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
     } finally {

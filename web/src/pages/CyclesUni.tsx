@@ -80,7 +80,7 @@ const TREE_LABEL: Record<TreeMode, string> = {
   owner: '담당 ▸ 실행',
 }
 const SEL_LABEL: Record<Sel['t'], string> = {
-  cust: '사업자', model: '모델', vg: '버전그룹', ver: '버전', plan: '사이클', owner: '담당',
+  cust: '사업자', model: '모델', vg: '버전그룹', ver: '사이클', plan: '사이클', owner: '담당',
   plans: '전체', run: '실행',
 }
 
@@ -182,6 +182,8 @@ export default function CyclesUni({
   >(null)
   /** 자료를 받아 오는 중 — 단추가 죽은 것처럼 보이지 않게 */
   const [busy, setBusy] = useState('')
+  /** 실행을 뜨는 중 — 'a' 자동 · 'm' 수동 */
+  const [mkRunBusy, setMkRunBusy] = useState('')
   /** 버전그룹 폴더 만들기 — 그 모델 줄 밑에 입력칸이 열린다 */
   const [addVg, setAddVg] = useState<{ model: string; name: string } | null>(null)
   /** ⋯ 더보기 — 단추가 아홉이 되면 아무것도 안 보인다 */
@@ -301,10 +303,25 @@ export default function CyclesUni({
     })
   }, [runs, sel, where])
 
-  const agg = useMemo(() => sum(shown), [shown])
   const isVer = sel?.t === 'ver'
   const isPlan = sel?.t === 'plan'
   const isAll = sel?.t === 'plans'
+  /** 버전 자리 = **사이클 한 건**. 사이클이 사업자·모델·버전그룹·버전을
+      제 안에 갖고 있으므로 경로만 맞추면 바로 찾힌다. */
+  const selCycle = useMemo(() => {
+    if (sel?.t === 'ver')
+      return plans.find(
+        (p) =>
+          key(
+            String(p.customer || '미지정'),
+            String(p.model || '미지정'),
+            String(p.version_group || '미지정'),
+            String(p.version || p.name || '(버전 없음)'),
+          ) === sel.k,
+      )
+    if (sel?.t === 'plan') return plans.find((p) => p.id === sel.k)
+    return undefined
+  }, [plans, sel])
   /** 자리의 **보이는 이름** — 열쇠는 경로(사업자|모델|버전그룹|버전)다.
       그대로 그리면 머리줄에 `LGUPU|E6100|R100|R100_08_31` 이 뜬다. */
   const selName = useMemo(() => {
@@ -334,7 +351,9 @@ export default function CyclesUni({
   const detailQs = useQueries({
     queries: shown.map((r) => ({
       queryKey: ['plan-run', r.id],
-      enabled: isVer && (tab === 'it' || tab === 'sum'),
+      /* 개요의 집계·타일도 항목 결과를 본다 — 탭을 열 때만 받으면 개요가
+         「미실행」 만 말한다. 그 자리 실행 수만큼이라 무겁지 않다. */
+      enabled: isVer,
       queryFn: async () => {
         const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}`)
         if (!res.ok) throw new Error('실행을 불러오지 못했습니다')
@@ -342,46 +361,73 @@ export default function CyclesUni({
       },
     })),
   })
+  /**
+   * 시험 항목 — **사이클에 담긴 것이 기준**이다.
+   *
+   * 전에는 실행이 담은 것을 세었다. 그러면 아직 실행을 안 뜬 사이클은
+   * 「항목 0건」 이 되고, 실행 둘이 같은 항목을 담으면 두 번 세어진다.
+   * 사이클이 담은 목록을 세우고, 실행들이 그 위에 결과를 채운다.
+   */
   const items = useMemo(() => {
-    const out: Array<{
-      tcid: string
-      title: string
-      man: boolean
-      v: string
-      at: string
-      run: string
-      runId: string
-    }> = []
+    /* 실행들이 남긴 결과 — 나중 실행이 앞선 것을 덮는다 */
+    const got = new Map<string, { v: string; at: string; run: string; runId: string }>()
     detailQs.forEach((q, i) => {
       const run = q.data
       const lite = shown[i]
       if (!run || !lite) return
-      for (const it of run.items ?? []) {
-        const id = String(it?.tcid ?? '')
-        if (!id) continue
-        const meta = tcOf.get(id)
+      for (const [id, v] of Object.entries(run.results ?? {})) {
         const pm = (run.pmeta ?? {})[id] ?? []
         const at =
           String((run.logs ?? {})[id]?.at ?? '') ||
           String([...pm].reverse().find((m) => m?.at)?.at ?? '')
-        out.push({
-          tcid: id,
-          title: String(meta?.name ?? ''),
-          /* 시험이 자동인지 수동인지는 **run_type** 에 적힌다. kind 만 보면
-             목록 API 가 그 열을 안 실어 보내 거의 모두 「자동」 으로 떴다. */
-          man:
-            normMode(
-              String(meta?.run_type ?? meta?.kind ?? lite.mode ?? ''),
-            ) === '수동',
-          v: String((run.results ?? {})[id] ?? ''),
+        got.set(id, {
+          v: String(v ?? ''),
           at: at.replace('T', ' ').slice(0, 19),
           run: String(lite.name || lite.id),
           runId: lite.id,
         })
       }
     })
-    return out
-  }, [detailQs, shown, tcOf])
+    /* 담긴 목록 — 사이클이 있으면 그것, 없으면 실행이 담은 것 */
+    const ids = selCycle
+      ? (selCycle.items ?? []).map((it) => String(it?.tcid ?? '')).filter(Boolean)
+      : [...got.keys()]
+    return ids.map((id) => {
+      const meta = tcOf.get(id)
+      const hit = got.get(id)
+      return {
+        tcid: id,
+        title: String(meta?.name ?? ''),
+        /* 시험이 자동인지 수동인지는 **run_type** 에 적힌다. kind 만 보면
+           목록 API 가 그 열을 안 실어 보내 거의 모두 「자동」 으로 떴다. */
+        man: normMode(String(meta?.run_type ?? meta?.kind ?? '')) === '수동',
+        v: hit?.v ?? '',
+        at: hit?.at ?? '',
+        run: hit?.run ?? '',
+        runId: hit?.runId ?? '',
+      }
+    })
+  }, [detailQs, shown, tcOf, selCycle])
+  /** 묶음 집계. **버전 자리는 사이클이 담은 항목**이 분모다 — 실행을 더하면
+      아직 안 뜬 사이클이 0건이 되고, 같은 항목을 두 실행이 담으면 겹쳐 센다. */
+  const agg = useMemo(() => {
+    if (sel?.t !== 'ver') return sum(shown)
+    const s = { pass: 0, fail: 0, etc: 0, none: 0, total: items.length }
+    for (const it of items) {
+      if (it.v === 'p') s.pass++
+      else if (it.v === 'f') s.fail++
+      else if (it.v === 'b') s.etc++
+      else s.none++
+    }
+    const done = s.pass + s.fail + s.etc
+    return {
+      ...s,
+      done,
+      prg: s.total ? Math.round((done / s.total) * 100) : 0,
+      rate: s.pass + s.fail ? Math.round((s.pass / (s.pass + s.fail)) * 100) : 0,
+    }
+  }, [sel, shown, items])
+
   const itemsLoading = isVer && tab === 'it' && detailQs.some((q) => q.isLoading)
   /** Test Summary 초안에 실을 실패 목록 */
   const fails = useMemo(
@@ -391,8 +437,8 @@ export default function CyclesUni({
         .map((it) => ({ tcid: it.tcid, title: it.title, run: it.run })),
     [items],
   )
-  /** 이 자리의 대표 플랜 — 양식·AI 요약을 담아 둘 곳 */
-  const homePlan = selPlan ?? selPlans[0]
+  /** 이 자리의 사이클 — 양식·AI 요약·항목을 담아 둘 곳 */
+  const homePlan = selCycle ?? selPlan ?? selPlans[0]
 
   /* 처음 열면 가장 최근 버전을 잡아 준다 — 빈 화면은 「고장났다」 로 읽힌다 */
   useEffect(() => {
@@ -434,9 +480,11 @@ export default function CyclesUni({
   const tree = useMemo(() => {
     const out: Node[] = []
     if (mode === 'model') {
-      /* 자리 = 사업자▸모델▸버전그룹▸버전. 실행이 있으면 버전 마디까지,
-         없는 플랜은 버전그룹까지만 서고 그 밑에 플랜 이름이 붙는다. */
-      type Leaf = { runs: RunLite[]; plans: CycleMeta[] }
+      /* **사이클이 곧 버전 마디다.** 사이클은 사업자·모델·버전그룹·버전을
+         제 안에 갖고 있으므로, 실행이 한 건도 없어도 트리에 제 자리를
+         갖는다(지적: 만들었는데 「사이클 ▸ 버전명」 으로만 뜬다).
+         실행은 그 자리에 얹힌다 — 사이클 없이 남은 실행도 자리를 갖는다. */
+      type Leaf = { runs: RunLite[]; cycles: CycleMeta[] }
       const by = new Map<string, Map<string, Map<string, Map<string, Leaf>>>>()
       const put = (c: string, m: string, g: string, v: string) => {
         if (!by.has(c)) by.set(c, new Map())
@@ -445,61 +493,50 @@ export default function CyclesUni({
         const m2 = m1.get(m)!
         if (!m2.has(g)) m2.set(g, new Map())
         const m3 = m2.get(g)!
-        if (!m3.has(v)) m3.set(v, { runs: [], plans: [] })
+        if (!m3.has(v)) m3.set(v, { runs: [], cycles: [] })
         return m3.get(v)!
       }
-      for (const r of runs) {
-        const w = where(r)
-        put(w.cust, w.model, w.vg, w.ver).runs.push(r)
-      }
-      /* 실행이 하나도 없는 플랜만 따로 매단다 — 있는 것은 위에서 이미 섰다 */
-      const used = new Set(runs.map((r) => String(r.plan_id ?? '')))
-      for (const p of plans) {
-        if (used.has(p.id)) continue
+      for (const p of plans)
         put(
           String(p.customer || '미지정'),
           String(p.model || '미지정'),
           String(p.version_group || '미지정'),
-          '',
-        ).plans.push(p)
+          String(p.version || p.name || '(버전 없음)'),
+        ).cycles.push(p)
+      for (const r of runs) {
+        const w = where(r)
+        put(w.cust, w.model, w.vg, w.ver).runs.push(r)
       }
-      /* **갓 만든 빈 폴더도 선다.** 폴더는 실행·플랜에서 파생되기만 했다 —
-         그러면 「＋」 로 만든 버전그룹이 아무 데도 안 보여, 만들어 놓고
-         찾을 수가 없다. 어느 사업자 밑에 걸지는 그 모델을 쓰는 플랜이
-         알려 준다(없으면 「미지정」). */
+      /* 아직 아무것도 안 담긴 빈 폴더도 선다 — 「＋」 로 만든 버전그룹이
+         어디에도 안 보이면 만들어 놓고 찾을 수가 없다. */
       const custOf = new Map<string, string>()
       for (const p of plans)
         if (p.model) custOf.set(String(p.model), String(p.customer || '미지정'))
       for (const [model, gs] of Object.entries(vgQ.data?.groups ?? {}))
         for (const g of gs ?? []) {
           const c = custOf.get(model) ?? '미지정'
-          const m1 = by.get(c)?.get(model)
-          if (m1?.has(String(g))) continue
-          put(c, model, String(g), '')
+          if (by.get(c)?.get(model)?.has(String(g))) continue
+          if (!by.has(c)) by.set(c, new Map())
+          const m1 = by.get(c)!
+          if (!m1.has(model)) m1.set(model, new Map())
+          m1.get(model)!.set(String(g), new Map())
         }
       for (const [c, m1] of [...by].sort()) {
         out.push({ d: 1, label: `🏢 ${c}`, t: 'cust', k: c })
         for (const [m, m2] of [...m1].sort()) {
-          out.push({ d: 2, label: `📦 ${m}`, t: 'model', k: `${c}|${m}` })
+          out.push({ d: 2, label: `📦 ${m}`, t: 'model', k: key(c, m) })
           for (const [g, m3] of [...m2].sort()) {
             out.push({ d: 3, label: `🔖 ${g}`, t: 'vg', k: key(c, m, g) })
-            for (const [v, leaf] of [...m3].sort().reverse()) {
-              if (v)
-                out.push({
-                  d: 4,
-                  label: v,
-                  n: leaf.runs.length,
-                  t: 'ver',
-                  k: key(c, m, g, v),
-                })
-              for (const p of leaf.plans)
-                out.push({
-                  d: 4,
-                  label: `📋 ${p.cid ?? p.name ?? p.id}`,
-                  t: 'plan',
-                  k: p.id,
-                })
-            }
+            for (const [v, leaf] of [...m3].sort().reverse())
+              out.push({
+                d: 4,
+                label: v,
+                /* 셈은 **담긴 시험 항목**이다. 실행 건수를 세면 아직 안 돌린
+                   사이클이 0 으로 보여 「비었다」 로 읽힌다. */
+                n: leaf.cycles.reduce((a, p) => a + (p.items?.length ?? p._item_count ?? 0), 0),
+                t: 'ver',
+                k: key(c, m, g, v),
+              })
           }
         }
       }
@@ -872,6 +909,78 @@ export default function CyclesUni({
     if (bad) window.alert(`${bad}건은 지우지 못했습니다.`)
   }
 
+  /**
+   * 그 방식의 시험 실행을 뜬다 — **담긴 항목 중 그 방식인 것만** 담아서.
+   *
+   * 서버는 플랜(사이클)의 항목을 통째로 복사하는데, 그러면 자동 실행에
+   * 수동 항목이 섞여 「방식」 이 비어 버린다(섞이면 비우는 규칙). 여기서
+   * 골라 보내면 실행마다 성격이 뚜렷해진다.
+   */
+  async function makeRun(man: boolean) {
+    const c = homePlan
+    if (!c) return
+    const ids = items.filter((it) => it.man === man).map((it) => it.tcid)
+    if (!ids.length) {
+      window.alert('이 방식의 시험 항목이 없습니다.')
+      return
+    }
+    setMkRunBusy(man ? 'm' : 'a')
+    try {
+      const r = await apiFetch('/api/plan-runs', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan_id: c.id,
+          model: c.model ?? '',
+          model_group: c.model_group ?? '',
+          version: c.version ?? c.name ?? '',
+          version_group: c.version_group ?? '',
+          owner: c.assignee ?? '',
+          mode: man ? '수동' : '자동',
+          items: ids.map((tcid) => ({ tcid })),
+          results: Object.fromEntries(ids.map((tcid) => [tcid, 'n'])),
+        }),
+      })
+      if (!r.ok) throw new Error('실행을 만들지 못했습니다')
+      const j = (await r.json()) as { id?: string }
+      await runsQ.refetch()
+      if (j.id) setOpenRun(j.id)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setMkRunBusy('')
+    }
+  }
+
+  /**
+   * 담긴 시험 항목을 **사이클에서 뺀다.**
+   *
+   * 이미 뜬 실행에서는 안 빠진다 — 실행은 만들 때 항목을 복사해 갔고, 그
+   * 결과가 붙어 있다. 그 말을 그대로 한다.
+   */
+  async function dropItem(tcid: string) {
+    const c = homePlan
+    if (!c || !tcid) return
+    if (!window.confirm(`「${tcid}」 을 이 사이클에서 뺍니다.\n이미 뜬 실행에서는 안 빠집니다.`))
+      return
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`)
+      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      const full = (await r.json()) as Record<string, unknown> & {
+        items?: Array<{ tcid?: string }>
+      }
+      const left = (full.items ?? []).filter((x) => String(x?.tcid ?? '') !== tcid)
+      const w = await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...full, items: left }),
+      })
+      if (!w.ok) throw new Error('빼지 못했습니다')
+      await plansQ.refetch()
+      void qc.invalidateQueries({ queryKey: ['cycle-full', c.id] })
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   /** ⋯ 메뉴를 그 단추 아래에 연다 */
   function openMore(e: { currentTarget: HTMLElement }) {
     const r = e.currentTarget.getBoundingClientRect()
@@ -991,22 +1100,56 @@ export default function CyclesUni({
   )
 
   /** 자동·수동 타일 — 누르면 그 실행이 곁에 열린다 */
+  /**
+   * 자동·수동 타일.
+   *
+   * **실행을 뜨는 자리가 여기다.** 따로 「＋ 실행 만들기」 를 두지 않는다 —
+   * 사이클에 담긴 항목이 자동·수동으로 갈리므로, 어느 쪽을 돌릴지 고르는 것이
+   * 곧 실행을 만드는 일이다(지적: 실행 만들기가 왜 있지).
+   *   담긴 항목 없음 → 아무것도 못 한다
+   *   항목 있고 실행 없음 → 누르면 그 방식의 실행을 만든다
+   *   실행 있음 → 누르면 그 실행을 곁에 연다
+   */
   function Tile({ man }: { man: boolean }) {
     const list = shown.filter((r) => (normMode(r.mode) === '수동') === man)
-    const s = sum(list)
-    if (!list.length)
+    const mine = items.filter((it) => it.man === man)
+    const label = man ? '수동 시험' : '자동 시험'
+    const ico = man ? '✎' : '▶'
+
+    if (!list.length && !mine.length)
       return (
         <button type="button" className="cu-tile" disabled>
-          <span className="ico">{man ? '✎' : '▶'}</span>
-          <span className="tt">{man ? '수동 시험' : '자동 시험'}</span>
-          <span className="td">이 버전에 해당 실행이 없습니다</span>
-          <span className="tn">실행 0건</span>
+          <span className="ico">{ico}</span>
+          <span className="tt">{label}</span>
+          <span className="td">이 방식의 시험 항목이 없습니다</span>
+          <span className="tn">항목 0건</span>
         </button>
       )
+
+    if (!list.length)
+      return (
+        <button
+          type="button"
+          className="cu-tile"
+          disabled={mkRunBusy === (man ? 'm' : 'a')}
+          onClick={() => void makeRun(man)}
+        >
+          <span className="ico">{ico}</span>
+          <span className="tt">{label} 시작</span>
+          <span className="td">아직 실행하지 않았습니다</span>
+          <span className="tn">
+            {mkRunBusy === (man ? 'm' : 'a')
+              ? '만드는 중…'
+              : `항목 ${mine.length}건 · 눌러서 실행 만들기`}
+          </span>
+        </button>
+      )
+
+    const s = sum(list)
     return (
       <button type="button" className="cu-tile" onClick={() => setOpenRun(String(list[0]?.id ?? ''))}>
-        <span className="ico">{man ? '✎' : '▶'}</span>
-        <span className="tt">{man ? '수동 시험' : '자동 시험'}</span>
+        <span className="ico">{ico}</span>
+        <span className="tt">{label}</span>
         <span className="td">{list.map((r) => r.name || r.id).join(' · ')}</span>
         <span className="tn">
           항목 {s.total}건 · {s.done}건 실행 · 통과 {s.pass} · 실패 {s.fail}
@@ -1196,26 +1339,15 @@ export default function CyclesUni({
               )}
               <span className="cu-sp" />
               <div className="cu-hdbtns">
-                {isPlan && !!selPlan && (
+                {!!homePlan && (
                   <>
                     <button
                       type="button"
                       className="btn small"
                       title="이 사이클에 시험 항목을 담습니다"
-                      onClick={() => setAddTo(selPlan.id)}
+                      onClick={() => setAddTo(homePlan.id)}
                     >
                       ＋ 항목 담기
-                    </button>
-                    <button
-                      type="button"
-                      className="btn small cu-teal"
-                      title="모델·버전을 정해 이 사이클의 시험 실행을 만듭니다"
-                      onClick={() => {
-                        setNeedMake(true)
-                        setMkRun(selPlan.id)
-                      }}
-                    >
-                      ▶ 실행 만들기
                     </button>
                     <button
                       type="button"
@@ -1223,7 +1355,7 @@ export default function CyclesUni({
                       title="사이클의 기본 정보를 고칩니다"
                       onClick={() => {
                         setNeedMake(true)
-                        setEdit({ id: selPlan.id })
+                        setEdit({ id: homePlan.id })
                       }}
                     >
                       고치기
@@ -1367,21 +1499,32 @@ export default function CyclesUni({
                     {summary}
                     <div className="cu-sec cu-grid2">
                       <div className="cu-card">
-                        <h2>버전 정보</h2>
+                        <h2>사이클 정보</h2>
                         <table className="cu-kv">
                           <tbody>
                             <tr>
+                              <td>부여 ID</td>
+                              <td className="cu-mono">{selCycle?.cid ?? '—'}</td>
+                            </tr>
+                            <tr>
                               <td>사업자</td>
-                              <td>{uniq(selPlans.map((p) => p.customer))}</td>
+                              <td>{selCycle?.customer ?? uniq(selPlans.map((p) => p.customer))}</td>
+                            </tr>
+                            <tr>
+                              <td>제품군</td>
+                              <td>{selCycle?.family ?? '—'}</td>
                             </tr>
                             <tr>
                               <td>모델</td>
-                              <td>{uniq(selPlans.map((p) => p.model))}</td>
+                              <td>
+                                {[selCycle?.model_group, selCycle?.model].filter(Boolean).join(' · ') ||
+                                  uniq(selPlans.map((p) => p.model))}
+                              </td>
                             </tr>
                             <tr>
                               <td>버전그룹</td>
                               <td className="cu-mono">
-                                {uniq(shown.map((r) => r.version_group))}
+                                {selCycle?.version_group ?? uniq(shown.map((r) => r.version_group))}
                               </td>
                             </tr>
                             <tr>
@@ -1389,16 +1532,28 @@ export default function CyclesUni({
                               <td className="cu-mono">{selName || '—'}</td>
                             </tr>
                             <tr>
-                              <td>사이클</td>
-                              <td>{uniq(selPlans.map((p) => p.cid ?? p.name))}</td>
+                              <td>시험 항목</td>
+                              <td>
+                                {items.length}건{' '}
+                                <span className="cu-m">
+                                  (자동 {items.filter((x) => !x.man).length} · 수동{' '}
+                                  {items.filter((x) => x.man).length})
+                                </span>
+                              </td>
                             </tr>
                             <tr>
                               <td>담당</td>
-                              <td>{uniq(shown.map((r) => r.owner || '미배정'))}</td>
+                              <td>
+                                {selCycle?.assignee || uniq(shown.map((r) => r.owner || '미배정'))}
+                              </td>
                             </tr>
                             <tr>
                               <td>생성</td>
-                              <td>{String(shown[0]?.created_at ?? '—').slice(0, 10)}</td>
+                              <td>
+                                {String(
+                                  selCycle?._created_at_pg ?? shown[0]?.created_at ?? '—',
+                                ).slice(0, 10)}
+                              </td>
                             </tr>
                           </tbody>
                         </table>
@@ -1409,7 +1564,11 @@ export default function CyclesUni({
                           <Tile man={false} />
                           <Tile man />
                         </div>
-                        <div className="cu-hint">누르면 실행 화면이 곁에 열립니다</div>
+                        <div className="cu-hint">
+                          {items.length
+                            ? '누르면 실행 화면이 곁에 열립니다'
+                            : '먼저 시험 항목을 담으세요'}
+                        </div>
                       </div>
                     </div>
                     {/* 타일은 그 방식의 **첫 실행**을 연다. 같은 버전에 실행이
@@ -1448,11 +1607,12 @@ export default function CyclesUni({
                           <th style={{ width: '15%' }}>판정 시각</th>
                           <th style={{ width: '15%' }}>실행</th>
                           <th style={{ width: '8%' }} />
+                          <th style={{ width: '7%' }} />
                         </tr>
                       </thead>
                       <tbody>
                         {items.map((it, i) => {
-                          const v = VERDICT[it.v] ?? { k: 'w', t: '대기' }
+                          const v = VERDICT[it.v] ?? { k: 'w', t: '미실행' }
                           return (
                             <tr key={`${it.runId}-${it.tcid}-${i}`}>
                               <td className="cu-mono">{it.tcid}</td>
@@ -1468,12 +1628,26 @@ export default function CyclesUni({
                               <td className="cu-sm">{it.at || '–'}</td>
                               <td className="cu-mono">{it.run}</td>
                               <td>
+                                {it.runId ? (
+                                  <button
+                                    type="button"
+                                    className="btn small"
+                                    onClick={() => setOpenRun(it.runId)}
+                                  >
+                                    {it.man ? '판정' : '▶ 실행'}
+                                  </button>
+                                ) : (
+                                  <span className="cu-sm">실행 없음</span>
+                                )}
+                              </td>
+                              <td>
                                 <button
                                   type="button"
                                   className="btn small"
-                                  onClick={() => setOpenRun(it.runId)}
+                                  title="이 사이클에서 뺍니다"
+                                  onClick={() => void dropItem(it.tcid)}
                                 >
-                                  {it.man ? '판정' : '▶ 실행'}
+                                  빼기
                                 </button>
                               </td>
                             </tr>
@@ -1481,7 +1655,7 @@ export default function CyclesUni({
                         })}
                         {!items.length && (
                           <tr>
-                            <td colSpan={7} className="cu-none">
+                            <td colSpan={8} className="cu-none">
                               {itemsLoading ? '불러오는 중…' : '항목이 없습니다.'}
                             </td>
                           </tr>
@@ -1789,14 +1963,16 @@ export default function CyclesUni({
         <MakeCycle
           me={me}
           onClose={() => setMaking(false)}
-          onMade={(id) => {
+          onMade={(id, at) => {
             setMaking(false)
             void plansQ.refetch()
             void vgQ.refetch()
             void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
-            /* 만든 것을 바로 골라 준다 — 만들고 나서 찾아 헤매지 않게 */
-            setMode('plan')
-            setSel({ t: 'plan', k: id })
+            /* 만든 것을 바로 골라 준다 — **사업자 ▸ 모델 ▸ 버전그룹 ▸ 버전명**
+               그 자리로. 사이클이 곧 버전 마디이므로 그 경로가 제 자리다. */
+            void id
+            setMode('model')
+            setSel({ t: 'ver', k: key(at.cust, at.model, at.vg, at.ver) })
             setTab('ov')
           }}
         />
