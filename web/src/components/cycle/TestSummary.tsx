@@ -13,9 +13,7 @@
  * 처음 열면 **초안을 만들어 준다.** 빈 편집기를 내밀면 사람은 무엇을 써야
  * 할지 몰라 그냥 닫는다 — 집계와 실패 목록은 이미 아는 것이니 채워 놓는다.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
+import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import MarkdownEditor from '@/components/MarkdownEditor'
 import Markdown from '@/components/Markdown'
@@ -99,8 +97,6 @@ export default function TestSummary({
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
   const [view, setView] = useState<'edit' | 'read'>('edit')
-  const [mailTo, setMailTo] = useState('')
-  const [mailOpen, setMailOpen] = useState(false)
   /** 이 플랜의 AI 총평 — 전문을 읽을 때 같이 꺼낸다(따로 부르지 않는다) */
   const [aiText, setAiText] = useState('')
   /** 저장한 뒤의 글 — 이것과 다르면 「저장 안 됨」 이다 */
@@ -146,13 +142,9 @@ export default function TestSummary({
   }, [plan?.id, statReady])
 
   const dirty = ready && md !== saved.current
-  const html = useMemo(
-    () =>
-      DOMPurify.sanitize(marked.parse(md || '', { async: false, breaks: true, gfm: true }) as string, {
-        ADD_ATTR: ['target', 'rel'],
-      }),
-    [md],
-  )
+  /* 여기서 만들던 메일 본문(HTML)은 함께 걷었다 — 「메일 보내기」 가 이 줄에서
+     빠지며(지시) 쓰는 곳이 없어졌다. 결과 메일은 위 도구줄의 「📧 결과 메일」
+     한 자리에서 낸다. */
 
   /** 저장 — **전문을 읽어 얹는다.** 요약본을 되쓰면 실행 결과가 지워진다 */
   async function save() {
@@ -170,27 +162,6 @@ export default function TestSummary({
       if (!w.ok) throw new Error('저장하지 못했습니다')
       saved.current = md
       setMsg('저장했습니다.')
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy('')
-    }
-  }
-
-  /** 메일 — 지금 글을 그대로 본문으로 보낸다 */
-  async function send() {
-    if (!plan?.id || !mailTo.trim()) return
-    setBusy('mail')
-    setMsg('')
-    try {
-      const r = await apiFetch(`/api/cycle/${encodeURIComponent(plan.id)}/mail`, {
-        method: 'POST',
-        body: JSON.stringify({ to: mailTo.trim(), body_html: html }),
-      })
-      const j = (await r.json().catch(() => ({}))) as { detail?: string; to?: string[] }
-      if (!r.ok) throw new Error(j.detail || '보내지 못했습니다')
-      setMsg(`보냈습니다 — ${(j.to ?? []).join(', ') || mailTo}`)
-      setMailOpen(false)
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e))
     } finally {
@@ -231,17 +202,6 @@ export default function TestSummary({
         <span className="tsm-sp" />
         {!!msg && <span className="tsm-msg">{msg}</span>}
         {dirty && <span className="tsm-dirty">저장 안 됨</span>}
-        <button
-          type="button"
-          className="btn small"
-          title="집계와 실패 목록으로 초안을 다시 만듭니다 — 쓰던 글은 사라집니다"
-          onClick={() => {
-            if (dirty && !window.confirm('쓰던 글이 사라집니다. 초안을 새로 만들까요?')) return
-            setMd(draft(title, stat, fails, today))
-          }}
-        >
-          초안 다시
-        </button>
         {!!aiText && (
           <button
             type="button"
@@ -255,40 +215,7 @@ export default function TestSummary({
         <button type="button" className="btn small" disabled={!!busy} onClick={() => void save()}>
           {busy === 'save' ? '저장 중…' : '저장'}
         </button>
-        <button
-          type="button"
-          className="btn small cu-teal"
-          disabled={!!busy}
-          onClick={() => setMailOpen((v) => !v)}
-        >
-          📧 메일 보내기
-        </button>
       </div>
-
-      {mailOpen && (
-        <div className="tsm-mail">
-          <input
-            autoFocus
-            value={mailTo}
-            placeholder="받는 사람 — 쉼표로 여럿"
-            onChange={(e) => setMailTo(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && void send()}
-          />
-          <button
-            type="button"
-            className="btn small cu-teal"
-            disabled={busy === 'mail' || !mailTo.trim()}
-            onClick={() => void send()}
-          >
-            {busy === 'mail' ? '보내는 중…' : '보내기'}
-          </button>
-          <button type="button" className="btn small" onClick={() => setMailOpen(false)}>
-            취소
-          </button>
-          {/* 보낸 메일은 무를 수 없다 — 무엇이 나가는지 먼저 보여 준다 */}
-          <span className="tsm-hint">지금 글이 그대로 메일 본문이 됩니다.</span>
-        </div>
-      )}
 
       <div className="tsm-body">
         {!ready ? (

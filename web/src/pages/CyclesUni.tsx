@@ -22,6 +22,7 @@ import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { normMode } from '@/lib/runMode'
+import { IconPanel } from '@/components/icons'
 import RunDetail from '@/components/run/RunDetail'
 import type { RunFull } from '@/components/run/RunDetail'
 import CycleReport from '@/components/cycle/CycleReport'
@@ -1627,16 +1628,10 @@ export default function CyclesUni({
 
   return (
     <div className="cu">
-      {!wide && (
-        <div className="cu-top">
-          <h1>Cycles</h1>
-          {/* 부제와 ＋사이클 은 걷었다(지시). 부제는 한 번 읽으면 그만인 글이라
-              늘 자리를 차지할 값어치가 없고, ＋사이클 은 결과서 옆 — 그 자리의
-              도구가 모인 곳으로 옮겼다. */}
-          <span className="cu-sp" />
-        </div>
-      )}
-
+      {/* 머리줄을 통째로 걷었다(지시). 제목·부제·＋사이클 이 차례로 빠지자
+          남는 것이 없었다 — 왼쪽 메뉴에 이미 「Cycles」 가 켜져 있어 제목이
+          같은 말을 두 번 했고, ＋사이클 은 결과서 옆으로 옮겼다. 화면 위쪽
+          64px 이 표로 돌아왔다. */}
       <div className="cu-grid" style={{ gridTemplateColumns: cols }}>
         {!wide && col1 && (
           <section className="panel cu-tree">
@@ -1782,14 +1777,18 @@ export default function CyclesUni({
         {!wide && (
           <section className="panel cu-main">
             <div className="cu-hd">
+              {/* REQ-Coverage 와 **같은 단추**다(지시) — 같은 일을 하는
+                  자리는 같은 그림이라야 옮겨 다닐 때 눈이 흔들리지 않는다.
+                  글자 기호(◧·▸)는 글꼴마다 크기가 제각각이라 걷었다.
+                  `open` 은 「접힌 상태」 를 뜻하므로 col1 을 뒤집어 준다. */}
               <button
                 type="button"
                 className="cu-colbtn"
-                title={col1 ? '폴더 접기' : '폴더 열기'}
+                title={col1 ? '폴더 판 접기' : '폴더 판 펴기'}
                 aria-pressed={col1}
                 onClick={() => setCol1((v) => !v)}
               >
-                {col1 ? '◧' : '▸'}
+                <IconPanel open={!col1} />
               </button>
               <b>{selName || '고른 것 없음'}</b>
               {sel && <span className="cu-chip">{SEL_LABEL[sel.t]}</span>}

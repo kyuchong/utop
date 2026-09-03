@@ -173,18 +173,26 @@
 .cu-run { display: flex; min-width: 0; min-height: 0; }
 .cu-run > * { flex: 1; min-width: 0; min-height: 0; }
 .cu-sp { flex: 1; }
+/* 열 접기 단추 — **REQ-Coverage 의 .rqtc-ib 와 같은 치수·같은 그림**(지시).
+   같은 일을 하는 자리가 화면마다 다르게 생기면 옮겨 다닐 때 눈이 흔들린다
+   ([[ui-unify-queue]]). 28px 한 치수, 아이콘 19px. */
 .cu-colbtn {
   flex: none;
-  border: 1px solid var(--c-border, #d8dde2);
-  background: #fff;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
   border-radius: 6px;
-  padding: 2px 7px;
-  font: inherit;
-  font-size: 12px;
+  background: transparent;
   color: var(--c-text-muted);
+  font: inherit;
+  font-size: 15px;
   cursor: pointer;
 }
-.cu-colbtn:hover { background: #f4f6f6; color: #0f766e; }
+.cu-colbtn svg { width: 19px; height: 19px; }
+.cu-colbtn:hover { background: var(--c-surface-alt, #f4f6f6); color: var(--c-text); }
 /* 실행 화면은 `.panel` 안에 서는 것을 전제로 만들어졌다 — 그 자리를 준다 */
 
 /* ── 머리줄 단추·플랜 고르기 ─────────────────────────────────────── */
