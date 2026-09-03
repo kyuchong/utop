@@ -30,7 +30,7 @@ import TestSummary from '@/components/cycle/TestSummary'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import MakeCycle from '@/components/cycle/MakeCycle'
 import PickItems from '@/components/cycle/PickItems'
-import { CloneDialog, exportCycleCsv, itemVerdict, verdictLabel } from '@/pages/Cycles'
+import { exportCycleCsv, itemVerdict, verdictLabel } from '@/pages/Cycles'
 import type { CycleItemLite } from '@/pages/Cycles'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
 import { CycleMailOne } from '@/components/cycle/CyclePlan'
@@ -173,8 +173,6 @@ export default function CyclesUni({
   const [addTo, setAddTo] = useState('')
   /** 실행 만들기 — 모델·버전을 묻는다 */
   const [mkRun, setMkRun] = useState('')
-  /** 복제 — 옛 화면의 그 창(CloneDialog)을 그대로 연다 */
-  const [clone, setClone] = useState('')
   /** AI 요약 · 메트릭스 — **알맹이까지 받아 든 뒤에** 연다.
       전에는 창부터 띄우고 자료를 기다렸다. 그 사이 메트릭스는 「항목 0건 ·
       진행 0%」 를 사실처럼 그렸고, 읽기가 실패하면 그 0 이 그대로 남았다. */
@@ -1007,6 +1005,77 @@ export default function CyclesUni({
     }
   }
 
+  /**
+   * 버전 마디를 지운다 — **그 자리는 사이클 한 건**이다.
+   *
+   * 전에는 실행만 지웠다. 그런데 사이클이 곧 버전 마디가 된 뒤로는,
+   * 실행이 아직 0건인 사이클에서 ✕ 를 누르면 지울 실행이 없어 **아무 일도
+   * 안 일어났다**(지적: 1열이 왜 또 삭제가 안 되나). 사이클과 딸린 실행을
+   * 함께 지운다.
+   */
+  async function delHere(k: string, label: string) {
+    const cyc = plans.find(
+      (p) =>
+        key(
+          String(p.customer || '미지정'),
+          String(p.model || '미지정'),
+          String(p.version_group || '미지정'),
+          String(p.version || p.name || '(버전 없음)'),
+        ) === k,
+    )
+    const mine = runs.filter((r) => {
+      const w = where(r)
+      return key(w.cust, w.model, w.vg, w.ver) === k
+    })
+    if (!cyc && !mine.length) return
+    /* 사이클이 없으면 남은 실행만 지운다 — 옛 자리다 */
+    if (!cyc) {
+      await delRuns(mine, label)
+      return
+    }
+    const s = sum(mine)
+    const done = s.pass + s.fail + s.etc
+    const what = [
+      `시험 항목 ${cyc.items?.length ?? cyc._item_count ?? 0}건`,
+      mine.length ? `시험 실행 ${mine.length}건` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    if (
+      !window.confirm(
+        `사이클 「${label}」 을 지웁니다. 되돌릴 수 없습니다.\n${what}\n` +
+          (done ? `\n※ 이미 판정한 항목 ${done}건의 결과도 함께 사라집니다.` : ''),
+      )
+    )
+      return
+    /* 실행부터 — 사이클만 지우면 실행이 「(사이클 없음)」 으로 남는다 */
+    let bad = 0
+    for (const r of mine) {
+      try {
+        const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}`, { method: 'DELETE' })
+        if (!res.ok) bad++
+      } catch {
+        bad++
+      }
+    }
+    try {
+      const res = await apiFetch(`/api/cycle/${encodeURIComponent(cyc.id)}`, { method: 'DELETE' })
+      if (!res.ok) bad++
+    } catch {
+      bad++
+    }
+    await plansQ.refetch()
+    await runsQ.refetch()
+    void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
+    const gone = new Set(mine.map((r) => r.id))
+    if (openRun && gone.has(openRun)) {
+      setOpenRun('')
+      setWide(false)
+    }
+    if (sel?.k === k) setSel(null)
+    if (bad) window.alert(`${bad}건은 지우지 못했습니다.`)
+  }
+
   /** ⋯ 메뉴를 그 단추 아래에 연다 */
   function openMore(e: { currentTarget: HTMLElement }) {
     const r = e.currentTarget.getBoundingClientRect()
@@ -1283,14 +1352,10 @@ export default function CyclesUni({
                       <button
                         type="button"
                         className="cu-nbtn del"
-                        title="이 버전의 시험 실행을 지웁니다 — 판정 결과도 함께 사라집니다"
+                        title="이 사이클을 지웁니다 — 딸린 시험 실행과 판정 결과도 함께 사라집니다"
                         onClick={(e) => {
                           e.stopPropagation()
-                          const mine = runs.filter((r) => {
-                            const w = where(r)
-                            return key(w.cust, w.model, w.vg, w.ver) === n.k
-                          })
-                          void delRuns(mine, n.label)
+                          void delHere(n.k, n.label)
                         }}
                       >
                         ✕
@@ -1909,16 +1974,9 @@ export default function CyclesUni({
             onClick={() => setMoreAt(null)}
           />
           <div className="cu-menu" role="menu" style={{ left: moreAt.x, top: moreAt.y }}>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMoreAt(null)
-                setAddTo(homePlan.id)
-              }}
-            >
-              ＋ 시험 항목 담기
-            </button>
+            {/* 「＋ 시험 항목 담기」 는 뺐다(지시) — 시험 항목 탭 안에 그
+                자리가 있다. 같은 단추가 두 곳에 있으면 어느 쪽이 정본인지
+                헷갈린다. */}
             <button
               type="button"
               role="menuitem"
@@ -1962,16 +2020,6 @@ export default function CyclesUni({
               CSV 내보내기
             </button>
             <div className="cu-menusep" />
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMoreAt(null)
-                setClone(homePlan.id)
-              }}
-            >
-              복제
-            </button>
             <button
               type="button"
               role="menuitem"
@@ -2068,17 +2116,6 @@ export default function CyclesUni({
             setMkRun('')
             void runsQ.refetch()
             setOpenRun(id)
-          }}
-        />
-      )}
-      {!!clone && (
-        <CloneDialog
-          cycleId={clone}
-          onClose={() => setClone('')}
-          onDone={() => {
-            setClone('')
-            void plansQ.refetch()
-            void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
           }}
         />
       )}
