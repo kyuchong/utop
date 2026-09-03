@@ -302,89 +302,88 @@
 
 /* Jira 연동 안의 진단 — 체크박스 아래로 한 칸 들여쓴다 */
 
-/* ── 두 칸 짜임 — 명단 · 고른 사람. 좁히개는 위 도구줄로 올라갔다 ─── */
+/* ── 세 칸 짜임 — 왼쪽 좁히기 · 가운데 명단 · 오른쪽 고른 사람 ───── */
 .acc-main {
   display: flex;
   gap: 10px;
   flex: 1;
   min-height: 0;
 }
-/* ── 좁히개 — **1행 도구줄 카드**(지시) ────────────────────────────
-   세로 레일이던 것을 명단 위 한 줄로 올렸다. `.acc-card` 가 세로 쌓기라
-   가로는 두 클래스로 못박는다 — 하나로 맞서면 CSS 읽히는 차례에 따라
-   도구가 한 줄에 하나씩 선다(Releases 에서 그렇게 됐던 자리다). */
-.acc-card.acc-fbar {
+/* 좁히개는 **카드 한 장**이다(지시) — 오른쪽 명단·조직도가 이미 카드라,
+   이 자리만 맨바닥이면 셋이 한 화면에서 따로 논다. 묶음마다 카드를 주어
+   세 장으로 쪼개 보았더니 그것도 아니었다. 자리는 왼쪽 그대로다. */
+.acc-rail {
   flex: none;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  padding: 8px 12px;
-}
-.acc-fgrp {
+  /* 카드가 되며 좌우 안쪽 여백이 붙었다 — 칸의 실질 폭을 지키려 그만큼 넓힌다 */
+  width: 180px;
+  overflow: auto;
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 5px;
-  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  padding: 0 6px 8px;
 }
-.acc-fgt {
+/* 묶음 이름은 **붙어 있는다** — 소속이 길어 스크롤할 때, 지금 보는 것이
+   어느 묶음인지 모르면 엉뚱한 칸을 누르게 된다. 카드 안쪽 여백을 음수로
+   되물려 배경이 카드 가장자리까지 닿게 한다 — 안 그러면 스크롤할 때 밑의
+   글자가 좌우 틈으로 비친다. */
+.acc-railt {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--c-surface);
+  margin: 0 -6px;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   font-weight: 700;
   letter-spacing: 0.02em;
-  margin-right: 3px;
-  white-space: nowrap;
+  padding: 9px 12px 5px;
 }
-/* 묶음 사이 실선 — 카드가 한 장뿐이라 경계를 이것이 말한다 */
-.acc-fsep {
-  flex: none;
-  width: 1px;
-  align-self: stretch;
-  min-height: 20px;
-  background: var(--c-border);
+.acc-railt:first-child { border-radius: 9px 9px 0 0; }
+.acc-railt:not(:first-child) {
+  margin-top: 4px;
+  border-top: 1px solid var(--c-border-soft);
 }
-.acc-fchip {
-  display: inline-flex;
+/* 더 보기 / 접기 — 칸이 아니라 손잡이라 눈에 덜 걸리게 */
+.acc-railmore {
+  align-self: flex-start;
+  margin: 2px 0 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--c-primary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 2px 0;
+  cursor: pointer;
+}
+.acc-railmore:hover { text-decoration: underline; }
+.acc-railb {
+  display: flex;
   align-items: center;
-  gap: 5px;
-  border: 1px solid var(--c-border);
-  border-radius: 999px;
-  background: var(--c-surface);
+  gap: 6px;
+  border: 0;
+  background: transparent;
   font: inherit;
   font-size: var(--fs-sm);
   color: var(--c-text-muted);
-  padding: 3px 10px;
-  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 6px;
   cursor: pointer;
+  text-align: left;
 }
-/* 숫자는 이름보다 한 단 여리게 — 고르는 것은 이름이다 */
-.acc-fchip > em {
+.acc-railb > span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 숫자는 오른쪽 끝에 나란히 — 자릿수가 달라도 줄이 흔들리지 않게 */
+.acc-railb > em {
   font-style: normal;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   font-variant-numeric: tabular-nums;
 }
-.acc-fchip:hover { background: #f6f8fa; }
-.acc-fchip.on {
-  background: var(--c-primary-bg);
-  border-color: #b9d4f2;
-  color: #12539f;
-  font-weight: 600;
-}
-.acc-fchip.on > em { color: #12539f; }
-.acc-fsel {
-  max-width: 230px;
-  padding: 4px 8px;
-  font: inherit;
-  font-size: var(--fs-sm);
-  color: var(--c-text);
-  background: #fff;
-  border: 1px solid var(--c-border);
-  border-radius: 7px;
-  cursor: pointer;
-}
-.acc-fsel:focus { outline: 2px solid var(--c-primary-bg); border-color: var(--c-primary); }
+.acc-railb:hover { background: #f6f8fa; }
+.acc-railb.on { background: var(--c-primary-bg); color: #12539f; font-weight: 600; }
+.acc-railb.on > em { color: #12539f; }
 
 .acc-pill {
   padding: 2px 8px;
