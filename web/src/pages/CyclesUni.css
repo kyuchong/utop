@@ -258,3 +258,22 @@
 /* 기타(b) 판정 — 미실행 회색과 구별한다 */
 .cu-bar i.b { background: #e8a33d; }
 .cu-legend .dot.b { background: #e8a33d; }
+
+/* 트리 마디의 폴더 손잡이 — 평소엔 숨고 마우스를 올리면 선다 */
+.cu-n { position: relative; }
+.cu-nbtn {
+  flex: none; width: 20px; height: 20px; display: none;
+  align-items: center; justify-content: center;
+  border: 0; border-radius: 5px; background: none;
+  color: var(--c-text-muted); font-size: 12px; cursor: pointer;
+}
+.cu-n:hover .cu-nbtn, .cu-n:focus-within .cu-nbtn { display: inline-flex; }
+.cu-nbtn:hover { background: #e6f2f0; color: #0f766e; }
+.cu-nbtn.del:hover { background: #fdeeee; color: #b3261e; }
+
+/* 제자리 입력칸 — 창을 띄우지 않는다 */
+.cu-add { display: flex; gap: 5px; align-items: center; padding: 5px 6px 6px 32px; }
+.cu-add input {
+  flex: 1; min-width: 0; padding: 4px 7px; font: inherit; font-size: 12px;
+  border: 1px solid var(--c-border, #d8dde2); border-radius: 6px; background: #fff;
+}

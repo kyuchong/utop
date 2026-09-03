@@ -177,6 +177,8 @@ export default function CyclesUni({
   >(null)
   /** 자료를 받아 오는 중 — 단추가 죽은 것처럼 보이지 않게 */
   const [busy, setBusy] = useState('')
+  /** 버전그룹 폴더 만들기 — 그 모델 줄 밑에 입력칸이 열린다 */
+  const [addVg, setAddVg] = useState<{ model: string; name: string } | null>(null)
   /** ⋯ 더보기 — 단추가 아홉이 되면 아무것도 안 보인다 */
   const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
   /** 전체 플랜 표에서 고른 것 — 여러 건 지우기·CSV 가 이걸 본다 */
@@ -230,9 +232,10 @@ export default function CyclesUni({
       return (await r.json()) as { items: Array<Record<string, unknown>> }
     },
   })
+  /* 버전그룹은 **트리 폴더**이기도 하다 — 만들기 창을 열 때만 받아 오면
+     폴더를 만들어도 목록이 안 따라온다. 늘 읽는다. */
   const vgQ = useQuery({
     queryKey: ['cycle-version-groups'],
-    enabled: needMake,
     staleTime: 60_000,
     queryFn: async () => {
       const r = await apiFetch('/api/cycle-version-groups')
@@ -429,12 +432,26 @@ export default function CyclesUni({
       for (const p of plans) {
         if (used.has(p.id)) continue
         put(
-          String(p.customer ?? '미지정'),
-          String(p.model ?? '미지정'),
-          String(p.version_group ?? '미지정'),
+          String(p.customer || '미지정'),
+          String(p.model || '미지정'),
+          String(p.version_group || '미지정'),
           '',
         ).plans.push(p)
       }
+      /* **갓 만든 빈 폴더도 선다.** 폴더는 실행·플랜에서 파생되기만 했다 —
+         그러면 「＋」 로 만든 버전그룹이 아무 데도 안 보여, 만들어 놓고
+         찾을 수가 없다. 어느 사업자 밑에 걸지는 그 모델을 쓰는 플랜이
+         알려 준다(없으면 「미지정」). */
+      const custOf = new Map<string, string>()
+      for (const p of plans)
+        if (p.model) custOf.set(String(p.model), String(p.customer || '미지정'))
+      for (const [model, gs] of Object.entries(vgQ.data?.groups ?? {}))
+        for (const g of gs ?? []) {
+          const c = custOf.get(model) ?? '미지정'
+          const m1 = by.get(c)?.get(model)
+          if (m1?.has(String(g))) continue
+          put(c, model, String(g), '')
+        }
       for (const [c, m1] of [...by].sort()) {
         out.push({ d: 1, label: `🏢 ${c}`, t: 'cust', k: c })
         for (const [m, m2] of [...m1].sort()) {
@@ -531,10 +548,13 @@ export default function CyclesUni({
       }
     }
     return out
-  }, [runs, plans, mode, where])
+  }, [runs, plans, mode, where, vgQ.data])
 
   const cols = [
-    !wide && col1 ? '250px' : '',
+    /* 280px — 「사업자 ▸ 모델 ▸ 버전그룹 ▸ 버전명」 이 안 잘리는 폭이다.
+       재 보면 그 글자만 173px, 여기에 select 안여백·화살표(36)와 열의
+       여백·접기 단추(52)가 붙는다. 250 에서는 「버전」 에서 잘렸다. */
+    !wide && col1 ? '280px' : '',
     !wide ? 'minmax(0,1fr)' : '',
     openRun ? 'minmax(0,1.05fr)' : '',
   ].filter(Boolean).join(' ')
@@ -690,6 +710,73 @@ export default function CyclesUni({
     setTicked((cur) => new Set([...cur].filter((k) => !ids.includes(k))))
     if (sel?.t === 'plan' && ids.includes(sel.k)) setSel(null)
     if (bad) window.alert(`${bad}건은 지우지 못했습니다.`)
+  }
+
+  /**
+   * 버전그룹 폴더를 만든다.
+   *
+   * 서버가 **읽어서 더한다**(/add). 화면이 제 손에 든 사전을 통째로 되쓰면,
+   * 그 사이 남이 만든 폴더가 소리 없이 지워진다.
+   */
+  async function addVgNow() {
+    if (!addVg) return
+    const model = addVg.model.trim()
+    const name = addVg.name.trim()
+    if (!model || !name) return
+    try {
+      const r = await apiFetch('/api/cycle-version-groups/add', {
+        method: 'POST',
+        body: JSON.stringify({ model, group: name }),
+      })
+      if (!r.ok) {
+        const j = (await r.json().catch(() => ({}))) as { detail?: string }
+        window.alert(j.detail || '폴더를 만들지 못했습니다.')
+        return
+      }
+    } catch {
+      window.alert('폴더를 만들지 못했습니다.')
+      return
+    }
+    setAddVg(null)
+    void vgQ.refetch()
+    void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
+  }
+
+  /**
+   * 버전그룹 폴더를 지운다. 안에 플랜이 있으면 서버가 409 로 막고 몇 건인지
+   * 알려 준다 — 그때 다시 물어 force 로 밀어붙인다. 그냥 지우면 그 플랜들이
+   * 「(버전그룹 없음)」 으로 굴러떨어져 사라진 것처럼 보인다.
+   */
+  async function delVg(model: string, group: string) {
+    if (!model || !group) return
+    const url = `/api/cycle-version-groups/${encodeURIComponent(model)}/${encodeURIComponent(group)}`
+    const done = () => {
+      void vgQ.refetch()
+      void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
+      void plansQ.refetch()
+    }
+    try {
+      const r = await apiFetch(url, { method: 'DELETE' })
+      if (r.ok) {
+        done()
+        return
+      }
+      const j = (await r.json().catch(() => ({}))) as { detail?: string }
+      if (r.status !== 409) {
+        window.alert(j.detail || '지우지 못했습니다.')
+        return
+      }
+      if (!window.confirm(`${j.detail}\n\n그래도 폴더만 지울까요? 플랜은 「(버전그룹 없음)」 으로 남습니다.`))
+        return
+      const r2 = await apiFetch(`${url}?force=1`, { method: 'DELETE' })
+      if (!r2.ok) {
+        window.alert('지우지 못했습니다.')
+        return
+      }
+      done()
+    } catch {
+      window.alert('지우지 못했습니다.')
+    }
   }
 
   /** ⋯ 메뉴를 그 단추 아래에 연다 */
@@ -882,16 +969,70 @@ export default function CyclesUni({
             <div className="cu-tbody">
               {!tree.length && <div className="cu-none">실행이 아직 없습니다.</div>}
               {tree.map((n, i) => (
-                <div
-                  key={`${n.t}-${n.k}-${i}`}
-                  className={`cu-n d${n.d}${sel?.t === n.t && sel.k === n.k ? ' on' : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => pickNode(n)}
-                  onKeyDown={(e) => e.key === 'Enter' && pickNode(n)}
-                >
-                  <span className="nm">{n.label}</span>
-                  {n.n != null && <span className="c">{n.n}</span>}
+                <div key={`${n.t}-${n.k}-${i}`}>
+                  <div
+                    className={`cu-n d${n.d}${sel?.t === n.t && sel.k === n.k ? ' on' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => pickNode(n)}
+                    onKeyDown={(e) => e.key === 'Enter' && pickNode(n)}
+                  >
+                    <span className="nm">{n.label}</span>
+                    {n.n != null && <span className="c">{n.n}</span>}
+                    {/* 폴더를 만들고 지우는 자리. **버전그룹만** 사람이 만든다 —
+                        사업자·모델은 SETUP 의 코드표·장비 카탈로그가 정본이라
+                        여기서 지우면 그것을 쓰는 다른 화면이 함께 무너진다. */}
+                    {n.t === 'model' && (
+                      <button
+                        type="button"
+                        className="cu-nbtn"
+                        title="이 모델에 버전그룹 폴더를 만듭니다"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setAddVg({ model: n.k.split('|')[1] ?? '', name: '' })
+                        }}
+                      >
+                        ＋
+                      </button>
+                    )}
+                    {n.t === 'vg' && (
+                      <button
+                        type="button"
+                        className="cu-nbtn del"
+                        title="이 버전그룹 폴더를 지웁니다"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const [, m, g] = n.k.split('|')
+                          void delVg(String(m ?? ''), String(g ?? ''))
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  {/* 제자리 입력칸 — 창을 띄우지 않는다. 창으로 물으면 만들고
+                      나서 그것이 어디에 생겼는지 눈으로 못 쫓는다. */}
+                  {addVg?.model === (n.t === 'model' ? (n.k.split('|')[1] ?? '') : '\u0000') && (
+                    <div className="cu-add">
+                      <input
+                        autoFocus
+                        value={addVg.name}
+                        placeholder="버전그룹 이름 (예: R100)"
+                        onChange={(e) => setAddVg({ ...addVg, name: e.target.value })}
+                        onKeyDown={(e) => {
+                          e.stopPropagation()
+                          if (e.key === 'Enter') void addVgNow()
+                          if (e.key === 'Escape') setAddVg(null)
+                        }}
+                      />
+                      <button type="button" className="btn small cu-teal" onClick={() => void addVgNow()}>
+                        추가
+                      </button>
+                      <button type="button" className="btn small" onClick={() => setAddVg(null)}>
+                        취소
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

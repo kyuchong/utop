@@ -9664,6 +9664,57 @@ async def save_cycle_version_groups(payload: dict):
     return {"ok": True, "groups": clean}
 
 
+@app.post("/api/cycle-version-groups/add")
+async def add_cycle_version_group(payload: dict):
+    """버전그룹 한 칸을 **더한다**.
+
+    위의 통째 저장(POST)은 받은 사전으로 갈아끼운다 — 두 사람이 같은 때에
+    각자 폴더를 만들면 나중 것이 앞 것을 통째로 지운다. 화면이 제 손에 든
+    낡은 사전을 되쓰기 때문이다. 여기서는 **서버가 읽어서 더한다.**
+    """
+    model = str(payload.get("model") or "").strip()
+    group = str(payload.get("group") or "").strip()
+    if not model or not group:
+        raise HTTPException(400, "모델과 버전그룹 이름이 필요합니다")
+    if "/" in group:
+        raise HTTPException(400, "버전그룹 이름에 / 는 쓸 수 없습니다")
+    cur = await db.kv_get(_VGROUP_KV) or {}
+    arr = [str(g) for g in (cur.get(model) or [])]
+    if group in arr:
+        raise HTTPException(409, f"「{group}」 은 이미 있습니다")
+    arr.append(group)
+    cur[model] = arr
+    await db.kv_set(_VGROUP_KV, cur)
+    return {"ok": True, "groups": cur}
+
+
+@app.delete("/api/cycle-version-groups/{model}/{group}")
+async def del_cycle_version_group(model: str, group: str, force: int = 0):
+    """버전그룹 한 칸을 지운다.
+
+    **안에 플랜이 있으면 막는다.** 지우면 그 플랜들이 트리에서 「(버전그룹
+    없음)」 으로 굴러떨어져, 지운 사람 눈에는 「플랜이 사라졌다」 로 보인다.
+    몇 건인지 말해 주고, 그래도 지우겠다면 force=1 을 받는다.
+    """
+    cur = await db.kv_get(_VGROUP_KV) or {}
+    arr = [str(g) for g in (cur.get(model) or [])]
+    if group not in arr:
+        raise HTTPException(404, "없는 버전그룹입니다")
+    n = 0
+    for c in await db.cycle_list_meta():
+        if str(c.get("model") or "") == model and str(c.get("version_group") or "") == group:
+            n += 1
+    if n and not force:
+        raise HTTPException(409, f"이 폴더에 플랜 {n}건이 있습니다 — 옮기거나 지운 뒤 다시 하세요")
+    rest = [g for g in arr if g != group]
+    if rest:
+        cur[model] = rest
+    else:
+        cur.pop(model, None)
+    await db.kv_set(_VGROUP_KV, cur)
+    return {"ok": True, "groups": cur, "plans": n}
+
+
 CYCLE_FOLDERS_FILE = DATA_DIR / "state" / "cycle_folders.json"
 
 @app.get("/api/cycle-folders")
