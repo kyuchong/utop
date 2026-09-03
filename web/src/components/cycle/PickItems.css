@@ -201,3 +201,6 @@
 .pki .pki-go { background: #0f766e; border-color: #0f766e; color: #fff; }
 .pki .pki-go:hover:not(:disabled) { background: #0c635c; border-color: #0c635c; }
 .pki .pki-go:disabled { opacity: .5; }
+
+/* 이 모델 · 공용 셈 — 무엇을 걸러 보고 있는지 그 자리에서 말한다 */
+.pki-cnt2 { font-size: 11.5px; color: var(--c-text-faint); white-space: nowrap; margin-left: 10px; }

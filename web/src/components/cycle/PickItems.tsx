@@ -37,8 +37,10 @@ export default function PickItems({
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
-  /** 이 모델 것만 볼까 — 66건 중에서 고르려면 좁힐 자리가 필요하다 */
+  /** 이 모델 것만 볼까 — 60여 건 중에서 고르려면 좁힐 자리가 필요하다 */
   const [mine, setMine] = useState(true)
+  /** 공용 항목(모델이 안 적힌 것)도 볼까 — **기본은 켬** */
+  const [common, setCommon] = useState(true)
   /** 고른 요구사항 폴더 — 그 아래(하위 포함) 시험만 남긴다 */
   const [catSel, setCatSel] = useState('')
   /** 펼친 폴더 */
@@ -98,9 +100,13 @@ export default function PickItems({
   const reqs: Requirement[] = useMemo(() => reqQ.data?.reqs ?? [], [reqQ.data])
   const cats = useMemo(() => buildCategoryTree(catQ.data?.categories ?? []), [catQ.data])
 
+  /** 요구사항이 안 붙은 시험을 모으는 자리 — 실존 id 와 겹치지 않는 표식 */
+  const NO_REQ = '__noreq__'
+
   /** 그 폴더(하위 포함) 아래 요구사항의 pk — 이걸로 시험을 좁힌다 */
   const underCat = useMemo(() => {
     if (!catSel) return null
+    if (catSel === NO_REQ) return new Set<string>()
     const ids = new Set<string>()
     const walk = (n: CategoryTreeNode) => {
       ids.add(n.id)
@@ -126,23 +132,47 @@ export default function PickItems({
   const isMan = (t: TestCaseMeta) => normMode(String(t.run_type ?? t.kind ?? '')) === '수동'
 
   const all = useMemo(() => tcQ.data?.tcs ?? [], [tcQ.data])
-  /** 이 사이클의 모델(또는 모델그룹) 것 */
+  /** 모델이 안 적힌 시험 = **공용**. 어느 모델에나 쓴다.
+      213 에는 8건이 그렇고, 수동 시험 4건이 전부 여기 들었다 — 「이 모델」
+      로만 거르면 수동 탭이 통째로 0이 된다(지적: 수동을 못 가져온다). */
+  const isCommon = (t: TestCaseMeta) =>
+    !String(t.model ?? '').trim() && !String(t.model_group ?? '').trim()
+  const nMine = useMemo(() => {
+    const m = String(cycle.model ?? '')
+    const g = String(cycle.model_group ?? '')
+    return all.filter(
+      (t) =>
+        !isCommon(t) && (String(t.model ?? '') === m || String(t.model_group ?? '') === g),
+    ).length
+  }, [all, cycle])
+  const nCommon = useMemo(() => all.filter(isCommon).length, [all])
+
+  /** 이 사이클의 모델(또는 모델그룹) 것 + 공용 */
   const ofModel = useMemo(() => {
     const m = String(cycle.model ?? '')
     const g = String(cycle.model_group ?? '')
-    if (!m && !g) return all
-    return all.filter(
-      (t) => String(t.model ?? '') === m || String(t.model_group ?? '') === g,
-    )
-  }, [all, cycle])
+    return all.filter((t) => {
+      if (isCommon(t)) return common
+      if (!m && !g) return true
+      return String(t.model ?? '') === m || String(t.model_group ?? '') === g
+    })
+  }, [all, cycle, common])
 
   /** 폴더 셈의 바탕 — 모델까지만 좁힌다(폴더로 또 좁히면 제 셈이 0이 된다) */
   const base = mine ? ofModel : all
+  const inCat = (t: TestCaseMeta) => {
+    if (!underCat) return true
+    const rid = String(t.req_id ?? '').trim()
+    return catSel === NO_REQ ? !rid : underCat.has(rid)
+  }
   const byCat = useMemo(
-    () => (underCat ? ofModel.filter((t) => underCat.has(String(t.req_id ?? ''))) : ofModel),
-    [ofModel, underCat],
+    () => ofModel.filter(inCat),
+    // inCat 은 underCat·catSel 에서 나온다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ofModel, underCat, catSel],
   )
-  const pool = mine ? byCat : underCat ? all.filter((t) => underCat.has(String(t.req_id ?? ''))) : all
+  const wide = useMemo(() => all.filter((t) => (isCommon(t) ? common : true)), [all, common])
+  const pool = mine ? byCat : wide.filter(inCat)
   const nAuto = pool.filter((t) => !isMan(t)).length
   const nMan = pool.length - nAuto
 
@@ -205,6 +235,12 @@ export default function PickItems({
       setBusy(false)
     }
   }
+
+  /** 요구사항이 안 붙은 시험 수 — 있으면 트리에 그 자리를 만든다 */
+  const nNoReq = useMemo(
+    () => base.filter((t) => !String(t.req_id ?? '').trim()).length,
+    [base],
+  )
 
   /** 폴더 한 마디 — 그 아래에 시험이 하나도 없으면 안 그린다 */
   const renderCat = (n: CategoryTreeNode): React.ReactNode => {
@@ -312,9 +348,16 @@ export default function PickItems({
             placeholder="ID · 제목 찾기"
             onChange={(e) => setQ(e.target.value)}
           />
+          <span className="pki-cnt2">
+            이 모델 {nMine}건 · 공용 {nCommon}건
+          </span>
           <label className="pki-only" title="이 사이클의 모델·모델그룹 것만 봅니다">
             <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
             이 모델만
+          </label>
+          <label className="pki-only" title="모델이 안 적힌 시험 — 어느 모델에나 씁니다">
+            <input type="checkbox" checked={common} onChange={(e) => setCommon(e.target.checked)} />
+            공용 항목
           </label>
         </div>
 
@@ -332,7 +375,25 @@ export default function PickItems({
             {catQ.isLoading ? (
               <div className="pki-none">불러오는 중…</div>
             ) : (
-              cats.map(renderCat)
+              <>
+                {cats.map(renderCat)}
+                {!!nNoReq && (
+                  <div
+                    className={`pki-cat${catSel === NO_REQ ? ' on' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    style={{ paddingLeft: 4 }}
+                    onClick={() => setCatSel(catSel === NO_REQ ? '' : NO_REQ)}
+                    onKeyDown={(e) =>
+                      e.key === 'Enter' && setCatSel(catSel === NO_REQ ? '' : NO_REQ)
+                    }
+                  >
+                    <span className="pki-caret none" />
+                    <span className="nm">(요구사항 없음)</span>
+                    <span className="c">{nNoReq}</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </aside>
