@@ -17,6 +17,7 @@ import {
   filterSuggestionItems,
   type PartialBlock,
 } from '@blocknote/core'
+import { withCollaboration } from '@blocknote/core/yjs'
 import { RefSpec } from './wikiRef'
 import { ViewSpec } from './wikiView'
 import ListButtons, { BlockKindSelect } from './wikiListButtons'
@@ -235,8 +236,14 @@ export default function WikiEditor({
     }
   }, [provider, ydoc])
 
+  /* **withCollaboration 으로 감싼다.** 옵션에 collaboration 키만 얹어
+     보았더니 타입은 통과하는데 아무 일도 안 일어났다 — 접속자(awareness)는
+     내가 직접 넣어 떴지만 글자는 끝내 안 오갔다. 이 편집기는 협업을 확장으로
+     붙이고, 그 확장을 달아 주는 것이 이 함수다.
+     `@blocknote/core/yjs` — 우리가 쓰는 yjs 13 쪽 갈래다(`/y` 는 아직
+     rc 인 @y/y 14 용이라 우리 Doc 과 런타임이 다르다). */
   const editor = useCreateBlockNote(
-    {
+    withCollaboration({
       // 메뉴·말풍선을 한국어로 — 「/」 를 쳤을 때 나오는 이름들이다
       dictionary: ko,
       schema: SCHEMA,
@@ -247,7 +254,7 @@ export default function WikiEditor({
         /* 남의 커서는 **글자 사이에 선으로** 뜬다. 이름표는 그 위에. */
         showCursorLabels: 'activity',
       },
-    },
+    }),
     [provider],
   )
 
@@ -483,8 +490,6 @@ export default function WikiEditor({
     <div className="wke">
       <div className="wke-head">
         <b className="wke-title">{title || '(이름 없음)'}</b>
-        {/* 같이 보고 있는 사람 — 혼자면 안 뜬다(PresenceBar 규칙) */}
-        <PresenceBar users={who} me={meName} />
         {/* 이 문서가 **어느 프로젝트 것인가**(지시).
             만들 때의 프로젝트가 그냥 박히고 끝이면, 「전체」 로 두고 쓴 문서는
             영영 공용으로 남고 잘못 박힌 것은 고칠 길이 없다. 여기서 옮긴다.
@@ -512,6 +517,10 @@ export default function WikiEditor({
         </select>
         </span>
         <span className="sp" />
+        {/* 같이 보고 있는 사람 — 도구줄 앞, **오른쪽**에 선다(지시). 제목
+            옆에 두었더니 문서 이름과 프로젝트 사이를 갈라 놓았다. 혼자면
+            안 뜬다(PresenceBar 규칙). */}
+        <PresenceBar users={who} me={meName} />
         {/* 워드 가져오기 — 그대로 옮겨 온다(지시: 표·그림·표 안의 표까지).
             .docx 는 압축 파일이라 브라우저가 못 읽는다. 서버가 풀어 HTML 로
             돌려주면 편집기가 그것을 블록으로 읽는다 — 우리가 블록을 손으로
