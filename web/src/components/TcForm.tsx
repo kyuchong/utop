@@ -15,6 +15,8 @@ interface Props {
   /** 새로 만들 때 **무엇을 덮는가** — Jira 이슈 키(Releases 에서 연다).
    *  요구사항(presetReqId)과 같은 자리의 값이다: 이 시험이 왜 있는가. */
   presetIssue?: string
+  /** 새로 만들 때 채워 둘 제목 — Releases 가 「TC1」 처럼 순번을 준다 */
+  presetName?: string
   /** 새로 만들 때 모델을 미리 골라 둔다 — 프로젝트가 아는 값이라 사람에게
    *  두 번 묻지 않는다. 고를 수는 있다. */
   presetMg?: string
@@ -33,7 +35,7 @@ const FB_ORIGIN = ['자체', '고객']
 const COMMON = '*'
 
 export default function TcForm({
-  editing, presetReqId, presetIssue, presetMg, presetModel, onCreated, onClose,
+  editing, presetReqId, presetIssue, presetName, presetMg, presetModel, onCreated, onClose,
 }: Props) {
   const qc = useQueryClient()
   const isNew = editing === null
@@ -71,7 +73,11 @@ export default function TcForm({
     /* **제목은 비운 채로 시작한다.** 요구사항 제목도 이슈 제목도 베끼지
        않는다 — 요구사항 하나에 시험이 셋이면 셋 다 이름이 같아지고,
        목록에서 무엇을 확인하는 시험인지 알 수 없다. 사람이 짓는다. */
-    setName(editing?.name ?? '')
+    /* 새로 만들 때는 부른 쪽이 준 제목으로 시작한다(지시: 제목 자동 부여).
+       비워 두었더니 `122`·`sdfasdfasdf` 같은 값이 실제로 들어갔다 — 목록에서
+       무엇인지 알아볼 수가 없다. 지우고 다시 쓸 수 있는 **값**으로 넣는다
+       (안내글로 두면 그대로 비어 저장된다). */
+    setName(editing?.name ?? presetName ?? '')
     setReqId(editing?.req_id ?? presetReqId ?? '')
     setType(editing?.type ?? '')
     setStatus(editing?.status || FB_STATUS[0]!)

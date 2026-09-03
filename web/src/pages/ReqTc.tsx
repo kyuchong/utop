@@ -41,6 +41,7 @@ import { buildTcFile, tcFileName, downloadJson, parseTcFile } from '@/components
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
 import TestCases from '@/pages/TestCases'
+import Crumb from '@/components/tc/Crumb'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
 import { currentMode, onModeChange, setMode as setSharedMode } from '@/components/ReqTcMode'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -1011,6 +1012,12 @@ export default function ReqTc({ me }: Props) {
   const tcOf = useMemo(() => {
     const m = new Map<string, TestCaseMeta[]>()
     for (const t of tcs) {
+      /* **릴리스 시험은 커버리지에 안 센다**(합의: 완전 분리).
+         목록에서는 이미 뺐지만 **숫자에는 남아** 있었다 — 요구사항 줄의
+         「TC 2」 와 TC Map 에 섞여, 「요구사항이 시험으로 얼마나 덮였나」 가
+         거짓이 됐다. 이제 서버도 _V 에 요구사항을 안 붙이지만(db.tc_upsert),
+         예전에 붙어 버린 자료가 남아 있을 수 있어 여기서도 센다. */
+      if (isReleaseTc(t.tcid)) continue
       const k = String(t.req_id ?? '').trim()
       if (k) m.set(k, [...(m.get(k) ?? []), t])
     }
@@ -2543,7 +2550,7 @@ export default function ReqTc({ me }: Props) {
               {/* Coverage 화면을 통째로 얹는다 — 탭과 그 안의 동작이 **같은
                   코드**라 두 자리가 갈릴 수 없다. 베껴 만들면 한쪽만 고치는
                   날이 온다(옛 부품을 얹었다가 스텝을 하나도 못 읽어 물렸다). */}
-              <div className="rqtc-embed">
+              <div className="tcx-embed rqtc-embed">
                 <TestCases
                   embedTc={openTc}
                   /* 「Coverage 에서 열기」 는 뺐다(지시) — 그 화면을 지웠으니
@@ -3167,14 +3174,10 @@ function TcPop({
             Coverage 를 통째로 얹어 놓고 또 열라는 것은 말이 안 된다. */}
         <div className="modal-head slim">
           <b>시험 항목</b>
-          <nav className="rqtc-popcrumb" aria-label="자리">
-            {crumb.map((c, i) => (
-              <span key={`${c}-${i}`}>
-                {i > 0 && <i aria-hidden="true">›</i>}
-                {c}
-              </span>
-            ))}
-          </nav>
+          {/* 자리 줄 — **세 화면이 같은 꼴**(지시).
+                E61xx / Coverage / 11.HW / Spec / 제목   [E61xx-T0068]
+              폴더 길이 이미 모델그룹·화면이름으로 시작하면 부품이 건너뛴다. */}
+          <Crumb screen="Coverage" path={crumb} id={id} />
           <span className="sp" />
           <button
             type="button"
@@ -3190,7 +3193,7 @@ function TcPop({
             ✕ 닫기
           </button>
         </div>
-        <div className="rqtc-embed">
+        <div className="tcx-embed rqtc-embed">
           <TestCases embedTc={id} onEmbedApi={setApi} />
         </div>
       </div>
@@ -3233,14 +3236,10 @@ function ReqPop({
               있었는데, 셋 다 다른 데서도 할 수 있는 일이라 이 줄을 다
               먹으면서 정작 「이게 어디 것인가」 는 안 보였다. ID 는 바로
               아래 Info 첫 줄에 있다. */}
-          <nav className="rqtc-popcrumb" aria-label="자리">
-            {crumb.map((c, i) => (
-              <span key={`${c}-${i}`}>
-                {i > 0 && <i aria-hidden="true">›</i>}
-                {c}
-              </span>
-            ))}
-          </nav>
+          {/* 자리 줄 — **세 화면이 같은 꼴**(지시).
+                E61xx / Coverage / 11.HW / Spec / 제목   [E61xx-T0068]
+              폴더 길이 이미 모델그룹·화면이름으로 시작하면 부품이 건너뛴다. */}
+          <Crumb screen="Requirements" path={crumb} name={req?.title || ''} id={req ? reqLabel(req) : ''} />
           <span className="sp" />
           {/* 앞뒤로 넘기기(지시) — 목록으로 나갔다 다시 들어오지 않아도
               옆 것을 볼 수 있다. 갈 곳이 없으면 눌리지 않는다. */}

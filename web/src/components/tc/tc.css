@@ -652,3 +652,64 @@
   white-space: nowrap;
 }
 .tcx-close:hover { background: #f6f8fa; }
+
+/* ── 끼워 넣은 시험 상세를 **감싸는 자리** ─────────────────────────
+   REQ-Coverage(.rqtc-embed)와 Releases 팝업(.rls-popb)이 같은 규칙을 따로
+   적어 두고 있었다. 그래서 하루에 세 번 갈렸다 —
+     · 「← 목록·저장됨·⋯」 줄이 Releases 에만 남았고
+     · 탭 줄 좌우 화살표가 Releases 에만 떠 있었고
+     · 본문 여백이 Releases 에만 없었다
+   규칙을 여기 한 곳에 두고 두 화면이 이 클래스를 함께 붙인다. 새 화면이
+   시험 상세를 끼워 넣을 때도 이것만 붙이면 된다. */
+.tcx-embed {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  padding: 0 12px 10px;
+}
+.tcx-embed > * { flex: 1; min-height: 0; min-width: 0; }
+/* 끼워 넣은 화면의 **제 목록 줄과 제 머리줄**은 감춘다 — 자리를 말하는 줄과
+   할 일 줄은 감싸는 쪽이 하나만 그린다. 둘이면 어느 것을 눌러야 하는지
+   묻게 된다(지적받은 자리다). */
+.tcx-embed .rq-bar { display: none; }
+.tcx-embed .tc-dethead { display: none; }
+
+/* ── 자리 줄(빵부스러기) — **세 화면이 같은 꼴**(지시) ────────────
+   모델그룹 / 화면이름 / 폴더… / 제목   [ID]
+   그리는 곳은 components/tc/Crumb.tsx 하나다. */
+.tcx-crumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--c-text-muted, #4d5760);
+  overflow: hidden;
+}
+.tcx-crumbi { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.tcx-crumbi > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 마지막 칸이 지금 보고 있는 것 — 앞엣것은 길잡이라 가라앉힌다 */
+.tcx-crumbi > span.last { color: var(--c-text, #131920); font-weight: 700; }
+.tcx-crumbsep { font-style: normal; color: #b3bdc4; flex: none; }
+/* ID 배지 — 눌러서 주소 복사 */
+.tcx-crumbid {
+  flex: none;
+  margin-left: 8px;
+  border: 1px solid #c3d9dd;
+  background: #eaf6f7;
+  border-radius: 10px;
+  padding: 2px 9px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0a6b74;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tcx-crumbid:hover:not(:disabled) { background: #d9eef0; border-color: #8fc9cf; }
+.tcx-crumbid:disabled { cursor: default; }

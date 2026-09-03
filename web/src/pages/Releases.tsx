@@ -2,11 +2,13 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isManual } from '@/lib/runMode'
+import { isReleaseTc } from '@/lib/tcSeries'
 import { prefGet, prefSet } from '@/lib/prefs'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
 import TcForm from '@/components/TcForm'
 import TestCases from '@/pages/TestCases'
+import Crumb from '@/components/tc/Crumb'
 import type { Project } from '@/types'
 import './Releases.css'
 
@@ -1388,8 +1390,16 @@ export default function Releases() {
         >
           <div className="rls-tcpop" role="dialog" aria-modal="true" aria-label={tcOpen}>
             <header className="rls-poph">
-              <b>{tcOpen}</b>
-              <span className="rls-pn">{tcById.get(tcOpen)?.name ?? ''}</span>
+              {/* 자리 줄 — **세 화면이 같은 꼴**(지시).
+                    E61xx / Release / TC1   [E61xx-V0001]
+                  릴리스 시험은 폴더에 안 달린다. 그 자리는 이슈이고, 이슈는
+                  바로 뒤 화면에 서 있다 — 그래서 폴더 칸이 비어 있다. */}
+              <Crumb
+                group={mine?.model_group ?? ''}
+                screen="Release"
+                name={tcById.get(tcOpen)?.name ?? ''}
+                id={tcOpen}
+              />
               <span className="sp" />
               {/* 저장·⋯ 는 **여기 한 곳**에서만 — 안쪽 줄은 감춘다 */}
               <button
@@ -1413,7 +1423,7 @@ export default function Releases() {
                 ✕ 닫기
               </button>
             </header>
-            <div className="rls-popb">
+            <div className="tcx-embed rls-popb">
               <TestCases
                 embedTc={tcOpen}
                 onEmbedBack={() => setTcOpen('')}
@@ -1436,12 +1446,24 @@ export default function Releases() {
         <TcPick
           title={`${addTo.key} 에 이미 있는 시험 붙이기`}
           have={tcMap.get(`${addTo.ver}|${addTo.key}`) ?? EMPTY}
-          tcs={tcQ.data?.tcs ?? []}
+          /* **릴리스 시험(_V)만 고를 수 있다**(지시). 요구사항 시험(_T)이
+             줄줄이 나오던 것을 걷었다 — 그것을 이슈에 붙이면 두 화면의
+             분리가 그 자리에서 깨진다. */
+          tcs={(tcQ.data?.tcs ?? []).filter((t) => isReleaseTc(t.tcid))}
           onClose={() => setAddTo(null)}
           onSave={async (next) => {
             /* 고르개는 「이것들로 해 줘」 라고 말한다 — 그대로 놓는다 */
             await saveTcs(addTo.ver, addTo.key, () => next)
             setAddTo(null)
+          }}
+          onDelete={async (tcid) => {
+            const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`, { method: 'DELETE' })
+            if (!r.ok) {
+              window.alert(`${tcid} 를 지우지 못했습니다`)
+              return
+            }
+            await qc.invalidateQueries({ queryKey: ['tcs'] })
+            await qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
           }}
         />
       )}
@@ -1455,6 +1477,11 @@ export default function Releases() {
           /* 여기서도 이슈 제목을 그대로 넣지 않는다(위 openNew 와 같은 까닭) */
           /* 무엇을 덮는가 — 요구사항 자리에 Jira 이슈가 앉는다 */
           presetIssue={newTo.key}
+          /* 제목은 **이 이슈 안에서 몇 번째인가**로 시작한다(지시: TC1).
+             지라 제목을 통째로 베끼지 않는 까닭은 셋이다 — 길고(60자를 넘는다),
+             지라에서 고쳐도 안 따라오고, 한 이슈에 시험이 셋이면 셋 다 이름이
+             같아진다. 이슈 제목은 바로 위 줄에 이미 보인다. */
+          presetName={`TC${(tcMap.get(`${newTo.ver}|${newTo.key}`) ?? EMPTY).length + 1}`}
           /* 모델은 프로젝트가 아는 값이라 미리 골라 둔다(고칠 수 있다) */
           presetMg={mine?.model_group ?? ''}
           presetModel={mine?.model ?? ''}
@@ -1964,22 +1991,27 @@ function TcPick({
   tcs,
   onClose,
   onSave,
+  onDelete,
 }: {
   title: string
   have: string[]
   tcs: Array<{ tcid: string; name?: string; kind?: string }>
   onClose: () => void
   onSave: (next: string[]) => Promise<void>
+  /** 시험 항목 **자체**를 지운다 — 이슈에서 빼는 것과 다르다 */
+  onDelete: (tcid: string) => Promise<void>
 }) {
   const [pick, setPick] = useState<string[]>(have)
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
+  const [dead, setDead] = useState<string[]>([])
   const shown = useMemo(() => {
     const n = q.trim().toLowerCase()
-    const arr = n ? tcs.filter((t) => `${t.tcid} ${t.name ?? ''}`.toLowerCase().includes(n)) : tcs
+    const base = tcs.filter((t) => !dead.includes(t.tcid))
+    const arr = n ? base.filter((t) => `${t.tcid} ${t.name ?? ''}`.toLowerCase().includes(n)) : base
     /* 이미 붙은 것을 위로 — 무엇이 붙어 있는지부터 보인다 */
     return [...arr].sort((a, b) => Number(have.includes(b.tcid)) - Number(have.includes(a.tcid)))
-  }, [tcs, q, have])
+  }, [tcs, q, have, dead])
 
   return (
     <div className="rls-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -2014,6 +2046,34 @@ function TcPick({
                 <span className="rls-code">{t.tcid}</span>
                 <span className="rls-name">{t.name ?? ''}</span>
                 <span className="rls-kind">{isManual(t.kind) ? 'MANUAL' : t.kind ? 'AUTO' : ''}</span>
+                {/* **시험 항목 자체를 지운다**(지시) — 이슈에서 빼는 것(칩의 ✕)과
+                    다르다. 되돌릴 수 없어 한 번 묻는다. 이미 이슈에 붙어 있는
+                    것은 못 지운다: 붙은 자리를 먼저 떼는 것이 순서다. */}
+                <button
+                  type="button"
+                  className="rls-mdel"
+                  disabled={busy || have.includes(t.tcid)}
+                  title={
+                    have.includes(t.tcid)
+                      ? '이 이슈에 붙어 있습니다 — 먼저 빼고 지우세요'
+                      : `${t.tcid} 를 아주 지웁니다`
+                  }
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (!window.confirm(`${t.tcid} ${t.name ?? ''}\n\n이 시험 항목을 아주 지웁니다. 되돌릴 수 없습니다.`))
+                      return
+                    setBusy(true)
+                    void onDelete(t.tcid)
+                      .then(() => {
+                        setDead((a) => [...a, t.tcid])
+                        setPick((a) => a.filter((x) => x !== t.tcid))
+                      })
+                      .finally(() => setBusy(false))
+                  }}
+                >
+                  ✕
+                </button>
               </label>
             )
           })}
