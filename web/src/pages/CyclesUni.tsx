@@ -28,6 +28,7 @@ import CycleReport from '@/components/cycle/CycleReport'
 import CycleInsight from '@/components/cycle/CycleInsight'
 import TestSummary from '@/components/cycle/TestSummary'
 import CycleEdit from '@/components/cycle/CycleEdit'
+import MakeCycle from '@/components/cycle/MakeCycle'
 import { CloneDialog, exportCycleCsv, itemVerdict, verdictLabel } from '@/pages/Cycles'
 import type { CycleItemLite } from '@/pages/Cycles'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
@@ -162,8 +163,11 @@ export default function CyclesUni({
   const [mailPlan, setMailPlan] = useState<CycleMeta | null>(null)
   const [repPlan, setRepPlan] = useState<CycleMeta | null>(null)
   const [pick, setPick] = useState<'mail' | 'report' | ''>('')
-  /** 플랜 만들기(빈 값) · 고치기(플랜 id) — 같은 창이다 */
+  /** 고치기 — 제목·설명·항목까지 손보는 큰 창(CycleEdit) */
   const [edit, setEdit] = useState<{ id?: string } | null>(null)
+  /** 만들기 — 대상·버전·담당만 묻는 작은 창(지시: 목업). 만드는 일과
+      고치는 일은 다르다. 만들 때는 자리를 정하고, 알맹이는 그다음이다. */
+  const [making, setMaking] = useState(false)
   /** 항목 담기 — 그 플랜에 시험 항목을 넣는다 */
   const [addTo, setAddTo] = useState('')
   /** 실행 만들기 — 모델·버전을 묻는다 */
@@ -1025,10 +1029,7 @@ export default function CyclesUni({
             type="button"
             className="btn small cu-new"
             title="새 사이클을 만듭니다 — 사업자·모델·버전을 고르고 시험 항목을 담습니다"
-            onClick={() => {
-              setNeedMake(true)
-              setEdit({})
-            }}
+            onClick={() => setMaking(true)}
           >
             ＋ 사이클
           </button>
@@ -1783,6 +1784,22 @@ export default function CyclesUni({
       )}
 
       {/* ── 만들기 창들 — **옛 화면이 쓰던 그 부품**이다 ────────────── */}
+      {making && (
+        <MakeCycle
+          me={me}
+          onClose={() => setMaking(false)}
+          onMade={(id) => {
+            setMaking(false)
+            void plansQ.refetch()
+            void vgQ.refetch()
+            void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
+            /* 만든 것을 바로 골라 준다 — 만들고 나서 찾아 헤매지 않게 */
+            setMode('plan')
+            setSel({ t: 'plan', k: id })
+            setTab('ov')
+          }}
+        />
+      )}
       {!!edit && (
         <CycleEdit
           cycleId={edit.id}

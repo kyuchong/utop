@@ -1,0 +1,351 @@
+/**
+ * **사이클 만들기** — 목업대로, 대상·버전·담당만 묻는 작은 창.
+ *
+ * 전에는 「＋ 사이클」 이 큰 편집 창(CycleEdit)을 열었다. 제목·설명 편집기와
+ * Test Cases 탭까지 한꺼번에 나와, 정작 만드는 데 꼭 필요한 것(어느 모델의
+ * 어느 버전인가)이 오른쪽 구석에 밀려 있었다. 만들기와 고치기는 다른 일이다 —
+ * 만들 때는 자리를 정하고, 알맹이는 만든 뒤에 채운다.
+ *
+ * 고르개의 정본은 둘이다. **사업자**는 설정의 코드표(cycle_customer),
+ * **제품군·모델그룹·모델명**은 장비 카탈로그다. 손으로 치게 두면
+ * `E4320-24P_2` 같은 것이 생겨 트리가 갈린다.
+ */
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { apiFetch } from '@/api/client'
+import './MakeCycle.css'
+
+interface CatRow {
+  kind?: string
+  name?: string
+  family?: string | null
+  model_group?: string | null
+  operator?: string | null
+}
+
+/** 오늘을 버전명에 쓰는 꼴로 — R100_2026_09_03 */
+function today(): string {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}_${p(d.getMonth() + 1)}_${p(d.getDate())}`
+}
+
+export default function MakeCycle({
+  me,
+  onClose,
+  onMade,
+}: {
+  me?: { username?: string; name?: string } | null
+  onClose: () => void
+  /** 만든 사이클의 안쪽 id */
+  onMade: (id: string) => void
+}) {
+  const [cust, setCust] = useState('')
+  const [family, setFamily] = useState('')
+  const [mgroup, setMgroup] = useState('')
+  const [model, setModel] = useState('')
+  const [vgroup, setVgroup] = useState('')
+  const [newVg, setNewVg] = useState('')
+  const [version, setVersion] = useState('')
+  const [owner, setOwner] = useState(me?.name || me?.username || '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose()
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [onClose, busy])
+
+  const codesQ = useQuery({
+    queryKey: ['codes'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as { items: Array<{ kind: string; value: string }> }
+    },
+  })
+  const catQ = useQuery({
+    queryKey: ['device-catalog'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/device-catalog2')
+      if (!r.ok) throw new Error('장비 카탈로그를 불러오지 못했습니다')
+      return (await r.json()) as { items: CatRow[] }
+    },
+  })
+  const vgQ = useQuery({
+    queryKey: ['cycle-version-groups'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/cycle-version-groups')
+      if (!r.ok) throw new Error('버전그룹을 불러오지 못했습니다')
+      return (await r.json()) as { groups: Record<string, string[]> }
+    },
+  })
+  const usersQ = useQuery({
+    queryKey: ['users-mentionable'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/users/mentionable')
+      if (!r.ok) throw new Error('사람을 불러오지 못했습니다')
+      return (await r.json()) as { users: Array<{ username?: string; name?: string }> }
+    },
+  })
+
+  const cat = useMemo(() => catQ.data?.items ?? [], [catQ.data])
+  const custs = useMemo(
+    () => (codesQ.data?.items ?? []).filter((i) => i.kind === 'cycle_customer').map((i) => i.value),
+    [codesQ.data],
+  )
+  const of = (kind: string) =>
+    [...new Set(cat.filter((x) => x.kind === kind).map((x) => String(x.name ?? '')))]
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
+  const families = useMemo(() => of('family'), [cat])
+  /** 모델그룹 — kind 는 'group' 이다(카탈로그의 이름과 화면 말이 다르다) */
+  const mgroups = useMemo(() => of('group'), [cat])
+  /** 모델 — 위에서 고른 제품군·모델그룹으로 좁힌다 */
+  const models = useMemo(
+    () =>
+      cat
+        .filter((x) => x.kind === 'model')
+        .filter((x) => !family || String(x.family ?? '') === family)
+        .filter((x) => !mgroup || String(x.model_group ?? '') === mgroup)
+        .map((x) => String(x.name ?? ''))
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    [cat, family, mgroup],
+  )
+  /** 이 모델이 이미 쓰는 버전그룹 */
+  const vgs = useMemo(() => {
+    const g = vgQ.data?.groups ?? {}
+    const mine = model ? (g[model] ?? []) : Object.values(g).flat()
+    return [...new Set(mine.map(String))].filter(Boolean).sort()
+  }, [vgQ.data, model])
+
+  /* 모델을 고르면 제품군·모델그룹을 카탈로그에서 채운다 — 사람이 셋을
+     따로 맞추다 어긋나면 트리가 엉뚱한 자리에 선다. */
+  useEffect(() => {
+    if (!model) return
+    const row = cat.find((x) => x.kind === 'model' && String(x.name ?? '') === model)
+    if (!row) return
+    if (row.family) setFamily(String(row.family))
+    if (row.model_group) setMgroup(String(row.model_group))
+  }, [model, cat])
+
+  const vg = (newVg.trim() || vgroup).trim()
+
+  /** 버전명 채우기 — 버전그룹_오늘 */
+  function fillToday() {
+    setVersion(`${vg || 'R000'}_${today()}`)
+  }
+
+  const ready = !!vg && !!version.trim() && !busy
+
+  async function make() {
+    if (!ready) return
+    setBusy(true)
+    setErr('')
+    try {
+      /* 새 버전그룹은 **폴더 목록에도** 넣는다. 안 넣으면 만들기 창에서만
+         쓰이고 트리·다음 만들기에서는 안 보인다(두 살림이 갈린다). */
+      if (newVg.trim() && model)
+        await apiFetch('/api/cycle-version-groups/add', {
+          method: 'POST',
+          body: JSON.stringify({ model, group: newVg.trim() }),
+        }).catch(() => undefined)
+
+      const id = `cycle-${Date.now()}`
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          id,
+          name: version.trim(),
+          customer: cust,
+          family,
+          model_group: mgroup,
+          model,
+          version_group: vg,
+          version: version.trim(),
+          assignee: owner,
+          items: [],
+        }),
+      })
+      if (!r.ok) throw new Error('만들지 못했습니다')
+      onMade(id)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mkc-back" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <div className="mkc" role="dialog" aria-modal="true" aria-label="사이클 만들기">
+        <header className="mkc-head">
+          <b>사이클 만들기</b>
+          <span className="mkc-sp" />
+          <button type="button" className="mkc-x" title="닫기" onClick={onClose}>
+            ✕
+          </button>
+        </header>
+
+        <div className="mkc-body">
+          <fieldset className="mkc-set">
+            <legend>대상</legend>
+            <div className="mkc-grid">
+              <label>
+                <span>사업자</span>
+                <select value={cust} onChange={(e) => setCust(e.target.value)}>
+                  <option value="">(안 고름)</option>
+                  {custs.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>제품군</span>
+                <select value={family} onChange={(e) => setFamily(e.target.value)}>
+                  <option value="">(안 고름)</option>
+                  {families.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>모델그룹</span>
+                <select value={mgroup} onChange={(e) => setMgroup(e.target.value)}>
+                  <option value="">(안 고름)</option>
+                  {mgroups.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>모델명</span>
+                <select value={model} onChange={(e) => setModel(e.target.value)}>
+                  <option value="">고르세요</option>
+                  {models.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="mkc-set">
+            <legend>버전</legend>
+            <div className="mkc-grid">
+              <label>
+                <span>
+                  버전그룹 <i className="mkc-req">*</i>
+                </span>
+                <select
+                  value={vgroup}
+                  onChange={(e) => {
+                    setVgroup(e.target.value)
+                    setNewVg('')
+                  }}
+                >
+                  <option value="">(새로 적기)</option>
+                  {vgs.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>{vgroup ? '새 버전그룹' : '새 버전그룹 *'}</span>
+                <input
+                  value={newVg}
+                  placeholder="예: R300"
+                  onChange={(e) => {
+                    setNewVg(e.target.value)
+                    if (e.target.value) setVgroup('')
+                  }}
+                />
+              </label>
+              <label className="mkc-wide">
+                <span>
+                  버전명 <i className="mkc-req">*</i>
+                </span>
+                <span className="mkc-row">
+                  <input
+                    value={version}
+                    placeholder="예: R300_2026_06_30"
+                    onChange={(e) => setVersion(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn small"
+                    title="버전그룹에 오늘 날짜를 붙입니다"
+                    onClick={fillToday}
+                  >
+                    오늘
+                  </button>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="mkc-set">
+            <legend>담당</legend>
+            <div className="mkc-grid">
+              <label className="mkc-wide">
+                <span className="sr">담당</span>
+                <select value={owner} onChange={(e) => setOwner(e.target.value)}>
+                  <option value="">(안 정함)</option>
+                  {(usersQ.data?.users ?? []).map((u) => {
+                    const v = String(u.name || u.username || '')
+                    return (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    )
+                  })}
+                </select>
+              </label>
+            </div>
+          </fieldset>
+
+          <p className="mkc-hint">
+            만든 뒤 <b>시험 항목</b>을 담고, 담긴 항목의 방식대로 자동·수동 실행을 시작합니다
+          </p>
+          {!!err && <p className="mkc-err">{err}</p>}
+        </div>
+
+        <footer className="mkc-foot">
+          <span className="mkc-where">
+            {[cust, model].filter(Boolean).join(' · ') || '대상을 고르세요'}
+          </span>
+          <span className="mkc-sp" />
+          <button type="button" className="btn small" disabled={busy} onClick={onClose}>
+            취소
+          </button>
+          <button
+            type="button"
+            className="btn small mkc-go"
+            disabled={!ready}
+            title={ready ? '' : '버전그룹과 버전명은 있어야 합니다'}
+            onClick={() => void make()}
+          >
+            {busy ? '만드는 중…' : '만들기'}
+          </button>
+        </footer>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,123 @@
+/* 사이클 만들기 — 목업의 작은 창. 접두어 mkc- 로 가둔다 */
+.mkc-back {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgb(15 30 35 / 32%);
+}
+
+.mkc {
+  width: min(540px, 100%);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface, #fff);
+  border-radius: 12px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 26%);
+  overflow: hidden;
+}
+
+.mkc-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+}
+.mkc-head b { font-size: 14.5px; color: var(--c-text); }
+.mkc-sp { flex: 1; }
+.mkc-x {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.mkc-x:hover { background: #f4f6f6; color: var(--c-text); }
+
+.mkc-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px 4px;
+}
+
+.mkc-set { border: 0; margin: 0 0 4px; padding: 0 0 12px; }
+.mkc-set legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-text-muted);
+}
+
+.mkc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+.mkc-grid label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mkc-grid label > span:first-child { font-size: 11.5px; color: var(--c-text-muted); }
+.mkc-wide { grid-column: 1 / -1; }
+.mkc-req { color: #d92953; font-style: normal; }
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.mkc-row { display: flex; gap: 6px; align-items: center; }
+.mkc-row input { flex: 1; min-width: 0; }
+
+.mkc select,
+.mkc input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--c-text);
+  background: #fff;
+  border: 1px solid var(--c-border, #d8dde2);
+  border-radius: 7px;
+}
+.mkc select:focus,
+.mkc input:focus { outline: 2px solid #0f766e33; border-color: #0f766e; }
+
+.mkc-hint {
+  margin: 6px 0 4px;
+  padding: 9px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--c-text-muted);
+  background: #f4f7f8;
+  border-radius: 8px;
+}
+.mkc-err { margin: 6px 0 0; font-size: 12px; color: #b3261e; }
+
+.mkc-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--c-border-soft, #dfe4ea);
+}
+.mkc-where { font-size: 12px; color: var(--c-text-faint); }
+/* 특이도를 한 칸 올린다 — 전역 .btn 이 나중에 실리면 배경을 되빼앗는다 */
+.mkc .mkc-go { background: #0f766e; border-color: #0f766e; color: #fff; }
+.mkc .mkc-go:hover:not(:disabled) { background: #0c635c; border-color: #0c635c; }
+.mkc .mkc-go:disabled { opacity: .5; }
