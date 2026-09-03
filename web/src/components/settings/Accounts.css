@@ -311,33 +311,46 @@
 }
 .acc-rail {
   flex: none;
-  width: 168px;
+  /* 카드가 되며 좌우 안쪽 여백이 붙었다 — 칸의 실질 폭을 지키려 그만큼 넓힌다 */
+  width: 180px;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* 묶음마다 제 카드 — 오른쪽 명단(.acc-card)과 같은 시각 언어를 쓴다.
+   테두리가 묶음의 경계를 말하므로 사이에 긋던 실선은 걷는다. */
+.acc-rcard {
+  flex: none;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  padding: 0 6px 6px;
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
 /* 묶음 이름은 **붙어 있는다** — 소속이 길어 스크롤할 때, 지금 보는 것이
-   어느 묶음인지 모르면 엉뚱한 칸을 누르게 된다. */
+   어느 묶음인지 모르면 엉뚱한 칸을 누르게 된다. 카드 안쪽 여백을 음수로
+   되물려 배경이 카드 가장자리까지 닿게 한다 — 안 그러면 스크롤할 때 밑의
+   글자가 좌우 틈으로 비친다. */
 .acc-railt {
   position: sticky;
   top: 0;
   z-index: 1;
   background: var(--c-surface);
+  border-radius: 9px 9px 0 0;
+  margin: 0 -6px;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   font-weight: 700;
   letter-spacing: 0.02em;
-  padding: 9px 6px 4px;
-}
-.acc-railt:not(:first-child) {
-  margin-top: 4px;
-  border-top: 1px solid var(--c-border-soft);
+  padding: 9px 12px 5px;
 }
 /* 더 보기 / 접기 — 칸이 아니라 손잡이라 눈에 덜 걸리게 */
 .acc-railmore {
   align-self: flex-start;
-  margin: 2px 0 0 8px;
+  margin: 2px 0 0 6px;
   border: 0;
   background: transparent;
   color: var(--c-primary);

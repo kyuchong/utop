@@ -591,6 +591,9 @@ export default function Accounts() {
       <div className="acc-main">
         {/* 왼쪽 — 상태·역할·소속으로 좁힌다 */}
         <nav className="acc-rail">
+          {/* 묶음마다 **제 카드**를 준다(지시) — 오른쪽 명단·조직도가 이미
+              카드라, 이 자리만 맨바닥이면 셋이 한 화면에서 따로 논다. */}
+          <section className="acc-rcard">
           <div className="acc-railt">상태</div>
           {(
             [
@@ -611,7 +614,9 @@ export default function Accounts() {
               <em>{n}</em>
             </button>
           ))}
+          </section>
 
+          <section className="acc-rcard">
           <div className="acc-railt">역할</div>
           <button
             type="button"
@@ -632,9 +637,10 @@ export default function Accounts() {
               <em>{all.filter((u) => u.role === r).length}</em>
             </button>
           ))}
+          </section>
 
           {depts.length > 0 && (
-            <>
+            <section className="acc-rcard">
               <div className="acc-railt">소속담당</div>
               <button
                 type="button"
@@ -670,7 +676,7 @@ export default function Accounts() {
                   {deptOpen ? '접기' : `더 보기 ${depts.length - 8}`}
                 </button>
               )}
-            </>
+            </section>
           )}
         </nav>
 
