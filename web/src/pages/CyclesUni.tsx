@@ -1166,7 +1166,13 @@ export default function CyclesUni({
          가는 유일한 길이고, 제목이 없으면 어느 줄인지 알아볼 수가 없다.
          NTable 이 fixed 를 보고 토글을 잠근다(NTable:1105). */
       { key: 'key', label: 'ID', type: 'text', width: 150, fixed: true },
-      { key: 'title', label: '제목', type: 'text', width: 190, fixed: true },
+      /* 이 열은 실행의 제목이 아니라 **어느 사이클의 실행인가** 이다. 여태
+         사이클 **이름**을 넣었는데 그 이름이 곧 버전명이라, 버전명 열과 글자
+         하나까지 같은 값이 두 번 났다 — 두 줄이 어느 사이클에 달렸는지는
+         끝내 안 보였다. 부여 ID 를 넣는다(E61xx-P0001). 그래야 R0001·R0002
+         가 P0001 하나에 달린 회차임이 표에서 읽힌다(질문: 2개가 생성되면
+         안 되는 것 아닌가, P0002 도 있어야 정상 같은데). */
+      { key: 'title', label: '사이클', type: 'text', width: 150, fixed: true },
       /* 방식은 **끄지 않고, 앞에 둔다.** 한 사이클이 자동·수동으로 갈려 실행
          둘을 낳는데 그 둘을 가르는 값은 이것뿐이다. 꺼 두었더니 제목·모델·
          버전·담당·생성·종료가 두 줄에서 글자 하나까지 같아, 버전명이 둘로
@@ -1264,8 +1270,9 @@ export default function CyclesUni({
         return {
           __id: r.id,
           key: String(r.name || r.id),
-          /* 제목은 **사이클의 것**이다 — 실행에는 따로 없다 */
-          title: String(c?.name ?? c?.cid ?? ''),
+          /* 실행에는 제목이 없다 — 어느 사이클의 회차인지를 **부여 ID** 로
+             말한다. 이름(=버전명)은 버전명 열이 이미 보인다. */
+          title: String(c?.cid ?? c?.name ?? ''),
           mgroup: String(c?.model_group ?? ''),
           model: String(c?.model ?? ''),
           vgroup: String(r.version_group ?? c?.version_group ?? ''),
