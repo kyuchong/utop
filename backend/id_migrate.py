@@ -180,7 +180,7 @@ async def plan(c) -> dict:
             continue
         moves.append({"kind": "req", "pk": r["id"], "old": old,
                       "new": keep(old, mg, "R") or take(mg, "R"),
-                      "name": r["title"] or ""})
+                      "name": r["title"] or "", "letter": "R"})
 
     # ── 시험항목 ──────────────────────────────────────────────
     for r in await c.fetch(
@@ -222,9 +222,25 @@ async def plan(c) -> dict:
         for i, it in enumerate(data.get("items") or [], start=1):
             execs.append({"old": it.get("ceid") or "", "new": f"{new}-E{i:03d}"})
         moves.append({"kind": "cycle", "pk": r["id"], "old": old, "new": new,
-                      "name": r["name"] or "", "execs": execs})
+                      "name": r["name"] or "", "execs": execs, "letter": "P"})
 
     return {"moves": moves, "skipped": skipped}
+
+
+def only(p: dict, letters: str) -> dict:
+    """계획에서 **고른 계열만** 남긴다(지시: R·T·P·V 각각 옮길 수 있게).
+
+    한꺼번에 123건을 옮기는 것이 겁날 때가 있다 — 요구사항만 먼저 해 보고
+    괜찮으면 나머지를 하는 식으로 쓴다. 빈 문자열이면 전부다.
+
+    플랜(P)을 고르면 그 안의 실행(ceid)도 따라간다 — 실행은 홀로 서는 것이
+    아니라 그 플랜의 몇 번째라, 갈라서 옮길 수가 없다.
+    """
+    want = {x.strip().upper() for x in (letters or "").split(",") if x.strip()}
+    if not want:
+        return p
+    return {"moves": [m for m in p["moves"] if (m.get("letter") or "") in want],
+            "skipped": p.get("skipped") or []}
 
 
 async def apply(c, p: dict) -> dict:

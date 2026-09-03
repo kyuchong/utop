@@ -16,10 +16,23 @@ import { apiFetch } from '@/api/client'
  * 무엇이 무엇으로 바뀌는지 세어서 낸 다음에 누르게 한다.
  */
 interface Move { kind: string; pk: string; old: string; new: string; name?: string
+                 letter?: string
                  execs?: Array<{ old: string; new: string }> }
 interface Skip { kind: string; pk: string; old: string; why: string }
 
 const LAB: Record<string, string> = { req: '요구사항', tc: '시험항목', cycle: '플랜' }
+
+/** 계열 — **각각 옮길 수 있다**(지시). 한꺼번에 백 건을 옮기는 것이 겁날 때
+ *  요구사항만 먼저 해 보고 괜찮으면 나머지를 하는 식으로 쓴다.
+ *
+ *  R 요구사항 · T 요구사항을 덮는 시험 · **V Jira 이슈를 덮는 시험** ·
+ *  P 플랜(그 안의 실행이 따라간다). */
+const SERIES: Array<{ k: string; label: string; hint: string }> = [
+  { k: 'R', label: '요구사항 R', hint: '요구사항 번호만 옮깁니다' },
+  { k: 'T', label: '시험 T', hint: '요구사항을 덮는 시험만 옮깁니다' },
+  { k: 'V', label: '릴리스 시험 V', hint: 'Jira 이슈를 덮는 시험만 옮깁니다' },
+  { k: 'P', label: '플랜 P', hint: '플랜과 그 안의 실행을 옮깁니다' },
+]
 
 export default function IdMigrate() {
   const [done, setDone] = useState<Record<string, number> | null>(null)
@@ -31,13 +44,19 @@ export default function IdMigrate() {
       return (await r.json()) as { moves: Move[]; skipped: Skip[] }
     },
   })
+  /** 지금 누른 것 — 단추마다 「옮기는 중」 을 따로 보여 준다 */
+  const [busy, setBusy] = useState('')
   const run = useMutation({
-    mutationFn: async () => {
-      const r = await apiFetch('/api/id-migrate/apply', { method: 'POST' })
+    mutationFn: async (letters: string = '') => {
+      const r = await apiFetch(
+        `/api/id-migrate/apply${letters ? `?letters=${encodeURIComponent(letters)}` : ''}`,
+        { method: 'POST' },
+      )
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || '옮기지 못했습니다')
       return (await r.json()) as { counts: Record<string, number> }
     },
-    onSuccess: (d) => { setDone(d.counts); void q.refetch() },
+    onSuccess: (d) => { setDone(d.counts); setBusy(''); void q.refetch() },
+    onError: () => setBusy(''),
   })
 
   if (q.isLoading) return <div className="muted">세는 중…</div>
@@ -47,6 +66,8 @@ export default function IdMigrate() {
   const skipped = q.data?.skipped ?? []
   const execs = moves.reduce((a, m) => a + (m.execs?.length ?? 0), 0)
   const byKind = (k: string) => moves.filter((m) => m.kind === k)
+  /** 계열마다 몇 건인가 — 단추에 적는다. 0 건이면 누를 것이 없다 */
+  const bySeries = (k: string) => moves.filter((m) => (m.letter || '') === k).length
 
   return (
     <div className="idm">
@@ -74,6 +95,29 @@ export default function IdMigrate() {
               <span key={k} className="idm-chip">{LAB[k]} <b>{byKind(k).length}</b></span>
             ))}
             <span className="idm-chip">실행 <b>{execs}</b></span>
+          </div>
+
+          {/* **계열마다 따로 옮기기**(지시). 한꺼번에 다 옮기는 단추는 아래
+              오른쪽에 그대로 둔다 — 나눠 하고 싶을 때만 여기를 쓴다. */}
+          <div className="idm-series">
+            {SERIES.map((sr) => {
+              const n = bySeries(sr.k)
+              return (
+                <button
+                  key={sr.k}
+                  type="button"
+                  className="btn small"
+                  disabled={!n || run.isPending}
+                  title={n ? sr.hint : '옮길 것이 없습니다'}
+                  onClick={() => {
+                    setBusy(sr.k)
+                    run.mutate(sr.k)
+                  }}
+                >
+                  {busy === sr.k && run.isPending ? '옮기는 중…' : `${sr.label} ${n}건`}
+                </button>
+              )
+            })}
           </div>
 
           <div className="idm-tblwrap">
@@ -120,9 +164,12 @@ export default function IdMigrate() {
           className="btn idm-go"
           type="button"
           disabled={moves.length === 0 || run.isPending}
-          onClick={() => run.mutate()}
+          onClick={() => {
+            setBusy('*')
+            run.mutate('')
+          }}
         >
-          {run.isPending ? '옮기는 중…' : `${moves.length}건 옮기기`}
+          {busy === '*' && run.isPending ? '옮기는 중…' : `전부 ${moves.length}건 옮기기`}
         </button>
       </div>
       {run.error && <div className="load-error">{(run.error as Error).message}</div>}

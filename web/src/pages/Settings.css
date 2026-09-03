@@ -1866,6 +1866,18 @@ button.dcc-st:disabled { cursor: default; }
    새 것은 진하게 — 눈이 오른쪽 열만 따라가면 결과가 읽힌다. */
 .idm { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 .idm-sum { display: flex; gap: 8px; flex-wrap: wrap; }
+/* 계열마다 따로 옮기는 단추 — 한꺼번에 다 옮기기가 겁날 때 나눠 쓴다 */
+.idm-series {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border-soft, #dfe4ea);
+  border-radius: 8px;
+  background: #fafbfc;
+}
+.idm-series .btn:disabled { opacity: 0.45; }
 .idm-chip {
   padding: 4px 10px;
   border-radius: 999px;

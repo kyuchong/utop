@@ -4074,13 +4074,14 @@ async def id_migrate_plan(token: str = ""):
 
 
 @app.post("/api/id-migrate/apply")
-async def id_migrate_apply(token: str = ""):
+async def id_migrate_apply(token: str = "", letters: str = ""):
+    """`letters` 로 **계열을 고른다**(R·T·V·P, 쉼표로 여럿). 비우면 전부."""
     _require_admin(token)
     async with db.pool().acquire() as c:
         # 반쪽만 옮겨진 것이 있으면 먼저 맞춘다 — 안 그러면 plan 이 칸만
         # 보고 「이미 됐다」 로 넘겨서 data 가 영영 옛 값으로 남는다.
         await id_migrate.repair(c)
-        p = await id_migrate.plan(c)
+        p = id_migrate.only(await id_migrate.plan(c), letters)
         if not p["moves"]:
             return {"ok": True, "counts": {}, "note": "옮길 것이 없습니다"}
         counts = await id_migrate.apply(c, p)
