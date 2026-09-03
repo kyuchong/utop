@@ -240,7 +240,6 @@ export default function Accounts() {
     }
     return [...n.keys()].sort((a, b) => (n.get(b) ?? 0) - (n.get(a) ?? 0) || a.localeCompare(b))
   }, [all])
-  const [deptOpen, setDeptOpen] = useState(false)
   const rows = useMemo(() => {
     const key = q.trim().toLowerCase()
     return all
@@ -588,13 +587,14 @@ export default function Accounts() {
         </div>
       </div>
 
-      <div className="acc-main">
-        {/* 왼쪽 — 상태·역할·소속으로 좁힌다 */}
-        <nav className="acc-rail">
-          {/* 묶음마다 **제 카드**를 준다(지시) — 오른쪽 명단·조직도가 이미
-              카드라, 이 자리만 맨바닥이면 셋이 한 화면에서 따로 논다. */}
-          <section className="acc-rcard">
-          <div className="acc-railt">상태</div>
+      {/* 좁히개 — **1행 도구줄 카드**(지시). Releases 와 같은 배치다.
+          세로 레일이던 것을 명단 위 한 줄로 올린다 — 밑에서 명단과 조직도가
+          가로를 다 쓴다. `.acc-card` 는 세로 쌓기라 두 클래스(.acc-card
+          .acc-fbar)로 가로를 못박는다. 클래스 하나로 맞서면 CSS 가 읽히는
+          차례에 따라 도구가 한 줄에 하나씩 선다. */}
+      <div className="acc-card acc-fbar">
+        <div className="acc-fgrp">
+          <span className="acc-fgt">상태</span>
           {(
             [
               ['all', '전체', all.length],
@@ -607,79 +607,64 @@ export default function Accounts() {
             <button
               key={k}
               type="button"
-              className={`acc-railb${st === k ? ' on' : ''}`}
+              className={`acc-fchip${st === k ? ' on' : ''}`}
               onClick={() => setSt(k)}
             >
-              <span>{lb}</span>
-              <em>{n}</em>
+              {lb} <em>{n}</em>
             </button>
           ))}
-          </section>
+        </div>
 
-          <section className="acc-rcard">
-          <div className="acc-railt">역할</div>
+        <span className="acc-fsep" />
+
+        <div className="acc-fgrp">
+          <span className="acc-fgt">역할</span>
           <button
             type="button"
-            className={`acc-railb${role === '' ? ' on' : ''}`}
+            className={`acc-fchip${role === '' ? ' on' : ''}`}
             onClick={() => setRole('')}
           >
-            <span>전체 역할</span>
-            <em>{all.length}</em>
+            전체 <em>{all.length}</em>
           </button>
           {roles.map((r) => (
             <button
               key={r}
               type="button"
-              className={`acc-railb${role === r ? ' on' : ''}`}
+              className={`acc-fchip${role === r ? ' on' : ''}`}
               onClick={() => setRole(r)}
             >
-              <span>{r}</span>
-              <em>{all.filter((u) => u.role === r).length}</em>
+              {r} <em>{all.filter((u) => u.role === r).length}</em>
             </button>
           ))}
-          </section>
+        </div>
 
-          {depts.length > 0 && (
-            <section className="acc-rcard">
-              <div className="acc-railt">소속담당</div>
-              <button
-                type="button"
-                className={`acc-railb${dept === '' ? ' on' : ''}`}
-                onClick={() => setDept('')}
+        {depts.length > 0 && (
+          <>
+            <span className="acc-fsep" />
+            <div className="acc-fgrp">
+              <span className="acc-fgt">소속담당</span>
+              {/* 소속은 서른 남짓이다. 칩으로 늘어놓으면 한 줄이 두 줄·세 줄이
+                  되어 도구줄이 아니게 된다 — 고르개로 접는다. 인원수를 이름
+                  옆에 붙여, 펴 보기 전에도 크기를 안다. */}
+              <select
+                className="acc-fsel"
+                value={dept}
+                onChange={(e) => setDept(e.target.value)}
+                aria-label="소속담당으로 좁히기"
               >
-                <span>전체 소속</span>
-                <em>{all.length}</em>
-              </button>
-              {/* 소속이 30개가 넘는다. 다 펼치면 레일이 화면 두 배 높이가 돼
-                  위쪽 상태·역할이 스크롤 밖으로 밀린다 — 정작 자주 쓰는 게
-                  그 둘이다. 사람 많은 순으로 8개만 두고 나머지는 접는다.
-                  고른 소속은 접혀 있어도 늘 보인다. */}
-              {depts
-                .filter((d, i) => deptOpen || i < 8 || d === dept)
-                .map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    className={`acc-railb${dept === d ? ' on' : ''}`}
-                    onClick={() => setDept(d)}
-                  >
-                    <span>{d}</span>
-                    <em>{all.filter((u) => u.dept === d).length}</em>
-                  </button>
+                <option value="">전체 소속 {all.length}명</option>
+                {depts.map((d) => (
+                  <option key={d} value={d}>
+                    {d} {all.filter((u) => u.dept === d).length}명
+                  </option>
                 ))}
-              {depts.length > 8 && (
-                <button
-                  type="button"
-                  className="acc-railmore"
-                  onClick={() => setDeptOpen((v) => !v)}
-                >
-                  {deptOpen ? '접기' : `더 보기 ${depts.length - 8}`}
-                </button>
-              )}
-            </section>
-          )}
-        </nav>
+              </select>
+            </div>
+          </>
+        )}
+      </div>
 
+      <div className="acc-main">
         {/* 가운데 — 명단 */}
         <div className="acc-card grow">
           <div className="acc-bar">
