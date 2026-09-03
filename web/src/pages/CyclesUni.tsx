@@ -23,6 +23,7 @@ import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { normMode } from '@/lib/runMode'
 import { IconPanel } from '@/components/icons'
+import Resizer, { useResizableWidth } from '@/components/Resizer'
 import RunDetail from '@/components/run/RunDetail'
 import type { RunFull } from '@/components/run/RunDetail'
 import CycleReport from '@/components/cycle/CycleReport'
@@ -164,11 +165,12 @@ export default function CyclesUni({
   const [wide, setWide] = useState(false)
   /** 1열 접기 */
   const [col1, setCol1] = useState(() => prefGet('utop.cyc.col1') !== '0')
-  /** 1열 폭 — 사람이 끌어서 정한다(지시). 계정별로 남는다 */
-  const [w1, setW1] = useState(() => {
-    const v = Number(prefGet('utop.ntb.cyc.w1') || 0)
-    return v >= 180 && v <= 620 ? v : 280
-  })
+  /* 1열 폭 — **다른 화면과 같은 부품**을 쓴다(지시: REQ-Coverage 처럼).
+     손수 만든 드래그를 두었더니 잡히는 폭도 손잡이 그림도 저쪽과 달랐다.
+     280px 은 「사업자 ▸ 모델 ▸ 버전그룹 ▸ 버전명」 이 안 잘리는 폭이다. */
+  const [w1, setW1] = useResizableWidth('utop.ntb.cyc.w1', 280, 180, 620)
+  /** 격자의 왼쪽 끝 — 이동바가 폭을 재는 기준점 */
+  const gridRef = useRef<HTMLDivElement>(null)
   const [tab, setTab] = useState<'ov' | 'it' | 'ai' | 'sum'>('ov')
   /** 실행 표의 보기(찾기·거르기·정렬·묶기) — 노션식 표가 쥐고 있다 */
   const [runView, setRunView] = useState<NView>(EMPTY_VIEW)
@@ -205,39 +207,6 @@ export default function CyclesUni({
 
   useEffect(() => prefSet('utop.cyc.tree', mode), [mode])
   useEffect(() => prefSet('utop.cyc.col1', col1 ? '1' : '0'), [col1])
-  useEffect(() => prefSet('utop.ntb.cyc.w1', String(w1)), [w1])
-
-  /**
-   * 열 사이를 **끌어서** 넓힌다(지시).
-   *
-   * 폴더 이름은 길이가 제각각이다 — 「사업자 ▸ 모델 ▸ 버전그룹 ▸ 버전명」
-   * 이 겨우 들어가게 280 으로 못박아 두었더니, 이름이 긴 자리에서는 잘리고
-   * 짧은 자리에서는 빈 폭만 남았다. 사람이 정하게 한다.
-   *
-   * 끄는 동안 글자가 잡히지 않도록 몸통의 선택을 잠근다 — 안 그러면 트리
-   * 이름들이 파랗게 물들며 끌린다.
-   */
-  const dragRef = useRef<{ x: number; w: number } | null>(null)
-  useEffect(() => {
-    const move = (e: MouseEvent) => {
-      const d = dragRef.current
-      if (!d) return
-      const next = Math.min(620, Math.max(180, d.w + (e.clientX - d.x)))
-      setW1(next)
-    }
-    const up = () => {
-      if (!dragRef.current) return
-      dragRef.current = null
-      document.body.style.userSelect = ''
-      document.body.style.cursor = ''
-    }
-    window.addEventListener('mousemove', move)
-    window.addEventListener('mouseup', up)
-    return () => {
-      window.removeEventListener('mousemove', move)
-      window.removeEventListener('mouseup', up)
-    }
-  }, [])
 
   const runsQ = useQuery({
     queryKey: ['plan-runs'],
@@ -731,8 +700,10 @@ export default function CyclesUni({
     /* 밑값 280px — 「사업자 ▸ 모델 ▸ 버전그룹 ▸ 버전명」 이 안 잘리는
        폭이다. 재 보면 그 글자만 173px, 여기에 select 안여백·화살표(36)와
        열의 여백(52)이 붙는다. 250 에서는 「버전」 에서 잘렸다.
-       여기서부터는 사람이 끌어서 정한다. */
+       여기서부터는 사람이 끌어서 정한다. 뒤의 6px 은 이동바 자리 —
+       REQ-Coverage 와 같은 짜임이다. */
     !wide && col1 ? `${w1}px` : '',
+    !wide && col1 ? '6px' : '',
     !wide ? 'minmax(0,1fr)' : '',
     openRun ? 'minmax(0,1.05fr)' : '',
   ].filter(Boolean).join(' ')
@@ -1632,7 +1603,7 @@ export default function CyclesUni({
           남는 것이 없었다 — 왼쪽 메뉴에 이미 「Cycles」 가 켜져 있어 제목이
           같은 말을 두 번 했고, ＋사이클 은 결과서 옆으로 옮겼다. 화면 위쪽
           64px 이 표로 돌아왔다. */}
-      <div className="cu-grid" style={{ gridTemplateColumns: cols }}>
+      <div ref={gridRef} className="cu-grid" style={{ gridTemplateColumns: cols }}>
         {!wide && col1 && (
           <section className="panel cu-tree">
             <div className="cu-th">
@@ -1754,24 +1725,17 @@ export default function CyclesUni({
                 </div>
               ))}
             </div>
-            {/* 끄는 손잡이 — 열 사이에 선다. 폭은 계정별로 남는다(지시).
-                두 번 누르면 밑값(280)으로 돌아온다: 끌다 보면 화면 밖으로
-                밀어 버리기 쉬운데, 되돌릴 길이 없으면 새로고침밖에 없다. */}
-            <div
-              className="cu-hsplit"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="폴더 열 너비"
-              title="끌어서 너비 조절 · 두 번 누르면 되돌림"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                dragRef.current = { x: e.clientX, w: w1 }
-                document.body.style.userSelect = 'none'
-                document.body.style.cursor = 'col-resize'
-              }}
-              onDoubleClick={() => setW1(280)}
-            />
           </section>
+        )}
+
+        {/* 두 판 사이 이동바 — **다른 화면과 같은 부품**(지시). 잡히는 폭도
+            손잡이 그림도 REQ-Coverage 와 한 벌이다. */}
+        {!wide && col1 && (
+          <Resizer
+            label="폴더 열 너비 조절"
+            onResize={setW1}
+            getOrigin={() => gridRef.current?.getBoundingClientRect().left ?? 0}
+          />
         )}
 
         {!wide && (

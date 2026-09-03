@@ -19,33 +19,9 @@
 
 /* ── 1열 트리 ── */
 /* 끄는 손잡이를 오른쪽 가장자리에 얹으려고 자리를 잡아 둔다 */
-.cu-tree { overflow: hidden; position: relative; }
+.cu-tree { overflow: hidden; }
 
-/* 열 사이 손잡이 — 보이지 않다가 손이 가면 드러난다. 늘 선이 그어져 있으면
-   패널 테두리와 겹쳐 두 겹으로 읽힌다. 잡히는 폭(9px)은 그림보다 넓게 —
-   1px 선을 정확히 짚게 하면 잡다가 놓친다. */
-.cu-hsplit {
-  position: absolute;
-  top: 0;
-  right: -5px;
-  width: 9px;
-  height: 100%;
-  z-index: 3;
-  cursor: col-resize;
-  background: transparent;
-}
-.cu-hsplit::after {
-  content: '';
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 4px;
-  width: 1px;
-  background: transparent;
-  transition: background .12s ease;
-}
-.cu-hsplit:hover::after,
-.cu-hsplit:active::after { background: var(--c-primary, #1a73e8); }
+/* 이동바는 공용 부품(Resizer)이 제 CSS 를 들고 온다 — 손수 만든 것을 걷었다 */
 .cu-th {
   flex: none;
   display: flex;
