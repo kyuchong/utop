@@ -11,10 +11,12 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/api/client'
+import { api, apiFetch, categoryApi } from '@/api/client'
 import { normMode } from '@/lib/runMode'
+import { IconChevron } from '@/components/icons'
+import { buildCategoryTree, reqPk } from '@/types'
+import type { CategoryTreeNode, Requirement, TestCaseMeta } from '@/types'
 import type { CycleMeta } from '@/pages/Cycles'
-import type { TestCaseMeta } from '@/types'
 import './PickItems.css'
 
 type Tab = 'all' | 'a' | 'm'
@@ -37,6 +39,10 @@ export default function PickItems({
   const [busy, setBusy] = useState(false)
   /** 이 모델 것만 볼까 — 66건 중에서 고르려면 좁힐 자리가 필요하다 */
   const [mine, setMine] = useState(true)
+  /** 고른 요구사항 폴더 — 그 아래(하위 포함) 시험만 남긴다 */
+  const [catSel, setCatSel] = useState('')
+  /** 펼친 폴더 */
+  const [openCat, setOpenCat] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose()
@@ -77,6 +83,45 @@ export default function PickItems({
     },
   })
 
+  /* 왼쪽 폴더 — **요구사항 분류**다. 옛 팝업이 이걸 갖고 있었고, 없으면
+     57건을 스크롤로만 뒤져야 한다(지적: 폴더트리가 사라졌다). */
+  const reqQ = useQuery({
+    queryKey: ['reqs'],
+    staleTime: 60_000,
+    queryFn: ({ signal }) => api.listRequirements(signal),
+  })
+  const catQ = useQuery({
+    queryKey: ['req-categories'],
+    staleTime: 60_000,
+    queryFn: ({ signal }) => categoryApi.list(signal),
+  })
+  const reqs: Requirement[] = useMemo(() => reqQ.data?.reqs ?? [], [reqQ.data])
+  const cats = useMemo(() => buildCategoryTree(catQ.data?.categories ?? []), [catQ.data])
+
+  /** 그 폴더(하위 포함) 아래 요구사항의 pk — 이걸로 시험을 좁힌다 */
+  const underCat = useMemo(() => {
+    if (!catSel) return null
+    const ids = new Set<string>()
+    const walk = (n: CategoryTreeNode) => {
+      ids.add(n.id)
+      n.children.forEach(walk)
+    }
+    const find = (list: CategoryTreeNode[]): CategoryTreeNode | undefined => {
+      for (const n of list) {
+        if (n.id === catSel) return n
+        const hit = find(n.children)
+        if (hit) return hit
+      }
+      return undefined
+    }
+    const start = find(cats)
+    if (start) walk(start)
+    const pks = new Set<string>()
+    for (const r of reqs)
+      if (ids.has(String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || ''))) pks.add(reqPk(r))
+    return pks
+  }, [catSel, cats, reqs])
+
   /** 자동·수동 — run_type 이 정본 */
   const isMan = (t: TestCaseMeta) => normMode(String(t.run_type ?? t.kind ?? '')) === '수동'
 
@@ -91,7 +136,13 @@ export default function PickItems({
     )
   }, [all, cycle])
 
-  const pool = mine ? ofModel : all
+  /** 폴더 셈의 바탕 — 모델까지만 좁힌다(폴더로 또 좁히면 제 셈이 0이 된다) */
+  const base = mine ? ofModel : all
+  const byCat = useMemo(
+    () => (underCat ? ofModel.filter((t) => underCat.has(String(t.req_id ?? ''))) : ofModel),
+    [ofModel, underCat],
+  )
+  const pool = mine ? byCat : underCat ? all.filter((t) => underCat.has(String(t.req_id ?? ''))) : all
   const nAuto = pool.filter((t) => !isMan(t)).length
   const nMan = pool.length - nAuto
 
@@ -155,6 +206,61 @@ export default function PickItems({
     }
   }
 
+  /** 폴더 한 마디 — 그 아래에 시험이 하나도 없으면 안 그린다 */
+  const renderCat = (n: CategoryTreeNode): React.ReactNode => {
+    const deep = (x: CategoryTreeNode): number => {
+      const ids = new Set<string>()
+      const walk = (y: CategoryTreeNode) => {
+        ids.add(y.id)
+        y.children.forEach(walk)
+      }
+      walk(x)
+      const pks = new Set(
+        reqs
+          .filter((r) => ids.has(String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '')))
+          .map(reqPk),
+      )
+      return base.filter((t) => pks.has(String(t.req_id ?? ''))).length
+    }
+    const n2 = deep(n)
+    if (!n2) return null
+    const open = openCat.has(n.id)
+    return (
+      <div key={n.id}>
+        <div
+          className={`pki-cat${catSel === n.id ? ' on' : ''}`}
+          role="button"
+          tabIndex={0}
+          style={{ paddingLeft: 4 + (n.depth - 1) * 12 }}
+          /* 누르는 것은 **고르기**다. 접고 펴는 것은 화살표 몫 — 누를 때마다
+             접히면 고르러 간 손이 트리를 흔든다. */
+          onClick={() => setCatSel(catSel === n.id ? '' : n.id)}
+          onKeyDown={(e) => e.key === 'Enter' && setCatSel(catSel === n.id ? '' : n.id)}
+        >
+          <button
+            type="button"
+            className={`pki-caret${open ? ' open' : ''}${n.children.length ? '' : ' none'}`}
+            aria-label={open ? '접기' : '펼치기'}
+            onClick={(e) => {
+              e.stopPropagation()
+              setOpenCat((cur) => {
+                const x = new Set(cur)
+                if (x.has(n.id)) x.delete(n.id)
+                else x.add(n.id)
+                return x
+              })
+            }}
+          >
+            <IconChevron />
+          </button>
+          <span className="nm">{n.name}</span>
+          <span className="c">{n2}</span>
+        </div>
+        {open && n.children.map(renderCat)}
+      </div>
+    )
+  }
+
   const where = [cycle.version || cycle.name, cycle.customer, cycle.model]
     .filter(Boolean)
     .join(' · ')
@@ -212,6 +318,24 @@ export default function PickItems({
           </label>
         </div>
 
+        <div className="pki-body">
+        <aside className="pki-tree">
+          <div className="pki-treehd">
+            요구사항
+            {!!catSel && (
+              <button type="button" className="pki-clear" onClick={() => setCatSel('')}>
+                전체 보기
+              </button>
+            )}
+          </div>
+          <div className="pki-treebody">
+            {catQ.isLoading ? (
+              <div className="pki-none">불러오는 중…</div>
+            ) : (
+              cats.map(renderCat)
+            )}
+          </div>
+        </aside>
         <div className="pki-rows">
           {!ready || tcQ.isLoading ? (
             <div className="pki-none">불러오는 중…</div>
@@ -234,6 +358,7 @@ export default function PickItems({
               )
             })
           )}
+        </div>
         </div>
 
         <footer className="pki-foot">
