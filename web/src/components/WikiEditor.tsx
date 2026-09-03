@@ -220,6 +220,8 @@ export default function WikiEditor({
   }, [meName])
 
   useEffect(() => {
+    // 진단용 — 콘솔에서 연결 상태를 들여다본다(확인 뒤 걷는다)
+    ;(window as unknown as { __wikiProv?: unknown }).__wikiProv = provider
     return () => {
       provider.destroy()
       ydoc.destroy()
