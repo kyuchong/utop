@@ -11,7 +11,10 @@
 .cu-top h1 { margin: 0; font-size: 17px; font-weight: 700; color: var(--c-text); }
 .cu-sub { font-size: 12px; color: var(--c-text-faint); }
 
-.cu-grid { flex: 1; min-height: 0; display: grid; gap: 12px; align-items: stretch; }
+/* 열 사이는 **6px**(지시: 간격이 넓다). REQ-Coverage 가 22 → 10 → 6 으로
+   줄여 앉힌 그 값이다 — 세 화면이 같은 간격이라야 옮겨 다닐 때 눈이
+   흔들리지 않는다([[ui-unify-queue]]). */
+.cu-grid { flex: 1; min-height: 0; display: grid; gap: 6px; align-items: stretch; }
 .cu-grid > * { min-width: 0; min-height: 0; }
 
 /* ── 1열 트리 ── */
