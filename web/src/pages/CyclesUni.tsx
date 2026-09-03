@@ -29,7 +29,8 @@ import CycleInsight from '@/components/cycle/CycleInsight'
 import TestSummary from '@/components/cycle/TestSummary'
 import NTable from '@/components/ntable/NTable'
 import { EMPTY_VIEW } from '@/components/ntable/types'
-import type { NCol, NRow, NView } from '@/components/ntable/types'
+import { autoColor } from '@/components/ntable/palette'
+import type { NCol, NOption, NRow, NView } from '@/components/ntable/types'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import MakeCycle from '@/components/cycle/MakeCycle'
 import PickItems from '@/components/cycle/PickItems'
@@ -225,6 +226,40 @@ export default function CyclesUni({
       return (await r.json()) as { cycles?: CycleMeta[]; items?: CycleMeta[] }
     },
   })
+  /** 선택지·색의 정본은 **설정의 코드표**다(REQ-Coverage 와 같은 것) */
+  const codesQ = useQuery({
+    queryKey: ['codes'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as {
+        items: Array<{ kind: string; value: string; note?: string | null }>
+        kinds?: Record<string, string>
+      }
+    },
+  })
+  /** 그 종류의 선택지를 노션 표가 쓰는 꼴로 — 색은 note 의 hex, 없으면 자동 */
+  const optsOf = useMemo(
+    () => (kind: string): NOption[] =>
+      (codesQ.data?.items ?? [])
+        .filter((i) => i.kind === kind)
+        .map((i) => {
+          let color = ''
+          try {
+            const n = JSON.parse(String(i.note ?? '')) as { color?: string }
+            color = String(n?.color ?? '')
+          } catch {
+            /* note 가 색이 아닌 것도 있다 — 그때는 자동으로 고른다 */
+          }
+          return { value: i.value, color: color || autoColor(i.value) }
+        }),
+    [codesQ.data],
+  )
+  /** 설정이 지은 열 이름 — 「유형·상태·중요도·타입·구분」 */
+  const kindLabel = (kind: string, fb: string) =>
+    String((codesQ.data?.kinds ?? {})[kind] ?? fb)
+
   /** 항목 표의 제목·방식 — 실행에는 tcid 만 담긴다 */
   const tcQ = useQuery({
     queryKey: ['tc-meta'],
@@ -438,7 +473,6 @@ export default function CyclesUni({
     }
   }, [sel, shown, items])
 
-  const itemsLoading = isVer && tab === 'it' && detailQs.some((q) => q.isLoading)
   /** Test Summary 초안에 실을 실패 목록 */
   const fails = useMemo(
     () =>
@@ -981,36 +1015,6 @@ export default function CyclesUni({
   }
 
   /**
-   * 담긴 시험 항목을 **사이클에서 뺀다.**
-   *
-   * 이미 뜬 실행에서는 안 빠진다 — 실행은 만들 때 항목을 복사해 갔고, 그
-   * 결과가 붙어 있다. 그 말을 그대로 한다.
-   */
-  async function dropItem(tcid: string) {
-    const c = homePlan
-    if (!c || !tcid) return
-    if (!window.confirm(`「${tcid}」 을 이 사이클에서 뺍니다.\n이미 뜬 실행에서는 안 빠집니다.`))
-      return
-    try {
-      const r = await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`)
-      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
-      const full = (await r.json()) as Record<string, unknown> & {
-        items?: Array<{ tcid?: string }>
-      }
-      const left = (full.items ?? []).filter((x) => String(x?.tcid ?? '') !== tcid)
-      const w = await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`, {
-        method: 'POST',
-        body: JSON.stringify({ ...full, items: left }),
-      })
-      if (!w.ok) throw new Error('빼지 못했습니다')
-      await plansQ.refetch()
-      void qc.invalidateQueries({ queryKey: ['cycle-full', c.id] })
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : String(e))
-    }
-  }
-
-  /**
    * 버전 마디를 지운다 — **그 자리는 사이클 한 건**이다.
    *
    * 전에는 실행만 지웠다. 그런데 사이클이 곧 버전 마디가 된 뒤로는,
@@ -1254,6 +1258,133 @@ export default function CyclesUni({
       }),
     [shown, planOf],
   )
+
+  /**
+   * 시험 항목 표 — **REQ-Coverage 와 같은 구성**(지시).
+   *
+   * ID · 제목 · 모델그룹 · 모델명 · 결과 · REQ Map · 유형 · 상태 ·
+   * 중요도 · 타입 · 구분. 이름과 선택지는 **설정의 코드표**가 정본이라
+   * 두 화면이 같은 말을 쓴다. 여기에 이 사이클에서만 뜻이 있는 것 —
+   * 판정 시각 · 실행 — 을 뒤에 더한다.
+   */
+  const IT_COLS: NCol[] = useMemo(
+    () => [
+      { key: 'tcid', label: 'ID', type: 'text', width: 116, fixed: true },
+      { key: 'name', label: '제목', type: 'text', width: 380, fixed: true },
+      { key: 'model_group', label: '모델그룹', type: 'text', width: 96 },
+      { key: 'model', label: '모델명', type: 'text', width: 88 },
+      { key: 'result', label: '결과', type: 'text', width: 88 },
+      { key: 'req', label: 'REQ Map', type: 'text', width: 112 },
+      { key: 'at', label: '판정 시각', type: 'date', width: 128 },
+      { key: 'run', label: '실행', type: 'text', width: 128 },
+      { key: 'type', label: kindLabel('tc_type', '유형'), type: 'select', width: 92,
+        options: optsOf('tc_type') },
+      { key: 'status', label: kindLabel('tc_status', '상태'), type: 'select', width: 92,
+        options: optsOf('tc_status') },
+      { key: 'severity', label: kindLabel('tc_severity', '중요도'), type: 'select', width: 92,
+        options: optsOf('tc_severity') },
+      { key: 'run_type', label: kindLabel('tc_run_type', '타입'), type: 'select', width: 92,
+        options: optsOf('tc_run_type') },
+      { key: 'origin', label: kindLabel('tc_origin', '구분'), type: 'select', width: 92,
+        options: optsOf('tc_origin') },
+    ],
+    [optsOf, kindLabel],
+  )
+  const [itPref, setItPref] = useState<{
+    hidden: string[]
+    width: Record<string, number>
+    order: string[]
+  }>(() => {
+    try {
+      const raw = prefGet('utop.ntb.cyc.itcols')
+      const j = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+      return {
+        hidden: Array.isArray(j.hidden) ? (j.hidden as string[]) : [],
+        width: (j.width as Record<string, number>) ?? {},
+        order: Array.isArray(j.order) ? (j.order as string[]) : [],
+      }
+    } catch {
+      return { hidden: [], width: {}, order: [] }
+    }
+  })
+  useEffect(() => {
+    try {
+      prefSet('utop.ntb.cyc.itcols', JSON.stringify(itPref))
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }, [itPref])
+  const itCols: NCol[] = useMemo(() => {
+    const has = new Set(itPref.hidden)
+    const touched = itPref.hidden.length > 0 || itPref.order.length > 0
+    const cols = IT_COLS.map((c) => ({
+      ...c,
+      hidden: c.fixed ? false : touched ? has.has(c.key) : c.hidden,
+      width: itPref.width[c.key] ?? c.width,
+    }))
+    const keys = new Set(cols.map((c) => c.key))
+    const fits = itPref.order.length === cols.length && itPref.order.every((k) => keys.has(k))
+    if (!fits) return cols
+    const at = (k: string) => {
+      const i2 = itPref.order.indexOf(k)
+      return i2 < 0 ? 999 : i2
+    }
+    return [...cols].sort((a, b) => at(a.key) - at(b.key))
+  }, [IT_COLS, itPref])
+  const [itView, setItView] = useState<NView>(EMPTY_VIEW)
+  const itRows: NRow[] = useMemo(
+    () =>
+      items.map((it) => {
+        const meta = tcOf.get(it.tcid)
+        return {
+          __id: it.tcid,
+          tcid: it.tcid,
+          name: it.title,
+          model_group: String(meta?.model_group ?? ''),
+          model: String(meta?.model ?? ''),
+          /* 거르기·정렬이 읽을 값은 글자로 — 알약은 renderCell 이 그린다 */
+          result: (VERDICT[it.v] ?? { t: '미실행' }).t,
+          req: String(meta?.req_id ?? ''),
+          at: it.at,
+          run: it.run,
+          type: String(meta?.type ?? ''),
+          status: String(meta?.status ?? ''),
+          severity: String(meta?.severity ?? ''),
+          run_type: String(meta?.run_type ?? meta?.kind ?? ''),
+          origin: String(meta?.origin ?? ''),
+        }
+      }),
+    [items, tcOf],
+  )
+
+  /** 고른 항목을 사이클에서 뺀다 — 표의 일괄 작업이 부른다 */
+  async function dropItems(ids: string[]) {
+    const c = homePlan
+    if (!c || !ids.length) return
+    if (
+      !window.confirm(
+        `시험 항목 ${ids.length}건을 이 사이클에서 뺍니다.\n이미 뜬 실행에서는 안 빠집니다.`,
+      )
+    )
+      return
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`)
+      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      const full = (await r.json()) as Record<string, unknown> & {
+        items?: Array<{ tcid?: string }>
+      }
+      const left = (full.items ?? []).filter((x) => !ids.includes(String(x?.tcid ?? '')))
+      const w = await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...full, items: left }),
+      })
+      if (!w.ok) throw new Error('빼지 못했습니다')
+      await plansQ.refetch()
+      void qc.invalidateQueries({ queryKey: ['cycle-full', c.id] })
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   const runTable = (
     <div className="cu-sec cu-ntb">
@@ -1820,91 +1951,65 @@ export default function CyclesUni({
                     {shown.length > 2 && runTable}
                   </div>
                 ) : (
-                  <div className="cu-sec cu-list">
-                    {/* 항목을 담는 길은 플랜 자리에만 있었다 — 정작 항목을
-                        보고 있는 이 자리에서 「하나 더 넣자」 가 안 됐다. */}
-                    <div className="cu-itbar">
-                      <span className="cu-m">시험 항목 {items.length}건</span>
-                      <span className="cu-sp" />
-                      <button
-                        type="button"
-                        className="btn small cu-teal"
-                        disabled={!homePlan}
-                        title={
-                          homePlan
-                            ? `사이클 ${homePlan.cid ?? homePlan.name ?? homePlan.id} 에 담습니다 — 이미 만든 실행에는 안 들어갑니다`
-                            : '이 자리에 사이클이 없습니다'
+                  <div className="cu-sec cu-ntb">
+                    <NTable
+                      columns={itCols}
+                      rows={itRows}
+                      view={itView}
+                      onView={setItView}
+                      /* 이름·타입·선택지는 **설정**이 정본이다(REQ-Coverage 와
+                         같은 코드표) — 여기서 고치게 두면 두 화면이 갈린다. */
+                      lockDefs
+                      onColumns={(cs) =>
+                        setItPref({
+                          hidden: cs.filter((c) => c.hidden).map((c) => c.key),
+                          width: Object.fromEntries(
+                            cs.filter((c) => c.width != null).map((c) => [c.key, c.width as number]),
+                          ),
+                          order: cs.map((c) => c.key),
+                        })
+                      }
+                      onCell={() => undefined}
+                      readOnlyKeys={itCols
+                        .filter((c) => c.type !== 'select')
+                        .map((c) => c.key)}
+                      idKey="tcid"
+                      titleKey="name"
+                      toolbarLeft={
+                        <button
+                          type="button"
+                          className="btn small cu-teal"
+                          disabled={!homePlan}
+                          title={
+                            homePlan
+                              ? `사이클 ${homePlan.cid ?? homePlan.name ?? homePlan.id} 에 담습니다 — 이미 뜬 실행에는 안 들어갑니다`
+                              : '이 자리에 사이클이 없습니다'
+                          }
+                          onClick={() => homePlan && setAddTo(homePlan.id)}
+                        >
+                          ＋ 항목 담기
+                        </button>
+                      }
+                      /* ID 를 누르면 그 항목이 담긴 실행을 곁에 연다 */
+                      onOpen={(id) => {
+                        const it = items.find((x) => x.tcid === id)
+                        if (it?.runId) setOpenRun(it.runId)
+                      }}
+                      onBulk={(act, ids) => {
+                        if (act !== 'del') {
+                          window.alert('이 일괄 작업은 아직 없습니다.')
+                          return
                         }
-                        onClick={() => homePlan && setAddTo(homePlan.id)}
-                      >
-                        ＋ 사이클에 항목 담기
-                      </button>
-                    </div>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th style={{ width: '15%' }}>ID</th>
-                          <th>제목</th>
-                          <th style={{ width: '9%' }}>방식</th>
-                          <th style={{ width: '9%' }}>결과</th>
-                          <th style={{ width: '15%' }}>판정 시각</th>
-                          <th style={{ width: '15%' }}>실행</th>
-                          <th style={{ width: '8%' }} />
-                          <th style={{ width: '7%' }} />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((it, i) => {
-                          const v = VERDICT[it.v] ?? { k: 'w', t: '미실행' }
-                          return (
-                            <tr key={`${it.runId}-${it.tcid}-${i}`}>
-                              <td className="cu-mono">{it.tcid}</td>
-                              <td className="cu-ell">{it.title || '—'}</td>
-                              <td>
-                                <span className={`cu-pill ${it.man ? 'amber' : 'blue'}`}>
-                                  {it.man ? '✋ 수동' : '⚙ 자동'}
-                                </span>
-                              </td>
-                              <td>
-                                <span className={`cu-st ${v.k}`}>{v.t}</span>
-                              </td>
-                              <td className="cu-sm">{it.at || '–'}</td>
-                              <td className="cu-mono">{it.run}</td>
-                              <td>
-                                {it.runId ? (
-                                  <button
-                                    type="button"
-                                    className="btn small"
-                                    onClick={() => setOpenRun(it.runId)}
-                                  >
-                                    {it.man ? '판정' : '▶ 실행'}
-                                  </button>
-                                ) : (
-                                  <span className="cu-sm">실행 없음</span>
-                                )}
-                              </td>
-                              <td>
-                                <button
-                                  type="button"
-                                  className="btn small"
-                                  title="이 사이클에서 뺍니다"
-                                  onClick={() => void dropItem(it.tcid)}
-                                >
-                                  빼기
-                                </button>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                        {!items.length && (
-                          <tr>
-                            <td colSpan={8} className="cu-none">
-                              {itemsLoading ? '불러오는 중…' : '항목이 없습니다.'}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        void dropItems(ids)
+                      }}
+                      renderCell={(row, col) => {
+                        if (col.key !== 'result') return undefined
+                        const it = items.find((x) => x.tcid === row.__id)
+                        if (!it) return undefined
+                        const v = VERDICT[it.v] ?? { k: 'w', t: '미실행' }
+                        return <span className={`cu-st ${v.k}`}>{v.t}</span>
+                      }}
+                    />
                   </div>
                 )}
               </>
