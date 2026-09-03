@@ -173,9 +173,14 @@
 .cu-run { display: flex; min-width: 0; min-height: 0; }
 .cu-run > * { flex: 1; min-width: 0; min-height: 0; }
 .cu-sp { flex: 1; }
-/* 열 접기 단추 — **REQ-Coverage 의 .rqtc-ib 와 같은 치수·같은 그림**(지시).
+/* 열 접기 단추 — **REQ-Coverage 의 .rqtc-ib + .rqtc-foldb 를 그대로**(지시).
    같은 일을 하는 자리가 화면마다 다르게 생기면 옮겨 다닐 때 눈이 흔들린다
-   ([[ui-unify-queue]]). 28px 한 치수, 아이콘 19px. */
+   ([[ui-unify-queue]]).
+
+   치수만 맞추고 색을 두고 왔더니 한쪽은 연파랑 바탕에 파란 그림, 한쪽은
+   맨바닥에 회색 그림이었다(지적). 저쪽은 **칠해진 상태가 밑값**이다 —
+   하루에도 여러 번 누르는 자리라 눈에 잡혀야 한다. 옅은 상자만으로 걸리므로
+   테두리는 없다. */
 .cu-colbtn {
   flex: none;
   width: 28px;
@@ -185,14 +190,15 @@
   justify-content: center;
   border: 1px solid transparent;
   border-radius: 6px;
-  background: transparent;
-  color: var(--c-text-muted);
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
   font: inherit;
   font-size: 15px;
   cursor: pointer;
 }
-.cu-colbtn svg { width: 19px; height: 19px; }
-.cu-colbtn:hover { background: var(--c-surface-alt, #f4f6f6); color: var(--c-text); }
+/* 그림이 눌리지 않게 — inline-flex 안이라 가로가 14px 로 찌그러져 있었다 */
+.cu-colbtn svg { flex: none; width: 16px; height: 16px; }
+.cu-colbtn:hover { background: var(--c-primary); border-color: transparent; color: #fff; }
 /* 실행 화면은 `.panel` 안에 서는 것을 전제로 만들어졌다 — 그 자리를 준다 */
 
 /* ── 머리줄 단추·플랜 고르기 ─────────────────────────────────────── */
