@@ -134,6 +134,19 @@ async def plan(c) -> dict:
     # 모델그룹마다 어디까지 썼나 — 이미 새 모양인 것들의 최대 순번에서 이어 간다
     used: dict[tuple[str, str], int] = {}
 
+    def keep(old_id: str, mg: str, letter: str) -> str:
+        """**번호는 그대로, 이음쇠만 바꾼다.**
+
+        앞머리(모델그룹)와 계열이 이미 맞으면 이 ID 는 자리를 옳게 찾은
+        것이고, 바꿀 것은 이음쇠뿐이다. 그런데도 새 번호를 매기면
+        `E61xx_R0001` 이 `E61xx-R0035` 가 되어 — 위키·Jira·문서에 적어 둔
+        번호가 통째로 어긋난다(리허설에서 잡았다).
+
+        앞머리가 달라졌을 때만(프로젝트 모델그룹을 고친 경우) 새로 매긴다.
+        """
+        m = re.match(rf"^{re.escape(mg)}_{letter}(\d{{4}})$", old_id or "")
+        return f"{mg}-{letter}{m.group(1)}" if m else ""
+
     def take(mg: str, letter: str) -> str:
         k = (mg, letter)
         used[k] = used.get(k, 0) + 1
@@ -166,7 +179,8 @@ async def plan(c) -> dict:
                             "why": "프로젝트에 안 속한 폴더에 있어 모델그룹을 모릅니다"})
             continue
         moves.append({"kind": "req", "pk": r["id"], "old": old,
-                      "new": take(mg, "R"), "name": r["title"] or ""})
+                      "new": keep(old, mg, "R") or take(mg, "R"),
+                      "name": r["title"] or ""})
 
     # ── 시험항목 ──────────────────────────────────────────────
     for r in await c.fetch(
@@ -187,8 +201,8 @@ async def plan(c) -> dict:
                             "why": "모델그룹·모델명이 비어 있어 앞머리를 못 정합니다"})
             continue
         moves.append({"kind": "tc", "pk": old, "old": old,
-                      "new": take(mg, letter), "name": r["name"] or "",
-                      "letter": letter})
+                      "new": keep(old, mg, letter) or take(mg, letter),
+                      "name": r["name"] or "", "letter": letter})
 
     # ── 플랜 · 실행 ─────────────────────────────────────────
     for r in await c.fetch(
@@ -203,7 +217,7 @@ async def plan(c) -> dict:
             skipped.append({"kind": "cycle", "pk": r["id"], "old": old,
                             "why": f"모델 '{r['model'] or ''}' 의 모델그룹을 못 찾습니다"})
             continue
-        new = take(mg, "P")
+        new = keep(old, mg, "P") or take(mg, "P")
         execs = []
         for i, it in enumerate(data.get("items") or [], start=1):
             execs.append({"old": it.get("ceid") or "", "new": f"{new}-E{i:03d}"})
