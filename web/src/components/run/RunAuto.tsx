@@ -45,6 +45,8 @@ export interface AutoItem {
   /** 이 항목의 결과 — 아이콘과 알약이 이걸 그린다 */
   verdict: 'p' | 'f' | 'b' | 'n'
   took?: string
+  /** 언제 판정했나 — `2026-09-03 18:04:42`. 목업이 이 자리에 적는 값이다 */
+  at?: string
 }
 
 type SlotId = 'LT' | 'LB' | 'RT' | 'RB'
@@ -539,10 +541,13 @@ export default function RunAuto({
                   <Verdict v={it.verdict} />
                   <span className="ra-tcid">{it.id}</span>
                   <span className="ra-tcnm">{it.name}</span>
-                  {/* 목업의 「18s · 2m12s」 자리 — 이 항목이 얼마나 걸렸나 */}
-                  {it.took ? (
-                    <span className="ra-tct" title="이 항목을 도는 데 걸린 시간">
-                      {it.took}
+                  {/* 목업이 이 자리에 적는 것은 **판정 시각**이다(지적:
+                      년·월·일·시·분·초). 걸린 시간은 그 뒤에 덧붙인다 —
+                      「언제」 가 먼저고 「얼마나」 는 곁가지다. */}
+                  {it.at ? (
+                    <span className="ra-tct" title={it.took ? `걸린 시간 ${it.took}` : '판정 시각'}>
+                      {it.at}
+                      {it.took ? <i className="tk"> · {it.took}</i> : null}
                     </span>
                   ) : null}
                   {it.id === runItem ? <RunMark /> : (

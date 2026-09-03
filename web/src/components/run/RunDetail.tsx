@@ -606,6 +606,20 @@ export default function RunDetail({
 
   /** 이 항목을 도는 데 걸린 시간 — 스텝들의 걸린 시간을 더한다.
       실행기는 항목 단위 시간을 따로 안 준다. 안 돌린 항목은 비운다. */
+  /**
+   * 이 항목을 **언제 판정했나** — 시험 항목 판에 그대로 적는다(목업).
+   *
+   * 자동은 실행 로그의 `at`, 수동은 스텝마다의 pmeta 에 남는다. 둘 다
+   * 없으면 빈 글자 — 아직 안 돌린 것이다.
+   */
+  const atOf = (id: string): string => {
+    const a = String((run?.logs ?? {})[id]?.at ?? '')
+    if (a) return a.replace('T', ' ').slice(0, 19)
+    const pm = [...((run?.pmeta ?? {})[id] ?? [])].reverse()
+    const b = String(pm.find((m) => m?.at)?.at ?? '')
+    return b ? b.replace('T', ' ').slice(0, 19) : ''
+  }
+
   const tookOf = (id: string): string => {
     const st = ((run?.logs ?? {})[id]?.steps ?? []) as Array<Record<string, unknown>>
     let ms = 0
@@ -944,6 +958,7 @@ export default function RunDetail({
               /* 도는 중인 항목은 벽시계로(위 liveTook 주석) — 기록에는
                  지난 실행의 값이 남아 있다 */
               took: jobLive && id === runId2 ? liveTook(id) : tookOf(id),
+              at: atOf(id),
             }
           })}
           cur={cur}

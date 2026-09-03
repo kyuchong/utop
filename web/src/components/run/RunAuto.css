@@ -258,6 +258,8 @@
 .ra-st.done { background: #eef3f5; color: #5b7176; }
 /* 항목마다 걸린 시간 — 결과 알약 왼쪽에 조용히 */
 .ra-tct { flex: none; font-size: 10.5px; color: #8c9da3; font-variant-numeric: tabular-nums; }
+/* 판정 시각 옆의 걸린 시간 — 곁가지라 더 옅게 */
+.ra-tct .tk { font-style: normal; color: #a9b8bd; }
 
 /* 시험 항목 줄 — 칸을 좁혀 이름에 자리를 준다(지시) */
 /* 마지막 칸을 42px 로 못 박아 두어, 커진 RUN 배지가 잘렸다(RU 까지만 보였다).
