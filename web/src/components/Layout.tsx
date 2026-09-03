@@ -13,6 +13,7 @@ import {
   IconInstrument,
   IconRack,
   IconSettings,
+  IconSearch,
   IconSparkle,
 } from './icons'
 import NotifyBell from '@/components/NotifyBell'
@@ -98,10 +99,20 @@ export const NAV: NavGroup[] = [
   {
     title: 'AI',
     items: [
-      { key: 'ai-tc', label: 'AI', Icon: IconSparkle },
-      /* Knowledge 는 뺐다(지적: 이상한 화면). 화면도 자료도 없는데 메뉴에만
-         있어서, 누를 때마다 「아직 안 옮겼습니다」 벽을 만났다. 하는 일도
-         Wiki 와 겹친다 — 문서는 Wiki 한 곳이다. */
+      /* **둘로 가른다**(지시) — 하는 일이 다르다.
+           Test AI       시험을 **만들고 고친다** (매뉴얼·시험항목 검색/생성/수정)
+           Knowledge AI  자료를 **찾는다** (Wiki 문서 · Release 의 Jira 이슈)
+         쓰기와 읽기라 묻는 말도 답하는 꼴도 다르다.
+
+         이름을 줄인 까닭 — 메뉴 글자 자리는 108px 인데
+         「Knowledge Assistant」 는 117px 이라 잘린다(재 보았다). 화면 안
+         제목에서는 길게 쓴다.
+
+         **전에 한 번 뺀 자리다**: 화면도 자료도 없이 메뉴에만 두어 누를
+         때마다 「아직 안 옮겼습니다」 벽을 만났다(지적). 그래서 이번에는
+         **무엇을 하는 자리인지 적힌 안내**를 함께 둔다 — 벽 대신 길잡이. */
+      { key: 'ai-tc', label: 'Test AI', Icon: IconSparkle },
+      { key: 'ai-kb', label: 'Knowledge AI', Icon: IconSearch },
     ],
   },
   {

@@ -14,7 +14,9 @@
     링크 없는 위키는 그냥 글 뭉치다. */
 /** run = 시험 실행(plan_run). 실행에만 주소가 없어서, 주소에 남아 있던
     옛 ?cycle= 이 되살아나 왼쪽 메뉴가 Plans 로 되돌아갔다(지적). */
-export type GotoKind = 'tc' | 'req' | 'cycle' | 'ce' | 'report' | 'cat' | 'wiki' | 'run'
+/** releases = Releases 화면 자체. Knowledge AI 가 「Jira 이슈는 저기서
+    찾으세요」 하고 보낼 곳이 필요하다 — 항목이 아니라 **화면**을 연다. */
+export type GotoKind = 'tc' | 'req' | 'cycle' | 'ce' | 'report' | 'cat' | 'wiki' | 'run' | 'releases'
 
 export function goto(kind: GotoKind, id: string): void {
   window.dispatchEvent(new CustomEvent('utop:goto', { detail: { kind, id } }))

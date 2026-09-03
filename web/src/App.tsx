@@ -8,6 +8,7 @@ import { useFreshBuild } from '@/components/useFreshBuild'
 import { goto, onGoto as onGotoEvent, reflectUrl } from '@/api/goto'
 import Dashboard from '@/pages/Dashboard'
 import ReqTc from '@/pages/ReqTc'
+import AiKb from '@/pages/AiKb'
 import Wiki from '@/pages/Wiki'
 import Releases from '@/pages/Releases'
 import Settings from '@/pages/Settings'
@@ -31,7 +32,7 @@ const PAGE_KEY = 'utop.page'
 const KNOWN_PAGES = new Set([
   'dashboard', 'wiki', 'reqtc', 'cycles', 'runs', 'executions',
   'devices', 'instruments', 'rackview',
-  'defects', 'releases', 'ai-tc', 'settings',
+  'defects', 'releases', 'ai-tc', 'ai-kb', 'settings',
 ])
 
 export default function App() {
@@ -237,6 +238,8 @@ export default function App() {
         } else if (kind === 'cat') {
           prefSet('utop.reqtc.cat', id)
           setPage('reqtc')
+        } else if (kind === 'releases') {
+          setPage('releases')
         } else if (kind === 'wiki') {
           prefSet('utop.wiki.open', id)
           setPage('wiki')
@@ -299,6 +302,10 @@ export default function App() {
         <Wiki />
       ) : page === 'ai-tc' ? (
         <AiTc />
+      ) : page === 'ai-kb' ? (
+        /* Knowledge AI — 자료를 **찾는** 쪽. 시험을 만드는 Test AI 와
+           묻는 말도 답하는 꼴도 달라 자리를 갈랐다(지시). */
+        <AiKb />
       ) : page === 'cycles' ? (
         <Cycles me={user} entry="cycles" />
       ) : page === 'runs' ? (
