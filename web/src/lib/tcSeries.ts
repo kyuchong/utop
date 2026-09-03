@@ -13,9 +13,13 @@
  * 것을 쓴다. 갈라지는 것은 **보이는 목록**뿐이다.
  */
 
-/** 이 시험이 Jira 이슈를 덮는 것인가 — `E61xx_V0001` 꼴 */
+/** 이 시험이 Jira 이슈를 덮는 것인가 — `E61xx-V0001` 꼴.
+ *
+ *  **옛 모양(`E61xx_V0001`)도 알아본다.** 이음쇠를 `_` 에서 `-` 로 바꿨는데
+ *  이미 매겨 둔 것이 남아 있다 — 여기서 옛 것을 못 알아보면 그 시험들이
+ *  하루아침에 REQ-Coverage 목록으로 쏟아진다. */
 export function isReleaseTc(tcid: unknown): boolean {
-  return /_V\d+$/.test(String(tcid ?? '').trim())
+  return /[_-]V\d+$/.test(String(tcid ?? '').trim())
 }
 
 /** 요구사항 쪽 목록에 설 것인가 — 릴리스 시험만 뺀다.

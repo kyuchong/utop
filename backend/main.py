@@ -5588,7 +5588,11 @@ async def _group_of_cat(c, cat_id: str) -> str:
 
 
 async def _next_id(c, mg: str, letter: str) -> str:
-    """다음 ID — **모델그룹 기준**(E61xx_R0001).
+    """다음 ID — **모델그룹 기준**(E61xx-R0001).
+
+    이음쇠는 **「-」** 다(지시). 옛 것은 「_」 였고(E61xx_R0001) 그대로 살아
+    있다 — ID 옮기기가 새 모양으로 데려온다. 여기서는 **새로 만드는 것만**
+    새 모양으로 낸다.
 
     앞머리는 모델그룹이고 순번은 그 그룹 안에서만 센다. 주차를 쓰던 옛
     규칙(REQ-2633-0016)은 모델그룹을 모를 때만 남긴다 — 프로젝트에 안 속한
@@ -5607,17 +5611,22 @@ async def _next_id(c, mg: str, letter: str) -> str:
         head = "REQ" if letter == "R" else "TC"
         prefix = "%s-%02d%02d-" % (head, iso[0] % 100, iso[1])
     else:
-        prefix = f"{mg}_{letter}"
+        prefix = f"{mg}-{letter}"
     col = "data->>'reqid'" if letter == "R" else "tcid"
     tbl = "req" if letter == "R" else "tc"
+    # **옛 모양(`_`)도 함께 센다.** 새 것만 보면 순번이 1부터 다시 시작해
+    # 옛 번호와 부딪친다 — 같은 그룹 안에서 번호는 하나여야 한다.
+    old_prefix = f"{mg}_{letter}" if mg else prefix
     rows = await c.fetch(
-        f"SELECT {col} AS v FROM {tbl} WHERE {col} LIKE $1", prefix + "%"
+        f"SELECT {col} AS v FROM {tbl} WHERE {col} LIKE $1 OR {col} LIKE $2",
+        prefix + "%", old_prefix + "%",
     )
     mx = 0
     for r in rows:
-        m = _r.match("^" + _r.escape(prefix) + r"(\d+)$", r["v"] or "")
-        if m:
-            mx = max(mx, int(m.group(1)))
+        for p in {prefix, old_prefix}:
+            m = _r.match("^" + _r.escape(p) + r"(\d+)$", r["v"] or "")
+            if m:
+                mx = max(mx, int(m.group(1)))
     return prefix + str(mx + 1).zfill(4)
 
 

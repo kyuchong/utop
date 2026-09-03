@@ -32,10 +32,31 @@ from __future__ import annotations
 import json
 import re
 
-# 새 모양인가 — 앞머리(모델그룹) + _ + R/T/C + 네 자리. 앞머리에 밑줄이나
-# 한글이 들어갈 수 있어(KT-E61xx·공공_UbiEnt) 글자 종류를 묶지 않는다.
-NEW_RE = re.compile(r"^.+_[RTC]\d{4}$")
-NEW_EXEC_RE = re.compile(r"^.+_C\d{4}-E\d{3}$")
+# 새 모양인가 — 앞머리(모델그룹) + **-** + R/T/V/P + 네 자리.
+# 앞머리에 밑줄이나 한글이 들어갈 수 있어(KT-E61xx·공공_UbiEnt) 글자 종류를
+# 묶지 않는다. 뒤에서부터 읽으므로 앞머리에 「-」 가 있어도 갈린다.
+#
+# **이음쇠를 「_」 에서 「-」 로 바꾼다**(지시). 옛 모양(E61xx_T0001)도 계속
+# 알아봐야 한다 — 이미 매겨 둔 것이 있고, 옮기기는 그것을 새 모양으로
+# 데려오는 일이다.
+NEW_RE = re.compile(r"^.+-[RTVP]\d{4}$")
+OLD_RE = re.compile(r"^(.+)[_-]([RTVP])(\d{4})$")
+NEW_EXEC_RE = re.compile(r"^.+-P\d{4}-E\d{3}$")
+
+#: 계열 — 요구사항 R · 요구사항을 덮는 시험 T · **Jira 이슈를 덮는 시험 V** ·
+#: 플랜 P. 셋을 따로 센다(지시: 「R/T/V 별도 관리」) — 한 통에 세면 릴리스
+#: 시험이 요구사항 시험 번호를 받아 가서 두 화면의 분리가 통째로 깨진다.
+def tc_letter(tcid: str, jira_key: str = "") -> str:
+    """이 시험이 **어느 계열**인가.
+
+    번호가 이미 말해 주면 그것을 따른다(옛 `_V`·새 `-V`). 번호가 아직
+    아무 계열도 아니면 Jira 이슈에 매여 있는지로 가른다 — Releases 가 만든
+    시험은 이슈 열쇠를 갖고 있다.
+    """
+    m = OLD_RE.match(tcid or "")
+    if m and m.group(2) in ("T", "V"):
+        return m.group(2)
+    return "V" if (jira_key or "").strip() else "T"
 
 
 def is_current(old: str, mg: str, letter: str) -> bool:
@@ -47,7 +68,7 @@ def is_current(old: str, mg: str, letter: str) -> bool:
     """
     if not mg:
         return False
-    return bool(re.match(rf"^{re.escape(mg)}_{letter}\d{{4}}$", old or ""))
+    return bool(re.match(rf"^{re.escape(mg)}-{letter}\d{{4}}$", old or ""))
 
 
 def pick_group(stored: str, model: str, m2g: dict[str, str], known: set[str]) -> str:
@@ -116,19 +137,22 @@ async def plan(c) -> dict:
     def take(mg: str, letter: str) -> str:
         k = (mg, letter)
         used[k] = used.get(k, 0) + 1
-        return f"{mg}_{letter}{used[k]:04d}"
+        return f"{mg}-{letter}{used[k]:04d}"
 
     async def seed(sql: str, letter: str):
+        """이미 쓰인 순번을 센다 — **옛 모양(`_`)과 새 모양(`-`) 둘 다.**
+        새 것만 세면 옮긴 뒤 번호가 1부터 다시 시작해 옛 것과 부딪친다."""
         for r in await c.fetch(sql):
             v = r[0] or ""
-            m = re.match(rf"^(.+)_{letter}(\d{{4}})$", v)
+            m = re.match(rf"^(.+)[_-]{letter}(\d{{4}})$", v)
             if m:
                 k = (m.group(1), letter)
                 used[k] = max(used.get(k, 0), int(m.group(2)))
 
-    await seed("SELECT reqid FROM req WHERE reqid ~ '_R[0-9]{4}$'", "R")
-    await seed("SELECT tcid FROM tc WHERE tcid ~ '_T[0-9]{4}$'", "T")
-    await seed("SELECT data->>'cid' FROM cycle WHERE data->>'cid' ~ '_P[0-9]{4}$'", "P")
+    await seed("SELECT reqid FROM req WHERE reqid ~ '[_-]R[0-9]{4}$'", "R")
+    await seed("SELECT tcid FROM tc WHERE tcid ~ '[_-]T[0-9]{4}$'", "T")
+    await seed("SELECT tcid FROM tc WHERE tcid ~ '[_-]V[0-9]{4}$'", "V")
+    await seed("SELECT data->>'cid' FROM cycle WHERE data->>'cid' ~ '[_-]P[0-9]{4}$'", "P")
 
     # ── 요구사항 ──────────────────────────────────────────────
     rg = await _req_group(c, m2g, known)
@@ -146,18 +170,25 @@ async def plan(c) -> dict:
 
     # ── 시험항목 ──────────────────────────────────────────────
     for r in await c.fetch(
-        "SELECT tcid, name, data->>'model_group' mg, data->>'model' md FROM tc ORDER BY created_at, tcid"
+        """SELECT tcid, name, data->>'model_group' mg, data->>'model' md,
+                  data->>'jira_issue_key' jk
+             FROM tc ORDER BY created_at, tcid"""
     ):
         old = r["tcid"]
         mg = pick_group(r["mg"] or "", r["md"] or "", m2g, known)
-        if is_current(old, mg, "T"):
+        # **계열을 지킨다**(지시: R/T/V 별도). 이것을 안 보고 전부 T 로
+        # 매기면 릴리스 시험이 요구사항 시험 번호를 받아 가서, 두 화면의
+        # 분리가 통째로 깨진다(실제로 그렇게 되어 있었다).
+        letter = tc_letter(old, r["jk"] or "")
+        if is_current(old, mg, letter):
             continue
         if not mg:
             skipped.append({"kind": "tc", "pk": old, "old": old,
                             "why": "모델그룹·모델명이 비어 있어 앞머리를 못 정합니다"})
             continue
         moves.append({"kind": "tc", "pk": old, "old": old,
-                      "new": take(mg, "T"), "name": r["name"] or ""})
+                      "new": take(mg, letter), "name": r["name"] or "",
+                      "letter": letter})
 
     # ── 플랜 · 실행 ─────────────────────────────────────────
     for r in await c.fetch(
@@ -193,7 +224,8 @@ async def apply(c, p: dict) -> dict:
     기계가 고치면 뜻이 상한다. 대신 id_alias 가 옛 ID 를 받아 준다.
     """
     moves = p["moves"]
-    n = {"req": 0, "tc": 0, "cycle": 0, "exec": 0, "defect": 0, "history": 0}
+    n = {"req": 0, "tc": 0, "cycle": 0, "exec": 0, "defect": 0, "history": 0,
+         "release": 0}
 
     async with c.transaction():
         for m in moves:
@@ -262,6 +294,44 @@ async def apply(c, p: dict) -> dict:
                 # 까닭도 같은 사고다.
                 await c.execute("UPDATE cycle SET data = $1 WHERE id = $2",
                                 data, row["id"])
+
+        # ── 릴리스 — **이슈에 붙여 둔 시험**도 따라 옮긴다(지시: Release 추가)
+        #
+        #    이것을 빠뜨리면 옮긴 뒤 Releases 화면에서 이슈에 붙여 둔 시험이
+        #    통째로 사라져 보인다 — 시험은 살아 있는데 이슈가 옛 번호를
+        #    가리키고 있어서다. 외래키가 없어 DB 가 안 막아 준다.
+        #
+        #    자료 모양: app_kv['release_summary'].releases["PROJ@@VER"][이슈키].tcs
+        if tcmap:
+            row = await c.fetchrow(
+                "SELECT data FROM app_kv WHERE name = 'release_summary'")
+            if row is not None:
+                kv = row["data"] if isinstance(row["data"], dict) else json.loads(row["data"] or "{}")
+                rel = kv.get("releases") if isinstance(kv, dict) else None
+                touched = False
+                if isinstance(rel, dict):
+                    for bag in rel.values():
+                        if not isinstance(bag, dict):
+                            continue
+                        for issue in bag.values():
+                            if not isinstance(issue, dict):
+                                continue
+                            tcs = issue.get("tcs")
+                            if not isinstance(tcs, list):
+                                continue
+                            for i, t in enumerate(tcs):
+                                # 글자로 든 것과 {tcid:…} 로 든 것이 섞여 있다
+                                if isinstance(t, str) and t in tcmap:
+                                    tcs[i] = tcmap[t]
+                                    n["release"] += 1
+                                    touched = True
+                                elif isinstance(t, dict) and t.get("tcid") in tcmap:
+                                    t["tcid"] = tcmap[t["tcid"]]
+                                    n["release"] += 1
+                                    touched = True
+                if touched:
+                    await c.execute(
+                        "UPDATE app_kv SET data = $1 WHERE name = 'release_summary'", kv)
     return n
 
 
@@ -281,14 +351,14 @@ async def repair(c) -> dict:
         r = await c.execute(
             """UPDATE req
                   SET data = jsonb_set(data, '{reqid}', to_jsonb(reqid))
-                WHERE reqid ~ '_R[0-9]{4}$'
+                WHERE reqid ~ '[_-]R[0-9]{4}$'
                   AND coalesce(data->>'reqid', '') <> reqid"""
         )
         fixed["req"] = int(r.split()[-1]) if r.split()[-1].isdigit() else 0
         r = await c.execute(
             """UPDATE tc
                   SET data = jsonb_set(data, '{tcid}', to_jsonb(tcid))
-                WHERE tcid ~ '_T[0-9]{4}$'
+                WHERE tcid ~ '[_-][TV][0-9]{4}$'
                   AND coalesce(data->>'tcid', '') <> tcid"""
         )
         fixed["tc"] = int(r.split()[-1]) if r.split()[-1].isdigit() else 0
