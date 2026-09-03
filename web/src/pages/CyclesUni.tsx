@@ -794,6 +794,53 @@ export default function CyclesUni({
     }
   }
 
+  /**
+   * 시험 실행을 지운다 — 버전 마디는 그 안 전부, 실행 마디는 한 건.
+   *
+   * **버전명은 폴더가 아니다.** 저장된 것은 실행(plan_run)이고, 트리의
+   * 버전 마디는 그 실행들의 version 값에서 파생된 이름일 뿐이다. 그러니
+   * 「버전명 지우기」 는 곧 그 안의 실행을 지우는 일이다 — 판정 결과가
+   * 실행에 붙어 있으므로 같이 사라진다. 되돌릴 수 없다.
+   */
+  async function delRuns(list: RunLite[], label: string) {
+    if (!list.length) return
+    const s = sum(list)
+    const names = list
+      .slice(0, 5)
+      .map((r) => `· ${r.name || r.id}${r.version ? ` (${r.version})` : ''}`)
+      .join('\n')
+    const more = list.length > 5 ? `\n… 외 ${list.length - 5}건` : ''
+    const done = s.pass + s.fail + s.etc
+    const warn = done
+      ? `\n\n※ 이미 판정한 항목 ${done}건의 결과도 함께 사라집니다.`
+      : ''
+    if (
+      !window.confirm(
+        `「${label}」 의 시험 실행 ${list.length}건을 지웁니다. 되돌릴 수 없습니다.\n${names}${more}${warn}`,
+      )
+    )
+      return
+    let bad = 0
+    for (const r of list) {
+      try {
+        const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}`, { method: 'DELETE' })
+        if (!res.ok) bad++
+      } catch {
+        bad++
+      }
+    }
+    await runsQ.refetch()
+    /* 지운 것을 가리키고 있었으면 자리를 비운다 — 없는 것을 붙들고 있으면
+       가운데 칸이 「실행 0건」 인 채로 남아 고장난 것처럼 보인다. */
+    const gone = new Set(list.map((r) => r.id))
+    if (openRun && gone.has(openRun)) {
+      setOpenRun('')
+      setWide(false)
+    }
+    if (sel?.t === 'run' && gone.has(sel.k)) setSel(null)
+    if (bad) window.alert(`${bad}건은 지우지 못했습니다.`)
+  }
+
   /** ⋯ 메뉴를 그 단추 아래에 연다 */
   function openMore(e: { currentTarget: HTMLElement }) {
     const r = e.currentTarget.getBoundingClientRect()
@@ -1024,6 +1071,41 @@ export default function CyclesUni({
                         ✕
                       </button>
                     )}
+                    {/* 버전명·실행 마디 — 지운다는 것은 **그 시험 실행을
+                        지우는 일**이다. 버전명은 저장된 폴더가 아니라 실행의
+                        version 값에서 파생된 이름이라, 지울 껍데기가 따로
+                        없다. 판정 결과도 실행에 붙어 있어 함께 사라진다. */}
+                    {n.t === 'ver' && (
+                      <button
+                        type="button"
+                        className="cu-nbtn del"
+                        title="이 버전의 시험 실행을 지웁니다 — 판정 결과도 함께 사라집니다"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const mine = runs.filter((r) => {
+                            const w = where(r)
+                            return key(w.cust, w.model, w.vg, w.ver) === n.k
+                          })
+                          void delRuns(mine, n.label)
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                    {n.t === 'run' && (
+                      <button
+                        type="button"
+                        className="cu-nbtn del"
+                        title="이 시험 실행을 지웁니다 — 판정 결과도 함께 사라집니다"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const one = runs.find((r) => r.id === n.k)
+                          void delRuns(one ? [one] : [], one?.name || one?.id || n.label)
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                   {/* 제자리 입력칸 — 창을 띄우지 않는다. 창으로 물으면 만들고
                       나서 그것이 어디에 생겼는지 눈으로 못 쫓는다. */}
@@ -1177,15 +1259,9 @@ export default function CyclesUni({
                   >
                     개요
                   </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={tab === 'it'}
-                    className={tab === 'it' ? 'on' : ''}
-                    onClick={() => setTab('it')}
-                  >
-                    시험 항목 <span className="dim">{agg.total}</span>
-                  </button>
+                  {/* 순서는 **읽는 순서**다(지시) — 한눈에 보고(개요), 무엇이
+                      일어났는지 읽고(AI 요약), 그것을 글로 옮기고(Test
+                      Summary), 마지막에 항목 하나하나를 판다. */}
                   <button
                     type="button"
                     role="tab"
@@ -1203,6 +1279,15 @@ export default function CyclesUni({
                     onClick={() => setTab('sum')}
                   >
                     Test Summary
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === 'it'}
+                    className={tab === 'it' ? 'on' : ''}
+                    onClick={() => setTab('it')}
+                  >
+                    시험 항목 <span className="dim">{agg.total}</span>
                   </button>
                 </div>
 
