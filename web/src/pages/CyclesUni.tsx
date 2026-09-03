@@ -1145,8 +1145,11 @@ export default function CyclesUni({
    */
   const RUN_COLS: NCol[] = useMemo(
     () => [
+      /* ID·제목은 **끌 수 없다**(지시). 둘은 이 표의 뼈대다 — ID 는 상세로
+         가는 유일한 길이고, 제목이 없으면 어느 줄인지 알아볼 수가 없다.
+         NTable 이 fixed 를 보고 토글을 잠근다(NTable:1105). */
       { key: 'key', label: 'ID', type: 'text', width: 150, fixed: true },
-      { key: 'title', label: '제목', type: 'text', width: 220 },
+      { key: 'title', label: '제목', type: 'text', width: 220, fixed: true },
       { key: 'mgroup', label: '모델그룹', type: 'text', width: 100 },
       { key: 'model', label: '모델명', type: 'text', width: 100 },
       { key: 'vgroup', label: '버전그룹', type: 'text', width: 100 },
@@ -1204,7 +1207,9 @@ export default function CyclesUni({
     const touched = colPref.hidden.length > 0 || colPref.order.length > 0
     const cols = RUN_COLS.map((c) => ({
       ...c,
-      hidden: touched ? has.has(c.key) : c.hidden,
+      /* 못 끄는 열은 **저장된 숨김도 무시한다.** 규칙이 생기기 전에 꺼
+         둔 값이 남아 있으면, 잠갔는데도 안 보이는 열이 된다. */
+      hidden: c.fixed ? false : touched ? has.has(c.key) : c.hidden,
       width: colPref.width[c.key] ?? c.width,
     }))
     if (!colPref.order.length) return cols
