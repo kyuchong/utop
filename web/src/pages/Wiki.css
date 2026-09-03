@@ -427,3 +427,81 @@
 /* 「워드 가져오기」 는 label 이라 단추 꼴을 따로 입힌다 — 안의 file 입력은
    숨겨 두고 label 을 누르면 열린다 */
 .wke-imp { display: inline-flex; align-items: center; cursor: pointer; }
+
+
+/* ── PDF 미리보기 ──────────────────────────────────────────────────
+   내려받기 전에 종이 모양을 그대로 본다(지시). 창 안은 브라우저의 PDF
+   뷰어다 — 종이를 따로 흉내 내면 그 흉내가 곧 또 하나의 갈리는 자리가
+   된다. 여기서 보는 것이 내려받는 파일과 같은 바이트다. */
+.wke-pvback {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(15 30 35 / 38%);
+}
+.wke-pv {
+  width: min(1000px, 100%);
+  height: min(92vh, 1180px);
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface, #fff);
+  border-radius: 12px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 26%);
+  overflow: hidden;
+}
+.wke-pvhead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+}
+.wke-pvhead b { font-size: 14.5px; color: var(--c-text); }
+.wke-pvname {
+  font-size: 12px;
+  color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wke-pvsp { flex: 1; }
+.wke-pvx {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.wke-pvx:hover { background: #f4f6f6; color: var(--c-text); }
+/* 뷰어는 제 바탕(회색)을 그린다 — 흰 칸을 깔면 종이 둘레가 두 겹으로 뜬다 */
+.wke-pvframe {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  display: block;
+}
+/* 뷰어가 없는 브라우저 — 흰 칸 대신 까닭을 말한다 */
+.wke-pvnone {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #f4f6f7;
+  color: var(--c-text-muted);
+  font-size: 13px;
+}
+.wke-pvnone b { color: var(--c-text); font-size: 14px; }

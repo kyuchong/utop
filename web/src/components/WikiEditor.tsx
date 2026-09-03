@@ -156,6 +156,8 @@ export default function WikiEditor({
      놓고 고친다: 못 되돌리면 지우기가 무서워 문서가 안 정리된다. */
   const [revs, setRevs] = useState<Array<{ id: number; title: string; who?: string; at: string }> | null>(null)
   const [state, setState] = useState<'' | 'saving' | 'saved'>('')
+  /** 미리보기로 띄운 PDF 의 blob 주소 — 닫을 때 반드시 거둔다 */
+  const [pdfUrl, setPdfUrl] = useState('')
   const timer = useRef<number | undefined>(undefined)
   const dirty = useRef(false)
 
@@ -248,6 +250,103 @@ export default function WikiEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, title])
+
+  /**
+   * **PDF 를 굽는다** — 내려받기와 미리보기가 같은 종이를 본다.
+   *
+   * 여태는 이 일이 내려받기 단추 안에 통째로 들어 있었다. 미리보기를 붙이며
+   * 그대로 베끼면 두 벌이 되어, 한쪽만 고치는 날 종이가 갈린다.
+   *
+   * 지금 화면에 그려진 HTML 을 그대로 보내 서버의 크로미움으로 찍는다.
+   * 화면을 그리는 엔진과 종이를 찍는 엔진이 하나라 갈릴 자리가 없다.
+   * 못 구우면 까닭을 말하고 null 을 준다 — 부르는 쪽은 조용히 멈춘다.
+   */
+  async function bakePdf(): Promise<{ blob: Blob; name: string } | null> {
+    const body = document.querySelector('.wke-body .bn-editor')
+    if (!body) {
+      /* 여기서 조용히 빠져나가면 단추가 **아무 일도 안 하는 것**처럼
+         보인다 — 눌렀는지 안 눌렀는지도 알 수 없다(지적: 동작이 안 된다). */
+      window.alert('문서 본문을 찾지 못했습니다 — 문서를 열고 다시 눌러 주세요.')
+      return null
+    }
+    /* 스타일은 **주소만** 넘긴다.
+       style 태그까지 통째로 담으면 몸통이 수백 KB 로 불어, 앞단(nginx)의
+       몸통 크기 제한에 걸려 413 으로 잘린다. 서버는 같은 망 안에 있으니
+       주소만 주면 제가 받아 온다. */
+    const css = [...document.querySelectorAll('link[rel="stylesheet"]')]
+      .map((n) => {
+        const href = new URL((n as HTMLLinkElement).getAttribute('href') ?? '', document.baseURI)
+          .href
+        return `<link rel="stylesheet" href="${href}">`
+      })
+      .join('\n')
+    const nm = (title || '문서').replace(/[<>&/\\:*?"|]/g, '')
+    const html =
+      `<!doctype html><html lang="ko"><head><meta charset="utf-8">` +
+      `<base href="${document.baseURI}">${css}` +
+      `<style>${PRINT_CSS}</style></head><body>` +
+      `<div class="wke-body"><h1 class="doc" style="margin:0 0 20px">${nm}</h1>` +
+      `<div class="bn-editor">${body.innerHTML}</div></div></body></html>`
+    setState('saving')
+    try {
+      const r = await apiFetch('/api/wiki/pdf', {
+        method: 'POST',
+        body: JSON.stringify({ html, title: nm }),
+      })
+      /* 응답을 **글자로 먼저 받는다.**
+         바로 json() 으로 읽으면, JSON 이 아닌 것이 왔을 때 무엇이 왔는지
+         알 길이 없다 — 「서버가 200 으로 답했다」 한 줄만 남고 정작 몸통을
+         못 본다(지적). 앞부분을 그대로 보여 준다. */
+      const raw = await r.text()
+      let j: { ok?: boolean; name?: string; data?: string; error?: string } = {}
+      try {
+        j = JSON.parse(raw)
+      } catch {
+        /* JSON 이 아니다 — 아래에서 몸통을 그대로 보인다 */
+      }
+      if (!j.ok || !j.data) {
+        const why =
+          j.error ?? `서버가 ${r.status} 로 답했습니다\n받은 것(앞부분): ${raw.slice(0, 200)}`
+        window.alert(`PDF 를 만들지 못했습니다.\n\n${why}`)
+        return null
+      }
+      const bin = atob(j.data)
+      const buf = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+      return { blob: new Blob([buf], { type: 'application/pdf' }), name: j.name ?? `${nm}.pdf` }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+      return null
+    } finally {
+      setState('')
+    }
+  }
+
+  /* 화면을 떠날 때 blob 주소를 거둔다. 안 거두면 미리보기를 열어 둔 채
+     다른 문서로 가는 것만으로 그 PDF 가 탭이 닫힐 때까지 메모리에 남는다. */
+  useEffect(() => {
+    if (!pdfUrl) return
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closePdf()
+    }
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('keydown', esc)
+      URL.revokeObjectURL(pdfUrl)
+    }
+    // closePdf 는 매 그림마다 새로 나지만 하는 일이 같다 — 걸어 두면 창이
+    // 열리자마자 정리가 돌아 미리보기가 깜빡이며 닫힌다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfUrl])
+
+  /** 미리보기 창을 닫는다 — blob 주소를 거두지 않으면 탭이 살아 있는 동안
+      그 PDF 가 메모리에 남는다. */
+  function closePdf() {
+    setPdfUrl((u) => {
+      if (u) URL.revokeObjectURL(u)
+      return ''
+    })
+  }
 
   return (
     <div className="wke">
@@ -407,90 +506,39 @@ export default function WikiEditor({
             }}
           />
         </label>
-        {/* PDF — **서버에서 구워 파일로 내려받는다.** 인쇄 창을 거치지
-            않는다(지시). 화면을 그리는 엔진과 종이를 찍는 엔진이 같은
-            크로미움이라, 화면과 종이가 갈릴 자리가 없다. */}
+        {/* PDF — **서버에서 굽는다.** 인쇄 창을 거치지 않는다(지시).
+            화면을 그리는 엔진과 종이를 찍는 엔진이 같은 크로미움이라,
+            화면과 종이가 갈릴 자리가 없다. 미리보기와 내려받기는 **같은
+            함수**로 같은 종이를 본다 — bakePdf. */}
+        <button
+          type="button"
+          className="btn small"
+          title="내려받기 전에 종이 모양을 그대로 봅니다"
+          disabled={state === 'saving'}
+          onClick={async () => {
+            const out = await bakePdf()
+            if (!out) return
+            closePdf()
+            setPdfUrl(URL.createObjectURL(out.blob))
+          }}
+        >
+          PDF 미리보기
+        </button>
         <button
           type="button"
           className="btn small"
           title="PDF 파일을 바로 내려받습니다"
+          disabled={state === 'saving'}
           onClick={async () => {
-            /* **서버에서 굽는다.**
-
-               여태는 인쇄 창을 띄웠다 — 미리보기가 뜨고 대상을 고르고 저장을
-               눌러야 했고, 종이가 화면과 자꾸 갈렸다(인쇄 창이 앱 CSS 를 못
-               불러오거나 옛 판을 들고 갔다).
-
-               지금 화면에 그려진 그 HTML 을 그대로 보내 크로미움으로 찍는다.
-               화면을 그리는 엔진과 종이를 찍는 엔진이 하나라 갈릴 자리가 없다. */
-            const body = document.querySelector('.wke-body .bn-editor')
-            if (!body) {
-              /* 여기서 조용히 빠져나가면 단추가 **아무 일도 안 하는 것**처럼
-                 보인다 — 눌렀는지 안 눌렀는지도 알 수 없다(지적: 동작이 안
-                 된다). 못 찾았으면 못 찾았다고 말한다. */
-              window.alert('문서 본문을 찾지 못했습니다 — 문서를 열고 다시 눌러 주세요.')
-              return
-            }
-            /* 스타일은 **주소만** 넘긴다.
-               style 태그까지 통째로 담으면 몸통이 수백 KB 로 불어, 앞단(nginx)
-               의 몸통 크기 제한에 걸려 413 으로 잘린다. 서버는 같은 망 안에
-               있으니 주소만 주면 제가 받아 온다. */
-            const css = [...document.querySelectorAll('link[rel="stylesheet"]')]
-              .map((n) => {
-                const href = new URL(
-                  (n as HTMLLinkElement).getAttribute('href') ?? '',
-                  document.baseURI,
-                ).href
-                return `<link rel="stylesheet" href="${href}">`
-              })
-              .join('\n')
-            const nm = (title || '문서').replace(/[<>&/\\:*?"|]/g, '')
-            const html =
-              `<!doctype html><html lang="ko"><head><meta charset="utf-8">` +
-              `<base href="${document.baseURI}">${css}` +
-              `<style>${PRINT_CSS}</style></head><body>` +
-              `<div class="wke-body"><h1 class="doc" style="margin:0 0 20px">${nm}</h1>` +
-              `<div class="bn-editor">${body.innerHTML}</div></div></body></html>`
-            setState('saving')
-            try {
-              const r = await apiFetch('/api/wiki/pdf', {
-                method: 'POST',
-                body: JSON.stringify({ html, title: nm }),
-              })
-              /* 응답을 **글자로 먼저 받는다.**
-                 바로 json() 으로 읽으면, JSON 이 아닌 것이 왔을 때 무엇이
-                 왔는지 알 길이 없다 — 「서버가 200 으로 답했다」 한 줄만 남고
-                 정작 몸통을 못 본다(지적). 앞부분을 그대로 보여 준다. */
-              const raw = await r.text()
-              let j: { ok?: boolean; name?: string; data?: string; error?: string } = {}
-              try {
-                j = JSON.parse(raw)
-              } catch {
-                /* JSON 이 아니다 — 아래에서 몸통을 그대로 보인다 */
-              }
-              if (!j.ok || !j.data) {
-                const why =
-                  j.error ??
-                  `서버가 ${r.status} 로 답했습니다\n받은 것(앞부분): ${raw.slice(0, 200)}`
-                window.alert(`PDF 를 만들지 못했습니다.\n\n${why}`)
-                setState('')
-                return
-              }
-              /* 파일로 떨군다 — 대화상자 없이 바로 내려받힌다 */
-              const bin = atob(j.data)
-              const buf = new Uint8Array(bin.length)
-              for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
-              const url = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }))
-              const a = document.createElement('a')
-              a.href = url
-              a.download = j.name ?? `${nm}.pdf`
-              a.click()
-              URL.revokeObjectURL(url)
-              setState('')
-            } catch (e) {
-              window.alert(e instanceof Error ? e.message : String(e))
-              setState('')
-            }
+            const out = await bakePdf()
+            if (!out) return
+            /* 파일로 떨군다 — 대화상자 없이 바로 내려받힌다 */
+            const url = URL.createObjectURL(out.blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = out.name
+            a.click()
+            URL.revokeObjectURL(url)
           }}
         >
           PDF 내려받기
@@ -677,6 +725,54 @@ export default function WikiEditor({
           />
         </BlockNoteView>
       </div>
+
+      {/* 미리보기 — **브라우저의 PDF 뷰어**에 그대로 물린다. 종이를 따로
+          흉내 내면 그 흉내가 곧 또 하나의 갈리는 자리가 된다. 여기서 보는
+          것이 내려받는 파일과 같은 바이트다. */}
+      {!!pdfUrl && (
+        <div
+          className="wke-pvback"
+          role="presentation"
+          onClick={(e) => e.target === e.currentTarget && closePdf()}
+        >
+          <div className="wke-pv" role="dialog" aria-modal="true" aria-label="PDF 미리보기">
+            <div className="wke-pvhead">
+              <b>PDF 미리보기</b>
+              <span className="wke-pvname">{title || '문서'}.pdf</span>
+              <span className="wke-pvsp" />
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => {
+                  /* 보고 있는 그 파일을 그대로 떨군다 — 다시 굽지 않는다 */
+                  const a = document.createElement('a')
+                  a.href = pdfUrl
+                  a.download = `${(title || '문서').replace(/[<>&/\\:*?"|]/g, '')}.pdf`
+                  a.click()
+                }}
+              >
+                내려받기
+              </button>
+              <button type="button" className="wke-pvx" title="닫기" onClick={closePdf}>
+                ✕
+              </button>
+            </div>
+            {/* PDF 뷰어가 **없는 브라우저**가 있다. 그때 iframe 은 아무 말
+                없이 흰 칸으로 남아, 미리보기가 고장 난 것처럼 보인다(헤드리스
+                크로미움이 실제로 그렇다 — 플러그인 0개). 그런 자리에서는
+                흰 칸 대신 까닭과 내려받을 길을 준다. 값이 없는 옛 브라우저는
+                뷰어가 있다고 보고 그대로 띄운다. */}
+            {navigator.pdfViewerEnabled === false ? (
+              <div className="wke-pvnone">
+                <b>이 브라우저는 PDF 를 화면에서 열지 못합니다.</b>
+                <span>파일로 내려받아 보세요 — 내용은 같습니다.</span>
+              </div>
+            ) : (
+              <iframe className="wke-pvframe" src={pdfUrl} title="PDF 미리보기" />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
