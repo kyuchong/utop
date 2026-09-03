@@ -289,3 +289,9 @@
   padding: 2px 2px 9px; margin-bottom: 2px;
   background: var(--c-surface, #fff);
 }
+
+/* 아무것도 안 골랐을 때 — 무엇을 할지 말해 주는 자리 */
+.cu-start { padding: 40px 30px; max-width: 560px; }
+.cu-start > b { display: block; font-size: 15px; margin-bottom: 8px; color: var(--c-text); }
+.cu-start p { margin: 0 0 14px; font-size: 13px; line-height: 1.9; color: var(--c-text-muted); }
+.cu-start ol { margin: 0; padding-left: 20px; font-size: 12.5px; line-height: 2.1; color: var(--c-text-muted); }

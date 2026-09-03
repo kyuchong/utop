@@ -9778,7 +9778,7 @@ async def del_cycle_version_group(model: str, group: str, force: int = 0):
     if (plans or runs) and not force:
         what = " · ".join(
             x for x in (
-                f"플랜 {len(plans)}건" if plans else "",
+                f"사이클 {len(plans)}건" if plans else "",
                 f"시험 실행 {len(runs)}건" if runs else "",
             ) if x
         )
@@ -9789,8 +9789,8 @@ async def del_cycle_version_group(model: str, group: str, force: int = 0):
         if plans or runs:
             raise HTTPException(
                 400,
-                "이 폴더는 플랜·실행이 만든 이름이라 따로 지울 것이 없습니다 — "
-                "안의 플랜·실행을 지우거나 다른 버전그룹으로 옮기세요",
+                "이 폴더는 사이클·실행이 만든 이름이라 따로 지울 것이 없습니다 — "
+                "안의 사이클·실행을 지우거나 다른 버전그룹으로 옮기세요",
             )
         raise HTTPException(404, "없는 버전그룹입니다")
 

@@ -75,11 +75,11 @@ interface Node {
 
 const TREE_LABEL: Record<TreeMode, string> = {
   model: '사업자 ▸ 모델 ▸ 버전그룹 ▸ 버전명',
-  plan: '플랜 ▸ 버전명',
+  plan: '사이클 ▸ 버전명',
   owner: '담당 ▸ 실행',
 }
 const SEL_LABEL: Record<Sel['t'], string> = {
-  cust: '사업자', model: '모델', vg: '버전그룹', ver: '버전', plan: '플랜', owner: '담당',
+  cust: '사업자', model: '모델', vg: '버전그룹', ver: '버전', plan: '사이클', owner: '담당',
   plans: '전체', run: '실행',
 }
 
@@ -191,6 +191,12 @@ export default function CyclesUni({
 
   const runsQ = useQuery({
     queryKey: ['plan-runs'],
+    /* 실행은 자주 생기고 사라진다. 서버가 plan_run 변화를 방송하지 않아
+       (useLiveRefresh 가 헐어 주는 것은 cycle 쪽이다) 낡은 목록을 들고
+       있기 쉽다 — 없어진 실행을 눌러 「실행을 찾을 수 없습니다」 를 보는
+       일이 그래서 난다. 화면에 들어올 때마다 새로 읽는다. */
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const r = await apiFetch('/api/plan-runs')
       if (!r.ok) throw new Error('실행을 불러오지 못했습니다')
@@ -205,7 +211,7 @@ export default function CyclesUni({
     staleTime: 60_000,
     queryFn: async () => {
       const r = await apiFetch('/api/cycle?meta=1')
-      if (!r.ok) throw new Error('플랜을 불러오지 못했습니다')
+      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
       return (await r.json()) as { cycles?: CycleMeta[]; items?: CycleMeta[] }
     },
   })
@@ -299,7 +305,7 @@ export default function CyclesUni({
       그대로 그리면 머리줄에 `LGUPU|E6100|R100|R100_08_31` 이 뜬다. */
   const selName = useMemo(() => {
     if (!sel) return ''
-    if (sel.t === 'plans') return '전체 플랜'
+    if (sel.t === 'plans') return '전체 사이클'
     if (sel.t === 'plan') {
       const p = planOf.get(sel.k)
       return String(p?.cid ?? p?.name ?? sel.k)
@@ -502,7 +508,7 @@ export default function CyclesUni({
       }
       /* 여러 건 지우기·CSV 는 **고르는 자리**가 있어야 한다. 트리는 한 번에
          한 마디뿐이라, 표를 여는 마디를 맨 위에 하나 둔다. */
-      out.push({ d: 1, label: `📚 전체 플랜`, n: plans.length, t: 'plans', k: '*' })
+      out.push({ d: 1, label: `📚 전체 사이클`, n: plans.length, t: 'plans', k: '*' })
       const seen = new Set<string>()
       const line = (p: CycleMeta) => {
         seen.add(p.id)
@@ -534,7 +540,7 @@ export default function CyclesUni({
       /* 플랜이 지워졌는데 실행만 남은 것 — 숨기면 영영 못 찾는다 */
       for (const [k, list] of byPlan)
         if (!seen.has(k)) {
-          out.push({ d: 1, label: '📋 (플랜 없음)', n: list.length, t: 'plan', k })
+          out.push({ d: 1, label: '📋 (사이클 없음)', n: list.length, t: 'plan', k })
           for (const r of list)
             out.push({
               d: 3,
@@ -598,7 +604,7 @@ export default function CyclesUni({
     const full = await readFull(p.id)
     setBusy('')
     if (!full) {
-      window.alert('플랜을 불러오지 못했습니다.')
+      window.alert('사이클을 불러오지 못했습니다.')
       return
     }
     setInsight({ id: p.id, title: planTitle(p), mode, items: full.items ?? [] })
@@ -620,7 +626,7 @@ export default function CyclesUni({
       if (ids.length === 1) {
         const c = await readFull(first)
         if (!c) {
-          window.alert('플랜을 불러오지 못했습니다.')
+          window.alert('사이클을 불러오지 못했습니다.')
           return
         }
         if (!(c.items ?? []).length) {
@@ -638,7 +644,7 @@ export default function CyclesUni({
 
   async function csvMany(ids: string[]) {
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const lines = [['플랜', 'TC ID', '시험', '결과', '담당', '실행'].map(esc).join(',')]
+    const lines = [['사이클', 'TC ID', '시험', '결과', '담당', '실행'].map(esc).join(',')]
     let bad = 0
     for (const id of ids) {
       const c = await readFull(id)
@@ -674,7 +680,7 @@ export default function CyclesUni({
     const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `플랜_${ids.length}건.csv`
+    a.download = `사이클_${ids.length}건.csv`
     a.click()
     URL.revokeObjectURL(a.href)
     if (bad) window.alert(`${bad}건은 읽지 못해 빠졌습니다.`)
@@ -700,11 +706,11 @@ export default function CyclesUni({
       .join('\n')
     const more = list.length > 5 ? `\n… 외 ${list.length - 5}건` : ''
     const warn = kids.length
-      ? `\n\n딸린 시험 실행 ${kids.length}건은 지워지지 않고 「(플랜 없음)」 자리로 남습니다.`
+      ? `\n\n딸린 시험 실행 ${kids.length}건은 지워지지 않고 「(사이클 없음)」 자리로 남습니다.`
       : ''
     if (
       !window.confirm(
-        `플랜 ${list.length}건을 지웁니다. 되돌릴 수 없습니다.\n${names}${more}${warn}`,
+        `사이클 ${list.length}건을 지웁니다. 되돌릴 수 없습니다.\n${names}${more}${warn}`,
       )
     )
       return
@@ -781,7 +787,7 @@ export default function CyclesUni({
            알고 새로고침을 반복하지 않게 그 자리에서 말해 준다. */
         if (j.kept)
           window.alert(
-            `폴더 이름은 지웠지만 플랜 ${j.plans ?? 0}건 · 실행 ${j.runs ?? 0}건이 남아\n` +
+            `폴더 이름은 지웠지만 사이클 ${j.plans ?? 0}건 · 실행 ${j.runs ?? 0}건이 남아\n` +
               '트리에는 계속 보입니다. 그것들을 옮기거나 지우면 사라집니다.',
           )
         return
@@ -794,7 +800,7 @@ export default function CyclesUni({
       }
       if (
         !window.confirm(
-          `${j.detail}\n\n그래도 폴더 이름만 지울까요? 안의 플랜·실행은 그대로 남습니다.`,
+          `${j.detail}\n\n그래도 폴더 이름만 지울까요? 안의 사이클·실행은 그대로 남습니다.`,
         )
       )
         return
@@ -807,7 +813,7 @@ export default function CyclesUni({
       done()
       if (j2.kept)
         window.alert(
-          `폴더 이름은 지웠지만 플랜 ${j2.plans ?? 0}건 · 실행 ${j2.runs ?? 0}건이 남아\n` +
+          `폴더 이름은 지웠지만 사이클 ${j2.plans ?? 0}건 · 실행 ${j2.runs ?? 0}건이 남아\n` +
             '트리에는 계속 보입니다. 그것들을 옮기거나 지우면 사라집니다.',
         )
     } catch {
@@ -898,7 +904,7 @@ export default function CyclesUni({
             <th>실행</th>
             <th>버전</th>
             <th>방식</th>
-            <th>플랜</th>
+            <th>사이클</th>
             <th>결과</th>
             <th>상태</th>
           </tr>
@@ -1018,13 +1024,13 @@ export default function CyclesUni({
           <button
             type="button"
             className="btn small cu-new"
-            title="새 플랜을 만듭니다 — 사업자·모델·버전을 고르고 시험 항목을 담습니다"
+            title="새 사이클을 만듭니다 — 사업자·모델·버전을 고르고 시험 항목을 담습니다"
             onClick={() => {
               setNeedMake(true)
               setEdit({})
             }}
           >
-            ＋ 플랜
+            ＋ 사이클
           </button>
         </div>
       )}
@@ -1050,7 +1056,13 @@ export default function CyclesUni({
               </select>
             </div>
             <div className="cu-tbody">
-              {!tree.length && <div className="cu-none">실행이 아직 없습니다.</div>}
+              {!tree.length && (
+                <div className="cu-none">
+                  아직 아무것도 없습니다.
+                  <br />
+                  오른쪽 위 <b>＋ 사이클</b> 으로 시작하세요.
+                </div>
+              )}
               {tree.map((n, i) => (
                 <div key={`${n.t}-${n.k}-${i}`}>
                   <div
@@ -1187,7 +1199,7 @@ export default function CyclesUni({
                     <button
                       type="button"
                       className="btn small"
-                      title="이 플랜에 시험 항목을 담습니다"
+                      title="이 사이클에 시험 항목을 담습니다"
                       onClick={() => setAddTo(selPlan.id)}
                     >
                       ＋ 항목 담기
@@ -1195,7 +1207,7 @@ export default function CyclesUni({
                     <button
                       type="button"
                       className="btn small cu-teal"
-                      title="모델·버전을 정해 이 플랜의 시험 실행을 만듭니다"
+                      title="모델·버전을 정해 이 사이클의 시험 실행을 만듭니다"
                       onClick={() => {
                         setNeedMake(true)
                         setMkRun(selPlan.id)
@@ -1206,7 +1218,7 @@ export default function CyclesUni({
                     <button
                       type="button"
                       className="btn small"
-                      title="플랜의 기본 정보를 고칩니다"
+                      title="사이클의 기본 정보를 고칩니다"
                       onClick={() => {
                         setNeedMake(true)
                         setEdit({ id: selPlan.id })
@@ -1245,7 +1257,7 @@ export default function CyclesUni({
                 </button>
                 {!!pick && (
                   <div className="cu-pickpop" role="dialog">
-                    <div className="hd">어느 플랜으로 낼까요</div>
+                    <div className="hd">어느 사이클로 낼까요</div>
                     {selPlans.map((p) => (
                       <button
                         key={p.id}
@@ -1375,7 +1387,7 @@ export default function CyclesUni({
                               <td className="cu-mono">{selName || '—'}</td>
                             </tr>
                             <tr>
-                              <td>플랜</td>
+                              <td>사이클</td>
                               <td>{uniq(selPlans.map((p) => p.cid ?? p.name))}</td>
                             </tr>
                             <tr>
@@ -1416,12 +1428,12 @@ export default function CyclesUni({
                         disabled={!homePlan}
                         title={
                           homePlan
-                            ? `플랜 ${homePlan.cid ?? homePlan.name ?? homePlan.id} 에 담습니다 — 이미 만든 실행에는 안 들어갑니다`
-                            : '이 자리에 플랜이 없습니다'
+                            ? `사이클 ${homePlan.cid ?? homePlan.name ?? homePlan.id} 에 담습니다 — 이미 만든 실행에는 안 들어갑니다`
+                            : '이 자리에 사이클이 없습니다'
                         }
                         onClick={() => homePlan && setAddTo(homePlan.id)}
                       >
-                        ＋ 플랜에 항목 담기
+                        ＋ 사이클에 항목 담기
                       </button>
                     </div>
                     <table>
@@ -1487,7 +1499,7 @@ export default function CyclesUni({
                     <button
                       type="button"
                       className="btn small"
-                      title="고른 플랜을 CSV 한 장으로 내보냅니다"
+                      title="고른 사이클을 CSV 한 장으로 내보냅니다"
                       onClick={() => void csvPlans([...ticked])}
                     >
                       CSV
@@ -1576,7 +1588,7 @@ export default function CyclesUni({
                     {!plans.length && (
                       <tr>
                         <td colSpan={7} className="cu-none">
-                          플랜이 아직 없습니다.
+                          사이클이 아직 없습니다.
                         </td>
                       </tr>
                     )}
@@ -1588,7 +1600,7 @@ export default function CyclesUni({
                 {summary}
                 <div className="cu-sec cu-grid2">
                   <div className="cu-card">
-                    <h2>플랜 정보</h2>
+                    <h2>사이클 정보</h2>
                     <table className="cu-kv">
                       <tbody>
                         <tr>
@@ -1633,7 +1645,7 @@ export default function CyclesUni({
                     </table>
                   </div>
                   <div className="cu-card">
-                    <h2>이 플랜의 실행</h2>
+                    <h2>이 사이클의 실행</h2>
                     {shown.length ? (
                       <div className="cu-picker">
                         <Tile man={false} />
@@ -1651,6 +1663,22 @@ export default function CyclesUni({
                   </div>
                 </div>
                 {!!shown.length && runTable}
+              </div>
+            ) : !sel ? (
+              /* 고른 자리가 없다 — 빈 표를 내밀면 「고장났나」 로 읽힌다.
+                 무엇을 해야 하는지 그 자리에서 말한다. */
+              <div className="cu-start">
+                <b>Cycles</b>
+                <p>
+                  왼쪽 트리에서 자리를 고르면 그 안의 계획·실행·결과를 봅니다.
+                  <br />
+                  아직 아무것도 없다면 오른쪽 위 <b>＋ 사이클</b> 으로 시작하세요.
+                </p>
+                <ol>
+                  <li>＋ 사이클 — 사업자·모델·버전그룹을 정합니다</li>
+                  <li>＋ 항목 담기 — 시험 항목을 넣습니다</li>
+                  <li>▶ 실행 만들기 — 모델·버전을 정해 실행을 뜹니다</li>
+                </ol>
               </div>
             ) : (
               <>
@@ -1788,7 +1816,7 @@ export default function CyclesUni({
                안 바뀐다」 로 읽히지 않게 그 자리에서 말해 준다. */
             if (had && tab === 'it')
               window.alert(
-                '플랜에 담았습니다.\n이미 만든 실행에는 안 들어갑니다 — 새 실행을 만들면 담깁니다.',
+                '사이클에 담았습니다.\n이미 만든 실행에는 안 들어갑니다 — 새 실행을 만들면 담깁니다.',
               )
           }}
         />

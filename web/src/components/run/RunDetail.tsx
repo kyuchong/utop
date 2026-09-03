@@ -706,7 +706,45 @@ export default function RunDetail({
      안 쓰는 길을 남겨 두면 다음 사람이 살아 있는 줄로 읽는다. */
 
   if (runQ.isLoading) return <div className="rd-empty">불러오는 중…</div>
-  if (!run) return <div className="rd-empty">실행을 찾을 수 없습니다</div>
+  if (!run)
+    /* 없어진 실행이다 — 남이 지웠거나, 내가 지운 뒤 이 화면이 낡은 목록을
+       들고 있었다. 「없다」 고만 하고 끝내면 나갈 길이 없어 보인다
+       (지적: 시험을 누르면 「실행을 찾을 수 없습니다」 만 뜬다). */
+    return (
+      <div className="panel rd">
+        <div className="rd-bar">
+          {lead}
+          <b className="rd-ver">{runQ.isLoading ? '' : '없어진 실행'}</b>
+          <span className="rd-sp" />
+          {!!onClose && (
+            <button type="button" className="rd-x" title="닫기" onClick={onClose}>
+              ✕
+            </button>
+          )}
+        </div>
+        <div className="rd-empty">
+          {runQ.isLoading ? (
+            '불러오는 중…'
+          ) : (
+            <>
+              이 시험 실행은 없습니다 — 지워졌거나 목록이 오래됐습니다.
+              <br />
+              <button
+                type="button"
+                className="rd-btn"
+                style={{ marginTop: 10 }}
+                onClick={() => {
+                  void qc.invalidateQueries({ queryKey: ['plan-runs'] })
+                  ;(onClose ?? onBack)()
+                }}
+              >
+                목록 새로 읽기
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    )
 
   const binds = run.binds ?? {}
   const dut = binds.DUT ? devById.get(String(binds.DUT)) : undefined
