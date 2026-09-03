@@ -48,18 +48,29 @@ export default function Crumb({
   /** 배지 뒤에 더 붙일 것 */
   right?: ReactNode
 }) {
-  /* 폴더 길이 이미 `E61xx > Coverage > …` 로 시작하는 자료가 있다 — 그
-     앞머리를 또 그리면 같은 말이 두 번 나온다. 겹치는 만큼 건너뛴다. */
-  const head = [group, screen].filter(Boolean).map((v) => String(v))
-  let skip = 0
-  for (const h of head) {
-    if ((path[skip] ?? '').trim().toLowerCase() === h.trim().toLowerCase()) skip += 1
-    else break
-  }
-  const segs = [...head, ...path.slice(skip), ...(name ? [name] : [])].filter(Boolean)
+  /* 폴더 길에 이미 그 이름이 있으면 앞머리를 또 그리지 않는다.
+   *
+   *  REQ-Coverage 의 폴더 트리는 `E61xx > Coverage > 11.HW > Spec` 이라
+   *  모델그룹과 화면이름을 **이미 품고 있다**. 앞에서부터만 견주었더니
+   *  `path[0]` 이 `E61xx` 라 화면이름 `Coverage` 를 못 걸러
+   *  「Coverage / E61xx / Coverage / …」 로 두 번 나왔다(지적).
+   *  자리를 안 따지고 **들어 있는지**로 본다. */
+  const inPath = (v: string) =>
+    path.some((p) => String(p).trim().toLowerCase() === v.trim().toLowerCase())
+  const head = [group, screen]
+    .filter(Boolean)
+    .map((v) => String(v))
+    .filter((h) => !inPath(h))
+  const segs = [...head, ...path, ...(name ? [name] : [])].filter(Boolean)
 
   return (
     <nav className="tcx-crumb" aria-label="자리">
+      {/* **맨 앞은 화면 이름**(지시) — 크고 진하게, 뒤에 구분선.
+          「지금 어느 화면을 보고 있나」 가 먼저고, 그 다음이 「그 안 어디냐」 다.
+          자리 줄 안에도 같은 이름이 한 번 더 나오지만(E61xx / Coverage / …)
+          그건 **폴더 이름**이라 뜻이 다르다. */}
+      <b className="tcx-crumbhead">{screen}</b>
+      <i className="tcx-crumbbar" aria-hidden="true" />
       {segs.map((sg, i) => (
         <span className="tcx-crumbi" key={`${sg}-${i}`}>
           {i > 0 && <i className="tcx-crumbsep" aria-hidden="true">/</i>}

@@ -527,7 +527,17 @@
 /* Coverage 를 통째로 얹는 팝업 — 그 화면이 3열이라 넓어야 한다 */
 /* Coverage 를 통째로 얹는 팝업 — 그 화면이 3열이라 거의 전체 폭이 필요하다 */
 /* 얇은 머리줄 — 이름은 안쪽 빵부스러기가 말한다 */
-.rqtc-pop .modal-head.slim { padding: 6px 12px; border-bottom: 0; }
+/* 머리줄 — 공용 `.modal-head` 가 space-between 이라 아이템이 흩어졌다
+   (저장됨·⋯·닫기가 줄 가운데에 벌어져 섰다 — 지적). 자리 줄은 왼쪽 끝,
+   할 일(저장·⋯·닫기)은 **오른쪽 끝에 붙인다** — 그 사이는 .sp 가 민다.
+   Releases 팝업(.rls-poph)과 같은 문법이다. */
+.rqtc-pop .modal-head.slim {
+  padding: 6px 12px;
+  border-bottom: 0;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.rqtc-pop .modal-head.slim .sp { flex: 1; }
 .rqtc-pop.full {
   /* 3열 화면이라 가장 넓어야 한다 — 위와 같은 크기 */
   width: 96vw;

@@ -687,6 +687,22 @@
   color: var(--c-text-muted, #4d5760);
   overflow: hidden;
 }
+/* 맨 앞 화면 이름 — 자리 줄보다 **한 눈금 크고 진하게**(지시) */
+.tcx-crumbhead {
+  flex: none;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--c-text, #131920);
+  white-space: nowrap;
+}
+/* 구분선 — 화면 이름과 자리를 가른다 */
+.tcx-crumbbar {
+  flex: none;
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: var(--c-border, #c3cbd4);
+}
 .tcx-crumbi { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
 .tcx-crumbi > span {
   overflow: hidden;

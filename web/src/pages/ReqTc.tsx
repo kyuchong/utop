@@ -3127,7 +3127,15 @@ function DetailPop({
      없습니다」** 로 보였다(지적) — 빈 화면이 거짓말을 하는 것이 제일 나쁘다.
      제대로 된 탭(Object·Traffic·Cycle 포함)은 Coverage 의 세부 판을 부품으로
      빼야 나온다. 그때까지는 **읽어서 보여 주는 것**만 정확히 한다. */
-  return <TcPop id={id} crumb={crumb ?? []} onClose={onClose} />
+  /* 자리 줄의 마지막 칸은 **이 시험의 제목**이다 — 목록에서 찾아 넘긴다 */
+  return (
+    <TcPop
+      id={id}
+      name={tcs.find((t) => t.tcid === id)?.name || ''}
+      crumb={crumb ?? []}
+      onClose={onClose}
+    />
+  )
 }
 
 /**
@@ -3140,10 +3148,13 @@ function DetailPop({
  */
 function TcPop({
   id,
+  name,
   crumb,
   onClose,
 }: {
   id: string
+  /** 이 시험의 제목 — 자리 줄의 **마지막 칸**이다 */
+  name?: string
   /** 이 시험이 앉은 자리 — 요구사항의 폴더 길이 곧 시험의 길이다 */
   crumb: string[]
   onClose: () => void
@@ -3173,11 +3184,12 @@ function TcPop({
             다른 데를 찾아야 한다. 「Coverage 에서 열기」 는 뺐다 — 이미
             Coverage 를 통째로 얹어 놓고 또 열라는 것은 말이 안 된다. */}
         <div className="modal-head slim">
-          <b>시험 항목</b>
+          {/* 「시험 항목」 이라는 제목은 걷었다(지시: 통일) — 자리 줄이
+              이미 무엇을 보고 있는지 말한다. Releases 쪽에도 없다. */}
           {/* 자리 줄 — **세 화면이 같은 꼴**(지시).
                 E61xx / Coverage / 11.HW / Spec / 제목   [E61xx-T0068]
               폴더 길이 이미 모델그룹·화면이름으로 시작하면 부품이 건너뛴다. */}
-          <Crumb screen="Coverage" path={crumb} id={id} />
+          <Crumb screen="Coverage" path={crumb} name={name} id={id} />
           <span className="sp" />
           <button
             type="button"
