@@ -768,7 +768,15 @@ export default function WikiEditor({
                 <span>파일로 내려받아 보세요 — 내용은 같습니다.</span>
               </div>
             ) : (
-              <iframe className="wke-pvframe" src={pdfUrl} title="PDF 미리보기" />
+              /* `#pagemode=thumbs` — **쪽 목록을 펴 둔다**(지적: 왼쪽에 1열
+                 페이지가 없다). 뷰어는 창이 좁거나 브라우저 기본값에 따라
+                 그 열을 접어 두는데, 미리보기의 값어치 절반이 「몇 쪽으로
+                 나왔나 · 어디서 잘렸나」 라 접혀 있으면 볼 것을 못 본다. */
+              <iframe
+                className="wke-pvframe"
+                src={`${pdfUrl}#pagemode=thumbs`}
+                title="PDF 미리보기"
+              />
             )}
           </div>
         </div>

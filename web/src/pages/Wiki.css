@@ -444,7 +444,9 @@
   background: rgb(15 30 35 / 38%);
 }
 .wke-pv {
-  width: min(1000px, 100%);
+  /* 쪽 목록(왼쪽 열)과 본문이 함께 들어갈 만큼 — 1000 에서는 뷰어가 그 열을
+     접었다(지적: 왼쪽에 1열 페이지가 없다). */
+  width: min(1200px, 100%);
   height: min(92vh, 1180px);
   display: flex;
   flex-direction: column;
