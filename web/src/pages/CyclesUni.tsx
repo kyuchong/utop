@@ -534,6 +534,19 @@ export default function CyclesUni({
     })
   }, [plans])
 
+  /* **자리를 옮기면 3열을 닫는다.** 사이클을 갈아탔는데 곁에는 앞 사이클의
+     실행이 그대로 열려 있었다(지적: E6100 에서 다른 시험으로 가도 자동·수동
+     열이 유지된다) — 왼쪽과 오른쪽이 서로 다른 것을 말하는 셈이다.
+     받아 오는 중에는 판단하지 않는다. 막 만든 실행이 목록에 오르기 전에
+     닫혀 깜빡이기 때문이다. */
+  useEffect(() => {
+    if (!openRun || !runsQ.isSuccess || runsQ.isFetching) return
+    if (!shown.some((r) => r.id === openRun)) {
+      setOpenRun('')
+      setWide(false)
+    }
+  }, [shown, openRun, runsQ.isSuccess, runsQ.isFetching])
+
   const openRunRow = openRun ? runs.find((r) => r.id === openRun) : undefined
   const openPlan = openRunRow?.plan_id ? planOf.get(openRunRow.plan_id) : undefined
 
