@@ -311,7 +311,7 @@ export default function App() {
         /* **Cycles — 플랜과 실행을 한 화면에서**(지시: 목업 반영).
            옛 Plans·Runs 는 아직 주소로 열린다(?p=plans-old · ?p=runs) —
            새 화면이 자리를 잡을 때까지 되돌아갈 길을 남긴다. */
-        <CyclesUni />
+        <CyclesUni me={user} />
       ) : page === 'plans-old' ? (
         <Cycles me={user} entry="cycles" />
       ) : page === 'runs' ? (

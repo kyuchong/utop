@@ -25,6 +25,8 @@ import { normMode } from '@/lib/runMode'
 import RunDetail from '@/components/run/RunDetail'
 import type { RunFull } from '@/components/run/RunDetail'
 import CycleReport from '@/components/cycle/CycleReport'
+import CycleEdit from '@/components/cycle/CycleEdit'
+import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
 import { CycleMailOne } from '@/components/cycle/CyclePlan'
 import type { CycleMeta } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
@@ -54,6 +56,15 @@ type TreeMode = 'model' | 'plan' | 'owner'
 interface Sel {
   t: 'cust' | 'model' | 'vg' | 'ver' | 'plan' | 'owner'
   k: string
+}
+/** 트리 한 마디. run 이 있으면 누를 때 그 실행을 곁에 연다 */
+interface Node {
+  d: 1 | 2 | 3 | 4
+  label: string
+  n?: number
+  t: Sel['t']
+  k: string
+  run?: string
 }
 
 const TREE_LABEL: Record<TreeMode, string> = {
@@ -110,7 +121,11 @@ const VERDICT: Record<string, { k: string; t: string }> = {
   n: { k: 'w', t: 'N/A' },
 }
 
-export default function CyclesUni() {
+export default function CyclesUni({
+  me,
+}: {
+  me?: { username?: string; name?: string; role?: string } | null
+}) {
   const [mode, setMode] = useState<TreeMode>(
     () => (prefGet('utop.cyc.tree') as TreeMode) || 'model',
   )
@@ -125,6 +140,12 @@ export default function CyclesUni() {
   const [mailPlan, setMailPlan] = useState<CycleMeta | null>(null)
   const [repPlan, setRepPlan] = useState<CycleMeta | null>(null)
   const [pick, setPick] = useState<'mail' | 'report' | ''>('')
+  /** 플랜 만들기(빈 값) · 고치기(플랜 id) — 같은 창이다 */
+  const [edit, setEdit] = useState<{ id?: string } | null>(null)
+  /** 항목 담기 — 그 플랜에 시험 항목을 넣는다 */
+  const [addTo, setAddTo] = useState('')
+  /** 실행 만들기 — 모델·버전을 묻는다 */
+  const [mkRun, setMkRun] = useState('')
 
   useEffect(() => prefSet('utop.cyc.tree', mode), [mode])
   useEffect(() => prefSet('utop.cyc.col1', col1 ? '1' : '0'), [col1])
@@ -154,6 +175,30 @@ export default function CyclesUni() {
       const r = await apiFetch('/api/tc?meta=1')
       if (!r.ok) throw new Error('시험 항목을 불러오지 못했습니다')
       return (await r.json()) as { tcs: TestCaseMeta[] }
+    },
+  })
+
+  /* 아래 둘은 **만들기 창이 쓰는 것**이다 — 창을 열 때만 받아 온다.
+     화면을 여는 것만으로 장비 카탈로그까지 끌어오면 첫 그림이 늦다. */
+  const [needMake, setNeedMake] = useState(false)
+  const catQ = useQuery({
+    queryKey: ['device-catalog'],
+    enabled: needMake,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/device-catalog2')
+      if (!r.ok) throw new Error('장비 카탈로그를 불러오지 못했습니다')
+      return (await r.json()) as { items: Array<Record<string, unknown>> }
+    },
+  })
+  const vgQ = useQuery({
+    queryKey: ['cycle-version-groups'],
+    enabled: needMake,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/cycle-version-groups')
+      if (!r.ok) throw new Error('버전그룹을 불러오지 못했습니다')
+      return (await r.json()) as { groups: Record<string, string[]> }
     },
   })
 
@@ -200,6 +245,9 @@ export default function CyclesUni() {
 
   const agg = useMemo(() => sum(shown), [shown])
   const isVer = sel?.t === 'ver'
+  const isPlan = sel?.t === 'plan'
+  /** 플랜 자리에서 보고 있는 그 플랜 — 실행이 0건이어도 잡힌다 */
+  const selPlan = isPlan ? planOf.get(sel.k) : undefined
   /** 이 자리에 걸린 플랜들 — 결과 메일·결과서를 여기서 낸다 */
   const selPlans = useMemo(() => {
     const ids = [...new Set(shown.map((r) => String(r.plan_id ?? '')).filter(Boolean))]
@@ -265,20 +313,40 @@ export default function CyclesUni() {
   const openRunRow = openRun ? runs.find((r) => r.id === openRun) : undefined
   const openPlan = openRunRow?.plan_id ? planOf.get(openRunRow.plan_id) : undefined
 
-  /* ── 트리 ── */
+  /* ── 트리 ──────────────────────────────────────────────────────────
+     **플랜도 마디다.** 실행만으로 세우면 갓 만든 플랜은 어디에도 안 보여,
+     만들고 나서 찾을 수가 없다(실행이 아직 0건이니까). */
   const tree = useMemo(() => {
-    const out: Array<{ d: 1 | 2 | 3 | 4; label: string; n?: number; t: Sel['t']; k: string }> = []
+    const out: Node[] = []
     if (mode === 'model') {
-      const by = new Map<string, Map<string, Map<string, Map<string, RunLite[]>>>>()
+      /* 자리 = 사업자▸모델▸버전그룹▸버전. 실행이 있으면 버전 마디까지,
+         없는 플랜은 버전그룹까지만 서고 그 밑에 플랜 이름이 붙는다. */
+      type Leaf = { runs: RunLite[]; plans: CycleMeta[] }
+      const by = new Map<string, Map<string, Map<string, Map<string, Leaf>>>>()
+      const put = (c: string, m: string, g: string, v: string) => {
+        if (!by.has(c)) by.set(c, new Map())
+        const m1 = by.get(c)!
+        if (!m1.has(m)) m1.set(m, new Map())
+        const m2 = m1.get(m)!
+        if (!m2.has(g)) m2.set(g, new Map())
+        const m3 = m2.get(g)!
+        if (!m3.has(v)) m3.set(v, { runs: [], plans: [] })
+        return m3.get(v)!
+      }
       for (const r of runs) {
         const w = where(r)
-        if (!by.has(w.cust)) by.set(w.cust, new Map())
-        const m1 = by.get(w.cust)!
-        if (!m1.has(w.model)) m1.set(w.model, new Map())
-        const m2 = m1.get(w.model)!
-        if (!m2.has(w.vg)) m2.set(w.vg, new Map())
-        const m3 = m2.get(w.vg)!
-        m3.set(w.ver, [...(m3.get(w.ver) ?? []), r])
+        put(w.cust, w.model, w.vg, w.ver).runs.push(r)
+      }
+      /* 실행이 하나도 없는 플랜만 따로 매단다 — 있는 것은 위에서 이미 섰다 */
+      const used = new Set(runs.map((r) => String(r.plan_id ?? '')))
+      for (const p of plans) {
+        if (used.has(p.id)) continue
+        put(
+          String(p.customer ?? '미지정'),
+          String(p.model ?? '미지정'),
+          String(p.version_group ?? '미지정'),
+          '',
+        ).plans.push(p)
       }
       for (const [c, m1] of [...by].sort()) {
         out.push({ d: 1, label: `🏢 ${c}`, t: 'cust', k: c })
@@ -286,29 +354,65 @@ export default function CyclesUni() {
           out.push({ d: 2, label: `📦 ${m}`, t: 'model', k: `${c}|${m}` })
           for (const [g, m3] of [...m2].sort()) {
             out.push({ d: 3, label: `🔖 ${g}`, t: 'vg', k: g })
-            for (const [v, list] of [...m3].sort().reverse())
-              out.push({ d: 4, label: v, n: list.length, t: 'ver', k: v })
+            for (const [v, leaf] of [...m3].sort().reverse()) {
+              if (v) out.push({ d: 4, label: v, n: leaf.runs.length, t: 'ver', k: v })
+              for (const p of leaf.plans)
+                out.push({
+                  d: 4,
+                  label: `📋 ${p.cid ?? p.name ?? p.id}`,
+                  t: 'plan',
+                  k: p.id,
+                })
+            }
           }
         }
       }
     } else if (mode === 'plan') {
-      const by = new Map<string, RunLite[]>()
+      /* 플랜이 먼저다 — 실행 0건도 선다. 그 밑에 실행을 단다(누르면 열린다) */
+      const byPlan = new Map<string, RunLite[]>()
       for (const r of runs) {
         const k = String(r.plan_id ?? '')
-        by.set(k, [...(by.get(k) ?? []), r])
+        byPlan.set(k, [...(byPlan.get(k) ?? []), r])
       }
-      for (const [k, list] of [...by].sort()) {
-        const p = planOf.get(k)
+      const seen = new Set<string>()
+      const line = (p: CycleMeta) => {
+        seen.add(p.id)
+        const list = byPlan.get(p.id) ?? []
         out.push({
           d: 1,
-          label: `📋 ${p?.cid ?? p?.name ?? k ?? '(플랜 없음)'}`,
+          label: `📋 ${p.cid ?? p.name ?? p.id}`,
           n: list.length,
           t: 'plan',
-          k,
+          k: p.id,
         })
-        for (const v of [...new Set(list.map((r) => String(r.version ?? '')))].sort().reverse())
-          if (v) out.push({ d: 3, label: v, t: 'ver', k: v })
+        for (const r of [...list].sort((a, b) =>
+          String(b.version ?? '').localeCompare(String(a.version ?? '')),
+        ))
+          out.push({
+            d: 3,
+            label: `${normMode(r.mode) === '수동' ? '✋' : '⚙'} ${r.version || r.name || r.id}`,
+            t: 'ver',
+            k: String(r.version ?? ''),
+            run: r.id,
+          })
       }
+      for (const p of [...plans].sort((a, b) =>
+        String(a.cid ?? a.name ?? a.id).localeCompare(String(b.cid ?? b.name ?? b.id)),
+      ))
+        line(p)
+      /* 플랜이 지워졌는데 실행만 남은 것 — 숨기면 영영 못 찾는다 */
+      for (const [k, list] of byPlan)
+        if (!seen.has(k)) {
+          out.push({ d: 1, label: '📋 (플랜 없음)', n: list.length, t: 'plan', k })
+          for (const r of list)
+            out.push({
+              d: 3,
+              label: `${normMode(r.mode) === '수동' ? '✋' : '⚙'} ${r.version || r.name || r.id}`,
+              t: 'ver',
+              k: String(r.version ?? ''),
+              run: r.id,
+            })
+        }
     } else {
       const by = new Map<string, RunLite[]>()
       for (const r of runs) {
@@ -323,17 +427,25 @@ export default function CyclesUni() {
             label: `${normMode(r.mode) === '수동' ? '✋' : '⚙'} ${r.name || r.id}`,
             t: 'ver',
             k: String(r.version ?? ''),
+            run: r.id,
           })
       }
     }
     return out
-  }, [runs, mode, where, planOf])
+  }, [runs, plans, mode, where])
 
   const cols = [
     !wide && col1 ? '250px' : '',
     !wide ? 'minmax(0,1fr)' : '',
     openRun ? 'minmax(0,1.05fr)' : '',
   ].filter(Boolean).join(' ')
+
+  /** 트리 마디를 누르면 — 실행이 달린 마디는 그 실행까지 곁에 연다 */
+  function pickNode(n: Node) {
+    setSel({ t: n.t, k: n.k })
+    setTab('ov')
+    if (n.run) setOpenRun(n.run)
+  }
 
   /** 결과 메일·결과서 — 플랜이 하나면 바로, 여럿이면 고르게 한다 */
   function ask(kind: 'mail' | 'report') {
@@ -469,12 +581,17 @@ export default function CyclesUni() {
             트리 기준을 바꿔 계획·실행·담당 관점으로 봅니다
           </span>
           <span className="cu-sp" />
-          {/* 플랜 만들기·항목 담기는 **아직** 옛 Plans 화면에 있다. 메뉴에서
-              그 화면을 뺐으니 길이 끊긴다 — 다리를 놓아 둔다. 팝업으로
-              옮기고 나면 이 줄은 지운다. */}
-          <a className="cu-oldlink" href="?p=plans-old">
-            플랜 만들기 · 항목 담기 →
-          </a>
+          <button
+            type="button"
+            className="btn small cu-new"
+            title="새 플랜을 만듭니다 — 사업자·모델·버전을 고르고 시험 항목을 담습니다"
+            onClick={() => {
+              setNeedMake(true)
+              setEdit({})
+            }}
+          >
+            ＋ 플랜
+          </button>
         </div>
       )}
 
@@ -506,11 +623,8 @@ export default function CyclesUni() {
                   className={`cu-n d${n.d}${sel?.t === n.t && sel.k === n.k ? ' on' : ''}`}
                   role="button"
                   tabIndex={0}
-                  onClick={() => {
-                    setSel({ t: n.t, k: n.k })
-                    setTab('ov')
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && setSel({ t: n.t, k: n.k })}
+                  onClick={() => pickNode(n)}
+                  onKeyDown={(e) => e.key === 'Enter' && pickNode(n)}
                 >
                   <span className="nm">{n.label}</span>
                   {n.n != null && <span className="c">{n.n}</span>}
@@ -533,8 +647,17 @@ export default function CyclesUni() {
                   ▸
                 </button>
               )}
-              <b>{sel ? sel.k.replace('|', ' · ') : '고른 것 없음'}</b>
+              <b>
+                {!sel
+                  ? '고른 것 없음'
+                  : isPlan
+                    ? (selPlan?.cid ?? selPlan?.name ?? sel.k)
+                    : sel.k.replace('|', ' · ')}
+              </b>
               {sel && <span className="cu-chip">{SEL_LABEL[sel.t]}</span>}
+              {isPlan && !!selPlan?.name && selPlan.name !== selPlan.cid && (
+                <span className="cu-m">{selPlan.name}</span>
+              )}
               {isVer && p0 && (
                 <span className="cu-m">
                   {[p0.customer, p0.model, p0.version_group].filter(Boolean).join(' · ')}
@@ -542,6 +665,40 @@ export default function CyclesUni() {
               )}
               <span className="cu-sp" />
               <div className="cu-hdbtns">
+                {isPlan && !!selPlan && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn small"
+                      title="이 플랜에 시험 항목을 담습니다"
+                      onClick={() => setAddTo(selPlan.id)}
+                    >
+                      ＋ 항목 담기
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small cu-teal"
+                      title="모델·버전을 정해 이 플랜의 시험 실행을 만듭니다"
+                      onClick={() => {
+                        setNeedMake(true)
+                        setMkRun(selPlan.id)
+                      }}
+                    >
+                      ▶ 실행 만들기
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small"
+                      title="플랜의 기본 정보를 고칩니다"
+                      onClick={() => {
+                        setNeedMake(true)
+                        setEdit({ id: selPlan.id })
+                      }}
+                    >
+                      고치기
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   className="btn small"
@@ -714,6 +871,75 @@ export default function CyclesUni() {
                   </div>
                 )}
               </>
+            ) : isPlan ? (
+              <div className="cu-scroll">
+                {summary}
+                <div className="cu-sec cu-grid2">
+                  <div className="cu-card">
+                    <h2>플랜 정보</h2>
+                    <table className="cu-kv">
+                      <tbody>
+                        <tr>
+                          <td>부여 ID</td>
+                          <td className="cu-mono">{selPlan?.cid ?? '—'}</td>
+                        </tr>
+                        <tr>
+                          <td>제목</td>
+                          <td>{selPlan?.name ?? '—'}</td>
+                        </tr>
+                        <tr>
+                          <td>사업자</td>
+                          <td>{selPlan?.customer ?? '—'}</td>
+                        </tr>
+                        <tr>
+                          <td>모델</td>
+                          <td>
+                            {[selPlan?.model_group, selPlan?.model].filter(Boolean).join(' · ') || '—'}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>버전그룹</td>
+                          <td className="cu-mono">{selPlan?.version_group ?? '—'}</td>
+                        </tr>
+                        <tr>
+                          <td>유형</td>
+                          <td>{selPlan?.type ?? '—'}</td>
+                        </tr>
+                        <tr>
+                          <td>상태</td>
+                          <td>{selPlan?.status ?? '—'}</td>
+                        </tr>
+                        <tr>
+                          <td>담당</td>
+                          <td>{selPlan?.assignee ?? '—'}</td>
+                        </tr>
+                        <tr>
+                          <td>담긴 항목</td>
+                          <td>{selPlan?._item_count ?? 0}건</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="cu-card">
+                    <h2>이 플랜의 실행</h2>
+                    {shown.length ? (
+                      <div className="cu-picker">
+                        <Tile man={false} />
+                        <Tile man />
+                      </div>
+                    ) : (
+                      /* 실행이 없다 — 무엇을 해야 할지 그 자리에서 말해 준다.
+                         빈 칸만 두면 「고장났나」 로 읽힌다. */
+                      <div className="cu-empty">
+                        아직 실행이 없습니다.
+                        <br />
+                        항목을 담고 <b>▶ 실행 만들기</b> 를 누르면 여기에 섭니다.
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {!!shown.length && runTable}
+              </div>
             ) : (
               <>
                 {summary}
@@ -751,6 +977,65 @@ export default function CyclesUni() {
         )}
       </div>
 
+      {/* ── 만들기 창들 — **옛 화면이 쓰던 그 부품**이다 ────────────── */}
+      {!!edit && (
+        <CycleEdit
+          cycleId={edit.id}
+          folders={vgQ.data?.groups ?? {}}
+          onClose={() => setEdit(null)}
+          onDone={(id) => {
+            setEdit(null)
+            void plansQ.refetch()
+            void vgQ.refetch()
+            /* 만든 플랜을 바로 보여 준다 — 만들고 나서 찾아 헤매지 않게 */
+            if (id) {
+              setMode('plan')
+              setSel({ t: 'plan', k: id })
+            }
+          }}
+        />
+      )}
+      {!!addTo && (
+        <CycleEdit
+          cycleId={addTo}
+          popupOnly
+          folders={vgQ.data?.groups ?? {}}
+          onClose={() => setAddTo('')}
+          onDone={() => {
+            setAddTo('')
+            void plansQ.refetch()
+          }}
+        />
+      )}
+      {!!mkRun && !!planOf.get(mkRun) && (
+        <MakePlanRun
+          plan={planOf.get(mkRun)!}
+          catalog={
+            (catQ.data?.items ?? []) as Array<{
+              kind?: string
+              name?: string
+              model_group?: string | null
+              family?: string | null
+            }>
+          }
+          owner={me?.name || me?.username || ''}
+          vgroups={vgQ.data?.groups ?? {}}
+          seed={{
+            family: String(planOf.get(mkRun)?.family ?? ''),
+            model_group: String(planOf.get(mkRun)?.model_group ?? ''),
+            model: String(planOf.get(mkRun)?.model ?? ''),
+            version_group: String(planOf.get(mkRun)?.version_group ?? ''),
+          }}
+          onClose={() => setMkRun('')}
+          onMade={(id) => {
+            /* 만든 실행을 **이 화면 안에서** 연다 — 옛 화면은 Runs 로 넘겼지만
+               이제 실행은 여기 3열이 제자리다. */
+            setMkRun('')
+            void runsQ.refetch()
+            setOpenRun(id)
+          }}
+        />
+      )}
       {!!mailPlan && <CycleMailOne cycle={mailPlan} onClose={() => setMailPlan(null)} />}
       {!!repPlan && (
         <CycleReport

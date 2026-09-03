@@ -212,6 +212,12 @@
 .cu-st.b { background: #f6eae1; color: #8c4107; }
 .cu-st.w { background: #eef0f1; color: var(--c-text-muted); }
 
-/* 옛 Plans 로 가는 임시 다리 — 팝업이 붙으면 지운다 */
-.cu-oldlink { font-size: 12px; color: #0f766e; text-decoration: none; }
-.cu-oldlink:hover { text-decoration: underline; }
+/* 만들기로 이끄는 단추 — 상단 색으로 눈에 띄게 */
+.cu-new, .cu-teal { background: #0f766e; border-color: #0f766e; color: #fff; }
+.cu-new:hover, .cu-teal:hover { background: #0c635c; border-color: #0c635c; }
+.cu-empty {
+  padding: 22px 12px; text-align: center; font-size: 12.5px;
+  line-height: 1.9; color: var(--c-text-faint);
+  border: 1px dashed var(--c-border, #d8dde2); border-radius: 8px;
+}
+.cu-empty b { color: var(--c-text-muted); }
