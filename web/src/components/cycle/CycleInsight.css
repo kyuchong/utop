@@ -78,3 +78,12 @@
   .modal.cin .modal-x { display: none; }
   .modal-back { background: #fff; }
 }
+
+/* 탭 안에 그릴 때 — 창 껍데기 없이 제 자리를 다 쓴다 */
+.cin-flat { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.cin-flat .cin-bar {
+  flex: none; display: flex; align-items: center; gap: 8px;
+  padding: 10px 13px; border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+}
+.cin-flat .cin-bar .sp { flex: 1; }
+.cin-flat .cin-body { flex: 1; min-height: 0; overflow: auto; padding: 13px; }

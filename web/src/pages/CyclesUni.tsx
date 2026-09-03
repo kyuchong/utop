@@ -26,6 +26,7 @@ import RunDetail from '@/components/run/RunDetail'
 import type { RunFull } from '@/components/run/RunDetail'
 import CycleReport from '@/components/cycle/CycleReport'
 import CycleInsight from '@/components/cycle/CycleInsight'
+import TestSummary from '@/components/cycle/TestSummary'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import { CloneDialog, exportCycleCsv, itemVerdict, verdictLabel } from '@/pages/Cycles'
 import type { CycleItemLite } from '@/pages/Cycles'
@@ -156,7 +157,7 @@ export default function CyclesUni({
   const [wide, setWide] = useState(false)
   /** 1열 접기 */
   const [col1, setCol1] = useState(() => prefGet('utop.cyc.col1') !== '0')
-  const [tab, setTab] = useState<'ov' | 'it'>('ov')
+  const [tab, setTab] = useState<'ov' | 'it' | 'ai' | 'sum'>('ov')
   /** 결과 메일·고객사 결과서 — 어느 플랜으로 낼지 고른 뒤 연다 */
   const [mailPlan, setMailPlan] = useState<CycleMeta | null>(null)
   const [repPlan, setRepPlan] = useState<CycleMeta | null>(null)
@@ -323,7 +324,7 @@ export default function CyclesUni({
   const detailQs = useQueries({
     queries: shown.map((r) => ({
       queryKey: ['plan-run', r.id],
-      enabled: isVer && tab === 'it',
+      enabled: isVer && (tab === 'it' || tab === 'sum'),
       queryFn: async () => {
         const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}`)
         if (!res.ok) throw new Error('실행을 불러오지 못했습니다')
@@ -372,17 +373,31 @@ export default function CyclesUni({
     return out
   }, [detailQs, shown, tcOf])
   const itemsLoading = isVer && tab === 'it' && detailQs.some((q) => q.isLoading)
+  /** Test Summary 초안에 실을 실패 목록 */
+  const fails = useMemo(
+    () =>
+      items
+        .filter((it) => it.v === 'f')
+        .map((it) => ({ tcid: it.tcid, title: it.title, run: it.run })),
+    [items],
+  )
+  /** 이 자리의 대표 플랜 — 양식·AI 요약을 담아 둘 곳 */
+  const homePlan = selPlan ?? selPlans[0]
 
   /* 처음 열면 가장 최근 버전을 잡아 준다 — 빈 화면은 「고장났다」 로 읽힌다 */
   useEffect(() => {
-    if (sel || !runs.length) return
+    /* **플랜이 온 뒤에** 잡는다. 자리 열쇠는 사업자·모델을 담는데 그 둘은
+       플랜이 알고 있다 — 실행만 와 있을 때 잡으면 「미지정|미지정|…」 이
+       되고, 곧이어 플랜이 도착하면 그 열쇠에 걸리는 실행이 하나도 없어
+       화면이 통째로 빈다(실행 0건·항목 0건). */
+    if (sel || !runs.length || !plansQ.isSuccess) return
     const newest = [...runs].sort((a, b) =>
       String(b.version ?? '').localeCompare(String(a.version ?? '')),
     )[0]
     if (!newest) return
     const w = where(newest)
     setSel({ t: 'ver', k: key(w.cust, w.model, w.vg, w.ver) })
-  }, [runs, sel, where])
+  }, [runs, sel, where, plansQ.isSuccess])
 
   /* ⋯ 메뉴는 **자리가 바뀌면 닫힌다.** 메뉴와 오버레이가 selPlan 에 함께
      묶여 있어, 자리를 옮기면 둘 다 사라지면서 moreAt 만 값이 남았다 —
@@ -1171,9 +1186,63 @@ export default function CyclesUni({
                   >
                     시험 항목 <span className="dim">{agg.total}</span>
                   </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === 'ai'}
+                    className={tab === 'ai' ? 'on' : ''}
+                    onClick={() => setTab('ai')}
+                  >
+                    AI 요약
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === 'sum'}
+                    className={tab === 'sum' ? 'on' : ''}
+                    onClick={() => setTab('sum')}
+                  >
+                    Test Summary
+                  </button>
                 </div>
 
-                {tab === 'ov' ? (
+                {tab === 'ai' ? (
+                  /* AI 요약 — **창이 아니라 탭 안에**. 부품은 ⋯ 메뉴가 여는
+                     그것과 한 벌이다(inline). 베껴 만들면 한쪽만 고친다. */
+                  homePlan ? (
+                    <div className="cu-fill">
+                      <CycleInsight
+                        inline
+                        mode="ai"
+                        cycleId={homePlan.id}
+                        title={planTitle(homePlan)}
+                        items={[]}
+                        onClose={() => setTab('ov')}
+                      />
+                    </div>
+                  ) : (
+                    <div className="cu-none" style={{ padding: 30 }}>
+                      이 자리에 플랜이 없어 요약할 것이 없습니다.
+                    </div>
+                  )
+                ) : tab === 'sum' ? (
+                  <div className="cu-fill">
+                    <TestSummary
+                      plan={homePlan}
+                      title={selName}
+                      stat={{
+                        total: agg.total,
+                        pass: agg.pass,
+                        fail: agg.fail,
+                        etc: agg.etc,
+                        none: agg.none,
+                        rate: agg.rate,
+                      }}
+                      fails={fails}
+                      statReady={!detailQs.some((q) => q.isLoading)}
+                    />
+                  </div>
+                ) : tab === 'ov' ? (
                   <div className="cu-scroll">
                     {summary}
                     <div className="cu-sec cu-grid2">

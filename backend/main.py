@@ -9034,8 +9034,34 @@ async def cycle_rollup_mail(payload: dict):
 # rollup/mail 은 인증도 enabled 체크도 없는데, 새 길은 share-mail 을
 # 본받아 둘 다 한다 — 무인증 발송 구멍을 새로 파지 않는다.
 # ───────────────────────────────────────────
-async def _cycle_mail_html(cycle_id: str, note: str = "") -> tuple[str, str]:
-    """(제목, HTML). 메일 클라이언트는 CSS 클래스를 못 읽는다 — 전부 인라인."""
+_MAIL_BAD_TAG = __import__("re").compile(
+    r"<\s*/?\s*(script|iframe|object|embed|form|link|meta|style|base)\b[^>]*>",
+    __import__("re").I,
+)
+_MAIL_BAD_ATTR = __import__("re").compile(r"\son\w+\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", __import__("re").I)
+_MAIL_BAD_URL = __import__("re").compile(r"(href|src)\s*=\s*([\"']?)\s*javascript:", __import__("re").I)
+
+
+def _mail_safe_html(html: str) -> str:
+    """메일에 실을 HTML 을 한 번 더 거른다.
+
+    화면(DOMPurify)이 이미 걸렀지만 그것은 **보내는 쪽 브라우저**의 일이다.
+    이 자리는 남의 메일함으로 나가는 마지막 문이라, 서버도 제 눈으로 본다.
+    """
+    out = _MAIL_BAD_TAG.sub("", str(html or ""))
+    out = _MAIL_BAD_ATTR.sub("", out)
+    out = _MAIL_BAD_URL.sub(r"\1=\2#", out)
+    return out
+
+
+async def _cycle_mail_html(cycle_id: str, note: str = "", body_html: str = "") -> tuple[str, str]:
+    """(제목, HTML). 메일 클라이언트는 CSS 클래스를 못 읽는다 — 전부 인라인.
+
+    `body_html` 은 사람이 **Test Summary 에서 마크다운으로 쓴 양식**이다.
+    화면이 marked 로 HTML 을 만들고 DOMPurify 로 소독해서 보낸다(웹에 이미
+    그 두 가지가 묶여 있다 — 서버에 마크다운 변환기를 새로 들이지 않는다).
+    여기서도 한 번 더 거른다: 남이 보낸 것을 그대로 메일에 싣지 않는다.
+    """
     c = await db.cycle_get(cycle_id)
     if not c:
         raise HTTPException(404, "플랜을 찾을 수 없습니다")
@@ -9078,10 +9104,16 @@ async def _cycle_mail_html(cycle_id: str, note: str = "") -> tuple[str, str]:
         f"<div style='white-space:pre-wrap;background:#f7f9fa;border:1px solid #e5eaee;"
         f"border-radius:8px;padding:10px 12px;font-size:12px'>{_h.escape(ai)}</div>"
     ) if ai else ""
-    note_html = (
-        f"<div style='background:#fff8e6;border:1px solid #eadfa8;border-radius:8px;"
-        f"padding:8px 12px;margin:0 0 12px;font-size:12px'>{_h.escape(note)}</div>"
-    ) if note else ""
+    if body_html:
+        note_html = (
+            f"<div style='margin:0 0 14px;font-size:13px;line-height:1.7'>"
+            f"{_mail_safe_html(body_html)}</div>"
+        )
+    else:
+        note_html = (
+            f"<div style='background:#fff8e6;border:1px solid #eadfa8;border-radius:8px;"
+            f"padding:8px 12px;margin:0 0 12px;font-size:12px'>{_h.escape(note)}</div>"
+        ) if note else ""
     kv = "".join(
         f"<td style='padding:8px 14px;text-align:center;border:1px solid #e5eaee'>"
         f"<div style='font-size:20px;font-weight:800;color:{col}'>{val}</div>"
@@ -9118,6 +9150,20 @@ async def cycle_mail_preview(cycle_id: str, note: str = "", token: str = ""):
     return {"subject": subject, "html": html}
 
 
+@app.post("/api/cycle/{cycle_id}/mail-preview")
+async def cycle_mail_preview_post(cycle_id: str, payload: dict, token: str = ""):
+    """미리보기 — **본문이 길어 주소에 못 싣는다.** GET 판은 note 한 줄용이라
+    남겨 두고, Test Summary 처럼 긴 양식은 몸통으로 받는다."""
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    subject, html = await _cycle_mail_html(
+        cycle_id,
+        str(payload.get("note") or "").strip(),
+        str(payload.get("body_html") or ""),
+    )
+    return {"subject": subject, "html": html}
+
+
 @app.post("/api/cycle/{cycle_id}/mail")
 async def cycle_mail(cycle_id: str, payload: dict, token: str = ""):
     if not _user_from_token(token):
@@ -9127,7 +9173,11 @@ async def cycle_mail(cycle_id: str, payload: dict, token: str = ""):
         raise HTTPException(400, "받는 사람을 적어 주세요")
     if not _load_mail_cfg().get("enabled"):
         raise HTTPException(400, "메일 발송이 꺼져 있습니다 (시스템 → 메일 설정)")
-    subject, html = await _cycle_mail_html(cycle_id, str(payload.get("note") or "").strip())
+    subject, html = await _cycle_mail_html(
+        cycle_id,
+        str(payload.get("note") or "").strip(),
+        str(payload.get("body_html") or ""),
+    )
     subject = str(payload.get("subject") or "").strip() or subject
     try:
         sent = _send_mail(to, subject, html, html=True)

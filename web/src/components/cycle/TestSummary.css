@@ -1,0 +1,76 @@
+/* Test Summary — 마크다운 양식 편집기. 접두어 tsm- 로 가둔다 */
+.tsm {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.tsm-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+}
+.tsm-sp { flex: 1; }
+.tsm-msg { font-size: 12px; color: #0f766e; }
+.tsm-dirty {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #f6eae1;
+  color: #8c4107;
+}
+
+/* 쓰기 / 미리보기 — 붙은 두 칸 */
+.tsm-seg {
+  display: inline-flex;
+  border: 1px solid var(--c-border, #d8dde2);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.tsm-seg button {
+  border: 0;
+  background: var(--c-surface, #fff);
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.tsm-seg button + button { border-left: 1px solid var(--c-border, #d8dde2); }
+.tsm-seg button.on { background: #e6f2f0; color: #0f766e; font-weight: 700; }
+
+.tsm-mail {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: #f7f9fa;
+  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+}
+.tsm-mail input {
+  flex: 1;
+  min-width: 0;
+  max-width: 420px;
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 12.5px;
+  border: 1px solid var(--c-border, #d8dde2);
+  border-radius: 6px;
+  background: #fff;
+}
+.tsm-hint { font-size: 11.5px; color: var(--c-text-faint); }
+
+.tsm-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* 편집기는 제 자리를 다 쓴다 — height:100% 를 부모가 줘야 세로가 선다 */
+.tsm-body > * { flex: 1; min-height: 0; }
+.tsm-read { overflow: auto; padding: 16px 18px; }

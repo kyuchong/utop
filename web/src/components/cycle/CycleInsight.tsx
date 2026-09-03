@@ -11,6 +11,10 @@ interface Props {
   title: string
   items: CycleItemLite[]
   onClose: () => void
+  /** 창이 아니라 **탭 안에** 그린다 — 검은 배경도 ✕ 도 없다.
+      Cycles 의 2열 「AI 요약」 탭이 이 모습으로 쓴다. 베껴 만들면 한쪽만
+      고치는 날이 온다 — 같은 부품이 두 모습을 갖는 편이 낫다. */
+  inline?: boolean
 }
 
 /** 이 회차가 며칠에 걸쳐 돌았나 — 처음과 마지막 실행 시각 */
@@ -27,7 +31,7 @@ function span(items: CycleItemLite[]): { first: string; last: string } {
  * 메트릭스가 서버를 안 부르는 것이 중요하다 — 회차를 훑는 동안 계속 열고
  * 닫는데 그때마다 물으면 느리다.
  */
-export default function CycleInsight({ mode, cycleId, title, items, onClose }: Props) {
+export default function CycleInsight({ mode, cycleId, title, items, onClose, inline }: Props) {
   const [busy, setBusy] = useState(false)
   /** 결과 요약을 누구에게 맡길지(지시) */
   const [llm, setLlm] = useLlmPick('cycle-summary')
@@ -36,10 +40,11 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose }: P
   const [err, setErr] = useState('')
 
   useEffect(() => {
+    if (inline) return
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose()
     window.addEventListener('keydown', esc)
     return () => window.removeEventListener('keydown', esc)
-  }, [onClose, busy])
+  }, [onClose, busy, inline])
 
   /** 이미 만들어 둔 요약이 있으면 먼저 보여 준다 — 매번 LLM 을 부르지 않게 */
   useEffect(() => {
@@ -126,17 +131,9 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose }: P
 
   const pct = items.length ? Math.round((m.done / items.length) * 100) : 0
 
-  return (
-    <div className="modal-back" onMouseDown={() => !busy && onClose()}>
-      <div
-        className="modal cin"
-        role="dialog"
-        aria-modal="true"
-        aria-label={mode === 'ai' ? 'AI 요약' : '메트릭스'}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="modal-head">
-          <b>{mode === 'ai' ? 'AI 요약' : '메트릭스'}</b>
+  const head = (
+    <>
+          {!inline && <b>{mode === 'ai' ? 'AI 요약' : '메트릭스'}</b>}
           <span className="muted small">{title}</span>
           <span className="sp" />
           {mode === 'ai' && (
@@ -164,12 +161,16 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose }: P
               </button>
             </>
           )}
-          <button className="modal-x" type="button" onClick={onClose}>
-            ✕
-          </button>
-        </div>
+          {!inline && (
+            <button className="modal-x" type="button" onClick={onClose}>
+              ✕
+            </button>
+          )}
+    </>
+  )
 
-        <div className="modal-body cin-body">
+  const body = (
+    <>
           {mode === 'ai' ? (
             <>
               {err && <div className="form-error">{err}</div>}
@@ -270,7 +271,29 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose }: P
               )}
             </>
           )}
-        </div>
+    </>
+  )
+
+  /* 탭 안에 그릴 때는 검은 배경도 ✕ 도 없다 — 자리를 나갈 길은 탭이다 */
+  if (inline)
+    return (
+      <div className="cin cin-flat">
+        <div className="cin-bar">{head}</div>
+        <div className="cin-body">{body}</div>
+      </div>
+    )
+
+  return (
+    <div className="modal-back" onMouseDown={() => !busy && onClose()}>
+      <div
+        className="modal cin"
+        role="dialog"
+        aria-modal="true"
+        aria-label={mode === 'ai' ? 'AI 요약' : '메트릭스'}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">{head}</div>
+        <div className="modal-body cin-body">{body}</div>
       </div>
     </div>
   )
