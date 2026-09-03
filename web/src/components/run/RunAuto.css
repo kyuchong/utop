@@ -282,17 +282,39 @@
 /* 아직 안 돌린 실행의 콘솔 — 보낸 적 없는 명령을 찍지 않는다 */
 .ra-idle { color: #7f97a1; }
 
-/* 시험 항목 거르개 — 판 머리 오른쪽, 「이동」 왼쪽 */
+/* 시험 항목 거르개 — 판 머리 오른쪽, 「이동」 왼쪽.
+   판 머리의 「이동」 배지와 **같은 결**로 맞춘다(둥근 알약·옅은 테두리·
+   같은 회색). 브라우저 기본 화살표는 크고 각져서 이 줄에서 혼자 튄다 —
+   appearance 를 끄고 작은 ▾ 을 직접 그린다. */
 .ra-fsel {
   flex: none;
-  max-width: 118px;
-  padding: 2px 6px;
+  max-width: 116px;
+  height: 22px;
+  padding: 0 20px 0 9px;
   font: inherit;
-  font-size: 11px;
-  color: var(--c-text-muted);
-  background: #fff;
-  border: 1px solid var(--c-border, #d8dde2);
-  border-radius: 6px;
+  font-size: 10.5px;
+  line-height: 20px;
+  color: #6d8189;
+  background-color: #fbfcfc;
+  border: 1px solid #e0e7ea;
+  border-radius: 999px;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2394a8af' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  background-size: 8px 5px;
+  transition: border-color .12s ease, color .12s ease, background-color .12s ease;
 }
-.ra-fsel:focus { outline: none; border-color: #0f766e; }
+.ra-fsel:hover { border-color: #cdd9dd; color: #4d6068; background-color: #fff; }
+.ra-fsel:focus-visible { outline: 2px solid #0f766e33; outline-offset: 1px; border-color: #0f766e; }
+/* 무엇으로 걸러 보는 중인지 — 「전체」 가 아니면 눈에 띄게 */
+.ra-fsel.on {
+  color: #0f766e;
+  font-weight: 700;
+  border-color: #b9dcd8;
+  background-color: #eff7f6;
+}
+/* 목록 글자는 브라우저가 그린다 — 색만 또렷하게 */
+.ra-fsel option { color: var(--c-text); font-weight: 400; }

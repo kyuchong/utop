@@ -576,7 +576,7 @@ export default function RunAuto({
             <span className="ra-sp" />
             {id === 'tc' && (
               <select
-                className="ra-fsel"
+                className={`ra-fsel${flt === 'all' ? '' : ' on'}`}
                 value={flt}
                 title="이 결과의 항목만 봅니다"
                 /* 머리줄은 끌어서 자리를 바꾸는 손잡이다 — 고르개를 누를 때
