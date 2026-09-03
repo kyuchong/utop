@@ -14,7 +14,17 @@
 /* 열 사이는 **6px**(지시: 간격이 넓다). REQ-Coverage 가 22 → 10 → 6 으로
    줄여 앉힌 그 값이다 — 세 화면이 같은 간격이라야 옮겨 다닐 때 눈이
    흔들리지 않는다([[ui-unify-queue]]). */
-.cu-grid { flex: 1; min-height: 0; display: grid; gap: 6px; align-items: stretch; }
+.cu-grid { flex: 1; min-height: 0; display: grid; gap: 6px; align-items: stretch; position: relative; }
+/* 이동바는 격자의 gap 위에 얹는다 — 제 열을 주면 gap 이 그 양옆에 또 붙어
+   판 사이가 18px 로 벌어졌다(지적: REQ-Coverage 보다 공간이 크다). */
+.cu-rzslot {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  display: flex;
+  z-index: 2;
+}
 .cu-grid > * { min-width: 0; min-height: 0; }
 
 /* ── 1열 트리 ── */

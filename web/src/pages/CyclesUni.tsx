@@ -700,10 +700,12 @@ export default function CyclesUni({
     /* 밑값 280px — 「사업자 ▸ 모델 ▸ 버전그룹 ▸ 버전명」 이 안 잘리는
        폭이다. 재 보면 그 글자만 173px, 여기에 select 안여백·화살표(36)와
        열의 여백(52)이 붙는다. 250 에서는 「버전」 에서 잘렸다.
-       여기서부터는 사람이 끌어서 정한다. 뒤의 6px 은 이동바 자리 —
-       REQ-Coverage 와 같은 짜임이다. */
+       여기서부터는 사람이 끌어서 정한다.
+
+       이동바는 **열을 따로 차지하지 않는다.** 한 칸 두었더니 격자의
+       gap(6px)이 그 양옆에 붙어 판 사이가 18px 로 벌어졌다 —
+       REQ-Coverage 는 6px 이다(지적). 이동바는 gap 위에 얹는다. */
     !wide && col1 ? `${w1}px` : '',
-    !wide && col1 ? '6px' : '',
     !wide ? 'minmax(0,1fr)' : '',
     openRun ? 'minmax(0,1.05fr)' : '',
   ].filter(Boolean).join(' ')
@@ -1729,13 +1731,16 @@ export default function CyclesUni({
         )}
 
         {/* 두 판 사이 이동바 — **다른 화면과 같은 부품**(지시). 잡히는 폭도
-            손잡이 그림도 REQ-Coverage 와 한 벌이다. */}
+            손잡이 그림도 REQ-Coverage 와 한 벌이다. 격자의 gap 자리에 얹어
+            판 사이를 6px 로 지킨다 — 제 열을 주면 gap 이 양옆에 또 붙는다. */}
         {!wide && col1 && (
-          <Resizer
-            label="폴더 열 너비 조절"
-            onResize={setW1}
-            getOrigin={() => gridRef.current?.getBoundingClientRect().left ?? 0}
-          />
+          <div className="cu-rzslot" style={{ left: w1 }}>
+            <Resizer
+              label="폴더 열 너비 조절"
+              onResize={setW1}
+              getOrigin={() => gridRef.current?.getBoundingClientRect().left ?? 0}
+            />
+          </div>
         )}
 
         {!wide && (
