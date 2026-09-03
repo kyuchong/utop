@@ -1155,6 +1155,10 @@ export default function CyclesUni({
       { key: 'vgroup', label: '버전그룹', type: 'text', width: 100 },
       { key: 'version', label: '버전명', type: 'text', width: 175 },
       { key: 'owner', label: '담당', type: 'text', width: 110 },
+      /* 차례는 **같은 타입끼리 모은다**(지시: 앞서 보낸 이미지처럼).
+         속성 패널에 아이콘이 ≡ 무리 → 📅 무리 → ◎ 무리로 서서, 무엇이
+         고르는 칸이고 무엇이 글자 칸인지 한눈에 갈린다. */
+      { key: 'result', label: '결과', type: 'text', width: 190, hidden: true },
       { key: 'created', label: '생성', type: 'date', width: 110 },
       { key: 'closed', label: '종료', type: 'date', width: 110 },
       { key: 'mode', label: '방식', type: 'select', width: 92, hidden: true,
@@ -1162,7 +1166,6 @@ export default function CyclesUni({
           { value: '자동', color: 'blue', icon: '⚙' },
           { value: '수동', color: 'orange', icon: '✋' },
         ] },
-      { key: 'result', label: '결과', type: 'text', width: 190, hidden: true },
       { key: 'state', label: '상태', type: 'select', width: 92, hidden: true,
         options: [
           { value: '대기', color: 'gray' },
@@ -1212,7 +1215,13 @@ export default function CyclesUni({
       hidden: c.fixed ? false : touched ? has.has(c.key) : c.hidden,
       width: colPref.width[c.key] ?? c.width,
     }))
-    if (!colPref.order.length) return cols
+    /* 저장된 차례가 **지금 열 구성과 다르면 버린다.** 열을 더하거나 뺀
+       뒤에도 옛 차례가 이기면, 밑그림을 고쳐도 화면이 안 따라온다
+       (지시로 차례를 맞춰도 그대로인 채가 된다). */
+    const keys = new Set(cols.map((c) => c.key))
+    const fits =
+      colPref.order.length === cols.length && colPref.order.every((k) => keys.has(k))
+    if (!fits) return cols
     const at = (k: string) => {
       const i2 = colPref.order.indexOf(k)
       return i2 < 0 ? 999 : i2
