@@ -22,7 +22,7 @@ import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { normMode } from '@/lib/runMode'
-import { IconPanel } from '@/components/icons'
+import { IconChevron, IconPanel } from '@/components/icons'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import RunDetail from '@/components/run/RunDetail'
 import type { RunFull } from '@/components/run/RunDetail'
@@ -171,6 +171,49 @@ export default function CyclesUni({
   const [w1, setW1] = useResizableWidth('utop.ntb.cyc.w1', 280, 180, 620)
   /** 격자의 왼쪽 끝 — 이동바가 폭을 재는 기준점 */
   const gridRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * **접힌 마디** — 모델·버전그룹을 그 자리에서 여닫는다(지시).
+   *
+   * 모델이 늘고 버전그룹이 붙으면 트리가 화면보다 길어진다. 지금 안 보는
+   * 모델까지 다 펴 놓으면 정작 찾는 버전명이 스크롤 밖으로 밀린다.
+   *
+   * 모드마다 키 체계가 달라(모델 기준 / 플랜 기준 / 담당 기준) 접힘도
+   * 모드별로 따로 남긴다 — 한 통에 담으면 모드를 바꿨을 때 엉뚱한 마디가
+   * 접힌다.
+   */
+  const [fold, setFold] = useState<Set<string>>(() => {
+    try {
+      const raw = prefGet(`utop.ntb.cyc.fold.${mode}`)
+      const arr = raw ? (JSON.parse(raw) as unknown) : []
+      return new Set(Array.isArray(arr) ? (arr as string[]) : [])
+    } catch {
+      return new Set()
+    }
+  })
+  /* 모드를 갈아타면 그 모드의 접힘을 읽어 온다 */
+  useEffect(() => {
+    try {
+      const raw = prefGet(`utop.ntb.cyc.fold.${mode}`)
+      const arr = raw ? (JSON.parse(raw) as unknown) : []
+      setFold(new Set(Array.isArray(arr) ? (arr as string[]) : []))
+    } catch {
+      setFold(new Set())
+    }
+  }, [mode])
+  useEffect(() => {
+    try {
+      prefSet(`utop.ntb.cyc.fold.${mode}`, JSON.stringify([...fold]))
+    } catch {
+      /* 저장이 막혀도 화면은 돌아야 한다 */
+    }
+  }, [fold, mode])
+
+  /** 접힌 조상 밑인가 — 키가 `조상|…` 이면 숨는다 */
+  const hidden = (k: string) => {
+    for (const f of fold) if (k.startsWith(`${f}|`)) return true
+    return false
+  }
   const [tab, setTab] = useState<'ov' | 'it' | 'ai' | 'sum'>('ov')
   /** 실행 표의 보기(찾기·거르기·정렬·묶기) — 노션식 표가 쥐고 있다 */
   const [runView, setRunView] = useState<NView>(EMPTY_VIEW)
@@ -1628,7 +1671,17 @@ export default function CyclesUni({
                   오른쪽 위 <b>＋ 사이클</b> 으로 시작하세요.
                 </div>
               )}
-              {tree.map((n, i) => (
+              {tree.map((n, i) => {
+                /* 접힌 조상 밑이면 아예 안 그린다 */
+                if (hidden(n.k)) return null
+                /* 여닫을 수 있는가 — **모델·버전그룹**만(지시). 밑에 아무것도
+                   없는 마디는 캐럿을 달아도 누를 일이 없으니 자리만 비운다
+                   (자리를 아예 비우지 않으면 이름들이 층마다 어긋난다). */
+                const foldable =
+                  (n.t === 'model' || n.t === 'vg') &&
+                  tree.some((x) => x.k.startsWith(`${n.k}|`))
+                const open = !fold.has(n.k)
+                return (
                 <div key={`${n.t}-${n.k}-${i}`}>
                   <div
                     className={`cu-n d${n.d}${sel?.t === n.t && sel.k === n.k ? ' on' : ''}`}
@@ -1637,6 +1690,27 @@ export default function CyclesUni({
                     onClick={() => pickNode(n)}
                     onKeyDown={(e) => e.key === 'Enter' && pickNode(n)}
                   >
+                    {foldable ? (
+                      <button
+                        type="button"
+                        className={`cu-caret${open ? ' open' : ''}`}
+                        title={open ? '접기' : '펴기'}
+                        aria-expanded={open}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setFold((prev) => {
+                            const nx = new Set(prev)
+                            if (nx.has(n.k)) nx.delete(n.k)
+                            else nx.add(n.k)
+                            return nx
+                          })
+                        }}
+                      >
+                        <IconChevron />
+                      </button>
+                    ) : (
+                      <span className="cu-caret none" aria-hidden="true" />
+                    )}
                     <span className="nm">{n.label}</span>
                     {n.n != null && <span className="c">{n.n}</span>}
                     {/* 폴더를 만들고 지우는 자리. **버전그룹만** 사람이 만든다 —
@@ -1725,7 +1799,8 @@ export default function CyclesUni({
                     </div>
                   )}
                 </div>
-              ))}
+                )
+              })}
             </div>
             {/* 두 판 사이 이동바 — **다른 화면과 같은 부품**(지시). 잡히는
                 폭도 손잡이 그림도 REQ-Coverage 와 한 벌이다. 트리 판의
