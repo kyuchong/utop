@@ -1027,11 +1027,12 @@ export default function CyclesUni({
           <span className="cu-sp" />
           <button
             type="button"
-            className="btn small cu-new"
+            className="cu-new"
             title="새 사이클을 만듭니다 — 사업자·모델·버전을 고르고 시험 항목을 담습니다"
             onClick={() => setMaking(true)}
           >
-            ＋ 사이클
+            <i aria-hidden="true">＋</i>
+            사이클
           </button>
         </div>
       )}

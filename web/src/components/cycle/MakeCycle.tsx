@@ -104,20 +104,42 @@ export default function MakeCycle({
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
 
+  /** 모델 행 — **제품군↔모델그룹을 잇는 것은 이 줄뿐이다.**
+      카탈로그의 group 행에는 family 칸이 비어 있어(213 확인), group 행만
+      보면 L3 를 골라도 L2 그룹이 그대로 남는다(지적). */
+  const modelRows = useMemo(() => cat.filter((x) => x.kind === 'model'), [cat])
+  const sortKo = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true })
+  const uniqSort = (xs: Array<string | null | undefined>) =>
+    [...new Set(xs.map((v) => String(v ?? '')))].filter(Boolean).sort(sortKo)
+
+  /** 제품군 — **늘 전부**다. 아래 칸으로 위 칸을 좁히면, 제품군을 바꾸려고
+      할 때 바꾸려는 값이 목록에 없어 먼저 아래를 비워야 한다(막다른 길).
+      대신 아래를 고르면 위를 **채워 준다**(아래 effect). */
   const families = useMemo(() => of('family'), [cat])
-  /** 모델그룹 — kind 는 'group' 이다(카탈로그의 이름과 화면 말이 다르다) */
-  const mgroups = useMemo(() => of('group'), [cat])
+
+  /** 모델그룹 — 제품군을 골랐으면 그 제품군의 모델이 속한 그룹만 */
+  const mgroups = useMemo(() => {
+    const all = of('group')
+    if (!family) return all
+    const mine = uniqSort(
+      modelRows.filter((x) => String(x.family ?? '') === family).map((x) => x.model_group),
+    )
+    /* 고른 값이라고 남겨 두지 않는다. 남기면 제품군을 L3 로 바꿔도 OLT 의
+       U95xxH 가 그대로 앉아, 아래 정리 effect 도 「목록에 있다」 며 안 비운다
+       — 저장하면 트리가 엉뚱한 자리에 선다. */
+    return all.filter((v) => mine.includes(v))
+  }, [cat, modelRows, family])
+
   /** 모델 — 위에서 고른 제품군·모델그룹으로 좁힌다 */
   const models = useMemo(
     () =>
-      cat
-        .filter((x) => x.kind === 'model')
-        .filter((x) => !family || String(x.family ?? '') === family)
-        .filter((x) => !mgroup || String(x.model_group ?? '') === mgroup)
-        .map((x) => String(x.name ?? ''))
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
-    [cat, family, mgroup],
+      uniqSort(
+        modelRows
+          .filter((x) => !family || String(x.family ?? '') === family)
+          .filter((x) => !mgroup || String(x.model_group ?? '') === mgroup)
+          .map((x) => x.name),
+      ),
+    [modelRows, family, mgroup],
   )
   /** 이 모델이 이미 쓰는 버전그룹 */
   const vgs = useMemo(() => {
@@ -135,6 +157,27 @@ export default function MakeCycle({
     if (row.family) setFamily(String(row.family))
     if (row.model_group) setMgroup(String(row.model_group))
   }, [model, cat])
+
+  /* 모델그룹을 고르면 제품군을 채운다 — 그 그룹의 모델이 모두 한 제품군일
+     때만. 여럿에 걸쳐 있으면(UbiEnt 처럼) 사람이 고를 몫이다. */
+  useEffect(() => {
+    if (!mgroup || family) return
+    const fams = uniqSort(
+      modelRows.filter((x) => String(x.model_group ?? '') === mgroup).map((x) => x.family),
+    )
+    if (fams.length === 1 && fams[0]) setFamily(fams[0])
+    // uniqSort·modelRows 는 카탈로그가 오면 한 번 정해진다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mgroup, modelRows])
+
+  /* 위 칸을 바꿔 아래 칸의 고른 값이 후보에서 빠지면 비운다. 남겨 두면
+     화면에는 E61xx 가 보이는데 목록에는 없는, 저장하면 어긋나는 값이 된다. */
+  useEffect(() => {
+    if (mgroup && !mgroups.includes(mgroup)) setMgroup('')
+  }, [mgroups, mgroup])
+  useEffect(() => {
+    if (model && !models.includes(model)) setModel('')
+  }, [models, model])
 
   const vg = (newVg.trim() || vgroup).trim()
 

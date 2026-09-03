@@ -213,8 +213,42 @@
 .cu-st.w { background: #eef0f1; color: var(--c-text-muted); }
 
 /* 만들기로 이끄는 단추 — 상단 색으로 눈에 띄게 */
-.cu-new, .cu-teal { background: #0f766e; border-color: #0f766e; color: #fff; }
-.cu-new:hover, .cu-teal:hover { background: #0c635c; border-color: #0c635c; }
+/* 안쪽에서 쓰는 초록 단추(실행 만들기·보내기 …) */
+.cu-teal { background: #0f766e; border-color: #0f766e; color: #fff; }
+.cu-teal:hover { background: #0c635c; border-color: #0c635c; }
+
+/* ＋ 사이클 — **이 화면에서 첫걸음**이다. 다른 단추와 같은 무게로 두면
+   빈 화면에서 어디를 눌러야 할지 눈이 못 찾는다. 한 칸 크게, 살짝 띄운다. */
+.cu .cu-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 15px 7px 13px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+  color: #fff;
+  background: linear-gradient(180deg, #12897f 0%, #0f766e 100%);
+  border: 1px solid #0d6a63;
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgb(15 118 110 / 30%), 0 2px 8px rgb(15 118 110 / 18%);
+  cursor: pointer;
+  transition: transform .08s ease, box-shadow .15s ease, background .15s ease;
+}
+.cu .cu-new:hover {
+  background: linear-gradient(180deg, #0f7a71 0%, #0c635c 100%);
+  box-shadow: 0 2px 4px rgb(15 118 110 / 34%), 0 6px 16px rgb(15 118 110 / 24%);
+}
+.cu .cu-new:active { transform: translateY(1px); box-shadow: 0 1px 2px rgb(15 118 110 / 30%); }
+.cu .cu-new:focus-visible { outline: 2px solid #0f766e66; outline-offset: 2px; }
+/* ＋ 는 글자보다 굵고 크게 — 「더한다」 가 한눈에 읽힌다 */
+.cu .cu-new i {
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 800;
+  opacity: .95;
+}
 .cu-empty {
   padding: 22px 12px; text-align: center; font-size: 12.5px;
   line-height: 1.9; color: var(--c-text-faint);

@@ -11,7 +11,9 @@
 }
 
 .mkc {
-  width: min(540px, 100%);
+  /* 목업보다 넉넉하게(지시) — 칸이 여덟이라 540 에서는 고르개 글자가
+     줄바꿈되고, 「새 버전그룹」 처럼 긴 이름표가 두 줄로 앉았다. */
+  width: min(760px, 100%);
   max-height: 92vh;
   display: flex;
   flex-direction: column;
@@ -26,10 +28,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 13px 16px;
+  padding: 15px 22px;
   border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
 }
-.mkc-head b { font-size: 14.5px; color: var(--c-text); }
+.mkc-head b { font-size: 15.5px; color: var(--c-text); }
 .mkc-sp { flex: 1; }
 .mkc-x {
   width: 26px;
@@ -49,7 +51,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 14px 16px 4px;
+  padding: 18px 22px 8px;
 }
 
 .mkc-set { border: 0; margin: 0 0 4px; padding: 0 0 12px; }
@@ -64,7 +66,7 @@
 .mkc-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 14px;
+  gap: 12px 18px;
 }
 .mkc-grid label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .mkc-grid label > span:first-child { font-size: 11.5px; color: var(--c-text-muted); }
@@ -86,9 +88,9 @@
 .mkc input {
   width: 100%;
   min-width: 0;
-  padding: 6px 9px;
+  padding: 7px 10px;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--c-text);
   background: #fff;
   border: 1px solid var(--c-border, #d8dde2);
@@ -113,8 +115,9 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 11px 16px;
+  padding: 13px 22px;
   border-top: 1px solid var(--c-border-soft, #dfe4ea);
+  background: #fafbfb;
 }
 .mkc-where { font-size: 12px; color: var(--c-text-faint); }
 /* 특이도를 한 칸 올린다 — 전역 .btn 이 나중에 실리면 배경을 되빼앗는다 */
