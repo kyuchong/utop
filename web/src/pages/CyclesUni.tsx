@@ -1727,20 +1727,18 @@ export default function CyclesUni({
                 </div>
               ))}
             </div>
+            {/* 두 판 사이 이동바 — **다른 화면과 같은 부품**(지시). 잡히는
+                폭도 손잡이 그림도 REQ-Coverage 와 한 벌이다. 트리 판의
+                오른쪽 가장자리 밖, 곧 격자의 gap(6px) 자리에 선다 — 제 열을
+                주면 gap 이 그 양옆에 또 붙어 판 사이가 18px 로 벌어졌다. */}
+            <div className="cu-rzslot">
+              <Resizer
+                label="폴더 열 너비 조절"
+                onResize={setW1}
+                getOrigin={() => gridRef.current?.getBoundingClientRect().left ?? 0}
+              />
+            </div>
           </section>
-        )}
-
-        {/* 두 판 사이 이동바 — **다른 화면과 같은 부품**(지시). 잡히는 폭도
-            손잡이 그림도 REQ-Coverage 와 한 벌이다. 격자의 gap 자리에 얹어
-            판 사이를 6px 로 지킨다 — 제 열을 주면 gap 이 양옆에 또 붙는다. */}
-        {!wide && col1 && (
-          <div className="cu-rzslot" style={{ left: w1 }}>
-            <Resizer
-              label="폴더 열 너비 조절"
-              onResize={setW1}
-              getOrigin={() => gridRef.current?.getBoundingClientRect().left ?? 0}
-            />
-          </div>
         )}
 
         {!wide && (
