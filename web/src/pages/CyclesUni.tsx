@@ -1064,6 +1064,28 @@ export default function CyclesUni({
     } catch {
       bad++
     }
+    /* 그 버전그룹에 아무것도 안 남으면 **폴더도 걷는다.** 안 걷으면 빈
+       폴더가 「미지정」 사업자 밑에 떠 있다 — 사이클이 사라져 어느 사업자
+       것인지 알 길이 없어지기 때문이다. 서버는 비어 있을 때만 지운다. */
+    const model = String(cyc.model ?? '')
+    const vg = String(cyc.version_group ?? '')
+    const left = plans.some(
+      (p) =>
+        p.id !== cyc.id &&
+        String(p.model ?? '') === model &&
+        String(p.version_group ?? '') === vg,
+    )
+    if (model && vg && !left) {
+      try {
+        await apiFetch(
+          `/api/cycle-version-groups/${encodeURIComponent(model)}/${encodeURIComponent(vg)}`,
+          { method: 'DELETE' },
+        )
+      } catch {
+        /* 못 지워도 사이클은 이미 갔다 — 폴더는 손으로 걷으면 된다 */
+      }
+      void vgQ.refetch()
+    }
     await plansQ.refetch()
     await runsQ.refetch()
     void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })

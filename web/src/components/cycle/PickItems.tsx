@@ -52,23 +52,25 @@ export default function PickItems({
     return () => window.removeEventListener('keydown', esc)
   }, [onClose, busy])
 
-  /* 담긴 항목은 **전문**에서 읽는다 — 목록의 요약본은 항목을 깎아 준다 */
+  /* 담긴 항목은 **전문**에서 읽는다 — 목록의 요약본은 항목을 깎아 준다.
+     읽기가 실패하면 **저장을 막는다.** 빈 채로 시작해 두면 「완료」 가
+     `keep = 원래항목.filter(고른것)` 을 빈 배열로 만들어 **담겨 있던 항목을
+     통째로 지운다** — 고르지도 않았는데 사라진다. */
+  const [loadErr, setLoadErr] = useState('')
   useEffect(() => {
     let live = true
     void (async () => {
       try {
         const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}`)
-        if (r.ok) {
-          const j = (await r.json()) as { items?: Array<{ tcid?: string }> }
-          if (live)
-            setPicked(
-              new Set((j.items ?? []).map((x) => String(x?.tcid ?? '')).filter(Boolean)),
-            )
-        }
-      } catch {
-        /* 못 읽으면 빈 채로 시작한다 — 담기는 아래에서 다시 합친다 */
+        if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+        const j = (await r.json()) as { items?: Array<{ tcid?: string }> }
+        if (!live) return
+        setPicked(new Set((j.items ?? []).map((x) => String(x?.tcid ?? '')).filter(Boolean)))
+        setLoadErr('')
+        setReady(true)
+      } catch (e) {
+        if (live) setLoadErr(e instanceof Error ? e.message : String(e))
       }
-      if (live) setReady(true)
     })()
     return () => {
       live = false
@@ -213,6 +215,15 @@ export default function PickItems({
         items?: Array<Record<string, unknown>>
       }
       const was = full.items ?? []
+      /* 담겨 있던 것이 **하나도 안 남는다면** 되묻는다. 고르기 창을 열었다가
+         아무것도 안 건드리고 닫는 손이 흔한데, 그 한 번이 담긴 항목을
+         전부 지우면 되돌릴 길이 없다. */
+      if (was.length && !picked.size) {
+        if (!window.confirm(`담겨 있던 시험 항목 ${was.length}건을 모두 뺍니다. 그대로 할까요?`)) {
+          setBusy(false)
+          return
+        }
+      }
       const keep = was.filter((x) => picked.has(String(x?.tcid ?? '')))
       const had = new Set(keep.map((x) => String(x?.tcid ?? '')))
       /* 새로 담긴 것 — 결과 칸은 비운 채로. 이름은 목록에서 가져온다 */
@@ -406,7 +417,13 @@ export default function PickItems({
           </div>
         </aside>
         <div className="pki-rows">
-          {!ready || tcQ.isLoading ? (
+          {loadErr ? (
+            <div className="pki-none">
+              {loadErr}
+              <br />
+              창을 닫고 다시 열어 주세요 — 이대로 담으면 담겨 있던 항목이 사라집니다.
+            </div>
+          ) : !ready || tcQ.isLoading ? (
             <div className="pki-none">불러오는 중…</div>
           ) : !shown.length ? (
             <div className="pki-none">고를 항목이 없습니다.</div>
