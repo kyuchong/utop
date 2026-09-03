@@ -2,15 +2,16 @@
 .modal.cin { max-width: 720px; max-height: 84vh; }
 .cin-body { gap: var(--sp-4); }
 
-.cin-text {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font: inherit;
+/* 요약 본문 — 마크다운으로 그린다(지시). 안쪽 차림새는 공용 `.md` 가
+   들고 오므로 여기서는 글자 크기와 넘침만 잡는다. LLM 이 내는 표는 폭이
+   제멋대로라 좁은 판에서 가로로 흘러넘친다 — 표만 제 안에서 스크롤한다. */
+.cin-md {
   font-size: var(--fs-sm);
   line-height: 1.65;
   color: var(--c-text);
+  word-break: break-word;
 }
+.cin-md table { display: block; max-width: 100%; overflow-x: auto; }
 
 /* 한눈에 보는 숫자 넷 */
 .cin-cards {

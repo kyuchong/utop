@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import Markdown from '@/components/Markdown'
 import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import { itemVerdict, verdictClass, verdictLabel, type CycleItemLite } from '@/pages/Cycles'
 import './CycleInsight.css'
@@ -176,7 +177,13 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose, inl
               {err && <div className="form-error">{err}</div>}
               {at && <div className="muted small">만든 때 {at}</div>}
               {text ? (
-                <pre className="cin-text">{text}</pre>
+                /* **마크다운으로 그린다**(지시). LLM 은 `##` 머리글과 `|` 표로
+                   답하는데 <pre> 로 내밀면 그 기호가 그대로 보여, 정작 읽어야
+                   할 표가 파이프 줄로 읽혔다. Test Summary 와 같은 부품을 써서
+                   두 탭의 글이 같은 차림새로 선다(소독은 그 부품이 한다). */
+                <div className="cin-md">
+                  <Markdown text={text} />
+                </div>
               ) : (
                 <div className="empty">
                   아직 요약이 없습니다.
