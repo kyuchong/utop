@@ -1166,11 +1166,22 @@ export default function CyclesUni({
          가는 유일한 길이고, 제목이 없으면 어느 줄인지 알아볼 수가 없다.
          NTable 이 fixed 를 보고 토글을 잠근다(NTable:1105). */
       { key: 'key', label: 'ID', type: 'text', width: 150, fixed: true },
-      { key: 'title', label: '제목', type: 'text', width: 220, fixed: true },
+      { key: 'title', label: '제목', type: 'text', width: 190, fixed: true },
+      /* 방식은 **끄지 않고, 앞에 둔다.** 한 사이클이 자동·수동으로 갈려 실행
+         둘을 낳는데 그 둘을 가르는 값은 이것뿐이다. 꺼 두었더니 제목·모델·
+         버전·담당·생성·종료가 두 줄에서 글자 하나까지 같아, 버전명이 둘로
+         늘어난 것처럼 보였다(질문: 버전명 1개인데 그룹에서 보면 왜 2개지).
+         타입 무리(≡ → 📅 → ◎)를 따라 맨 뒤에 두었더니 이번엔 화면 밖으로
+         밀려 잘렸다 — 보이지 않으면 켠 것이 아니다. */
+      { key: 'mode', label: '방식', type: 'select', width: 88,
+        options: [
+          { value: '자동', color: 'blue', icon: '⚙' },
+          { value: '수동', color: 'orange', icon: '✋' },
+        ] },
       { key: 'mgroup', label: '모델그룹', type: 'text', width: 100 },
       { key: 'model', label: '모델명', type: 'text', width: 100 },
       { key: 'vgroup', label: '버전그룹', type: 'text', width: 100 },
-      { key: 'version', label: '버전명', type: 'text', width: 175 },
+      { key: 'version', label: '버전명', type: 'text', width: 160 },
       { key: 'owner', label: '담당', type: 'text', width: 110 },
       /* 차례는 **같은 타입끼리 모은다**(지시: 앞서 보낸 이미지처럼).
          속성 패널에 아이콘이 ≡ 무리 → 📅 무리 → ◎ 무리로 서서, 무엇이
@@ -1178,11 +1189,6 @@ export default function CyclesUni({
       { key: 'result', label: '결과', type: 'text', width: 190, hidden: true },
       { key: 'created', label: '생성', type: 'date', width: 110 },
       { key: 'closed', label: '종료', type: 'date', width: 110 },
-      { key: 'mode', label: '방식', type: 'select', width: 92, hidden: true,
-        options: [
-          { value: '자동', color: 'blue', icon: '⚙' },
-          { value: '수동', color: 'orange', icon: '✋' },
-        ] },
       { key: 'state', label: '상태', type: 'select', width: 92, hidden: true,
         options: [
           { value: '대기', color: 'gray' },
@@ -1201,7 +1207,11 @@ export default function CyclesUni({
     order: string[]
   }>(() => {
     try {
-      const raw = prefGet('utop.ntb.cyc.runcols')
+      /* **판을 올렸다**(runcols → runcols.v2). 방식 열이 기본 숨김이던 때
+         속성 패널을 한 번이라도 연 사람은 숨김 목록에 mode 가 적힌 채로
+         저장되어, 밑그림을 켜도 제 화면만 그대로다. 폭·차례의 개인 조정은
+         여기서 한 번 초기화된다 — 두 줄이 구별되는 편이 낫다. */
+      const raw = prefGet('utop.ntb.cyc.runcols.v2')
       const j = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
       return {
         hidden: Array.isArray(j.hidden) ? (j.hidden as string[]) : [],
@@ -1214,7 +1224,7 @@ export default function CyclesUni({
   })
   useEffect(() => {
     try {
-      prefSet('utop.ntb.cyc.runcols', JSON.stringify(colPref))
+      prefSet('utop.ntb.cyc.runcols.v2', JSON.stringify(colPref))
     } catch {
       /* 사생활 보호 모드에서 저장이 막혀도 화면은 돌아야 한다 */
     }
