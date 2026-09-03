@@ -29,6 +29,7 @@ import CycleInsight from '@/components/cycle/CycleInsight'
 import TestSummary from '@/components/cycle/TestSummary'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import MakeCycle from '@/components/cycle/MakeCycle'
+import PickItems from '@/components/cycle/PickItems'
 import { CloneDialog, exportCycleCsv, itemVerdict, verdictLabel } from '@/pages/Cycles'
 import type { CycleItemLite } from '@/pages/Cycles'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
@@ -446,14 +447,33 @@ export default function CyclesUni({
        플랜이 알고 있다 — 실행만 와 있을 때 잡으면 「미지정|미지정|…」 이
        되고, 곧이어 플랜이 도착하면 그 열쇠에 걸리는 실행이 하나도 없어
        화면이 통째로 빈다(실행 0건·항목 0건). */
-    if (sel || !runs.length || !plansQ.isSuccess) return
+    if (sel || !plansQ.isSuccess) return
+    /* **사이클이 먼저다.** 실행이 한 건도 없어도 사이클은 제 자리를 갖는다 —
+       실행만 보면 갓 만든 사이클뿐일 때 아무것도 안 골라져, 화면이 「고른 것
+       없음」 으로 멈춘다(항목 담기 단추도 안 선다). */
+    const newestCycle = [...plans].sort((a, b) =>
+      String(b.version ?? b.name ?? '').localeCompare(String(a.version ?? a.name ?? '')),
+    )[0]
+    if (newestCycle) {
+      setSel({
+        t: 'ver',
+        k: key(
+          String(newestCycle.customer || '미지정'),
+          String(newestCycle.model || '미지정'),
+          String(newestCycle.version_group || '미지정'),
+          String(newestCycle.version || newestCycle.name || '(버전 없음)'),
+        ),
+      })
+      return
+    }
+    if (!runs.length) return
     const newest = [...runs].sort((a, b) =>
       String(b.version ?? '').localeCompare(String(a.version ?? '')),
     )[0]
     if (!newest) return
     const w = where(newest)
     setSel({ t: 'ver', k: key(w.cust, w.model, w.vg, w.ver) })
-  }, [runs, sel, where, plansQ.isSuccess])
+  }, [runs, plans, sel, where, plansQ.isSuccess])
 
   /* ⋯ 메뉴는 **자리가 바뀌면 닫힌다.** 메뉴와 오버레이가 selPlan 에 함께
      묶여 있어, 자리를 옮기면 둘 다 사라지면서 moreAt 만 값이 남았다 —
@@ -1994,23 +2014,21 @@ export default function CyclesUni({
           }}
         />
       )}
-      {!!addTo && (
-        <CycleEdit
-          cycleId={addTo}
-          popupOnly
-          folders={vgQ.data?.groups ?? {}}
+      {!!addTo && !!planOf.get(addTo) && (
+        <PickItems
+          cycle={planOf.get(addTo)!}
           onClose={() => setAddTo('')}
           onDone={() => {
             const had = !!shown.length
             setAddTo('')
             void plansQ.refetch()
             void qc.invalidateQueries({ queryKey: ['cycle-full', addTo] })
-            /* **실행은 플랜 항목을 복사해 담는다.** 그러니 플랜에 담아도
-               이미 만들어 둔 실행의 항목표는 그대로다 — 「담았는데 목록이
-               안 바뀐다」 로 읽히지 않게 그 자리에서 말해 준다. */
-            if (had && tab === 'it')
+            /* **실행은 사이클 항목을 복사해 담는다.** 그러니 사이클에 담아도
+               이미 뜬 실행의 항목표는 그대로다 — 「담았는데 목록이 안 바뀐다」
+               로 읽히지 않게 그 자리에서 말해 준다. */
+            if (had)
               window.alert(
-                '사이클에 담았습니다.\n이미 만든 실행에는 안 들어갑니다 — 새 실행을 만들면 담깁니다.',
+                '사이클에 담았습니다.\n이미 뜬 실행에는 안 들어갑니다 — 새 실행을 만들면 담깁니다.',
               )
           }}
         />
