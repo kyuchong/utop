@@ -1124,7 +1124,13 @@ select.cy-v.na { color: #999; }
    한 장면이 된다. 일이 시작되면(athome 해제) 원래 판으로 돌아온다. */
 .main[data-page='ai-tc'] { padding: 0; }
 .ask.athome .ask-cols { padding: 0; }
-.ask.athome .ask-canvas { padding: 0; }
+.ask.athome .ask-canvas {
+  padding: 0;
+  /* 캔버스는 본디 블록이라 flex:1 짜리 ask-home 이 늘어나지 못해, 글 아래로
+     바탕색 띠가 남았다 — 세로 플렉스로 바꿔 끝까지 채운다. */
+  display: flex;
+  flex-direction: column;
+}
 .aitc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .aitc-head {
   display: flex;
