@@ -281,3 +281,18 @@
 .ra-evt td.ra-num, .ra-evt th:first-child { white-space: nowrap; }
 /* 아직 안 돌린 실행의 콘솔 — 보낸 적 없는 명령을 찍지 않는다 */
 .ra-idle { color: #7f97a1; }
+
+/* 시험 항목 거르개 — 판 머리 오른쪽, 「이동」 왼쪽 */
+.ra-fsel {
+  flex: none;
+  max-width: 118px;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--c-text-muted);
+  background: #fff;
+  border: 1px solid var(--c-border, #d8dde2);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ra-fsel:focus { outline: none; border-color: #0f766e; }

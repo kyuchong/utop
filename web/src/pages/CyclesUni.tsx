@@ -1365,29 +1365,10 @@ export default function CyclesUni({
               )}
               <span className="cu-sp" />
               <div className="cu-hdbtns">
-                {!!homePlan && (
-                  <>
-                    <button
-                      type="button"
-                      className="btn small"
-                      title="이 사이클에 시험 항목을 담습니다"
-                      onClick={() => setAddTo(homePlan.id)}
-                    >
-                      ＋ 항목 담기
-                    </button>
-                    <button
-                      type="button"
-                      className="btn small"
-                      title="사이클의 기본 정보를 고칩니다"
-                      onClick={() => {
-                        setNeedMake(true)
-                        setEdit({ id: homePlan.id })
-                      }}
-                    >
-                      고치기
-                    </button>
-                  </>
-                )}
+                {/* 「＋ 항목 담기」·「고치기」 는 뺐다(지시).
+                    담기는 **시험 항목 탭 안**에 그 자리가 있고, 고치기는
+                    ⋯ 메뉴에 둔다 — 머리줄에 단추가 다섯이면 정작 자주
+                    쓰는 것이 묻힌다. */}
                 <button
                   type="button"
                   className="btn small"
@@ -1409,8 +1390,8 @@ export default function CyclesUni({
                 <button
                   type="button"
                   className="btn small"
-                  disabled={!selPlan || !!busy}
-                  title="AI 요약 · 메트릭스 · CSV · 복제 · 삭제"
+                  disabled={!homePlan || !!busy}
+                  title="AI 요약 · 메트릭스 · CSV · 항목 담기 · 고치기 · 복제 · 삭제"
                   onClick={openMore}
                 >
                   {busy ? '…' : '⋯'}
@@ -1920,7 +1901,7 @@ export default function CyclesUni({
       </div>
 
       {/* ── ⋯ 더보기 ─────────────────────────────────────────────── */}
-      {!!moreAt && !!selPlan && (
+      {!!moreAt && !!homePlan && (
         <>
           <span
             className="cu-moreovl"
@@ -1933,7 +1914,29 @@ export default function CyclesUni({
               role="menuitem"
               onClick={() => {
                 setMoreAt(null)
-                void openInsight(selPlan, 'ai')
+                setAddTo(homePlan.id)
+              }}
+            >
+              ＋ 시험 항목 담기
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMoreAt(null)
+                setNeedMake(true)
+                setEdit({ id: homePlan.id })
+              }}
+            >
+              고치기
+            </button>
+            <div className="cu-menusep" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMoreAt(null)
+                void openInsight(homePlan, 'ai')
               }}
             >
               AI 요약
@@ -1943,7 +1946,7 @@ export default function CyclesUni({
               role="menuitem"
               onClick={() => {
                 setMoreAt(null)
-                void openInsight(selPlan, 'metrics')
+                void openInsight(homePlan, 'metrics')
               }}
             >
               메트릭스
@@ -1953,7 +1956,7 @@ export default function CyclesUni({
               role="menuitem"
               onClick={() => {
                 setMoreAt(null)
-                void csvPlans([selPlan.id])
+                void csvPlans([homePlan.id])
               }}
             >
               CSV 내보내기
@@ -1964,7 +1967,7 @@ export default function CyclesUni({
               role="menuitem"
               onClick={() => {
                 setMoreAt(null)
-                setClone(selPlan.id)
+                setClone(homePlan.id)
               }}
             >
               복제
@@ -1975,7 +1978,7 @@ export default function CyclesUni({
               className="danger"
               onClick={() => {
                 setMoreAt(null)
-                void delPlans([selPlan.id])
+                void delPlans([homePlan.id])
               }}
             >
               삭제

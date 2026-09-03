@@ -316,11 +316,18 @@ export default function RunAuto({
   }, [runStep])
 
   const curStep = steps[Math.min(stepAt, Math.max(0, steps.length - 1))]
+  /** 시험 항목 거르개 — 목업의 그 고르개(전체·PASS·FAIL·대기).
+      항목이 수십 건이면 「실패한 것만」 보고 싶은데 그 자리가 없었다. */
+  const [flt, setFlt] = useState<'all' | 'p' | 'f' | 'n'>('all')
+  const shownItems = useMemo(
+    () => (flt === 'all' ? items : items.filter((it) => it.verdict === flt)),
+    [items, flt],
+  )
   const groups = useMemo(() => {
     const m = new Map<string, AutoItem[]>()
-    for (const it of items) m.set(it.group, [...(m.get(it.group) ?? []), it])
+    for (const it of shownItems) m.set(it.group, [...(m.get(it.group) ?? []), it])
     return [...m.entries()]
-  }, [items])
+  }, [shownItems])
 
   /* ── 판 그리기 ── */
   const body = (id: PanelId) => {
@@ -489,6 +496,9 @@ export default function RunAuto({
             내는 것이라, 사람이 여기서 덮어쓸 자리가 아니다. 손으로 고쳐야
             하면 그건 수동 시험이다. */}
         <div className="ra-scroll">
+          {!groups.length && (
+            <div className="ra-none">그 결과의 항목이 없습니다.</div>
+          )}
           {groups.map(([g, arr]) => (
             <div key={g}>
               {/* 묶음 옆 「1/2」 를 뺐다(지시) — 판 제목에 Pass·Fail·대기 가
@@ -564,6 +574,24 @@ export default function RunAuto({
             {/* 목업처럼 판마다 「무엇을 보는 중인지」 를 제목 옆에 적는다 */}
             {!!subOf(id) && <small>· {subOf(id)}</small>}
             <span className="ra-sp" />
+            {id === 'tc' && (
+              <select
+                className="ra-fsel"
+                value={flt}
+                title="이 결과의 항목만 봅니다"
+                /* 머리줄은 끌어서 자리를 바꾸는 손잡이다 — 고르개를 누를 때
+                   드래그가 걸리면 목록이 안 열린다. 여기서 멈춘다. */
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onChange={(e) => setFlt(e.target.value as typeof flt)}
+              >
+                <option value="all">전체 {tal.total}</option>
+                <option value="p">PASS {tal.p}</option>
+                <option value="f">FAIL {tal.f}</option>
+                <option value="n">대기 {tal.n}</option>
+              </select>
+            )}
             <span className="ra-grab">이동</span>
           </header>
           {body(id)}
