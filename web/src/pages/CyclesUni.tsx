@@ -27,6 +27,9 @@ import type { RunFull } from '@/components/run/RunDetail'
 import CycleReport from '@/components/cycle/CycleReport'
 import CycleInsight from '@/components/cycle/CycleInsight'
 import TestSummary from '@/components/cycle/TestSummary'
+import NTable from '@/components/ntable/NTable'
+import { EMPTY_VIEW } from '@/components/ntable/types'
+import type { NCol, NRow, NView } from '@/components/ntable/types'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import MakeCycle from '@/components/cycle/MakeCycle'
 import PickItems from '@/components/cycle/PickItems'
@@ -160,6 +163,8 @@ export default function CyclesUni({
   /** 1열 접기 */
   const [col1, setCol1] = useState(() => prefGet('utop.cyc.col1') !== '0')
   const [tab, setTab] = useState<'ov' | 'it' | 'ai' | 'sum'>('ov')
+  /** 실행 표의 보기(찾기·거르기·정렬·묶기) — 노션식 표가 쥐고 있다 */
+  const [runView, setRunView] = useState<NView>(EMPTY_VIEW)
   /** 결과 메일·고객사 결과서 — 어느 플랜으로 낼지 고른 뒤 연다 */
   const [mailPlan, setMailPlan] = useState<CycleMeta | null>(null)
   const [repPlan, setRepPlan] = useState<CycleMeta | null>(null)
@@ -1126,61 +1131,118 @@ export default function CyclesUni({
   const p0 = selPlans[0]
 
   /** 실행 목록 표 — 자리마다 같은 모양이라 한 곳에 둔다 */
+  /**
+   * 실행 목록 — **노션식 표**(NTable). REQ-Coverage 가 쓰는 그 부품이다.
+   *
+   * 손으로 그린 표는 열 폭도 못 바꾸고 정렬·거르기·계산 줄도 없다.
+   * 같은 저장소에 그 살림이 이미 있는데 화면마다 다른 표를 쓰면,
+   * 옮겨 다닐 때마다 조작이 달라진다([[ui-unify-queue]]).
+   */
+  const runCols: NCol[] = useMemo(
+    () => [
+      { key: 'name', label: '실행', type: 'text', width: 150, fixed: true },
+      { key: 'version', label: '버전', type: 'text', width: 190 },
+      /* 아이콘은 REQ-Coverage 와 같은 것을 쓴다 — 수동은 손, 자동은 톱니 */
+      { key: 'mode', label: '방식', type: 'select', width: 92,
+        options: [
+          { value: '자동', color: 'blue', icon: '⚙' },
+          { value: '수동', color: 'orange', icon: '✋' },
+        ] },
+      { key: 'cycle', label: '사이클', type: 'text', width: 130 },
+      { key: 'result', label: '결과', type: 'text', width: 190 },
+      { key: 'state', label: '상태', type: 'select', width: 92,
+        options: [
+          { value: '대기', color: 'gray' },
+          { value: '진행중', color: 'blue' },
+          { value: '완료', color: 'green' },
+        ] },
+      { key: 'owner', label: '담당', type: 'text', width: 110 },
+    ],
+    [],
+  )
+  const runRows: NRow[] = useMemo(
+    () =>
+      shown.map((r) => {
+        const st = sum([r])
+        const p = r.plan_id ? planOf.get(r.plan_id) : undefined
+        return {
+          __id: r.id,
+          name: String(r.name || r.id),
+          version: String(r.version ?? ''),
+          mode: normMode(r.mode) === '수동' ? '수동' : '자동',
+          cycle: String(p?.cid ?? p?.name ?? ''),
+          /* 거르기·정렬이 읽을 값은 **글자**로 둔다. 그림은 renderCell 이 그린다 */
+          result: `통과 ${st.pass} · 실패 ${st.fail} · ${st.done}/${st.total}`,
+          state: r.closed_at ? '완료' : st.done ? '진행중' : '대기',
+          owner: String(r.owner || '미배정'),
+        }
+      }),
+    [shown, planOf],
+  )
+
   const runTable = (
-    <div className="cu-sec cu-list">
-      <table>
-        <thead>
-          <tr>
-            <th>실행</th>
-            <th>버전</th>
-            <th>방식</th>
-            <th>사이클</th>
-            <th>결과</th>
-            <th>상태</th>
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((r) => {
-            const s = sum([r])
+    <div className="cu-sec cu-ntb">
+      <NTable
+        columns={runCols}
+        rows={runRows}
+        view={runView}
+        onView={setRunView}
+        /* 열 정의는 잠근다 — 이 표의 열은 실행이 가진 값 그대로라,
+           이름을 바꾸거나 지워도 담아 둘 곳이 없다. */
+        lockDefs
+        onColumns={() => undefined}
+        onCell={() => undefined}
+        readOnlyKeys={runCols.map((c) => c.key)}
+        idKey="name"
+        titleKey="version"
+        onOpen={(id) => setOpenRun(id)}
+        onBulk={(act, ids) => {
+          if (act !== 'del') {
+            window.alert('이 일괄 작업은 아직 없습니다.')
+            return
+          }
+          void delRuns(
+            shown.filter((r) => ids.includes(r.id)),
+            selName || '이 자리',
+          )
+        }}
+        /* 이 표의 값은 **실행이 가진 것 그대로**라 고칠 수 없다. 그런데
+           readOnlyKeys 에 넣으면 select 칸이 맨 글자로 떨어져(NTable:280)
+           방식·상태가 색을 잃는다 — 알약은 여기서 직접 그린다. */
+        renderCell={(row, col) => {
+          const r = shown.find((x) => x.id === row.__id)
+          if (!r) return undefined
+          if (col.key === 'mode') {
             const man = normMode(r.mode) === '수동'
-            const p = r.plan_id ? planOf.get(r.plan_id) : undefined
             return (
-              <tr key={r.id}>
-                <td>
-                  <button type="button" className="cu-key" onClick={() => setOpenRun(r.id)}>
-                    {r.name || r.id}
-                  </button>
-                </td>
-                <td className="cu-mono">{r.version ?? '—'}</td>
-                <td>
-                  <span className={`cu-pill ${man ? 'amber' : 'blue'}`}>
-                    {man ? '✋ 수동' : '⚙ 자동'}
-                  </span>
-                </td>
-                <td className="cu-mono">{p?.cid ?? p?.name ?? '—'}</td>
-                <td style={{ minWidth: 150 }}>
-                  <Bar s={s} sm />
-                  <div className="cu-sm">
-                    통과 {s.pass} · 실패 {s.fail} · {s.done}/{s.total}
-                  </div>
-                </td>
-                <td>
-                  <span className={`cu-pill ${r.closed_at ? 'green' : s.done ? 'blue' : 'gray'}`}>
-                    {r.closed_at ? '완료' : s.done ? '진행중' : '대기'}
-                  </span>
-                </td>
-              </tr>
+              <span className={`cu-pill ${man ? 'amber' : 'blue'}`}>
+                {man ? '✋ 수동' : '⚙ 자동'}
+              </span>
             )
-          })}
-          {!shown.length && (
-            <tr>
-              <td colSpan={6} className="cu-none">
-                이 자리에 실행이 없습니다.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          }
+          if (col.key === 'state') {
+            const st = sum([r])
+            const v = r.closed_at ? '완료' : st.done ? '진행중' : '대기'
+            return (
+              <span className={`cu-pill ${r.closed_at ? 'green' : st.done ? 'blue' : 'gray'}`}>
+                {v}
+              </span>
+            )
+          }
+          if (col.key === 'result') {
+            const st = sum([r])
+            return (
+              <div style={{ minWidth: 0 }}>
+                <Bar s={st} sm />
+                <div className="cu-sm">
+                  통과 {st.pass} · 실패 {st.fail} · {st.done}/{st.total}
+                </div>
+              </div>
+            )
+          }
+          return undefined
+        }}
+      />
     </div>
   )
 
