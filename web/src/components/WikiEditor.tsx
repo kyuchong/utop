@@ -219,9 +219,16 @@ export default function WikiEditor({
     return `hsl(${h % 360}, 58%, 46%)`
   }, [meName])
 
+  /* 나를 방에 알린다 — 이름과 색.
+     편집기도 제 몫으로 이것을 넣게 되어 있는데, 실제로 붙여 보니 자리가
+     빈 채였다(연결·sync 는 됐고 방에 셋이 있는데 내 칸만 `{}`). 커서
+     이름표와 접속자 목록이 모두 이 값을 읽으므로, 편집기에 맡기지 않고
+     여기서 못박는다. 편집기가 같은 값을 다시 넣어도 해로울 것이 없다. */
   useEffect(() => {
-    // 진단용 — 콘솔에서 연결 상태를 들여다본다(확인 뒤 걷는다)
-    ;(window as unknown as { __wikiProv?: unknown }).__wikiProv = provider
+    provider.awareness.setLocalStateField('user', { name: meName, color: meColor })
+  }, [provider, meName, meColor])
+
+  useEffect(() => {
     return () => {
       provider.destroy()
       ydoc.destroy()
