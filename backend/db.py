@@ -2289,9 +2289,14 @@ async def cycle_next_cid(prefix: str, width: int = 3) -> str:
 
     옛 주차 규칙(C-2635-)은 3자리, 모델그룹 규칙(E61xx_C)은 4자리 —
     요구사항·시험항목(_R0001·_T0001)과 나란히 읽히게."""
+    # **두 이음쇠를 함께 센다.** ID 옮기기가 E61xx_P0001 을 E61xx-P0001 로
+    # 바꿨는데 여기서 새 앞머리만 세면, 옛 형식으로 남은 번호를 못 보고
+    # 1번부터 다시 매겨 **이미 쓰는 번호와 부딪힌다**.
+    alt = prefix[:-2] + ("_" if prefix[-2:-1] == "-" else "-") + prefix[-1] if len(prefix) >= 2 else prefix
     async with pool().acquire() as c:
         rows = await c.fetch(
-            "SELECT data->>'cid' AS cid FROM cycle WHERE data->>'cid' LIKE $1", prefix + "%"
+            "SELECT data->>'cid' AS cid FROM cycle WHERE data->>'cid' LIKE $1 OR data->>'cid' LIKE $2",
+            prefix + "%", alt + "%",
         )
     mx = 0
     for r in rows:

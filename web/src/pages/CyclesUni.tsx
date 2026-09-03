@@ -1405,6 +1405,25 @@ export default function CyclesUni({
                   </div>
                 ) : (
                   <div className="cu-sec cu-list">
+                    {/* 항목을 담는 길은 플랜 자리에만 있었다 — 정작 항목을
+                        보고 있는 이 자리에서 「하나 더 넣자」 가 안 됐다. */}
+                    <div className="cu-itbar">
+                      <span className="cu-m">시험 항목 {items.length}건</span>
+                      <span className="cu-sp" />
+                      <button
+                        type="button"
+                        className="btn small cu-teal"
+                        disabled={!homePlan}
+                        title={
+                          homePlan
+                            ? `플랜 ${homePlan.cid ?? homePlan.name ?? homePlan.id} 에 담습니다 — 이미 만든 실행에는 안 들어갑니다`
+                            : '이 자리에 플랜이 없습니다'
+                        }
+                        onClick={() => homePlan && setAddTo(homePlan.id)}
+                      >
+                        ＋ 플랜에 항목 담기
+                      </button>
+                    </div>
                     <table>
                       <thead>
                         <tr>
@@ -1760,8 +1779,17 @@ export default function CyclesUni({
           folders={vgQ.data?.groups ?? {}}
           onClose={() => setAddTo('')}
           onDone={() => {
+            const had = !!shown.length
             setAddTo('')
             void plansQ.refetch()
+            void qc.invalidateQueries({ queryKey: ['cycle-full', addTo] })
+            /* **실행은 플랜 항목을 복사해 담는다.** 그러니 플랜에 담아도
+               이미 만들어 둔 실행의 항목표는 그대로다 — 「담았는데 목록이
+               안 바뀐다」 로 읽히지 않게 그 자리에서 말해 준다. */
+            if (had && tab === 'it')
+              window.alert(
+                '플랜에 담았습니다.\n이미 만든 실행에는 안 들어갑니다 — 새 실행을 만들면 담깁니다.',
+              )
           }}
         />
       )}

@@ -12287,7 +12287,12 @@ async def _cycle_cid_prefix(data: dict) -> tuple[str, int]:
             except Exception:
                 pass
     if mg:
-        return f"{mg}_P", 4
+        # 이음쇠는 **하이픈**이다. ID 옮기기(SETUP)가 요구사항·시험·플랜을
+        # E61xx-R0001 · E61xx-T0001 · E61xx-P0001 로 바꿨는데 여기만 밑줄로
+        # 남아 있었다 — 그 탓에 아래 startswith 검사가 늘 어긋나, 결과가
+        # 없는 플랜을 **저장할 때마다 부여 ID 가 새로 매겨졌다**(실사고:
+        # E61xx-P0001 이 사업자 한 칸 고쳤다고 E61xx_P0003 이 됐다).
+        return f"{mg}-P", 4
     from datetime import datetime as _dt
     return db._cid_prefix_of(_dt.now()), 3
 
@@ -12530,7 +12535,10 @@ async def save_cycle(cycle_id: str, data: dict):
         try:
             _pfx, _w = await _cycle_cid_prefix(data or {})
             _cid = str(data.get("cid") or "")
-            if _w == 4 and not _cid.startswith(_pfx):
+            # 옛 이음쇠(_)로 박힌 것도 **같은 앞머리**로 본다. 아직 ID 를
+            # 안 옮긴 서버에서 저장만 해도 번호가 갈리면 안 된다.
+            _pfx_old = _pfx[:-2] + "_" + _pfx[-1] if len(_pfx) >= 2 else _pfx
+            if _w == 4 and not (_cid.startswith(_pfx) or _cid.startswith(_pfx_old)):
                 _items = data.get("items") or []
                 _fresh = all(
                     not str(it.get("result") or "").strip()

@@ -281,3 +281,11 @@
 /* 탭 알맹이가 남은 자리를 다 쓴다 — 편집기는 세로가 서야 한다 */
 .cu-fill { flex: 1; min-height: 0; display: flex; }
 .cu-fill > * { flex: 1; min-width: 0; min-height: 0; }
+
+/* 시험 항목 표 위 도구줄 */
+.cu-itbar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 8px;
+  padding: 2px 2px 9px; margin-bottom: 2px;
+  background: var(--c-surface, #fff);
+}
