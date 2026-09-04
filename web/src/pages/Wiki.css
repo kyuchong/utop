@@ -9,14 +9,17 @@
   min-height: 0;
 }
 .wk-side { display: flex; flex-direction: column; min-height: 0; }
+/* 제목 줄 — 「＋ 새 문서」 가 제목 오른쪽에 선다(지시). 줄 하나가 준다. */
 .wk-head {
   flex: none;
-  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
   border-bottom: 1px solid var(--c-border);
   font-size: var(--fs-md);
 }
-.wk-newrow { flex: none; padding: 8px; border-bottom: 1px solid var(--c-border); }
-.wk-newrow .btn { width: 100%; }
+.wk-head .sp { flex: 1; }
 .wk-find { flex: none; position: relative; padding: 8px; border-bottom: 1px solid var(--c-border); }
 .wk-fico {
   position: absolute;
@@ -507,3 +510,64 @@
   font-size: 13px;
 }
 .wke-pvnone b { color: var(--c-text); font-size: 14px; }
+
+/* ── 1|2열 이동바 자리 — 트리 판 오른쪽 가장자리 밖, 격자 gap(6px) 위 ── */
+.wk-side { overflow: visible; position: relative; }
+.wk-rzslot {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -6px;
+  width: 6px;
+  display: flex;
+  z-index: 3;
+}
+
+/* ── 프로젝트 이름표 — 전체로 볼 때 맨 윗줄에만 ── */
+.wk-prj {
+  flex: none;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--c-surface-alt);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+.wk-row.on .wk-prj { background: rgb(255 255 255 / 55%); color: var(--c-sel-teal-ink); }
+/* 이름표는 손잡이(⋯)와 자리를 나눈다 — 올리면 ⋯ 가 이름표 자리에 선다 */
+.wk-row:hover .wk-prj { display: none; }
+
+/* ── 줄 ⋯ 메뉴 ── */
+.wk-menuovl { position: fixed; inset: 0; z-index: 69; }
+.wk-menu {
+  position: fixed;
+  z-index: 70;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(13 59 70 / 16%);
+  padding: 4px;
+  min-width: 200px;
+}
+.wk-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+.wk-menu button:hover { background: var(--c-surface-alt); color: var(--c-text); }
+.wk-menu button.danger:hover { background: #fff0f3; color: #d53f60; }
+.wk-menusep { border-top: 1px solid var(--c-border-soft); margin: 4px 0; }
+.wk-menuh { padding: 2px 8px; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.wk-menuprjs { max-height: 180px; overflow: auto; }
