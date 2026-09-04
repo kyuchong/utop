@@ -7603,7 +7603,7 @@ a.bc-cur:hover { text-decoration: underline; }
   /* A안 오로라(승인) — 청록빛 그라데이션 바탕. 왼쪽바의 옅은 청록과 한
      공기로 이어진다. */
   position: relative;
-  background: linear-gradient(180deg, #f8fbfc, #edf4f7);
+  background: linear-gradient(180deg, var(--sky-bg1, #f8fbfc), var(--sky-bg2, #edf4f7));
 }
 /* 하늘은 그림, 내용은 그 위 — 겹 순서를 여기서 못 박는다 */
 .ask-homewrap > *:not(.ask-sky) { position: relative; z-index: 1; }
@@ -7612,15 +7612,15 @@ a.bc-cur:hover { text-decoration: underline; }
 .ask-homewrap > .ask-askbox2 { z-index: 3; }
 .ask-sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .ask-sky > i { position: absolute; display: block; border-radius: 50%; filter: blur(90px); }
-.ask-sky .o1 { width: 520px; height: 520px; left: 10%; top: -8%; background: rgb(15 118 110 / 16%); animation: ask-drift 26s ease-in-out infinite alternate; }
-.ask-sky .o2 { width: 460px; height: 460px; right: 8%; top: 0; background: rgb(23 105 210 / 13%); animation: ask-drift 32s ease-in-out infinite alternate-reverse; }
-.ask-sky .o3 { width: 420px; height: 420px; left: 42%; top: 55%; background: rgb(124 92 255 / 10%); animation: ask-drift 38s ease-in-out infinite alternate; }
+.ask-sky .o1 { width: 520px; height: 520px; left: 10%; top: -8%; background: var(--sky-o1, rgb(15 118 110 / 16%)); animation: ask-drift 26s ease-in-out infinite alternate; }
+.ask-sky .o2 { width: 460px; height: 460px; right: 8%; top: 0; background: var(--sky-o2, rgb(23 105 210 / 13%)); animation: ask-drift 32s ease-in-out infinite alternate-reverse; }
+.ask-sky .o3 { width: 420px; height: 420px; left: 42%; top: 55%; background: var(--sky-o3, rgb(124 92 255 / 10%)); animation: ask-drift 38s ease-in-out infinite alternate; }
 .ask-sky .dots {
   position: absolute;
   inset: 0;
   border-radius: 0;
   filter: none;
-  background-image: radial-gradient(rgb(15 118 110 / 10%) 1px, transparent 1px);
+  background-image: radial-gradient(var(--sky-dot, rgb(15 118 110 / 10%)) 1px, transparent 1px);
   background-size: 24px 24px;
   -webkit-mask-image: radial-gradient(720px 420px at 50% 32%, #000 30%, transparent 75%);
   mask-image: radial-gradient(720px 420px at 50% 32%, #000 30%, transparent 75%);
@@ -7631,6 +7631,80 @@ a.bc-cur:hover { text-decoration: underline; }
 }
 /* 오프너 편집은 일하는 자리다 — 하늘을 걷어 차분하게 */
 .ask-home.editing .ask-sky { display: none; }
+
+/* ── 첫 화면 테마(지시) — 계절·명절 따라 하늘·제목의 색만 갈아 끼운다.
+   짜임은 그대로다: 바탕 둘·빛무리 셋·점·제목 그라데이션, 도합 여덟 변수. */
+.ask-home[data-theme='spring'] {
+  --sky-bg1: #fdf9fa; --sky-bg2: #f6eef3;
+  --sky-o1: rgb(233 106 155 / 15%); --sky-o2: rgb(122 190 120 / 13%); --sky-o3: rgb(250 200 90 / 12%);
+  --sky-dot: rgb(214 108 148 / 12%);
+  --sky-t1: #7c2b4e; --sky-t2: #c2497c; --sky-t3: #3f8f4f;
+}
+.ask-home[data-theme='summer'] {
+  --sky-bg1: #f4fbfd; --sky-bg2: #e8f5f9;
+  --sky-o1: rgb(18 128 220 / 15%); --sky-o2: rgb(0 176 199 / 14%); --sky-o3: rgb(60 200 140 / 11%);
+  --sky-dot: rgb(0 140 180 / 11%);
+  --sky-t1: #0b3f66; --sky-t2: #0f6fb8; --sky-t3: #00a0b8;
+}
+.ask-home[data-theme='autumn'] {
+  --sky-bg1: #fdfaf4; --sky-bg2: #f7efe3;
+  --sky-o1: rgb(214 122 32 / 15%); --sky-o2: rgb(186 76 44 / 12%); --sky-o3: rgb(160 122 52 / 11%);
+  --sky-dot: rgb(178 108 40 / 12%);
+  --sky-t1: #5f3410; --sky-t2: #b25e14; --sky-t3: #c2482e;
+}
+.ask-home[data-theme='winter'] {
+  --sky-bg1: #f5f9fd; --sky-bg2: #e9f0f8;
+  --sky-o1: rgb(96 138 200 / 15%); --sky-o2: rgb(140 172 224 / 13%); --sky-o3: rgb(120 200 220 / 10%);
+  --sky-dot: rgb(100 140 200 / 12%);
+  --sky-t1: #1d3a5f; --sky-t2: #3565a8; --sky-t3: #5b8fd6;
+}
+.ask-home[data-theme='chuseok'] {
+  --sky-bg1: #fcf8ef; --sky-bg2: #f4ead6;
+  --sky-o1: rgb(214 164 42 / 18%); --sky-o2: rgb(196 110 36 / 12%); --sky-o3: rgb(90 110 160 / 10%);
+  --sky-dot: rgb(190 140 40 / 13%);
+  --sky-t1: #5c3d10; --sky-t2: #a8741a; --sky-t3: #c9992b;
+}
+.ask-home[data-theme='seollal'] {
+  --sky-bg1: #fdf7f5; --sky-bg2: #f8ebe6;
+  --sky-o1: rgb(198 60 60 / 14%); --sky-o2: rgb(212 160 52 / 13%); --sky-o3: rgb(40 140 120 / 10%);
+  --sky-dot: rgb(190 80 70 / 12%);
+  --sky-t1: #6b1f1f; --sky-t2: #b43a3a; --sky-t3: #b8860b;
+}
+
+/* 테마 고르개 — 오른쪽 위 단추 밑에 펼쳐진다 */
+.ask-themewrap { position: relative; }
+.ask-thememenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 21;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 11px;
+  box-shadow: 0 14px 40px rgb(13 59 70 / 16%);
+}
+.ask-thmi {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--c-text);
+  text-align: left;
+  cursor: pointer;
+}
+.ask-thmi:hover { background: #f2f7f8; }
+.ask-thmi.on { background: #e9f2f4; font-weight: 700; }
+.ask-thmi > i { font-style: normal; }
+.ask-thmi > b { margin-left: auto; font-size: 11px; color: #0f766e; }
 
 /* ✦ Test AI 뱃지 — 그라데이션 테두리 알약. 글자는 진한 청록 —
    글자까지 그라데이션이면 ✦ 와 겹쳐 어지럽다. */
@@ -7681,7 +7755,7 @@ a.bc-cur:hover { text-decoration: underline; }
   text-align: center;
   width: 100%;
   max-width: 760px;
-  background: linear-gradient(92deg, #0d3b46, #0f766e 48%, #1769d2);
+  background: linear-gradient(92deg, var(--sky-t1, #0d3b46), var(--sky-t2, #0f766e) 48%, var(--sky-t3, #1769d2));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

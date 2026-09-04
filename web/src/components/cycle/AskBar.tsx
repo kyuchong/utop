@@ -272,6 +272,30 @@ export default function AskBar({ devices }: Props) {
   const exBack = useRef<Array<{ q: string; d?: string }>>([])
   /** 모드 고르개(목업) — 입력칸 안에서 펼친다 */
   const [modeOpen, setModeOpen] = useState(false)
+
+  /**
+   * 첫 화면 테마(지시) — 계절·명절 따라 오로라의 색이 바뀐다.
+   * 색은 전부 CSS 가 들고 있고(data-theme), 여기는 이름만 기억한다.
+   * 계정을 따라간다(prefs SYNC).
+   */
+  const THEMES = [
+    ['aurora', '기본', '✨'],
+    ['spring', '봄', '🌸'],
+    ['summer', '여름', '🌊'],
+    ['autumn', '가을', '🍂'],
+    ['winter', '겨울', '❄️'],
+    ['chuseok', '추석', '🌕'],
+    ['seollal', '설', '🧧'],
+  ] as const
+  type ThemeKey = (typeof THEMES)[number][0]
+  const [theme, setTheme] = useState<ThemeKey>(() => {
+    const v = prefGet('utop.ai.theme')
+    return (THEMES.some(([k]) => k === v) ? v : 'aurora') as ThemeKey
+  })
+  useEffect(() => {
+    prefSet('utop.ai.theme', theme)
+  }, [theme])
+  const [themeOpen, setThemeOpen] = useState(false)
   /** 이 브라우저에서 감춘 오프너 — 남의 화면은 그대로다 */
   const [exHide, setExHide] = useState<string[]>(() => {
     try {
@@ -2094,9 +2118,47 @@ export default function AskBar({ devices }: Props) {
           제목 · 입력칸(모드 고르개가 그 안에) · 오프너 셋.
           관리자는 ⚙ 로 오프너를 이 자리에서 고친다. */}
       {!draft && !making && (
-        <div className={`ask-home${exEdit ? ' editing' : ''}`}>
+        <div className={`ask-home${exEdit ? ' editing' : ''}`} data-theme={theme}>
           {exEdit && <span className="ask-edbadge">오프너 편집 모드</span>}
           <div className="ask-hometools">
+            {!exEdit && (
+              <span className="ask-themewrap">
+                <button
+                  className="ask-gearbtn"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded={themeOpen}
+                  title="첫 화면 테마 — 계절·명절 색으로 바꿉니다"
+                  onClick={() => setThemeOpen((v) => !v)}
+                >
+                  {THEMES.find(([k]) => k === theme)?.[2]} 테마
+                </button>
+                {themeOpen && (
+                  <>
+                    <span className="ask-modeback" onClick={() => setThemeOpen(false)} />
+                    <span className="ask-thememenu" role="menu">
+                      {THEMES.map(([k, nm, emo]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={theme === k}
+                          className={`ask-thmi${theme === k ? ' on' : ''}`}
+                          onClick={() => {
+                            setTheme(k)
+                            setThemeOpen(false)
+                          }}
+                        >
+                          <i aria-hidden="true">{emo}</i>
+                          {nm}
+                          {theme === k && <b aria-hidden="true">✔</b>}
+                        </button>
+                      ))}
+                    </span>
+                  </>
+                )}
+              </span>
+            )}
             {amAdmin && !exEdit && (
               <button
                 className="ask-gearbtn"
