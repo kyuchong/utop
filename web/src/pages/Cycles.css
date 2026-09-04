@@ -7959,6 +7959,117 @@ a.bc-cur:hover { text-decoration: underline; }
 }
 
 /* 입력 + 모드 한 상자 */
+/* ── 2행 캡슐(승인) — 1행 질문 · 2행 첨부·도구·핀 칩 | 모드·음성·보내기 ── */
+.ask-askbox2.two {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 14px 14px 10px 22px;
+  position: relative;
+}
+.ask-r1 { display: flex; }
+.ask-r1 .ask-askin2 { width: 100%; height: 40px; font-size: 16px; }
+.ask-r2 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.ask-rsp { flex: 1; }
+/* 동그란 도구 단추 — 첨부·도구·음성이 같은 꼴 */
+.ask-tb {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f6f7;
+  color: #33474f;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+}
+.ask-tb:hover:not(:disabled) { background: #e4edef; }
+.ask-tb:disabled { opacity: 0.45; cursor: default; }
+.ask-tb.on { background: #e4f1ef; color: #0f766e; }
+.ask-tb.mic.rec { background: #fbe9e7; }
+.ask-toolwrap { position: relative; flex: none; display: inline-flex; }
+.ask-toolmenu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  z-index: 21;
+  width: 252px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 13px;
+  box-shadow: 0 18px 50px rgb(13 59 70 / 18%);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+}
+.ask-tmi {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--c-text);
+  cursor: pointer;
+}
+.ask-tmi:hover { background: #f2f7f8; }
+.ask-tmi.off { opacity: 0.5; cursor: default; }
+.ask-tmi > i { font-style: normal; width: 20px; text-align: center; flex: none; }
+.ask-tmi > em { font-style: normal; font-size: 10.5px; color: #0f766e; font-weight: 700; margin-left: 4px; }
+.ask-tmi > em.soon { color: #93a5ad; font-weight: 400; }
+.ask-tmi .pin { margin-left: auto; font-size: 12px; opacity: 0.3; cursor: pointer; font-weight: 400; }
+.ask-tmi .pin.on { opacity: 1; }
+/* 핀 칩 — 켜면 청록으로 찬다 */
+.ask-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid #e0eaec;
+  background: var(--c-surface);
+  color: #33474f;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ask-chip:hover { border-color: #0f766e; }
+.ask-chip.on { background: #e4f1ef; border-color: #bcdcd7; color: #0f766e; }
+.ask-chip > i { font-style: normal; opacity: 0.6; font-size: 10px; margin-left: 2px; }
+.ask-devmenu {
+  position: absolute;
+  left: 56px;
+  bottom: calc(100% + 10px);
+  z-index: 21;
+  width: 290px;
+  max-height: 280px;
+  overflow: auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 13px;
+  box-shadow: 0 18px 50px rgb(13 59 70 / 18%);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+}
+.ask-dmi {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.ask-dmi:hover { background: #f2f7f8; }
+.ask-dmi.off { color: var(--c-text-faint); cursor: default; }
+.ask-dmi small { margin-left: auto; color: #93a5ad; font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+
 /* 캡슐 입력창(A안). 상하 폭은 지시로 한 번 더 키웠다 — 이 화면의 주인공은
    이 칸 하나라, 커도 자리를 다투는 이웃이 없다. */
 .ask-askbox2 {

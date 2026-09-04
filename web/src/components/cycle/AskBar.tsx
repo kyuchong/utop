@@ -296,6 +296,87 @@ export default function AskBar({ devices }: Props) {
     prefSet('utop.ai.theme', theme)
   }, [theme])
   const [themeOpen, setThemeOpen] = useState(false)
+
+  /**
+   * 캡슐 2행의 도구 줄(승인) — GPT 입력창의 짜임을 우리 것으로.
+   * 핀한 도구는 캡슐에 칩으로 상주하고(계정을 따라간다), 켠 도구는
+   * 질문 끝에 맥락으로 실린다. 장비 칩은 값(모델)을 갖는다.
+   */
+  const TOOLDEF = [
+    ['find', '🔍', '시험 항목 찾기', '있는 시험 항목에서 먼저 찾아서 답합니다'],
+    ['dev', '📟', '장비 고르기', '대상 장비를 정해 질문과 함께 보냅니다'],
+    ['kb', '📖', '매뉴얼·지식 검색', '매뉴얼·지식 근거를 함께 찾아서 답합니다'],
+    ['hist', '📊', '지난 결과 붙이기', '최근 실행 결과를 참고해서 답합니다'],
+  ] as const
+  const [pins, setPins] = useState<string[]>(() => {
+    const raw = prefGet('utop.ai.pins')
+    if (!raw) return ['find', 'dev']
+    try {
+      const v = JSON.parse(raw) as unknown
+      return Array.isArray(v) ? (v as string[]).filter((k) => TOOLDEF.some(([t]) => t === k)) : ['find', 'dev']
+    } catch {
+      return ['find', 'dev']
+    }
+  })
+  useEffect(() => {
+    prefSet('utop.ai.pins', JSON.stringify(pins))
+  }, [pins])
+  const [toolsOpen, setToolsOpen] = useState(false)
+  /** 켠 도구(find·kb·hist) — 세션 것. 켜짐은 질문에 실리는 맥락이다 */
+  const [tOn, setTOn] = useState<Set<string>>(new Set())
+  /** 고른 대상 장비(모델) */
+  const [tDev, setTDev] = useState('')
+  const [devOpen, setDevOpen] = useState(false)
+  const askInRef = useRef<HTMLInputElement>(null)
+  const flipTool = (k: string) =>
+    setTOn((prev) => {
+      const nx = new Set(prev)
+      if (nx.has(k)) nx.delete(k)
+      else nx.add(k)
+      return nx
+    })
+
+  /* 음성(지시) — 브라우저 내장 음성 인식(ko-KR)으로 받아 적는다.
+     서버는 안 거친다. https 가 아니면 브라우저가 마이크를 막을 수 있어
+     그때는 까닭을 말한다. */
+  const [listening, setListening] = useState(false)
+  const recRef = useRef<{ stop: () => void } | null>(null)
+  useEffect(() => () => recRef.current?.stop(), [])
+  function micToggle() {
+    if (listening) {
+      recRef.current?.stop()
+      return
+    }
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const w = window as any
+    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition
+    if (!SR) {
+      window.alert('이 브라우저에는 음성 입력이 없습니다 — 크롬·엣지에서 쓸 수 있습니다.')
+      return
+    }
+    const r = new SR()
+    r.lang = 'ko-KR'
+    r.interimResults = true
+    r.continuous = true
+    const base = text.trim()
+    r.onresult = (e: any) => {
+      let heard = ''
+      for (const res of e.results) heard += res[0].transcript
+      setText(base ? `${base} ${heard}` : heard)
+    }
+    r.onerror = (e: any) => {
+      setListening(false)
+      if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed')
+        window.alert(
+          '마이크를 쓸 수 없습니다 — 브라우저가 막았습니다.\n주소가 https 가 아니면 크롬·엣지가 마이크를 막습니다.',
+        )
+    }
+    r.onend = () => setListening(false)
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+    recRef.current = r
+    r.start()
+    setListening(true)
+  }
   /** 이 브라우저에서 감춘 오프너 — 남의 화면은 그대로다 */
   const [exHide, setExHide] = useState<string[]>(() => {
     try {
@@ -1265,8 +1346,16 @@ export default function AskBar({ devices }: Props) {
    *      편이 정확하다 — 이 랩에서 이미 통한 절차니까)
    */
   const submit = async (q?: string) => {
-    const said = (q ?? text).trim()
-    if (!said || busy) return
+    const raw0 = (q ?? text).trim()
+    if (!raw0 || busy) return
+    /* 도구 줄이 켠 맥락 — 질문 끝에 싣는다. 장비를 골랐으면 모델명이
+       실려서, 아래 「말에서 모델 찾기」 도 그 장비를 바로 잡는다. */
+    const ctx: string[] = []
+    if (tDev) ctx.push(`대상 장비: ${tDev}`)
+    if (tOn.has('find')) ctx.push('있는 시험 항목에서 먼저 찾아서')
+    if (tOn.has('kb')) ctx.push('매뉴얼·지식 근거를 함께 찾아서')
+    if (tOn.has('hist')) ctx.push('최근 실행 결과를 참고해서')
+    const said = ctx.length ? `${raw0} (${ctx.join(' · ')})` : raw0
     // 보낸 말은 그 자리에서 비운다 — 만드는 동안 입력칸에 남아 있으면 아직
     // 안 보낸 것처럼 보인다(지적). 그만두거나 어긋나면 되돌려 놓는다.
     setText('')
@@ -2210,22 +2299,119 @@ export default function AskBar({ devices }: Props) {
             <p className="ask-homesub">말로 하면 시험을 찾고 · 만들고 · 실행합니다</p>
 
             {/* 입력 + 모드 — 한 상자 안이다(목업) */}
-            <div className="ask-askbox2">
+            {/* 2행 캡슐(승인) — 1행 질문 · 2행 첨부·도구·핀 칩 | 모드·음성·보내기 */}
+            <div className="ask-askbox2 two">
+              <div className="ask-r1">
               <input
+                ref={askInRef}
                 className="ask-askin2"
                 value={text}
                 disabled={exEdit}
-                placeholder={
-                  mode === 'basic'
-                    ? '예: E6100 시스템 정보 조회 시험해줘'
-                    : '예: E6100 1번 포트에 1G 부하 걸어 손실 없는지 보는 시험 만들어줘'
-                }
+                placeholder={'UBIQUOSS Test Assistant'}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.nativeEvent.isComposing) return
                   if (e.key === 'Enter' && text.trim()) void submit()
                 }}
               />
+              </div>
+
+              <div className="ask-r2">
+              <button className="ask-tb" type="button" disabled title="파일 붙이기 — 나중 단계에서 붙습니다">
+                📎
+              </button>
+              <span className="ask-toolwrap">
+                <button
+                  className={`ask-tb${toolsOpen ? ' on' : ''}`}
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded={toolsOpen}
+                  title="도구"
+                  onClick={() => setToolsOpen((v) => !v)}
+                >
+                  ⚙
+                </button>
+                {toolsOpen && (
+                  <>
+                    <span className="ask-modeback" onClick={() => setToolsOpen(false)} />
+                    <span className="ask-toolmenu" role="menu">
+                      {TOOLDEF.map(([k, emo, nm, d]) => (
+                        <span
+                          key={k}
+                          role="menuitemcheckbox"
+                          aria-checked={k === 'dev' ? !!tDev : tOn.has(k)}
+                          tabIndex={0}
+                          className="ask-tmi"
+                          title={d}
+                          onClick={() => {
+                            setToolsOpen(false)
+                            if (k === 'dev') setDevOpen(true)
+                            else flipTool(k)
+                          }}
+                          onKeyDown={(e) => e.key === 'Enter' && (k === 'dev' ? setDevOpen(true) : flipTool(k))}
+                        >
+                          <i>{emo}</i>
+                          {nm}
+                          {(k === 'dev' ? !!tDev : tOn.has(k)) && <em>켬</em>}
+                          <b
+                            className={`pin${pins.includes(k) ? ' on' : ''}`}
+                            title="핀 — 캡슐에 상주"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPins((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]))
+                            }}
+                          >
+                            📌
+                          </b>
+                        </span>
+                      ))}
+                      <span className="ask-tmi off" aria-disabled="true">
+                        <i>＋</i>CSV·파일 붙이기<em className="soon">나중</em>
+                      </span>
+                    </span>
+                  </>
+                )}
+              </span>
+              {pins.map((k) => {
+                const t = TOOLDEF.find(([x]) => x === k)
+                if (!t) return null
+                const [key, emo, nm, d] = t
+                if (key === 'dev')
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`ask-chip${tDev ? ' on' : ''}`}
+                      title={d}
+                      onClick={() => setDevOpen((v) => !v)}
+                    >
+                      {emo} {tDev || nm}
+                      {tDev && (
+                        <i
+                          title="장비 빼기"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setTDev('')
+                          }}
+                        >
+                          ✕
+                        </i>
+                      )}
+                    </button>
+                  )
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`ask-chip${tOn.has(key) ? ' on' : ''}`}
+                    title={d}
+                    onClick={() => flipTool(key)}
+                  >
+                    {emo} {nm}
+                  </button>
+                )
+              })}
+              <span className="ask-rsp" />
               <span className="ask-modewrap">
                 <button
                   className="ask-modebtn"
@@ -2287,6 +2473,15 @@ export default function AskBar({ devices }: Props) {
                 )}
               </span>
               <button
+                className={`ask-tb mic${listening ? ' rec' : ''}`}
+                type="button"
+                title={listening ? '듣는 중 — 누르면 멈춥니다' : '음성으로 묻기'}
+                disabled={exEdit}
+                onClick={micToggle}
+              >
+                {listening ? '🔴' : '🎤'}
+              </button>
+              <button
                 className={`ask-send2${text.trim() && !exEdit ? ' on' : ''}`}
                 type="button"
                 title="보내기 (Enter)"
@@ -2297,6 +2492,40 @@ export default function AskBar({ devices }: Props) {
                   <path d="M5 12h13M13 6l6 6-6 6" />
                 </svg>
               </button>
+              </div>
+
+              {/* 장비 고르개 — 등록된 장비에서 대상을 하나 짚는다 */}
+              {devOpen && (
+                <>
+                  <span className="ask-modeback" onClick={() => setDevOpen(false)} />
+                  <span className="ask-devmenu" role="menu">
+                    {devices.length ? (
+                      devices.map((d) => {
+                        const nm = String(d.model || d.name || d.ip)
+                        return (
+                          <span
+                            key={d.id}
+                            role="menuitem"
+                            tabIndex={0}
+                            className="ask-dmi"
+                            onClick={() => {
+                              setTDev(nm)
+                              if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+                              setDevOpen(false)
+                            }}
+                            onKeyDown={(e) => e.key === 'Enter' && (setTDev(nm), setDevOpen(false))}
+                          >
+                            📟 {nm}
+                            <small>{d.ip}</small>
+                          </span>
+                        )
+                      })
+                    ) : (
+                      <span className="ask-dmi off">등록된 장비가 없습니다</span>
+                    )}
+                  </span>
+                </>
+              )}
             </div>
 
             {/* 오프너 — 눌러서 무엇을 시킬 수 있는지 안다 */}
@@ -2329,7 +2558,12 @@ export default function AskBar({ devices }: Props) {
                           type="button"
                           className="ask-op"
                           title={x.d || x.q}
-                          onClick={() => void submit(x.q)}
+                          onClick={() => {
+                            /* 채워 넣기만 한다(지시) — 시작은 보내기 단추로.
+                               바로 보내면 고쳐 물을 틈이 없다. */
+                            setText(x.q)
+                            askInRef.current?.focus()
+                          }}
                         >
                           <span className="ask-op-ic">✦</span>
                           <span className="ask-op-tx">{x.q}</span>
