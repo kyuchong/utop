@@ -3136,9 +3136,9 @@ function CycleDetail({
               <span className="cy-prog-item" title={st.itemName || ''}>
                 {st.waiting ? '실행 서버가 집기를 기다립니다…' : st.itemName || '…'}
               </span>
-              {!st.waiting && st.stepAt >= 0 && (
+              {!st.waiting && st.stepTop >= 0 && (
                 <span className="cy-prog-step">
-                  스텝 {st.stepAt + 1}/{st.stepCount}
+                  스텝 {st.stepTop + 1}/{st.stepCount}
                 </span>
               )}
               {st.who && <span className="cy-prog-who">{st.who} 님</span>}
@@ -4177,7 +4177,7 @@ function CycleDetail({
                         {fShow('stt') && (st.on && st.itemAt === at ? (
                           <i className="cxp-run">
                             ● 실행 중
-                            {st.stepAt >= 0 ? ` · ${st.stepAt + 1}/${st.stepCount}` : ''}
+                            {st.stepTop >= 0 ? ` · ${st.stepTop + 1}/${st.stepCount}` : ''}
                           </i>
                         ) : st.on && runQ.has(at) && !v ? (
                           <i className="cxp-wait">대기</i>
@@ -4773,7 +4773,7 @@ function RunPane({
     if (isRegress(it)) regress += 1
   }
   const prog = st.total
-    ? (st.done + (st.stepCount > 0 ? Math.min(1, (st.stepAt + 1) / st.stepCount) : 0)) / st.total
+    ? (st.done + (st.stepCount > 0 ? Math.min(1, (st.stepTop + 1) / st.stepCount) : 0)) / st.total
     : 0
 
   return (

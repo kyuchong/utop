@@ -16,6 +16,8 @@ export interface RunState {
   itemName: string
   /** 지금 스텝 (0부터) */
   stepAt: number
+  /** 이번 항목에서 **여기까지 갔다** — 반복이 되돌아가도 안 줄어드는 표시용 */
+  stepTop: number
   stepCount: number
   stepName: string
   /** 지금 도는 항목의 스텝들 — 결과가 차오르는 그대로 */
@@ -40,6 +42,7 @@ const EMPTY: RunState = {
   itemAt: -1,
   itemName: '',
   stepAt: -1,
+  stepTop: -1,
   stepCount: 0,
   stepName: '',
   liveSteps: [],
@@ -80,6 +83,15 @@ const LOG_CAP = 20000
 
 function fromRun(r: Run, prev: RunState): RunState {
   const live = r.status === 'queued' || r.status === 'running'
+  /* 반복·If 건너뛰기는 스텝을 **뒤로** 되돌아가 다시 돈다(runSteps.walk).
+     step_at 을 그대로 「스텝 n/m」 에 쓰면 7/9 가 3/9 로 되감겨, 보는 사람은
+     실행이 뒷걸음친 줄 안다. 항목 안에서의 **최대값**을 따로 들고 표시는
+     이쪽을 쓴다 — 파란 강조(stepAt)는 지금 진짜 도는 줄이라 그대로 둔다. */
+  const at = r.step_at ?? -1
+  const stepTop =
+    r.id !== prev.runId || (r.item_at ?? -1) !== prev.itemAt || at < 0
+      ? at
+      : Math.max(prev.stepTop, at)
   return {
     ...prev,
     runId: r.id,
@@ -91,7 +103,8 @@ function fromRun(r: Run, prev: RunState): RunState {
     done: r.done ?? 0,
     itemAt: r.item_at ?? -1,
     itemName: r.item_name || '',
-    stepAt: r.step_at ?? -1,
+    stepAt: at,
+    stepTop,
     stepCount: r.step_count ?? 0,
     stepName: r.step_name || '',
     liveSteps: Array.isArray(r.live_steps) ? r.live_steps : prev.liveSteps,
