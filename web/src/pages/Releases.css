@@ -926,3 +926,6 @@
   cursor: pointer;
 }
 .rls-cdot:hover { background: #d9efe3; }
+/* 변경이 없을 때 — 회색으로 가라앉아 있다가, 초록이 되면 눈에 잡힌다 */
+.rls-cdot.idle { border-color: var(--c-border); background: var(--c-surface); color: var(--c-text-muted); font-weight: 400; }
+.rls-cdot.idle:hover { background: #f4f6f6; color: var(--c-text); }

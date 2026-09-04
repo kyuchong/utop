@@ -1204,14 +1204,20 @@ export default function Releases() {
         >
           {busy ? `가져오는 중… ${busy}` : '↻ Sync'}
         </button>
-        {/* 초록 표시(승인: ⑵안) — 07:00 동기화가 오늘 N건을 받아 두었다는
-            **알림**이다. 저장은 이미 끝났고, 누르면 지금 한 번 더 확인한다. */}
-        {(cstatQ.data?.changed_today ?? 0) > 0 && (
+        {/* 저장소 동기화 단추(승인: ⑵안 + 지적). 초록일 때만 보이게 했더니
+            「수동으로 변경분만 받을 수는 없나」 — 늘 세운다. 변경이 없으면
+            회색 「변경분 확인」, 있으면 초록 「● N」. 누르면 언제든 지라에
+            바뀐 것만 물어 받아 저장한다. */}
+        {(
           <button
             type="button"
-            className="rls-cdot"
+            className={`rls-cdot${(cstatQ.data?.changed_today ?? 0) > 0 ? '' : ' idle'}`}
             disabled={!!busy}
-            title={`오늘 지라에서 ${cstatQ.data?.changed_today}건 바뀌어 저장됐습니다 (매일 07:00 자동) — 누르면 지금 다시 확인합니다`}
+            title={
+              (cstatQ.data?.changed_today ?? 0) > 0
+                ? `오늘 지라에서 ${cstatQ.data?.changed_today}건 바뀌어 저장됐습니다 (매일 07:00 자동) — 누르면 지금 다시 확인합니다`
+                : '지라에서 바뀐 이슈만 지금 받아 저장합니다 (매일 07:00 에는 자동으로 돕니다)'
+            }
             onClick={async () => {
               setBusy('지라 변경분 확인 중…')
               try {
@@ -1227,7 +1233,7 @@ export default function Releases() {
               }
             }}
           >
-            ● {cstatQ.data?.changed_today}
+            {(cstatQ.data?.changed_today ?? 0) > 0 ? `● ${cstatQ.data?.changed_today}` : '변경분 확인'}
           </button>
         )}
         {/* 거르개 셋을 위 줄로 올렸다(지시) — 줄 하나가 통째로 없어진다 */}
