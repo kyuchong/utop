@@ -17037,7 +17037,7 @@ async def _jira_issue_fetch_store(key: str):
     return j, None
 
 
-async def _jira_cache_sync(full: bool = False) -> dict:
+async def _jira_cache_sync(full: bool = False, manual: bool = False) -> dict:
     """바뀐 이슈만 받아 저장한다(full 이면 화면의 이슈 전부).
 
     **수동 단추는 full 을 못 쓴다**(지적: 변경분이라더니 모두 가져온다) —
@@ -17105,9 +17105,15 @@ async def _jira_cache_sync(full: bool = False) -> dict:
         now = datetime.now(_tz.utc)
         today = now.astimezone(KST).strftime("%Y-%m-%d")
         prev = int(st.get("changed_today") or 0) if st.get("date") == today else 0
+        # 배지 셈(지적: 백필 544 가 「바뀜」 으로 섰다) —
+        #   백필: 씨뿌리기지 변경이 아니다. 배지에 안 센다.
+        #   아침: 그날 바뀐 것으로 쌓는다.
+        #   수동: 누른 것이 곧 「확인했다」 다 — 이번에 새로 온 것만 남는다
+        #         (대개 0 이라 배지가 걷힌다).
+        changed = prev if full else (stored if manual else prev + stored)
         await db.kv_set("jira.cache.sync", {
             "last": now.isoformat(), "last_run": now.isoformat(),
-            "date": today, "changed_today": prev + stored,
+            "date": today, "changed_today": changed,
             # 백필을 한 번 마쳤나 — 07:00 잡이 이걸 보고 전부/변경분을 고른다
             "seeded": bool(st.get("seeded")) or (full and failed == 0),
         })
@@ -17155,7 +17161,7 @@ async def jira_cache_sync_now():
     cache-status 가 말한다."""
     if _JCACHE_BUSY:
         return {"ok": True, "started": False, "already": True, **_JCACHE_PROG}
-    asyncio.create_task(_jira_cache_sync())
+    asyncio.create_task(_jira_cache_sync(manual=True))
     return {"ok": True, "started": True}
 
 
