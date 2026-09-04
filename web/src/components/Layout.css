@@ -271,12 +271,12 @@
   color: var(--c-nav-fg-strong);
 }
 
-/* 지금 보는 화면 — **청록 알약**(승인: ② 안). 바가 옅은 청록 워시가 되며
-   흰 판은 본문 카드와 구분이 안 갔다. 한 단 진한 같은 계열(#a9ced6)이
-   워시 위에서 「눌러 둔 것」 으로 읽힌다. 파란 세로줄은 걷는다 — 알약의
-   면이 이미 선택을 말한다. */
+/* 지금 보는 화면 — **흰 알약**(지시). 청록 알약(#a9ced6)은 바탕이 밝던
+   시절의 답이었다 — 메뉴바가 화면 바탕색(#cfe3e8)으로 진해지면서 같은
+   계열이라 눌림이 덜 읽혔다. 이제는 흰 면이 본문 카드와 같은 말을 한다:
+   「지금 떠 있는 것」. 파란 세로줄은 그대로 걷은 채다 — 면이 선택을 말한다. */
 .nav-item.on {
-  background: #a9ced6;
+  background: #fff;
   color: #123a44;
   font-weight: 700;
 }
@@ -324,7 +324,9 @@
 .app.nav-collapsed .nav-item.on,
 .app.nav-collapsed .nav-item.on[data-key] {
   box-shadow: none;
-  background: #a9ced6;
+  /* 펼친 판의 알약과 같은 흰색(지시) — 두 상태가 다른 색이면 접을 때마다
+     선택이 옮겨 간 것처럼 보인다 */
+  background: #fff;
 }
 .app.nav-collapsed .nav-item.on::before {
   content: '';
