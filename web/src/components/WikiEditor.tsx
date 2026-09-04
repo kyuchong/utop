@@ -316,8 +316,11 @@ export default function WikiEditor({
             } catch {
               /* 바인딩 전이면 던질 수 있다 — 다음 바퀴에 다시 */
             }
-            await new Promise((okF) => setTimeout(okF, 120))
+            /* 심자마자 본다 — 잠은 **안 박혔을 때만**. 매번 120ms 씩 자던
+               것이 「읽는 중」 을 눈에 띄게 붙잡았다(지적: 500ms). */
+            await new Promise((okF) => setTimeout(okF, 0))
             if (frag.length > 0) break
+            await new Promise((okF) => setTimeout(okF, 100))
           }
         } catch {
           /* 못 읽으면 빈 문서로 둔다 — 못 읽은 것을 빈 글로 저장하지 않게
@@ -333,20 +336,22 @@ export default function WikiEditor({
 
     if (provider.synced) seed()
     else provider.once('sync', seed)
-    /* **혼자면 기다릴 것이 없다.** 중계 서버는 글을 이해하지 않아 sync
-       요청에 답하지 못한다 — 답은 방의 **남**이 한다. 그래서 혼자 연 방은
-       sync 가 영영 안 오고, 아래 예비 타이머가 끝까지 돌아 문서마다 몇 초를
-       헛기다렸다(지적: 폴더 클릭이 느리다). 연결되고 잠깐 뒤에도 접속자
-       표에 나뿐이면 곧장 DB 에서 채운다. */
-    let lone = 0
-    const onStatus = (e: { status: string }) => {
-      if (e.status !== 'connected') return
-      window.clearTimeout(lone)
-      lone = window.setTimeout(() => {
-        if (!dead && !provider.synced && provider.awareness.getStates().size <= 1) seed()
-      }, 350)
-    }
-    provider.on('status', onStatus)
+    /* **혼자인지는 서버가 이미 안다.** 중계는 글을 이해하지 않아 sync 에
+       답하지 못하고(답은 방의 남이 한다), 혼자인지 기다려 보는 것도 그만큼
+       느렸다(지적: 500ms). 방 인원을 바로 물어 0 이면 즉시 채운다 —
+       LAN 이라 이 물음이 수 ms 다. 남이 있으면 그 사람의 글(sync)을
+       기다린다. */
+    void (async () => {
+      try {
+        const r = await apiFetch(`/api/yjs/peers/${encodeURIComponent(`wiki-${id}`)}`)
+        const j = (await r.json()) as { n?: number }
+        /* 인원은 나를 셀 수도(연결이 나보다 빨랐으면) 아닐 수도 있다 —
+           1 이하면 혼자다 */
+        if (!dead && !provider.synced && (j.n ?? 0) <= 1) seed()
+      } catch {
+        /* 못 물으면 아래 예비가 연다 */
+      }
+    })()
     /* 서버가 죽어 있어도 화면은 열려야 한다 — 혼자 쓰는 것으로 친다 */
     const late = window.setTimeout(() => {
       if (!dead && !provider.synced) seed()
@@ -354,8 +359,6 @@ export default function WikiEditor({
 
     return () => {
       dead = true
-      provider.off('status', onStatus)
-      window.clearTimeout(lone)
       window.clearTimeout(late)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

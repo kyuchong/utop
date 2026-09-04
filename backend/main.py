@@ -16148,6 +16148,13 @@ async def chat(req: ChatRequest):
 _yrooms: dict[str, set[WebSocket]] = {}
 
 
+@app.get("/api/yjs/peers/{room}")
+async def yjs_peers(room: str):
+    """방에 지금 몇이 있나 — 문서를 여는 쪽이 「혼자인지」 를 기다려 보지
+    않고 바로 안다(지적: 느리다). 중계가 이미 세고 있는 수를 읽을 뿐이다."""
+    return {"ok": True, "n": len(_yrooms.get(room) or ())}
+
+
 @app.websocket("/ws/yjs/{room}")
 async def yjs_relay(websocket: WebSocket, room: str):
     await websocket.accept()
