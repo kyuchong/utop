@@ -571,3 +571,34 @@
 .wk-menusep { border-top: 1px solid var(--c-border-soft); margin: 4px 0; }
 .wk-menuh { padding: 2px 8px; font-size: var(--fs-xs); color: var(--c-text-faint); }
 .wk-menuprjs { max-height: 180px; overflow: auto; }
+
+/* ── PDF 미리보기 — 쪽 목록(직접 그림) + 본문 뷰어 ── */
+.wke-pvbody { flex: 1; min-height: 0; display: flex; }
+.wke-pvrail {
+  flex: none;
+  width: 152px;
+  overflow: auto;
+  background: #2b3136;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.wke-pvrailmsg { color: #9fb0b8; font-size: 12px; padding: 16px 4px; text-align: center; }
+.wke-pvthumb {
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.wke-pvthumb img { display: block; width: 120px; background: #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 40%); }
+.wke-pvthumb span { color: #c9d4da; font-size: 11px; }
+.wke-pvthumb:hover img { outline: 2px solid #6ea8c9; }
+.wke-pvthumb.on { border-color: #78b6e0; }
+.wke-pvthumb.on span { color: #fff; font-weight: 700; }
