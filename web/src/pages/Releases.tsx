@@ -670,6 +670,17 @@ export default function Releases() {
   })
 
   /* ── 쌓아 둔 것 — 이슈·이슈↔TC 연결이 **여기 한 곳**에 있다 ── */
+  /* 아침 저장소 동기화 소식 — 오늘 지라에서 몇 건 바뀌어 저장됐나.
+     5분마다 다시 본다(무거운 호출이 아니다 — 상태 KV 한 줄). */
+  const cstatQ = useQuery({
+    queryKey: ['jira-cache-status'],
+    refetchInterval: 300_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/jira/cache-status')
+      return (await r.json()) as { changed_today?: number; last_run?: string; total?: number }
+    },
+  })
+
   const sumQ = useQuery({
     queryKey: ['release-summary'],
     staleTime: 30_000,
@@ -827,7 +838,9 @@ export default function Releases() {
       if (!proj || !ver || !key || busy) return
       setBusy(`${key} 다시 읽는 중…`)
       try {
-        const r = await apiFetch(`/api/jira/issue/${encodeURIComponent(key)}`)
+        /* ↻ 는 「지금 지라에서」 라는 뜻이다 — 저장소를 건너뛴다(fresh).
+           받은 김에 서버가 저장까지 하므로 드로어·검색도 같이 새것이 된다. */
+        const r = await apiFetch(`/api/jira/issue/${encodeURIComponent(key)}?fresh=1`)
         const j = (await r.json()) as { ok?: boolean; error?: string; fields?: JiraIssue['fields'] }
         if (!r.ok || j.ok === false) throw new Error(String(j.error ?? r.status))
         const next = await readStore()
@@ -1191,6 +1204,32 @@ export default function Releases() {
         >
           {busy ? `가져오는 중… ${busy}` : '↻ Sync'}
         </button>
+        {/* 초록 표시(승인: ⑵안) — 07:00 동기화가 오늘 N건을 받아 두었다는
+            **알림**이다. 저장은 이미 끝났고, 누르면 지금 한 번 더 확인한다. */}
+        {(cstatQ.data?.changed_today ?? 0) > 0 && (
+          <button
+            type="button"
+            className="rls-cdot"
+            disabled={!!busy}
+            title={`오늘 지라에서 ${cstatQ.data?.changed_today}건 바뀌어 저장됐습니다 (매일 07:00 자동) — 누르면 지금 다시 확인합니다`}
+            onClick={async () => {
+              setBusy('지라 변경분 확인 중…')
+              try {
+                const r = await apiFetch('/api/jira/cache-sync', { method: 'POST' })
+                const j = (await r.json()) as { ok?: boolean; checked?: number; stored?: number; error?: string }
+                if (!j.ok) throw new Error(j.error || '동기화 실패')
+                window.alert(`확인 ${j.checked ?? 0}건 · 새로 저장 ${j.stored ?? 0}건`)
+              } catch (e) {
+                window.alert(e instanceof Error ? e.message : String(e))
+              } finally {
+                setBusy('')
+                void cstatQ.refetch()
+              }
+            }}
+          >
+            ● {cstatQ.data?.changed_today}
+          </button>
+        )}
         {/* 거르개 셋을 위 줄로 올렸다(지시) — 줄 하나가 통째로 없어진다 */}
         <select className="rls-f" value={fOp} onChange={(e) => setFOp(e.target.value)}>
           <option value="">사업자 전체</option>
@@ -1526,15 +1565,22 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
    *  **맨 위에 둔다**: 아래의 Esc 처리가 이 값을 본다(그림 창이 떠 있으면
    *  서랍은 안 닫힌다). 선언보다 먼저 쓰면 화면이 통째로 안 뜬다. */
   const [lb, setLb] = useState('')
+  /* 「지금 갱신」 — 누를 때마다 오르고, 0 이 아니면 지라에서 새로 받는다.
+     평소에는 **UTOP 저장본**을 읽어 지라에 부하가 없다(승인: ⑵안). */
+  const [freshN, setFreshN] = useState(0)
   const q = useQuery({
-    queryKey: ['jira-issue', ikey],
+    queryKey: ['jira-issue', ikey, freshN],
     staleTime: 60_000,
     queryFn: async () => {
-      const r = await apiFetch(`/api/jira/issue/${encodeURIComponent(ikey)}`)
+      const r = await apiFetch(`/api/jira/issue/${encodeURIComponent(ikey)}${freshN ? '?fresh=1' : ''}`)
       if (!r.ok) throw new Error('이슈 세부를 불러오지 못했습니다')
       return (await r.json()) as {
         ok?: boolean
         error?: string
+        cached?: boolean
+        stale?: boolean
+        stale_error?: string
+        fetched_at?: string
         fields?: Record<string, unknown>
         renderedFields?: Record<string, unknown>
         /** 칸 id → 보이는 이름. Traceability 처럼 **이름으로 찾는** 칸에 쓴다 */
@@ -1696,6 +1742,20 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
           {!q.isLoading && !err && (
             <>
               <div className="rls-dtitle">{String(f.summary ?? '')}</div>
+
+              {/* 어디서 온 자료인가 — 저장본이면 시각과 갱신 길을 준다.
+                  지라가 죽어 옛것을 낼 때(stale)는 그 말부터 한다. */}
+              {q.data?.cached && (
+                <div className={`rls-cband${q.data.stale ? ' bad' : ''}`}>
+                  {q.data.stale
+                    ? `지라에 닿지 못해 저장본을 보여줍니다${q.data.stale_error ? ` — ${q.data.stale_error}` : ''}`
+                    : 'UTOP 저장본'}
+                  <em>동기화 {String(q.data.fetched_at ?? '').slice(0, 16).replace('T', ' ')}</em>
+                  <button type="button" onClick={() => setFreshN((n2) => n2 + 1)}>
+                    지금 갱신
+                  </button>
+                </div>
+              )}
 
               {/* ── **지라와 같은 차례**(지시): 자세히 · 설명 · Traceability ·
                      첨부 파일 · 이슈연결 · 활동. 우리 마음대로 늘어놓으면

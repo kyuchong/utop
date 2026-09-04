@@ -882,3 +882,47 @@
 
 /* 저장·⋯·닫기는 **공용**(components/tc/tc.css 의 .tcx-*) — 두 화면이
    같은 것을 쓴다. 여기에 또 적으면 갈린다. */
+
+/* ── UTOP 저장소(⑵안) — 드로어 출처 띠 · Sync 옆 초록 알림 ─────────── */
+.rls-cband {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #e9f5ef;
+  border: 1px solid #cfe8db;
+  color: #1c6b47;
+  font-size: 12px;
+}
+.rls-cband.bad { background: #fdf3e6; border-color: #f2dcbd; color: #8c5a10; }
+.rls-cband em { font-style: normal; color: inherit; opacity: 0.75; }
+.rls-cband button {
+  margin-left: auto;
+  border: 1px solid currentcolor;
+  background: none;
+  border-radius: 6px;
+  padding: 2px 9px;
+  font: inherit;
+  font-size: 11.5px;
+  color: inherit;
+  cursor: pointer;
+}
+.rls-cband button:hover { background: rgb(255 255 255 / 55%); }
+.rls-cdot {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #bfe3cf;
+  background: #e9f5ef;
+  color: #1c8a56;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.rls-cdot:hover { background: #d9efe3; }

@@ -13717,6 +13717,8 @@ async def _db_init():
             print(f"[startup-bg] duplicate REQ cleanup failed: {e}")
 
     asyncio.create_task(_bg_maintenance())
+    # 지라 이슈 저장소 — 매일 07:00(KST) 변경분 동기화(승인: ⑵안)
+    asyncio.create_task(_jira_cache_scheduler())
 
 
 async def _cleanup_stale_req_tc_refs() -> int:
@@ -16959,30 +16961,188 @@ async def jira_attach(key: str, data: dict):
 
 
 # Release Summary — 이슈 상세(설명+댓글+첨부) lazy load
-@app.get("/api/jira/issue/{key}")
-async def jira_issue_detail(key: str):
-    # 칸을 하나하나 적지 않고 **\*all** 로 받는다 — Traceability 같은 커스텀
-    # 칸까지 같이 와야 지라와 같은 차례로 낼 수 있다(지시: 「자세히, 설명,
-    # Traceability, 첨부 파일, 이슈연결, 활동 이런순」). 이름을 박아 두면
-    # Jira 에서 칸 하나 늘 때마다 여기를 고쳐야 한다.
-    #
-    # **\*navigable 은 쓰면 안 된다**(지적: 「첨부 파일과 활동이 하나도 없어」).
-    # comment·attachment 는 navigable 이 아니어서 그 묶음에 안 들어온다 —
-    # 그래서 서랍의 첨부·활동이 통째로 비었다. 이슈 한 건씩 여는 자리라
-    # \*all 의 무게는 문제되지 않는다.
-    #
-    # expand:
-    #   renderedFields — Jira 가 렌더한 HTML(설명·댓글·커스텀 칸) → 화면과 같은 표현
-    #   names          — 칸 id → 보이는 이름. customfield_10500 이 무엇인지
-    #                    이것 없이는 알 수 없다.
-    #   changelog      — 「활동」 의 이력 탭. 지라 화면이 내는 것과 같은 자료다.
+# ───────────────────────────────────────────
+# Jira 이슈 상세 — UTOP 저장소 (승인: ⑵안)
+# ───────────────────────────────────────────
+#
+# 드로어·검색이 지라를 실시간으로 두드리면 지라에 부하가 간다(지적).
+# 그래서 이슈 상세를 **UTOP 에 저장**하고 화면은 저장본을 읽는다.
+#
+#   · 저장: data/state/jira_cache/{키}.json — 첨부 **파일은 안 받는다**
+#     (용량의 대부분이 파일이다). 그림은 드로어가 볼 때만 지라에서 중계.
+#   · names(칸 id→이름 표)는 모든 이슈가 똑같아 KV 에 **한 벌만** 둔다.
+#   · 매일 07:00(KST) 지라에 「마지막 이후 바뀐 것」 만 물어(JQL updated)
+#     바뀐 이슈만 다시 받아 저장한다 — 하루 검색 1회 + 변경 N건이 전부다.
+#   · 첫 실행은 화면(release_summary)에 선 이슈 전부를 백필한다.
+_JIRA_CACHE_DIR = DATA_DIR / "state" / "jira_cache"
+_JCACHE_BUSY = False
+
+
+def _jira_cache_path(key: str):
+    import re as _re
+    return _JIRA_CACHE_DIR / (_re.sub(r"[^A-Za-z0-9_-]", "_", key) + ".json")
+
+
+def _jira_cache_read(p):
+    try:
+        if p.exists():
+            return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return None
+
+
+async def _jira_cache_reply(j: dict, cached: bool) -> dict:
+    names = await db.kv_get("jira.cache.names") or {}
+    out = {k: v for k, v in j.items() if k != "_fetched_at"}
+    return {"ok": True, "cached": cached, "fetched_at": j.get("_fetched_at", ""), "names": names, **out}
+
+
+async def _jira_issue_fetch_store(key: str):
+    """지라에서 한 건 받아 저장한다. (payload, None) 또는 (None, 오류)."""
     r, err = _jira_call("GET", f"/rest/api/2/issue/{key}",
                         params={"fields": "*all", "expand": "renderedFields,names,changelog"})
     if err:
-        return err
+        return None, err
     if not r.is_success:
-        return {"ok": False, "error": f"{r.status_code} · {r.text[:300]}"}
-    return {"ok": True, **r.json()}
+        return None, {"ok": False, "error": f"{r.status_code} · {r.text[:300]}"}
+    j = r.json()
+    names = j.pop("names", None) or {}
+    if names:
+        cur = await db.kv_get("jira.cache.names") or {}
+        if any(k not in cur or cur[k] != v for k, v in names.items()):
+            cur.update(names)
+            await db.kv_set("jira.cache.names", cur)
+    from datetime import timezone as _tz
+    j["_fetched_at"] = datetime.now(_tz.utc).isoformat()
+    try:
+        _JIRA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        p = _jira_cache_path(key)
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(j, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, p)
+    except Exception as e:
+        print(f"[jira-cache] {key} 저장 실패: {e}")
+    return j, None
+
+
+async def _jira_cache_sync() -> dict:
+    """바뀐 이슈만 받아 저장한다. 07:00 잡과 수동 단추가 같이 쓴다."""
+    global _JCACHE_BUSY
+    if _JCACHE_BUSY:
+        return {"ok": False, "error": "이미 동기화가 돌고 있습니다"}
+    _JCACHE_BUSY = True
+    try:
+        from zoneinfo import ZoneInfo
+        from datetime import timedelta, timezone as _tz
+        KST = ZoneInfo("Asia/Seoul")
+        st = await db.kv_get("jira.cache.sync") or {}
+        d = _kv_load_sync("release_summary", {"releases": []})
+        bags = d.get("releases") if isinstance(d, dict) else {}
+        bags = bags if isinstance(bags, dict) else {}
+        projs = sorted({k.split("@@")[0] for k in bags if "@@" in k and k.split("@@")[0]})
+        listed = sorted({ik for bag in bags.values() if isinstance(bag, dict) for ik in bag})
+        keys: list[str] = []
+        last = str(st.get("last") or "")
+        if not last:
+            # 첫 실행 — 화면에 선 이슈 전부 백필
+            keys = listed
+        elif projs:
+            # 바뀐 것만 — 겹침 10분을 두어 시각 어긋남에 안전하게
+            try:
+                t0 = datetime.fromisoformat(last) - timedelta(minutes=10)
+            except Exception:
+                t0 = datetime.now(_tz.utc) - timedelta(days=1)
+            jql = (
+                "project in (" + ",".join(projs) + ") AND updated >= \""
+                + t0.astimezone(KST).strftime("%Y/%m/%d %H:%M") + "\" ORDER BY updated ASC"
+            )
+            start = 0
+            while start < 5000:
+                r, err = _jira_call("GET", "/rest/api/2/search",
+                                    params={"jql": jql, "fields": "key", "maxResults": 100, "startAt": start})
+                if err or not r.is_success:
+                    e = err or {"error": f"{r.status_code} · {r.text[:200]}"}
+                    return {"ok": False, "error": f"지라 검색 실패 — {e.get('error')}"}
+                jj = r.json()
+                got = [str(i.get("key")) for i in jj.get("issues") or [] if i.get("key")]
+                keys.extend(got)
+                start += len(got)
+                if start >= int(jj.get("total") or 0) or not got:
+                    break
+        stored = failed = 0
+        for ik in keys:
+            _, err = await _jira_issue_fetch_store(ik)
+            if err:
+                failed += 1
+            else:
+                stored += 1
+            await asyncio.sleep(0.15)  # 지라를 몰아치지 않는다
+        now = datetime.now(_tz.utc)
+        today = now.astimezone(KST).strftime("%Y-%m-%d")
+        prev = int(st.get("changed_today") or 0) if st.get("date") == today else 0
+        await db.kv_set("jira.cache.sync", {
+            "last": now.isoformat(), "last_run": now.isoformat(),
+            "date": today, "changed_today": prev + stored,
+        })
+        print(f"[jira-cache] 동기화 — 확인 {len(keys)} · 저장 {stored} · 실패 {failed}")
+        return {"ok": True, "checked": len(keys), "stored": stored, "failed": failed}
+    finally:
+        _JCACHE_BUSY = False
+
+
+async def _jira_cache_scheduler():
+    """매일 07:00(KST) 에 변경분을 받아 둔다 — 출근하면 이미 최신이다(승인)."""
+    from zoneinfo import ZoneInfo
+    from datetime import timedelta
+    KST = ZoneInfo("Asia/Seoul")
+    while True:
+        now = datetime.now(KST)
+        nxt = now.replace(hour=7, minute=0, second=0, microsecond=0)
+        if nxt <= now:
+            nxt += timedelta(days=1)
+        await asyncio.sleep(max(60, (nxt - now).total_seconds()))
+        try:
+            await _jira_cache_sync()
+        except Exception as e:
+            print(f"[jira-cache] 아침 동기화 실패: {e}")
+
+
+@app.get("/api/jira/cache-status")
+async def jira_cache_status():
+    st = await db.kv_get("jira.cache.sync") or {}
+    try:
+        total = sum(1 for f in _JIRA_CACHE_DIR.iterdir() if f.suffix == ".json") if _JIRA_CACHE_DIR.exists() else 0
+    except Exception:
+        total = 0
+    return {"ok": True, "total": total, **{k: st.get(k) for k in ("last_run", "date", "changed_today")}}
+
+
+@app.post("/api/jira/cache-sync")
+async def jira_cache_sync_now():
+    return await _jira_cache_sync()
+
+
+@app.get("/api/jira/issue/{key}")
+async def jira_issue_detail(key: str, fresh: int = 0):
+    # **저장소 우선**(승인: ⑵안). 저장본이 있으면 지라에 안 가고 그것을
+    # 낸다 — 드로어를 백 번 열어도 지라는 조용하다. `?fresh=1` 이면(드로어의
+    # 「지금 갱신」·목록의 ↻) 지라에서 새로 받아 저장까지 하고 낸다.
+    # 지라가 죽었을 때는 저장본이 있으면 그것을 stale 표시와 함께 낸다.
+    if not fresh:
+        j0 = _jira_cache_read(_jira_cache_path(key))
+        if j0 is not None:
+            return await _jira_cache_reply(j0, cached=True)
+    j1, err1 = await _jira_issue_fetch_store(key)
+    if j1 is not None:
+        return await _jira_cache_reply(j1, cached=False)
+    j0 = _jira_cache_read(_jira_cache_path(key))
+    if j0 is not None:
+        out = await _jira_cache_reply(j0, cached=True)
+        out["stale"] = True
+        out["stale_error"] = str((err1 or {}).get("error") or "")
+        return out
+    return err1 or {"ok": False, "error": "이슈를 읽지 못했습니다"}
 
 @app.post("/api/jira/issue/{key}/comment")
 async def jira_add_comment(key: str, data: dict):
