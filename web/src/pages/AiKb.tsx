@@ -75,6 +75,7 @@ export default function AiKb() {
   const [srcFocus, setSrcFocus] = useState(0)
   const endRef = useRef<HTMLDivElement>(null)
   const inRef = useRef<HTMLInputElement>(null)
+  const chatInRef = useRef<HTMLInputElement>(null)
   /* 열 폭 — 다른 화면과 같은 공용 이동바(지시). 계정을 따라간다. */
   const rootRef = useRef<HTMLDivElement>(null)
   const [w1, setW1] = useResizableWidth('utop.ntb.kai.w1', 215, 160, 420)
@@ -185,6 +186,8 @@ export default function AiKb() {
       pour((a) => ({ ...a, text: `⚠ ${e instanceof Error ? e.message : String(e)}` }))
     } finally {
       setBusy(false)
+      /* 손이 바로 다음 질문으로 가게 — 보내기 단추에 남은 포커스를 되찾는다 */
+      chatInRef.current?.focus()
     }
   }
 
@@ -357,14 +360,18 @@ export default function AiKb() {
               <div ref={endRef} />
             </div>
             <div className="kai-inbar">
+              {/* **잠그지 않는다**(지적: 답 뒤에 연속 질문이 안 된다). 답이
+                  흐르는 동안에도 다음 질문을 미리 쓸 수 있어야 한다 —
+                  못 하는 것은 「보내기」 뿐이다. */}
               <input
+                ref={chatInRef}
+                autoFocus
                 value={text}
-                disabled={busy}
                 placeholder="이어서 물어보세요"
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.nativeEvent.isComposing) return
-                  if (e.key === 'Enter' && text.trim()) void ask()
+                  if (e.key === 'Enter' && text.trim() && !busy) void ask()
                 }}
               />
               {scopeChips}
