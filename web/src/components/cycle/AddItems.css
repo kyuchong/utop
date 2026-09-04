@@ -1,0 +1,214 @@
+/**
+ * 시험 항목 담기 드로어 — 목업(시험 항목 담기)의 rqtc 트리 꼴.
+ * 전부 .afd 아래에 가둔다(겪은 일: CSS 이름 겹침). 공용 단추·칩·메뉴는
+ * QaShared.css(.qav)를 그대로 쓴다 — 루트가 qav afd 두 이름을 갖는 까닭.
+ */
+.qav.afd {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: block;
+  flex: none;
+}
+.afd .afd-scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--c-topbar) 45%, transparent);
+}
+.afd .afd-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(820px, 60vw);
+  background: var(--c-surface);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 0 16px color-mix(in srgb, var(--c-topbar) 22%, transparent);
+  transition: width 0.12s ease;
+}
+.afd .afd-panel.wide { width: 100vw; }
+@media (max-width: 900px) { .afd .afd-panel { width: 100vw; } }
+.afd .afd-hd {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--c-border-soft);
+  flex: none;
+}
+.afd .afd-hd h3 { margin: 0 auto; font-size: var(--fs-md); font-weight: 700; }
+.afd .afd-bd { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: var(--sp-3); }
+.afd .afd-note { margin: 0 0 var(--sp-2); color: var(--c-text-muted); font-size: var(--fs-sm); flex: none; }
+.afd .afd-ft {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--c-border-soft);
+  flex: none;
+}
+
+/* 고른 것 칩 */
+.afd .af-chosen {
+  display: inline-block;
+  align-self: flex-start;
+  background: var(--c-surface-alt);
+  border-radius: 10px;
+  padding: 2px 10px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  margin-bottom: var(--sp-2);
+  flex: none;
+}
+.afd .af-chosen.has { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 600; }
+
+/* 찾기 줄 · 칩 줄 */
+.afd .af-bar { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; flex: none; }
+.afd .af-bar .inp { flex: 1 1 auto; min-width: 0; }
+.afd .af-bar .af-typef { flex: 0 0 104px; }
+.afd .af-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: var(--sp-2); align-items: center; flex: none; }
+.afd .af-seg { display: inline-flex; border: 1px solid var(--c-border); border-radius: 12px; overflow: hidden; }
+.afd .af-seg button {
+  height: 24px;
+  padding: 0 11px;
+  border: 0;
+  border-right: 1px solid var(--c-border);
+  background: var(--c-surface);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.afd .af-seg button:last-child { border-right: 0; }
+.afd .af-seg button:hover { background: var(--c-surface-alt); }
+.afd .af-seg button.on { background: var(--c-primary); color: #fff; font-weight: 700; }
+.afd .af-chip {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 12px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.afd .af-chip:hover { background: var(--c-surface-alt); }
+.afd .af-chip.on { border-color: var(--c-primary); background: var(--c-primary-bg); color: var(--c-primary); font-weight: 600; }
+
+/* 트리 */
+.afd .af-tree {
+  flex: 1;
+  min-height: 160px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+  overflow: auto;
+  padding: 0 0 var(--sp-1);
+}
+.afd .af-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  padding-right: var(--sp-2);
+  cursor: pointer;
+  color: var(--c-text-muted);
+  font-size: var(--fs-md);
+  min-width: 0;
+}
+.afd .af-row:hover { background: var(--c-surface-alt); }
+.afd .af-row.on { background: var(--c-primary-bg); color: var(--c-primary); }
+.afd .af-row.root { font-weight: 700; color: var(--c-text); }
+.afd .af-row.total { font-weight: 700; color: var(--c-text); padding-left: 6px; position: sticky; top: 0; background: var(--c-surface); z-index: 2; border-bottom: 1px solid var(--c-border-soft); }
+.afd .af-row.total.on { background: var(--c-primary-bg); }
+.afd .af-row.dupe { opacity: 0.5; cursor: default; }
+.afd .af-row.dupe:hover { background: none; }
+.afd .af-caret {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--c-text-faint);
+  cursor: pointer;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+.afd .af-caret svg { transition: transform 0.12s; }
+.afd .af-caret.open svg { transform: rotate(90deg); }
+.afd .af-caret.none { visibility: hidden; }
+.afd .af-ck { flex: none; margin: 0; cursor: pointer; }
+.afd .af-ico { flex: none; font-size: 12px; line-height: 1; }
+.afd .af-ico.req { color: var(--c-primary); font-size: 10px; }
+.afd .af-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.afd .af-nm.dim2 { color: var(--c-text-muted); flex: 1; }
+.afd .af-id { flex: none; font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 600; color: var(--c-pass); }
+.afd .af-id.req { color: var(--c-primary); }
+.afd .af-rt { flex: none; font-size: var(--fs-sm); color: var(--c-text-faint); font-variant-numeric: tabular-nums; }
+.afd .af-rt.bare { color: var(--c-draft); }
+.afd .af-row.on .af-rt { color: var(--c-primary); }
+.afd .af-sp { flex: 1; }
+
+/* base=req·tc 의 폴더 캡션 — 위 계층을 한 줄로 접는다 */
+.afd .af-cap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--sp-2) 4px 12px;
+  background: var(--c-surface-alt);
+  border-top: 1px solid var(--c-border-soft);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  position: sticky;
+  top: 27px;
+  z-index: 1;
+}
+/* base=tc 는 열 머리(24px)가 맨 위라 「전체」 줄과 캡션이 그 아래로 물러선다 —
+   셋 다 top:0 이면 서로 겹쳐 두 줄이 한 자리에 선다 */
+.afd .af-tree.b-tc .af-row.total { top: 24px; }
+.afd .af-tree.b-tc .af-cap { top: 51px; }
+/* 「전체」 줄의 border-bottom 과 겹줄이 되지 않게 — :first-of-type 은 div
+   형제 기준이라 여기서는 영원히 안 걸린다(검토 지적). 이웃 선택자로 잡는다. */
+.afd .af-row.total + .af-cap { border-top: 0; }
+.afd .af-cap .r { flex: none; color: var(--c-text-faint); }
+.afd .af-cap .af-id.req { font-weight: 600; }
+
+/* base=tc 의 열 머리 */
+.afd .af-cols {
+  display: flex;
+  align-items: center;
+  /* 행(.af-row)과 같은 6px — 다르면 머리글이 셀과 1~2px 어긋난다(검토 지적) */
+  gap: 6px;
+  height: 24px;
+  padding: 0 var(--sp-2) 0 6px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-faint);
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border-soft);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.afd .af-col { flex: none; font-size: var(--fs-sm); color: var(--c-text-muted); text-align: left; }
+.afd .af-col.mg { width: 68px; font-family: var(--font-mono); font-size: var(--fs-xs); }
+.afd .af-col.md { width: 70px; }
+.afd .af-col.tp { width: 50px; }
+.afd .af-badge { display: inline-block; padding: 0 6px; border-radius: var(--r-chip); font-size: var(--fs-xs); font-weight: 600; }
+.afd .af-badge.a { background: var(--c-primary-bg); color: var(--c-primary); }
+.afd .af-badge.m { background: var(--tint-idle); color: var(--c-text-muted); }
+
+/* 빈 자리·요약 */
+.afd .af-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--sp-5) var(--sp-3);
+  color: var(--c-text-faint);
+  font-size: var(--fs-sm);
+}
+.afd .af-empty strong { color: var(--c-text-muted); font-size: var(--fs-md); }
+.afd .af-empty.err { color: var(--c-fail); }
+.afd .af-sum { margin-top: 6px; font-size: var(--fs-xs); color: var(--c-text-faint); flex: none; }

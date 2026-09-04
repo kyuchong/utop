@@ -21,7 +21,7 @@ import type { CycleItemLite, CycleMeta } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
 import type { RunFull } from '@/components/run/RunDetail'
 import MakeCycle from '@/components/cycle/MakeCycle'
-import PickItems from '@/components/cycle/PickItems'
+import AddItems from '@/components/cycle/AddItems'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
 import { Donut, StatBar, ago, sumRuns, useReqIndex, useUserNames } from '@/pages/qaBits'
@@ -782,7 +782,7 @@ export default function CyclesBoard({
       return !!s && s.fail >= 2
     })
     let lastFolder = ''
-    let lastReq = ' '
+    let lastReq: string | null = null
     return (
       <div className="cu-fill">
         {!!repeats.length && (
@@ -850,7 +850,7 @@ export default function CyclesBoard({
                     const heads: React.ReactNode[] = []
                     if (r.folder !== lastFolder) {
                       lastFolder = r.folder
-                      lastReq = ' '
+                      lastReq = null
                       const fin = itemRows.filter((x) => x.folder === r.folder)
                       const fa = fin.filter((x) => !x.man).length
                       heads.push(
@@ -1051,8 +1051,11 @@ export default function CyclesBoard({
         />
       )}
       {addTo && !!plan && (
-        <PickItems
+        /* 담기 드로어 — 목업의 폴더 ▸ REQ ▸ 시험 항목 3단 담기 창.
+           옛 고르기 창(PickItems)은 plans-old 화면이 아직 쓴다. */
+        <AddItems
           cycle={plan}
+          by={meName}
           onClose={() => setAddTo(false)}
           onDone={() => {
             setAddTo(false)
