@@ -57,19 +57,23 @@ app = FastAPI(title="NetTest Automation")
 # 스트리밍 경로는 요청 시 Accept-Encoding 헤더를 서버 진입 직전에 제거해 GZipMiddleware 가 skip 하도록 유도한다.
 _SSE_PATH_PREFIXES = ("/api/chat/local/stream", "/api/dify/chat", "/api/chat/stream", "/api/jira/ask-stream", "/api/run-cli-stream", "/api/ping-stream", "/api/kai/ask-stream")
 
+app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=5)
+
+# ★ 등록 순서가 곧 겹 순서다 — **나중에 단 것이 바깥**이 된다.
+#   이 지우개는 GZip 보다 나중에 달아야 바깥에서 먼저 돌아 헤더를 지운다.
+#   전에는 GZip 앞(안쪽)에 있어서, GZip 이 원래 Accept-Encoding 을 먼저 보고
+#   SSE 를 통째로 모아 압축했다 — curl 로는 흘렀는데(압축 요구 없음)
+#   브라우저에선 답이 한 덩어리로 왔다(지적). 여섯 SSE 경로가 다 그랬다.
 @app.middleware("http")
 async def _disable_gzip_for_sse(request, call_next):
     try:
         if any(request.url.path.startswith(p) for p in _SSE_PATH_PREFIXES):
-            # 하위 GZipMiddleware 는 Accept-Encoding 에 'gzip' 이 있으면 압축. 헤더를 비우면 압축 skip.
-            _hdrs = dict(request.scope.get("headers") or [])
-            new_hdrs = [(k, v) for (k, v) in (request.scope.get("headers") or []) if k != b"accept-encoding"]
-            request.scope["headers"] = new_hdrs
+            request.scope["headers"] = [
+                (k, v) for (k, v) in (request.scope.get("headers") or []) if k != b"accept-encoding"
+            ]
     except Exception:
         pass
     return await call_next(request)
-
-app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=5)
 
 # 정적 파일 커스텀 마운트 — 캐시 버스터(?v=xxx)를 이미 쓰므로 강력한 브라우저 캐시 허용.
 # 매 새로고침마다 조건부 GET (200-500ms 왕복 대기) 을 안 함 → 페이지 재접속이 빨라짐.
