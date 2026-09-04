@@ -17118,6 +17118,12 @@ async def _jira_cache_sync(full: bool = False, manual: bool = False) -> dict:
             "seeded": bool(st.get("seeded")) or (full and failed == 0),
         })
         print(f"[jira-cache] 동기화 — 확인 {len(keys)} · 저장 {stored} · 실패 {failed}")
+        # 끝난 결과를 상태에 남긴다 — 단추는 곧장 돌아가므로, 화면은 이걸
+        # 읽어 「바뀐 것 없음 / N건 저장」 을 말한다(지적: 아무 반응이 없다).
+        _JCACHE_PROG["last_result"] = {
+            "checked": len(keys), "stored": stored, "failed": failed,
+            "at": now.isoformat(), "manual": manual,
+        }
         return {"ok": True, "checked": len(keys), "stored": stored, "failed": failed}
     finally:
         _JCACHE_BUSY = False

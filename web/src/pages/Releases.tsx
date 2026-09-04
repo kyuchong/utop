@@ -685,6 +685,7 @@ export default function Releases() {
         running?: boolean
         mode?: string
         done?: number
+        last_result?: { checked?: number; stored?: number; failed?: number; at?: string }
       }
     },
   })
@@ -1238,8 +1239,28 @@ export default function Releases() {
                    몇 분을 단추가 멎은 채 붙잡았다(지적). */
                 try {
                   const r = await apiFetch('/api/jira/cache-sync', { method: 'POST' })
-                  const j = (await r.json()) as { ok?: boolean; started?: boolean; error?: string }
+                  const j = (await r.json()) as { ok?: boolean; started?: boolean; already?: boolean; error?: string }
                   if (!j.ok) throw new Error(j.error || '동기화를 시작하지 못했습니다')
+                  if (!j.already) {
+                    /* 변경분 확인은 몇 초짜리다 — 끝날 때까지 기다렸다가
+                       결과를 말한다. 0건이면 조용히 끝나 「아무 반응이
+                       없다」 로 읽혔다(지적). 만약을 위해 2분에서 끊는다. */
+                    const t0 = Date.now()
+                    let fin: (typeof cstatQ)['data']
+                    for (;;) {
+                      await new Promise((ok) => setTimeout(ok, 1000))
+                      fin = (await cstatQ.refetch()).data
+                      if (!fin?.running || Date.now() - t0 > 120_000) break
+                    }
+                    const lr = fin?.last_result
+                    window.alert(
+                      lr
+                        ? lr.stored
+                          ? `바뀐 이슈 ${lr.stored}건을 받아 저장했습니다${lr.failed ? ` (실패 ${lr.failed}건)` : ''}`
+                          : '바뀐 것이 없습니다 — 저장소가 최신입니다'
+                        : '확인을 시작했습니다 — 잠시 뒤 다시 봐 주세요',
+                    )
+                  }
                 } catch (e) {
                   window.alert(e instanceof Error ? e.message : String(e))
                 }
