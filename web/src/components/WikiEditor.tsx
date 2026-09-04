@@ -1037,7 +1037,11 @@ export default function WikiEditor({
                  navpanes=0 으로 뷰어 제 사이드바는 접는다. */
               <div className="wke-pvbody">
                 <PdfRail url={pdfUrl} at={pvAt} onPick={setPvAt} />
+                {/* key=쪽 — 해시만 바꾸면 크롬 PDF 뷰어가 무시한다(실측:
+                    목록은 짚였는데 본문이 안 따라감). 판을 새로 세워
+                    그 쪽에서 열게 한다. blob 이라 다시 여는 값이 싸다. */}
                 <iframe
+                  key={pvAt}
                   className="wke-pvframe"
                   src={`${pdfUrl}#page=${pvAt}&navpanes=0`}
                   title="PDF 미리보기"
