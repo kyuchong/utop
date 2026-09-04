@@ -1,42 +1,309 @@
-/* Knowledge AI — 찾는 자리. 접두어는 akb- 하나만(이름이 겹치면 다른 화면이
-   조용히 망가진다). */
-.akb {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 18px 20px 28px;
-}
-.akb-h h2 { margin: 0 0 6px; font-size: 18px; font-weight: 800; color: var(--c-text); }
-.akb-h p { margin: 0 0 18px; font-size: 13px; color: var(--c-text-muted); line-height: 1.6; }
+/* Knowledge AI — 접두어 kai- 로 가둔다(다른 화면과 안 겹치게).
+   보라→청록 그라데이션이 이 화면의 얼굴 — Test AI(청록→파랑)와 형제지만
+   딴 사람임이 첫눈에 갈리게. */
+.kai { display: flex; flex: 1; min-height: 0; background: #f5f8f9; }
 
-.akb-cards { display: flex; gap: 12px; flex-wrap: wrap; }
-.akb-card {
-  flex: 1 1 320px;
-  min-width: 0;
-  padding: 14px 16px 16px;
-  gap: 8px;
-}
-.akb-card h3 { margin: 0; font-size: 14px; font-weight: 800; color: var(--c-text); }
-.akb-card p {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--c-text-muted);
-  line-height: 1.6;
-  flex: 1;
-}
-.akb-card .btn { align-self: flex-start; }
-
-/* 아직 안 되는 것 — **무엇을 기다리는지** 적는다. 「아직 안 옮겼습니다」 만
-   띄우던 옛 벽이 이 자리를 한 번 죽였다. */
-.akb-soon {
+/* ── 1열 대화 목록(B — 늘 선다) ── */
+.kai-list {
+  width: 215px;
+  flex: none;
+  background: var(--c-surface);
+  border-right: 1px solid #e3eaec;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 16px;
-  padding: 12px 14px;
-  border: 1px dashed var(--c-border);
-  border-radius: var(--r-box);
-  background: var(--c-surface);
+  padding: 10px;
 }
-.akb-soon b { font-size: 12.5px; color: var(--c-text); }
-.akb-soon span { font-size: 12px; color: var(--c-text-muted); line-height: 1.6; }
+.kai-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #d4c8f5;
+  background: #efeafd;
+  color: #5636c7;
+  border-radius: 9px;
+  padding: 8px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.kai-new:hover { background: #e4dbfb; }
+.kai-ths { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.kai-th { display: flex; align-items: center; border-radius: 8px; }
+.kai-th .nm {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: #39434b;
+  text-align: left;
+  padding: 8px 9px;
+  border-radius: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.kai-th:hover { background: #f2f4f6; }
+.kai-th.on { background: #efeafd; }
+.kai-th.on .nm { color: #3a2f73; font-weight: 600; }
+.kai-th .x {
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--c-text-faint);
+  font-size: 11px;
+  padding: 4px 7px;
+  cursor: pointer;
+  visibility: hidden;
+}
+.kai-th:hover .x { visibility: visible; }
+.kai-th .x:hover { color: #b3261e; }
+.kai-none { padding: 18px 8px; text-align: center; color: var(--c-text-faint); font-size: 12px; }
+
+/* ── 인트로(B — 2/3열 합친 자리) ── */
+.kai-intro {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 24px;
+  background: linear-gradient(180deg, #f8fafc, #f0eef7);
+  overflow: auto;
+}
+.kai-intro .sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.kai-intro .sky > i { position: absolute; display: block; border-radius: 50%; filter: blur(85px); }
+.kai-intro .o1 { width: 460px; height: 460px; left: 10%; top: -8%; background: rgb(109 79 224 / 14%); animation: kai-drift 28s ease-in-out infinite alternate; }
+.kai-intro .o2 { width: 400px; height: 400px; right: 8%; top: 0; background: rgb(15 118 110 / 12%); animation: kai-drift 34s ease-in-out infinite alternate-reverse; }
+.kai-intro .o3 { width: 380px; height: 380px; left: 44%; top: 60%; background: rgb(23 105 210 / 9%); animation: kai-drift 40s ease-in-out infinite alternate; }
+@keyframes kai-drift { from { transform: translate(0, 0); } to { transform: translate(50px, 36px); } }
+.kai-intro > *:not(.sky) { position: relative; z-index: 1; }
+.kai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--c-surface), var(--c-surface)) padding-box,
+    linear-gradient(90deg, #6d4fe0, #0f766e) border-box;
+  box-shadow: 0 4px 18px rgb(30 25 70 / 8%);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #3a2f73;
+}
+.kai-badge > i {
+  font-style: normal;
+  background: linear-gradient(90deg, #6d4fe0, #0f766e);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.kai-intro h1 {
+  margin: 18px 0 8px;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(92deg, #2d2367, #6d4fe0 45%, #0f766e);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.kai-sub { font-size: 14.5px; color: #5b6d76; margin: 0 0 28px; }
+.kai-cap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(700px, 96%);
+  padding: 14px 12px 10px 22px;
+  border-radius: 26px;
+  background: var(--c-surface);
+  border: 1px solid #e2e3ee;
+  box-shadow: 0 14px 44px rgb(30 25 70 / 10%);
+}
+.kai-cap:focus-within { box-shadow: 0 0 0 2px rgb(109 79 224 / 22%), 0 18px 54px rgb(109 79 224 / 12%); }
+.kai-cap input { border: 0; outline: 0; font: inherit; font-size: 16px; height: 42px; }
+.kai-cap input::placeholder { color: #9fa8bd; }
+.kai-cap .row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.kai-cap .sp, .kai-inbar .sp, .kai-src .sp { flex: 1; }
+.kai-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #e2e3ee;
+  background: var(--c-surface);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #39415a;
+  cursor: pointer;
+}
+.kai-scope.on { background: #efeafd; border-color: #d4c8f5; color: #5636c7; }
+.kai-send {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #cfd6de;
+  color: #fff;
+  cursor: pointer;
+}
+.kai-send svg { width: 17px; height: 17px; }
+.kai-send.on { background: linear-gradient(135deg, #6d4fe0, #0f766e); box-shadow: 0 6px 18px rgb(109 79 224 / 30%); }
+.kai-send.sm { width: 36px; height: 36px; }
+.kai-send:disabled { cursor: default; }
+.kai-ops { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; justify-content: center; max-width: 760px; }
+.kai-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--c-surface);
+  border: 1px solid #e2e3ee;
+  font: inherit;
+  font-size: 13px;
+  color: #39415a;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgb(30 25 70 / 5%);
+}
+.kai-op:hover { border-color: #6d4fe0; transform: translateY(-1px); }
+.kai-op > i {
+  font-style: normal;
+  background: linear-gradient(90deg, #6d4fe0, #0f766e);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 11px;
+}
+.kai-cando { margin-top: 44px; text-align: center; }
+.kai-cando small { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; color: #93a5ad; margin-bottom: 15px; }
+.kai-cando .row2 { display: flex; gap: 40px; justify-content: center; }
+.kai-cando .cd { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12.5px; color: #4b5e67; }
+.kai-cando .cd > i { font-style: normal; width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.kai-cando .t1 > i { background: #efeafd; }
+.kai-cando .t2 > i { background: #e4f1ef; }
+.kai-cando .t3 > i { background: #e9f1ff; }
+.kai-cando .t4 > i { background: #fdf1e2; }
+
+/* ── 2열 대화 ── */
+.kai-chat { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.kai-msgs { flex: 1; min-height: 0; overflow: auto; padding: 20px 26px; display: flex; flex-direction: column; gap: 14px; }
+.kai-mu {
+  align-self: flex-end;
+  max-width: 72%;
+  background: #0f766e;
+  color: #fff;
+  border-radius: 14px 14px 3px 14px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.kai-ma {
+  align-self: flex-start;
+  max-width: 88%;
+  background: var(--c-surface);
+  border: 1px solid #e3eaec;
+  border-radius: 14px 14px 14px 3px;
+  padding: 13px 16px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  word-break: break-word;
+}
+.kai-ma table { border-collapse: collapse; margin: 8px 0; font-size: 12.5px; display: block; max-width: 100%; overflow-x: auto; }
+.kai-ma td, .kai-ma th { border: 1px solid #e3eaec; padding: 3px 9px; }
+.kai-ma p { margin: 0 0 6px; }
+.kai-ma p:last-child { margin: 0; }
+.kai-wait { color: var(--c-text-faint); }
+/* 근거 표 [n] — 누르면 3열이 열린다(C). 눌리는 것답게 생겨야 누른다 */
+.kai-cit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: #efeafd;
+  color: #5636c7;
+  font-size: 10.5px;
+  font-weight: 700;
+  margin: 0 2px;
+  vertical-align: 2px;
+  border: 1px solid #d4c8f5;
+  cursor: pointer;
+  user-select: none;
+}
+.kai-cit:hover { background: #5636c7; color: #fff; }
+.kai-inbar {
+  flex: none;
+  margin: 0 26px 16px;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--c-surface);
+  border: 1px solid #e2e3ee;
+  border-radius: 18px;
+  padding: 10px 12px 10px 16px;
+  box-shadow: 0 6px 22px rgb(30 25 70 / 7%);
+}
+.kai-inbar input { flex: 1; min-width: 160px; border: 0; outline: 0; font: inherit; font-size: 13.5px; }
+.kai-inbar .kai-scope { padding: 4px 10px; font-size: 11px; }
+
+/* ── 3열 근거(C — 눌러야 열린다) ── */
+.kai-src {
+  width: 330px;
+  flex: none;
+  background: var(--c-surface);
+  border-left: 1px solid #e3eaec;
+  display: flex;
+  flex-direction: column;
+}
+.kai-src > header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e3eaec;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #39434b;
+}
+.kai-src > header em { font-style: normal; background: #efeafd; color: #5636c7; border-radius: 999px; padding: 1px 8px; font-size: 11px; }
+.kai-src > header button { border: 0; background: none; color: var(--c-text-muted); cursor: pointer; font-size: 13px; }
+.kai-src .body { flex: 1; min-height: 0; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.kai-src .card { border: 1px solid #e3eaec; border-radius: 11px; padding: 11px 12px; font-size: 12px; }
+.kai-src .card.on { border-color: #b9a5f0; box-shadow: 0 0 0 2px #efeafd; }
+.kai-src .k { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.kai-src .k b { font-size: 12.5px; color: #1d2b33; font-family: ui-monospace, Menlo, monospace; }
+.kai-src .tag { font-size: 10px; font-weight: 700; border-radius: 5px; padding: 1px 6px; }
+.kai-src .g1 { background: #efeafd; color: #5636c7; }
+.kai-src .g2 { background: #e4f1ef; color: #0f766e; }
+.kai-src .g3 { background: #fdf1e2; color: #a3630a; }
+.kai-src .bd { color: #37434c; line-height: 1.6; }
+.kai-src .fld { display: flex; gap: 6px; margin-top: 4px; color: #55636c; }
+.kai-src .fld em { font-style: normal; color: #93a5ad; }
+.kai-src .sn { margin-top: 6px; color: #6b7880; line-height: 1.6; font-size: 11.5px; background: #f7f9fa; border-radius: 7px; padding: 7px 9px; }
+.kai-src .go { margin-top: 9px; border: 0; background: none; padding: 0; font: inherit; font-size: 11.5px; color: #5636c7; font-weight: 600; cursor: pointer; }
+.kai-src .go:hover { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kai-intro .sky > i { animation: none; }
+}

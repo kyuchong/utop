@@ -17148,6 +17148,199 @@ async def _jira_cache_scheduler():
             print(f"[jira-cache] 아침 동기화 실패: {e}")
 
 
+# ───────────────────────────────────────────
+# Knowledge AI — 저장소에서 찾아 답한다 (승인: B 인트로 + C 동작)
+# ───────────────────────────────────────────
+#
+# 원칙: **밖에 안 나간다.** WIKI·요구사항/시험·사이클 결과는 우리 PG,
+# 지라는 아침마다 받아 둔 저장소(jira_cache)다. 실시간으로 지라를 두드리지
+# 않는다(지시: 부하). LLM 은 근거 묶음을 받아 [n] 표로 짚으며 답한다.
+#
+# 대화는 계정별로 KV 에 담는다 — kai.threads.{username}. 화면 왼쪽 1열이
+# 이 목록이고, 다음 접속에 이어진다.
+
+def _kai_terms(q: str) -> list[str]:
+    import re as _re
+    out = [t for t in _re.split(r"[^0-9A-Za-z가-힣_.-]+", q) if len(t) >= 2]
+    # 조사 붙은 한글 낱말도 앞부분으로 걸리게 — 긴 것부터 다섯 개면 족하다
+    out.sort(key=len, reverse=True)
+    return out[:5] or ([q.strip()] if q.strip() else [])
+
+
+def _kai_snip(text: str, terms: list[str], width: int = 260) -> str:
+    low = text.lower()
+    at = -1
+    for t in terms:
+        at = low.find(t.lower())
+        if at >= 0:
+            break
+    if at < 0:
+        at = 0
+    s0 = max(0, at - width // 3)
+    out = text[s0 : s0 + width].strip()
+    return ("…" if s0 > 0 else "") + out + ("…" if s0 + width < len(text) else "")
+
+
+async def _kai_search(q: str, scopes: set[str]) -> list[dict]:
+    """네 저장소를 훑어 근거 후보를 모은다 — 전부 우리 것만 읽는다."""
+    terms = _kai_terms(q)
+    if not terms:
+        return []
+    like = [f"%{t}%" for t in terms]
+    out: list[dict] = []
+    async with db.pool().acquire() as c:
+        if "wiki" in scopes:
+            rows = await c.fetch(
+                """SELECT id, title, plain FROM wiki_page
+                   WHERE title ILIKE ANY($1::text[]) OR plain ILIKE ANY($1::text[])
+                   LIMIT 40""", like)
+            def _wscore(r):
+                tl, pl = (r["title"] or "").lower(), (r["plain"] or "").lower()
+                return sum((3 if t.lower() in tl else 0) + pl.count(t.lower()) for t in terms)
+            for r in sorted(rows, key=_wscore, reverse=True)[:3]:
+                out.append({"kind": "wiki", "id": r["id"], "title": r["title"] or "(이름 없음)",
+                            "snippet": _kai_snip(r["plain"] or "", terms)})
+        if "tc" in scopes:
+            rows = await c.fetch(
+                """SELECT tcid, name, data::text AS txt FROM tc
+                   WHERE tcid ILIKE ANY($1::text[]) OR name ILIKE ANY($1::text[])
+                      OR data::text ILIKE ANY($1::text[]) LIMIT 30""", like)
+            def _tscore(r):
+                nm = ((r["tcid"] or "") + " " + (r["name"] or "")).lower()
+                return sum((4 if t.lower() in nm else 0) + min(3, (r["txt"] or "").lower().count(t.lower())) for t in terms)
+            for r in sorted(rows, key=_tscore, reverse=True)[:3]:
+                out.append({"kind": "tc", "id": r["tcid"], "title": r["name"] or r["tcid"],
+                            "snippet": _kai_snip(r["txt"] or "", terms, 200)})
+            rows = await c.fetch(
+                """SELECT reqid, title FROM req
+                   WHERE reqid ILIKE ANY($1::text[]) OR title ILIKE ANY($1::text[]) LIMIT 6""", like)
+            for r in rows[:2]:
+                out.append({"kind": "req", "id": r["reqid"], "title": r["title"] or r["reqid"], "snippet": ""})
+        if "cycle" in scopes:
+            rows = await c.fetch(
+                """SELECT id, name, version, data FROM plan_run
+                   WHERE id ILIKE ANY($1::text[]) OR name ILIKE ANY($1::text[])
+                      OR version ILIKE ANY($1::text[]) LIMIT 6""", like)
+            for r in rows[:3]:
+                try:
+                    d = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
+                except Exception:
+                    d = {}
+                res = d.get("results") or {}
+                vals = [str(v).lower() for v in res.values()] if isinstance(res, dict) else []
+                np = sum(1 for v in vals if v in ("p", "pass"))
+                nf = sum(1 for v in vals if v in ("f", "fail"))
+                out.append({"kind": "run", "id": r["id"], "title": f"{r['name'] or r['id']} · {r['version'] or ''}",
+                            "snippet": f"항목 {len(vals)} · 통과 {np} · 실패 {nf}"})
+    if "jira" in scopes and _JIRA_CACHE_DIR.exists():
+        # 저장소 파일을 훑는다 — 아침 동기화가 채워 둔 것이라 지라는 조용하다
+        best: list[tuple[int, dict]] = []
+        for f in _JIRA_CACHE_DIR.iterdir():
+            if f.suffix != ".json":
+                continue
+            j = _jira_cache_read(f)
+            if not j:
+                continue
+            fl = j.get("fields") or {}
+            key = str(j.get("key") or f.stem)
+            summ = str(fl.get("summary") or "")
+            desc = str(fl.get("description") or "")
+            hay = (key + " " + summ).lower()
+            sc = sum((4 if t.lower() in hay else 0) + min(3, desc.lower().count(t.lower())) for t in terms)
+            if sc <= 0:
+                continue
+            st = fl.get("status") or {}
+            best.append((sc, {"kind": "jira", "id": key, "title": summ or key,
+                              "snippet": _kai_snip(desc, terms, 200),
+                              "extra": {"status": (st or {}).get("name") if isinstance(st, dict) else "",
+                                        "updated": str(fl.get("updated") or "")[:10]}}))
+        best.sort(key=lambda x: -x[0])
+        out.extend(b for _, b in best[:4])
+    return out[:10]
+
+
+def _kai_user(request) -> str:
+    su = getattr(request.state, "user", None)
+    return str((su or {}).get("username") or "") or "anon"
+
+
+async def _kai_load(u: str) -> list[dict]:
+    v = await db.kv_get(f"kai.threads.{u}")
+    return v if isinstance(v, list) else []
+
+
+@app.get("/api/kai/threads")
+async def kai_threads(request: Request):
+    ths = await _kai_load(_kai_user(request))
+    return {"ok": True, "threads": [
+        {"id": t.get("id"), "title": t.get("title"), "at": t.get("at"), "n": len(t.get("msgs") or [])}
+        for t in ths]}
+
+
+@app.get("/api/kai/thread/{tid}")
+async def kai_thread(tid: str, request: Request):
+    ths = await _kai_load(_kai_user(request))
+    t = next((x for x in ths if x.get("id") == tid), None)
+    if not t:
+        return {"ok": False, "error": "없는 대화입니다"}
+    return {"ok": True, "thread": t}
+
+
+@app.delete("/api/kai/thread/{tid}")
+async def kai_thread_del(tid: str, request: Request):
+    u = _kai_user(request)
+    ths = [x for x in await _kai_load(u) if x.get("id") != tid]
+    await db.kv_set(f"kai.threads.{u}", ths)
+    return {"ok": True}
+
+
+@app.post("/api/kai/ask")
+async def kai_ask(payload: dict, request: Request):
+    from datetime import timezone as _tz
+    q = str(payload.get("q") or "").strip()
+    if not q:
+        return {"ok": False, "error": "질문이 비었습니다"}
+    scopes = {str(x) for x in (payload.get("scopes") or [])} or {"wiki", "tc", "cycle", "jira"}
+    srcs = await _kai_search(q, scopes)
+
+    # 근거 묶음 → LLM. [n] 으로 짚어 답하게 한다. 근거 밖은 모른다고 말하게.
+    blocks = []
+    for i, sx in enumerate(srcs, 1):
+        ex = sx.get("extra") or {}
+        blocks.append(f"[{i}] ({sx['kind']}) {sx['id']} — {sx['title']}\n"
+                      + (f"상태 {ex.get('status')} · {ex.get('updated')}\n" if ex else "")
+                      + (sx.get("snippet") or ""))
+    sys_p = ("너는 네트워크 장비 시험 조직의 지식 도우미다. 아래 근거만으로 한국어로 간결히 답하라. "
+             "근거를 쓸 때는 문장 끝에 [번호] 로 짚어라. 근거에 없는 것은 없다고 말하라. "
+             "표가 어울리면 마크다운 표를 써라.")
+    user_p = "질문: " + q + "\n\n근거:\n" + ("\n\n".join(blocks) if blocks else "(찾은 근거 없음)")
+    llm = _ai_llm() or {}
+    ans = await _jira_llm_complete(llm, sys_p, user_p, max_tokens=900)
+    if not ans:
+        ans = ("LLM 이 설정되지 않았거나 답을 만들지 못했습니다. 찾은 근거는 오른쪽에서 볼 수 있습니다."
+               if srcs else "찾은 근거가 없습니다 — 범위를 넓히거나 말을 바꿔 보세요.")
+
+    # 대화에 싣는다
+    u = _kai_user(request)
+    ths = await _kai_load(u)
+    tid = str(payload.get("tid") or "")
+    now = datetime.now(_tz.utc).isoformat()
+    t = next((x for x in ths if x.get("id") == tid), None)
+    if t is None:
+        tid = f"kai-{int(datetime.now(_tz.utc).timestamp()*1000)}"
+        t = {"id": tid, "title": q[:40], "at": now, "msgs": []}
+        ths.insert(0, t)
+    t["at"] = now
+    t["msgs"] = (t.get("msgs") or []) + [
+        {"role": "u", "text": q, "at": now},
+        {"role": "a", "text": ans, "sources": srcs, "at": now},
+    ]
+    t["msgs"] = t["msgs"][-200:]
+    ths.sort(key=lambda x: str(x.get("at") or ""), reverse=True)
+    await db.kv_set(f"kai.threads.{u}", ths[:50])
+    return {"ok": True, "tid": tid, "title": t["title"], "answer": ans, "sources": srcs}
+
+
 @app.get("/api/jira/cache-status")
 async def jira_cache_status():
     st = await db.kv_get("jira.cache.sync") or {}

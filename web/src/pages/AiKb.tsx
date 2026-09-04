@@ -1,62 +1,377 @@
 /**
- * Knowledge AI — **자료를 찾는 자리.**
+ * Knowledge AI — **쌓인 자료에서 찾아 답하는 자리** (승인: B 인트로 + C 동작).
  *
- * Test AI 가 시험을 만들고 고치는 쪽이라면, 이쪽은 이미 있는 것을 찾아
- * 답하는 쪽이다. 묻는 말도 답하는 꼴도 달라 한 화면에 두면 둘 다 흐려진다.
+ *   B — 1열 대화 목록은 늘 서 있고, 인트로는 2/3열을 합친 자리에 뜬다.
+ *   C — 답은 넓게 보이고, 3열(근거)은 답 속 [n] 을 누를 때만 열린다.
  *
- *   Wiki      규격·절차·전파 문서
- *   Release   Jira 이슈 — 무엇이 왜 고쳐졌나
- *
- * **아직 답하지는 못한다.** 이 자리를 전에 한 번 뺐던 까닭이 그것이다 —
- * 화면도 자료도 없이 메뉴에만 두어, 누를 때마다 「아직 안 옮겼습니다」 벽을
- * 만났다(지적). 벽은 무엇을 기다려야 하는지 말해 주지 않는다.
- *
- * 그래서 이 화면은 **무엇을 하는 자리이고 지금 무엇이 되는지**를 적는다.
- * 되는 것(Wiki 찾기·Jira 이슈 찾기)은 지금 쓸 수 있는 곳으로 바로 보낸다.
+ * 자료는 전부 **우리 저장소**다: Wiki·요구사항/시험·사이클 결과는 PG,
+ * 지라는 아침마다 받아 둔 jira_cache. 묻는다고 지라에 실시간으로 안 간다.
+ * 대화는 계정별로 남아 다음 접속에 이어진다.
  */
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+import { apiFetch } from '@/api/client'
 import { goto } from '@/api/goto'
 import './AiKb.css'
 
+interface KaiSource {
+  kind: 'wiki' | 'tc' | 'req' | 'run' | 'jira'
+  id: string
+  title: string
+  snippet?: string
+  extra?: { status?: string; updated?: string }
+}
+interface KaiMsg {
+  role: 'u' | 'a'
+  text: string
+  sources?: KaiSource[]
+  at?: string
+}
+interface KaiThread {
+  id: string
+  title: string
+  at: string
+  msgs?: KaiMsg[]
+  n?: number
+}
+
+const SCOPES = [
+  ['wiki', '📖', 'WIKI'],
+  ['tc', '🧪', '시험'],
+  ['cycle', '🔄', '사이클'],
+  ['jira', '🐞', 'Jira'],
+] as const
+
+const KIND_LABEL: Record<KaiSource['kind'], [string, string]> = {
+  wiki: ['Wiki', 'g1'],
+  tc: ['시험', 'g2'],
+  req: ['요구사항', 'g2'],
+  run: ['실행', 'g2'],
+  jira: ['Jira', 'g3'],
+}
+
+/** 답 속 [n] 을 누르는 것으로 바꾼다 — C 동작의 핵심 */
+function mdWithCits(text: string): string {
+  const html = DOMPurify.sanitize(
+    marked.parse(text || '', { async: false, breaks: true, gfm: true }) as string,
+    { ADD_ATTR: ['target', 'rel'] },
+  )
+  return html.replace(/\[(\d{1,2})\]/g, '<sup class="kai-cit" data-n="$1" role="button" tabindex="0">$1</sup>')
+}
+
 export default function AiKb() {
+  const qc = useQueryClient()
+  const [tid, setTid] = useState('')
+  const [msgs, setMsgs] = useState<KaiMsg[]>([])
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  /** 켜진 범위 — 밑값은 전부. 무엇이든 물어보라는 화면이니 */
+  const [scopes, setScopes] = useState<Set<string>>(new Set(SCOPES.map(([k]) => k)))
+  /** 3열 — 열림 여부와 지금 짚은 근거 번호(C 동작: [n] 을 눌러야 연다) */
+  const [srcOpen, setSrcOpen] = useState(false)
+  const [srcFocus, setSrcFocus] = useState(0)
+  const endRef = useRef<HTMLDivElement>(null)
+  const inRef = useRef<HTMLInputElement>(null)
+
+  const thQ = useQuery({
+    queryKey: ['kai-threads'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/kai/threads')
+      return (await r.json()) as { threads?: KaiThread[] }
+    },
+  })
+  const threads = thQ.data?.threads ?? []
+
+  /* 다음 접속은 마지막 대화로 — 대화가 있는데 인트로부터 보이면
+     「내 대화 어디 갔지」 가 된다(승인된 흐름 3번). */
+  const booted = useRef(false)
+  useEffect(() => {
+    if (booted.current || !thQ.isSuccess) return
+    booted.current = true
+    const first = threads[0]
+    if (first?.id) void openThread(first.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thQ.isSuccess])
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: 'end' })
+  }, [msgs, busy])
+
+  async function openThread(id: string) {
+    const r = await apiFetch(`/api/kai/thread/${encodeURIComponent(id)}`)
+    const j = (await r.json()) as { ok?: boolean; thread?: KaiThread }
+    if (!j.ok || !j.thread) return
+    setTid(id)
+    setMsgs(j.thread.msgs ?? [])
+    setSrcOpen(false)
+  }
+
+  function newThread() {
+    setTid('')
+    setMsgs([])
+    setSrcOpen(false)
+    setText('')
+  }
+
+  async function delThread(id: string) {
+    if (!window.confirm('이 대화를 지웁니다.')) return
+    await apiFetch(`/api/kai/thread/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    if (id === tid) newThread()
+    void qc.invalidateQueries({ queryKey: ['kai-threads'] })
+  }
+
+  async function ask(q0?: string) {
+    const q = (q0 ?? text).trim()
+    if (!q || busy) return
+    setText('')
+    setBusy(true)
+    setMsgs((m) => [...m, { role: 'u', text: q }])
+    try {
+      const r = await apiFetch('/api/kai/ask', {
+        method: 'POST',
+        body: JSON.stringify({ tid, q, scopes: [...scopes] }),
+      })
+      const j = (await r.json()) as {
+        ok?: boolean
+        error?: string
+        tid?: string
+        answer?: string
+        sources?: KaiSource[]
+      }
+      if (!j.ok) throw new Error(j.error || '답을 만들지 못했습니다')
+      setTid(j.tid ?? tid)
+      setMsgs((m) => [...m, { role: 'a', text: j.answer ?? '', sources: j.sources }])
+      void qc.invalidateQueries({ queryKey: ['kai-threads'] })
+    } catch (e) {
+      setMsgs((m) => [...m, { role: 'a', text: `⚠ ${e instanceof Error ? e.message : String(e)}` }])
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** 지금 3열에 낼 근거 — 마지막 답의 것 */
+  const lastSources = useMemo(() => {
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const sx = msgs[i]?.sources
+      if (sx?.length) return sx
+    }
+    return []
+  }, [msgs])
+
+  function openSource(kind: KaiSource['kind'], id: string) {
+    if (kind === 'wiki') goto('wiki', id)
+    else if (kind === 'tc') goto('tc', id)
+    else if (kind === 'req') goto('req', id)
+    else if (kind === 'run') goto('run', id)
+    else goto('releases', id)
+  }
+
+  const home = !msgs.length && !busy
+
+  const scopeChips = (
+    <>
+      {SCOPES.map(([k, emo, nm]) => (
+        <button
+          key={k}
+          type="button"
+          className={`kai-scope${scopes.has(k) ? ' on' : ''}`}
+          title={`${nm} 저장소에서 찾기`}
+          onClick={() =>
+            setScopes((prev) => {
+              const nx = new Set(prev)
+              if (nx.has(k)) nx.delete(k)
+              else nx.add(k)
+              /* 다 끄면 물을 곳이 없다 — 마지막 하나는 지킨다 */
+              return nx.size ? nx : prev
+            })
+          }
+        >
+          {emo} {nm}
+        </button>
+      ))}
+    </>
+  )
+
   return (
-    <div className="akb">
-      <header className="akb-h">
-        <h2>Knowledge Assistant</h2>
-        <p>
-          쌓인 자료에서 <b>찾아 답하는</b> 자리입니다 — 규격·절차는 Wiki 에서,
-          「무엇이 왜 고쳐졌나」 는 Jira 이슈에서 찾습니다.
-        </p>
-      </header>
+    <div className="kai">
+      {/* ── 1열 — 대화 목록(늘 선다, B) ── */}
+      <aside className="kai-list">
+        <button type="button" className="kai-new" onClick={newThread}>
+          ＋ 새 대화
+        </button>
+        <div className="kai-ths">
+          {threads.map((t) => (
+            <div key={t.id} className={`kai-th${t.id === tid ? ' on' : ''}`}>
+              <button type="button" className="nm" title={t.title} onClick={() => void openThread(t.id)}>
+                {t.title || '(제목 없음)'}
+              </button>
+              <button type="button" className="x" title="지우기" onClick={() => void delThread(t.id)}>
+                ✕
+              </button>
+            </div>
+          ))}
+          {!threads.length && <div className="kai-none">아직 대화가 없습니다</div>}
+        </div>
+      </aside>
 
-      <div className="akb-cards">
-        <section className="panel akb-card">
-          <h3>Wiki 문서</h3>
-          <p>규격·시험 절차·전파 내용. 「그 기능 어떻게 시험하지」 를 묻는 자리입니다.</p>
-          <button type="button" className="btn" onClick={() => goto('wiki', '')}>
-            Wiki 에서 찾기
-          </button>
+      {home ? (
+        /* ── 인트로 — 2/3열을 합친 자리(B) ── */
+        <section className="kai-intro">
+          <span className="sky" aria-hidden="true">
+            <i className="o1" />
+            <i className="o2" />
+            <i className="o3" />
+          </span>
+          <span className="kai-badge">
+            <i aria-hidden="true">✦</i>UBIQUOSS Knowledge Assistant
+          </span>
+          <h1>무엇이든 물어보세요</h1>
+          <p className="kai-sub">문서 · 요구사항 · 시험 · 결과 · 이슈에서 답을 찾아드립니다</p>
+          <div className="kai-cap">
+            <input
+              ref={inRef}
+              value={text}
+              placeholder="UBIQUOSS Knowledge Assistant"
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return
+                if (e.key === 'Enter' && text.trim()) void ask()
+              }}
+            />
+            <div className="row">
+              {scopeChips}
+              <span className="sp" />
+              <button
+                type="button"
+                className={`kai-send${text.trim() ? ' on' : ''}`}
+                disabled={!text.trim()}
+                onClick={() => void ask()}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h13M13 6l6 6-6 6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="kai-ops">
+            {['E6100 동작 온도 스펙 알려줘', '지난주 주간 업무 보고 요약해줘', 'Kernel Panic 이슈 찾아줘'].map(
+              (x) => (
+                <button
+                  key={x}
+                  type="button"
+                  className="kai-op"
+                  onClick={() => {
+                    setText(x)
+                    inRef.current?.focus()
+                  }}
+                >
+                  <i aria-hidden="true">✦</i>
+                  {x}
+                </button>
+              ),
+            )}
+          </div>
+          <div className="kai-cando">
+            <small>KNOWLEDGE AI 가 하는 일</small>
+            <div className="row2">
+              <span className="cd t1"><i>📖</i>문서 검색</span>
+              <span className="cd t2"><i>🧪</i>요구사항·시험 찾기</span>
+              <span className="cd t3"><i>📊</i>시험 결과 조회</span>
+              <span className="cd t4"><i>🐞</i>이슈 검색</span>
+            </div>
+          </div>
         </section>
+      ) : (
+        /* ── 2열 대화 + (C) 눌러야 열리는 3열 ── */
+        <>
+          <section className="kai-chat">
+            <div
+              className="kai-msgs"
+              onClick={(e) => {
+                const t0 = (e.target as HTMLElement).closest('.kai-cit')
+                if (!t0) return
+                setSrcFocus(Number((t0 as HTMLElement).dataset.n || 0))
+                setSrcOpen(true)
+              }}
+            >
+              {msgs.map((m, i) =>
+                m.role === 'u' ? (
+                  <div key={i} className="kai-mu">{m.text}</div>
+                ) : (
+                  <div
+                    key={i}
+                    className="kai-ma"
+                    // 소독(DOMPurify)한 마크다운 — [n] 은 누르는 근거 표가 된다
+                    // eslint-disable-next-line react/no-danger
+                    dangerouslySetInnerHTML={{ __html: mdWithCits(m.text) }}
+                  />
+                ),
+              )}
+              {busy && <div className="kai-ma kai-wait">찾는 중…</div>}
+              <div ref={endRef} />
+            </div>
+            <div className="kai-inbar">
+              <input
+                value={text}
+                disabled={busy}
+                placeholder="이어서 물어보세요"
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return
+                  if (e.key === 'Enter' && text.trim()) void ask()
+                }}
+              />
+              {scopeChips}
+              <button
+                type="button"
+                className={`kai-send sm${text.trim() && !busy ? ' on' : ''}`}
+                disabled={busy || !text.trim()}
+                onClick={() => void ask()}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h13M13 6l6 6-6 6" />
+                </svg>
+              </button>
+            </div>
+          </section>
 
-        <section className="panel akb-card">
-          <h3>Jira 이슈</h3>
-          <p>
-            버전에 걸린 Defect·CR. 「이 빌드에서 무엇이 바뀌었나」 를 묻는
-            자리입니다.
-          </p>
-          <button type="button" className="btn" onClick={() => goto('releases', '')}>
-            Releases 에서 찾기
-          </button>
-        </section>
-      </div>
-
-      {/* 벽이 아니라 **길잡이**로 둔다 — 무엇을 기다리는지 적는다 */}
-      <div className="akb-soon">
-        <b>물어서 답 받기는 아직입니다.</b>
-        <span>
-          지금은 위 두 곳에서 직접 찾습니다. 물어보면 두 곳을 함께 훑어 답하는
-          것은 다음입니다 — Test AI 와 같은 문법으로 만듭니다.
-        </span>
-      </div>
+          {srcOpen && (
+            <aside className="kai-src">
+              <header>
+                근거 <em>{lastSources.length}건</em>
+                <span className="sp" />
+                <button type="button" title="닫기" onClick={() => setSrcOpen(false)}>
+                  ✕
+                </button>
+              </header>
+              <div className="body">
+                {lastSources.map((sx, i) => {
+                  const [lb, cls] = KIND_LABEL[sx.kind] ?? ['자료', 'g1']
+                  return (
+                    <div key={i} className={`card${i + 1 === srcFocus ? ' on' : ''}`}>
+                      <div className="k">
+                        <span className={`tag ${cls}`}>{lb}</span>
+                        <b>{sx.id}</b>
+                      </div>
+                      <div className="bd">{sx.title}</div>
+                      {!!sx.extra?.status && (
+                        <div className="fld"><em>상태</em>{sx.extra.status} {sx.extra.updated ? `· ${sx.extra.updated}` : ''}</div>
+                      )}
+                      {!!sx.snippet && <div className="sn">{sx.snippet}</div>}
+                      <button type="button" className="go" onClick={() => openSource(sx.kind, sx.id)}>
+                        원본에서 열기 →
+                      </button>
+                    </div>
+                  )
+                })}
+                {!lastSources.length && <div className="kai-none">이 답에는 근거가 없습니다</div>}
+              </div>
+            </aside>
+          )}
+        </>
+      )}
     </div>
   )
 }
