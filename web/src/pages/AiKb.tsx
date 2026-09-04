@@ -14,6 +14,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { apiFetch } from '@/api/client'
 import { goto } from '@/api/goto'
+import Resizer, { useResizableWidth } from '@/components/Resizer'
 import './AiKb.css'
 
 interface KaiSource {
@@ -74,6 +75,10 @@ export default function AiKb() {
   const [srcFocus, setSrcFocus] = useState(0)
   const endRef = useRef<HTMLDivElement>(null)
   const inRef = useRef<HTMLInputElement>(null)
+  /* 열 폭 — 다른 화면과 같은 공용 이동바(지시). 계정을 따라간다. */
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [w1, setW1] = useResizableWidth('utop.ntb.kai.w1', 215, 160, 420)
+  const [w3, setW3] = useResizableWidth('utop.ntb.kai.w3', 330, 240, 560)
 
   const thQ = useQuery({
     queryKey: ['kai-threads'],
@@ -195,9 +200,9 @@ export default function AiKb() {
   )
 
   return (
-    <div className="kai">
+    <div className="kai" ref={rootRef}>
       {/* ── 1열 — 대화 목록(늘 선다, B) ── */}
-      <aside className="kai-list">
+      <aside className="kai-list" style={{ width: w1 }}>
         <button type="button" className="kai-new" onClick={newThread}>
           ＋ 새 대화
         </button>
@@ -215,6 +220,11 @@ export default function AiKb() {
           {!threads.length && <div className="kai-none">아직 대화가 없습니다</div>}
         </div>
       </aside>
+      <Resizer
+        label="대화 목록 폭 조절"
+        onResize={setW1}
+        getOrigin={() => rootRef.current?.getBoundingClientRect().left ?? 0}
+      />
 
       {home ? (
         /* ── 인트로 — 2/3열을 합친 자리(B) ── */
@@ -338,7 +348,16 @@ export default function AiKb() {
           </section>
 
           {srcOpen && (
-            <aside className="kai-src">
+            <span className="kai-rz3">
+              <Resizer
+                label="근거 판 폭 조절"
+                onResize={(v) => setW3(-v)}
+                getOrigin={() => rootRef.current?.getBoundingClientRect().right ?? 0}
+              />
+            </span>
+          )}
+          {srcOpen && (
+            <aside className="kai-src" style={{ width: w3 }}>
               <header>
                 근거 <em>{lastSources.length}건</em>
                 <span className="sp" />

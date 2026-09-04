@@ -322,3 +322,10 @@
     border-left: 1px solid #d9dbe8;
   }
 }
+
+/* 이동바 — 공용 부품(Resizer). 좁은 창에서는 근거 판이 덮개가 되므로
+   2|3 이동바는 걷는다(1|2 는 그대로). */
+.kai-rz3 { display: contents; }
+@media (max-width: 1200px) {
+  .kai-rz3 { display: none; }
+}
