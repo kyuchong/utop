@@ -2135,7 +2135,7 @@ export default function AskBar({ devices }: Props) {
               <i className="dots" />
             </div>
             <span className="ask-aibadge">
-              <i aria-hidden="true">✦</i>Test AI
+              <i aria-hidden="true">✦</i>UBIQUOSS Test Assistant
             </span>
             <h1 className="ask-hometitle">무엇을 도와드릴까요?</h1>
             <p className="ask-homesub">말로 하면 시험을 찾고 · 만들고 · 실행합니다</p>
