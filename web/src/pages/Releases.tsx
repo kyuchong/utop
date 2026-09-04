@@ -674,10 +674,18 @@ export default function Releases() {
      5분마다 다시 본다(무거운 호출이 아니다 — 상태 KV 한 줄). */
   const cstatQ = useQuery({
     queryKey: ['jira-cache-status'],
-    refetchInterval: 300_000,
+    /* 도는 중이면 3초마다 진행률을, 평소엔 5분마다 상태만 */
+    refetchInterval: (query) => (query.state.data?.running ? 3_000 : 300_000),
     queryFn: async () => {
       const r = await apiFetch('/api/jira/cache-status')
-      return (await r.json()) as { changed_today?: number; last_run?: string; total?: number }
+      return (await r.json()) as {
+        changed_today?: number
+        last_run?: string
+        total?: number
+        running?: boolean
+        mode?: string
+        done?: number
+      }
     },
   })
 
@@ -1208,34 +1216,40 @@ export default function Releases() {
             「수동으로 변경분만 받을 수는 없나」 — 늘 세운다. 변경이 없으면
             회색 「변경분 확인」, 있으면 초록 「● N」. 누르면 언제든 지라에
             바뀐 것만 물어 받아 저장한다. */}
-        {(
-          <button
-            type="button"
-            className={`rls-cdot${(cstatQ.data?.changed_today ?? 0) > 0 ? '' : ' idle'}`}
-            disabled={!!busy}
-            title={
-              (cstatQ.data?.changed_today ?? 0) > 0
-                ? `오늘 지라에서 ${cstatQ.data?.changed_today}건 바뀌어 저장됐습니다 (매일 07:00 자동) — 누르면 지금 다시 확인합니다`
-                : '지라에서 바뀐 이슈만 지금 받아 저장합니다 (매일 07:00 에는 자동으로 돕니다)'
-            }
-            onClick={async () => {
-              setBusy('지라 변경분 확인 중…')
-              try {
-                const r = await apiFetch('/api/jira/cache-sync', { method: 'POST' })
-                const j = (await r.json()) as { ok?: boolean; checked?: number; stored?: number; error?: string }
-                if (!j.ok) throw new Error(j.error || '동기화 실패')
-                window.alert(`확인 ${j.checked ?? 0}건 · 새로 저장 ${j.stored ?? 0}건`)
-              } catch (e) {
-                window.alert(e instanceof Error ? e.message : String(e))
-              } finally {
-                setBusy('')
-                void cstatQ.refetch()
+        {(() => {
+          const st = cstatQ.data
+          const run = !!st?.running
+          const prog = st?.total ? ` ${st.done ?? 0}/${st.total}` : '…'
+          return (
+            <button
+              type="button"
+              className={`rls-cdot${run || (st?.changed_today ?? 0) > 0 ? '' : ' idle'}`}
+              disabled={run}
+              title={
+                run
+                  ? `지라에서 받는 중입니다 (${st?.mode === 'backfill' ? '첫 백필 — 화면의 이슈 전부' : '변경분'})`
+                  : (st?.changed_today ?? 0) > 0
+                    ? `오늘 지라에서 ${st?.changed_today}건 바뀌어 저장됐습니다 (매일 07:00 자동) — 누르면 지금 다시 확인합니다`
+                    : '지라에서 바뀐 이슈만 지금 받아 저장합니다 (매일 07:00 에는 자동으로 돕니다)'
               }
-            }}
-          >
-            {(cstatQ.data?.changed_today ?? 0) > 0 ? `● ${cstatQ.data?.changed_today}` : '변경분 확인'}
-          </button>
-        )}
+              onClick={async () => {
+                /* 곧장 돌아온다 — 받는 일은 서버가 뒤에서 하고, 이 단추가
+                   진행률로 바뀐다. 여기서 기다리게 했더니 첫 백필(수백 건)
+                   몇 분을 단추가 멎은 채 붙잡았다(지적). */
+                try {
+                  const r = await apiFetch('/api/jira/cache-sync', { method: 'POST' })
+                  const j = (await r.json()) as { ok?: boolean; started?: boolean; error?: string }
+                  if (!j.ok) throw new Error(j.error || '동기화를 시작하지 못했습니다')
+                } catch (e) {
+                  window.alert(e instanceof Error ? e.message : String(e))
+                }
+                void cstatQ.refetch()
+              }}
+            >
+              {run ? `받는 중${prog}` : (st?.changed_today ?? 0) > 0 ? `● ${st?.changed_today}` : '변경분 확인'}
+            </button>
+          )
+        })()}
         {/* 거르개 셋을 위 줄로 올렸다(지시) — 줄 하나가 통째로 없어진다 */}
         <select className="rls-f" value={fOp} onChange={(e) => setFOp(e.target.value)}>
           <option value="">사업자 전체</option>

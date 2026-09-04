@@ -16976,6 +16976,9 @@ async def jira_attach(key: str, data: dict):
 #   · 첫 실행은 화면(release_summary)에 선 이슈 전부를 백필한다.
 _JIRA_CACHE_DIR = DATA_DIR / "state" / "jira_cache"
 _JCACHE_BUSY = False
+# 진행률 — 첫 백필은 수백 건이라 몇 분 걸린다. 붙잡고 기다리게 하지 않고
+# 상태로 내보내 화면이 「받는 중 n/전체」 를 그리게 한다.
+_JCACHE_PROG = {"running": False, "mode": "", "done": 0, "total": 0, "started": ""}
 
 
 def _jira_cache_path(key: str):
@@ -16998,15 +17001,23 @@ async def _jira_cache_reply(j: dict, cached: bool) -> dict:
     return {"ok": True, "cached": cached, "fetched_at": j.get("_fetched_at", ""), "names": names, **out}
 
 
-async def _jira_issue_fetch_store(key: str):
-    """지라에서 한 건 받아 저장한다. (payload, None) 또는 (None, 오류)."""
+def _jira_issue_fetch_sync(key: str):
+    """블로킹 지라 호출 — 반드시 to_thread 로만 부른다. 백필이 수백 건일 때
+    이걸 이벤트 루프에서 그대로 돌리면 그 몇 분간 서버 전체가 버벅인다."""
     r, err = _jira_call("GET", f"/rest/api/2/issue/{key}",
                         params={"fields": "*all", "expand": "renderedFields,names,changelog"})
     if err:
         return None, err
     if not r.is_success:
         return None, {"ok": False, "error": f"{r.status_code} · {r.text[:300]}"}
-    j = r.json()
+    return r.json(), None
+
+
+async def _jira_issue_fetch_store(key: str):
+    """지라에서 한 건 받아 저장한다. (payload, None) 또는 (None, 오류)."""
+    j, err = await asyncio.to_thread(_jira_issue_fetch_sync, key)
+    if err or j is None:
+        return None, err or {"ok": False, "error": "이슈를 읽지 못했습니다"}
     names = j.pop("names", None) or {}
     if names:
         cur = await db.kv_get("jira.cache.names") or {}
@@ -17059,8 +17070,9 @@ async def _jira_cache_sync() -> dict:
             )
             start = 0
             while start < 5000:
-                r, err = _jira_call("GET", "/rest/api/2/search",
-                                    params={"jql": jql, "fields": "key", "maxResults": 100, "startAt": start})
+                r, err = await asyncio.to_thread(
+                    lambda: _jira_call("GET", "/rest/api/2/search",
+                                       params={"jql": jql, "fields": "key", "maxResults": 100, "startAt": start}))
                 if err or not r.is_success:
                     e = err or {"error": f"{r.status_code} · {r.text[:200]}"}
                     return {"ok": False, "error": f"지라 검색 실패 — {e.get('error')}"}
@@ -17071,12 +17083,16 @@ async def _jira_cache_sync() -> dict:
                 if start >= int(jj.get("total") or 0) or not got:
                     break
         stored = failed = 0
+        _JCACHE_PROG.update(running=True, mode=("backfill" if not last else "incr"),
+                            done=0, total=len(keys),
+                            started=datetime.now(_tz.utc).isoformat())
         for ik in keys:
             _, err = await _jira_issue_fetch_store(ik)
             if err:
                 failed += 1
             else:
                 stored += 1
+            _JCACHE_PROG["done"] = stored + failed
             await asyncio.sleep(0.15)  # 지라를 몰아치지 않는다
         now = datetime.now(_tz.utc)
         today = now.astimezone(KST).strftime("%Y-%m-%d")
@@ -17089,6 +17105,7 @@ async def _jira_cache_sync() -> dict:
         return {"ok": True, "checked": len(keys), "stored": stored, "failed": failed}
     finally:
         _JCACHE_BUSY = False
+        _JCACHE_PROG["running"] = False
 
 
 async def _jira_cache_scheduler():
@@ -17115,12 +17132,20 @@ async def jira_cache_status():
         total = sum(1 for f in _JIRA_CACHE_DIR.iterdir() if f.suffix == ".json") if _JIRA_CACHE_DIR.exists() else 0
     except Exception:
         total = 0
-    return {"ok": True, "total": total, **{k: st.get(k) for k in ("last_run", "date", "changed_today")}}
+    return {"ok": True, "total": total, **_JCACHE_PROG,
+            **{k: st.get(k) for k in ("last_run", "date", "changed_today")}}
 
 
 @app.post("/api/jira/cache-sync")
 async def jira_cache_sync_now():
-    return await _jira_cache_sync()
+    """**곧장 돌아온다** — 일은 뒤에서 돈다(지적: 왜 이리 오래 걸려).
+    첫 실행은 수백 건 백필이라 몇 분 걸리는데, 단추가 그걸 붙잡고 있으면
+    멎은 것으로 보이고 앞단(nginx) 60초에 끊기기도 한다. 진행은
+    cache-status 가 말한다."""
+    if _JCACHE_BUSY:
+        return {"ok": True, "started": False, "already": True, **_JCACHE_PROG}
+    asyncio.create_task(_jira_cache_sync())
+    return {"ok": True, "started": True}
 
 
 @app.get("/api/jira/issue/{key}")
