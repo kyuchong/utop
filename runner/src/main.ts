@@ -1,6 +1,6 @@
 import { apiFetch, setToken } from './api'
 import { runSteps, type RunLog } from '@/components/tc/runner'
-import type { MeterCfg, TcStep } from '@/components/tc/types'
+import { isManualStep, type MeterCfg, type TcStep } from '@/components/tc/types'
 import type { Device } from '@/pages/Devices'
 
 /**
@@ -237,6 +237,41 @@ async function doRun(run: Run): Promise<void> {
       n++
       push.set({ done: n })
       continue
+    }
+
+    // 수동 스텝의 **사람 기록**은 남긴다. 절차는 TC 가 정본이라 새로 받지만,
+    // 결과(result)·ACTUAL(글·사진)·RCA 는 사람이 플랜 항목에 적은 것이고
+    // TC 에는 없다 — 통째로 갈아 끼우면 재실행 한 번에 다 지워진다.
+    // 스텝에는 id 가 없어 「몇 번째 수동 스텝」 끼리 맞춘다. 자동 스텝을
+    // 넣거나 빼서 순번이 밀려도 수동 기록은 제자리를 찾는다.
+    {
+      type HumanMark = {
+        result?: string | null
+        executed_at?: string | null
+        actual_txt?: string | null
+        actual_img?: string | null
+        rca?: string | null
+      }
+      const olds = ((it.steps ?? []) as Array<(TcStep & HumanMark) | null>).filter(
+        (s): s is TcStep & HumanMark => !!s && isManualStep(s),
+      )
+      let mi = 0
+      for (let i = 0; i < steps.length && mi < olds.length; i++) {
+        const s = steps[i]
+        if (!s || !isManualStep(s)) continue
+        const old = olds[mi++]
+        if (!old) break
+        const keep: { result?: string; executed_at?: string; actual_txt?: string; actual_img?: string; rca?: string } = {}
+        if (old.actual_txt != null) keep.actual_txt = old.actual_txt
+        if (old.actual_img != null) keep.actual_img = old.actual_img
+        if (old.rca != null) keep.rca = old.rca
+        const r = String(old.result ?? '').trim()
+        if (r) {
+          keep.result = r
+          if (old.executed_at) keep.executed_at = old.executed_at
+        }
+        if (Object.keys(keep).length) steps[i] = { ...s, ...keep }
+      }
     }
 
     push.set({ step_count: steps.length, live_steps: steps })
