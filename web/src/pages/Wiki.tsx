@@ -5,7 +5,7 @@ import { apiFetch, type MeUser } from '@/api/client'
 import { onGoto } from '@/api/goto'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
 import { IconChevron, IconFolder, IconSearch } from '@/components/icons'
-import WikiEditor from '@/components/WikiEditor'
+import WikiEditor, { prefetchWiki } from '@/components/WikiEditor'
 import './Wiki.css'
 
 /**
@@ -142,6 +142,9 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
                 className={`wk-row${openId === p.id ? ' on' : ''}`}
                 style={{ paddingLeft: 6 + depth * 14 }}
                 onClick={() => setOpenId(p.id)}
+                /* 가리키는 순간 본문을 미리 받는다(지시: 더 빨리) — 누를
+                   때는 이미 손에 있어 기다림이 없다 */
+                onMouseEnter={() => prefetchWiki(p.id)}
               >
                 <button
                   type="button"

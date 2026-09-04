@@ -143,6 +143,25 @@ const SCHEMA = BlockNoteSchema.create({
  * 저장은 **손이 멈추면** 한다(2초). 저장 단추를 두면 안 누르고 창을 닫는
  * 사람이 반드시 나온다 — 그 글은 어디에도 안 남는다.
  */
+/**
+ * **가리키면 미리 받는다**(지시: 더 빨리). 트리에서 마우스가 문서 위에
+ * 오는 순간 본문을 받아 두면, 클릭 때는 이미 손에 있어 기다림이 없다.
+ * 같은 문서를 30초 안에 다시 물으면 받은 것을 그대로 쓴다.
+ */
+const _wkCache = new Map<string, { at: number; p: Promise<{ page?: { body?: PartialBlock[] } }> }>()
+function fetchWiki(id: string) {
+  const hit = _wkCache.get(id)
+  if (hit && Date.now() - hit.at < 30_000) return hit.p
+  const p = apiFetch(`/api/wiki/${encodeURIComponent(id)}`).then(
+    (r) => r.json() as Promise<{ page?: { body?: PartialBlock[] } }>,
+  )
+  _wkCache.set(id, { at: Date.now(), p })
+  return p
+}
+export function prefetchWiki(id: string) {
+  void fetchWiki(id).catch(() => _wkCache.delete(id))
+}
+
 export default function WikiEditor({
   id,
   title,
@@ -281,8 +300,7 @@ export default function WikiEditor({
       }
       void (async () => {
         try {
-          const r = await apiFetch(`/api/wiki/${encodeURIComponent(id)}`)
-          const j = (await r.json()) as { page?: { body?: PartialBlock[] } }
+          const j = await fetchWiki(id)
           if (dead) return
           /* 읽어 오는 사이 남이 들어와 채웠을 수 있다 — 그러면 그대로 둔다 */
           if (frag.length > 0) return
