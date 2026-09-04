@@ -191,11 +191,12 @@
   top: 0;
   z-index: 3;
 }
-.afd .af-col { flex: none; font-size: var(--fs-sm); color: var(--c-text-muted); text-align: left; }
+.afd .af-col { flex: none; font-size: var(--fs-sm); color: var(--c-text-muted); text-align: left; white-space: nowrap; }
 .afd .af-col.mg { width: 68px; font-family: var(--font-mono); font-size: var(--fs-xs); }
 .afd .af-col.md { width: 70px; }
 .afd .af-col.tp { width: 50px; }
-.afd .af-badge { display: inline-block; padding: 0 6px; border-radius: var(--r-chip); font-size: var(--fs-xs); font-weight: 600; }
+/* 좁은 폭에서 「자동」 이 세로로 접히지 않게 — 줄은 트리의 가로 스크롤이 받는다 */
+.afd .af-badge { display: inline-block; padding: 0 6px; border-radius: var(--r-chip); font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; }
 .afd .af-badge.a { background: var(--c-primary-bg); color: var(--c-primary); }
 .afd .af-badge.m { background: var(--tint-idle); color: var(--c-text-muted); }
 
