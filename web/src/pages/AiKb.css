@@ -307,3 +307,18 @@
 @media (prefers-reduced-motion: reduce) {
   .kai-intro .sky > i { animation: none; }
 }
+
+/* 좁은 창 — 3열이 2열을 찌그러뜨리지 않고 **위로 덮는다**. 근거는 잠깐
+   보는 것이라 덮어도 잃는 것이 없고, ✕ 로 바로 돌아온다. */
+@media (max-width: 1200px) {
+  .kai { position: relative; }
+  .kai-src {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 8;
+    box-shadow: -10px 0 30px rgb(30 25 70 / 15%);
+    border-left: 1px solid #d9dbe8;
+  }
+}
