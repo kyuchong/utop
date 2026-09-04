@@ -287,10 +287,20 @@ export default function WikiEditor({
           /* 읽어 오는 사이 남이 들어와 채웠을 수 있다 — 그러면 그대로 둔다 */
           if (frag.length > 0) return
           const body = j.page?.body
-          editor.replaceBlocks(
-            editor.document,
-            Array.isArray(body) && body.length ? body : [{ type: 'paragraph' }],
-          )
+          const blocks = Array.isArray(body) && body.length ? body : [{ type: 'paragraph' } as PartialBlock]
+          /* **심고 나서 박혔는지 본다.** 협업 바인딩이 자리 잡기 전에 심으면
+             빈 조각(fragment)으로 되덮여 글이 사라진다 — 문서는 4ms 에
+             왔는데 화면이 빈 채인 게 그것이었다. 조각에 글이 설 때까지
+             잠깐 간격으로 몇 번 다시 심는다. */
+          for (let tryN = 0; tryN < 8 && !dead; tryN++) {
+            try {
+              editor.replaceBlocks(editor.document, blocks)
+            } catch {
+              /* 바인딩 전이면 던질 수 있다 — 다음 바퀴에 다시 */
+            }
+            await new Promise((okF) => setTimeout(okF, 120))
+            if (frag.length > 0) break
+          }
         } catch {
           /* 못 읽으면 빈 문서로 둔다 — 못 읽은 것을 빈 글로 저장하지 않게
              아래 dirty 로 막는다 */
