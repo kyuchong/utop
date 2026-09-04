@@ -74,3 +74,7 @@
 /* 편집기는 제 자리를 다 쓴다 — height:100% 를 부모가 줘야 세로가 선다 */
 .tsm-body > * { flex: 1; min-height: 0; }
 .tsm-read { overflow: auto; padding: 16px 18px; }
+
+/* 빈 자리 안내 — CyclesUni 가 걷히면서 그 CSS(.cu-none)가 사라졌다.
+   이 창이 쓰는 한 줄만 여기로 옮겨 온다. */
+.cu-none { padding: 16px; text-align: center; color: var(--c-text-faint); font-size: 12px; }

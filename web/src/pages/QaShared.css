@@ -1,0 +1,386 @@
+/**
+ * Cycles · Runs 가 함께 쓰는 시각 언어 (지시: 목업 반영).
+ *
+ * 목업의 규칙부를 그대로 옮기되 전부 `.qav` 아래에 가둔다 — 목업의
+ * .btn·.panel·table.grid 는 전역(theme.css)과 이름이 겹쳐, 안 가두면
+ * 다른 화면의 단추·판이 조용히 바뀐다(겪은 일: CSS 이름 겹침).
+ * 색·치수는 전부 UTOP 토큰(--c-* / --fs-* / --r-*)만 쓴다.
+ */
+.qav {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  font-size: var(--fs-md);
+  /* 목업이 유도해 쓰던 파생값 — 원 토큰에서 섞으므로 색을 따로 관리하지 않는다 */
+  --tint-pass: color-mix(in srgb, var(--c-pass) 13%, #fff);
+  --tint-fail: color-mix(in srgb, var(--c-fail) 12%, #fff);
+  --tint-draft: color-mix(in srgb, var(--c-draft) 15%, #fff);
+  --tint-idle: color-mix(in srgb, var(--c-idle) 16%, #fff);
+}
+
+/* ── 격자 골격 ─────────────────────────────────────────────────────── */
+.qav .cu-grid { flex: 1; min-height: 0; display: grid; gap: 6px; align-items: stretch; position: relative; }
+.qav .cu-grid > * { min-width: 0; min-height: 0; }
+.qav .panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  box-shadow: none;
+}
+.qav .cu-sp { flex: 1; }
+.qav .cu-m { color: var(--c-text-faint); font-size: var(--fs-sm); }
+.qav .cu-mono { font-family: var(--font-mono); font-size: var(--fs-sm); }
+.qav .dim { color: var(--c-text-faint); font-weight: 400; }
+
+/* ── 단추·입력 — 목업 치수(28px)로 화면 안에서만 덮는다 ─────────────── */
+.qav .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: var(--r-box);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  color: var(--c-text-muted);
+}
+.qav .btn:hover:not(:disabled) { background: var(--c-surface-alt); color: var(--c-text); }
+.qav .btn.small { height: var(--row-h); padding: 0 6px; }
+.qav .btn.icon { width: var(--row-h); padding: 0; justify-content: center; }
+.qav .btn.danger:hover:not(:disabled) { background: var(--tint-fail); border-color: var(--c-fail); color: var(--c-fail); }
+.qav .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.qav .inp {
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+  background: var(--c-surface);
+  font-size: var(--fs-sm);
+}
+/* 생성 단추 — 목업의 초록 단추 */
+.qav .cu-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--c-pass);
+  background: var(--c-pass);
+  color: #fff;
+  border-radius: var(--r-box);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.qav .cu-new:hover:not(:disabled) { filter: brightness(0.93); }
+.qav .cu-new:disabled { opacity: 0.45; cursor: not-allowed; }
+.qav .cu-new i { font-style: normal; }
+.qav .cu-new.small { height: 26px; padding: 0 var(--sp-2); font-size: var(--fs-xs); }
+
+/* ── 판 머리·탭 ───────────────────────────────────────────────────── */
+.qav .cu-hd { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) 6px; flex: none; }
+.qav .cu-hd b { font-size: var(--fs-lg); }
+.qav .cu-colbtn {
+  width: var(--row-h);
+  height: var(--row-h);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: var(--r-box);
+  color: var(--c-nav-fg-strong);
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+}
+.qav .cu-colbtn:hover { background: var(--c-surface-alt); }
+.qav .cu-chip {
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--r-chip);
+  padding: 1px 7px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+.qav .cu-chip.plan { background: var(--c-primary-bg); border-color: var(--c-primary-bg); color: var(--c-primary); font-weight: 600; }
+.qav .cu-chip.done { background: var(--tint-pass); border-color: var(--tint-pass); color: var(--c-pass); font-weight: 600; }
+.qav .cu-chip.auto { background: var(--c-primary-bg); border-color: var(--c-primary-bg); color: var(--c-primary); }
+.qav .cu-hdbtns { display: flex; gap: 5px; align-items: center; }
+.qav .cu-tabs { display: flex; gap: var(--sp-1); padding: 0 var(--sp-3); border-bottom: 1px solid var(--c-border-soft); flex: none; }
+.qav .cu-tabs button {
+  height: 30px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--c-text-faint);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-size: var(--fs-md);
+}
+.qav .cu-tabs button:hover { color: var(--c-text-muted); }
+.qav .cu-tabs button.on { color: var(--c-text); font-weight: 700; border-bottom-color: var(--c-primary); }
+.qav .cu-scroll { flex: 1; overflow: auto; padding: var(--sp-3); }
+/* 표가 주인공인 탭 — 스크롤은 표 안에서만, 카드는 아래까지 */
+.qav .cu-fill { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: var(--sp-3); overflow: hidden; }
+.qav .cu-fill > .cu-card.grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.qav .cu-tblwrap { flex: 1; min-height: 0; overflow: auto; }
+.qav .cu-sec { margin-bottom: var(--sp-3); }
+
+/* ── 카드 ─────────────────────────────────────────────────────────── */
+.qav .cu-card {
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  background: var(--c-surface);
+  padding: var(--sp-2) 0 var(--sp-1);
+}
+.qav .cu-card h2 {
+  margin: 0 0 6px;
+  padding: var(--card-pad);
+  padding-top: 0;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.qav .cu-card.flat { padding-bottom: 0; overflow: hidden; }
+.qav .cu-card .pad { padding: 0 10px var(--sp-2); }
+.qav .cu-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-6) var(--sp-3);
+  color: var(--c-text-faint);
+  text-align: center;
+}
+.qav .cu-empty strong { color: var(--c-text-muted); font-size: var(--fs-md); }
+
+/* ── 목록 페이지 골격 (lp-*) ──────────────────────────────────────── */
+.qav .lp { height: 100%; display: flex; flex-direction: column; }
+.qav .lp-hd { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) 6px; flex: none; }
+.qav .lp-hd h1 { margin: 0; font-size: var(--fs-xl); font-weight: 700; }
+.qav .lp-bar { display: flex; align-items: center; gap: 6px; padding: 0 var(--sp-3) var(--sp-2); flex: none; }
+.qav .lp-body { flex: 1; min-height: 0; overflow: auto; }
+.qav .lp-selbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 5px var(--sp-3);
+  background: var(--tint-draft);
+  border-top: 1px solid var(--c-border-soft);
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-sm);
+  flex: none;
+}
+.qav .lp-selbar b { color: var(--c-draft); }
+.qav .linkbtn { border: 0; background: none; color: var(--c-primary); cursor: pointer; padding: 0; font-size: var(--fs-sm); }
+.qav .linkbtn:hover { text-decoration: underline; }
+.qav .lp-ft {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-3);
+  border-top: 1px solid var(--c-border-soft);
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+  flex: none;
+}
+
+/* ── 표 ───────────────────────────────────────────────────────────── */
+.qav table.grid { width: 100%; border-collapse: collapse; }
+.qav table.grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--c-surface-alt);
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  padding: var(--row-py) var(--row-px);
+  height: var(--row-h);
+  border-top: 1px solid var(--c-border-soft);
+  border-bottom: 1px solid var(--c-border-soft);
+  white-space: nowrap;
+}
+.qav table.grid td {
+  padding: var(--row-py) var(--row-px);
+  height: var(--row-h);
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-md);
+}
+.qav table.grid tbody tr:last-child td { border-bottom: 0; }
+.qav table.grid tbody tr { cursor: pointer; }
+.qav table.grid tbody tr:hover { background: var(--c-surface-alt); }
+.qav table.grid tbody tr:hover .rowact { visibility: visible; }
+.qav table.grid th.num, .qav table.grid td.num { text-align: right; }
+.qav table.grid tbody tr.picked { background: var(--c-primary-bg-soft); }
+.qav table.grid tbody tr.picked:hover { background: var(--c-primary-bg); }
+.qav .rowact { visibility: hidden; display: flex; gap: 3px; justify-content: flex-end; }
+.qav .idcell { color: var(--c-primary); white-space: nowrap; }
+.qav .sub1 { font-size: var(--fs-xs); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qav .folder { font-weight: 600; }
+/* 폴더 ▸ REQ 묶음 줄 */
+.qav .tctbl .grp-f td { background: var(--c-surface-alt); border-top: 1px solid var(--c-border); }
+.qav .tctbl .grp-r td { background: var(--c-primary-bg-soft); padding-left: var(--sp-5); }
+.qav .tctbl .grp-r .reqid { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 600; color: var(--c-primary); }
+.qav .tctbl tbody tr.grp-f, .qav .tctbl tbody tr.grp-r { cursor: default; }
+.qav .tctbl tbody tr.grp-f:hover, .qav .tctbl tbody tr.grp-r:hover { background: inherit; }
+/* 시험 항목 ID 는 초록 — 파란 REQ ID 와 구분한다 */
+.qav .tctbl tbody .idcell { color: var(--c-pass); }
+
+/* ── 배지·작은 부품 ───────────────────────────────────────────────── */
+.qav .badge { display: inline-block; padding: 0 6px; border-radius: var(--r-chip); font-size: var(--fs-xs); font-weight: 600; }
+.qav .b-pass { background: var(--tint-pass); color: var(--c-pass); }
+.qav .b-fail { background: var(--tint-fail); color: var(--c-fail); }
+.qav .b-wait { background: var(--tint-idle); color: var(--c-text-muted); }
+.qav .b-auto { background: var(--c-primary-bg); color: var(--c-primary); }
+.qav .b-run { background: var(--tint-draft); color: var(--c-draft); }
+.qav .tsel {
+  height: 22px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-chip);
+  background: var(--c-surface);
+  font-size: var(--fs-xs);
+  padding: 0 3px;
+  cursor: pointer;
+  color: var(--c-text);
+}
+.qav select.vsel { font-weight: 600; }
+.qav select.vsel.v-p { border-color: var(--c-pass); color: var(--c-pass); }
+.qav select.vsel.v-f { border-color: var(--c-fail); color: var(--c-fail); }
+.qav select.vsel.v-b { border-color: var(--c-draft); color: var(--c-draft); }
+.qav select.vsel.v-n { color: var(--c-text-muted); }
+/* 칩 안 select 는 option 색을 명시한다 — 어두운 OS 팔레트에 흰 글자가 남는다 */
+.qav .tsel option { color: var(--c-text); background: var(--c-surface); }
+
+/* ── 줄 단추(트리·표 공용) ────────────────────────────────────────── */
+.qav .cu-nbtn {
+  visibility: hidden;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: none;
+  color: var(--c-text-faint);
+  border-radius: var(--r-chip);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  padding: 0;
+}
+.qav .cu-nbtn:hover { background: var(--c-border-soft); color: var(--c-text); }
+.qav .cu-nbtn.del:hover { background: var(--tint-fail); color: var(--c-fail); }
+.qav .cu-nbtn.always { visibility: visible; }
+.qav table.grid tbody tr:hover .cu-nbtn { visibility: visible; }
+
+/* ── 판정 현황 막대 — 색 구간에 건수를 얹는다 ─────────────────────── */
+.qav .q-stats { display: flex; height: 16px; border-radius: 4px; overflow: hidden; background: var(--c-border-soft); }
+.qav .q-stats i { display: grid; place-items: center; font-style: normal; font-size: 10px; font-weight: 700; color: #fff; min-width: 14px; }
+.qav .q-stats i.p { background: var(--c-pass); }
+.qav .q-stats i.f { background: var(--c-fail); }
+.qav .q-stats i.b { background: var(--c-draft); }
+.qav .q-stats i.n { background: var(--c-border); color: var(--c-text-muted); }
+
+/* ── 도넛 ─────────────────────────────────────────────────────────── */
+.qav .donut2 .dbg { stroke: var(--c-border-soft); }
+.qav .donut2 .dseg { stroke-linecap: butt; }
+.qav .donut2 .dseg.a { stroke: var(--c-primary); }
+.qav .donut2 .dseg.m { stroke: var(--c-idle); }
+.qav .donut2 .dseg.c { stroke: var(--c-sel-teal); }
+.qav .donut2 .dseg.p { stroke: var(--c-pass); }
+.qav .donut2 .dseg.f { stroke: var(--c-fail); }
+.qav .donut2 .dseg.b { stroke: var(--c-draft); }
+.qav .donut2 .dseg.k { stroke: var(--c-idle); }
+.qav .donut2 .dnum { font-size: 19px; font-weight: 700; fill: var(--c-text); font-family: var(--font-ui); }
+.qav .donut2 .dsub { font-size: 9px; fill: var(--c-text-faint); font-family: var(--font-ui); }
+.qav .donut2.big .dnum { font-size: 21px; }
+.qav .donut2.big .dsub { font-size: 8.5px; }
+
+/* ── 2열 정보 격자(kvgrid) ────────────────────────────────────────── */
+.qav .kvgrid {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 96px minmax(0, 1fr);
+  gap: 5px var(--sp-3);
+  align-items: baseline;
+}
+@media (max-width: 900px) { .qav .kvgrid { grid-template-columns: 96px minmax(0, 1fr); } }
+.qav .kvgrid .k { color: var(--c-text-muted); font-size: var(--fs-sm); }
+.qav .kvgrid .v { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.qav .kvgrid .v.wide { grid-column: 2 / -1; }
+.qav .kvgrid.tight { grid-template-columns: 66px minmax(0, 1fr) 66px minmax(0, 1fr); gap: 3px var(--sp-3); font-size: var(--fs-sm); }
+@media (max-width: 1100px) { .qav .kvgrid.tight { grid-template-columns: 66px minmax(0, 1fr); } }
+.qav .kvin {
+  width: 100%;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: var(--r-box);
+  background: transparent;
+  padding: 0 6px;
+  font: inherit;
+  color: inherit;
+}
+.qav .kvin:hover { border-color: var(--c-border); background: var(--c-surface); }
+.qav .kvin:focus { border-color: var(--c-primary); background: var(--c-surface); outline: none; }
+.qav select.kvin { cursor: pointer; }
+/* 더블클릭 수정 자리 */
+.qav .edt { cursor: text; border-bottom: 1px dashed transparent; }
+.qav .edt:hover { border-bottom-color: var(--c-border); }
+.qav .edt.desc { display: inline-block; min-width: 120px; }
+.qav .edt-in {
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--fs-xl);
+  color: inherit;
+  border: 1px solid var(--c-primary);
+  border-radius: var(--r-box);
+  background: var(--c-surface);
+  padding: 1px 6px;
+  min-width: 240px;
+}
+.qav .edt-in.desc-in { font-weight: 400; font-size: var(--fs-sm); width: 100%; min-width: 0; }
+
+/* ── ⋯ 더보기 메뉴 ────────────────────────────────────────────────── */
+.qav .qa-moreovl { position: fixed; inset: 0; z-index: 49; }
+.qav .qa-menu {
+  position: fixed;
+  z-index: 50;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--c-topbar) 16%, transparent);
+  padding: var(--sp-1);
+  min-width: 176px;
+}
+.qav .qa-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  height: var(--list-h);
+  padding: 0 var(--sp-2);
+  border: 0;
+  background: none;
+  border-radius: var(--r-chip);
+  cursor: pointer;
+  text-align: left;
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+.qav .qa-menu button:hover { background: var(--c-surface-alt); color: var(--c-text); }
+.qav .qa-menu button.danger:hover { background: var(--tint-fail); color: var(--c-fail); }
+.qav .qa-menusep { border-top: 1px solid var(--c-border-soft); margin: var(--sp-1) 0; }

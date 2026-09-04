@@ -4520,7 +4520,7 @@ function CycleMenu({
  * 그래서 여기도: 직전 결과 상태 체크로 항목을 고르고, 결과는 복사하지
  * 않으며(전부 미실행 시작), 담당자만 옵션으로 유지한다.
  */
-function CloneDialog({
+export function CloneDialog({
   cycleId,
   onClose,
   onDone,

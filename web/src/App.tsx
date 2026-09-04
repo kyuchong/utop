@@ -9,13 +9,13 @@ import { goto, onGoto as onGotoEvent, reflectUrl } from '@/api/goto'
 import Dashboard from '@/pages/Dashboard'
 import ReqTc from '@/pages/ReqTc'
 import AiKb from '@/pages/AiKb'
-import CyclesUni from '@/pages/CyclesUni'
+import CyclesBoard from '@/pages/CyclesBoard'
 import Wiki from '@/pages/Wiki'
 import Releases from '@/pages/Releases'
 import Settings from '@/pages/Settings'
 import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
-import Runs from '@/pages/Runs'
+import RunsBoard from '@/pages/RunsBoard'
 import Defects from '@/pages/Defects'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
@@ -308,16 +308,15 @@ export default function App() {
            묻는 말도 답하는 꼴도 달라 자리를 갈랐다(지시). */
         <AiKb />
       ) : page === 'cycles' ? (
-        /* **Cycles — 플랜과 실행을 한 화면에서**(지시: 목업 반영).
-           옛 Plans·Runs 는 아직 주소로 열린다(?p=plans-old · ?p=runs) —
-           새 화면이 자리를 잡을 때까지 되돌아갈 길을 남긴다. */
-        <CyclesUni me={user} />
+        /* **Cycles — 사이클 목록·상세**(지시: 목업 반영, 기존 화면 대체).
+           옛 Plans 화면은 아직 주소로 열린다(?p=plans-old) — 새 화면이
+           자리를 잡을 때까지 되돌아갈 길을 남긴다. */
+        <CyclesBoard me={user} />
       ) : page === 'plans-old' ? (
         <Cycles me={user} entry="cycles" />
       ) : page === 'runs' ? (
-        /* Runs — **제 화면**이 됐다. 플랜 1 : 실행 N 이라 실행은 플랜과
-           다른 것을 담는다(어느 빌드에 어느 장비로 돌렸는지). */
-        <Runs me={user} />
+        /* Runs — 실행·판정·실행기(지시: 목업 반영). 사이클 1 : 실행 N. */
+        <RunsBoard me={user} />
       ) : page === 'executions' ? (
         /* 옛 Reports 자리 — 북마크로 들어오면 플랜 화면을 보여 준다 */
         <Cycles me={user} />

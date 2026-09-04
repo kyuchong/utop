@@ -1,0 +1,43 @@
+/**
+ * Cycles(사이클 목록·상세)만 쓰는 규칙 — 공용은 QaShared.css 에 있다.
+ * 전부 .cyb 아래에 가둔다(겪은 일: CSS 이름 겹침).
+ */
+
+/* 목록 표 — 좁은 창에서는 옆으로 민다(줄바꿈으로 뭉개지 않는다) */
+.cyb .pltbl { table-layout: fixed; min-width: 1180px; }
+.cyb .pltbl th, .cyb .pltbl td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cyb .pltbl td b { display: block; overflow: hidden; text-overflow: ellipsis; }
+
+/* 구성 카드 3장 — 자동 / 수동 / 커버리지 */
+.cyb .statrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
+@media (max-width: 900px) { .cyb .statrow { grid-template-columns: 1fr; } }
+.cyb .statcard .sbody { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: 0 10px var(--sp-3); }
+.cyb .statcap { font-size: var(--fs-xs); color: var(--c-text-faint); text-align: center; max-width: 26ch; }
+
+/* 반복 실패 알림 */
+.cyb .pl-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+  background: var(--c-surface);
+  flex: none;
+}
+.cyb .pl-note.warn { border-left: 3px solid var(--c-draft); background: var(--c-surface-alt); }
+.cyb .pl-note b { display: block; font-size: var(--fs-md); }
+.cyb .pl-note .cu-m { display: block; }
+.cyb .flag {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: var(--r-chip);
+  border: 1px solid var(--c-fail);
+  color: var(--c-fail);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+/* 담기 줄 */
+.cyb .addbar { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: var(--sp-2); flex: none; }
