@@ -49,7 +49,7 @@ import {
   IconTrash,
 } from '@/components/icons'
 import type { TestCaseMeta } from '@/types'
-import { isJudgeStep, stepVerdict, type StepRound, type TcStep } from '@/components/tc/types'
+import { isJudgeStep, isManualStep, stepVerdict, type StepRound, type TcStep } from '@/components/tc/types'
 // 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
 // 정해져야 세 화면이 같아 보인다.
 import '@/components/ReqTree.css'
@@ -280,8 +280,8 @@ export function itemVerdict(it: CycleItemLite): Verdict {
   if (it.result === '미실행') return ''
   if (it.result) return it.result as Verdict
   const steps = it.steps ?? []
-  // 수동 스텝은 자동 판정에서 뺀다
-  const auto = steps.filter((s) => !(s.manual || s.action === '수동'))
+  // 수동 스텝은 자동 판정에서 뺀다 — 무엇이 수동인가는 한 곳(isManualStep)만 안다
+  const auto = steps.filter((s) => !isManualStep(s))
   if (!auto.length) return steps.length ? '진행불가' : ''
   // 스텝 판정은 한 곳에서만 읽는다(types.ts) — 실행기는 status·repeatResult 에
   // 적고 옛 자료는 result 에 있다
@@ -308,7 +308,7 @@ export function itemVerdict(it: CycleItemLite): Verdict {
 export function firstFail(steps: CycleStep[]): { at: number; reason: string } | null {
   for (let i = 0; i < steps.length; i++) {
     const st = steps[i]
-    if (!st || st.manual || st.action === '수동') continue
+    if (!st || isManualStep(st)) continue
     if (!isFail(stepVerdict(st as TcStep))) continue
     // 근거가 없으면 출력 첫 줄이라도 — 아무것도 없는 것보다 낫다
     const why =
@@ -331,7 +331,7 @@ export function kindOf(steps: CycleStep[]): 'manual' | 'auto' | 'mixed' | '' {
   let m = 0
   let a = 0
   for (const s of steps) {
-    if (s.kind === 'manual' || s.manual || s.action === '수동') m++
+    if (isManualStep(s)) m++
     else if (s.kind === 'comment' || s.kind === 'message') continue
     else a++
   }

@@ -862,6 +862,21 @@ export function stepVerdict(s: TcStep): string {
   return v === 'PASS' ? 'Pass' : v === 'FAIL' ? 'Fail' : v === 'WIP' ? 'WIP' : v === 'BLOCKED' ? 'Blocked' : ''
 }
 
+/**
+ * 이 스텝이 **사람이 하는** 스텝인가.
+ *
+ * 지금 편집기(TcSteps·TcManual)는 `kind: 'manual'` 만 적는다. 옛 자료는
+ * `manual`(불리언)이나 `action: '수동'` 에 남아 있다. 읽는 곳이 셋 중
+ * 일부만 보면 나머지 자료에서 수동 스텝이 자동으로 세어진다 — 실제로
+ * 항목 판정(itemVerdict)이 kind 를 안 봐서, 새 편집기로 만든 수동 스텝이
+ * 자동 집계에 끼어 「미실행」 이 판정을 먹고 있었다. 여기 한 곳에 둔다.
+ *
+ * 서버 쪽(backend/db.py is_manual_step)과 같은 규칙이다.
+ */
+export function isManualStep(s: { kind?: unknown; manual?: unknown; action?: unknown }): boolean {
+  return s.kind === 'manual' || !!s.manual || s.action === '수동'
+}
+
 /** 상태 하나의 표시 정보. 모르는 값이면 미실행으로 본다. */
 export function stepStatusInfo(v: string) {
   return STATUS_MAP.get(v) ?? { v: '', label: '미실행', cls: 'idle', mark: '○' }

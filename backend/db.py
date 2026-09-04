@@ -484,11 +484,22 @@ def step_verdict(s: dict) -> str:
     return {"PASS": "Pass", "FAIL": "Fail", "WIP": "WIP", "BLOCKED": "Blocked"}.get(v, "")
 
 
+def is_manual_step(s: dict) -> bool:
+    """이 스텝이 **사람이 하는** 스텝인가.
+
+    지금 편집기(TcSteps·TcManual)는 kind='manual' 만 적는다. 옛 자료는
+    manual(불리언)·action='수동' 에 남아 있다. kind 를 안 보면 새로 만든
+    수동 스텝이 자동으로 세어진다. 화면 쪽(types.ts isManualStep)과 같은
+    규칙 — 읽는 곳마다 따로 견주지 말고 여기를 지난다.
+    """
+    return bool(s.get("kind") == "manual" or s.get("manual") or s.get("action") == "수동")
+
+
 def item_verdict(it: dict, steps: list) -> str:
     """항목 하나의 결과 — 화면(Cycles.itemVerdict)과 같은 규칙."""
     if str(it.get("result") or "").strip():
         return str(it["result"]).strip()
-    auto = [s for s in steps if not (s.get("manual") or s.get("action") == "수동")]
+    auto = [s for s in steps if not is_manual_step(s)]
     if not auto:
         return "진행불가" if steps else ""
     if any(str(s.get("result") or "").lower() == "fail" for s in auto):

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet } from '@/lib/prefs'
 /* 이 파일에는 항목을 받는 isManual 이 따로 있다 — 뜻 푸는 쪽만 들여온다 */
 import { normMode } from '@/lib/runMode'
+import { isManualStep } from '@/components/tc/types'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch } from '@/api/client'
 import IdPill from '@/components/IdPill'
@@ -438,11 +439,7 @@ export default function CyclePlan({
         /* 한 곳에서 푼다(lib/runMode) — 여기는 자동 갈래만 손으로 넓혀
            두어서, 모르는 값이 전부 수동으로 굴러떨어지고 있었다. */
         const auto = normMode(doc.run_type) === '자동'
-        const want = checks.filter((st) =>
-          auto
-            ? st.kind !== 'manual' && st.manual !== true && st.action !== '수동'
-            : st.kind === 'manual' || st.manual === true || st.action === '수동',
-        )
+        const want = checks.filter((st) => (auto ? !isManualStep(st) : isManualStep(st)))
         const seed = want.length ? want : checks
         await setItemField(String(runItem.ceid ?? ''), tcid, (it) => {
           if (((it.steps as unknown[]) ?? []).length === 0) it.steps = seed
@@ -1089,8 +1086,7 @@ export default function CyclePlan({
                 ) : (
                   <div className="cpl-rsteps">
                     {((runFull?.steps ?? []) as Array<Record<string, unknown>>).map((st, si) => {
-                      const isManual =
-                        st.kind === 'manual' || st.manual === true || st.action === '수동'
+                      const isManual = isManualStep(st)
                       const what = String(st.step ?? st.desc ?? st.text ?? st.cli ?? '') || '(내용 없음)'
                       const expected = String(st.expected ?? st.criteria ?? '')
                       const res = String(st.result ?? '')

@@ -3,6 +3,7 @@ import { apiFetch } from '@/api/client'
 import Markdown from '@/components/Markdown'
 import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import { itemVerdict, verdictClass, verdictLabel, type CycleItemLite } from '@/pages/Cycles'
+import { isManualStep } from '@/components/tc/types'
 import './CycleInsight.css'
 
 interface Props {
@@ -108,7 +109,7 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose, inl
 
       const st = it.steps ?? []
       steps += st.length
-      const manual = st.some((x) => x.manual || x.action === '수동')
+      const manual = st.some((x) => isManualStep(x))
       const t = st.length === 0 ? '(스텝 없음)' : manual ? 'Manual' : 'Auto'
       byType.set(t, (byType.get(t) ?? 0) + 1)
       if (!manual && st.length) auto++

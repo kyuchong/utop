@@ -14502,7 +14502,7 @@ def _item_verdict(item):
     # 수동 스텝은 자동 판정에서 뺀다 — 사람이 보는 것은 사람이 따로 적는다
     auto = [
         s for s in steps
-        if isinstance(s, dict) and not (s.get("manual") or s.get("action") == "수동")
+        if isinstance(s, dict) and not db.is_manual_step(s)
     ]
     if not auto:
         return "N/A" if steps else ""
@@ -14649,7 +14649,7 @@ async def _cycle_ai_summary(cycle_id, llm_id: str = ""):
     # 전체·수동·자동 집계를 앞에 실어 준다 — 화면 요약 바와 같은 축으로 분석하게
     def _grp_of(it):
         st2 = [x for x in (it.get("steps") or []) if isinstance(x, dict)]
-        auto2 = [x for x in st2 if not (x.get("manual") or x.get("action") == "수동")]
+        auto2 = [x for x in st2 if not db.is_manual_step(x)]
         return "자동" if auto2 else "수동"
     _tly = {"전체": {}, "수동": {}, "자동": {}}
     for _it in (cycle.get("items") or []):
@@ -19766,7 +19766,7 @@ async def report_summary():
             if v is None:
                 v = db.item_verdict(it, it.get("steps") or [])
             steps = it.get("steps") or []
-            manual = [s for s in steps if s.get("manual") or s.get("action") == "수동"]
+            manual = [s for s in steps if isinstance(s, dict) and db.is_manual_step(s)]
             rows.append({
                 "cycle_id": cid,
                 "cycle": cname or f"{model} {version}".strip(),
