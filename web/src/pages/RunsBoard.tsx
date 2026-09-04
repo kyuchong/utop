@@ -29,7 +29,7 @@ import { CycleMailOne } from '@/components/cycle/CyclePlan'
 import CycleReport from '@/components/cycle/CycleReport'
 import type { CycleMeta } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
-import { Donut, StatBar, VERD, ago, sumRuns, useReqIndex, useUserNames, verdName } from '@/pages/qaBits'
+import { Donut, StatBar, VERD, ago, orderTcIds, sumRuns, useReqIndex, useUserNames, verdName } from '@/pages/qaBits'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
 import './RunsBoard.css'
@@ -62,6 +62,10 @@ export default function RunsBoard({
   const [selRun, setSelRun] = useState(() => prefGet('utop.runs.open') ?? '')
   /** 3열 실행기 */
   const [openDetail, setOpenDetail] = useState(false)
+  /** 실행기에서 지금 돌리는 방식 — 실행의 성격이 아니라 「무엇을 돌리나」 */
+  const [runMode, setRunMode] = useState<'A' | 'M'>('A')
+  /** 표에서 그 줄을 눌러 열었을 때 짚을 항목 */
+  const [runFocus, setRunFocus] = useState('')
   const [wide, setWide] = useState(false)
   const [sideOn, setSideOn] = useState(() => prefGet('utop.runs.side') !== '0')
   const [w1, setW1] = useResizableWidth('utop.ntb.runs.w1', 264, 180, 620)
@@ -343,19 +347,26 @@ export default function RunsBoard({
   }
 
   /**
-   * 그 방식의 시험 실행을 뜬다 — 담긴 항목 중 그 방식인 것만 담아서.
-   * 통째로 보내면 자동 실행에 수동 항목이 섞여 「방식」 이 비어 버린다.
+   * 시험 실행을 뜬다 — **담긴 항목 전부**를 담아서(지시: 목업).
+   *
+   * 실행을 자동용·수동용으로 가르지 않는다. 실행 하나가 그 버전의 전
+   * 항목을 들고, 자동·수동은 실행 **안에서** 골라 돌린다(위 두 단추).
+   * 갈라 두었더니 같은 버전을 두 줄로 세어야 했고, 결과서도 둘로 났다.
+   *
+   * 담는 차례는 **화면에 보이는 그 차례**(폴더 ▸ REQ ▸ ID)다 — 실행기가
+   * 도는 차례가 여기서 정해진다(지적: 왔다갔다 실행한다).
    */
-  async function makeRun(p: CycleMeta, man: boolean) {
-    const ids = (p.items ?? [])
-      .map((it) => String(it?.tcid ?? ''))
-      .filter(Boolean)
-      .filter((tcid) => isManTc(tcid) === man)
+  async function makeRun(p: CycleMeta) {
+    const ids = orderTcIds(
+      (p.items ?? []).map((it) => String(it?.tcid ?? '')).filter(Boolean),
+      tcOf,
+      reqIndex,
+    )
     if (!ids.length) {
-      window.alert('이 방식의 시험 항목이 없습니다.')
+      window.alert('담긴 시험 항목이 없습니다 — Cycles 에서 먼저 담으세요.')
       return
     }
-    setBusyRun(man ? 'm' : 'a')
+    setBusyRun('1')
     try {
       const r = await apiFetch('/api/plan-runs', {
         method: 'POST',
@@ -366,7 +377,7 @@ export default function RunsBoard({
           version: p.version ?? p.name ?? '',
           version_group: p.version_group ?? '',
           owner: p.assignee ?? meName,
-          mode: man ? '수동' : '자동',
+          /* 방식은 안 굳힌다 — 섞여 있으면 서버가 비워 둔다(전체 항목) */
           items: ids.map((tcid) => ({ tcid })),
           results: Object.fromEntries(ids.map((tcid) => [tcid, 'n'])),
         }),
@@ -374,15 +385,19 @@ export default function RunsBoard({
       if (!r.ok) throw new Error('실행을 만들지 못했습니다')
       const j = (await r.json()) as { id?: string }
       await runsQ.refetch()
-      if (j.id) {
-        openRunId(j.id)
-        setOpenDetail(true)
-      }
+      if (j.id) openRunId(j.id)
     } catch (e) {
       window.alert(e instanceof Error ? e.message : String(e))
     } finally {
       setBusyRun('')
     }
+  }
+
+  /** 실행기를 연다 — 그 방식의 항목만, 표에 보이는 차례로 */
+  function openRunner(mode: 'A' | 'M', focus = '') {
+    setRunMode(mode)
+    setRunFocus(focus)
+    setOpenDetail(true)
   }
 
   /** 결과 메일·결과서 — 묶음이면 사이클이 여럿일 수 있어 고르게 한다 */
@@ -565,7 +580,10 @@ export default function RunsBoard({
   const runItems = useMemo<ItemRow[]>(() => {
     if (!runFull) return []
     const ids = (runFull.items ?? []).map((x) => String(x?.tcid ?? '')).filter(Boolean)
-    const list = ids.length ? ids : Object.keys(runFull.results ?? {})
+    /* 차례는 **한 곳에서** 정한다 — 이 표의 차례가 곧 실행기가 도는
+       차례다(아래 only 로 내려보낸다). 여기서 따로 정렬하면 두 화면이
+       다른 말을 한다(지적: 왔다갔다 실행한다). */
+    const list = orderTcIds(ids.length ? ids : Object.keys(runFull.results ?? {}), tcOf, reqIndex)
     const asg = runFull.assignees ?? {}
     const out = list.map((tcid) => {
       const meta = tcOf.get(tcid)
@@ -582,10 +600,9 @@ export default function RunsBoard({
         who: String(asg[tcid] ?? ''),
       }
     })
-    out.sort((a, b) => cmp(a.folder, b.folder) || cmp(a.tcid, b.tcid))
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runFull, tcOf, reqIndex, cmp])
+  }, [runFull, tcOf, reqIndex])
   const runTally = useMemo(() => {
     const t = { p: 0, f: 0, b: 0, n: 0, total: runItems.length, done: 0 }
     for (const it of runItems) t[(it.v as 'p' | 'f' | 'b' | 'n') ?? 'n']++
@@ -964,26 +981,19 @@ export default function RunsBoard({
             <strong style={{ fontSize: 15 }}>이 사이클에는 아직 시험 실행이 없습니다</strong>
             <span>
               {ids.length
-                ? `담긴 시험 항목 ${ids.length}건 (자동 ${nA} · 수동 ${nM}) 으로 실행을 만듭니다.`
+                ? `담긴 시험 항목 ${ids.length}건 (자동 ${nA} · 수동 ${nM}) 을 담아 실행을 만듭니다 —
+                   자동·수동은 만든 뒤 실행 안에서 골라 돌립니다.`
                 : '담긴 시험 항목이 없습니다 — Cycles 에서 먼저 항목을 담으세요.'}
             </span>
             <div className="rnb-acts">
               <button
                 type="button"
                 className="cu-new"
-                disabled={!nA || busyRun === 'a'}
-                onClick={() => void makeRun(p, false)}
+                disabled={!ids.length || !!busyRun}
+                onClick={() => void makeRun(p)}
               >
                 <i aria-hidden="true">▶</i>
-                {busyRun === 'a' ? '만드는 중…' : `자동 시험 ${nA}건`}
-              </button>
-              <button
-                type="button"
-                className="btn"
-                disabled={!nM || busyRun === 'm'}
-                onClick={() => void makeRun(p, true)}
-              >
-                {busyRun === 'm' ? '만드는 중…' : `✎ 수동 시험 ${nM}건`}
+                {busyRun ? '만드는 중…' : `실행 만들기 ${ids.length}건`}
               </button>
               <button
                 type="button"
@@ -1016,7 +1026,12 @@ export default function RunsBoard({
     const t = runTally
     const pct = t.total ? Math.round((t.done / t.total) * 100) : 0
     const sib = p ? runsByPlan.get(p.id) ?? [] : []
-    const modeTxt = String(r.mode ?? '').trim() || (runItems.length && runItems.every((x) => x.man) ? '수동' : runItems.length && runItems.every((x) => !x.man) ? '자동' : '혼합')
+    /* 실행은 그 버전의 **전 항목**을 담는다 — 방식은 실행의 성격이 아니라
+       지금 무엇을 돌리느냐다(목업). 자동·수동만 담긴 실행은 옛 것이다. */
+    const nA = runItems.filter((x) => !x.man).length
+    const nM = runItems.length - nA
+    const modeTxt =
+      r.mode === 'empty' ? '직접 구성' : nA && nM ? '전체 항목' : nA ? '자동' : nM ? '수동' : '빈 실행'
     const picked = shownItems.filter((it) => ticked.has(it.tcid))
     const asgOf = new Map<string, number>()
     for (const it of runItems) {
@@ -1038,13 +1053,25 @@ export default function RunsBoard({
           </span>
           <span className="cu-sp" />
           <div className="cu-hdbtns">
+            {/* 자동·수동은 **실행 안에서 고른다**(목업). 누르면 그 방식의
+                항목만, 표에 보이는 그 차례로 실행기가 열린다. */}
             <button
               type="button"
               className="cu-new"
-              title="실행기를 엽니다 — 자동은 장비에 붙어 돌고, 수동은 절차마다 판정합니다"
-              onClick={() => setOpenDetail(true)}
+              disabled={!nA}
+              title="장비에 접속해 스텝을 순서대로 돌립니다"
+              onClick={() => openRunner('A')}
             >
-              <i aria-hidden="true">▶</i>실행기
+              <i aria-hidden="true">▶</i>자동 시험 {nA}
+            </button>
+            <button
+              type="button"
+              className="btn small"
+              disabled={!nM}
+              title="사람이 확인하고 판정을 기록합니다"
+              onClick={() => openRunner('M')}
+            >
+              ✎ 수동 시험 {nM}
             </button>
             <button
               type="button"
@@ -1328,7 +1355,9 @@ export default function RunsBoard({
                     <React.Fragment key={it.tcid}>
                       {heads}
                       <tr
-                        onClick={() => setOpenDetail(true)}
+                        /* 그 줄의 방식으로, 그 항목을 짚어 연다 —
+                           수동 항목을 눌렀는데 자동 작업대가 열리면 안 된다 */
+                        onClick={() => openRunner(it.man ? 'M' : 'A', it.tcid)}
                         title="실행기에서 엽니다"
                       >
                         <td style={{ width: 30 }} onClick={(e) => e.stopPropagation()}>
@@ -1390,7 +1419,7 @@ export default function RunsBoard({
                               type="button"
                               className="cu-nbtn"
                               title="실행기 열기"
-                              onClick={() => setOpenDetail(true)}
+                              onClick={() => openRunner(it.man ? 'M' : 'A', it.tcid)}
                             >
                               ⊞
                             </button>
@@ -1466,6 +1495,10 @@ export default function RunsBoard({
             <RunDetail
               runId={selRun}
               plan={runPlan}
+              /* **표에 보이는 그 차례를 그대로 내려보낸다.** 이 목록이 곧
+                 실행기가 도는 차례다(RunDetail 이 이 차례로 pick 을 건다) */
+              only={runItems.filter((x) => (runMode === 'M' ? x.man : !x.man)).map((x) => x.tcid)}
+              focus={runFocus}
               onBack={() => setOpenDetail(false)}
               lead={
                 <button

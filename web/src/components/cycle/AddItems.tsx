@@ -27,6 +27,7 @@ import { IconChevron } from '@/components/icons'
 import { buildCategoryTree, reqPk } from '@/types'
 import type { CategoryTreeNode, Requirement, TestCaseMeta } from '@/types'
 import type { CycleMeta } from '@/pages/Cycles'
+import { orderTcIds, useReqIndex } from '@/pages/qaBits'
 import './AddItems.css'
 
 type Base = 'folder' | 'req' | 'tc'
@@ -85,6 +86,8 @@ export default function AddItems({
     staleTime: 60_000,
     queryFn: ({ signal }) => categoryApi.list(signal),
   })
+  /** 저장 차례(폴더 ▸ REQ ▸ ID)를 세울 때 쓴다 — 표·실행기와 같은 규칙 */
+  const reqIndex = useReqIndex()
   /** 담긴 항목 — 전문에서 읽는다. 읽기가 실패하면 담기를 막는다 */
   const [inCycle, setInCycle] = useState<Set<string> | null>(null)
   const [loadErr, setLoadErr] = useState('')
@@ -345,11 +348,23 @@ export default function AddItems({
         setBusy(false)
         return
       }
+      /* **저장 차례 = 보이는 차례**(폴더 ▸ REQ ▸ ID). 담은(클릭) 차례
+         그대로 뒤에 붙여 두면, 이 배열을 그대로 복사해 가는 실행이
+         화면과 다른 차례로 돈다(검토 지적: 저장 차례와 보이는 차례가
+         갈린다). 차례 규칙은 표·실행기와 같은 한 곳(orderTcIds)이다. */
+      const merged = [...was, ...add]
+      const tcOfMap = new Map(all.map((t) => [t.tcid, t]))
+      const rank = new Map(
+        orderTcIds(merged.map((x) => String(x?.tcid ?? '')), tcOfMap, reqIndex).map((id2, i) => [id2, i]),
+      )
+      merged.sort(
+        (a, b) => (rank.get(String(a?.tcid ?? '')) ?? 0) - (rank.get(String(b?.tcid ?? '')) ?? 0),
+      )
       const w = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}`, {
         method: 'POST',
         /* updated_by 를 새로 싣는다 — 옛 값을 되밀면 실시간 알림이 이전
            편집자 이름으로 「담았다」 고 말한다(검토 지적) */
-        body: JSON.stringify({ ...full, items: [...was, ...add], updated_by: by ?? '' }),
+        body: JSON.stringify({ ...full, items: merged, updated_by: by ?? '' }),
       })
       if (!w.ok) throw new Error('담지 못했습니다')
       onDone()

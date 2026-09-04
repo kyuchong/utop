@@ -143,6 +143,30 @@ export function ago(d?: string | null): string {
   return `${Math.floor(n / 30)}개월 전`
 }
 
+/**
+ * 시험 항목의 **보이는 차례** — 폴더 ▸ REQ ▸ ID.
+ *
+ * Cycles 의 항목 표, Runs 의 항목 표, 그리고 **실행기가 도는 차례**가 전부
+ * 이 한 함수를 쓴다. 화면마다 제각기 정렬하면 「표에 보이는 차례와 다르게
+ * 돈다」 가 된다(지적). 정렬 기준을 바꿀 일이 있으면 여기 한 곳만 고친다.
+ */
+export function orderTcIds(
+  ids: string[],
+  tcOf: Map<string, { req_id?: unknown; [k: string]: unknown }>,
+  reqIndex: Map<string, { label: string; folder: string }>,
+): string[] {
+  const cmp = new Intl.Collator('ko', { numeric: true, sensitivity: 'base' }).compare
+  const keyOf = (id: string) => {
+    const rq = reqIndex.get(String(tcOf.get(id)?.req_id ?? ''))
+    return { f: rq?.folder ?? '미분류', r: rq?.label ?? '' }
+  }
+  return [...ids].sort((a, b) => {
+    const ka = keyOf(a)
+    const kb = keyOf(b)
+    return cmp(ka.f, kb.f) || cmp(ka.r, kb.r) || cmp(a, b)
+  })
+}
+
 /** 담당 고르개 후보 — 지라에서 온 계정까지, 퇴사자는 뺀 이름 목록 */
 export function useUserNames(): string[] {
   const q = useQuery({

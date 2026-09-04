@@ -24,7 +24,7 @@ import MakeCycle from '@/components/cycle/MakeCycle'
 import AddItems from '@/components/cycle/AddItems'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
-import { Donut, StatBar, ago, sumRuns, useReqIndex, useUserNames } from '@/pages/qaBits'
+import { Donut, StatBar, ago, orderTcIds, sumRuns, useReqIndex, useUserNames } from '@/pages/qaBits'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
 import './CyclesBoard.css'
@@ -297,7 +297,9 @@ export default function CyclesBoard({
       const tcid = String(it?.tcid ?? '')
       if (!tcid) continue
       const meta = tcOf.get(tcid)
-      const rq = reqIndex.get(String(it?.req_id ?? meta?.req_id ?? ''))
+      /* REQ 는 **TC 정본이 먼저**, 사이클에 박힌 스냅샷은 폴백 — 차례를
+         정하는 orderTcIds 와 같은 눈으로 봐야 묶음과 차례가 안 갈린다 */
+      const rq = reqIndex.get(String(meta?.req_id ?? it?.req_id ?? ''))
       out.push({
         tcid,
         title: String(meta?.name ?? it?.name ?? ''),
@@ -310,11 +312,12 @@ export default function CyclesBoard({
         folder: rq?.folder ?? '미분류',
       })
     }
-    out.sort(
-      (a, b) => cmp(a.folder, b.folder) || cmp(a.reqLabel, b.reqLabel) || cmp(a.tcid, b.tcid),
-    )
+    /* 차례는 **공용 한 곳**(orderTcIds)이 정한다 — Runs 의 표·실행기와
+       같은 차례라야 「사이클에서 본 차례대로 돈다」 가 성립한다 */
+    const rank = new Map(orderTcIds(out.map((r) => r.tcid), tcOf, reqIndex).map((id, i) => [id, i]))
+    out.sort((a, b) => (rank.get(a.tcid) ?? 0) - (rank.get(b.tcid) ?? 0))
     return out
-  }, [full, tcOf, reqIndex, cmp])
+  }, [full, tcOf, reqIndex])
   const nAuto = itemRows.filter((r) => !r.man).length
   const nMan = itemRows.length - nAuto
 

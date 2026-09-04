@@ -348,9 +348,17 @@ export default function RunAuto({
     [items, flt],
   )
   const groups = useMemo(() => {
-    const m = new Map<string, AutoItem[]>()
-    for (const it of shownItems) m.set(it.group, [...(m.get(it.group) ?? []), it])
-    return [...m.entries()]
+    /* **받은 차례를 절대 안 바꾼다** — 이어지는 같은 묶음만 한 덩이로 접는다.
+       Map 으로 묶었더니 이름이 같은 다른 REQ 의 항목을 위로 끌어 붙여,
+       실행기는 제 차례로 도는데 화면의 파란 강조가 목록을 건너뛰며
+       오르내렸다(지적: 왔다갔다 실행한다 — 의 두 번째 얼굴). */
+    const out: Array<[string, AutoItem[]]> = []
+    for (const it of shownItems) {
+      const last = out[out.length - 1]
+      if (last && last[0] === it.group) last[1].push(it)
+      else out.push([it.group, [it]])
+    }
+    return out
   }, [shownItems])
 
   /* ── 판 그리기 ── */
@@ -362,9 +370,11 @@ export default function RunAuto({
             <table className="ra-tbl">
               <thead>
                 <tr>
-                  <th style={{ width: 34 }}>#</th>
-                  <th style={{ width: 84 }}>Action</th>
-                  <th style={{ width: 66 }}>Session</th>
+                  <th style={{ width: 30 }}>#</th>
+                  {/* Action 은 「SNMP Public」 처럼 두 마디짜리가 있다 — 접히면
+                      그 줄만 두 줄이 되어 표가 들쭉날쭉해진다(지적). 한 줄로 세운다 */}
+                  <th className="ra-act" style={{ width: 78 }}>Action</th>
+                  <th style={{ width: 58 }}>Session</th>
                   <th>Description</th>
                   <th>Expected Result</th>
                   <th style={{ width: 74 }}>Status</th>
@@ -382,7 +392,7 @@ export default function RunAuto({
                     onClick={() => onStep(i)}
                   >
                     <td>{s.no ?? i + 1}</td>
-                    <td>
+                    <td className="ra-act">
                       <b>{s.action ?? (s.cmd ? 'command' : '—')}</b>
                     </td>
                     <td>{s.session ?? '—'}</td>

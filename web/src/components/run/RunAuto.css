@@ -79,9 +79,14 @@
 .ra-scroll { flex: 1; overflow: auto; min-height: 0; }
 .ra-tbl { width: 100%; border-collapse: collapse; }
 .ra-tbl th, .ra-tbl td {
-  padding: 7px 8px; border-bottom: 1px solid #edf1f2; text-align: left;
+  /* 줄 높이를 줄인다(지적) — 스텝이 열 몇이면 한 화면에 다 들어와야
+     어디까지 돌았는지 한눈에 보인다 */
+  padding: 4px 8px; border-bottom: 1px solid #edf1f2; text-align: left;
   font-size: 11px; vertical-align: top;
 }
+/* Action — 한 줄로. 「SNMP Public」 이 접히면 그 줄만 키가 두 배가 된다 */
+.ra-tbl th.ra-act, .ra-tbl td.ra-act { white-space: nowrap; }
+.ra-tbl td.ra-act b { font-size: 10.5px; }
 .ra-tbl th { position: sticky; top: 0; background: #fafbfb; color: #899ba1; z-index: 2; font-weight: 700; }
 .ra-tbl tbody tr { cursor: pointer; }
 .ra-tbl tbody tr:hover { background: #fafcfc; }

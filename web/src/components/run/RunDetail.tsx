@@ -187,10 +187,24 @@ function manualSteps(tc?: Record<string, unknown>): Array<{
 }
 
 export default function RunDetail({
-  runId, plan, onBack, lead, onClose,
+  runId, plan, onBack, lead, onClose, only, focus,
 }: {
   runId: string
   plan?: CycleMeta
+  /**
+   * **이 실행기에서 다룰 항목과 그 차례**(지시).
+   *
+   * 실행 하나는 그 사이클의 전 항목을 담고, 자동·수동은 실행 **안에서**
+   * 골라 돌린다. 그래서 「지금 무엇을, 어느 차례로」 는 부르는 쪽이 정한다 —
+   * Runs 화면이 표에 보이는 그 차례를 그대로 내려보낸다.
+   *
+   * 차례가 곧 **실행기가 도는 차례**다: 시작할 때 이 차례로 pick 을 만들어
+   * 건다. 안 그러면 서버가 플랜 차례로 만들어, 표에 보이는 것과 다른
+   * 차례로 돌아 「왔다갔다 한다」 가 된다(지적).
+   */
+  only?: string[]
+  /** 처음 열 때 짚을 항목 — 표에서 그 줄을 눌러 열었을 때 */
+  focus?: string
   /* 「이 실행이 없어졌다」 를 알리던 손잡이는 걷었다 — 그 일을 하던 삭제
      단추를 빼면서 부를 자리가 없어졌다(지시). 지우기는 Runs 목록에서 한다.
      안 쓰는 손잡이를 남기면 다음 사람이 살아 있는 줄로 읽는다. */
@@ -340,6 +354,11 @@ export default function RunDetail({
     const add = (k: string) => {
       if (k && !out.includes(k)) out.push(k)
     }
+    /* ⓪ 부르는 쪽이 「이것만, 이 차례로」 를 정해 줬으면 그것이 정본이다 */
+    if (only?.length) {
+      for (const k of only) add(String(k ?? ''))
+      return out
+    }
     /* ① 실행이 담은 차례가 정본이다(배열이라 차례가 남는다) */
     for (const it of (run?.items ?? []) as Array<{ tcid?: string }>) add(String(it?.tcid ?? ''))
     /* ② 없으면 플랜의 항목 차례를 쓴다. results 키를 그냥 쓰면 안 된다 —
@@ -351,7 +370,7 @@ export default function RunDetail({
     /* ③ 그래도 빠진 것이 있으면 뒤에 붙인다 */
     for (const k of Object.keys(results)) add(k)
     return out
-  }, [run, plan, results])
+  }, [run, plan, results, only])
   const tcById = useMemo(() => {
     const m = new Map<string, TestCaseMeta>()
     for (const t of tcQ.data?.tcs ?? []) m.set(t.tcid, t)
@@ -374,6 +393,14 @@ export default function RunDetail({
        따라가기와 서로 밀어낸다. */
     setCur(runId2 && ids.includes(runId2) ? runId2 : ids[0]!)
   }, [ids, cur])
+  /* 표에서 그 줄을 눌러 열었으면 그 항목을 짚는다. **바뀔 때만** 옮긴다 —
+     ids 가 다시 올 때마다 옮기면 「도는 항목 따라가기」 와 서로 밀어낸다. */
+  const lastFocus = useRef('')
+  useEffect(() => {
+    if (!focus || focus === lastFocus.current || !ids.includes(focus)) return
+    lastFocus.current = focus
+    setCur(focus)
+  }, [focus, ids])
 
   /** 지금 고른 항목의 **전체** 정의 — 스텝·합격 기준은 여기 있다 */
   const oneQ = useQuery({
@@ -616,11 +643,30 @@ export default function RunDetail({
       await save(stamp)
       return
     }
+    /* **화면에 보이는 차례 그대로 건다**(지적: 왔다갔다 실행한다).
+       실행기는 받은 pick 차례대로 돈다(runner/src/main.ts 의
+       `for (const at of run.picked)`). pick 을 안 보내면 서버가 **플랜
+       차례**로 만들어 주는데, 그것은 이 표의 차례와 다르다.
+       담고 있는 것이 자동·수동 섞임일 때 자동만 거는 일도 여기서 함께
+       된다 — 서버의 기본 경로는 실행이 담은 것을 전부 건다. */
+    const planItems = (plan?.items ?? []) as Array<{ tcid?: string }>
+    const at = (id: string) => planItems.findIndex((x) => String(x?.tcid ?? '') === id)
+    const pick = ids.map(at)
+    const missing = ids.filter((_, i) => pick[i]! < 0)
+    if (planItems.length && missing.length) {
+      const ok = window.confirm(
+        `${missing.length}건이 사이클에서 빠져 있어 돌릴 수 없습니다.\n` +
+          `${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ' 외' : ''}\n\n` +
+          '나머지만 돌릴까요?',
+      )
+      if (!ok) return
+    }
+    const order = pick.filter((i) => i >= 0)
     setBusy(true)
     try {
       const r = await apiFetch('/api/runs', {
         method: 'POST',
-        body: JSON.stringify({ plan_run_id: runId }),
+        body: JSON.stringify({ plan_run_id: runId, ...(order.length ? { pick: order } : {}) }),
       })
       const j = (await r.json().catch(() => ({}))) as { run?: { id?: string }; detail?: string }
       if (!r.ok) throw new Error(j.detail || '실행기에 걸지 못했습니다')
