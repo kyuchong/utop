@@ -17037,8 +17037,12 @@ async def _jira_issue_fetch_store(key: str):
     return j, None
 
 
-async def _jira_cache_sync() -> dict:
-    """바뀐 이슈만 받아 저장한다. 07:00 잡과 수동 단추가 같이 쓴다."""
+async def _jira_cache_sync(full: bool = False) -> dict:
+    """바뀐 이슈만 받아 저장한다(full 이면 화면의 이슈 전부).
+
+    **수동 단추는 full 을 못 쓴다**(지적: 변경분이라더니 모두 가져온다) —
+    전부 받기는 밤 07:00 이 제 몫이다. 사람이 낮에 누르는 것은 언제나
+    변경분뿐이라 몇 초면 끝난다."""
     global _JCACHE_BUSY
     if _JCACHE_BUSY:
         return {"ok": False, "error": "이미 동기화가 돌고 있습니다"}
@@ -17055,9 +17059,13 @@ async def _jira_cache_sync() -> dict:
         listed = sorted({ik for bag in bags.values() if isinstance(bag, dict) for ik in bag})
         keys: list[str] = []
         last = str(st.get("last") or "")
-        if not last:
-            # 첫 실행 — 화면에 선 이슈 전부 백필
+        if full:
+            # 밤 백필 — 화면에 선 이슈 전부. 자는 시간이라 몇 분 걸려도 된다
             keys = listed
+        elif not last:
+            # 수동 첫 실행 — 받을 「변경분」 의 기준이 아직 없다. 기준만 지금
+            # 으로 맞추고 끝낸다(0건). 전부 받기는 오늘 밤 07:00 이 한다.
+            keys = []
         elif projs:
             # 바뀐 것만 — 겹침 10분을 두어 시각 어긋남에 안전하게
             try:
@@ -17100,6 +17108,8 @@ async def _jira_cache_sync() -> dict:
         await db.kv_set("jira.cache.sync", {
             "last": now.isoformat(), "last_run": now.isoformat(),
             "date": today, "changed_today": prev + stored,
+            # 백필을 한 번 마쳤나 — 07:00 잡이 이걸 보고 전부/변경분을 고른다
+            "seeded": bool(st.get("seeded")) or (full and failed == 0),
         })
         print(f"[jira-cache] 동기화 — 확인 {len(keys)} · 저장 {stored} · 실패 {failed}")
         return {"ok": True, "checked": len(keys), "stored": stored, "failed": failed}
@@ -17120,7 +17130,8 @@ async def _jira_cache_scheduler():
             nxt += timedelta(days=1)
         await asyncio.sleep(max(60, (nxt - now).total_seconds()))
         try:
-            await _jira_cache_sync()
+            st = await db.kv_get("jira.cache.sync") or {}
+            await _jira_cache_sync(full=not st.get("seeded"))
         except Exception as e:
             print(f"[jira-cache] 아침 동기화 실패: {e}")
 
