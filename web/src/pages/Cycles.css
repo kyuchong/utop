@@ -7607,6 +7607,9 @@ a.bc-cur:hover { text-decoration: underline; }
 }
 /* 하늘은 그림, 내용은 그 위 — 겹 순서를 여기서 못 박는다 */
 .ask-homewrap > *:not(.ask-sky) { position: relative; z-index: 1; }
+/* 입력 캡슐은 형제보다 한 겹 위 — 모드 메뉴(General ▾)가 이 안에서 펼쳐
+   지는데, 같은 z-index 면 뒤에 오는 오프너 칩이 메뉴를 덮는다(지적). */
+.ask-homewrap > .ask-askbox2 { z-index: 3; }
 .ask-sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .ask-sky > i { position: absolute; display: block; border-radius: 50%; filter: blur(90px); }
 .ask-sky .o1 { width: 520px; height: 520px; left: 10%; top: -8%; background: rgb(15 118 110 / 16%); animation: ask-drift 26s ease-in-out infinite alternate; }
