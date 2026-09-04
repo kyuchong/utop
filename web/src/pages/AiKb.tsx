@@ -132,25 +132,57 @@ export default function AiKb() {
     if (!q || busy) return
     setText('')
     setBusy(true)
-    setMsgs((m) => [...m, { role: 'u', text: q }])
+    /* 질문과 **빈 답그릇**을 먼저 놓는다 — 글자가 오는 대로 그릇에 붓는다
+       (승인: 스트리밍). 답을 다 만들 때까지 「찾는 중…」 만 보이던 3~6초
+       침묵이 이걸로 사라진다. */
+    setMsgs((m) => [...m, { role: 'u', text: q }, { role: 'a', text: '' }])
+    const pour = (fn: (a: KaiMsg) => KaiMsg) =>
+      setMsgs((m) => {
+        const nx = [...m]
+        const last = nx[nx.length - 1]
+        if (last?.role === 'a') nx[nx.length - 1] = fn(last)
+        return nx
+      })
     try {
-      const r = await apiFetch('/api/kai/ask', {
+      const r = await apiFetch('/api/kai/ask-stream', {
         method: 'POST',
         body: JSON.stringify({ tid, q, scopes: [...scopes] }),
       })
-      const j = (await r.json()) as {
-        ok?: boolean
-        error?: string
-        tid?: string
-        answer?: string
-        sources?: KaiSource[]
+      if (!r.ok || !r.body) throw new Error('답을 만들지 못했습니다')
+      const reader = r.body.getReader()
+      const dec = new TextDecoder()
+      let buf = ''
+      let acc = ''
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += dec.decode(value, { stream: true })
+        for (;;) {
+          const cut = buf.indexOf('\n\n')
+          if (cut < 0) break
+          const line = buf.slice(0, cut)
+          buf = buf.slice(cut + 2)
+          if (!line.startsWith('data:')) continue
+          let evj: { type?: string; t?: string; tid?: string; error?: string; sources?: KaiSource[] }
+          try {
+            evj = JSON.parse(line.slice(5))
+          } catch {
+            continue
+          }
+          if (evj.type === 'meta') pour((a) => ({ ...a, sources: evj.sources }))
+          else if (evj.type === 'delta' || evj.type === 'note') {
+            acc += evj.t ?? ''
+            const now = acc
+            pour((a) => ({ ...a, text: now }))
+          } else if (evj.type === 'done') {
+            if (evj.error) throw new Error(evj.error)
+            if (evj.tid) setTid(evj.tid)
+          }
+        }
       }
-      if (!j.ok) throw new Error(j.error || '답을 만들지 못했습니다')
-      setTid(j.tid ?? tid)
-      setMsgs((m) => [...m, { role: 'a', text: j.answer ?? '', sources: j.sources }])
       void qc.invalidateQueries({ queryKey: ['kai-threads'] })
     } catch (e) {
-      setMsgs((m) => [...m, { role: 'a', text: `⚠ ${e instanceof Error ? e.message : String(e)}` }])
+      pour((a) => ({ ...a, text: `⚠ ${e instanceof Error ? e.message : String(e)}` }))
     } finally {
       setBusy(false)
     }
@@ -319,7 +351,9 @@ export default function AiKb() {
                   />
                 ),
               )}
-              {busy && <div className="kai-ma kai-wait">찾는 중…</div>}
+              {busy && !msgs[msgs.length - 1]?.text && (
+                <div className="kai-wait2">근거 찾는 중…</div>
+              )}
               <div ref={endRef} />
             </div>
             <div className="kai-inbar">

@@ -17301,6 +17301,105 @@ async def kai_thread_del(tid: str, request: Request):
     return {"ok": True}
 
 
+@app.post("/api/kai/ask-stream")
+async def kai_ask_stream(payload: dict, request: Request):
+    """**흘려보내는 답**(승인: 스트리밍). 근거를 먼저 내보내고(meta),
+    LLM 글자를 오는 대로 delta 로 흘린 뒤, done 에서 대화에 싣는다.
+    답을 다 만들 때까지 3~6초 침묵하던 것이 이 자리의 까닭이다."""
+    import httpx as _hx
+    from datetime import timezone as _tz
+    from fastapi.responses import StreamingResponse
+
+    q = str(payload.get("q") or "").strip()
+    scopes = {str(x) for x in (payload.get("scopes") or [])} or {"wiki", "tc", "cycle", "jira"}
+    tid_in = str(payload.get("tid") or "")
+    u = _kai_user(request)
+
+    async def gen():
+        def ev(obj):  # SSE 한 줄
+            return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
+        if not q:
+            yield ev({"type": "done", "error": "질문이 비었습니다"})
+            return
+        srcs = await _kai_search(q, scopes)
+        yield ev({"type": "meta", "sources": srcs})
+
+        blocks = []
+        for i, sx in enumerate(srcs, 1):
+            ex = sx.get("extra") or {}
+            blocks.append(f"[{i}] ({sx['kind']}) {sx['id']} — {sx['title']}\n"
+                          + (f"상태 {ex.get('status')} · {ex.get('updated')}\n" if ex else "")
+                          + (sx.get("snippet") or ""))
+        sys_p = ("너는 네트워크 장비 시험 조직의 지식 도우미다. 아래 근거만으로 한국어로 간결히 답하라. "
+                 "근거를 쓸 때는 문장 끝에 [번호] 로 짚어라. 근거에 없는 것은 없다고 말하라. "
+                 "표가 어울리면 마크다운 표를 써라.")
+        user_p = "질문: " + q + "\n\n근거:\n" + ("\n\n".join(blocks) if blocks else "(찾은 근거 없음)")
+
+        llm = _ai_llm() or {}
+        parts: list[str] = []
+        ep = str(llm.get("endpoint") or "")
+        if llm and ep:
+            # OpenAI 호환 스트리밍(_ai_llm 은 이 갈래만 준다 — claude 제외)
+            body = {"model": llm.get("model") or "",
+                    "messages": [{"role": "system", "content": sys_p}, {"role": "user", "content": user_p}],
+                    "temperature": 0.0, "max_tokens": 900, "stream": True}
+            headers = {"Content-Type": "application/json"}
+            ak = llm.get("apikey")
+            if ak and not str(ak).lower().startswith("http"):
+                headers["Authorization"] = f"Bearer {ak}"
+            try:
+                async with _hx.AsyncClient(timeout=180) as client:
+                    async with client.stream("POST", ep.rstrip("/") + "/chat/completions",
+                                             headers=headers, json=body) as rr:
+                        if rr.status_code != 200:
+                            raise RuntimeError(f"LLM {rr.status_code}")
+                        async for line in rr.aiter_lines():
+                            if not line.startswith("data:"):
+                                continue
+                            dat = line[5:].strip()
+                            if dat == "[DONE]":
+                                break
+                            try:
+                                dj = json.loads(dat)
+                                piece = (((dj.get("choices") or [{}])[0].get("delta") or {}).get("content") or "")
+                            except Exception:
+                                piece = ""
+                            if piece:
+                                parts.append(piece)
+                                yield ev({"type": "delta", "t": piece})
+            except Exception as e:
+                # 도중에 끊겼으면 받은 데까지 살리고, 하나도 못 받았으면 까닭을 흘린다
+                if not parts:
+                    yield ev({"type": "note", "t": f"(스트리밍 실패 — {str(e)[:80]})"})
+        ans = "".join(parts).strip()
+        if not ans:
+            ans = ("LLM 이 설정되지 않았거나 답을 만들지 못했습니다. 찾은 근거는 오른쪽에서 볼 수 있습니다."
+                   if srcs else "찾은 근거가 없습니다 — 범위를 넓히거나 말을 바꿔 보세요.")
+            yield ev({"type": "delta", "t": ans})
+
+        # 대화에 싣는다 — 비스트리밍 ask 와 같은 꼴
+        ths = await _kai_load(u)
+        now = datetime.now(_tz.utc).isoformat()
+        t = next((x for x in ths if x.get("id") == tid_in), None)
+        tid = tid_in
+        if t is None:
+            tid = f"kai-{int(datetime.now(_tz.utc).timestamp()*1000)}"
+            t = {"id": tid, "title": q[:40], "at": now, "msgs": []}
+            ths.insert(0, t)
+        t["at"] = now
+        t["msgs"] = (t.get("msgs") or []) + [
+            {"role": "u", "text": q, "at": now},
+            {"role": "a", "text": ans, "sources": srcs, "at": now},
+        ]
+        t["msgs"] = t["msgs"][-200:]
+        ths.sort(key=lambda x: str(x.get("at") or ""), reverse=True)
+        await db.kv_set(f"kai.threads.{u}", ths[:50])
+        yield ev({"type": "done", "tid": tid})
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 @app.post("/api/kai/ask")
 async def kai_ask(payload: dict, request: Request):
     from datetime import timezone as _tz

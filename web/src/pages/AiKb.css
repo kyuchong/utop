@@ -329,3 +329,6 @@
 @media (max-width: 1200px) {
   .kai-rz3 { display: none; }
 }
+
+/* 흘러오는 동안 — 빈 그릇일 때만 잠깐 뜨는 안내와, 붓는 중 깜빡이 */
+.kai-wait2 { align-self: flex-start; color: var(--c-text-faint); font-size: 12.5px; padding: 2px 6px; }
