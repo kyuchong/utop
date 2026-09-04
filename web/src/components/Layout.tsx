@@ -52,7 +52,7 @@ export const NAV: NavGroup[] = [
       /* 차례는 **일이 흘러가는 차례**다(지시): 적고 → 덮고 → 돌린다.
          위키에 규격과 절차를 적고, REQ-Coverage 에서 요구사항을 시험으로
          덮고, 플랜로 돌린다. */
-      { key: 'wiki', label: 'Wiki', Icon: IconKnowledge },
+      { key: 'wiki', label: 'WIKI', Icon: IconKnowledge },
       /* 요구사항과 시험을 **합쳐 보는** 자리(지시).
          Requirements · Coverage 두 줄은 뺐다 — 그 일을 여기서 다 한다.
          요구사항 목록과 시험 목록, 상세, 붙이기(Map)까지. 같은 일을 하는
