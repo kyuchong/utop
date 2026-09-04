@@ -683,3 +683,41 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+/* ── 독 자동 숨김(지시) — 메뉴바가 통째로 숨고, 왼쪽 가장자리에 마우스를
+   대면 위로 떠서 나온다. 본문은 그 폭을 돌려받는다. ───────────────── */
+.nav-dockopt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  font-size: var(--fs-xs);
+  color: var(--c-nav-fg);
+  cursor: pointer;
+  user-select: none;
+}
+.nav-dockopt input { accent-color: #0f766e; }
+
+.app.nav-dock .nav {
+  position: fixed;
+  left: 0;
+  top: 48px; /* 상단바(app-top) 아래부터 */
+  bottom: 0;
+  z-index: 60;
+  width: var(--nav-w);
+  background: #e9f2f4; /* 떠 있을 땐 바탕이 비치면 글자가 안 읽힌다 */
+  box-shadow: 6px 0 24px rgb(13 59 70 / 18%);
+  transform: translateX(-100%);
+  transition: transform 0.16s ease;
+}
+.app.nav-dock.nav-dock-open .nav { transform: none; }
+/* 숨어 있는 동안에도 접힘 레일 폭을 셈하지 않는다 — 본문이 다 가진다 */
+.app.nav-dock.nav-collapsed .nav { width: var(--nav-w); }
+.nav-dockzone {
+  position: fixed;
+  left: 0;
+  top: 48px;
+  bottom: 0;
+  width: 8px;
+  z-index: 59;
+}

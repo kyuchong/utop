@@ -25,6 +25,7 @@ const SYNC = new Set([
   // 화면 배치·탭·모드
   'utop.dash.widgets2', 'utop.dev.layout', 'utop.dev.lab', 'utop.set.sec',
   'utop.jirapanel.tab', 'utop.jira.tab', 'utop.ai.mode', 'utop.ai.exhide', 'utop.ai.theme',
+  'utop.nav.dock',
   // 담당 고르개 최근
   'utop.ass.recent',
   // 끌어 맞춘 판·칸 폭(Resizer)

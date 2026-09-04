@@ -150,6 +150,17 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
   const [collapsed, setCollapsed] = useState(
     () => prefGet(COLLAPSE_KEY) === '1',
   )
+  /**
+   * 독 자동 숨김(지시) — 켜면 메뉴바가 통째로 숨고, 왼쪽 가장자리에
+   * 마우스를 대면 위로 떠서 나온다. 화면을 다 쓰고 싶은 사람의 선택지다.
+   * 강제하지 않는다: 밑값은 끔이고, 켜고 끄는 것은 계정을 따라간다.
+   */
+  const [dock, setDock] = useState(() => prefGet('utop.nav.dock') === '1')
+  const [dockOpen, setDockOpen] = useState(false)
+  useEffect(() => {
+    prefSet('utop.nav.dock', dock ? '1' : '0')
+    if (!dock) setDockOpen(false)
+  }, [dock])
   /** 브랜딩 — 설정에서 올린 로고·이름·글꼴. 한 번만 읽는다 */
   const [brand, setBrand] = useState<{
     logo?: string
@@ -194,7 +205,20 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
   }, [collapsed])
 
   return (
-    <div className={`app${collapsed ? ' nav-collapsed' : ''}`}>
+    <div
+      className={`app${collapsed ? ' nav-collapsed' : ''}${dock ? ' nav-dock' : ''}${
+        dock && dockOpen ? ' nav-dock-open' : ''
+      }`}
+    >
+      {/* 독 모드의 부름 띠 — 왼쪽 가장자리 8px. 마우스가 닿으면 메뉴가 떠서
+          나오고, 메뉴에서 벗어나면 도로 숨는다. */}
+      {dock && (
+        <span
+          className="nav-dockzone"
+          aria-hidden="true"
+          onMouseEnter={() => setDockOpen(true)}
+        />
+      )}
       {/* 맨 윗줄 — **화면 전체 폭**(지시, 사진). 메뉴바는 이 아래로 들어간다.
           그래야 「1행 = 상단바 / 2행 = 메뉴바 + 본문」 이 된다.
           지금은 REQ-TC 에서만 띄운다 — 다른 화면은 손대지 않는다(지시). */}
@@ -275,7 +299,11 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
         </header>
       )}
       <div className="app-body">
-        <nav className="nav" aria-label="주 메뉴">
+        <nav
+          className="nav"
+          aria-label="주 메뉴"
+          onMouseLeave={() => dock && setDockOpen(false)}
+        >
           {/* 로고·제품 이름은 **상단바**로 옮겼다(지시) — 메뉴에서 걷어낸다.
               같은 것이 두 곳에 있으면 좁혔을 때 두 번 겹쳐 보인다. */}
 
@@ -314,6 +342,20 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
             <div className="nav-status">
               <TopStatus me={user} />
             </div>
+
+            {/* 독 자동 숨김 — 축소 단추 위 체크박스(지시). 접힌 레일에서는
+                글자 자리가 없어 숨긴다 — 아이콘 레일과 독은 어차피 같이 쓸
+                조합이 아니다. */}
+            {!collapsed && (
+              <label className="nav-dockopt" title="메뉴바를 숨기고, 왼쪽 가장자리에 마우스를 대면 나옵니다">
+                <input
+                  type="checkbox"
+                  checked={dock}
+                  onChange={(e) => setDock(e.target.checked)}
+                />
+                독 자동 숨김
+              </label>
+            )}
 
             {/* 접기 — **맨 아래, 사용자 밑**(지시). 위 구석에 있던 것을 내렸다.
                 접은 상태에서는 글자가 들어갈 자리가 없어 아이콘만 남고,
