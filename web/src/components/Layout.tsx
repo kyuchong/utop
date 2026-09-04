@@ -206,7 +206,11 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
 
   return (
     <div
-      className={`app${collapsed ? ' nav-collapsed' : ''}${dock ? ' nav-dock' : ''}${
+      /* 독 숨김이 켜지면 **축소는 무시한다**(승인). 축소는 「늘 보이되 좁게」,
+         독은 「숨기되 부르면 제대로」 — 곱하면 아이콘만 남은 레일이 본문 위에
+         떠서 트리를 반쯤 가렸다(지적). 꺼 두는 것이 아니라 안 미치게 한다 —
+         독을 끄면 접어 둔 상태가 그대로 돌아온다. */
+      className={`app${collapsed && !dock ? ' nav-collapsed' : ''}${dock ? ' nav-dock' : ''}${
         dock && dockOpen ? ' nav-dock-open' : ''
       }`}
     >
@@ -345,8 +349,10 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
 
             {/* 독 자동 숨김 — 축소 단추 위 체크박스(지시). 접힌 레일에서는
                 글자 자리가 없어 숨긴다 — 아이콘 레일과 독은 어차피 같이 쓸
-                조합이 아니다. */}
-            {!collapsed && (
+                조합이 아니다.
+                단 독이 켜져 있으면 **늘 세운다** — 접어 둔 채 독을 켰을 때
+                이 칸까지 숨으면 독을 끌 길이 화면에 없다. */}
+            {(!collapsed || dock) && (
               <label className="nav-dockopt" title="메뉴바를 숨기고, 왼쪽 가장자리에 마우스를 대면 나옵니다">
                 <input
                   type="checkbox"
@@ -359,19 +365,23 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
 
             {/* 접기 — **맨 아래, 사용자 밑**(지시). 위 구석에 있던 것을 내렸다.
                 접은 상태에서는 글자가 들어갈 자리가 없어 아이콘만 남고,
-                무엇인지는 올렸을 때 말풍선으로 말한다. */}
-            <button
-              type="button"
-              className="nav-collapse"
-              onClick={() => setCollapsed((v) => !v)}
-              aria-expanded={!collapsed}
-              title={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
-            >
-              <span className="nav-icon">
-                <IconPanelToggle />
-              </span>
-              <span className="nav-label">{collapsed ? '펼치기' : '축소'}</span>
-            </button>
+                무엇인지는 올렸을 때 말풍선으로 말한다.
+                독 숨김이 켜져 있으면 **안 세운다**(승인) — 독에서는 축소가
+                무시되므로, 눌러도 아무 일 없는 단추가 된다. */}
+            {!dock && (
+              <button
+                type="button"
+                className="nav-collapse"
+                onClick={() => setCollapsed((v) => !v)}
+                aria-expanded={!collapsed}
+                title={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
+              >
+                <span className="nav-icon">
+                  <IconPanelToggle />
+                </span>
+                <span className="nav-label">{collapsed ? '펼치기' : '축소'}</span>
+              </button>
+            )}
           </div>
         </nav>
 

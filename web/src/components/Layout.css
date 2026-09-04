@@ -709,14 +709,16 @@
   bottom: 0;
   z-index: 60;
   width: var(--nav-w);
-  background: #e9f2f4; /* 떠 있을 땐 바탕이 비치면 글자가 안 읽힌다 */
+  /* 떠 있을 땐 바탕이 비치면 글자가 안 읽힌다 — 메뉴바 제 색으로 채운다.
+     값을 박아 두면 메뉴바 색을 바꿀 때 여기만 옛 색으로 남는다(겪은 일). */
+  background: var(--c-nav-dark);
   box-shadow: 6px 0 24px rgb(13 59 70 / 18%);
   transform: translateX(-100%);
   transition: transform 0.16s ease;
 }
 .app.nav-dock.nav-dock-open .nav { transform: none; }
-/* 숨어 있는 동안에도 접힘 레일 폭을 셈하지 않는다 — 본문이 다 가진다 */
-.app.nav-dock.nav-collapsed .nav { width: var(--nav-w); }
+/* 독이 켜지면 축소(nav-collapsed)는 Layout.tsx 가 아예 안 붙인다(승인) —
+   불러낼 때는 늘 펼친 모습(아이콘+글자)으로 떠 나온다 */
 .nav-dockzone {
   position: fixed;
   left: 0;
