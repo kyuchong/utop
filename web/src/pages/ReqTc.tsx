@@ -58,6 +58,10 @@ interface Props {
 /** 2열이 무엇을 세나 — 목업에서 고른 「토글」 */
 type Mode = 'req' | 'tc'
 
+/** 「REQ 미할당」 가상 폴더 — 요구사항이 안 붙은 시험만 보는 자리(지시).
+    실제 분류가 아니라 걸러 보는 값이라 실존 id 와 절대 안 겹치는 표식을 쓴다. */
+const NOREQ_CAT = '__noreq__'
+
 /**
  * REQ-TC — 요구사항과 시험을 한 화면에서(지시, 목업 확정).
  *
@@ -1048,6 +1052,9 @@ export default function ReqTc({ me }: Props) {
 
   const inCat = (r: Requirement) => {
     if (!cat) return true
+    /* 「REQ 미할당」 자리에는 요구사항이 하나도 안 선다 — 그 자리는
+       요구사항이 없는 시험만 보는 곳이다 */
+    if (cat === NOREQ_CAT) return false
     const set = new Set(under(cat))
     return deep ? catsOf(r).some((c) => set.has(c)) : catOf(r) === cat
   }
@@ -1116,6 +1123,9 @@ export default function ReqTc({ me }: Props) {
       const rid = String(t.req_id ?? '')
       if (reqOnly) return rid === reqOnly
       const r = reqById.get(rid)
+      /* 「REQ 미할당」 자리 — 요구사항이 없는(또는 지워진 요구사항을 가리키는)
+         시험만 낸다(지시) */
+      if (cat === NOREQ_CAT) return !r
       /* **요구사항이 안 붙은 시험도 낸다.**
        *
        *  여기서 그냥 `return false` 였다. 시험의 자리는 그것이 붙은
@@ -1272,6 +1282,7 @@ export default function ReqTc({ me }: Props) {
   )
 
   const crumb = useMemo(() => {
+    if (cat === NOREQ_CAT) return [{ id: NOREQ_CAT, name: 'REQ 미할당' }]
     const out: Array<{ id: string; name: string }> = []
     let at = cats.find((c) => c.id === cat)
     while (at) {
@@ -2098,9 +2109,11 @@ export default function ReqTc({ me }: Props) {
                 }}
               >
                 <span className="rqtc-caret" />
-                {/* 「전체」 는 서랍 — 프로젝트를 담는 자리다 */}
-                <span className="rqtc-fico" aria-hidden="true">
-                  🗃
+                {/* 「전체」 는 모든 프로젝트를 모아 둔 자리 — 프로젝트(🏠)와
+                    같은 크기의 그림으로 층을 맞춘다(지시). 🗃 는 글자 표현으로
+                    떨어지는 글꼴이 있어 작고 검게 떴다. */}
+                <span className="rqtc-fico big" aria-hidden="true">
+                  🗂️
                 </span>
                 <span className="rqtc-fnm">전체</span>
                 <span className="rqtc-rt">
@@ -2111,6 +2124,30 @@ export default function ReqTc({ me }: Props) {
                   }).length}
                   )
                 </span>
+              </div>
+              {/* 「REQ 미할당」 — 요구사항이 안 붙은 시험만 보는 자리(지시).
+                  Releases 의 「＋ TC 추가」 로 생긴 시험이 여기 모인다.
+                  폴더는 요구사항의 것이라 이 시험들에는 씌울 수 없어,
+                  전체 바로 아래에 제 자리를 만든다. 누르면 시험 목록으로
+                  간다 — 요구사항 표에는 낼 것이 없다. */}
+              <div
+                className={`rqtc-fold${cat === NOREQ_CAT ? ' on' : ''}`}
+                onClick={() => {
+                  pickFolder(NOREQ_CAT)
+                  setMode('tc')
+                }}
+              >
+                <span className="rqtc-caret" />
+                <span className="rqtc-fico big" aria-hidden="true">
+                  📥
+                </span>
+                <span className="rqtc-fnm">REQ 미할당</span>
+                {(() => {
+                  const n = tcs.filter(
+                    (t) => !isReleaseTc(t.tcid) && !reqById.get(String(t.req_id ?? '')),
+                  ).length
+                  return <span className={`rqtc-rt${n ? ' bare' : ''}`}>(0 / {n})</span>
+                })()}
               </div>
               {Tree({ parent: null, depth: 0 })}
             </div>
@@ -2927,7 +2964,7 @@ export default function ReqTc({ me }: Props) {
 
       {bulkNew &&
         (mode === 'req' ? (
-          <ReqBulkForm presetFolder={cat || null} onClose={() => setBulkNew(false)} />
+          <ReqBulkForm presetFolder={cat === NOREQ_CAT ? null : cat || null} onClose={() => setBulkNew(false)} />
         ) : (
           <TcBulkForm onClose={() => setBulkNew(false)} />
         ))}
@@ -3035,7 +3072,7 @@ export default function ReqTc({ me }: Props) {
       {editReq !== undefined && (
         <ReqForm
           editing={editReq}
-          presetFolder={cat || null}
+          presetFolder={cat === NOREQ_CAT ? null : cat || null}
           onClose={() => {
             setEditReq(undefined)
             void reqQ.refetch()

@@ -1274,3 +1274,7 @@
 }
 .rqtc-tbtog:hover { background: var(--c-surface-alt); }
 .rqtc-tbtog.on { background: #ecfeff; border-color: #a5e8f0; color: #0e7490; font-weight: 700; }
+
+/* 트리 맨 위 특별 줄(전체 · REQ 미할당) — 프로젝트(🏠)와 같은 크기의 그림.
+   기본 13px 로는 곁의 16px 집과 층이 안 맞아 작고 어둡게 떴다(지적). */
+.rqtc-fico.big { font-size: 16px; }
