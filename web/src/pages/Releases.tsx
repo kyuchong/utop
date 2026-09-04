@@ -261,6 +261,14 @@ const DETAIL_ALWAYS = [
   'status', 'resolution', 'fixVersions',
   'assignee', 'reporter', 'duedate', 'created', 'updated', 'resolutiondate',
 ]
+/** 「자세히」 에 **내는 칸 전부** — 이 차례대로 선다(지시: 붉은 박스만).
+ *  이름은 띄어쓰기를 뺀 꼴로 견준다. */
+const DETAIL_ONLY = [
+  '이슈유형', '우선순위', '구성요소', '상태', '수정버전', '담당자', '보고자', '생성일',
+  '대외OPEN', '이슈구분', '시험시설', '이슈단계', '발생빈도', 'OS시험버전(최초)',
+  '문제유형', '이슈분류(HW,SW)', '사업자', '시작일(WBSGantt)', '완료일(WBSGantt)',
+]
+
 /** 날짜로 다루는 칸 */
 const DATE_FIELDS = new Set(['created', 'updated', 'resolutiondate', 'duedate', 'lastViewed'])
 
@@ -379,6 +387,20 @@ const IssueRow = memo(function IssueRow({
         {/* **「>」 하나로 쓰고 펴지면 돌린다**(지시: 「> 이런걸로 더 크게」).
             글자를 ▸/▾ 로 바꿔 끼우면 두 글자의 무게중심이 달라 눌릴 때마다
             줄이 미세하게 흔들린다. 같은 글자를 돌리면 안 흔들린다. */}
+        {/* **이 이슈만 다시 읽기** — 펼침 단추 왼쪽(지시). 오른쪽 끝에
+            두었더니 빈 열 하나가 늘 서 있었다. 가리키거나 펼친 줄에만 뜬다. */}
+        <button
+          type="button"
+          className="rls-isync"
+          disabled={busy}
+          title={`${k} 만 Jira 에서 다시 읽습니다`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onResync(ver, k)
+          }}
+        >
+          ↻
+        </button>
         <span
           className={`rls-car${open ? ' on' : ''}`}
           role="button"
@@ -418,21 +440,6 @@ const IssueRow = memo(function IssueRow({
         <span className="rls-person" title={`담당자 ${it.assignee || '–'}`}>
           {it.assignee || '–'}
         </span>
-        {/* **이 이슈만 다시 읽기**(지시). 버전 Sync 는 그 버전의 이슈를 통째로
-            받아 와서, 한 건의 상태만 바뀌었을 때 쓰기엔 무겁다. 늘 세워 두면
-            줄이 시끄러워 가리키거나 펼친 줄에만 뜬다. */}
-        <button
-          type="button"
-          className="rls-isync"
-          disabled={busy}
-          title={`${k} 만 Jira 에서 다시 읽습니다`}
-          onClick={(e) => {
-            e.stopPropagation()
-            onResync(ver, k)
-          }}
-        >
-          ↻
-        </button>
       </div>
       {open && (
         /* 펼치면 **붙은 시험이 가로로** 선다 — `E61xx_V0001`, `E61xx_V0002`.
@@ -1327,6 +1334,7 @@ export default function Releases() {
               굴려도 안 사라진다. */}
           {!!selVer && !!curRows.length && (
             <div className="rls-ihead">
+              <span className="h-sync" />
               <span className="h-car" />
               <span className="h-key">이슈</span>
               <span className="h-tc">TC</span>
@@ -1335,7 +1343,6 @@ export default function Releases() {
               <span className="h-stat">상태</span>
               <span className="h-per">보고자</span>
               <span className="h-per">담당자</span>
-              <span className="h-sync" />
             </div>
           )}
           <div className="rls-cb">
@@ -1622,12 +1629,18 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
   const rows = useMemo(() => {
     const names = (q.data?.names ?? {}) as Record<string, string>
     const seen = new Set<string>()
-    const out: Array<{ id: string; label: string; html: string; text: string }> = []
-    const add = (id: string, always: boolean) => {
+    const out: Array<{ id: string; label: string; html: string; text: string; ord: number }> = []
+    const add = (id: string) => {
       if (seen.has(id) || DETAIL_SKIP.has(id)) return
       if (traceId && id === traceId) return /* Traceability 는 제 칸에서 낸다 */
       const label = String(names[id] ?? '').trim()
       if (!label || isJunkName(label)) return
+      /* **지정한 칸만 낸다**(지시: 붉은 박스). 지라의 칸 id 는 서버마다
+         달라, 붙은 이름으로 거른다 — 띄어쓰기는 무시한다. 차례도 이
+         목록이 정한다. 빈 값이어도 세운다: 칸이 있고 없고가 오락가락하면
+         눈이 자리를 못 외운다. */
+      const ord = DETAIL_ONLY.indexOf(label.replace(/\s+/g, ''))
+      if (ord < 0) return
       seen.add(id)
       const raw = (f as Record<string, unknown>)[id]
       const html = DATE_FIELDS.has(id) ? '' : String((rf as Record<string, unknown>)[id] ?? '')
@@ -1636,12 +1649,11 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
          이름이 보이면 사람이 읽을 것이 아니다. 이름을 다 알 수 없으니
          값으로 거른다. */
       if (/com\.atlassian\.|\bcom\.\w+\.\w+\.\w+/.test(text) || /com\.atlassian\./.test(html)) return
-      if (!always && !html.trim() && !text.trim()) return
-      out.push({ id, label, html, text })
+      out.push({ id, label, html, text, ord })
     }
-    for (const id of DETAIL_ALWAYS) add(id, true)
-    for (const id of Object.keys(names)) add(id, false)
-    return out
+    for (const id of DETAIL_ALWAYS) add(id)
+    for (const id of Object.keys(names)) add(id)
+    return out.sort((a, b) => a.ord - b.ord)
   }, [q.data, f, rf, traceId])
 
   /** 활동 탭 — 지라와 같이 모두·댓글·이력 */
