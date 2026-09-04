@@ -55,7 +55,7 @@ app = FastAPI(title="NetTest Automation")
 # 응답 gzip 압축 (>= 500 bytes 자동) — JSON 은 압축률 매우 높음. 브라우저는 자동으로 Accept-Encoding: gzip 보냄.
 # 단, SSE 스트리밍 경로는 gzip 대상에서 제외 — gzip 은 청크를 버퍼링해서 한꺼번에 flush 하므로 스트리밍이 죽음.
 # 스트리밍 경로는 요청 시 Accept-Encoding 헤더를 서버 진입 직전에 제거해 GZipMiddleware 가 skip 하도록 유도한다.
-_SSE_PATH_PREFIXES = ("/api/chat/local/stream", "/api/dify/chat", "/api/chat/stream", "/api/jira/ask-stream", "/api/run-cli-stream", "/api/ping-stream")
+_SSE_PATH_PREFIXES = ("/api/chat/local/stream", "/api/dify/chat", "/api/chat/stream", "/api/jira/ask-stream", "/api/run-cli-stream", "/api/ping-stream", "/api/kai/ask-stream")
 
 @app.middleware("http")
 async def _disable_gzip_for_sse(request, call_next):
