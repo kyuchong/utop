@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState , type CSSProperties } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
@@ -2195,6 +2195,13 @@ export default function AskBar({ devices }: Props) {
               <i className="o2" />
               <i className="o3" />
               <i className="dots" />
+              {/* 계절의 「것」 — 벚꽃·물방울·낙엽·눈·별·연. 무엇이 될지는
+                  테마 CSS 가 정하고, 여기는 자리 열여섯만 뿌린다. */}
+              <span className="fx">
+                {Array.from({ length: 16 }, (_, i) => (
+                  <i key={i} style={{ '--i': i } as CSSProperties} />
+                ))}
+              </span>
             </div>
             <span className="ask-aibadge">
               <i aria-hidden="true">✦</i>UBIQUOSS Test Assistant

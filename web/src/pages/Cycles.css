@@ -7671,6 +7671,161 @@ a.bc-cur:hover { text-decoration: underline; }
   --sky-t1: #6b1f1f; --sky-t2: #b43a3a; --sky-t3: #b8860b;
 }
 
+/* ── 계절의 「것」 — 색만 바뀌는 게 아니라 그 계절이 보이게(지적) ──────
+   벚꽃이 지고 · 물방울이 오르고 · 낙엽이 굴고 · 눈이 내리고 · 보름달이
+   뜨고 · 연이 난다. 입자 열여섯은 마크업이 뿌려 두고, 무엇이 될지·어떻게
+   움직일지는 전부 여기서 정한다. */
+.ask-sky .fx { position: absolute; inset: 0; }
+.ask-sky .fx > i {
+  position: absolute;
+  left: calc(2% + var(--i) * 6.4%);
+  top: -8%;
+  font-style: normal;
+  font-size: 19px;
+  opacity: 0;
+  will-change: transform;
+  animation: fx-fall 15s linear infinite;
+  animation-delay: calc(var(--i) * -1.9s);
+}
+/* 크기·속도·흔들림을 자리마다 다르게 — 같은 것 열여섯이 나란히 떨어지면
+   벽지 무늬지 계절이 아니다 */
+.ask-sky .fx > i:nth-child(3n) { font-size: 14px; animation-duration: 19s; }
+.ask-sky .fx > i:nth-child(3n + 1) { font-size: 23px; animation-duration: 13s; }
+.ask-sky .fx > i:nth-child(2n) { animation-name: fx-fall2; }
+.ask-home[data-theme='aurora'] .fx { display: none; }
+@keyframes fx-fall {
+  0% { transform: translateY(-6vh) translateX(0) rotate(0deg); opacity: 0; }
+  6% { opacity: 0.9; }
+  85% { opacity: 0.75; }
+  100% { transform: translateY(105vh) translateX(5vw) rotate(210deg); opacity: 0; }
+}
+@keyframes fx-fall2 {
+  0% { transform: translateY(-6vh) translateX(0) rotate(0deg); opacity: 0; }
+  6% { opacity: 0.85; }
+  85% { opacity: 0.7; }
+  100% { transform: translateY(105vh) translateX(-6vw) rotate(-170deg); opacity: 0; }
+}
+@keyframes fx-rise {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  10% { opacity: 0.75; }
+  85% { opacity: 0.5; }
+  100% { transform: translateY(-104vh) translateX(3vw); opacity: 0; }
+}
+@keyframes fx-kite {
+  0% { transform: translate(0, 0) rotate(-6deg); }
+  50% { transform: translate(4vw, -4vh) rotate(7deg); }
+  100% { transform: translate(0, 0) rotate(-6deg); }
+}
+@keyframes fx-twinkle {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.85; }
+}
+
+/* 봄 — 벚꽃잎이 흩날린다 */
+.ask-home[data-theme='spring'] .fx > i::before { content: '🌸'; }
+.ask-home[data-theme='spring'] .fx > i:nth-child(4n)::before { content: '🌷'; }
+
+/* 여름 — 물방울이 바다에서 오르고, 해가 떠 있다 */
+.ask-home[data-theme='summer'] .fx > i {
+  top: auto;
+  bottom: -6%;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgb(255 255 255 / 92%), rgb(110 195 225 / 35%));
+  box-shadow: inset 0 0 3px rgb(255 255 255 / 80%);
+  animation-name: fx-rise;
+}
+.ask-home[data-theme='summer'] .fx > i:nth-child(3n) { width: 8px; height: 8px; }
+.ask-home[data-theme='summer'] .fx > i:nth-child(3n + 1) { width: 18px; height: 18px; }
+.ask-home[data-theme='summer'] .fx::before {
+  content: '';
+  position: absolute;
+  right: 10%;
+  top: 7%;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #fff6d8, #ffd75e 55%, #ffb62e);
+  box-shadow: 0 0 90px 40px rgb(255 200 80 / 40%);
+}
+
+/* 가을 — 낙엽이 구른다 */
+.ask-home[data-theme='autumn'] .fx > i::before { content: '🍂'; }
+.ask-home[data-theme='autumn'] .fx > i:nth-child(3n)::before { content: '🍁'; }
+.ask-home[data-theme='autumn'] .fx > i:nth-child(5n)::before { content: '🌰'; }
+
+/* 겨울 — 눈이 내리고, 눈사람은 바닥에 **서 있다**(지시). 하늘에서
+   눈사람이 떨어지면 계절이 아니라 사고다. */
+.ask-home[data-theme='winter'] .fx > i::before { content: '❄️'; }
+.ask-home[data-theme='winter'] .fx > i { font-size: 13px; animation-duration: 21s; }
+.ask-home[data-theme='winter'] .fx > i:nth-child(3n + 1) { font-size: 17px; animation-duration: 16s; }
+.ask-home[data-theme='winter'] .fx::before {
+  content: '⛄';
+  position: absolute;
+  left: 7%;
+  bottom: 5%;
+  font-size: 58px;
+  opacity: 0.92;
+  filter: drop-shadow(0 6px 10px rgb(60 100 160 / 25%));
+}
+
+/* 추석 — 보름달이 크게 뜨고, 별이 깜빡인다. 입자는 떨어지지 않는다 */
+.ask-home[data-theme='chuseok'] .fx::before {
+  content: '';
+  position: absolute;
+  right: 12%;
+  top: 8%;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 35%, #fff3cd, #f5d778 55%, #e8b94a);
+  box-shadow: 0 0 100px 36px rgb(240 200 100 / 45%);
+}
+.ask-home[data-theme='chuseok'] .fx::after {
+  /* 달 속 얼룩 — 민무늬 원은 달로 안 읽힌다 */
+  content: '';
+  position: absolute;
+  right: calc(12% + 30px);
+  top: calc(8% + 34px);
+  width: 34px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgb(214 170 80 / 55%);
+  box-shadow: 42px 28px 0 -6px rgb(214 170 80 / 45%), 10px 52px 0 -9px rgb(214 170 80 / 40%);
+}
+.ask-home[data-theme='chuseok'] .fx > i::before { content: '✦'; }
+.ask-home[data-theme='chuseok'] .fx > i {
+  top: calc(4% + (var(--i) * 37%) - (var(--i) * var(--i) * 2.1%));
+  color: #d9a62e;
+  font-size: 12px;
+  animation: fx-twinkle 3.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.6s);
+}
+.ask-home[data-theme='chuseok'] .fx > i:nth-child(3n) { font-size: 17px; animation-duration: 4.6s; }
+
+/* 설 — 연이 날고, 금빛이 반짝인다 */
+.ask-home[data-theme='seollal'] .fx > i::before { content: '✦'; }
+.ask-home[data-theme='seollal'] .fx > i {
+  top: calc(6% + (var(--i) * 31%) - (var(--i) * var(--i) * 1.8%));
+  color: #c9a227;
+  font-size: 12px;
+  animation: fx-twinkle 3.8s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.7s);
+}
+.ask-home[data-theme='seollal'] .fx > i:nth-child(5n)::before { content: '🪁'; }
+.ask-home[data-theme='seollal'] .fx > i:nth-child(5n) {
+  top: calc(9% + var(--i) * 2.2%);
+  font-size: 30px;
+  opacity: 0.92;
+  animation: fx-kite 12s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -2.5s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-sky .fx { display: none; }
+}
+
 /* 테마 고르개 — 오른쪽 위 단추 밑에 펼쳐진다 */
 .ask-themewrap { position: relative; }
 .ask-thememenu {
