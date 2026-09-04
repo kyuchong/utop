@@ -305,13 +305,29 @@ export default function WikiEditor({
 
     if (provider.synced) seed()
     else provider.once('sync', seed)
+    /* **혼자면 기다릴 것이 없다.** 중계 서버는 글을 이해하지 않아 sync
+       요청에 답하지 못한다 — 답은 방의 **남**이 한다. 그래서 혼자 연 방은
+       sync 가 영영 안 오고, 아래 예비 타이머가 끝까지 돌아 문서마다 몇 초를
+       헛기다렸다(지적: 폴더 클릭이 느리다). 연결되고 잠깐 뒤에도 접속자
+       표에 나뿐이면 곧장 DB 에서 채운다. */
+    let lone = 0
+    const onStatus = (e: { status: string }) => {
+      if (e.status !== 'connected') return
+      window.clearTimeout(lone)
+      lone = window.setTimeout(() => {
+        if (!dead && !provider.synced && provider.awareness.getStates().size <= 1) seed()
+      }, 350)
+    }
+    provider.on('status', onStatus)
     /* 서버가 죽어 있어도 화면은 열려야 한다 — 혼자 쓰는 것으로 친다 */
     const late = window.setTimeout(() => {
       if (!dead && !provider.synced) seed()
-    }, 4000)
+    }, 2500)
 
     return () => {
       dead = true
+      provider.off('status', onStatus)
+      window.clearTimeout(lone)
       window.clearTimeout(late)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
