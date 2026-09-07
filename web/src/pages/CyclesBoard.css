@@ -59,5 +59,6 @@
 .cyb .metacard .kv1 .v { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* 목록 노션 표 — 남는 높이를 다 갖고 제 안에서 굴린다 */
-.cyb .cyb-ntb { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 var(--sp-2) var(--sp-2); }
-.cyb .cyb-ntb > * { flex: 1; min-height: 0; }
+/* 노션 표의 스크롤은 **이 판**이 맡는다(NTable 설계) — 자식 높이를 판에
+   맞춰 누르면 넘친 줄이 잘린 채 스크롤바도 없다(지적: 62건인데 못 내림). */
+.cyb .cyb-ntb { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--sp-2) var(--sp-2); }

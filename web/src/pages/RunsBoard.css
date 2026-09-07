@@ -224,5 +224,5 @@
 .rnb .cu-run > * { flex: 1; min-width: 0; }
 
 /* 항목 노션 표 — 남는 높이를 다 갖고 제 안에서 굴린다 */
-.rnb .rnb-ntb { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 var(--sp-2) var(--sp-2); }
-.rnb .rnb-ntb > * { flex: 1; min-height: 0; }
+/* 노션 표의 스크롤은 이 판이 맡는다 — Cycles 의 .cyb-ntb 와 같은 까닭 */
+.rnb .rnb-ntb { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--sp-2) var(--sp-2); }

@@ -985,6 +985,9 @@ export default function CyclesBoard({
             </div>
           </div>
         )}
+        {/* 스크롤은 이 판이 맡는다 — cu-fill 은 overflow:hidden 이라
+            표가 길면 잘린 채 내릴 길이 없었다(지적) */}
+        <div className="cyb-ntb">
         <NTable
           columns={itCols}
           rows={rows}
@@ -1024,6 +1027,7 @@ export default function CyclesBoard({
           }
           perPage={100}
         />
+        </div>
       </div>
     )
   }
