@@ -48,6 +48,8 @@ export default function App() {
       /* 그 밖에 **모르는 이름**도 벽 대신 쓸 수 있는 화면으로 보낸다.
          이름을 하나씩 적어 두는 방식은 지울 때마다 여기를 같이 고쳐야 해서
          한 번은 빠뜨린다 — 아는 이름이 아니면 다 보내는 편이 안전하다. */
+      /* Runs 는 Cycles 로 합쳤다 — 옛 주소는 이름만 바꿔 연다 */
+      if (p === 'runs') return 'cycles'
       return KNOWN_PAGES.has(p) ? p : 'reqtc'
     } catch {
       return 'reqtc'
@@ -89,7 +91,8 @@ export default function App() {
      남는다 — 실제로 goto 처리기와 Dashboard 카드 다섯 곳이 그랬다. 이름을
      하나씩 찾아 고치는 것만으로는 다음에 또 빠뜨리므로, 들어오는 값을
      여기서 한 번 거른다. */
-  const setPage = (k: string) => setPageRaw(KNOWN_PAGES.has(k) ? k : 'reqtc')
+  const setPage = (k: string) =>
+    setPageRaw(k === 'runs' ? 'cycles' : KNOWN_PAGES.has(k) ? k : 'reqtc')
 
   // undefined = 확인 중 / null = 로그인 필요
   const [user, setUser] = useState<MeUser | null | undefined>(undefined)
