@@ -121,8 +121,6 @@ export default function LlmSettings() {
     }
   }
 
-  if (loading) return <div className="empty">불러오는 중…</div>
-
   /* 위키 색인 — Knowledge AI 가 뜻으로 찾는 대상. 상태와 다시 색인만 여기서 */
   const [kb, setKb] = useState<{ pages?: number; chunks?: number; embedded?: number; embed_on?: boolean } | null>(null)
   const [kbBusy, setKbBusy] = useState(false)
@@ -150,6 +148,9 @@ export default function LlmSettings() {
       setKbBusy(false)
     }
   }
+
+  // 훅은 전부 이 위 — 아래 조기 return 뒤에 두면 렌더마다 훅 수가 달라져 죽는다
+  if (loading) return <div className="empty">불러오는 중…</div>
 
   /** 임베딩·리랭커 탭은 칸 구성이 같다. 한 곳에서 그린다. */
   const serverTab = (which: 'embed' | 'rerank') => {
