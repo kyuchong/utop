@@ -76,15 +76,12 @@ export default function CyclesBoard({
   /** 열린 사이클 — 비면 목록. 주소(?cycle=)가 정본이다 */
   const [open, setOpen] = useState(() => prefGet('utop.cycle.sel') ?? '')
   const [tab, setTab] = useState<'ov' | 'ai' | 'sum' | 'it'>('ov')
-  const [q, setQ] = useState('')
-  const [ticked, setTicked] = useState<Set<string>>(new Set())
   const [making, setMaking] = useState(false)
   const [addTo, setAddTo] = useState(false)
   const [mkRun, setMkRun] = useState(false)
   const [edit, setEdit] = useState(false)
   const [cloneId, setCloneId] = useState('')
-  const [busy, setBusy] = useState(false)
-  /** ⋯ 더보기 — 목록 줄·상세 머리 공용 */
+  /** ⋯ 더보기 — 상세 머리의 것(목록은 노션 표라 줄 메뉴가 없다) */
   const [moreAt, setMoreAt] = useState<{ x: number; y: number; id: string } | null>(null)
   /* 만들기 창(MakePlanRun)이 쓰는 카탈로그 — 창을 열 때만 받아 온다 */
   const [needMake, setNeedMake] = useState(false)
@@ -176,6 +173,24 @@ export default function CyclesBoard({
   ]
   const [itColsRaw, setItCols] = useNCols('utop.ntb.cycit.cols', IT_DEFS)
 
+  /* 목록의 노션 표 */
+  const [lsView, setLsView] = useState<NView>({ ...EMPTY_VIEW })
+  const LS_DEFS: NCol[] = [
+    { key: 'id', label: 'ID', type: 'text', width: 122, fixed: true },
+    { key: 'title', label: '제목', type: 'text', width: 240, fixed: true },
+    { key: 'vg', label: '버전그룹', type: 'text', width: 90 },
+    { key: 'customer', label: '사업자', type: 'text', width: 80 },
+    { key: 'mg', label: '모델그룹', type: 'text', width: 90 },
+    { key: 'model', label: '모델명', type: 'text', width: 96 },
+    { key: 'items', label: '항목', type: 'number', width: 60 },
+    { key: 'runs', label: '실행', type: 'text', width: 104 },
+    { key: 'last', label: '마지막 실행', type: 'text', width: 190 },
+    { key: 'stat', label: '판정 현황', type: 'text', width: 190 },
+    { key: 'assignee', label: '담당', type: 'person', width: 96 },
+    { key: 'created', label: '생성일자', type: 'text', width: 100 },
+  ]
+  const [lsCols, setLsCols] = useNCols('utop.ntb.cyc.cols', LS_DEFS)
+
   const plans = useMemo(() => plansQ.data?.cycles ?? plansQ.data?.items ?? [], [plansQ.data])
   const runs = useMemo(() => runsQ.data?.runs ?? [], [runsQ.data])
   const planOf = useMemo(() => new Map(plans.map((p) => [p.id, p])), [plans])
@@ -219,18 +234,11 @@ export default function CyclesBoard({
     () => new Intl.Collator('ko', { numeric: true, sensitivity: 'base' }).compare,
     [],
   )
-  const rows = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    return plans
-      .filter(
-        (p) =>
-          !s ||
-          [p.cid, p.id, p.name, p.version, p.version_group, p.model, p.model_group, p.customer, p.assignee]
-            .map((v) => String(v ?? '').toLowerCase())
-            .some((v) => v.includes(s)),
-      )
-      .sort((a, b) => cmp(String(a.cid ?? a.id), String(b.cid ?? b.id)))
-  }, [plans, q, cmp])
+  /* 검색·거르기는 노션 표가 맡는다 — 여기서는 안정 정렬만 */
+  const rows = useMemo(
+    () => [...plans].sort((a, b) => cmp(String(a.cid ?? a.id), String(b.cid ?? b.id))),
+    [plans, cmp],
+  )
 
   async function delPlans(ids: string[]) {
     const list = ids.map((id) => planOf.get(id)).filter((p): p is CycleMeta => !!p)
@@ -245,7 +253,6 @@ export default function CyclesBoard({
       )
     )
       return
-    setBusy(true)
     try {
       let bad = 0
       for (const p of list) {
@@ -273,8 +280,6 @@ export default function CyclesBoard({
       }
       if (bad) window.alert(`${bad}건은 지우지 못했습니다.`)
     } finally {
-      setBusy(false)
-      setTicked(new Set())
       if (ids.includes(open)) closePlan()
       void plansQ.refetch()
       void runsQ.refetch()
@@ -569,183 +574,104 @@ export default function CyclesBoard({
   }
 
   /* ── 목록 화면 ── */
+  /**
+   * 목록 — **노션 표**(지시). 검색·거르기·정렬·묶기·열 폭이 상세의 항목
+   * 표·REQ-Coverage 와 한 벌이다. 담당은 칸에서 바로 바꾼다(전문을 읽어
+   * 통째로 되민다 — 서버 계약). 줄 일들(복제·CSV·지우기)은 줄 ⋯ 대신
+   * 선택 바(삭제)와 목록 위 ＋ 사이클, ID 열기로 잇는다.
+   */
   function renderList() {
-    const picked = rows.filter((p) => ticked.has(p.id))
+    const listRows: NRow[] = rows.map((p) => {
+      const rs = runsByPlan.get(p.id) ?? []
+      const openRunN = rs.filter((r) => !r.closed_at).length
+      const last = rs
+        .slice()
+        .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))[0]
+      const t = sumRuns(rs)
+      return {
+        __id: p.id,
+        id: String(p.cid ?? p.id),
+        title: String(p.name ?? p.version ?? ''),
+        vg: String(p.version_group ?? ''),
+        customer: String(p.customer ?? ''),
+        mg: String(p.model_group ?? ''),
+        model: String(p.model ?? ''),
+        items: String(p._item_count ?? p.items?.length ?? 0),
+        runs: rs.length ? `${rs.length}회${openRunN ? ` (진행 ${openRunN})` : ''}` : '',
+        last: last ? `${String(last.name || last.id)} · ${ago(last.created_at)}` : '',
+        stat: t.total ? `통과 ${t.pass} · 실패 ${t.fail} · 미실행 ${t.none}` : '',
+        assignee: String(p.assignee ?? ''),
+        created: String(p._created_at_pg ?? '').slice(0, 10),
+      }
+    })
     return (
       <section className="panel lp">
         <div className="lp-hd">
           <h1>시험 사이클</h1>
+          <span className="cu-m">사이클은 한 버전의 시험 묶음입니다 — 판정은 Runs 에서 봅니다</span>
           <span className="cu-sp" />
           <button type="button" className="cu-new" onClick={() => setMaking(true)}>
             <i aria-hidden="true">＋</i>사이클
           </button>
         </div>
-        <div className="lp-bar">
-          <input
-            className="inp"
-            style={{ width: 260 }}
-            placeholder="사이클 · 모델 · 버전그룹 검색"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+        <div className="cyb-ntb">
+          <NTable
+            columns={lsCols}
+            rows={listRows}
+            view={lsView}
+            onView={setLsView}
+            onColumns={setLsCols}
+            people={users.map((u) => ({ name: u, org: '' }))}
+            meName={meName}
+            onCell={(rowId, key, v) => {
+              if (key === 'assignee') void saveAssigneeOf(rowId, v)
+            }}
+            readOnlyKeys={['id', 'title', 'vg', 'customer', 'mg', 'model', 'items', 'runs', 'last', 'stat', 'created']}
+            lockDefs
+            idKey="id"
+            titleKey="title"
+            onOpen={(id) => openPlanId(id)}
+            onBulk={(a, ids) => {
+              if (a === 'del') void delPlans(ids)
+              else if (a === 'csv') {
+                if (ids.length === 1 && ids[0]) void csvPlan(ids[0])
+                else window.alert('CSV 는 한 건씩 내보냅니다 — 하나만 골라 주세요.')
+              } else window.alert('이 표에서는 아직 없는 동작입니다')
+            }}
+            renderCell={(row, col) => {
+              if (col.key === 'stat') {
+                const rs = runsByPlan.get(String(row.__id)) ?? []
+                const t = sumRuns(rs)
+                return t.total ? <StatBar t={t} /> : <span className="cu-m">—</span>
+              }
+              if (col.key === 'runs' && !row.runs) return <span className="cu-m">—</span>
+              if (col.key === 'last' && !row.last) return <span className="cu-m">—</span>
+              return undefined
+            }}
+            perPage={100}
           />
-          <span className="cu-sp" />
-          <span className="cu-m">사이클은 한 버전의 시험 묶음입니다 — 판정은 Runs 에서 봅니다</span>
-        </div>
-        {!!picked.length && (
-          <div className="lp-selbar">
-            <b>{picked.length}개 선택됨</b>
-            <button type="button" className="linkbtn" onClick={() => setTicked(new Set())}>
-              선택 해제
-            </button>
-            <span className="cu-sp" />
-            <button type="button" className="btn small danger" disabled={busy} onClick={() => void delPlans([...ticked])}>
-              🗑 삭제
-            </button>
-          </div>
-        )}
-        <div className="lp-body">
-          <table className="grid pltbl">
-            <thead>
-              <tr>
-                <th style={{ width: 30 }}>
-                  <input
-                    type="checkbox"
-                    checked={!!rows.length && picked.length === rows.length}
-                    ref={(el) => {
-                      if (el) el.indeterminate = picked.length > 0 && picked.length < rows.length
-                    }}
-                    onChange={(e) =>
-                      setTicked(e.target.checked ? new Set(rows.map((p) => p.id)) : new Set())
-                    }
-                  />
-                </th>
-                <th style={{ width: 116 }}>ID</th>
-                <th style={{ minWidth: 200 }}>제목</th>
-                <th style={{ width: 82 }}>버전그룹</th>
-                <th style={{ width: 68 }}>사업자</th>
-                <th style={{ width: 76 }}>모델그룹</th>
-                <th style={{ width: 80 }}>모델명</th>
-                <th className="num" style={{ width: 56 }}>항목</th>
-                <th style={{ width: 76 }}>실행</th>
-                <th style={{ width: 168 }}>마지막 실행</th>
-                <th style={{ width: 170 }}>판정 현황</th>
-                <th style={{ width: 72 }}>담당</th>
-                <th style={{ width: 64 }} aria-label="줄 단추" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length ? (
-                rows.map((p) => {
-                  const rs = runsByPlan.get(p.id) ?? []
-                  const openN = rs.filter((r) => !r.closed_at).length
-                  const last = rs
-                    .slice()
-                    .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))[0]
-                  return (
-                    <tr
-                      key={p.id}
-                      className={ticked.has(p.id) ? 'picked' : ''}
-                      onClick={() => openPlanId(p.id)}
-                    >
-                      <td style={{ width: 30 }} onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={ticked.has(p.id)}
-                          onChange={(e) => {
-                            const n = new Set(ticked)
-                            if (e.target.checked) n.add(p.id)
-                            else n.delete(p.id)
-                            setTicked(n)
-                          }}
-                        />
-                      </td>
-                      <td className="idcell cu-mono">{String(p.cid ?? p.id)}</td>
-                      <td>
-                        <b>{String(p.name ?? p.version ?? '')}</b>
-                        {!!p.description && (
-                          <div className="cu-m sub1">{String(p.description).slice(0, 46)}</div>
-                        )}
-                      </td>
-                      <td className="cu-mono">{String(p.version_group ?? '') || '—'}</td>
-                      <td>{String(p.customer ?? '') || '—'}</td>
-                      <td className="cu-mono">{String(p.model_group ?? '') || '—'}</td>
-                      <td>{String(p.model ?? '') || '—'}</td>
-                      <td className="num">{p._item_count ?? p.items?.length ?? 0}</td>
-                      <td>
-                        {rs.length ? (
-                          openN ? (
-                            <span className="badge b-run" title={`진행 중 ${openN}건`}>{rs.length}회</span>
-                          ) : (
-                            `${rs.length}회`
-                          )
-                        ) : (
-                          <span className="cu-m">—</span>
-                        )}
-                      </td>
-                      <td>
-                        {last ? (
-                          <>
-                            <span className="cu-mono">{String(last.name || last.id)}</span>
-                            <div className="cu-m sub1">{ago(last.created_at)}</div>
-                          </>
-                        ) : (
-                          <span className="cu-m">—</span>
-                        )}
-                      </td>
-                      <td>
-                        <StatBar t={sumRuns(rs)} />
-                      </td>
-                      <td>{String(p.assignee ?? '') || '—'}</td>
-                      <td style={{ width: 64 }}>
-                        <div className="rowact">
-                          <button
-                            type="button"
-                            className="btn icon small"
-                            title="더보기"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                              setMoreAt({ x: Math.max(8, r.right - 180), y: r.bottom + 4, id: p.id })
-                            }}
-                          >
-                            ⋯
-                          </button>
-                          <button
-                            type="button"
-                            className="btn icon small"
-                            title="열기"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openPlanId(p.id)
-                            }}
-                          >
-                            →
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              ) : (
-                <tr>
-                  <td colSpan={13}>
-                    <div className="cu-empty">
-                      <strong>{plansQ.isLoading ? '불러오는 중…' : '사이클이 없습니다'}</strong>
-                      <span>빌드가 나오면 사이클을 하나 만들고, 시험 항목을 담아 실행을 뜹니다.</span>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="lp-ft">
-          <span>총 {rows.length}건</span>
-          <span className="cu-sp" />
-          <span className="cu-m">실행·판정은 Runs 화면에서</span>
         </div>
       </section>
     )
+  }
+
+  /** 목록 칸에서 담당 바꾸기 — 서버는 전문을 통으로 받으니 읽어서 되민다 */
+  async function saveAssigneeOf(planId: string, who: string) {
+    const r = await apiFetch(`/api/cycle/${encodeURIComponent(planId)}`)
+    if (!r.ok) {
+      window.alert('사이클을 불러오지 못했습니다')
+      return
+    }
+    const d = (await r.json()) as PlanFull
+    const w = await apiFetch(`/api/cycle/${encodeURIComponent(planId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ ...d, assignee: who, updated_by: meName }),
+    })
+    if (!w.ok) {
+      window.alert('저장하지 못했습니다')
+      return
+    }
+    void plansQ.refetch()
   }
 
   /* ── 상세: 개요 ── */
@@ -1124,10 +1050,20 @@ export default function CyclesBoard({
             {[plan.customer, plan.model].filter(Boolean).join(' · ') || '대상 미지정'}
           </span>
           <span className="cu-sp" />
-          {/* ⋯ 더보기는 상세에 안 세운다(지시: 목록 줄 것과 겹친다) —
-              복제·CSV·지우기는 목록 줄의 ⋯ 가, 항목 담기·고치기는 제 탭이,
-              실행 만들기는 곁의 ＋ 실행이 맡는다 */}
           <div className="cu-hdbtns">
+            {/* ⋯ 는 이제 여기 **한 곳뿐**이다 — 목록이 노션 표가 되며 줄
+                메뉴가 없어져, 겹치던 문제(지적)도 함께 사라졌다. 복제·
+                고치기·CSV·지우기가 여기 산다. */}
+            <button
+              type="button"
+              className="btn small"
+              onClick={(e) => {
+                const r2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                setMoreAt({ x: Math.max(8, r2.right - 180), y: r2.bottom + 4, id: plan.id })
+              }}
+            >
+              ⋯
+            </button>
             <button
               type="button"
               className="cu-new"
