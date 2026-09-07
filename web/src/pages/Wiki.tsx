@@ -238,7 +238,8 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
       <aside className="panel wk-side">
         {/* 새 문서는 제목 줄 오른쪽(지시) — 줄 하나가 통째로 준다 */}
         <div className="wk-head">
-          <b>{prjs.length === 1 ? '이 프로젝트 문서' : '문서'}</b>
+          {/* 판 이름은 Knowledge(지시) — 프로젝트 하나로 좁혀 보면 그 말을 앞에 단다 */}
+          <b>{prjs.length === 1 ? '이 프로젝트 Knowledge' : 'Knowledge'}</b>
           <span className="sp" />
           <button className="btn small" type="button" onClick={() => void make(null)}>
             ＋ 새 문서
