@@ -13562,6 +13562,14 @@ async def _db_init():
     except Exception as e:
         print(f"[startup] plan_run rekey failed: {e}", flush=True)
 
+    # 옛 사이클 부여 ID -P0001 → -C0001 (지시: 기존 것도). ce·ceid 파생과
+    # 옛 링크 별칭까지 함께 — 멱등.
+    try:
+        _pn = await db.cycle_rekey_p_to_c()
+        if _pn: print(f"[startup] 사이클 ID {_pn}건을 P → C 로 이전", flush=True)
+    except Exception as e:
+        print(f"[startup] cycle rekey failed: {e}", flush=True)
+
     # 실행 타입 「혼합」 은 뺐다(합의) — 기동 때 지워 두면 253 도
     # update.sh 만으로 같아진다. 없으면 그냥 지나간다(멱등).
     try:

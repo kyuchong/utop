@@ -726,6 +726,55 @@ async def plan_run_rekey_r_to_e() -> int:
     return n
 
 
+async def cycle_rekey_p_to_c() -> int:
+    """옛 사이클 부여 ID `…-P0001` 을 `…-C0001` 로 옮긴다 (지시: 기존 것도).
+
+    번호는 그대로 두고 글머리만 바꾼다. cid 에서 파생된 실행 ID(ce =
+    CE-{cid}, 항목 ceid = CETC-{cid}-NN)도 함께 따라온다 — 안 옮기면 화면
+    ID 는 C 인데 결과서의 실행 ID 는 P 를 물고 있어 딴말이 된다.
+    옛 ID 는 id_alias 에 남겨 북마크·위키의 옛 링크가 계속 통한다. 멱등."""
+    import re as _re
+
+    n = 0
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT id, data FROM cycle WHERE data->>'cid' ~ '[-_]P[0-9]+$'"
+        )
+        for r in rows:
+            data = dict(r["data"] or {})
+            old_cid = str(data.get("cid") or "")
+            new_cid = _re.sub(r"[-_]P(\d+)$", r"-C\1", old_cid)
+            if not new_cid or new_cid == old_cid:
+                continue
+            dup = await c.fetchval(
+                "SELECT 1 FROM cycle WHERE data->>'cid' = $1 AND id <> $2", new_cid, r["id"]
+            )
+            if dup:
+                print(f"[cycle rekey] {old_cid} → {new_cid} 은 이미 있어 건너뜀", flush=True)
+                continue
+            data["cid"] = new_cid
+            old_ce = str(data.get("ce") or "")
+            if old_ce:
+                data["ce"] = f"CE-{new_cid}"
+            for it in data.get("items") or []:
+                if isinstance(it, dict) and str(it.get("ceid") or "").startswith(f"CETC-{old_cid}-"):
+                    it["ceid"] = f"CETC-{new_cid}-" + str(it["ceid"]).rsplit("-", 1)[1]
+            await cycle_upsert(str(r["id"]), data)
+            await c.execute(
+                """INSERT INTO id_alias (old_id, new_id, kind) VALUES ($1, $2, 'cycle')
+                   ON CONFLICT (old_id) DO UPDATE SET new_id = EXCLUDED.new_id""",
+                old_cid, new_cid,
+            )
+            if old_ce:
+                await c.execute(
+                    """INSERT INTO id_alias (old_id, new_id, kind) VALUES ($1, $2, 'ce')
+                       ON CONFLICT (old_id) DO UPDATE SET new_id = EXCLUDED.new_id""",
+                    old_ce, f"CE-{new_cid}",
+                )
+            n += 1
+    return n
+
+
 async def cycle_backfill_summary() -> int:
     """data_summary 가 NULL 인 기존 cycle row 들의 요약을 재계산해 채움. 서버 startup 시 1회 호출."""
     async with pool().acquire() as c:
