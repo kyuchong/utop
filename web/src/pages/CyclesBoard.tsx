@@ -1890,15 +1890,8 @@ export default function CyclesBoard({
           >
             {String(plan.name ?? plan.version ?? plan.id)}
           </b>
-          <span className="cu-chip plan">사이클</span>
-          {!!plan.version_group && (
-            <span className="cu-chip">
-              <span className="cu-mono">{String(plan.version_group)}</span>
-            </span>
-          )}
-          <span className="cu-m">
-            {[plan.customer, plan.model].filter(Boolean).join(' · ') || '대상 미지정'}
-          </span>
+          {/* 사이클·버전그룹·대상 칩은 걷었다(지시) — 같은 값이 트리와
+              개요 카드에 이미 있어 제목 옆에선 소음이었다 */}
           <span className="cu-sp" />
           {/* ⋯ 는 걷었다(지시) — 복제·고치기·CSV·지우기·실행 만들기는
               목록에서 줄을 골랐을 때 아래 선택 바가 맡는다 */}
