@@ -1049,7 +1049,11 @@ export default function CyclesBoard({
                   {n.ico ? `${n.ico} ` : ''}
                   {n.label}
                 </span>
-                <span className={`c${n.zero ? ' zero' : ''}`} title={n.plan ? `실행 ${n.n}회` : `사이클 ${n.n}건`}>{n.n}</span>
+                {/* 층마다 세는 게 다르다(지적): 묶음은 사이클 수, 잎은 실행
+                    횟수 — 잎에 「회」 를 붙여 다른 셈임을 눈에 보이게 한다 */}
+                <span className={`c${n.zero ? ' zero' : ''}`} title={n.plan ? `실행 ${n.n}회` : `사이클 ${n.n}건`}>
+                  {n.plan ? `${n.n}회` : n.n}
+                </span>
                 {!!n.plan && (
                   <button
                     type="button"
