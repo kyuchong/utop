@@ -1124,17 +1124,10 @@ export default function CyclesBoard({
             {[plan.customer, plan.model].filter(Boolean).join(' · ') || '대상 미지정'}
           </span>
           <span className="cu-sp" />
+          {/* ⋯ 더보기는 상세에 안 세운다(지시: 목록 줄 것과 겹친다) —
+              복제·CSV·지우기는 목록 줄의 ⋯ 가, 항목 담기·고치기는 제 탭이,
+              실행 만들기는 곁의 ＋ 실행이 맡는다 */}
           <div className="cu-hdbtns">
-            <button
-              type="button"
-              className="btn small"
-              onClick={(e) => {
-                const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                setMoreAt({ x: Math.max(8, r.right - 180), y: r.bottom + 4, id: plan.id })
-              }}
-            >
-              ⋯
-            </button>
             <button
               type="button"
               className="cu-new"
