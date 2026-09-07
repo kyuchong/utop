@@ -387,3 +387,16 @@
 .ra-alldown {
   margin: auto; color: var(--c-text-faint, #8a99a3); font-size: 13px;
 }
+
+/* 드롭존 — 끌고 있을 때 어디에 붙는지 미리 보여 준다(iTest 꼴 도킹) */
+.ra-slot { position: relative; }
+.ra-dz {
+  position: absolute; inset: 0; pointer-events: none; z-index: 5;
+  background: color-mix(in srgb, var(--c-primary, #12505e) 14%, transparent);
+  border: 2px solid var(--c-primary, #12505e); border-radius: 8px;
+}
+.ra-dz.L { right: 55%; }
+.ra-dz.R { left: 55%; }
+.ra-dz.T { bottom: 55%; }
+.ra-dz.B { top: 55%; }
+.ra-hsash.off { cursor: default; pointer-events: none; }

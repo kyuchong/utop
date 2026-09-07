@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import './RunAuto.css'
 
@@ -152,27 +152,67 @@ export default function RunAuto({
   /** 이 항목을 언제 돌렸나 */
   logAt?: string
 }) {
-  /* ── 판 자리 · 크기 (계정별) ── */
-  const [slots, setSlots] = useState<Record<SlotId, PanelId>>(() => {
+  /* ── 판 배치 (계정별) — iTest 꼴 도킹(지시): 열 배열, 열 안은 위→아래.
+     판 머리를 끌어 다른 판의 왼쪽·오른쪽(새 열)·위·아래(같은 열)·가운데
+     (맞바꿈)에 떨어뜨려 마음대로 배치한다. ── */
+  const [lay, setLayRaw] = useState<PanelId[][]>(() => {
+    const ALL: PanelId[] = ['steps', 'response', 'events', 'tc']
+    try {
+      const j = JSON.parse(prefGet('utop.run.lay') ?? '') as PanelId[][]
+      const flat = j.flat()
+      if (
+        Array.isArray(j) && j.every((c) => Array.isArray(c)) &&
+        flat.length === 4 && new Set(flat).size === 4 && ALL.every((x) => flat.includes(x))
+      )
+        return j.filter((c) => c.length)
+    } catch {
+      /* 처음이거나 옛 저장 — 아래에서 잇는다 */
+    }
     try {
       const j = JSON.parse(prefGet('utop.run.dock') ?? '{}') as Partial<Record<SlotId, PanelId>>
-      return { ...DEFAULT, ...j }
+      const d = { ...DEFAULT, ...j }
+      return [[d.LT, d.LB], [d.RT, d.RB]]
     } catch {
-      return { ...DEFAULT }
+      return [[DEFAULT.LT, DEFAULT.LB], [DEFAULT.RT, DEFAULT.RB]]
     }
   })
-  const [size, setSize] = useState(() => ({
-    /* 왼쪽(실행 Step) 을 좁힌다(지시). CLI 출력이 길어 오른쪽이 더 넓어야
-       읽힌다 — 55 → 42. 사람이 분할바로 옮기면 그 값이 남는다. */
-    v: Number(prefGet('utop.run.dock.v') ?? '') || 42,
-    l: Number(prefGet('utop.run.dock.l') ?? '') || 56,
-    r: Number(prefGet('utop.run.dock.r') ?? '') || 64,
-  }))
+  const setLay = (nx: PanelId[][]) => {
+    const c = nx.filter((col) => col.length)
+    setLayRaw(c)
+    try {
+      prefSet('utop.run.lay', JSON.stringify(c))
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }
+  /* 열 너비(%)·열 안 첫 판 높이(%) — 열 구성이 바뀌면 너비는 고르게 되돌아간다 */
+  const [ws, setWs] = useState<number[]>(() => {
+    try {
+      const j = JSON.parse(prefGet('utop.run.ws') ?? '') as number[]
+      if (Array.isArray(j) && j.every((x) => Number.isFinite(x))) return j
+    } catch {
+      /* 옛 세로 분할값에서 잇는다 */
+    }
+    const v = Number(prefGet('utop.run.dock.v') ?? '') || 42
+    return [v, 100 - v]
+  })
+  const [rs, setRs] = useState<Record<string, number>>(() => {
+    try {
+      const j = JSON.parse(prefGet('utop.run.rs') ?? '') as Record<string, number>
+      if (j && typeof j === 'object') return j
+    } catch {
+      /* 옛 가로 분할값에서 잇는다 */
+    }
+    return {
+      '0': Number(prefGet('utop.run.dock.l') ?? '') || 56,
+      '1': Number(prefGet('utop.run.dock.r') ?? '') || 64,
+    }
+  })
   const deskRef = useRef<HTMLDivElement>(null)
-  const lRef = useRef<HTMLDivElement>(null)
-  const rRef = useRef<HTMLDivElement>(null)
-  const [drag, setDrag] = useState<'v' | 'l' | 'r' | null>(null)
-  const [over, setOver] = useState<SlotId | null>(null)
+  const [drag, setDrag] = useState<string | null>(null)
+  /* 끌리는 판·드롭존 표시 */
+  const [dragPane, setDragPane] = useState<PanelId | null>(null)
+  const [dz, setDz] = useState<{ id: PanelId; z: 'L' | 'R' | 'T' | 'B' | 'C' } | null>(null)
   /* 내린 판 — 안 보는 판은 아래 띠로 내려 둔다(지시). 계정에 남는다 */
   const [hid, setHid] = useState<Set<PanelId>>(() => {
     try {
@@ -197,41 +237,101 @@ export default function RunAuto({
   }
 
   const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
-  const startSash = (m: 'v' | 'l' | 'r') => (e: React.MouseEvent) => {
+  /* 화면에 실제로 서는 열들 — 내린 판은 비운다. 판 → 몇 번째 열인지도 같이 */
+  const visCols = lay.map((c) => c.filter((x) => !hid.has(x))).filter((c) => c.length)
+  const colW = (i: number, n: number) => (ws.length === n ? ws[i]! : 100 / n)
+  const rowPct = (ci: number) => clamp(Number(rs[String(ci)] ?? 50) || 50, 20, 80)
+
+  /* 열 사이 세로 분할바 */
+  const startColSash = (leftIdx: number, n: number) => (e: React.MouseEvent) => {
     e.preventDefault()
-    setDrag(m)
+    setDrag(`c${leftIdx}`)
     const move = (ev: MouseEvent) => {
-      if (m === 'v') {
-        const r = deskRef.current?.getBoundingClientRect()
-        if (r) setSize((s) => ({ ...s, v: clamp(((ev.clientX - r.left) / r.width) * 100, 25, 75) }))
-      } else {
-        const el = (m === 'l' ? lRef : rRef).current?.getBoundingClientRect()
-        if (el)
-          setSize((s) => ({ ...s, [m]: clamp(((ev.clientY - el.top) / el.height) * 100, 20, 80) }))
-      }
+      const r = deskRef.current?.getBoundingClientRect()
+      if (!r) return
+      const eff = Array.from({ length: n }, (_, i) => colW(i, n))
+      const before = eff.slice(0, leftIdx).reduce((a, b) => a + b, 0)
+      const want = clamp(((ev.clientX - r.left) / r.width) * 100 - before, 12, eff[leftIdx]! + eff[leftIdx + 1]! - 12)
+      const delta = want - eff[leftIdx]!
+      eff[leftIdx] = eff[leftIdx]! + delta
+      eff[leftIdx + 1] = eff[leftIdx + 1]! - delta
+      setWs(eff)
     }
     const up = () => {
       window.removeEventListener('mousemove', move)
       window.removeEventListener('mouseup', up)
       setDrag(null)
-      setSize((s) => {
-        prefSet('utop.run.dock.v', String(Math.round(s.v)))
-        prefSet('utop.run.dock.l', String(Math.round(s.l)))
-        prefSet('utop.run.dock.r', String(Math.round(s.r)))
-        return s
+      setWs((cur) => {
+        try {
+          prefSet('utop.run.ws', JSON.stringify(cur.map((x) => Math.round(x))))
+        } catch {
+          /* 사생활 보호 모드 */
+        }
+        return cur
+      })
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+  /* 열 안(두 판) 가로 분할바 */
+  const startRowSash = (ci: number) => (e: React.MouseEvent) => {
+    e.preventDefault()
+    setDrag(`r${ci}`)
+    const colEl = (e.currentTarget as HTMLElement).parentElement
+    const move = (ev: MouseEvent) => {
+      const r = colEl?.getBoundingClientRect()
+      if (!r) return
+      setRs((cur) => ({ ...cur, [String(ci)]: clamp(((ev.clientY - r.top) / r.height) * 100, 20, 80) }))
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      setDrag(null)
+      setRs((cur) => {
+        try {
+          prefSet('utop.run.rs', JSON.stringify(cur))
+        } catch {
+          /* 사생활 보호 모드 */
+        }
+        return cur
       })
     }
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
   }
 
-  /** 제목바를 끌어 떨어뜨리면 두 판이 맞바뀐다 */
-  const swap = (to: SlotId, what: PanelId) => {
-    const from = (Object.keys(slots) as SlotId[]).find((k) => slots[k] === what)
-    if (!from || from === to) return
-    const next = { ...slots, [to]: what, [from]: slots[to] }
-    setSlots(next)
-    prefSet('utop.run.dock', JSON.stringify(next))
+  /** 끌어다 붙이기 — 가운데=맞바꿈 · 위/아래=같은 열에 끼움 · 왼/오른쪽=새 열 */
+  const place = (what: PanelId, target: PanelId, z: 'L' | 'R' | 'T' | 'B' | 'C') => {
+    if (what === target) return
+    if (z === 'C') {
+      const nx = lay.map((c) => [...c])
+      let pw: [number, number] | null = null
+      let pt: [number, number] | null = null
+      nx.forEach((c, i) => c.forEach((x, j) => {
+        if (x === what) pw = [i, j]
+        if (x === target) pt = [i, j]
+      }))
+      if (pw && pt) {
+        nx[pw[0]]![pw[1]] = target
+        nx[pt[0]]![pt[1]] = what
+        setLay(nx)
+      }
+      return
+    }
+    const cur = lay.map((c) => c.filter((x) => x !== what))
+    const ci = cur.findIndex((c) => c.includes(target))
+    if (ci < 0) return
+    if (z === 'T' || z === 'B') {
+      const col = [...cur[ci]!]
+      col.splice(col.indexOf(target) + (z === 'B' ? 1 : 0), 0, what)
+      const nx = [...cur]
+      nx[ci] = col
+      setLay(nx)
+      return
+    }
+    const nx = [...cur]
+    nx.splice(ci + (z === 'R' ? 1 : 0), 0, [what])
+    setLay(nx)
   }
 
   /* ── 집계 · 이벤트 ── */
@@ -626,32 +726,41 @@ export default function RunAuto({
     return `Pass ${tal.p} · Fail ${tal.f} · 대기 ${tal.n}`
   }
 
-  const vis = (slot: SlotId) => !hid.has(slots[slot])
-  const visSlots = (['LT', 'LB', 'RT', 'RB'] as SlotId[]).filter(vis)
-  /* 남은 판이 딱 둘인데 같은 열이면 — 위아래가 아니라 나란히 */
-  const twoSameCol = visSlots.length === 2 && visSlots[0]![0] === visSlots[1]![0]
-  const panel = (slot: SlotId) => {
-    const id = slots[slot]
+  const panel = (id: PanelId) => {
     return (
       <div
-        className={`ra-slot${over === slot ? ' over' : ''}`}
+        className="ra-slot"
         onDragOver={(e) => {
+          if (!dragPane || dragPane === id) return
           e.preventDefault()
-          setOver(slot)
+          const r = e.currentTarget.getBoundingClientRect()
+          const x = (e.clientX - r.left) / Math.max(1, r.width)
+          const y = (e.clientY - r.top) / Math.max(1, r.height)
+          const z = x < 0.25 ? 'L' : x > 0.75 ? 'R' : y < 0.35 ? 'T' : y > 0.65 ? 'B' : 'C'
+          setDz((d) => (d?.id === id && d.z === z ? d : { id, z }))
         }}
-        onDragLeave={() => setOver((s) => (s === slot ? null : s))}
+        onDragLeave={() => setDz((d) => (d?.id === id ? null : d))}
         onDrop={(e) => {
           e.preventDefault()
-          setOver(null)
           const what = e.dataTransfer.getData('text/plain') as PanelId
-          if (what) swap(slot, what)
+          const z = dz?.id === id ? dz.z : 'C'
+          setDz(null)
+          setDragPane(null)
+          if (what) place(what, id, z)
         }}
       >
         <section className="ra-panel">
           <header
             draggable
-            onDragStart={(e) => e.dataTransfer.setData('text/plain', id)}
-            title="끌어서 다른 판과 자리를 바꿉니다"
+            onDragStart={(e) => {
+              e.dataTransfer.setData('text/plain', id)
+              setDragPane(id)
+            }}
+            onDragEnd={() => {
+              setDragPane(null)
+              setDz(null)
+            }}
+            title="끌어서 원하는 자리에 붙입니다 — 가운데는 맞바꿈, 가장자리는 그쪽에 붙이기"
           >
             <b>{TITLE[id]}</b>
             {/* 목업처럼 판마다 「무엇을 보는 중인지」 를 제목 옆에 적는다 */}
@@ -692,6 +801,7 @@ export default function RunAuto({
           </header>
           {body(id)}
         </section>
+        {dz?.id === id && dragPane && dragPane !== id && <div className={`ra-dz ${dz.z}`} aria-hidden="true" />}
       </div>
     )
   }
@@ -700,59 +810,43 @@ export default function RunAuto({
     <div className="ra">
       {/* 위 띠는 **RunDetail 한 곳**에 있다(목업도 띠는 하나다). 여기에도
           두었더니 경과·진행이 두 줄로 겹쳐 보였다(지적). */}
-      {/* ── 아래: 네 판 작업대 — 내린 판의 자리는 남은 판이 다 쓴다.
-          남은 두 판이 **같은 열**이면 자동으로 2열로 편다(지시: 두 판을
-          위아래로 쌓지 말고 나란히) ── */}
-      {twoSameCol ? (
-        <div className="ra-desk" ref={deskRef}>
-          <div className="ra-col" style={{ width: `${size.v}%` }}>
-            <div style={{ flex: 1, minHeight: 0 }}>{panel(visSlots[0]!)}</div>
-          </div>
-          <div className={`ra-vsash${drag === 'v' ? ' on' : ''}`} onMouseDown={startSash('v')} />
-          <div className="ra-col" style={{ flex: 1 }}>
-            <div style={{ flex: 1, minHeight: 0 }}>{panel(visSlots[1]!)}</div>
-          </div>
-        </div>
-      ) : (
+      {/* ── 아래: 판 작업대 — lay(열 배열) 그대로. 내린 판은 비운다 ── */}
       <div className="ra-desk" ref={deskRef}>
-        {(vis('LT') || vis('LB')) && (
-          <div
-            className="ra-col"
-            ref={lRef}
-            style={vis('RT') || vis('RB') ? { width: `${size.v}%` } : { flex: 1 }}
-          >
-            {vis('LT') && (
-              <div style={vis('LB') ? { height: `${size.l}%`, minHeight: 0 } : { flex: 1, minHeight: 0 }}>
-                {panel('LT')}
-              </div>
+        {visCols.map((col, i) => (
+          <Fragment key={col.join('-')}>
+            {i > 0 && (
+              <div className={`ra-vsash${drag === `c${i - 1}` ? ' on' : ''}`} onMouseDown={startColSash(i - 1, visCols.length)} />
             )}
-            {vis('LT') && vis('LB') && (
-              <div className={`ra-hsash${drag === 'l' ? ' on' : ''}`} onMouseDown={startSash('l')} />
-            )}
-            {vis('LB') && <div style={{ flex: 1, minHeight: 0 }}>{panel('LB')}</div>}
-          </div>
-        )}
-        {(vis('LT') || vis('LB')) && (vis('RT') || vis('RB')) && (
-          <div className={`ra-vsash${drag === 'v' ? ' on' : ''}`} onMouseDown={startSash('v')} />
-        )}
-        {(vis('RT') || vis('RB')) && (
-          <div className="ra-col" ref={rRef} style={{ flex: 1 }}>
-            {vis('RT') && (
-              <div style={vis('RB') ? { height: `${size.r}%`, minHeight: 0 } : { flex: 1, minHeight: 0 }}>
-                {panel('RT')}
-              </div>
-            )}
-            {vis('RT') && vis('RB') && (
-              <div className={`ra-hsash${drag === 'r' ? ' on' : ''}`} onMouseDown={startSash('r')} />
-            )}
-            {vis('RB') && <div style={{ flex: 1, minHeight: 0 }}>{panel('RB')}</div>}
-          </div>
-        )}
-        {!vis('LT') && !vis('LB') && !vis('RT') && !vis('RB') && (
+            <div
+              className="ra-col"
+              style={i < visCols.length - 1 ? { width: `${colW(i, visCols.length)}%` } : { flex: 1 }}
+            >
+              {col.map((pid, j) => (
+                <Fragment key={pid}>
+                  {j > 0 && col.length === 2 && (
+                    <div className={`ra-hsash${drag === `r${i}` ? ' on' : ''}`} onMouseDown={startRowSash(i)} />
+                  )}
+                  {j > 0 && col.length !== 2 && <div className="ra-hsash off" aria-hidden="true" />}
+                  <div
+                    style={
+                      col.length === 2
+                        ? j === 0
+                          ? { height: `${rowPct(i)}%`, minHeight: 0 }
+                          : { flex: 1, minHeight: 0 }
+                        : { flex: 1, minHeight: 0 }
+                    }
+                  >
+                    {panel(pid)}
+                  </div>
+                </Fragment>
+              ))}
+            </div>
+          </Fragment>
+        ))}
+        {visCols.length === 0 && (
           <div className="ra-alldown">모든 판을 내렸습니다 — 아래 띠에서 올려 보세요</div>
         )}
       </div>
-      )}
       {hid.size > 0 && (
         <div className="ra-dockbar">
           {(['steps', 'response', 'events', 'tc'] as PanelId[])
