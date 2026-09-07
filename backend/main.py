@@ -12299,7 +12299,12 @@ async def _cycle_cid_prefix(data: dict) -> tuple[str, int]:
         # 남아 있었다 — 그 탓에 아래 startswith 검사가 늘 어긋나, 결과가
         # 없는 플랜을 **저장할 때마다 부여 ID 가 새로 매겨졌다**(실사고:
         # E61xx-P0001 이 사업자 한 칸 고쳤다고 E61xx_P0003 이 됐다).
-        return f"{mg}-P", 4
+        #
+        # 글머리는 **C**(Cycle)다. P(플랜)이던 것을 바꿨다(지시) — 메뉴가
+        # Cycles 인데 ID 만 P 면 서로 다른 말을 한다. 결과가 쌓인 옛
+        # P 사이클은 그대로 두고(아래 save_cycle 의 「결과 없으면 재부여」
+        # 규칙이 빈 것만 새 글머리로 옮긴다), 번호는 C 안에서 새로 센다.
+        return f"{mg}-C", 4
     from datetime import datetime as _dt
     return db._cid_prefix_of(_dt.now()), 3
 
@@ -13548,6 +13553,14 @@ async def _db_init():
         if _cn: print(f"[startup] 플랜 ID {_cn}건 부여 (C-연주차-순번)", flush=True)
     except Exception as e:
         print(f"[startup] cycle cid backfill failed: {e}", flush=True)
+
+    # 옛 실행 키 _R0001 → _E0001 (지시: 요구사항 -R0001 과 겹쳐 읽힌다).
+    # 기동 때 옮겨 두면 253 도 update.sh 만으로 같아진다 (멱등).
+    try:
+        _rn = await db.plan_run_rekey_r_to_e()
+        if _rn: print(f"[startup] 실행 키 {_rn}건을 _R → _E 로 이전", flush=True)
+    except Exception as e:
+        print(f"[startup] plan_run rekey failed: {e}", flush=True)
 
     # 실행 타입 「혼합」 은 뺐다(합의) — 기동 때 지워 두면 253 도
     # update.sh 만으로 같아진다. 없으면 그냥 지나간다(멱등).

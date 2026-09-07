@@ -41,3 +41,6 @@
 
 /* 담기 줄 */
 .cyb .addbar { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: var(--sp-2); flex: none; }
+
+/* 시험 항목 노션 표 — 카드 없이 표가 남는 높이를 갖는다 */
+.cyb .cu-fill > .ntb, .cyb .cu-fill > div:last-child { flex: 1; min-height: 0; }

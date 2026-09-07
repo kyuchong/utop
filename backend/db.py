@@ -701,6 +701,31 @@ async def plan_run_next_key(model: str) -> str:
     return f"{pre}{n + 1:04d}"
 
 
+async def plan_run_rekey_r_to_e() -> int:
+    """옛 실행 키 `…_R0001` 을 `…_E0001` 로 옮긴다 (지시).
+
+    요구사항 ID(E61xx-R0001)와 글자가 겹쳐 서로 헷갈렸다. 새 키 부여는
+    이미 _E 인데(plan_run_next_key), 옛 줄이 남아 화면에는 R 이 보였다.
+    실행을 가리키는 실행기 일감(cycle_run.plan_run_id)도 함께 옮긴다.
+    새 키가 이미 있으면 그 줄은 건드리지 않는다 — 멱등."""
+    n = 0
+    async with pool().acquire() as c:
+        rows = await c.fetch(r"SELECT id FROM plan_run WHERE id ~ '_R[0-9]+$'")
+        for r in rows:
+            old = str(r["id"])
+            head, tail = old.rsplit("_R", 1)
+            new = f"{head}_E{tail}"
+            if await c.fetchval("SELECT 1 FROM plan_run WHERE id=$1", new):
+                continue
+            async with c.transaction():
+                await c.execute("UPDATE plan_run SET id=$2 WHERE id=$1", old, new)
+                await c.execute(
+                    "UPDATE cycle_run SET plan_run_id=$2 WHERE plan_run_id=$1", old, new
+                )
+            n += 1
+    return n
+
+
 async def cycle_backfill_summary() -> int:
     """data_summary 가 NULL 인 기존 cycle row 들의 요약을 재계산해 채움. 서버 startup 시 1회 호출."""
     async with pool().acquire() as c:

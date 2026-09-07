@@ -386,3 +386,4 @@
 .qav .qa-menu button:hover { background: var(--c-surface-alt); color: var(--c-text); }
 .qav .qa-menu button.danger:hover { background: var(--tint-fail); color: var(--c-fail); }
 .qav .qa-menusep { border-top: 1px solid var(--c-border-soft); margin: var(--sp-1) 0; }
+.qav .qa-menuh { padding: 2px 8px 4px; font-size: var(--fs-xs); color: var(--c-text-faint); }

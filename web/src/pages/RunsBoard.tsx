@@ -23,13 +23,16 @@ import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IconChevron, IconPanel } from '@/components/icons'
 import RunDetail from '@/components/run/RunDetail'
 import type { RunFull } from '@/components/run/RunDetail'
+import NTable from '@/components/ntable/NTable'
+import { EMPTY_VIEW } from '@/components/ntable/types'
+import type { NCol, NView } from '@/components/ntable/types'
 import MakeCycle from '@/components/cycle/MakeCycle'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
 import { CycleMailOne } from '@/components/cycle/CyclePlan'
 import CycleReport from '@/components/cycle/CycleReport'
 import type { CycleMeta } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
-import { Donut, StatBar, VERD, ago, orderTcIds, sumRuns, useReqIndex, useUserNames, verdName } from '@/pages/qaBits'
+import { Donut, StatBar, VERD, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserNames, verdName } from '@/pages/qaBits'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
 import './RunsBoard.css'
@@ -76,9 +79,9 @@ export default function RunsBoard({
   /** 실행 본문 */
   const [sumOff, setSumOff] = useState(false)
   const [sumTab, setSumTab] = useState<'team' | 'info'>('team')
-  const [itemQ, setItemQ] = useState('')
   const [vf, setVf] = useState('')
-  const [ticked, setTicked] = useState<Set<string>>(new Set())
+  /** 여러 줄 골라 한 번에 — 노션 표의 선택 바가 부른다 */
+  const [bulkAt, setBulkAt] = useState<{ kind: 'assign' | 'status'; ids: string[] } | null>(null)
   /** 창들 */
   const [making, setMaking] = useState(false)
   const [mkRunFor, setMkRunFor] = useState('')
@@ -143,6 +146,25 @@ export default function RunsBoard({
   const users = useUserNames()
   const reqIndex = useReqIndex()
 
+  /* 항목 표(노션 표) — 열 정의는 코드가 정본, 폭·숨김·차례는 계정에 */
+  const [riView, setRiView] = useState<NView>({ ...EMPTY_VIEW, groupBy: 'folder' })
+  const RI_DEFS: NCol[] = [
+    { key: 'id', label: 'ID', type: 'text', width: 124, fixed: true },
+    { key: 'title', label: '제목', type: 'text', width: 360, fixed: true },
+    { key: 'folder', label: '폴더', type: 'text', width: 200 },
+    { key: 'who', label: '할당 대상', type: 'person', width: 110 },
+    {
+      key: 'result', label: '결과', type: 'select', width: 110,
+      options: [
+        { value: '통과', color: '#18864b', icon: '✓' },
+        { value: '실패', color: '#cc3333', icon: '✕' },
+        { value: '기타', color: '#a97800', icon: '⊘' },
+        { value: '미실행', color: '#8a949e', icon: '⛶' },
+      ],
+    },
+  ]
+  const [riCols, setRiCols] = useNCols('utop.ntb.runit.cols', RI_DEFS)
+
   const runs = useMemo(() => runsQ.data?.runs ?? [], [runsQ.data])
   const plans = useMemo(() => plansQ.data?.cycles ?? plansQ.data?.items ?? [], [plansQ.data])
   const planOf = useMemo(() => new Map(plans.map((p) => [p.id, p])), [plans])
@@ -195,7 +217,6 @@ export default function RunsBoard({
   /* ── 자리 잡기 ── */
   const openRunId = (id: string) => {
     setSelRun(id)
-    setTicked(new Set())
     setVf('')
     prefSet('utop.runs.open', id)
     reflectUrl('run', id)
@@ -609,14 +630,11 @@ export default function RunsBoard({
     t.done = t.p + t.f + t.b
     return t
   }, [runItems])
-  const shownItems = useMemo(() => {
-    const s = itemQ.trim().toLowerCase()
-    return runItems.filter((it) => {
-      if (s && !`${it.tcid} ${it.title}`.toLowerCase().includes(s)) return false
-      if (vf && it.v !== vf) return false
-      return true
-    })
-  }, [runItems, itemQ, vf])
+  /* 검색은 노션 표가 맡는다 — 여기서는 요약 알약의 판정 거르기만 */
+  const shownItems = useMemo(
+    () => runItems.filter((it) => !vf || it.v === vf),
+    [runItems, vf],
+  )
 
   async function setVerdict(tcid: string, v: string) {
     if (!runFull) return
@@ -628,13 +646,12 @@ export default function RunsBoard({
     for (const id of tcids) asg[id] = who
     await saveRun({ assignees: asg })
   }
-  async function resetItems(tcids: string[]) {
+  /** 판정 일괄 — 노션 표의 「상태 바꾸기」 가 부른다. 미실행이 곧 초기화다 */
+  async function setVerdicts(tcids: string[], v: string) {
     if (!runFull || !tcids.length) return
-    if (!window.confirm(`시험 항목 ${tcids.length}건의 판정을 지우고 미실행으로 되돌립니다.`)) return
     const results = { ...(runFull.results ?? {}) }
-    for (const id of tcids) results[id] = 'n'
+    for (const id of tcids) results[id] = v as 'p' | 'f' | 'b' | 'n'
     await saveRun({ results })
-    setTicked(new Set())
   }
   async function dropItems(tcids: string[]) {
     if (!runFull || !tcids.length) return
@@ -650,7 +667,6 @@ export default function RunsBoard({
       Object.entries(runFull.results ?? {}).filter(([k]) => !gone.has(k)),
     )
     await saveRun({ items, results })
-    setTicked(new Set())
   }
 
   /* ══ 그리기 ══ */
@@ -1032,13 +1048,11 @@ export default function RunsBoard({
     const nM = runItems.length - nA
     const modeTxt =
       r.mode === 'empty' ? '직접 구성' : nA && nM ? '전체 항목' : nA ? '자동' : nM ? '수동' : '빈 실행'
-    const picked = shownItems.filter((it) => ticked.has(it.tcid))
     const asgOf = new Map<string, number>()
     for (const it of runItems) {
       const k = it.who || String(r.owner ?? '') || '(안 정함)'
       asgOf.set(k, (asgOf.get(k) ?? 0) + 1)
     }
-    let lastFolder = ''
     return (
       <section className="panel run-main">
         {/* 1) 브레드크럼 줄 — 왼쪽 경로, 오른쪽 액션 */}
@@ -1172,10 +1186,7 @@ export default function RunsBoard({
                       type="button"
                       className={`sumrow hit${on ? ' on' : vf ? ' dim' : ''}`}
                       title={`${d.label}만 보기${on ? ' (해제하려면 다시 누르세요)' : ''}`}
-                      onClick={() => {
-                        setVf(on ? '' : d.v)
-                        setTicked(new Set())
-                      }}
+                      onClick={() => setVf(on ? '' : d.v)}
                     >
                       <span className={`vpill v-${d.cls}`}>
                         {d.ico} {t.total ? Math.round((nn / t.total) * 100) : 0}%
@@ -1263,194 +1274,53 @@ export default function RunsBoard({
           </div>
         )}
 
-        {/* 4) 골라 잡은 것 */}
-        {!!picked.length && (
-          <div className="lp-selbar">
-            <b>{picked.length}개 항목 선택됨</b>
-            <button type="button" className="linkbtn" onClick={() => setTicked(new Set())}>
-              선택 해제
-            </button>
-            <span className="cu-sp" />
-            <select
-              className="tsel"
-              value=""
-              title="할당 대상 일괄 변경"
-              onChange={(e) => {
-                if (e.target.value) void setWho([...ticked], e.target.value)
-                e.target.value = ''
-              }}
-            >
-              <option value="">✎ 할당 대상…</option>
-              {users.map((u) => (
-                <option key={u} value={u}>{u}</option>
-              ))}
-            </select>
-            <button type="button" className="btn small" onClick={() => void resetItems([...ticked])}>
-              ↺ 결과 초기화
-            </button>
-            <button type="button" className="btn small danger" onClick={() => void dropItems([...ticked])}>
-              🗑 제거
-            </button>
-          </div>
-        )}
-
-        {/* 5) 툴바 + 항목 표 */}
-        <div className="lp-bar">
-          {!!vf && (
-            <span className="vfchip">
-              {verdName(vf)}만 보는 중
-              <button type="button" className="linkbtn" onClick={() => setVf('')}>전체 보기</button>
-            </span>
-          )}
-          <span className="cu-sp" />
-          <input
-            className="inp"
-            style={{ width: 220 }}
-            placeholder="ID · 제목으로 검색"
-            value={itemQ}
-            onChange={(e) => setItemQ(e.target.value)}
+        {/* 4) 항목 표 — **노션 표**(지시: REQ-Coverage 와 같은 표).
+            검색·거르기·정렬·묶기·열 폭·계산 줄이 저쪽과 한 벌이다.
+            할당·결과는 칸에서 바로 고친다. 요약의 판정 알약이 이 표에
+            드는 줄을 미리 거른다. */}
+        <div className="rnb-ntb">
+          <NTable
+            columns={riCols}
+            rows={shownItems.map((it) => ({
+              __id: it.tcid,
+              id: it.tcid,
+              title: it.title || '(이름 없음)',
+              folder: it.folder,
+              who: it.who,
+              result: verdName(it.v),
+            }))}
+            view={riView}
+            onView={setRiView}
+            onColumns={setRiCols}
+            people={users.map((u) => ({ name: u, org: '' }))}
+            meName={meName}
+            onCell={(id, key, v) => {
+              if (key === 'who') void setWho([id], v)
+              if (key === 'result') {
+                const d = VERD.find((x) => x.label === v)
+                if (d) void setVerdict(id, d.v)
+              }
+            }}
+            readOnlyKeys={['id', 'title', 'folder']}
+            lockDefs
+            idKey="id"
+            titleKey="title"
+            rowIcon={(r) => {
+              const man = runItems.find((x) => x.tcid === r.__id)?.man
+              return <span className="cu-m" title={man ? '수동' : '자동'}>{man ? '✎' : '▶'}</span>
+            }}
+            onOpen={(id) => {
+              const man = runItems.find((x) => x.tcid === id)?.man
+              openRunner(man ? 'M' : 'A', id)
+            }}
+            onBulk={(a, ids) => {
+              if (a === 'del') void dropItems(ids)
+              else if (a === 'assign') setBulkAt({ kind: 'assign', ids })
+              else if (a === 'status') setBulkAt({ kind: 'status', ids })
+              else window.alert('이 표에서는 아직 없는 동작입니다')
+            }}
+            perPage={100}
           />
-        </div>
-        <div className="lp-body">
-          <table className="grid tctbl runtbl">
-            <thead>
-              <tr>
-                <th style={{ width: 30 }}>
-                  <input
-                    type="checkbox"
-                    checked={!!shownItems.length && picked.length === shownItems.length}
-                    ref={(el) => {
-                      if (el) el.indeterminate = picked.length > 0 && picked.length < shownItems.length
-                    }}
-                    onChange={(e) =>
-                      setTicked(e.target.checked ? new Set(shownItems.map((x) => x.tcid)) : new Set())
-                    }
-                  />
-                </th>
-                <th style={{ width: 124 }}>ID</th>
-                <th>제목</th>
-                <th style={{ width: 112 }}>할당 대상</th>
-                <th style={{ width: 118 }}>결과</th>
-                <th style={{ width: 56 }} aria-label="줄 단추" />
-              </tr>
-            </thead>
-            <tbody>
-              {shownItems.length ? (
-                shownItems.map((it) => {
-                  const heads: React.ReactNode[] = []
-                  if (it.folder !== lastFolder) {
-                    lastFolder = it.folder
-                    const nn = shownItems.filter((x) => x.folder === it.folder).length
-                    heads.push(
-                      <tr key={`f-${it.folder}`} className="grp-f">
-                        <td />
-                        <td colSpan={5}>
-                          <span className="folder">🗀 {it.folder}</span>{' '}
-                          <span className="cu-m">| {nn}</span>
-                        </td>
-                      </tr>,
-                    )
-                  }
-                  return (
-                    <React.Fragment key={it.tcid}>
-                      {heads}
-                      <tr
-                        /* 그 줄의 방식으로, 그 항목을 짚어 연다 —
-                           수동 항목을 눌렀는데 자동 작업대가 열리면 안 된다 */
-                        onClick={() => openRunner(it.man ? 'M' : 'A', it.tcid)}
-                        title="실행기에서 엽니다"
-                      >
-                        <td style={{ width: 30 }} onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={ticked.has(it.tcid)}
-                            onChange={(e) => {
-                              const nset = new Set(ticked)
-                              if (e.target.checked) nset.add(it.tcid)
-                              else nset.delete(it.tcid)
-                              setTicked(nset)
-                            }}
-                          />
-                        </td>
-                        <td className="idcell cu-mono">{it.tcid}</td>
-                        <td>
-                          <span className="tc-ico" title={it.man ? '수동' : '자동'}>
-                            {it.man ? '✎' : '▶'}
-                          </span>
-                          {it.title || <span className="cu-m">(이름 없음)</span>}
-                        </td>
-                        <td onClick={(e) => e.stopPropagation()}>
-                          <select
-                            className="tsel"
-                            value={it.who}
-                            onChange={(e) => void setWho([it.tcid], e.target.value)}
-                          >
-                            <option value="">(실행 담당)</option>
-                            {!users.includes(it.who) && !!it.who && <option value={it.who}>{it.who}</option>}
-                            {users.map((u) => (
-                              <option key={u} value={u}>{u}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td onClick={(e) => e.stopPropagation()}>
-                          <select
-                            className={`tsel vsel v-${it.v}`}
-                            value={it.v}
-                            onChange={(e) => void setVerdict(it.tcid, e.target.value)}
-                          >
-                            {VERD.map((d) => (
-                              <option key={d.v} value={d.v}>
-                                {d.ico} {d.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td style={{ width: 56 }} onClick={(e) => e.stopPropagation()}>
-                          <div className="rowact">
-                            <button
-                              type="button"
-                              className="cu-nbtn del"
-                              title="실행에서 빼기"
-                              onClick={() => void dropItems([it.tcid])}
-                            >
-                              🗑
-                            </button>
-                            <button
-                              type="button"
-                              className="cu-nbtn"
-                              title="실행기 열기"
-                              onClick={() => openRunner(it.man ? 'M' : 'A', it.tcid)}
-                            >
-                              ⊞
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    </React.Fragment>
-                  )
-                })
-              ) : (
-                <tr>
-                  <td colSpan={6}>
-                    <div className="cu-empty">
-                      <strong>{runFullQ.isLoading ? '불러오는 중…' : '맞는 항목이 없습니다'}</strong>
-                      {!runItems.length && !runFullQ.isLoading && (
-                        <span>이 실행에는 담긴 시험 항목이 없습니다.</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="lp-ft">
-          <span>
-            {shownItems.length}
-            {vf || itemQ ? ` / 전체 ${t.total}` : ''} 항목
-          </span>
-          <span className="cu-sp" />
-          <span className="cu-m">판정은 결과 칸에서 바로 바꿉니다 — 실행기는 절차까지 봅니다</span>
         </div>
       </section>
     )
@@ -1572,6 +1442,37 @@ export default function RunsBoard({
             >
               실행 지우기
             </button>
+          </div>
+        </>
+      )}
+
+      {/* 노션 표의 「담당 일괄 · 상태 바꾸기」 — 고른 줄에 한 번에 */}
+      {!!bulkAt && (
+        <>
+          <span className="qa-moreovl" role="presentation" onClick={() => setBulkAt(null)} />
+          <div className="qa-menu" role="menu" style={{ left: '50%', top: 160, transform: 'translateX(-50%)' }}>
+            {bulkAt.kind === 'assign' ? (
+              <>
+                <div className="qa-menuh">고른 {bulkAt.ids.length}건의 할당 대상</div>
+                <button type="button" role="menuitem" onClick={() => { setBulkAt(null); void setWho(bulkAt.ids, '') }}>
+                  (실행 담당)
+                </button>
+                {users.map((u) => (
+                  <button key={u} type="button" role="menuitem" onClick={() => { setBulkAt(null); void setWho(bulkAt.ids, u) }}>
+                    {u}
+                  </button>
+                ))}
+              </>
+            ) : (
+              <>
+                <div className="qa-menuh">고른 {bulkAt.ids.length}건의 결과</div>
+                {VERD.map((d) => (
+                  <button key={d.v} type="button" role="menuitem" onClick={() => { setBulkAt(null); void setVerdicts(bulkAt.ids, d.v) }}>
+                    {d.ico} {d.label}
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         </>
       )}

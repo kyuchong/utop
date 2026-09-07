@@ -20,11 +20,15 @@ import { exportCycleCsv, CloneDialog } from '@/pages/Cycles'
 import type { CycleItemLite, CycleMeta } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
 import type { RunFull } from '@/components/run/RunDetail'
+import NTable from '@/components/ntable/NTable'
+import { EMPTY_VIEW } from '@/components/ntable/types'
+import { autoColor } from '@/components/ntable/palette'
+import type { NCol, NRow, NView } from '@/components/ntable/types'
 import MakeCycle from '@/components/cycle/MakeCycle'
 import AddItems from '@/components/cycle/AddItems'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
-import { Donut, StatBar, ago, orderTcIds, sumRuns, useReqIndex, useUserNames } from '@/pages/qaBits'
+import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserNames } from '@/pages/qaBits'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
 import './CyclesBoard.css'
@@ -72,7 +76,6 @@ export default function CyclesBoard({
   const [tab, setTab] = useState<'ov' | 'it'>('ov')
   const [q, setQ] = useState('')
   const [ticked, setTicked] = useState<Set<string>>(new Set())
-  const [tickedIt, setTickedIt] = useState<Set<string>>(new Set())
   const [making, setMaking] = useState(false)
   const [addTo, setAddTo] = useState(false)
   const [mkRun, setMkRun] = useState(false)
@@ -87,7 +90,6 @@ export default function CyclesBoard({
   const openPlanId = (id: string) => {
     setOpen(id)
     setTab('ov')
-    setTickedIt(new Set())
     prefSet('utop.cycle.sel', id)
     reflectUrl('cycle', id)
   }
@@ -147,6 +149,28 @@ export default function CyclesBoard({
   })
   const users = useUserNames()
   const reqIndex = useReqIndex()
+
+  /* 시험 항목 탭의 노션 표 — 열 정의는 코드가 정본, 폭·숨김·차례는 계정에.
+     유형 선택지는 담긴 값에서 뽑아 색만 자동으로 입힌다. */
+  const [itView, setItView] = useState<NView>({ ...EMPTY_VIEW, groupBy: 'folder' })
+  const IT_DEFS: NCol[] = [
+    { key: 'id', label: 'ID', type: 'text', width: 124, fixed: true },
+    { key: 'title', label: '제목', type: 'text', width: 340, fixed: true },
+    { key: 'req', label: 'REQ', type: 'text', width: 130 },
+    { key: 'folder', label: '폴더', type: 'text', width: 200 },
+    { key: 'mg', label: '모델그룹', type: 'text', width: 90 },
+    { key: 'model', label: '모델명', type: 'text', width: 90 },
+    { key: 'type', label: '유형', type: 'select', width: 96, options: [] },
+    {
+      key: 'run', label: '타입', type: 'select', width: 88,
+      options: [
+        { value: '자동', color: '#1769d2', icon: '▶' },
+        { value: '수동', color: '#8a949e', icon: '✎' },
+      ],
+    },
+    { key: 'fail', label: '실패 이력', type: 'text', width: 110 },
+  ]
+  const [itColsRaw, setItCols] = useNCols('utop.ntb.cycit.cols', IT_DEFS)
 
   const plans = useMemo(() => plansQ.data?.cycles ?? plansQ.data?.items ?? [], [plansQ.data])
   const runs = useMemo(() => runsQ.data?.runs ?? [], [runsQ.data])
@@ -318,6 +342,23 @@ export default function CyclesBoard({
     out.sort((a, b) => (rank.get(a.tcid) ?? 0) - (rank.get(b.tcid) ?? 0))
     return out
   }, [full, tcOf, reqIndex])
+  /* 유형 선택지는 자료에서 뽑는다 — 담긴 값이 곧 목록이고 색은 자동 */
+  const itCols = useMemo<NCol[]>(
+    () =>
+      itColsRaw.map((c) =>
+        c.key === 'type'
+          ? {
+              ...c,
+              options: [...new Set(itemRows.map((r) => r.type).filter(Boolean))].map((v) => ({
+                value: v,
+                color: autoColor(v),
+              })),
+            }
+          : c,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [itColsRaw, itemRows],
+  )
   const nAuto = itemRows.filter((r) => !r.man).length
   const nMan = itemRows.length - nAuto
 
@@ -388,7 +429,6 @@ export default function CyclesBoard({
       return
     const gone = new Set(ids)
     await saveFull({ items: (full.items ?? []).filter((it) => !gone.has(String(it?.tcid ?? ''))) })
-    setTickedIt(new Set())
   }
 
   /* ── 그리기 ── */
@@ -708,19 +748,10 @@ export default function CyclesBoard({
         </div>
 
         <div className="cu-sec cu-card flat">
+          {/* ＋ 실행은 머리줄에 이미 있다 — 같은 단추가 두 곳이면 어느
+              쪽이 정본인지 헷갈린다(지적: 중복) */}
           <h2>
             이 사이클의 실행 <span className="dim">{myRuns.length}</span>
-            <span className="cu-sp" />
-            <button
-              type="button"
-              className="btn small"
-              onClick={() => {
-                setNeedMake(true)
-                setMkRun(true)
-              }}
-            >
-              ＋ 실행
-            </button>
           </h2>
           {myRuns.length ? (
             <table className="grid">
@@ -777,15 +808,34 @@ export default function CyclesBoard({
   }
 
   /* ── 상세: 시험 항목 ── */
+  /**
+   * 시험 항목 탭 — **노션 표**(지시: REQ-Coverage 와 같은 표).
+   *
+   * 손수 그린 표를 걷고 공용 NTable 을 얹는다 — 검색·거르기·정렬·묶기·
+   * 열 폭·계산 줄이 저쪽과 한 벌이 된다. 값은 TC(REQ-Coverage)가 정본이라
+   * 칸은 못 고친다. 기본 묶기는 폴더 — 옛 표의 폴더 ▸ REQ 층 중 위층이다.
+   */
   function renderItems() {
     if (!plan) return null
-    const picked = itemRows.filter((r) => tickedIt.has(r.tcid))
     const repeats = itemRows.filter((r) => {
       const s = failStat.get(r.tcid)
       return !!s && s.fail >= 2
     })
-    let lastFolder = ''
-    let lastReq: string | null = null
+    const rows: NRow[] = itemRows.map((r) => {
+      const st = failStat.get(r.tcid)
+      return {
+        __id: r.tcid,
+        id: r.tcid,
+        title: r.title || '(이름 없음)',
+        req: r.reqLabel || '(REQ 없음)',
+        folder: r.folder,
+        mg: r.mg,
+        model: r.model,
+        type: r.type,
+        run: r.man ? '수동' : '자동',
+        fail: !st || !st.ran ? '' : st.fail ? `${st.fail}회 / ${st.ran}${st.fail >= 2 ? ' 반복' : ''}` : `${st.ran}회 중 0`,
+      }
+    })
     return (
       <div className="cu-fill">
         {!!repeats.length && (
@@ -798,164 +848,45 @@ export default function CyclesBoard({
             </div>
           </div>
         )}
-        <div className="addbar">
-          <button type="button" className="cu-new" onClick={() => setAddTo(true)}>
-            <i aria-hidden="true">＋</i>항목 담기
-          </button>
-          <span className="cu-sp" />
-          <span className="cu-m">
-            REQ {new Set(itemRows.map((r) => r.reqLabel).filter(Boolean)).size}건 · TC {itemRows.length}건 ·
-            자동 {nAuto} / 수동 {nMan}
-          </span>
-        </div>
-        {!!picked.length && (
-          <div className="lp-selbar">
-            <b>{picked.length}개 항목 선택됨</b>
-            <button type="button" className="linkbtn" onClick={() => setTickedIt(new Set())}>
-              선택 해제
+        <NTable
+          columns={itCols}
+          rows={rows}
+          view={itView}
+          onView={setItView}
+          onColumns={setItCols}
+          onCell={() => {}}
+          readOnlyKeys={itCols.map((c) => c.key)}
+          lockDefs
+          idKey="id"
+          titleKey="title"
+          rowIcon={(r) => (
+            <span className="cu-m" title={String(r.run)}>{r.run === '수동' ? '✎' : '▶'}</span>
+          )}
+          onOpen={(id) => goto('tc', id)}
+          onBulk={(a, ids) => {
+            if (a === 'del') void dropItems(ids)
+            else window.alert('이 표에서는 아직 없는 동작입니다 — 값은 REQ-Coverage 가 정본입니다')
+          }}
+          renderCell={(row, col) => {
+            if (col.key !== 'fail') return undefined
+            const st = failStat.get(String(row.__id))
+            if (!st || !st.ran) return <span className="cu-m">—</span>
+            if (!st.fail) return <span className="cu-m">{st.ran}회 중 0</span>
+            return (
+              <>
+                <span className="badge b-fail">{st.fail}회</span>
+                <span className="cu-m"> / {st.ran}</span>
+                {st.fail >= 2 && <span className="flag" title="돌릴 때마다 깨집니다"> 반복</span>}
+              </>
+            )
+          }}
+          toolbarLeft={
+            <button type="button" className="cu-new small" onClick={() => setAddTo(true)}>
+              <i aria-hidden="true">＋</i>항목 담기
             </button>
-            <span className="cu-sp" />
-            <button type="button" className="btn small danger" onClick={() => void dropItems([...tickedIt])}>
-              🗑 제거
-            </button>
-          </div>
-        )}
-        <div className="cu-card flat grow">
-          <div className="cu-tblwrap">
-            <table className="grid tctbl">
-              <thead>
-                <tr>
-                  <th style={{ width: 30 }}>
-                    <input
-                      type="checkbox"
-                      checked={!!itemRows.length && picked.length === itemRows.length}
-                      ref={(el) => {
-                        if (el) el.indeterminate = picked.length > 0 && picked.length < itemRows.length
-                      }}
-                      onChange={(e) =>
-                        setTickedIt(e.target.checked ? new Set(itemRows.map((r) => r.tcid)) : new Set())
-                      }
-                    />
-                  </th>
-                  <th style={{ width: 124 }}>ID</th>
-                  <th>제목</th>
-                  <th style={{ width: 82 }}>모델그룹</th>
-                  <th style={{ width: 88 }}>모델명</th>
-                  <th style={{ width: 92 }}>유형</th>
-                  <th style={{ width: 64 }} title="자동 ▶ · 수동 ✎">타입</th>
-                  <th style={{ width: 112 }} title="이 사이클의 실행들에서 실패한 횟수">실패 이력</th>
-                  <th style={{ width: 40 }} aria-label="줄 단추" />
-                </tr>
-              </thead>
-              <tbody>
-                {itemRows.length ? (
-                  itemRows.map((r) => {
-                    const heads: React.ReactNode[] = []
-                    if (r.folder !== lastFolder) {
-                      lastFolder = r.folder
-                      lastReq = null
-                      const fin = itemRows.filter((x) => x.folder === r.folder)
-                      const fa = fin.filter((x) => !x.man).length
-                      heads.push(
-                        <tr key={`f-${r.folder}`} className="grp-f">
-                          <td />
-                          <td colSpan={8}>
-                            <span className="folder">🗀 {r.folder}</span>{' '}
-                            <span className="cu-m">
-                              {fin.length}건 · 자동 {fa} · 수동 {fin.length - fa}
-                            </span>
-                          </td>
-                        </tr>,
-                      )
-                    }
-                    if (r.reqLabel !== lastReq) {
-                      lastReq = r.reqLabel
-                      const rin = itemRows.filter((x) => x.folder === r.folder && x.reqLabel === r.reqLabel)
-                      heads.push(
-                        <tr key={`r-${r.folder}-${r.reqLabel}`} className="grp-r">
-                          <td />
-                          <td colSpan={8}>
-                            <span className="reqid">◈ {r.reqLabel || '(REQ 없음)'}</span>{' '}
-                            {!!r.reqTitle && <span className="cu-m">{r.reqTitle} · </span>}
-                            <span className="cu-m">TC {rin.length}건</span>
-                          </td>
-                        </tr>,
-                      )
-                    }
-                    const st = failStat.get(r.tcid)
-                    return (
-                      <React.Fragment key={r.tcid}>
-                        {heads}
-                        <tr className={tickedIt.has(r.tcid) ? 'picked' : ''} onClick={() => goto('tc', r.tcid)} title="REQ-Coverage 에서 엽니다">
-                          <td style={{ width: 30 }} onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={tickedIt.has(r.tcid)}
-                              onChange={(e) => {
-                                const n = new Set(tickedIt)
-                                if (e.target.checked) n.add(r.tcid)
-                                else n.delete(r.tcid)
-                                setTickedIt(n)
-                              }}
-                            />
-                          </td>
-                          <td className="idcell cu-mono">{r.tcid}</td>
-                          <td>{r.title || <span className="cu-m">(이름 없음)</span>}</td>
-                          <td className="cu-mono">{r.mg || '—'}</td>
-                          <td>{r.model || '—'}</td>
-                          <td>
-                            <span className="cu-m">{r.type || '—'}</span>
-                          </td>
-                          <td>
-                            <span className={`badge ${r.man ? 'b-wait' : 'b-auto'}`}>
-                              {r.man ? '✎ 수동' : '▶ 자동'}
-                            </span>
-                          </td>
-                          <td>
-                            {!st || !st.ran ? (
-                              <span className="cu-m">—</span>
-                            ) : !st.fail ? (
-                              <span className="cu-m">{st.ran}회 중 0</span>
-                            ) : (
-                              <>
-                                <span className="badge b-fail">{st.fail}회</span>
-                                <span className="cu-m"> / {st.ran}</span>
-                                {st.fail >= 2 && (
-                                  <span className="flag" title="돌릴 때마다 깨집니다"> 반복</span>
-                                )}
-                              </>
-                            )}
-                          </td>
-                          <td style={{ width: 40 }} onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              className="cu-nbtn del always"
-                              title="사이클에서 제거"
-                              onClick={() => void dropItems([r.tcid])}
-                            >
-                              ✕
-                            </button>
-                          </td>
-                        </tr>
-                      </React.Fragment>
-                    )
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={9}>
-                      <div className="cu-empty">
-                        <strong>{fullQ.isLoading ? '불러오는 중…' : '담긴 시험 항목이 없습니다'}</strong>
-                        <span>
-                          위 <b>＋ 항목 담기</b> 로 REQ-Coverage 에서 담으세요.
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          }
+          perPage={100}
+        />
       </div>
     )
   }

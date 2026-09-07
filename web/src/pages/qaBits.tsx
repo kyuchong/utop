@@ -5,11 +5,13 @@
  * 판정 막대·도넛·집계는 여기 한 벌만 둔다. 판정 글자(p/f/b/n)는 실행
  * 화면(RunDetail)과 같은 말이다: b 는 「기타」 지 미실행이 아니다.
  */
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { buildCategoryTree, reqPk } from '@/types'
 import type { CategoryTreeNode } from '@/types'
+import type { NCol } from '@/components/ntable/types'
 
 /** 실행 목록 한 줄 — 목록 API 가 집계까지 함께 준다(큰 결과는 안 읽는다) */
 export interface RunLite {
@@ -165,6 +167,53 @@ export function orderTcIds(
     const kb = keyOf(b)
     return cmp(ka.f, kb.f) || cmp(ka.r, kb.r) || cmp(a, b)
   })
+}
+
+/**
+ * 노션 표의 열 상태 — 폭·숨김·차례를 계정에 기억한다(utop.ntb.* 는 동기 목록).
+ *
+ * 열의 **정의**(이름·타입·선택지)는 코드가 정본이다 — 저장본에는 폭·숨김·
+ * 차례만 남긴다. 정의까지 저장하면 코드에서 열을 고쳐도 옛 저장본이 이긴다.
+ */
+export function useNCols(prefKey: string, defs: NCol[]): [NCol[], (c: NCol[]) => void] {
+  const [cols, setColsRaw] = useState<NCol[]>(() => {
+    try {
+      const saved = JSON.parse(prefGet(prefKey) ?? '') as {
+        order?: string[]
+        w?: Record<string, number>
+        hid?: string[]
+      }
+      const hid = new Set(saved.hid ?? [])
+      const byKey = new Map(defs.map((c) => [c.key, c]))
+      const ordered = [
+        ...(saved.order ?? []).map((k) => byKey.get(k)).filter((c): c is NCol => !!c),
+        ...defs.filter((c) => !(saved.order ?? []).includes(c.key)),
+      ]
+      return ordered.map((c) => ({
+        ...c,
+        width: saved.w?.[c.key] ?? c.width,
+        hidden: hid.has(c.key) ? true : c.hidden,
+      }))
+    } catch {
+      return defs
+    }
+  })
+  const setCols = (next: NCol[]) => {
+    setColsRaw(next)
+    try {
+      prefSet(
+        prefKey,
+        JSON.stringify({
+          order: next.map((c) => c.key),
+          w: Object.fromEntries(next.filter((c) => c.width).map((c) => [c.key, c.width])),
+          hid: next.filter((c) => c.hidden).map((c) => c.key),
+        }),
+      )
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }
+  return [cols, setCols]
 }
 
 /** 담당 고르개 후보 — 지라에서 온 계정까지, 퇴사자는 뺀 이름 목록 */
