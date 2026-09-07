@@ -148,7 +148,8 @@ export function PeoplePick({
       </span>
       <span className="sp" />
       {r.org ? <span className="org">{r.org}</span> : null}
-      {(r.kind === 'person' && !!value && r.name === value) ||
+      {/* ✓ 는 한 곳만 — 담당=나면 「나에게」 줄이 맡는다(고정 줄이 없는 검색 중엔 사람 줄이) */}
+      {(r.kind === 'person' && !!value && r.name === value && (value !== me || pinN === 0)) ||
       (r.kind === 'me' && value === me && !!value) ||
       (r.kind === 'clear' && !value) ? (
         <span className="chk">✓</span>
