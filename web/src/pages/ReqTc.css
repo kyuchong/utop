@@ -86,11 +86,21 @@
 .rqtc-foldb svg { width: 16px; height: 16px; }
 .rqtc-foldb:hover { background: var(--c-primary); border-color: transparent; color: #fff; }
 /* 2행 — ＋ New Folder 와 정렬·더보기(지시·사진) */
+/* 1행 — 판 이름 + 손잡이(지시). 위키의 Knowledge 줄과 한 꼴. */
+.rqtc-sidehd {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 2px 12px;
+  font-size: var(--fs-md);
+}
+.rqtc-sidehd > b { font-weight: 700; letter-spacing: 0.2px; }
+.rqtc-sidehd .sp { flex: 1; }
 .rqtc-newf {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px;
+  padding: 4px 8px 8px;
   /* 가로 구분선을 뺐다(지시) — 아래 찾기 칸이 이미 줄을 가르고, 선이
      겹치면 판이 층층이 잘려 보인다. */
 }

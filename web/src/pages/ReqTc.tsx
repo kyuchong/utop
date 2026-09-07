@@ -2002,29 +2002,12 @@ export default function ReqTc({ me }: Props) {
       >
         {!foldSide && (
           <aside className="panel rqtc-side">
-            {/* 판 이름 줄을 뺐다(지시) — 왼쪽 메뉴의 REQ-Coverage 가 이미
-                무엇인지 말한다. 줄 하나가 통째로 트리 몫이 된다. */}
-            {/* 2행 — 만들기와 손잡이들. 사진처럼 만들기가 왼쪽을 채우고
-                정렬·더보기가 오른쪽 끝에 붙는다. */}
-            <div className="rqtc-newf">
-              {/* 「＋ New Folder」 를 뺐다(지시) — 폴더는 그 폴더의 ⋯ 에서
-                  「Add subfolder」 로 만든다. 어디에 만드는지가 그 자리에
-                  보여야 한다. */}
-              {/* 남는 여백(sp)도 함께 걷는다 — 그 단추가 있던 자리가 그대로
-                  빈칸으로 남아, 찾기 칸이 오른쪽 끝에 쪼그라들어 있었다(지적). */}
-              {/* 찾기 — 정렬 **왼쪽**(지시). 무엇을 볼지 좁히는 일이라
-                  차례 정하기보다 앞에 온다. */}
-              <span className="rqtc-sidefind">
-                <span className="rqtc-qico" aria-hidden="true">
-                  <IconSearch />
-                </span>
-                <input
-                  className="rqtc-q"
-                  value={treeQ}
-                  placeholder="폴더 찾기"
-                  onChange={(e) => setTreeQ(e.target.value)}
-                />
-              </span>
+            {/* 1행 — **판 이름 + 손잡이**(지시). 위키의 Knowledge 줄과 한
+                꼴이다: 제목이 서고, 정렬·⋯·전역 파라미터가 오른쪽 끝에
+                붙는다. 찾기는 아랫줄이 통째로 갖는다. */}
+            <div className="rqtc-sidehd">
+              <b>REQ-COVERAGE</b>
+              <span className="sp" />
               <FolderSortBtn value={fsort} onChange={setFsort} />
               {/* ⋯ — 여태 아무 일도 안 하는 단추였다(지적). 트리에 무엇까지
                   낼지를 여기서 고른다. 2열 ⋯ 와 같은 색·같은 꼴이다. */}
@@ -2079,8 +2062,22 @@ export default function ReqTc({ me }: Props) {
                 <IconParam />
               </button>
             </div>
-            {/* 3행 — 찾기. 여닫는 단추를 두면 한 번 더 눌러야 하고, 접혀
-                있으면 걸러 볼 수 있다는 걸 모른다. 늘 보인다(사진). */}
+            {/* 2행 — **폴더 찾기**가 한 줄을 통째로 갖는다(지시). 여닫는
+                단추를 두면 한 번 더 눌러야 하고, 접혀 있으면 걸러 볼 수
+                있다는 걸 모른다. 늘 보인다. */}
+            <div className="rqtc-newf">
+              <span className="rqtc-sidefind">
+                <span className="rqtc-qico" aria-hidden="true">
+                  <IconSearch />
+                </span>
+                <input
+                  className="rqtc-q"
+                  value={treeQ}
+                  placeholder="폴더 찾기"
+                  onChange={(e) => setTreeQ(e.target.value)}
+                />
+              </span>
+            </div>
 
             <div className="rqtc-tree">
               {/* 「전체」 에 떨어뜨리면 **맨 위로** 나온다 — 프로젝트 층이다.
