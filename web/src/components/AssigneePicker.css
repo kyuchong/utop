@@ -1,49 +1,58 @@
 /* 담당 고르개 — 공용(assp- 접두어, 겹침 금지 규칙).
-   조직도 꼴(지시): 왼쪽 조직 클릭 → 오른쪽 사람 클릭, 두 번이면 끝. */
+   구역은 둘: 민무늬 검색줄, 그 아래 조직 레일 | 사람 목록.
+   안쪽 요소는 자기 테두리·배경 박스를 갖지 않는다 — 실금 두 줄이 전부다. */
 .assp-ovl { position: fixed; inset: 0; z-index: 55; }
 .assp {
-  position: fixed; z-index: 60; width: 380px; max-height: 388px;
-  display: flex; flex-direction: column;
+  position: fixed; z-index: 60; width: 380px; height: 388px;
+  display: flex; flex-direction: column; overflow: hidden;
   background: var(--c-surface, #fff); border: 1px solid var(--c-border, #dfe5ea);
-  border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14); padding: 8px;
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
 }
-.assp-quick { display: flex; gap: 6px; margin-bottom: 6px; }
-.assp-mebtn, .assp-clearbtn {
-  border: 1px solid var(--c-border, #dfe5ea); background: var(--c-surface-alt, #f4f7f9);
-  border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer;
+.assp-q {
+  flex: none; height: 34px; border: 0; background: none; outline: none;
+  padding: 0 12px; font: inherit; font-size: 12.5px;
+  border-bottom: 1px solid var(--c-border-soft, #eef1f4); border-radius: 0;
 }
-.assp-mebtn { color: #0e7490; font-weight: 700; flex: 1; text-align: left; }
-.assp-mebtn:hover, .assp-clearbtn:hover { background: #dbeef5; }
-.assp-clearbtn { color: var(--c-text-faint, #8a99a3); }
-.assp > input {
-  border: 1px solid var(--c-border, #dfe5ea); border-radius: 6px;
-  padding: 5px 8px; font: inherit; font-size: 12.5px; margin-bottom: 6px;
-}
-.assp-body { display: flex; gap: 6px; min-height: 0; flex: 1; }
+.assp-q::placeholder { color: var(--c-text-faint, #9aa4ad); }
+.assp-body { display: flex; flex: 1; min-height: 0; }
+
+/* 조직 레일 — 최근 · 실금 · 가나다순(기타 맨 아래), 인원수는 민무늬 숫자 */
 .assp-orgs {
-  width: 132px; flex: none; overflow-y: auto; min-height: 0;
-  border-right: 1px solid var(--c-border-soft, #eef2f5); padding-right: 6px;
-  display: flex; flex-direction: column; gap: 2px;
+  width: 132px; flex: none; overflow-y: auto; padding: 4px 0 6px;
+  border-right: 1px solid var(--c-border-soft, #eef1f4);
 }
 .assp-orgs.dim { opacity: 0.45; }
 .assp-org {
-  display: flex; align-items: center; gap: 4px; width: 100%; text-align: left;
-  border: 0; background: none; padding: 5px 8px; border-radius: 6px;
-  cursor: pointer; font: inherit; font-size: 12px; color: inherit;
+  display: flex; align-items: center; gap: 4px; width: 100%; height: 26px;
+  border: 0; background: none; padding: 0 10px; border-radius: 0;
+  cursor: pointer; font: inherit; font-size: 12px; color: inherit; text-align: left;
 }
-.assp-org .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.assp-org .cnt { font-size: 10.5px; color: var(--c-text-faint, #8a99a3); }
+.assp-org .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assp-org .cnt { font-size: 11px; color: var(--c-text-faint, #9aa4ad); }
 .assp-org:hover { background: var(--c-surface-alt, #f4f7f9); }
-.assp-org.on { background: #dbeef5; font-weight: 700; }
-.assp-hdr {
-  font-size: 11px; font-weight: 700; color: var(--c-text-soft, #5b6875); padding: 6px;
+.assp-org.on { background: var(--c-primary-bg, #e9f1ff); font-weight: 500; }
+.assp-hr { border-top: 1px solid var(--c-border-soft, #eef1f4); margin: 4px 10px; }
+
+/* 사람 목록 — 맨 위 고정 줄(나에게·비움)은 ↑↓ 순회에도 들어간다 */
+.assp-list { flex: 1; min-width: 0; overflow-y: auto; padding-bottom: 6px; }
+.assp-pins {
+  position: sticky; top: 0; z-index: 1; background: var(--c-surface, #fff);
+  border-bottom: 1px solid var(--c-border-soft, #eef1f4); padding: 4px 0;
+  margin-bottom: 4px;
 }
-.assp-list { flex: 1; overflow-y: auto; min-height: 0; }
 .assp-opt {
-  display: flex; width: 100%; text-align: left; align-items: center; gap: 6px;
-  border: 0; background: none; padding: 5px 8px; border-radius: 6px;
-  cursor: pointer; font: inherit; font-size: 12.5px; color: inherit;
+  display: flex; align-items: center; gap: 6px; width: 100%; height: 26px;
+  border: 0; background: none; padding: 0 10px; border-radius: 0;
+  cursor: pointer; font: inherit; font-size: 12.5px; color: inherit; text-align: left;
 }
+.assp-opt .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assp-opt .sp { flex: 1; }
+.assp-opt.pin { color: #2f6fb5; }
+.assp-opt:hover { background: var(--c-surface-alt, #f4f7f9); }
 .assp-opt.on { background: #dbeef5; }
-.assp-opt.cur { font-weight: 700; }
-.assp-opt .org { margin-left: auto; font-size: 11px; color: var(--c-text-faint, #8a99a3); }
+.assp-opt .org {
+  font-size: 11px; color: var(--c-text-faint, #9aa4ad);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.assp-opt .chk { color: #2f6fb5; font-size: 12px; }
+.assp-mt { font-size: 11px; color: var(--c-text-faint, #9aa4ad); text-align: center; padding: 14px 8px; }

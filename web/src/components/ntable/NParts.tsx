@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { autoColor, paintOfAny } from './palette'
 import { ICON_SETS } from './emoji'
 import { PALETTE as FULL } from '@/components/settings/ColorPick'
+import { PeoplePick } from '@/components/AssigneePicker'
 import { multiJoin, multiVals, type NCol, type NOption, type NPerson, type NType } from './types'
 import {
   IcCheck, IcCopy, IcDate, IcFilter, IcGroup, IcHide, IcLeft, IcNumber, IcPerson,
@@ -359,7 +360,8 @@ function IconPick({ cur, onPick }: { cur: string; onPick: (e: string) => void })
   )
 }
 
-/* ── 사람 셀 — 조직 클릭 → 사람 클릭 ── */
+/* ── 사람 셀 — 담당 고르개 몸통(PeoplePick)을 그대로 쓴다.
+   여기서 따로 그리면 두 고르개가 갈라진다 — 모습·검색·키보드 전부 한 벌. ── */
 export function PersonEditor({
   people, value, at, me, onPick, onClose,
 }: {
@@ -370,74 +372,15 @@ export function PersonEditor({
   onPick: (v: string) => void
   onClose: () => void
 }) {
-  const [q, setQ] = useState('')
-  const orgs = useMemo(() => {
-    const m = new Map<string, string[]>()
-    for (const u of people) {
-      const k = u.org || '기타'
-      m.set(k, [...(m.get(k) ?? []), u.name])
-    }
-    return [...m.entries()].sort((a, b) =>
-      a[0] === '기타' ? 1 : b[0] === '기타' ? -1 : a[0].localeCompare(b[0], 'ko'),
-    )
-  }, [people])
-  const [org, setOrg] = useState(() => people.find((u) => u.name === value)?.org || orgs[0]?.[0] || '')
-  const nq = q.trim().normalize('NFC').toLowerCase()
-  const list = nq
-    ? people.filter((u) => `${u.name} ${u.org}`.normalize('NFC').toLowerCase().includes(nq))
-    : people.filter((u) => (u.org || '기타') === org).map((u) => ({ name: u.name, org: '' }))
-
   return (
-    <Pop at={at} w={296} onClose={onClose}>
-      <div className="ntb-quick">
-        {me && (
-          <button type="button" className="ntb-me" onClick={() => { onPick(me); onClose() }}>
-            나에게 ({me})
-          </button>
-        )}
-        <button type="button" className="ntb-clear" onClick={() => { onPick(''); onClose() }}>– 비움</button>
-      </div>
-      <input
-        className="ntb-inp"
-        autoFocus
-        placeholder="이름 · 조직으로 찾기"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-      />
-      <div className="ntb-two">
-        <div className="ntb-orgs">
-          <div className="ntb-sec">조직</div>
-          {orgs.map(([o, names]) => (
-            <button
-              type="button"
-              key={o}
-              className={`ntb-org${o === org && !nq ? ' on' : ''}`}
-              onClick={() => { setQ(''); setOrg(o) }}
-            >
-              <span className="nm">{o}</span>
-              <span className="cnt">{names.length}</span>
-            </button>
-          ))}
-        </div>
-        <div className="ntb-list">
-          <div className="ntb-sec">사람</div>
-          {list.map((u, i) => (
-            <button
-              type="button"
-              key={`${u.name}-${i}`}
-              className="ntb-opt"
-              onClick={() => { onPick(u.name); onClose() }}
-            >
-              <span className="ntb-av">{u.name.slice(0, 1)}</span>
-              {u.name}
-              {u.org && <span className="ntb-sub">{u.org}</span>}
-              {u.name === value && <IcCheck className="ntb-chk" />}
-            </button>
-          ))}
-          {!list.length && <div className="ntb-sec">맞는 사람이 없습니다</div>}
-        </div>
-      </div>
-    </Pop>
+    <PeoplePick
+      at={at}
+      people={people}
+      value={value}
+      me={me}
+      onPick={onPick}
+      onClose={onClose}
+    />
   )
 }
 
