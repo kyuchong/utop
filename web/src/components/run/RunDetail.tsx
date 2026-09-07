@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isManual } from '@/lib/runMode'
+import { LETTER_VERD, useVerdicts, vLetter } from '@/lib/verdicts'
 import type { CycleMeta, CycleStep } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
 import RunAuto from './RunAuto'
@@ -28,7 +29,7 @@ export interface RunFull {
   owner?: string | null
   closed_at?: string | null
   rerun_of?: string | null
-  results?: Record<string, Verdict>
+  results?: Record<string, string>
   binds?: Record<string, string>
   logs?: Record<
     string,
@@ -285,7 +286,15 @@ export default function RunDetail({
   })
 
   const run = runQ.data
-  const results = useMemo(() => run?.results ?? {}, [run])
+  const verds = useVerdicts()
+  /** 실행 기록 원본 — 셋업 판정 값 그대로. 저장은 반드시 이 위에 얹는다 */
+  const rawResults = useMemo(() => run?.results ?? {}, [run])
+  /** 실행기 내부용 네 글자 — 계열 통역(옛 글자도 알아듣는다) */
+  const results = useMemo(() => {
+    const out: Record<string, Verdict> = {}
+    for (const [k, v] of Object.entries(rawResults)) out[k] = vLetter(verds, String(v ?? ''))
+    return out
+  }, [rawResults, verds])
   /** 실행기 일감 — 돌고 있으면 2초마다 다시 묻는다.
       다 돌면 서버가 결과를 이 실행으로 옮겨 적으므로, 그때 실행도 다시 읽는다. */
   const jobId = String(run?.job_id ?? '')
@@ -483,7 +492,9 @@ export default function RunDetail({
         : arr.filter((x) => x === 'p').length >= n
           ? 'p'
           : 'n'
-    await save({ pchk, pmeta, results: { ...results, [cid]: roll } })
+    /* 저장은 **판정 값**으로, 원본(rawResults) 위에 — 글자 지도를 통째로
+       저장하면 다른 항목의 값(커스텀 판정)까지 글자로 뭉개진다 */
+    await save({ pchk, pmeta, results: { ...rawResults, [cid]: LETTER_VERD[roll] ?? '' } })
   }
 
   /* 도는 동안에는 **실행기를 따라간다.** 안 그러면 CLI 판은 첫 스텝에

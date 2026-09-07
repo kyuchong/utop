@@ -12343,32 +12343,40 @@ async def api_plan_run_regression(plan_id: str, a: str = "", b: str = ""):
     B = b if b in versions else versions[0]
     A = a if (a in versions and a != B) else next(v for v in versions if v != B)
 
+    groups = await db.verdict_groups()
+
+    def _grp(v: str) -> str:
+        vv = {"p": "Pass", "f": "Fail", "b": "Blocked", "n": ""}.get(str(v), str(v))
+        return "none" if not vv else groups.get(vv, "neutral")
+
     async def status_map(ver: str) -> dict:
         out = {}
-        rank = {"f": 3, "b": 2, "n": 1, "p": 0}
+        rank = {"fail": 3, "neutral": 2, "none": 1, "pass": 0}
         for r in runs:
             if str(r.get("version") or "") != ver:
                 continue
             full = await db.plan_run_get(r["id"])
             for k, v in (full or {}).get("results", {}).items():
-                if rank.get(v, 0) >= rank.get(out.get(k, "p"), 0):
+                if rank.get(_grp(v), 0) >= rank.get(_grp(out.get(k, "p")), 0):
                     out[k] = v
         return out
 
     ma, mb = await status_map(A), await status_map(B)
     changed, same = [], 0
-    bad = ("f", "b")
+    bad = ("fail", "neutral")
     for k in set(ma) | set(mb):
         x, y = ma.get(k), mb.get(k)
         if y is None:
             continue
-        if y == "n":
+        gx = _grp(x) if x is not None else None
+        gy = _grp(y)
+        if gy == "none":
             kind = "gone"
-        elif x == "p" and y in bad:
+        elif gx == "pass" and gy in bad:
             kind = "broke"
-        elif x in bad and y == "p":
+        elif gx in bad and gy == "pass":
             kind = "fixed"
-        elif x in bad and y in bad:
+        elif gx in bad and gy in bad:
             kind = "still"
         else:
             same += 1
@@ -12449,7 +12457,7 @@ async def api_plan_run_new(payload: dict):
         for it in (plan.get("items") or []):
             k = str((it or {}).get("tcid") or "").strip()
             if k:
-                results[k] = "n"
+                results[k] = ""
     if plan and not order:
         for it in (plan.get("items") or []):
             k = str((it or {}).get("tcid") or "").strip()
@@ -13569,6 +13577,14 @@ async def _db_init():
         if _pn: print(f"[startup] 사이클 ID {_pn}건을 P → C 로 이전", flush=True)
     except Exception as e:
         print(f"[startup] cycle rekey failed: {e}", flush=True)
+
+    # 실행 판정을 네 글자(p/f/b/n)에서 셋업 판정 값으로(승인: b→Blocked).
+    # 기동 때 옮겨 두면 253 도 update.sh 만으로 같아진다 — 멱등.
+    try:
+        _vn = await db.plan_run_verdicts_full()
+        if _vn: print(f"[startup] 실행 판정 {_vn}건을 셋업 값으로 이전", flush=True)
+    except Exception as e:
+        print(f"[startup] plan_run verdicts failed: {e}", flush=True)
 
     # 실행 타입 「혼합」 은 뺐다(합의) — 기동 때 지워 두면 253 도
     # update.sh 만으로 같아진다. 없으면 그냥 지나간다(멱등).

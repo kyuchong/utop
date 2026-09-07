@@ -33,7 +33,8 @@ import CycleReport from '@/components/cycle/CycleReport'
 import type { CycleMeta } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
 import AssigneePicker from '@/components/AssigneePicker'
-import { Donut, StatBar, VERD, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserPeople, verdName } from '@/pages/qaBits'
+import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserPeople } from '@/pages/qaBits'
+import { useVerdicts, vDef, vLetter, vName } from '@/lib/verdicts'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
 import './RunsBoard.css'
@@ -80,7 +81,7 @@ export default function RunsBoard({
   /** 실행 본문 */
   const [sumOff, setSumOff] = useState(false)
   const [sumTab, setSumTab] = useState<'team' | 'info'>('team')
-  const [vf, setVf] = useState('')
+  const [vf, setVf] = useState<string | null>(null)
   /** 여러 줄 골라 한 번에 — 노션 표의 선택 바가 부른다 */
   const [bulkAt, setBulkAt] = useState<{ kind: 'assign' | 'status'; ids: string[] } | null>(null)
   /** 창들 */
@@ -145,6 +146,18 @@ export default function RunsBoard({
     },
   })
   const people = useUserPeople()
+  /** 실행 판정 기준 — 셋업(실행 판정 기준)이 정본(지시) */
+  const verds = useVerdicts()
+  /** 막대·도넛의 계열 대표 색 — 합격=Pass · 실패=Fail · 검증 불가=Blocked · 미실행 */
+  const verdPal = useMemo(
+    () => ({
+      p: vDef(verds, 'Pass').color,
+      f: vDef(verds, 'Fail').color,
+      b: vDef(verds, 'Blocked').color,
+      n: vDef(verds, '').color,
+    }),
+    [verds],
+  )
   /** 실행 담당 고르개(조직 클릭·이름 검색) — 세부 정보의 담당 칸이 연다 */
   const [ownAt, setOwnAt] = useState<{ x: number; y: number } | null>(null)
   const reqIndex = useReqIndex()
@@ -157,13 +170,8 @@ export default function RunsBoard({
     { key: 'folder', label: '폴더', type: 'text', width: 200 },
     { key: 'who', label: '할당 대상', type: 'person', width: 110 },
     {
-      key: 'result', label: '결과', type: 'select', width: 110,
-      options: [
-        { value: '통과', color: '#18864b', icon: '✓' },
-        { value: '실패', color: '#cc3333', icon: '✕' },
-        { value: '기타', color: '#a97800', icon: '⊘' },
-        { value: '미실행', color: '#8a949e', icon: '⛶' },
-      ],
+      /* 선택지는 셋업(실행 판정 기준)이 정본 — 그리기 직전에 끼운다(effRiCols) */
+      key: 'result', label: '결과', type: 'select', width: 110, options: [],
     },
   ]
   const [riCols, setRiCols] = useNCols('utop.ntb.runit.cols', RI_DEFS)
@@ -403,7 +411,7 @@ export default function RunsBoard({
           owner: p.assignee ?? meName,
           /* 방식은 안 굳힌다 — 섞여 있으면 서버가 비워 둔다(전체 항목) */
           items: ids.map((tcid) => ({ tcid })),
-          results: Object.fromEntries(ids.map((tcid) => [tcid, 'n'])),
+          results: Object.fromEntries(ids.map((tcid) => [tcid, ''])),
         }),
       })
       if (!r.ok) throw new Error('실행을 만들지 못했습니다')
@@ -617,10 +625,8 @@ export default function RunsBoard({
         title: String(meta?.name ?? ''),
         man: isManTc(tcid),
         folder: rq?.folder ?? '미분류',
-        /* 판정 글자는 p/f/b/n 넷뿐 — 모르는 값은 미실행으로 읽는다 */
-        v: (['p', 'f', 'b'].includes(String((runFull.results ?? {})[tcid] ?? ''))
-          ? String((runFull.results ?? {})[tcid])
-          : 'n'),
+        /* 셋업 판정 값 그대로 — 옛 네 글자(p/f/b/n)만 값으로 통역한다 */
+        v: vDef(verds, String((runFull.results ?? {})[tcid] ?? '')).v,
         who: String(asg[tcid] ?? ''),
       }
     })
@@ -629,13 +635,19 @@ export default function RunsBoard({
   }, [runFull, tcOf, reqIndex])
   const runTally = useMemo(() => {
     const t = { p: 0, f: 0, b: 0, n: 0, total: runItems.length, done: 0 }
-    for (const it of runItems) t[(it.v as 'p' | 'f' | 'b' | 'n') ?? 'n']++
+    for (const it of runItems) t[vLetter(verds, it.v)]++
     t.done = t.p + t.f + t.b
     return t
+  }, [runItems, verds])
+  /** 판정 값별 건수 — 요약 알약이 쓴다 */
+  const runByVerd = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const it of runItems) m.set(it.v, (m.get(it.v) ?? 0) + 1)
+    return m
   }, [runItems])
   /* 검색은 노션 표가 맡는다 — 여기서는 요약 알약의 판정 거르기만 */
   const shownItems = useMemo(
-    () => runItems.filter((it) => !vf || it.v === vf),
+    () => runItems.filter((it) => vf === null || it.v === vf),
     [runItems, vf],
   )
 
@@ -653,7 +665,7 @@ export default function RunsBoard({
   async function setVerdicts(tcids: string[], v: string) {
     if (!runFull || !tcids.length) return
     const results = { ...(runFull.results ?? {}) }
-    for (const id of tcids) results[id] = v as 'p' | 'f' | 'b' | 'n'
+    for (const id of tcids) results[id] = v
     await saveRun({ results })
   }
   async function dropItems(tcids: string[]) {
@@ -936,7 +948,7 @@ export default function RunsBoard({
                         <td className="cu-mono">{String(r.version ?? '') || '—'}</td>
                         <td>{String(r.owner ?? '') || '—'}</td>
                         <td className="cu-m">{String(r.created_at ?? '').slice(0, 10)}</td>
-                        <td><StatBar t={rt} /></td>
+                        <td><StatBar t={rt} pal={verdPal} /></td>
                         <td>
                           {r.closed_at ? (
                             <span className="badge b-wait">종료</span>
@@ -1148,10 +1160,10 @@ export default function RunsBoard({
             <button type="button" className="linkbtn" onClick={() => setSumOff(false)}>
               › 요약
             </button>
-            {!!vf && (
+            {vf !== null && (
               <span className="vfchip">
-                {verdName(vf)}만 보는 중
-                <button type="button" className="linkbtn" onClick={() => setVf('')}>전체</button>
+                {vName(verds, vf)}만 보는 중
+                <button type="button" className="linkbtn" onClick={() => setVf(null)}>전체</button>
               </span>
             )}
             <span className="cu-sp" />
@@ -1169,9 +1181,9 @@ export default function RunsBoard({
                 <Donut
                   big
                   parts={[
-                    { v: t.p, cls: 'p' },
-                    { v: t.f, cls: 'f' },
-                    { v: t.b, cls: 'b' },
+                    { v: t.p, cls: 'p', color: vDef(verds, 'Pass').color },
+                    { v: t.f, cls: 'f', color: vDef(verds, 'Fail').color },
+                    { v: t.b, cls: 'b', color: vDef(verds, 'Blocked').color },
                   ]}
                   total={t.total}
                   label={`${pct}%`}
@@ -1180,19 +1192,22 @@ export default function RunsBoard({
                 <div className="cu-m">{t.total} 개 중 {t.done} 완료됨</div>
               </div>
               <div className="sumrows">
-                {VERD.map((d) => {
-                  const nn = t[d.v]
+                {verds.map((d) => {
+                  const nn = runByVerd.get(d.v) ?? 0
                   const on = vf === d.v
                   return (
                     <button
-                      key={d.v}
+                      key={d.v || '(none)'}
                       type="button"
-                      className={`sumrow hit${on ? ' on' : vf ? ' dim' : ''}`}
+                      className={`sumrow hit${on ? ' on' : vf !== null ? ' dim' : ''}`}
                       title={`${d.label}만 보기${on ? ' (해제하려면 다시 누르세요)' : ''}`}
-                      onClick={() => setVf(on ? '' : d.v)}
+                      onClick={() => setVf(on ? null : d.v)}
                     >
-                      <span className={`vpill v-${d.cls}`}>
-                        {d.ico} {t.total ? Math.round((nn / t.total) * 100) : 0}%
+                      <span
+                        className={`vpill${d.v ? '' : ' v-n'}`}
+                        style={d.v ? { background: d.color, color: '#fff' } : undefined}
+                      >
+                        {t.total ? Math.round((nn / t.total) * 100) : 0}%
                       </span>
                       <b>{nn || '-'}</b>
                       <span className="cu-m">{d.label}</span>
@@ -1283,14 +1298,18 @@ export default function RunsBoard({
             드는 줄을 미리 거른다. */}
         <div className="rnb-ntb">
           <NTable
-            columns={riCols}
+            columns={riCols.map((c) =>
+              c.key === 'result'
+                ? { ...c, options: verds.map((d) => ({ value: d.label, color: d.color })) }
+                : c,
+            )}
             rows={shownItems.map((it) => ({
               __id: it.tcid,
               id: it.tcid,
               title: it.title || '(이름 없음)',
               folder: it.folder,
               who: it.who,
-              result: verdName(it.v),
+              result: vName(verds, it.v),
             }))}
             view={riView}
             onView={setRiView}
@@ -1300,7 +1319,7 @@ export default function RunsBoard({
             onCell={(id, key, v) => {
               if (key === 'who') void setWho([id], v)
               if (key === 'result') {
-                const d = VERD.find((x) => x.label === v)
+                const d = verds.find((x) => x.label === v)
                 if (d) void setVerdict(id, d.v)
               }
             }}
@@ -1465,9 +1484,9 @@ export default function RunsBoard({
           <span className="qa-moreovl" role="presentation" onClick={() => setBulkAt(null)} />
           <div className="qa-menu" role="menu" style={{ left: '50%', top: 160, transform: 'translateX(-50%)' }}>
             <div className="qa-menuh">고른 {bulkAt.ids.length}건의 결과</div>
-            {VERD.map((d) => (
-              <button key={d.v} type="button" role="menuitem" onClick={() => { setBulkAt(null); void setVerdicts(bulkAt.ids, d.v) }}>
-                {d.ico} {d.label}
+            {verds.map((d) => (
+              <button key={d.v || '(none)'} type="button" role="menuitem" onClick={() => { setBulkAt(null); void setVerdicts(bulkAt.ids, d.v) }}>
+                <i className="qa-dot" style={{ background: d.color }} /> {d.label}
               </button>
             ))}
           </div>

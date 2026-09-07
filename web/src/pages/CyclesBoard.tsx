@@ -32,6 +32,7 @@ import CycleInsight from '@/components/cycle/CycleInsight'
 import TestSummary from '@/components/cycle/TestSummary'
 import AssigneePicker from '@/components/AssigneePicker'
 import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserPeople } from '@/pages/qaBits'
+import { useVerdicts, vDef, vGroup } from '@/lib/verdicts'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
 import './CyclesBoard.css'
@@ -148,6 +149,17 @@ export default function CyclesBoard({
     },
   })
   const people = useUserPeople()
+  /** 실행 판정 기준 — 셋업이 정본. 막대 색·Test Summary 셈이 쓴다 */
+  const verds = useVerdicts()
+  const verdPal = useMemo(
+    () => ({
+      p: vDef(verds, 'Pass').color,
+      f: vDef(verds, 'Fail').color,
+      b: vDef(verds, 'Blocked').color,
+      n: vDef(verds, '').color,
+    }),
+    [verds],
+  )
   const reqIndex = useReqIndex()
   /** 담당자 고르개(조직 클릭·이름 검색) — 개요의 담당자 칸이 연다 */
   const [assAt, setAssAt] = useState<{ x: number; y: number } | null>(null)
@@ -402,10 +414,11 @@ export default function CyclesBoard({
     const m = new Map<string, { fail: number; ran: number }>()
     for (const qr of failQs) {
       for (const [tcid, v] of Object.entries(qr.data?.results ?? {})) {
-        if (v !== 'p' && v !== 'f' && v !== 'b') continue
+        const g = vGroup(verds, String(v ?? ''))
+        if (g === 'none') continue
         const s = m.get(tcid) ?? { fail: 0, ran: 0 }
         s.ran++
-        if (v === 'f') s.fail++
+        if (g === 'fail') s.fail++
         m.set(tcid, s)
       }
     }
@@ -422,7 +435,8 @@ export default function CyclesBoard({
     for (const r of asc) {
       const full2 = failQs[myRuns.findIndex((x) => x.id === r.id)]?.data
       for (const [tcid, v] of Object.entries(full2?.results ?? {})) {
-        if (v === 'p' || v === 'f' || v === 'b') got.set(tcid, { v, run: String(r.name || r.id) })
+        const g = vGroup(verds, String(v ?? ''))
+        if (g !== 'none') got.set(tcid, { v: g, run: String(r.name || r.id) })
       }
     }
     const stat = { total: itemRows.length, pass: 0, fail: 0, etc: 0, none: 0, rate: 0 }
@@ -430,8 +444,8 @@ export default function CyclesBoard({
     for (const it of itemRows) {
       const hit = got.get(it.tcid)
       if (!hit) stat.none++
-      else if (hit.v === 'p') stat.pass++
-      else if (hit.v === 'f') {
+      else if (hit.v === 'pass') stat.pass++
+      else if (hit.v === 'fail') {
         stat.fail++
         fails.push({ tcid: it.tcid, title: it.title, run: hit.run })
       } else stat.etc++
@@ -636,7 +650,7 @@ export default function CyclesBoard({
               if (col.key === 'stat') {
                 const rs = runsByPlan.get(String(row.__id)) ?? []
                 const t = sumRuns(rs)
-                return t.total ? <StatBar t={t} /> : <span className="cu-m">—</span>
+                return t.total ? <StatBar t={t} pal={verdPal} /> : <span className="cu-m">—</span>
               }
               if (col.key === 'runs' && !row.runs) return <span className="cu-m">—</span>
               if (col.key === 'last' && !row.last) return <span className="cu-m">—</span>
@@ -891,7 +905,7 @@ export default function CyclesBoard({
                       <td>{String(r.mode ?? '') || '—'}</td>
                       <td className="num">{r.n_total}</td>
                       <td>
-                        <StatBar t={t} />
+                        <StatBar t={t} pal={verdPal} />
                       </td>
                       <td>{String(r.owner ?? '') || '—'}</td>
                       <td className="cu-m">{String(r.created_at ?? '').slice(0, 10)}</td>

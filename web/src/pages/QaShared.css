@@ -388,4 +388,6 @@
 .qav .qa-menu button:hover { background: var(--c-surface-alt); color: var(--c-text); }
 .qav .qa-menu button.danger:hover { background: var(--tint-fail); color: var(--c-fail); }
 .qav .qa-menusep { border-top: 1px solid var(--c-border-soft); margin: var(--sp-1) 0; }
+/* 판정 메뉴의 색점 — 셋업 색을 그대로 */
+.qav .qa-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 2px; vertical-align: -1px; }
 .qav .qa-menuh { padding: 2px 8px 4px; font-size: var(--fs-xs); color: var(--c-text-faint); }

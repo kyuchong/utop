@@ -590,12 +590,60 @@ async def cycle_list_meta() -> list[dict]:
 # 같은 까닭이다(그때 목록이 20MB 를 끌어 화면이 멎었다).
 # ══════════════════════════════════════════════════════════════════════
 _RUN_COUNTS = """
-  COALESCE((SELECT count(*) FROM jsonb_each_text(data->'results')), 0)                    AS n_total,
-  COALESCE((SELECT count(*) FROM jsonb_each_text(data->'results') WHERE value='p'), 0)    AS n_pass,
-  COALESCE((SELECT count(*) FROM jsonb_each_text(data->'results') WHERE value='f'), 0)    AS n_fail,
-  COALESCE((SELECT count(*) FROM jsonb_each_text(data->'results') WHERE value='b'), 0)    AS n_etc,
-  COALESCE((SELECT count(*) FROM jsonb_each_text(data->'results') WHERE value='n'), 0)    AS n_none
+  (SELECT jsonb_object_agg(t.value, t.cnt)
+     FROM (SELECT value, count(*) AS cnt
+             FROM jsonb_each_text(data->'results') GROUP BY value) t) AS res_hist
 """
+
+
+# 옛 네 글자 → 판정 값. 이행기의 남은 글자도 셈이 알아듣는다
+_LETTER_VERD = {"p": "Pass", "f": "Fail", "b": "Blocked", "n": ""}
+
+
+async def verdict_groups() -> dict:
+    """판정 값 → 계열(pass·fail·neutral). 셋업(실행 판정 기준)이 정본이다.
+
+    기본 여섯은 코드에 박고, 저장된 코드(kind=cycle_result)의 note.group 이
+    커스텀 판정을 더한다 — 모르는 값은 neutral 로 센다."""
+    groups = {"Pass": "pass", "Fail": "fail", "WIP": "neutral",
+              "Blocked": "neutral", "진행불가": "neutral", "": "none"}
+    try:
+        for it in await code_list("cycle_result"):
+            v = str(it.get("value") or "").strip()
+            if not v or v in groups:
+                continue  # 기본 여섯의 계열은 판정 규칙이 물고 있다
+            try:
+                g = str((json.loads(it.get("note") or "{}") or {}).get("group") or "")
+            except Exception:  # noqa: BLE001
+                g = ""
+            groups[v] = g if g in ("pass", "fail") else "neutral"
+    except Exception:  # noqa: BLE001
+        pass  # 코드 표가 없어도 기본 여섯으로 센다
+    return groups
+
+
+def _fold_hist(hist, groups: dict) -> dict:
+    """값 히스토그램 → n_* 네 칸. 옛 글자(p/f/b/n)도 값으로 통역해 센다."""
+    if isinstance(hist, str):
+        try:
+            hist = json.loads(hist)
+        except Exception:  # noqa: BLE001
+            hist = {}
+    out = {"n_total": 0, "n_pass": 0, "n_fail": 0, "n_etc": 0, "n_none": 0}
+    for raw, cnt in (hist or {}).items():
+        v = _LETTER_VERD.get(str(raw), str(raw))
+        n = int(cnt or 0)
+        out["n_total"] += n
+        g = groups.get(v, "neutral") if v else "none"
+        if g == "pass":
+            out["n_pass"] += n
+        elif g == "fail":
+            out["n_fail"] += n
+        elif g == "none":
+            out["n_none"] += n
+        else:
+            out["n_etc"] += n
+    return out
 
 
 def _plan_run_row(r: dict) -> dict:
@@ -630,9 +678,15 @@ async def plan_run_list(plan_id: str = "", with_closed: bool = True) -> list[dic
         {'WHERE ' + ' AND '.join(where) if where else ''}
         ORDER BY updated_at DESC
     """
+    groups = await verdict_groups()
     async with pool().acquire() as c:
         rows = await c.fetch(sql, *args)
-        return [_plan_run_row(r) for r in rows]
+        out = []
+        for r in rows:
+            d = _plan_run_row(r)
+            d.update(_fold_hist(d.pop("res_hist", None), groups))
+            out.append(d)
+        return out
 
 
 async def plan_run_get(rid: str) -> Optional[dict]:
@@ -2019,9 +2073,6 @@ async def run_create(run_id: str, cycle_id: str, cycle_name: str, picked: list, 
 
 
 # 항목 판정(글자) → 실행 기록의 한 글자. 화면과 같은 말을 써야 한다.
-_VERDICT_LETTER = {"pass": "p", "fail": "f", "": "n"}
-
-
 async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
     """플랜에 쌓인 결과를 **실행 기록으로 옮겨 적는다.**
 
@@ -2068,15 +2119,16 @@ async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
             for s2 in steps
             if isinstance(s2, dict)
         ]
-        v = item_verdict(it, norm)
-        letter = _VERDICT_LETTER.get(str(v).strip().lower(), "b" if str(v).strip() else "n")
+        # 판정 **값 그대로** 적는다(지시: 셋업의 판정 기준 반영) — 옛날엔
+        # p/f/b/n 넷으로 뭉개 WIP·Blocked·진행불가가 「기타」 하나가 됐다.
+        v = str(item_verdict(it, norm)).strip()
         # 안 돈 항목을 「미실행」 으로 되돌리지 않는다 — 사람이 손으로 남긴
         # 결과가 있을 수 있다. 실제로 무언가 나온 것만 덮는다.
-        if letter == "n" and not steps:
+        if not v and not steps:
             continue
-        if letter == "n" and steps:
+        if not v and steps:
             # 돌긴 돌았다 — 판정이 안 나오는 것과 안 돌린 것은 다르다
-            letter = "b"
+            v = "Blocked"
         fresh = {
             "steps": [s for s in steps if isinstance(s, dict)],
             "at": str(it.get("executed_at") or ""),
@@ -2094,7 +2146,7 @@ async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
                 past.append({"steps": prev["steps"], "at": prev.get("at", ""), "by": prev.get("by", "")})
         fresh["past"] = past[-2:]
 
-        results[tcid] = letter
+        results[tcid] = v
         logs[tcid] = fresh
         touched += 1
 
@@ -2103,6 +2155,30 @@ async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
     merged = {**pr, "results": results, "logs": logs}
     await plan_run_upsert(plan_run_id, merged)
     return merged
+
+
+async def plan_run_verdicts_full() -> int:
+    """실행 기록의 판정을 네 글자(p/f/b/n)에서 **셋업 판정 값**으로 옮긴다.
+
+    p→Pass · f→Fail · b→Blocked(승인) · n→''(미실행). 값은 손대지 않으므로
+    두 번 돌면 옮길 것이 없다 — 멱등. 판정 값 자체가 p/f/b/n 인 커스텀은
+    없음을 확인하고 정했다."""
+    async with pool().acquire() as c:
+        n = await c.execute("""
+            UPDATE plan_run SET data = jsonb_set(data, '{results}', (
+              SELECT COALESCE(jsonb_object_agg(e.key, to_jsonb(
+                CASE e.value WHEN 'p' THEN 'Pass' WHEN 'f' THEN 'Fail'
+                             WHEN 'b' THEN 'Blocked' WHEN 'n' THEN ''
+                             ELSE e.value END)), '{}'::jsonb)
+              FROM jsonb_each_text(data->'results') e))
+            WHERE data ? 'results'
+              AND EXISTS (SELECT 1 FROM jsonb_each_text(data->'results')
+                          WHERE value IN ('p','f','b','n'))
+        """)
+        try:
+            return int(str(n).split()[-1])
+        except Exception:  # noqa: BLE001
+            return 0
 
 
 async def run_get(run_id: str) -> Optional[dict]:

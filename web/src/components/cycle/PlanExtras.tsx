@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import { useVerdicts, vLetter, vName } from '@/lib/verdicts'
 import type { CycleMeta } from '@/pages/Cycles'
 import './PlanExtras.css'
 
@@ -43,9 +44,10 @@ const KINDS: Record<string, { label: string; tone: string }> = {
   fixed: { label: '고쳐짐', tone: 'p' },
   gone: { label: '아직 안 돌림', tone: 'n' },
 }
-const RESN: Record<string, string> = { p: 'Pass', f: 'Fail', b: '기타', n: '미실행' }
+/* 판정 이름·색갈래는 셋업(실행 판정 기준)이 정본 — 옛 글자도 통역된다 */
 
 export default function PlanExtras({ plan, onOpenRun }: { plan: CycleMeta; onOpenRun?: (id: string) => void }) {
+  const verds = useVerdicts()
   const [cmp, setCmp] = useState<{ a: string; b: string }>({ a: '', b: '' })
 
   const runsQ = useQuery({
@@ -223,9 +225,9 @@ export default function PlanExtras({ plan, onOpenRun }: { plan: CycleMeta; onOpe
                     {arr.map((x) => (
                       <div className="pe-crow" key={x.tcid}>
                         <span className="pe-key">{x.tcid}</span>
-                        <span className={`pe-res ${x.a ?? 'n'}`}>{RESN[x.a ?? 'n']}</span>
+                        <span className={`pe-res ${vLetter(verds, x.a ?? '')}`}>{vName(verds, x.a ?? '')}</span>
                         <span className="pe-arrow">→</span>
-                        <span className={`pe-res ${x.b ?? 'n'}`}>{RESN[x.b ?? 'n']}</span>
+                        <span className={`pe-res ${vLetter(verds, x.b ?? '')}`}>{vName(verds, x.b ?? '')}</span>
                       </div>
                     ))}
                   </div>

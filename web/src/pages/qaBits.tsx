@@ -57,29 +57,25 @@ export function sumRuns(rs: RunLite[]) {
 }
 export type Tally = ReturnType<typeof sumRuns>
 
-/** 판정 한 글자 → 사람 말. 실행 화면(RunAuto)과 같은 말이라야 한다 */
-export const VERD: Array<{ v: 'p' | 'f' | 'b' | 'n'; label: string; ico: string; cls: string }> = [
-  { v: 'p', label: '통과', ico: '✓', cls: 'p' },
-  { v: 'f', label: '실패', ico: '✕', cls: 'f' },
-  { v: 'b', label: '기타', ico: '⊘', cls: 'b' },
-  { v: 'n', label: '미실행', ico: '⛶', cls: 'n' },
-]
-export const verdName = (v: string) => VERD.find((d) => d.v === v)?.label ?? '미실행'
-
-/** 판정 현황 막대 — 색 구간에 건수를 얹는다 */
-export function StatBar({ t }: { t: Tally }) {
+/** 판정 현황 막대 — 색 구간에 건수를 얹는다. pal 은 셋업 판정 색(계열 대표) */
+export function StatBar({ t, pal }: { t: Tally; pal?: Record<string, string> }) {
   if (!t.total) return <span className="cu-m">—</span>
   const parts: Array<[number, string, string]> = [
-    [t.pass, 'p', '통과'],
+    [t.pass, 'p', '합격'],
     [t.fail, 'f', '실패'],
-    [t.etc, 'b', '기타'],
+    [t.etc, 'b', '검증 불가'],
     [t.none, 'n', '미실행'],
   ]
   return (
     <div className="q-stats">
       {parts.map(([v, cls, name]) =>
         v ? (
-          <i key={cls} className={cls} style={{ flexGrow: v }} title={`${name} ${v}`}>
+          <i
+            key={cls}
+            className={cls}
+            style={{ flexGrow: v, ...(pal?.[cls] ? { background: pal[cls] } : {}) }}
+            title={`${name} ${v}`}
+          >
             {v}
           </i>
         ) : null,
@@ -92,7 +88,7 @@ export function StatBar({ t }: { t: Tally }) {
 export function Donut({
   parts, total, label, sub, big,
 }: {
-  parts: Array<{ v: number; cls: string }>
+  parts: Array<{ v: number; cls: string; color?: string }>
   total: number
   label: string
   sub: string
@@ -117,6 +113,7 @@ export function Donut({
           strokeWidth={SW}
           strokeDasharray={`${len} ${C - len}`}
           strokeDashoffset={-off}
+          style={x.color ? { stroke: x.color } : undefined}
         />
       )
       off += len
