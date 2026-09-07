@@ -431,7 +431,14 @@ export default function CyclesBoard({
       } else stat.etc++
     }
     stat.rate = stat.pass + stat.fail ? Math.round((stat.pass / (stat.pass + stat.fail)) * 100) : 0
-    return { stat, fails, ready: !failQs.some((q2) => q2.isLoading) }
+    /* 「다 왔나」 는 isLoading 으로 재면 안 된다 — enabled 가 켜지기 직전에는
+       아직 안 도는 쿼리도 isLoading=false 라, 빈 손으로 ready 가 되어
+       초안이 「실패 0」 으로 굳었다(실측). 자료가 실제로 왔는지를 본다. */
+    return {
+      stat,
+      fails,
+      ready: !myRuns.length || failQs.every((q2) => q2.data !== undefined || q2.isError),
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myRuns, itemRows, failQs.map((q2) => q2.dataUpdatedAt).join(',')])
 
