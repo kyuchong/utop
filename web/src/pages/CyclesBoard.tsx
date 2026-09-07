@@ -28,6 +28,8 @@ import MakeCycle from '@/components/cycle/MakeCycle'
 import AddItems from '@/components/cycle/AddItems'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
+import CycleInsight from '@/components/cycle/CycleInsight'
+import TestSummary from '@/components/cycle/TestSummary'
 import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserNames } from '@/pages/qaBits'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
@@ -73,7 +75,7 @@ export default function CyclesBoard({
 
   /** 열린 사이클 — 비면 목록. 주소(?cycle=)가 정본이다 */
   const [open, setOpen] = useState(() => prefGet('utop.cycle.sel') ?? '')
-  const [tab, setTab] = useState<'ov' | 'it'>('ov')
+  const [tab, setTab] = useState<'ov' | 'ai' | 'sum' | 'it'>('ov')
   const [q, setQ] = useState('')
   const [ticked, setTicked] = useState<Set<string>>(new Set())
   const [making, setMaking] = useState(false)
@@ -382,7 +384,7 @@ export default function CyclesBoard({
   const failQs = useQueries({
     queries: myRuns.map((r) => ({
       queryKey: ['plan-run', r.id],
-      enabled: !!open && tab === 'it',
+      enabled: !!open && (tab === 'it' || tab === 'sum'),
       queryFn: async () => {
         const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}`)
         if (!res.ok) throw new Error('실행을 불러오지 못했습니다')
@@ -404,6 +406,34 @@ export default function CyclesBoard({
     return m
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [failQs.map((q2) => q2.dataUpdatedAt).join(',')])
+
+  /** Test Summary 용 합산 — 실행들이 남긴 판정을 항목별로 겹쳐(뒤가 이김) 센다 */
+  const sumOfRuns = useMemo(() => {
+    const asc = [...myRuns].sort((a, b) =>
+      String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')),
+    )
+    const got = new Map<string, { v: string; run: string }>()
+    for (const r of asc) {
+      const full2 = failQs[myRuns.findIndex((x) => x.id === r.id)]?.data
+      for (const [tcid, v] of Object.entries(full2?.results ?? {})) {
+        if (v === 'p' || v === 'f' || v === 'b') got.set(tcid, { v, run: String(r.name || r.id) })
+      }
+    }
+    const stat = { total: itemRows.length, pass: 0, fail: 0, etc: 0, none: 0, rate: 0 }
+    const fails: Array<{ tcid: string; title: string; run: string }> = []
+    for (const it of itemRows) {
+      const hit = got.get(it.tcid)
+      if (!hit) stat.none++
+      else if (hit.v === 'p') stat.pass++
+      else if (hit.v === 'f') {
+        stat.fail++
+        fails.push({ tcid: it.tcid, title: it.title, run: hit.run })
+      } else stat.etc++
+    }
+    stat.rate = stat.pass + stat.fail ? Math.round((stat.pass / (stat.pass + stat.fail)) * 100) : 0
+    return { stat, fails, ready: !failQs.some((q2) => q2.isLoading) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myRuns, itemRows, failQs.map((q2) => q2.dataUpdatedAt).join(',')])
 
   /** 전문을 통째로 고쳐 저장한다 — 서버는 data 를 통으로 받는다 */
   async function saveFull(patch: Partial<PlanFull>) {
@@ -1111,15 +1141,50 @@ export default function CyclesBoard({
             </button>
           </div>
         </div>
+        {/* 순서는 **읽는 순서**다(옛 화면 그대로) — 한눈에 보고(개요),
+            무엇이 일어났는지 읽고(AI 요약), 글로 옮기고(Test Summary),
+            마지막에 항목 하나하나를 판다. */}
         <div className="cu-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'ov'} className={tab === 'ov' ? 'on' : ''} onClick={() => setTab('ov')}>
             개요
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'ai'} className={tab === 'ai' ? 'on' : ''} onClick={() => setTab('ai')}>
+            AI 요약
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'sum'} className={tab === 'sum' ? 'on' : ''} onClick={() => setTab('sum')}>
+            Test Summary
           </button>
           <button type="button" role="tab" aria-selected={tab === 'it'} className={tab === 'it' ? 'on' : ''} onClick={() => setTab('it')}>
             시험 항목 <span className="dim">{itemRows.length}</span>
           </button>
         </div>
-        {tab === 'ov' ? renderOverview() : renderItems()}
+        {tab === 'ov' ? (
+          renderOverview()
+        ) : tab === 'ai' ? (
+          /* AI 요약 — 창이 아니라 탭 안에(옛 화면 그대로). 부품 한 벌 */
+          <div className="cu-fill">
+            <CycleInsight
+              inline
+              mode="ai"
+              cycleId={plan.id}
+              title={[plan.model, plan.version].filter(Boolean).join(' · ') || String(plan.cid ?? plan.id)}
+              items={[]}
+              onClose={() => setTab('ov')}
+            />
+          </div>
+        ) : tab === 'sum' ? (
+          <div className="cu-fill">
+            <TestSummary
+              plan={plan}
+              title={String(plan.name ?? plan.version ?? plan.id)}
+              stat={sumOfRuns.stat}
+              fails={sumOfRuns.fails}
+              statReady={sumOfRuns.ready}
+            />
+          </div>
+        ) : (
+          renderItems()
+        )}
       </section>
     )
   }
