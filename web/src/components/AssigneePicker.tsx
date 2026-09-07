@@ -132,8 +132,8 @@ export function PeoplePick({
   }
 
   /* 화면 밖으로 안 나가게 — 오른쪽·아래 끝에서 되민다(지적: 잘림) */
-  const x = Math.max(8, Math.min(at.x, window.innerWidth - 388))
-  const y = Math.max(8, Math.min(at.y, window.innerHeight - 396))
+  const x = Math.max(8, Math.min(at.x, window.innerWidth - 468))
+  const y = Math.max(8, Math.min(at.y, window.innerHeight - 528))
 
   const opt = (r: Row, i: number) => (
     <button
