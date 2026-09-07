@@ -173,6 +173,28 @@ export default function RunAuto({
   const rRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<'v' | 'l' | 'r' | null>(null)
   const [over, setOver] = useState<SlotId | null>(null)
+  /* 내린 판 — 안 보는 판은 아래 띠로 내려 둔다(지시). 계정에 남는다 */
+  const [hid, setHid] = useState<Set<PanelId>>(() => {
+    try {
+      return new Set(JSON.parse(prefGet('utop.run.hid') ?? '[]') as PanelId[])
+    } catch {
+      return new Set()
+    }
+  })
+  const saveHid = (nx: Set<PanelId>) => {
+    setHid(nx)
+    try {
+      prefSet('utop.run.hid', JSON.stringify([...nx]))
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }
+  const paneDown = (id: PanelId) => saveHid(new Set([...hid, id]))
+  const paneUp = (id: PanelId) => {
+    const nx = new Set(hid)
+    nx.delete(id)
+    saveHid(nx)
+  }
 
   const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
   const startSash = (m: 'v' | 'l' | 'r') => (e: React.MouseEvent) => {
@@ -604,6 +626,7 @@ export default function RunAuto({
     return `Pass ${tal.p} · Fail ${tal.f} · 대기 ${tal.n}`
   }
 
+  const vis = (slot: SlotId) => !hid.has(slots[slot])
   const panel = (slot: SlotId) => {
     const id = slots[slot]
     return (
@@ -651,6 +674,17 @@ export default function RunAuto({
                 <i className="c" aria-hidden="true" />
               </button>
             )}
+            <button
+              type="button"
+              className="ra-minb"
+              title="이 판을 아래로 내립니다"
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => paneDown(id)}
+            >
+              ⌄
+            </button>
             <span className="ra-grab">이동</span>
           </header>
           {body(id)}
@@ -663,20 +697,56 @@ export default function RunAuto({
     <div className="ra">
       {/* 위 띠는 **RunDetail 한 곳**에 있다(목업도 띠는 하나다). 여기에도
           두었더니 경과·진행이 두 줄로 겹쳐 보였다(지적). */}
-      {/* ── 아래: 네 판 작업대 ── */}
+      {/* ── 아래: 네 판 작업대 — 내린 판의 자리는 남은 판이 다 쓴다 ── */}
       <div className="ra-desk" ref={deskRef}>
-        <div className="ra-col" ref={lRef} style={{ width: `${size.v}%` }}>
-          <div style={{ height: `${size.l}%`, minHeight: 0 }}>{panel('LT')}</div>
-          <div className={`ra-hsash${drag === 'l' ? ' on' : ''}`} onMouseDown={startSash('l')} />
-          <div style={{ flex: 1, minHeight: 0 }}>{panel('LB')}</div>
-        </div>
-        <div className={`ra-vsash${drag === 'v' ? ' on' : ''}`} onMouseDown={startSash('v')} />
-        <div className="ra-col" ref={rRef} style={{ flex: 1 }}>
-          <div style={{ height: `${size.r}%`, minHeight: 0 }}>{panel('RT')}</div>
-          <div className={`ra-hsash${drag === 'r' ? ' on' : ''}`} onMouseDown={startSash('r')} />
-          <div style={{ flex: 1, minHeight: 0 }}>{panel('RB')}</div>
-        </div>
+        {(vis('LT') || vis('LB')) && (
+          <div
+            className="ra-col"
+            ref={lRef}
+            style={vis('RT') || vis('RB') ? { width: `${size.v}%` } : { flex: 1 }}
+          >
+            {vis('LT') && (
+              <div style={vis('LB') ? { height: `${size.l}%`, minHeight: 0 } : { flex: 1, minHeight: 0 }}>
+                {panel('LT')}
+              </div>
+            )}
+            {vis('LT') && vis('LB') && (
+              <div className={`ra-hsash${drag === 'l' ? ' on' : ''}`} onMouseDown={startSash('l')} />
+            )}
+            {vis('LB') && <div style={{ flex: 1, minHeight: 0 }}>{panel('LB')}</div>}
+          </div>
+        )}
+        {(vis('LT') || vis('LB')) && (vis('RT') || vis('RB')) && (
+          <div className={`ra-vsash${drag === 'v' ? ' on' : ''}`} onMouseDown={startSash('v')} />
+        )}
+        {(vis('RT') || vis('RB')) && (
+          <div className="ra-col" ref={rRef} style={{ flex: 1 }}>
+            {vis('RT') && (
+              <div style={vis('RB') ? { height: `${size.r}%`, minHeight: 0 } : { flex: 1, minHeight: 0 }}>
+                {panel('RT')}
+              </div>
+            )}
+            {vis('RT') && vis('RB') && (
+              <div className={`ra-hsash${drag === 'r' ? ' on' : ''}`} onMouseDown={startSash('r')} />
+            )}
+            {vis('RB') && <div style={{ flex: 1, minHeight: 0 }}>{panel('RB')}</div>}
+          </div>
+        )}
+        {!vis('LT') && !vis('LB') && !vis('RT') && !vis('RB') && (
+          <div className="ra-alldown">모든 판을 내렸습니다 — 아래 띠에서 올려 보세요</div>
+        )}
       </div>
+      {hid.size > 0 && (
+        <div className="ra-dockbar">
+          {(['steps', 'response', 'events', 'tc'] as PanelId[])
+            .filter((x) => hid.has(x))
+            .map((x) => (
+              <button key={x} type="button" className="ra-dockchip" title="이 판을 다시 올립니다" onClick={() => paneUp(x)}>
+                <i aria-hidden="true">⌃</i> {TITLE[x]}
+              </button>
+            ))}
+        </div>
+      )}
       {fltMenu}
     </div>
   )

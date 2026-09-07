@@ -19771,22 +19771,41 @@ async def run_queue(payload: dict, request: Request):
     if cyc is None:
         raise HTTPException(404, "플랜을 찾을 수 없습니다")
 
-    picked = [int(x) for x in (payload.get("pick") or []) if str(x).lstrip("-").isdigit()]
+    # pick 은 **tcid 가 정본**이다(지적: 왔다갔다 실행). 자리번호로 담아 두면
+    # 건 뒤에 사이클이 저장(재정렬)될 때 실행기가 스냅샷에 번호를 풀어
+    # 엉뚱한 항목이 엉뚱한 차례로 돈다. 옛 화면이 보내는 자리번호는 지금
+    # 이 순간의 사이클에 대고 tcid 로 번역해 둔다.
     items = cyc.get("items") if isinstance(cyc.get("items"), list) else []
+    tcid_at = [str((it or {}).get("tcid") or "").strip() if isinstance(it, dict) else "" for it in items]
+    in_cyc = set(t for t in tcid_at if t)
+    picked: list[str] = []
+    for x in (payload.get("pick") or []):
+        if isinstance(x, bool):
+            continue
+        if isinstance(x, (int, float)) or (isinstance(x, str) and x.lstrip("-").isdigit()):
+            i = int(x)
+            if 0 <= i < len(tcid_at) and tcid_at[i]:
+                picked.append(tcid_at[i])
+        elif isinstance(x, str) and x.strip() in in_cyc:
+            picked.append(x.strip())
     if not picked and prun:
+        # 안 보냈으면 **실행이 담은 차례**(만들 때의 화면 차례)를 따른다 —
+        # 사이클 배열 차례로 세우면 화면과 다른 차례로 돈다.
         mine = set(str(k) for k in (prun.get("results") or {}).keys())
-        for it in (prun.get("items") or []):
-            k = str((it or {}).get("tcid") or "").strip()
-            if k:
-                mine.add(k)
-        picked = [
-            i for i, it in enumerate(items)
-            if isinstance(it, dict) and str(it.get("tcid") or "").strip() in mine
-        ]
+        ordered = [str((it or {}).get("tcid") or "").strip() for it in (prun.get("items") or [])]
+        for k in ordered:
+            if k and k in in_cyc and (not mine or k in mine):
+                picked.append(k)
+        for k in sorted(mine):  # 담은 차례에 빠진 결과 키(옛 자료)는 뒤에
+            if k in in_cyc and k not in picked:
+                picked.append(k)
         if not picked:
             raise HTTPException(400, "이 실행이 담은 항목이 플랜에 없습니다 — 플랜에서 항목이 빠졌는지 보세요")
     if not picked:
-        picked = list(range(len(items)))
+        picked = [t for t in tcid_at if t]
+    # 같은 항목이 두 번 담기지 않게 — 차례는 처음 것을 지킨다
+    seen_p: set[str] = set()
+    picked = [t for t in picked if not (t in seen_p or seen_p.add(t))]
     if not picked:
         raise HTTPException(400, "돌릴 항목이 없습니다")
 

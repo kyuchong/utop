@@ -47,7 +47,8 @@ interface Run {
   id: string
   cycle_id: string
   cycle_name?: string
-  picked: number[]
+  /* tcid 가 정본(지적: 자리번호는 사이클 재정렬에 뒤틀린다) — 옛 큐의 숫자도 받는다 */
+  picked: Array<number | string>
   started_by?: string
   total: number
 }
@@ -204,14 +205,21 @@ async function doRun(run: Run): Promise<void> {
     }
   }
 
-  for (const at of run.picked) {
+  for (const raw of run.picked) {
     await push.flush(true)
     if (push.stop) {
       stopped = true
       break
     }
-    const it = all[at]
-    if (!it?.tcid) continue
+    /* tcid 면 지금 스냅샷에서 그 항목을 찾는다 — 어느 시점에 풀어도 같은 항목 */
+    const at = typeof raw === 'number' ? raw : all.findIndex((x) => x?.tcid === raw)
+    const it = at >= 0 ? all[at] : undefined
+    if (!it?.tcid) {
+      push.addLog({ i: -1, kind: 'fail', text: `항목을 찾을 수 없습니다 — ${String(raw)} (사이클에서 빠졌나 봅니다)` })
+      n++
+      push.set({ done: n })
+      continue
+    }
 
     push.itemAt(at)
     push.set({ item_at: at, item_name: it.name || it.tcid, step_at: -1, step_count: 0, step_name: '' })

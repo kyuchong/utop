@@ -367,3 +367,23 @@
 .ra-fmenu .d.f { background: var(--c-fail, #e04b52); }
 .ra-fmenu .d.n { background: #cfd4d8; }
 .ra-fmenu .d.all { background: linear-gradient(135deg, #12a67f 50%, #e04b52 50%); }
+
+/* 판 내리기 — 안 보는 판은 아래 띠로(지시). 올리면 제자리(슬롯)로 돌아온다 */
+.ra-minb {
+  border: 0; background: none; padding: 0 4px; font: inherit; font-size: 13px;
+  color: var(--c-text-faint, #8a99a3); cursor: pointer; line-height: 1;
+}
+.ra-minb:hover { color: var(--c-primary); }
+.ra-dockbar {
+  flex: none; display: flex; gap: 6px; padding: 5px 8px 2px; align-items: center;
+}
+.ra-dockchip {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--c-border, #dfe5ea); background: var(--c-surface, #fff);
+  border-radius: 999px; padding: 3px 11px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.ra-dockchip i { font-style: normal; color: var(--c-primary); }
+.ra-dockchip:hover { background: var(--c-primary-bg, #e9f1ff); border-color: var(--c-primary); }
+.ra-alldown {
+  margin: auto; color: var(--c-text-faint, #8a99a3); font-size: 13px;
+}

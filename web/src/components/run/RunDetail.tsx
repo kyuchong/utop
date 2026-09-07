@@ -654,17 +654,16 @@ export default function RunDetail({
       await save(stamp)
       return
     }
-    /* **화면에 보이는 차례 그대로 건다**(지적: 왔다갔다 실행한다).
-       실행기는 받은 pick 차례대로 돈다(runner/src/main.ts 의
-       `for (const at of run.picked)`). pick 을 안 보내면 서버가 **플랜
-       차례**로 만들어 주는데, 그것은 이 표의 차례와 다르다.
+    /* **화면에 보이는 차례 그대로, tcid 로 건다**(지적: 왔다갔다 실행).
+       자리번호로 걸면 — 건 뒤에 누가 사이클을 저장해 항목이 재정렬되면
+       실행기가 스냅샷에 대고 번호를 풀어 엉뚱한 항목이 엉뚱한 차례로
+       돈다(확인된 결함). tcid 는 어느 시점에 풀어도 같은 항목이다.
        담고 있는 것이 자동·수동 섞임일 때 자동만 거는 일도 여기서 함께
        된다 — 서버의 기본 경로는 실행이 담은 것을 전부 건다. */
     const planItems = (plan?.items ?? []) as Array<{ tcid?: string }>
-    const at = (id: string) => planItems.findIndex((x) => String(x?.tcid ?? '') === id)
-    const pick = ids.map(at)
-    const missing = ids.filter((_, i) => pick[i]! < 0)
-    if (planItems.length && missing.length) {
+    const inPlan = new Set(planItems.map((x) => String(x?.tcid ?? '')))
+    const missing = planItems.length ? ids.filter((id) => !inPlan.has(id)) : []
+    if (missing.length) {
       const ok = window.confirm(
         `${missing.length}건이 사이클에서 빠져 있어 돌릴 수 없습니다.\n` +
           `${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ' 외' : ''}\n\n` +
@@ -672,7 +671,7 @@ export default function RunDetail({
       )
       if (!ok) return
     }
-    const order = pick.filter((i) => i >= 0)
+    const order = planItems.length ? ids.filter((id) => inPlan.has(id)) : ids
     setBusy(true)
     try {
       const r = await apiFetch('/api/runs', {
