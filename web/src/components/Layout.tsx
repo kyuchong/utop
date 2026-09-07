@@ -2,7 +2,6 @@ import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import {
   IconCycle,
-  IconExecution,
   IconDashboard,
   IconDefect,
   IconKnowledge,
@@ -60,12 +59,10 @@ export const NAV: NavGroup[] = [
          다 봐야 한다. 주소(?req= · ?tc=)는 살려 둔다 — 남이 보낸 링크가
          죽으면 안 된다. */
       { key: 'reqtc', label: 'REQ-Coverage', Icon: IconReqTc },
-      /* **Cycles 와 Runs 를 다시 두 화면으로**(지시: 목업 반영).
-         Cycles 는 「무엇을 시험할지」 — 사이클 목록·담긴 항목·구성.
-         Runs 는 「어떻게 됐나」 — 실행·판정·실행기. 계획과 결과는 묻는
-         말이 달라, 한 화면에 우겨 넣었더니 둘 다 좁아졌다. */
+      /* **Cycles 하나로 합쳤다**(지시: 통합 시안) — 실행·판정·결과 메일·
+         결과서가 전부 사이클 안(실행 탭)에 있다. 옛 ?p=runs 주소는
+         이 화면으로 온다. */
       { key: 'cycles', label: 'Cycles', Icon: IconCycle },
-      { key: 'runs', label: 'Runs', Icon: IconExecution },
       /* 「Reports」 는 걷었다(지시) — 집계·축·결과 상세·거르개가 모두
          플랜 폴더 현황으로 옮겨 갔다. 옛 주소(executions)로 들어오면
          플랜 화면으로 넘긴다(App.tsx). */

@@ -15,7 +15,6 @@ import Releases from '@/pages/Releases'
 import Settings from '@/pages/Settings'
 import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
-import RunsBoard from '@/pages/RunsBoard'
 import Defects from '@/pages/Defects'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
@@ -136,7 +135,7 @@ export default function App() {
       ['report', 'utop.report.cycle', 'executions'],
       /* ?run=E6100_R0001 — 시험 실행 링크. 실행만 주소가 없어서 주소와
          화면이 서로 다른 말을 했다(지적: 실행을 봤는데 Plans 가 강조) */
-      ['run', 'utop.runs.open', 'runs'],
+      ['run', 'utop.runs.open', 'cycles'],
       /* ?cat=cat-… — REQ-Coverage 의 폴더 링크. 「지금 보는 이 자리」 를
          그대로 보내려면 폴더도 주소가 있어야 한다(지시: 링크 복사). */
       ['cat', 'utop.reqtc.cat', 'reqtc'],
@@ -248,8 +247,9 @@ export default function App() {
           prefSet('utop.cycle.sel', id)
           setPage('cycles')
         } else if (kind === 'run') {
+          /* Runs 는 Cycles 로 합쳤다(지시) — 실행 링크도 Cycles 가 연다 */
           prefSet('utop.runs.open', id)
-          setPage('runs')
+          setPage('cycles')
         } else if (kind === 'ce') {
           prefSet('utop.cycle.ce', id)
           setPage('cycles')
@@ -315,8 +315,9 @@ export default function App() {
       ) : page === 'plans-old' ? (
         <Cycles me={user} entry="cycles" />
       ) : page === 'runs' ? (
-        /* Runs — 실행·판정·실행기(지시: 목업 반영). 사이클 1 : 실행 N. */
-        <RunsBoard me={user} />
+        /* Runs 는 Cycles 로 합쳤다(지시) — 옛 주소(?p=runs)로 들어오면
+           통합 화면을 연다. 실행 탭이 옛 Runs 다. */
+        <CyclesBoard me={user} />
       ) : page === 'executions' ? (
         /* 옛 Reports 자리 — 북마크로 들어오면 플랜 화면을 보여 준다 */
         <Cycles me={user} />

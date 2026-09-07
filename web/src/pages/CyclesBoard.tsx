@@ -1,16 +1,18 @@
 /**
- * **Cycles — 사이클 목록과 상세** (지시: 목업 반영, 기존 화면 대체).
+ * **Cycles — 사이클과 실행을 한 화면에** (지시: 통합 시안 반영).
  *
- * 목업의 Plans 화면을 실제 자료에 얹었다. 목록은 사이클(cycle 표) 전부를
- * 한 표로 세우고, 한 건을 열면 Testiny 식 상세가 선다 —
- *   개요      자동·수동·커버리지 도넛 3장 + 기본 정보 + 이 사이클의 실행
- *   시험 항목  폴더 ▸ REQ ▸ TC 로 묶인 표 + 담기 + 실패 이력
+ *   1열  사이클 트리 — 사업자 ▸ 모델 ▸ 버전그룹 ▸ 사이클. 잎의 숫자는
+ *         실행 횟수다. 여기서 만들고(＋) 지운다(✕).
+ *   2열  범위를 고르면 그 범위의 **사이클 노션 표**, 사이클을 고르면
+ *         상세 — 개요 · AI 요약 · Test Summary · 시험 항목 · **실행**.
+ *         실행 탭이 옛 Runs 화면이다: 실행 고르개 + 요약 + 항목 표.
+ *   3열  실행기(RunDetail) — 실행 탭에서 자동·수동을 열면 선다.
  *
- * 실행(판정)은 Runs 화면이 맡는다 — 사이클은 「무엇을 시험할지」 만 정한다.
- * 만들기·담기·실행 만들기 창은 **쓰던 부품 그대로**다(MakeCycle · PickItems ·
- * MakePlanRun) — 베껴 만들면 한쪽만 고치는 날이 온다.
+ * Runs 메뉴는 이 화면으로 합쳤다(지시) — 실행·판정·결과 메일·결과서가
+ * 전부 사이클 안에 있다. 판정의 정본은 여전히 실행 기록(plan_run)이다.
+ * 만들기·담기·실행 만들기 창은 **쓰던 부품 그대로**다.
  */
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { goto, onGoto, reflectUrl } from '@/api/goto'
@@ -19,7 +21,12 @@ import { normMode } from '@/lib/runMode'
 import { exportCycleCsv, CloneDialog } from '@/pages/Cycles'
 import type { CycleItemLite, CycleMeta } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
+import RunDetail from '@/components/run/RunDetail'
 import type { RunFull } from '@/components/run/RunDetail'
+import Resizer, { useResizableWidth } from '@/components/Resizer'
+import { IconChevron, IconPanel } from '@/components/icons'
+import { CycleMailOne } from '@/components/cycle/CyclePlan'
+import CycleReport from '@/components/cycle/CycleReport'
 import NTable from '@/components/ntable/NTable'
 import { EMPTY_VIEW } from '@/components/ntable/types'
 import { autoColor } from '@/components/ntable/palette'
@@ -32,10 +39,11 @@ import CycleInsight from '@/components/cycle/CycleInsight'
 import TestSummary from '@/components/cycle/TestSummary'
 import AssigneePicker from '@/components/AssigneePicker'
 import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserPeople } from '@/pages/qaBits'
-import { useVerdictsState, vDef, vGroup } from '@/lib/verdicts'
+import { useVerdictsState, vDef, vGroup, vLetter, vName } from '@/lib/verdicts'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
 import './CyclesBoard.css'
+import './RunsBoard.css'
 
 /** GET /api/cycle/{id} — data JSONB 전문. 저장은 이 전문을 통째로 되민다 */
 interface PlanFull {
@@ -53,6 +61,16 @@ interface PlanFull {
   cid?: string
   status?: string
 }
+
+/** 실행 전문 + 실행 탭이 실행 기록(data)에 얹어 두는 값 */
+interface RunFullX extends RunFull {
+  /** 항목별 할당 대상 — { tcid: 이름 } */
+  assignees?: Record<string, string>
+  /** 실행 설명 — 요약의 세부 정보에서 고친다 */
+  desc?: string
+}
+
+const keyOf = (...parts: string[]) => parts.join('|')
 
 /** 시험 항목 한 줄 — 사이클 항목에 TC 메타·REQ 이름표를 입힌 것 */
 interface ItemRow {
@@ -77,7 +95,7 @@ export default function CyclesBoard({
 
   /** 열린 사이클 — 비면 목록. 주소(?cycle=)가 정본이다 */
   const [open, setOpen] = useState(() => prefGet('utop.cycle.sel') ?? '')
-  const [tab, setTab] = useState<'ov' | 'ai' | 'sum' | 'it'>('ov')
+  const [tab, setTab] = useState<'ov' | 'ai' | 'sum' | 'it' | 'run'>('ov')
   const [making, setMaking] = useState(false)
   const [addTo, setAddTo] = useState(false)
   const [mkRun, setMkRun] = useState(false)
@@ -164,6 +182,34 @@ export default function CyclesBoard({
   /** 담당자 고르개(조직 클릭·이름 검색) — 개요의 담당자 칸이 연다 */
   const [assAt, setAssAt] = useState<{ x: number; y: number } | null>(null)
 
+  /* ── 1열 트리 · 2열 범위 (지시: Cycles·Runs 통합) ── */
+  const [grpSel, setGrpSel] = useState<{ t: 'cust' | 'model' | 'vg'; k: string } | null>(null)
+  const [sideOn, setSideOn] = useState(() => prefGet('utop.cyc.side') !== '0')
+  const [w1, setW1] = useResizableWidth('utop.ntb.cyc.w1', 264, 180, 620)
+  const gridRef = useRef<HTMLDivElement>(null)
+  /** 접힌 트리 마디 — 기본은 전부 펼침 */
+  const [closed, setClosed] = useState<Set<string>>(new Set())
+  const [treeQ, setTreeQ] = useState('')
+  useEffect(() => prefSet('utop.cyc.side', sideOn ? '1' : '0'), [sideOn])
+
+  /* ── 실행 탭 상태 (옛 Runs 화면을 들여온 것) ── */
+  const [selRun, setSelRun] = useState(() => prefGet('utop.runs.open') ?? '')
+  /** 3열 실행기 */
+  const [runnerOn, setRunnerOn] = useState(false)
+  const [runMode, setRunMode] = useState<'A' | 'M'>('A')
+  const [runFocus, setRunFocus] = useState('')
+  const [wide, setWide] = useState(false)
+  const [sumOff, setSumOff] = useState(false)
+  const [sumTab, setSumTab] = useState<'team' | 'info'>('team')
+  const [vf, setVf] = useState<string | null>(null)
+  const [bulkAt, setBulkAt] = useState<{ kind: 'assign' | 'status'; ids: string[] } | null>(null)
+  const [runMoreAt, setRunMoreAt] = useState<{ x: number; y: number } | null>(null)
+  /** 실행 담당 고르개 — 요약의 세부 정보 담당 칸이 연다 */
+  const [ownAt, setOwnAt] = useState<{ x: number; y: number } | null>(null)
+  const [mailPlan, setMailPlan] = useState<CycleMeta | null>(null)
+  const [repPlan, setRepPlan] = useState<CycleMeta | null>(null)
+  const [busyRun, setBusyRun] = useState('')
+
   /* 시험 항목 탭의 노션 표 — 열 정의는 코드가 정본, 폭·숨김·차례는 계정에.
      유형 선택지는 담긴 값에서 뽑아 색만 자동으로 입힌다. */
   const [itView, setItView] = useState<NView>({ ...EMPTY_VIEW, groupBy: 'folder' })
@@ -185,6 +231,20 @@ export default function CyclesBoard({
     { key: 'fail', label: '실패 이력', type: 'text', width: 110 },
   ]
   const [itColsRaw, setItCols] = useNCols('utop.ntb.cycit.cols', IT_DEFS)
+
+  /* 실행 탭의 항목 표(노션 표) — Runs 화면과 같은 열, 같은 계정 저장키 */
+  const [riView, setRiView] = useState<NView>({ ...EMPTY_VIEW, groupBy: 'folder' })
+  const RI_DEFS: NCol[] = [
+    { key: 'id', label: 'ID', type: 'text', width: 124, fixed: true },
+    { key: 'title', label: '제목', type: 'text', width: 360, fixed: true },
+    { key: 'folder', label: '폴더', type: 'text', width: 200 },
+    { key: 'who', label: '할당 대상', type: 'person', width: 110 },
+    {
+      /* 선택지는 셋업(실행 판정 기준)이 정본 — 그리기 직전에 끼운다 */
+      key: 'result', label: '결과', type: 'select', width: 110, options: [],
+    },
+  ]
+  const [riCols, setRiCols] = useNCols('utop.ntb.runit.cols', RI_DEFS)
 
   /* 목록의 노션 표 */
   const [lsView, setLsView] = useState<NView>({ ...EMPTY_VIEW })
@@ -233,9 +293,19 @@ export default function CyclesBoard({
           const hit = plans.find((p) => String(p.ce ?? '') === id)
           if (hit) openPlanId(hit.id)
         }
+        if (kind === 'run') {
+          /* 옛 Runs 링크(?run=) — 그 실행의 사이클을 열고 실행 탭에 선다 */
+          const r = runs.find((x) => x.id === id)
+          const pid = String(r?.plan_id ?? '')
+          if (pid && planOf.get(pid)) {
+            openPlanId(pid)
+            setTab('run')
+            openRun(id)
+          }
+        }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [plans],
+    [plans, runs],
   )
   /* 남이 지운 사이클을 붙들고 있으면 상세가 영영 빈다 */
   useEffect(() => {
@@ -253,6 +323,134 @@ export default function CyclesBoard({
     () => [...plans].sort((a, b) => cmp(String(a.cid ?? a.id), String(b.cid ?? b.id))),
     [plans, cmp],
   )
+
+  /* ── 1열 트리: 사업자 ▸ 모델 ▸ 버전그룹 ▸ 사이클 (지시: 통합 시안) ── */
+  const treeHit = (t2: string) => !treeQ || t2.toLowerCase().includes(treeQ.trim().toLowerCase())
+  interface TreeRow {
+    d: 0 | 1 | 2 | 3 | 4
+    key: string
+    label: string
+    n: number
+    zero: boolean
+    caret?: boolean
+    open?: boolean
+    on?: boolean
+    ico?: string
+    plan?: CycleMeta
+  }
+  const treeRows = useMemo<TreeRow[]>(() => {
+    const out: TreeRow[] = []
+    out.push({
+      d: 0,
+      key: '__all',
+      label: '전체 사이클',
+      n: plans.length,
+      zero: !plans.length,
+      on: !open && !grpSel,
+    })
+    const custs = [...new Set(plans.map((p) => String(p.customer || '미지정')))].sort(cmp)
+    for (const cust of custs) {
+      const custPlans = plans.filter((p) => String(p.customer || '미지정') === cust)
+      const models = [...new Set(custPlans.map((p) => String(p.model || '미지정')))].sort(cmp)
+      const custRows: TreeRow[] = []
+      for (const model of models) {
+        const mk = keyOf(cust, model)
+        const mPlans = custPlans.filter((p) => String(p.model || '미지정') === model)
+        const vgs = [...new Set(mPlans.map((p) => String(p.version_group || '미지정')))].sort(cmp)
+        const modelRows: TreeRow[] = []
+        for (const vg of vgs) {
+          const vk = keyOf(cust, model, vg)
+          const vPlans = mPlans
+            .filter((p) => String(p.version_group || '미지정') === vg)
+            .sort((a, b) => cmp(String(b.version ?? b.name ?? ''), String(a.version ?? a.name ?? '')))
+          const planRows: TreeRow[] = []
+          for (const p of vPlans) {
+            const rs = runsByPlan.get(p.id) ?? []
+            const label = String(p.name || p.version || '(이름 없음)')
+            if (!treeHit(`${cust} ${model} ${vg} ${label} ${String(p.cid ?? p.id)}`)) continue
+            planRows.push({
+              d: 4,
+              key: `p:${p.id}`,
+              label,
+              n: rs.length,
+              zero: !rs.length,
+              on: open === p.id,
+              plan: p,
+            })
+          }
+          if (!planRows.length) continue
+          const vn = planRows.reduce((a, r) => a + r.n, 0)
+          modelRows.push({
+            d: 3,
+            key: vk,
+            label: vg,
+            n: planRows.length,
+            zero: !planRows.length,
+            caret: true,
+            open: !closed.has(vk),
+            on: !open && grpSel?.t === 'vg' && grpSel.k === vk,
+            ico: '🔖',
+          })
+          void vn
+          if (!closed.has(vk)) modelRows.push(...planRows)
+        }
+        if (!modelRows.length) continue
+        const mCnt = mPlans.length
+        custRows.push({
+          d: 2,
+          key: mk,
+          label: model,
+          n: mCnt,
+          zero: !mCnt,
+          caret: true,
+          open: !closed.has(mk),
+          on: !open && grpSel?.t === 'model' && grpSel.k === mk,
+          ico: '📦',
+        })
+        if (!closed.has(mk)) custRows.push(...modelRows)
+      }
+      if (!custRows.length) continue
+      out.push({
+        d: 1,
+        key: keyOf(cust),
+        label: cust,
+        n: custPlans.length,
+        zero: !custPlans.length,
+        on: !open && grpSel?.t === 'cust' && grpSel.k === cust,
+        ico: '🏢',
+      })
+      out.push(...custRows)
+    }
+    return out
+  }, [plans, runsByPlan, closed, open, grpSel, treeQ, cmp])
+
+  /** 2열 범위 — 트리에서 고른 묶음의 사이클만 */
+  const scopedRows = useMemo(() => {
+    if (!grpSel) return rows
+    return rows.filter((p) => {
+      const cust = String(p.customer || '미지정')
+      const model = String(p.model || '미지정')
+      const vg = String(p.version_group || '미지정')
+      if (grpSel.t === 'cust') return cust === grpSel.k
+      if (grpSel.t === 'model') return keyOf(cust, model) === grpSel.k
+      return keyOf(cust, model, vg) === grpSel.k
+    })
+  }, [rows, grpSel])
+  /** 범위 빵부스러기 — [키, 이름] 짝 */
+  const crumb = useMemo<Array<[string, string]>>(() => {
+    if (!grpSel) return []
+    const parts = grpSel.k.split('|')
+    const out: Array<[string, string]> = []
+    if (parts[0] !== undefined) out.push([keyOf(parts[0]!), parts[0]!])
+    if (grpSel.t !== 'cust' && parts[1] !== undefined) out.push([keyOf(parts[0]!, parts[1]!), parts[1]!])
+    if (grpSel.t === 'vg' && parts[2] !== undefined) out.push([grpSel.k, parts[2]!])
+    return out
+  }, [grpSel])
+  const pickCrumb = (key: string) => {
+    const n = key.split('|').length
+    setGrpSel({ t: n === 1 ? 'cust' : n === 2 ? 'model' : 'vg', k: key })
+    if (open) closePlan()
+  }
 
   async function delPlans(ids: string[]) {
     const list = ids.map((id) => planOf.get(id)).filter((p): p is CycleMeta => !!p)
@@ -545,7 +743,7 @@ export default function CyclesBoard({
     }
   }
 
-  async function dropItems(ids: string[]) {
+  async function dropCycleItems(ids: string[]) {
     if (!full || !ids.length) return
     if (
       !window.confirm(
@@ -557,6 +755,212 @@ export default function CyclesBoard({
     await saveFull({ items: (full.items ?? []).filter((it) => !gone.has(String(it?.tcid ?? ''))) })
   }
 
+  /* ══ 실행 탭 — 옛 Runs 화면의 심장을 그대로 들여왔다 ══ */
+
+  /** 이 시험이 수동인가 — 정본은 TC 의 run_type(팀이 바꾼 「M」 도 알아듣는다) */
+  const isManTc = (tcid: string) => {
+    const t = tcOf.get(tcid)
+    return normMode(String(t?.run_type ?? t?.kind ?? '')) === '수동'
+  }
+
+  const runFullQ = useQuery({
+    queryKey: ['plan-run', selRun],
+    enabled: !!selRun,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(selRun)}`)
+      if (!r.ok) throw new Error('실행을 불러오지 못했습니다')
+      return (await r.json()) as RunFullX
+    },
+  })
+  const runFull = runFullQ.data
+  const runLite = runs.find((r) => r.id === selRun)
+
+  const openRun = (id: string) => {
+    setSelRun(id)
+    setVf(null)
+    prefSet('utop.runs.open', id)
+  }
+  /* 상세가 다른 사이클로 바뀌면 — 실행 선택을 그 사이클의 최신으로 맞추고
+     실행기·필터를 접는다 */
+  useEffect(() => {
+    setRunnerOn(false)
+    setWide(false)
+    setVf(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+  useEffect(() => {
+    if (!open) return
+    if (selRun && myRuns.some((r) => r.id === selRun)) return
+    const first = myRuns[0]?.id ?? ''
+    setSelRun(first)
+    if (first) prefSet('utop.runs.open', first)
+    else prefRemove('utop.runs.open')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, myRuns])
+
+  async function saveRun(patch: Record<string, unknown>) {
+    if (!selRun) return
+    const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(selRun)}`, {
+      method: 'POST',
+      body: JSON.stringify(patch),
+    })
+    if (!r.ok) {
+      window.alert('저장하지 못했습니다')
+      return
+    }
+    await qc.invalidateQueries({ queryKey: ['plan-run', selRun] })
+    await qc.invalidateQueries({ queryKey: ['plan-runs'] })
+  }
+
+  async function delRun(id: string) {
+    const r = runs.find((x) => x.id === id)
+    if (!r) return
+    const done = r.n_pass + r.n_fail + r.n_etc
+    if (
+      !window.confirm(
+        `시험 실행 「${r.name || r.id}」 을 지웁니다. 되돌릴 수 없습니다.` +
+          (done ? `\n\n이미 판정한 항목 ${done}건의 결과도 함께 사라집니다.` : ''),
+      )
+    )
+      return
+    await apiFetch(`/api/plan-runs/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    if (selRun === id) {
+      setSelRun('')
+      prefRemove('utop.runs.open')
+      setRunnerOn(false)
+      setWide(false)
+    }
+    void runsQ.refetch()
+  }
+
+  /**
+   * 시험 실행을 뜬다 — **담긴 항목 전부**(자동·수동은 실행 안에서 골라
+   * 돌린다). 담는 차례는 화면에 보이는 그 차례(폴더 ▸ REQ ▸ ID)다.
+   */
+  async function makeRun(p: CycleMeta) {
+    const ids = orderTcIds(
+      (p.items ?? []).map((it) => String(it?.tcid ?? '')).filter(Boolean),
+      tcOf,
+      reqIndex,
+    )
+    if (!ids.length) {
+      window.alert('담긴 시험 항목이 없습니다 — 시험 항목 탭에서 먼저 담으세요.')
+      return
+    }
+    setBusyRun('1')
+    try {
+      const r = await apiFetch('/api/plan-runs', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan_id: p.id,
+          model: p.model ?? '',
+          model_group: p.model_group ?? '',
+          version: p.version ?? p.name ?? '',
+          version_group: p.version_group ?? '',
+          owner: p.assignee ?? meName,
+          items: ids.map((tcid) => ({ tcid })),
+          results: Object.fromEntries(ids.map((tcid) => [tcid, ''])),
+        }),
+      })
+      if (!r.ok) throw new Error('실행을 만들지 못했습니다')
+      const j = (await r.json()) as { id?: string }
+      await runsQ.refetch()
+      if (j.id) {
+        openRun(j.id)
+        setTab('run')
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusyRun('')
+    }
+  }
+
+  /** 실행기를 연다 — 그 방식의 항목만, 표에 보이는 차례로 */
+  function openRunner(mode: 'A' | 'M', focus = '') {
+    setRunMode(mode)
+    setRunFocus(focus)
+    setRunnerOn(true)
+  }
+
+  /* 실행 본문의 항목 줄 — 차례는 orderTcIds 한 곳이 정한다 */
+  interface RunItemRow {
+    tcid: string
+    title: string
+    man: boolean
+    folder: string
+    v: string
+    who: string
+  }
+  const runItems = useMemo<RunItemRow[]>(() => {
+    if (!runFull) return []
+    const ids = (runFull.items ?? []).map((x) => String(x?.tcid ?? '')).filter(Boolean)
+    const list = orderTcIds(ids.length ? ids : Object.keys(runFull.results ?? {}), tcOf, reqIndex)
+    const asg = runFull.assignees ?? {}
+    return list.map((tcid) => {
+      const meta = tcOf.get(tcid)
+      const rq = reqIndex.get(String(meta?.req_id ?? ''))
+      return {
+        tcid,
+        title: String(meta?.name ?? ''),
+        man: isManTc(tcid),
+        folder: rq?.folder ?? '미분류',
+        /* 셋업 판정 값 그대로 — 옛 네 글자(p/f/b/n)만 값으로 통역한다 */
+        v: vDef(verds, String((runFull.results ?? {})[tcid] ?? '')).v,
+        who: String(asg[tcid] ?? ''),
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runFull, tcOf, reqIndex, verds])
+  const runTally = useMemo(() => {
+    const t = { p: 0, f: 0, b: 0, n: 0, total: runItems.length, done: 0 }
+    for (const it of runItems) t[vLetter(verds, it.v)]++
+    t.done = t.p + t.f + t.b
+    return t
+  }, [runItems, verds])
+  const runByVerd = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const it of runItems) m.set(it.v, (m.get(it.v) ?? 0) + 1)
+    return m
+  }, [runItems])
+  const shownRunItems = useMemo(
+    () => runItems.filter((it) => vf === null || it.v === vf),
+    [runItems, vf],
+  )
+
+  async function setVerdict(tcid: string, v: string) {
+    if (!runFull) return
+    await saveRun({ results: { ...(runFull.results ?? {}), [tcid]: v } })
+  }
+  async function setWho(tcids: string[], who: string) {
+    if (!runFull) return
+    const asg = { ...(runFull.assignees ?? {}) }
+    for (const id of tcids) asg[id] = who
+    await saveRun({ assignees: asg })
+  }
+  /** 판정 일괄 — 노션 표의 「상태 바꾸기」 가 부른다. 미실행이 곧 초기화다 */
+  async function setVerdicts(tcids: string[], v: string) {
+    if (!runFull || !tcids.length) return
+    const results = { ...(runFull.results ?? {}) }
+    for (const id of tcids) results[id] = v
+    await saveRun({ results })
+  }
+  async function dropRunItems(tcids: string[]) {
+    if (!runFull || !tcids.length) return
+    if (
+      !window.confirm(
+        `시험 항목 ${tcids.length}건을 이 실행에서 뺍니다.\n판정 결과도 함께 사라집니다.`,
+      )
+    )
+      return
+    const gone = new Set(tcids)
+    const items = (runFull.items ?? []).filter((x) => !gone.has(String(x?.tcid ?? '')))
+    const results = Object.fromEntries(
+      Object.entries(runFull.results ?? {}).filter(([k]) => !gone.has(k)),
+    )
+    await saveRun({ items, results })
+  }
+
   /* ── 그리기 ── */
   const kv = (k: string, v: React.ReactNode) => (
     <>
@@ -566,6 +970,124 @@ export default function CyclesBoard({
   )
 
 
+  /* ── 1열: 사이클 트리 ── */
+  function renderSide() {
+    return (
+      <section className="panel run-side">
+        <div className="run-side-hd">
+          <b>시험 사이클</b>
+          <span className="cu-sp" />
+          <button type="button" className="cu-new small" title="새 사이클을 만듭니다" onClick={() => setMaking(true)}>
+            <i aria-hidden="true">＋</i>사이클
+          </button>
+        </div>
+        <div className="run-side-bar">
+          <input
+            className="inp"
+            placeholder="사이클 · 버전 · 모델 찾기"
+            value={treeQ}
+            onChange={(e) => setTreeQ(e.target.value)}
+          />
+        </div>
+        <div className="cu-tbody">
+          {treeRows.length > 1 ? (
+            treeRows.map((n) => (
+              <div
+                key={n.key}
+                className={`cu-n d${Math.max(1, n.d)}${n.on ? ' on' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  if (n.plan) {
+                    setGrpSel(null)
+                    openPlanId(n.plan.id)
+                  } else if (n.key === '__all') {
+                    setGrpSel(null)
+                    if (open) closePlan()
+                  } else if (n.d === 1) {
+                    setGrpSel({ t: 'cust', k: n.key })
+                    if (open) closePlan()
+                  } else if (n.d === 2) {
+                    setGrpSel({ t: 'model', k: n.key })
+                    if (open) closePlan()
+                  } else {
+                    setGrpSel({ t: 'vg', k: n.key })
+                    if (open) closePlan()
+                  }
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLElement).click()}
+              >
+                {n.caret ? (
+                  <button
+                    type="button"
+                    className={`cu-caret${n.open ? ' open' : ''}`}
+                    aria-expanded={n.open}
+                    title="접기 · 펴기"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setClosed((cur) => {
+                        const next = new Set(cur)
+                        if (next.has(n.key)) next.delete(n.key)
+                        else next.add(n.key)
+                        return next
+                      })
+                    }}
+                  >
+                    <IconChevron />
+                  </button>
+                ) : (
+                  <span className="cu-caret none" aria-hidden="true" />
+                )}
+                <span className="nm">
+                  {n.ico ? `${n.ico} ` : ''}
+                  {n.label}
+                </span>
+                <span className={`c${n.zero ? ' zero' : ''}`} title={n.plan ? `실행 ${n.n}회` : `사이클 ${n.n}건`}>{n.n}</span>
+                {!!n.plan && (
+                  <button
+                    type="button"
+                    className="cu-nbtn del"
+                    title="사이클 지우기"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void delPlans([n.plan!.id])
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="cu-empty" style={{ padding: '16px 0' }}>
+              <strong>{plansQ.isLoading ? '불러오는 중…' : '아직 사이클이 없습니다'}</strong>
+              <span>위 ＋ 사이클로 시작하세요.</span>
+            </div>
+          )}
+        </div>
+        <div className="cu-rzslot">
+          <Resizer
+            label="목록 열 너비 조절"
+            onResize={setW1}
+            getOrigin={() => gridRef.current?.getBoundingClientRect().left ?? 0}
+          />
+        </div>
+      </section>
+    )
+  }
+
+  /** 판 여닫이 — 2열 왼쪽 위, REQ-Coverage 와 한 꼴 */
+  const colBtn = (
+    <button
+      type="button"
+      className="cu-colbtn"
+      title={sideOn ? '목록 판 접기' : '목록 판 펴기'}
+      onClick={() => setSideOn((v) => !v)}
+    >
+      <IconPanel open={sideOn} />
+    </button>
+  )
+
   /* ── 목록 화면 ── */
   /**
    * 목록 — **노션 표**(지시). 검색·거르기·정렬·묶기·열 폭이 상세의 항목
@@ -574,7 +1096,7 @@ export default function CyclesBoard({
    * 선택 바(삭제)와 목록 위 ＋ 사이클, ID 열기로 잇는다.
    */
   function renderList() {
-    const listRows: NRow[] = rows.map((p) => {
+    const listRows: NRow[] = scopedRows.map((p) => {
       const rs = runsByPlan.get(p.id) ?? []
       const openRunN = rs.filter((r) => !r.closed_at).length
       const last = rs
@@ -601,9 +1123,26 @@ export default function CyclesBoard({
     })
     return (
       <section className="panel lp">
+        <div className="run-crumb">
+          {colBtn}
+          <span className="crumbline">
+            <button type="button" className="crumb-b" onClick={() => { setGrpSel(null) }}>전체</button>
+            {crumb.map(([k, l], i) => (
+              <React.Fragment key={k}>
+                <span className="cu-m">▸</span>
+                {i === crumb.length - 1 ? (
+                  <b>{l}</b>
+                ) : (
+                  <button type="button" className="crumb-b" onClick={() => pickCrumb(k)}>{l}</button>
+                )}
+              </React.Fragment>
+            ))}
+          </span>
+          <span className="cu-sp" />
+        </div>
         <div className="lp-hd">
           <h1>시험 사이클</h1>
-          <span className="cu-m">사이클은 한 버전의 시험 묶음입니다 — 판정은 Runs 에서 봅니다</span>
+          <span className="cu-m">사이클은 한 버전의 시험 묶음입니다 — 실행·판정·결과서도 이 안에서 봅니다</span>
           <span className="cu-sp" />
           <button type="button" className="cu-new" onClick={() => setMaking(true)}>
             <i aria-hidden="true">＋</i>사이클
@@ -907,7 +1446,7 @@ export default function CyclesBoard({
                 {myRuns.map((r) => {
                   const t = sumRuns([r])
                   return (
-                    <tr key={r.id} onClick={() => goto('run', r.id)} title="Runs 에서 엽니다">
+                    <tr key={r.id} onClick={() => { setTab('run'); openRun(r.id) }} title="실행 탭에서 엽니다">
                       <td className="idcell cu-mono">{r.id}</td>
                       <td>{String(r.mode ?? '') || '—'}</td>
                       <td className="num">{r.n_total}</td>
@@ -938,7 +1477,7 @@ export default function CyclesBoard({
           )}
         </div>
         <p className="cu-m" style={{ margin: 0 }}>
-          판정 결과는 Runs 에서 봅니다. 사이클은 무엇을 시험할지만 정합니다.
+          판정 결과는 실행 탭에서 봅니다 — 실행 하나가 빌드 하나의 결과입니다.
         </p>
       </div>
     )
@@ -1005,7 +1544,7 @@ export default function CyclesBoard({
           onOpen={(id) => goto('tc', id)}
           bulk={[{ k: 'del', label: '사이클에서 제거', danger: true }]}
           onBulk={(a, ids) => {
-            if (a === 'del') void dropItems(ids)
+            if (a === 'del') void dropCycleItems(ids)
           }}
           renderCell={(row, col) => {
             if (col.key !== 'fail') return undefined
@@ -1032,6 +1571,316 @@ export default function CyclesBoard({
     )
   }
 
+  /* ── 상세: 실행 탭 — 옛 Runs 의 실행 본문 그대로 ── */
+  function renderRunTab() {
+    if (!plan) return null
+    if (!myRuns.length) {
+      const nIds = itemRows.length
+      return (
+        <div className="cu-fill">
+          <div className="cu-empty" style={{ margin: 'auto', padding: '48px 14px' }}>
+            <strong style={{ fontSize: 15 }}>이 사이클에는 아직 시험 실행이 없습니다</strong>
+            <span>
+              {nIds
+                ? `담긴 시험 항목 ${nIds}건 (자동 ${nAuto} · 수동 ${nMan}) 을 담아 실행을 만듭니다 —
+                   자동·수동은 만든 뒤 실행 안에서 골라 돌립니다.`
+                : '담긴 시험 항목이 없습니다 — 시험 항목 탭에서 먼저 담으세요.'}
+            </span>
+            <div className="rnb-acts">
+              <button
+                type="button"
+                className="cu-new"
+                disabled={!nIds || !!busyRun}
+                onClick={() => void makeRun(plan)}
+              >
+                <i aria-hidden="true">▶</i>
+                {busyRun ? '만드는 중…' : `실행 만들기 ${nIds}건`}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                title="모델·버전을 직접 골라 실행을 만듭니다"
+                onClick={() => {
+                  setNeedMake(true)
+                  setMkRun(true)
+                }}
+              >
+                ＋ 실행 만들기
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+    const r = runLite && myRuns.some((x) => x.id === runLite.id) ? runLite : undefined
+    if (!r)
+      return (
+        <div className="cu-fill">
+          <div className="cu-empty" style={{ margin: 'auto' }}>
+            <strong>불러오는 중…</strong>
+          </div>
+        </div>
+      )
+    const t = runTally
+    const pct = t.total ? Math.round((t.done / t.total) * 100) : 0
+    const nA = runItems.filter((x) => !x.man).length
+    const nM = runItems.length - nA
+    const modeTxt =
+      r.mode === 'empty' ? '직접 구성' : nA && nM ? '전체 항목' : nA ? '자동' : nM ? '수동' : '빈 실행'
+    const asgOf = new Map<string, number>()
+    for (const it of runItems) {
+      const k2 = it.who || String(r.owner ?? '') || '(안 정함)'
+      asgOf.set(k2, (asgOf.get(k2) ?? 0) + 1)
+    }
+    return (
+      <div className="cu-fill run-tab">
+        {/* 실행 고르개 + 실행 하나짜리 일들 */}
+        <div className="runpick">
+          <span className="cu-m">이 사이클의 실행</span>
+          {myRuns.map((x) => (
+            <button
+              key={x.id}
+              type="button"
+              className={`rpick${x.id === r.id ? ' on' : ''}`}
+              onClick={() => openRun(x.id)}
+            >
+              {x.n_none ? '▤' : '✓'} {x.id}{' '}
+              <span className="cu-m">{String(x.created_at ?? '').slice(0, 10)}</span>
+            </button>
+          ))}
+          <span className="cu-sp" />
+          <button
+            type="button"
+            className="btn small"
+            onClick={(e) => {
+              const rc = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              setRunMoreAt({ x: Math.max(8, rc.right - 180), y: rc.bottom + 4 })
+            }}
+          >
+            더보기 ▾
+          </button>
+        </div>
+
+        {/* 제목 줄 + 자동·수동 열기 */}
+        <div className="run-titlerow">
+          <h1
+            className="run-title edt"
+            title="더블클릭하면 고칩니다"
+            onDoubleClick={(e) =>
+              editInline(e.currentTarget, String(r.name ?? r.id), (v) => {
+                if (v.trim()) void saveRun({ name: v.trim() })
+              }, true)
+            }
+          >
+            {String(r.name || r.id)}
+          </h1>
+          <span className="cu-mono cu-m">({r.id})</span>
+          <span className={`cu-chip${modeTxt === '자동' ? ' auto' : ''}`}>{modeTxt}</span>
+          {!!t.total && !t.n && <span className="cu-chip done">✓ 완료</span>}
+          {!!r.closed_at && <span className="cu-chip">종료</span>}
+          <span className="cu-sp" />
+          <button
+            type="button"
+            className="cu-new"
+            disabled={!nA}
+            title="장비에 접속해 스텝을 순서대로 돌립니다"
+            onClick={() => openRunner('A')}
+          >
+            <i aria-hidden="true">▶</i>자동 시험 {nA}
+          </button>
+          <button
+            type="button"
+            className="btn small"
+            disabled={!nM}
+            title="사람이 확인하고 판정을 기록합니다"
+            onClick={() => openRunner('M')}
+          >
+            ✎ 수동 시험 {nM}
+          </button>
+        </div>
+
+        {/* 요약 */}
+        {sumOff ? (
+          <div className="run-sum mini">
+            <button type="button" className="linkbtn" onClick={() => setSumOff(false)}>
+              › 요약
+            </button>
+            {vf !== null && (
+              <span className="vfchip">
+                {vName(verds, vf)}만 보는 중
+                <button type="button" className="linkbtn" onClick={() => setVf(null)}>전체</button>
+              </span>
+            )}
+            <span className="cu-sp" />
+            <span className="cu-m">{t.total}개의 시험 항목 · {pct}% 완료</span>
+          </div>
+        ) : (
+          <div className="run-sum">
+            <div className="run-sum-hd">
+              <button type="button" className="linkbtn" onClick={() => setSumOff(true)}>
+                ˅ 요약
+              </button>
+            </div>
+            <div className="run-sum-body">
+              <div className="sumdonut">
+                <Donut
+                  big
+                  parts={[
+                    { v: t.p, cls: 'p', color: vDef(verds, 'Pass').color },
+                    { v: t.f, cls: 'f', color: vDef(verds, 'Fail').color },
+                    { v: t.b, cls: 'b', color: vDef(verds, 'Blocked').color },
+                  ]}
+                  total={t.total}
+                  label={`${pct}%`}
+                  sub="완료"
+                />
+                <div className="cu-m">{t.total} 개 중 {t.done} 완료됨</div>
+              </div>
+              <div className="sumrows">
+                {[
+                  ...verds,
+                  ...[...runByVerd.keys()]
+                    .filter((k2) => !verds.some((d) => d.v === k2))
+                    .map((k2) => ({ ...vDef(verds, k2), label: `${k2} (지워진 판정)` })),
+                ].map((d) => {
+                  const nn = runByVerd.get(d.v) ?? 0
+                  const on = vf === d.v
+                  return (
+                    <button
+                      key={d.v || '(none)'}
+                      type="button"
+                      className={`sumrow hit${on ? ' on' : vf !== null ? ' dim' : ''}`}
+                      title={`${d.label}만 보기${on ? ' (해제하려면 다시 누르세요)' : ''}`}
+                      onClick={() => setVf(on ? null : d.v)}
+                    >
+                      <span
+                        className={`vpill${d.v ? '' : ' v-n'}`}
+                        style={d.v ? { background: d.color, color: '#fff' } : undefined}
+                      >
+                        {t.total ? Math.round((nn / t.total) * 100) : 0}%
+                      </span>
+                      <b>{nn || '-'}</b>
+                      <span className="cu-m">{d.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="sumbox">
+                <div className="sumbox-tabs">
+                  <button type="button" className={sumTab === 'team' ? 'on' : ''} onClick={() => setSumTab('team')}>
+                    👤 팀
+                  </button>
+                  <button type="button" className={sumTab === 'info' ? 'on' : ''} onClick={() => setSumTab('info')}>
+                    ▤ 세부 정보
+                  </button>
+                </div>
+                <div className="sumbox-body">
+                  {sumTab === 'team' ? (
+                    <>
+                      {[...asgOf.entries()].map(([w, nn]) => (
+                        <div key={w} className="sumrow">
+                          <span className="who">👤 {w}</span>
+                          <span className="cu-m">{nn}개의 시험 항목</span>
+                        </div>
+                      ))}
+                      <div className="sumbox-ft">{asgOf.size}명</div>
+                    </>
+                  ) : (
+                    <div className="kvgrid tight">
+                      {kv('실행 ID', <span className="cu-mono">{r.id}</span>)}
+                      {kv('방식', modeTxt)}
+                      {kv('버전그룹', <span className="cu-mono">{String(r.version_group ?? '') || '—'}</span>)}
+                      {kv('버전명', <span className="cu-mono">{String(r.version ?? '') || '—'}</span>)}
+                      {kv(
+                        '담당',
+                        <button
+                          type="button"
+                          className="kvin rnb-own"
+                          onClick={(e) => {
+                            const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                            setOwnAt({ x: b.left, y: b.bottom + 4 })
+                          }}
+                        >
+                          {String(r.owner ?? '') || <span className="cu-m">(안 정함)</span>}
+                          <span className="cu-m"> ▾</span>
+                        </button>,
+                      )}
+                      {kv('생성', `${String(r.created_at ?? '').slice(0, 10)} · ${ago(r.created_at)}`)}
+                      {kv('상태', r.closed_at ? '종료' : t.n ? `진행 중 · 미실행 ${t.n}건` : '완료')}
+                      <span className="k">설명</span>
+                      <span className="v wide">
+                        <span
+                          className="edt desc"
+                          title="더블클릭하면 고칩니다"
+                          onDoubleClick={(e) =>
+                            editInline(e.currentTarget, String(runFull?.desc ?? ''), (v) => void saveRun({ desc: v }))
+                          }
+                        >
+                          {String(runFull?.desc ?? '') || <span className="cu-m">—</span>}
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 항목 표 — 노션 표(Runs 와 같은 열·저장키) */}
+        <div className="rnb-ntb">
+          <NTable
+            columns={riCols.map((c) =>
+              c.key === 'result'
+                ? { ...c, options: verds.map((d) => ({ value: d.label, color: d.color })) }
+                : c,
+            )}
+            rows={shownRunItems.map((it) => ({
+              __id: it.tcid,
+              id: it.tcid,
+              title: it.title || '(이름 없음)',
+              folder: it.folder,
+              who: it.who,
+              result: vName(verds, it.v),
+            }))}
+            view={riView}
+            onView={setRiView}
+            onColumns={setRiCols}
+            people={people}
+            meName={meName}
+            onCell={(id, key, v) => {
+              if (key === 'who') void setWho([id], v)
+              if (key === 'result') {
+                /* 「– 비움」·Delete 는 빈 글을 준다 — 미실행('') 판정이다 */
+                const d = v === '' ? { v: '' } : verds.find((x) => x.label === v)
+                if (d) void setVerdict(id, d.v)
+              }
+            }}
+            readOnlyKeys={['id', 'title', 'folder']}
+            lockDefs
+            idKey="id"
+            titleKey="title"
+            rowIcon={(row) => {
+              const man = runItems.find((x) => x.tcid === row.__id)?.man
+              return <span className="cu-m" title={man ? '수동' : '자동'}>{man ? '✎' : '▶'}</span>
+            }}
+            onOpen={(id) => {
+              const man = runItems.find((x) => x.tcid === id)?.man
+              openRunner(man ? 'M' : 'A', id)
+            }}
+            onBulk={(a, ids) => {
+              if (a === 'del') void dropRunItems(ids)
+              else if (a === 'assign') setBulkAt({ kind: 'assign', ids })
+              else if (a === 'status') setBulkAt({ kind: 'status', ids })
+              else window.alert('이 표에서는 아직 없는 동작입니다')
+            }}
+            perPage={100}
+          />
+        </div>
+      </div>
+    )
+  }
+
   /* ── 상세 골격 ── */
   function renderDetail() {
     if (!plan) {
@@ -1046,6 +1895,7 @@ export default function CyclesBoard({
     return (
       <section className="panel" style={{ height: '100%' }}>
         <div className="cu-hd">
+          {colBtn}
           <button type="button" className="btn icon" title="목록으로" onClick={closePlan}>
             ←
           </button>
@@ -1102,6 +1952,9 @@ export default function CyclesBoard({
           <button type="button" role="tab" aria-selected={tab === 'it'} className={tab === 'it' ? 'on' : ''} onClick={() => setTab('it')}>
             시험 항목 <span className="dim">{itemRows.length}</span>
           </button>
+          <button type="button" role="tab" aria-selected={tab === 'run'} className={tab === 'run' ? 'on' : ''} onClick={() => setTab('run')}>
+            실행 <span className="dim">{myRuns.length}</span>
+          </button>
         </div>
         {tab === 'ov' ? (
           renderOverview()
@@ -1127,6 +1980,8 @@ export default function CyclesBoard({
               statReady={sumOfRuns.ready}
             />
           </div>
+        ) : tab === 'run' ? (
+          renderRunTab()
         ) : (
           renderItems()
         )}
@@ -1134,9 +1989,148 @@ export default function CyclesBoard({
     )
   }
 
+  const runnerCols = runnerOn && !!selRun && !!open && tab === 'run'
+  const cols =
+    wide && runnerCols
+      ? 'minmax(0,1fr)'
+      : [
+          sideOn ? `${w1}px` : '',
+          'minmax(0,1fr)',
+          runnerCols ? 'minmax(520px,1.15fr)' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+
   return (
-    <div className="qav cyb">
-      {open ? renderDetail() : renderList()}
+    <div className="qav cyb rnb">
+      <div ref={gridRef} className="cu-grid" style={{ gridTemplateColumns: cols }}>
+        {!(wide && runnerCols) && sideOn && renderSide()}
+        {!(wide && runnerCols) && (open ? renderDetail() : renderList())}
+        {runnerCols && (
+          <section className="cu-run">
+            <RunDetail
+              runId={selRun}
+              plan={plan}
+              /* 표에 보이는 그 차례 그대로 — 이 목록이 실행기가 도는 차례다 */
+              only={runItems.filter((x) => (runMode === 'M' ? x.man : !x.man)).map((x) => x.tcid)}
+              focus={runFocus}
+              onBack={() => setRunnerOn(false)}
+              lead={
+                <button
+                  type="button"
+                  className="cu-colbtn"
+                  title={wide ? '축소' : '전체로 확장'}
+                  onClick={() => setWide((v) => !v)}
+                >
+                  {wide ? '⇤' : '⇥'}
+                </button>
+              }
+              onClose={() => {
+                setRunnerOn(false)
+                setWide(false)
+                void qc.invalidateQueries({ queryKey: ['plan-run', selRun] })
+              }}
+            />
+          </section>
+        )}
+      </div>
+
+      {/* 실행 더보기 — 실행 하나짜리 일들 */}
+      {!!runMoreAt && !!runLite && (
+        <>
+          <span className="qa-moreovl" role="presentation" onClick={() => setRunMoreAt(null)} />
+          <div className="qa-menu" role="menu" style={{ left: runMoreAt.x, top: runMoreAt.y }}>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setRunMoreAt(null)
+                if (plan) setMailPlan(plan)
+              }}
+            >
+              ✉ 결과 메일
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setRunMoreAt(null)
+                if (plan) setRepPlan(plan)
+              }}
+            >
+              ▤ 고객사 결과서
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setRunMoreAt(null)
+                setNeedMake(true)
+                setMkRun(true)
+              }}
+            >
+              ＋ 실행 하나 더
+            </button>
+            <div className="qa-menusep" />
+            <button
+              type="button"
+              role="menuitem"
+              className="danger"
+              onClick={() => {
+                setRunMoreAt(null)
+                void delRun(runLite.id)
+              }}
+            >
+              실행 지우기
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* 노션 표의 「담당 일괄」 — 조직·검색 되는 공용 고르개 */}
+      {!!bulkAt && bulkAt.kind === 'assign' && (
+        <AssigneePicker
+          at={{ x: window.innerWidth / 2 - 150, y: 160 }}
+          me={meName}
+          onPick={(name) => { const ids = bulkAt.ids; setBulkAt(null); void setWho(ids, name) }}
+          onClose={() => setBulkAt(null)}
+        />
+      )}
+      {/* 「상태 바꾸기」 — 셋업의 판정 목록 그대로 */}
+      {!!bulkAt && bulkAt.kind === 'status' && (
+        <>
+          <span className="qa-moreovl" role="presentation" onClick={() => setBulkAt(null)} />
+          <div className="qa-menu" role="menu" style={{ left: '50%', top: 160, transform: 'translateX(-50%)' }}>
+            <div className="qa-menuh">고른 {bulkAt.ids.length}건의 결과</div>
+            {verds.map((d) => (
+              <button key={d.v || '(none)'} type="button" role="menuitem" onClick={() => { setBulkAt(null); void setVerdicts(bulkAt.ids, d.v) }}>
+                <i className="qa-dot" style={{ background: d.color }} /> {d.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* 실행 담당 고르개 */}
+      {!!ownAt && !!selRun && (
+        <AssigneePicker
+          at={ownAt}
+          value={String(runs.find((x) => x.id === selRun)?.owner ?? '')}
+          me={meName}
+          onPick={(name) => void saveRun({ owner: name })}
+          onClose={() => setOwnAt(null)}
+        />
+      )}
+
+      {!!mailPlan && <CycleMailOne cycle={mailPlan} onClose={() => setMailPlan(null)} />}
+      {!!repPlan && (
+        <CycleReport
+          cycleId={repPlan.id}
+          model={String(repPlan.model ?? '')}
+          version={String(repPlan.version ?? '')}
+          onClose={() => setRepPlan(null)}
+        />
+      )}
 
       {!!assAt && !!plan && (
         <AssigneePicker
@@ -1222,8 +2216,8 @@ export default function CyclesBoard({
           onMade={(id) => {
             setMkRun(false)
             void runsQ.refetch()
-            /* 실행은 Runs 가 제자리다 — 만든 것을 그 화면에서 연다 */
-            goto('run', id)
+            setTab('run')
+            openRun(id)
           }}
         />
       )}
