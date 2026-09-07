@@ -37,6 +37,10 @@ export interface NTableProps {
   onNew?: (seed?: { key: string; value: string }) => void
   /** 여러 줄 골라 한 번에 — 무엇을 할지는 쓰는 쪽이 정한다 */
   onBulk?: (action: string, ids: string[]) => void
+  /** 선택 바에 세울 단추 — 안 주면 기본(담당 일괄·상태 바꾸기·CSV·삭제).
+      표마다 하는 일이 달라, 기본 단추가 그 표에 없는 일을 말하면
+      「아직 없습니다」 만 늘어난다(지적: ⋯ 의 일을 선택 바로). */
+  bulk?: Array<{ k: string; label: string; danger?: boolean }>
   /** 지금 체크된 줄 — 화면 제 도구줄(복제·삭제·⋯)이 이걸 본다 */
   onSelect?: (ids: string[]) => void
   /** ID 앞에 붙는 작은 표시 — 줄의 성격을 한눈에(자동·수동 같은).
@@ -1175,7 +1179,7 @@ export default function NTable(p: NTableProps) {
       {checked.size > 0 && (
         <div className="ntb-bulk">
           <b>{checked.size}건 선택</b>
-          {BULK.map((b) => (
+          {(p.bulk ?? BULK).map((b) => (
             <button
               type="button"
               key={b.k}

@@ -81,8 +81,6 @@ export default function CyclesBoard({
   const [mkRun, setMkRun] = useState(false)
   const [edit, setEdit] = useState(false)
   const [cloneId, setCloneId] = useState('')
-  /** ⋯ 더보기 — 상세 머리의 것(목록은 노션 표라 줄 메뉴가 없다) */
-  const [moreAt, setMoreAt] = useState<{ x: number; y: number; id: string } | null>(null)
   /* 만들기 창(MakePlanRun)이 쓰는 카탈로그 — 창을 열 때만 받아 온다 */
   const [needMake, setNeedMake] = useState(false)
 
@@ -545,33 +543,6 @@ export default function CyclesBoard({
     </>
   )
 
-  const menuFor = (id: string) => {
-    const p = planOf.get(id)
-    if (!p) return null
-    return (
-      <>
-        <span className="qa-moreovl" role="presentation" onClick={() => setMoreAt(null)} />
-        <div className="qa-menu" role="menu" style={{ left: moreAt!.x, top: moreAt!.y }}>
-          <button type="button" role="menuitem" onClick={() => { setMoreAt(null); if (open !== id) openPlanId(id); setNeedMake(true); setMkRun(true) }}>
-            시험 실행 만들기
-          </button>
-          <button type="button" role="menuitem" onClick={() => { setMoreAt(null); setCloneId(id) }}>
-            사이클 복제
-          </button>
-          <button type="button" role="menuitem" onClick={() => { setMoreAt(null); if (open !== id) openPlanId(id); setEdit(true) }}>
-            고치기 (제목·항목)
-          </button>
-          <button type="button" role="menuitem" onClick={() => { setMoreAt(null); void csvPlan(id) }}>
-            CSV 내보내기
-          </button>
-          <div className="qa-menusep" />
-          <button type="button" role="menuitem" className="danger" onClick={() => { setMoreAt(null); void delPlans([id]) }}>
-            사이클 지우기
-          </button>
-        </div>
-      </>
-    )
-  }
 
   /* ── 목록 화면 ── */
   /**
@@ -631,12 +602,32 @@ export default function CyclesBoard({
             idKey="id"
             titleKey="title"
             onOpen={(id) => openPlanId(id)}
+            bulk={[
+              { k: 'run', label: '실행 만들기' },
+              { k: 'clone', label: '복제' },
+              { k: 'edit', label: '고치기' },
+              { k: 'csv', label: 'CSV' },
+              { k: 'del', label: '삭제', danger: true },
+            ]}
             onBulk={(a, ids) => {
-              if (a === 'del') void delPlans(ids)
-              else if (a === 'csv') {
-                if (ids.length === 1 && ids[0]) void csvPlan(ids[0])
-                else window.alert('CSV 는 한 건씩 내보냅니다 — 하나만 골라 주세요.')
-              } else window.alert('이 표에서는 아직 없는 동작입니다')
+              const one = ids.length === 1 ? ids[0] : undefined
+              if (a === 'del') {
+                void delPlans(ids)
+                return
+              }
+              if (!one) {
+                window.alert('이 일은 한 건씩 합니다 — 하나만 골라 주세요.')
+                return
+              }
+              if (a === 'run') {
+                openPlanId(one)
+                setNeedMake(true)
+                setMkRun(true)
+              } else if (a === 'clone') setCloneId(one)
+              else if (a === 'edit') {
+                openPlanId(one)
+                setEdit(true)
+              } else if (a === 'csv') void csvPlan(one)
             }}
             renderCell={(row, col) => {
               if (col.key === 'stat') {
@@ -984,9 +975,9 @@ export default function CyclesBoard({
             <span className="cu-m" title={String(r.run)}>{r.run === '수동' ? '✎' : '▶'}</span>
           )}
           onOpen={(id) => goto('tc', id)}
+          bulk={[{ k: 'del', label: '사이클에서 제거', danger: true }]}
           onBulk={(a, ids) => {
             if (a === 'del') void dropItems(ids)
-            else window.alert('이 표에서는 아직 없는 동작입니다 — 값은 REQ-Coverage 가 정본입니다')
           }}
           renderCell={(row, col) => {
             if (col.key !== 'fail') return undefined
@@ -1050,20 +1041,9 @@ export default function CyclesBoard({
             {[plan.customer, plan.model].filter(Boolean).join(' · ') || '대상 미지정'}
           </span>
           <span className="cu-sp" />
+          {/* ⋯ 는 걷었다(지시) — 복제·고치기·CSV·지우기·실행 만들기는
+              목록에서 줄을 골랐을 때 아래 선택 바가 맡는다 */}
           <div className="cu-hdbtns">
-            {/* ⋯ 는 이제 여기 **한 곳뿐**이다 — 목록이 노션 표가 되며 줄
-                메뉴가 없어져, 겹치던 문제(지적)도 함께 사라졌다. 복제·
-                고치기·CSV·지우기가 여기 산다. */}
-            <button
-              type="button"
-              className="btn small"
-              onClick={(e) => {
-                const r2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                setMoreAt({ x: Math.max(8, r2.right - 180), y: r2.bottom + 4, id: plan.id })
-              }}
-            >
-              ⋯
-            </button>
             <button
               type="button"
               className="cu-new"
@@ -1128,8 +1108,6 @@ export default function CyclesBoard({
   return (
     <div className="qav cyb">
       {open ? renderDetail() : renderList()}
-
-      {!!moreAt && menuFor(moreAt.id)}
 
       {making && (
         <MakeCycle
