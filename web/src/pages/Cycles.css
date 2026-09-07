@@ -8651,7 +8651,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 }
 
 /* 고른 줄 — 요약 카드가 보는 플랜. hover 색보다 한 층 진하게 */
-.cyt-row.cyl-on { background: #e8f3f6; box-shadow: inset 3px 0 0 var(--c-sel-teal, #a8d3dd); }
+.cyt-row.cyl-on { background: var(--c-primary-bg-soft); box-shadow: inset 3px 0 0 var(--c-sel-teal, #a8d3dd); }
 .cyt-row.cyl-on:hover { background: #e0eef2; }
 
 /* 지금 도는 실행 — 깜빡여서 눈이 간다. 라이브가 아닌 「진행중」 과 다르다 */

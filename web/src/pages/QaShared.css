@@ -301,7 +301,9 @@
 .qav .donut2 .dseg { stroke-linecap: butt; }
 .qav .donut2 .dseg.a { stroke: var(--c-primary); }
 .qav .donut2 .dseg.m { stroke: var(--c-idle); }
-.qav .donut2 .dseg.c { stroke: var(--c-sel-teal); }
+/* 커버리지 도넛의 청록은 **그림 색**이지 선택 표시가 아니다 — 선택색이
+   파랑으로 통일되면서 토큰을 따라가면 흰 바탕에서 안 보인다. 값을 박는다. */
+.qav .donut2 .dseg.c { stroke: #a8d3dd; }
 .qav .donut2 .dseg.p { stroke: var(--c-pass); }
 .qav .donut2 .dseg.f { stroke: var(--c-fail); }
 .qav .donut2 .dseg.b { stroke: var(--c-draft); }
