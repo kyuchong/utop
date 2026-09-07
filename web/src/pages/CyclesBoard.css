@@ -71,3 +71,9 @@
 /* 실행 탭 몸통 — 위 요소들은 제 키, 표가 남은 자리를 쓴다 */
 .cyb .run-tab { gap: 8px; }
 .cyb .run-tab .runpick, .cyb .run-tab .run-titlerow { padding: 0; }
+
+/* 개요의 판정 요약 — 도넛 + 판정 알약 (실행 탭에서 옮겨 옴) */
+.cyb .cu-card h2.flexh { display: flex; align-items: center; gap: 8px; }
+.cyb .ov-verd { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding: 12px 14px; align-items: center; max-width: 680px; }
+.cyb .ov-verd .sumdonut { text-align: center; }
+.cyb .ov-verd .sumrows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; align-self: start; }

@@ -199,8 +199,6 @@ export default function CyclesBoard({
   const [runMode, setRunMode] = useState<'A' | 'M'>('A')
   const [runFocus, setRunFocus] = useState('')
   const [wide, setWide] = useState(false)
-  const [sumOff, setSumOff] = useState(false)
-  const [sumTab, setSumTab] = useState<'team' | 'info'>('team')
   const [vf, setVf] = useState<string | null>(null)
   const [bulkAt, setBulkAt] = useState<{ kind: 'assign' | 'status'; ids: string[] } | null>(null)
   const [runMoreAt, setRunMoreAt] = useState<{ x: number; y: number } | null>(null)
@@ -1263,6 +1261,83 @@ export default function CyclesBoard({
           </div>
         </div>
 
+        {/* 판정 요약 — 실행 탭의 요약을 개요로 옮겼다(지시: 통합 시안).
+            수치는 지금 고른 실행(기본: 마지막 실행) 기준, 알약을 누르면
+            실행 탭이 그 판정만 걸러 열린다. */}
+        <div className="cu-sec cu-card">
+          <h2 className="flexh">
+            판정 요약{' '}
+            <span className="dim">
+              {runLite && myRuns.some((x) => x.id === runLite.id)
+                ? `실행 ${runLite.id} · ${String(runLite.created_at ?? '').slice(0, 10)}`
+                : '실행 없음'}
+            </span>
+            <span className="cu-sp" />
+            {!!myRuns.length && (
+              <button type="button" className="btn small" onClick={() => setTab('run')}>
+                실행 탭에서 보기 ›
+              </button>
+            )}
+          </h2>
+          <div className="ov-verd">
+            <div className="sumdonut">
+              <Donut
+                big
+                parts={[
+                  { v: runTally.p, cls: 'p', color: vDef(verds, 'Pass').color },
+                  { v: runTally.f, cls: 'f', color: vDef(verds, 'Fail').color },
+                  { v: runTally.b, cls: 'b', color: vDef(verds, 'Blocked').color },
+                ]}
+                total={runTally.total}
+                label={
+                  myRuns.length && runTally.total
+                    ? `${Math.round((runTally.done / runTally.total) * 100)}%`
+                    : '0%'
+                }
+                sub={myRuns.length ? '완료' : '실행 없음'}
+              />
+              <div className="cu-m">
+                {myRuns.length
+                  ? `${runTally.total}개 중 ${runTally.done} 완료됨`
+                  : '실행 탭의 ＋실행으로 첫 실행을 만드세요'}
+              </div>
+            </div>
+            <div className="sumrows">
+              {[
+                ...verds,
+                ...[...runByVerd.keys()]
+                  .filter((k2) => !verds.some((d) => d.v === k2))
+                  .map((k2) => ({ ...vDef(verds, k2), label: `${k2} (지워진 판정)` })),
+              ].map((d) => {
+                const nn = runByVerd.get(d.v) ?? 0
+                return (
+                  <button
+                    key={d.v || '(none)'}
+                    type="button"
+                    className={`sumrow${myRuns.length ? ' hit' : ''}`}
+                    disabled={!myRuns.length}
+                    title={myRuns.length ? `실행 탭에서 ${d.label}만 보기` : undefined}
+                    onClick={() => {
+                      if (!myRuns.length) return
+                      setVf(d.v)
+                      setTab('run')
+                    }}
+                  >
+                    <span
+                      className={`vpill${d.v ? '' : ' v-n'}`}
+                      style={d.v ? { background: d.color, color: '#fff' } : undefined}
+                    >
+                      {runTally.total ? Math.round((nn / runTally.total) * 100) : 0}%
+                    </span>
+                    <b>{nn || '-'}</b>
+                    <span className="cu-m">{d.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* 기본 정보 — **네 묶음으로 가른다**(지시):
             대상 │ 사이클 │ 구성 │ 사람·이력. 한 판에 열두 칸을 늘어놓았더니
             어느 칸이 어느 얘기인지 눈이 매번 갈랐다. 설명은 지시 목록에
@@ -1622,16 +1697,10 @@ export default function CyclesBoard({
         </div>
       )
     const t = runTally
-    const pct = t.total ? Math.round((t.done / t.total) * 100) : 0
     const nA = runItems.filter((x) => !x.man).length
     const nM = runItems.length - nA
     const modeTxt =
       r.mode === 'empty' ? '직접 구성' : nA && nM ? '전체 항목' : nA ? '자동' : nM ? '수동' : '빈 실행'
-    const asgOf = new Map<string, number>()
-    for (const it of runItems) {
-      const k2 = it.who || String(r.owner ?? '') || '(안 정함)'
-      asgOf.set(k2, (asgOf.get(k2) ?? 0) + 1)
-    }
     return (
       <div className="cu-fill run-tab">
         {/* 실행 고르개 + 실행 하나짜리 일들 */}
@@ -1678,6 +1747,26 @@ export default function CyclesBoard({
           <span className={`cu-chip${modeTxt === '자동' ? ' auto' : ''}`}>{modeTxt}</span>
           {!!t.total && !t.n && <span className="cu-chip done">✓ 완료</span>}
           {!!r.closed_at && <span className="cu-chip">종료</span>}
+          <span className="cu-m">담당</span>
+          <button
+            type="button"
+            className="kvin rnb-own"
+            style={{ width: 'auto' }}
+            title="조직을 눌러 좁히거나 이름으로 찾아 고릅니다"
+            onClick={(e) => {
+              const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              setOwnAt({ x: b.left, y: b.bottom + 4 })
+            }}
+          >
+            {String(r.owner ?? '') || <span className="cu-m">(안 정함)</span>}
+            <span className="cu-m"> ▾</span>
+          </button>
+          {vf !== null && (
+            <span className="vfchip">
+              {vName(verds, vf)}만 보는 중
+              <button type="button" className="linkbtn" onClick={() => setVf(null)}>전체</button>
+            </span>
+          )}
           <span className="cu-sp" />
           <button
             type="button"
@@ -1698,134 +1787,6 @@ export default function CyclesBoard({
             ✎ 수동 시험 {nM}
           </button>
         </div>
-
-        {/* 요약 */}
-        {sumOff ? (
-          <div className="run-sum mini">
-            <button type="button" className="linkbtn" onClick={() => setSumOff(false)}>
-              › 요약
-            </button>
-            {vf !== null && (
-              <span className="vfchip">
-                {vName(verds, vf)}만 보는 중
-                <button type="button" className="linkbtn" onClick={() => setVf(null)}>전체</button>
-              </span>
-            )}
-            <span className="cu-sp" />
-            <span className="cu-m">{t.total}개의 시험 항목 · {pct}% 완료</span>
-          </div>
-        ) : (
-          <div className="run-sum">
-            <div className="run-sum-hd">
-              <button type="button" className="linkbtn" onClick={() => setSumOff(true)}>
-                ˅ 요약
-              </button>
-            </div>
-            <div className="run-sum-body">
-              <div className="sumdonut">
-                <Donut
-                  big
-                  parts={[
-                    { v: t.p, cls: 'p', color: vDef(verds, 'Pass').color },
-                    { v: t.f, cls: 'f', color: vDef(verds, 'Fail').color },
-                    { v: t.b, cls: 'b', color: vDef(verds, 'Blocked').color },
-                  ]}
-                  total={t.total}
-                  label={`${pct}%`}
-                  sub="완료"
-                />
-                <div className="cu-m">{t.total} 개 중 {t.done} 완료됨</div>
-              </div>
-              <div className="sumrows">
-                {[
-                  ...verds,
-                  ...[...runByVerd.keys()]
-                    .filter((k2) => !verds.some((d) => d.v === k2))
-                    .map((k2) => ({ ...vDef(verds, k2), label: `${k2} (지워진 판정)` })),
-                ].map((d) => {
-                  const nn = runByVerd.get(d.v) ?? 0
-                  const on = vf === d.v
-                  return (
-                    <button
-                      key={d.v || '(none)'}
-                      type="button"
-                      className={`sumrow hit${on ? ' on' : vf !== null ? ' dim' : ''}`}
-                      title={`${d.label}만 보기${on ? ' (해제하려면 다시 누르세요)' : ''}`}
-                      onClick={() => setVf(on ? null : d.v)}
-                    >
-                      <span
-                        className={`vpill${d.v ? '' : ' v-n'}`}
-                        style={d.v ? { background: d.color, color: '#fff' } : undefined}
-                      >
-                        {t.total ? Math.round((nn / t.total) * 100) : 0}%
-                      </span>
-                      <b>{nn || '-'}</b>
-                      <span className="cu-m">{d.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-              <div className="sumbox">
-                <div className="sumbox-tabs">
-                  <button type="button" className={sumTab === 'team' ? 'on' : ''} onClick={() => setSumTab('team')}>
-                    👤 팀
-                  </button>
-                  <button type="button" className={sumTab === 'info' ? 'on' : ''} onClick={() => setSumTab('info')}>
-                    ▤ 세부 정보
-                  </button>
-                </div>
-                <div className="sumbox-body">
-                  {sumTab === 'team' ? (
-                    <>
-                      {[...asgOf.entries()].map(([w, nn]) => (
-                        <div key={w} className="sumrow">
-                          <span className="who">👤 {w}</span>
-                          <span className="cu-m">{nn}개의 시험 항목</span>
-                        </div>
-                      ))}
-                      <div className="sumbox-ft">{asgOf.size}명</div>
-                    </>
-                  ) : (
-                    <div className="kvgrid tight">
-                      {kv('실행 ID', <span className="cu-mono">{r.id}</span>)}
-                      {kv('방식', modeTxt)}
-                      {kv('버전그룹', <span className="cu-mono">{String(r.version_group ?? '') || '—'}</span>)}
-                      {kv('버전명', <span className="cu-mono">{String(r.version ?? '') || '—'}</span>)}
-                      {kv(
-                        '담당',
-                        <button
-                          type="button"
-                          className="kvin rnb-own"
-                          onClick={(e) => {
-                            const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                            setOwnAt({ x: b.left, y: b.bottom + 4 })
-                          }}
-                        >
-                          {String(r.owner ?? '') || <span className="cu-m">(안 정함)</span>}
-                          <span className="cu-m"> ▾</span>
-                        </button>,
-                      )}
-                      {kv('생성', `${String(r.created_at ?? '').slice(0, 10)} · ${ago(r.created_at)}`)}
-                      {kv('상태', r.closed_at ? '종료' : t.n ? `진행 중 · 미실행 ${t.n}건` : '완료')}
-                      <span className="k">설명</span>
-                      <span className="v wide">
-                        <span
-                          className="edt desc"
-                          title="더블클릭하면 고칩니다"
-                          onDoubleClick={(e) =>
-                            editInline(e.currentTarget, String(runFull?.desc ?? ''), (v) => void saveRun({ desc: v }))
-                          }
-                        >
-                          {String(runFull?.desc ?? '') || <span className="cu-m">—</span>}
-                        </span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* 항목 표 — 노션 표(Runs 와 같은 열·저장키) */}
         <div className="rnb-ntb">
