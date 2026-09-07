@@ -44,3 +44,16 @@
 
 /* 시험 항목 노션 표 — 카드 없이 표가 남는 높이를 갖는다 */
 .cyb .cu-fill > .ntb, .cyb .cu-fill > div:last-child { flex: 1; min-height: 0; }
+
+/* 기본 정보 네 묶음 — 대상 │ 사이클 │ 구성 │ 사람·이력 (지시) */
+.cyb .metarow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-3); }
+@media (max-width: 1280px) { .cyb .metarow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .cyb .metarow { grid-template-columns: 1fr; } }
+.cyb .metacard .kv1 {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 5px var(--sp-2);
+  align-items: baseline;
+}
+.cyb .metacard .kv1 .k { color: var(--c-text-muted); font-size: var(--fs-sm); }
+.cyb .metacard .kv1 .v { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

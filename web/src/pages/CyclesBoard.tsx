@@ -654,7 +654,6 @@ export default function CyclesBoard({
     const pctM = itemRows.length ? Math.round((nMan / itemRows.length) * 100) : 0
     const cov = poolN ? ((itemRows.length / poolN) * 100).toFixed(1) : '0.0'
     const reqN = new Set(itemRows.map((r) => r.reqLabel).filter(Boolean)).size
-    const openN = myRuns.filter((r) => !r.closed_at).length
     return (
       <div className="cu-scroll">
         <div className="cu-sec statrow">
@@ -683,67 +682,107 @@ export default function CyclesBoard({
           </div>
         </div>
 
-        <div className="cu-sec cu-card">
-          <h2>기본 정보</h2>
-          <div className="pad">
-            <div className="kvgrid">
-              {kv('사이클 ID', <span className="cu-mono">{String(plan.cid ?? plan.id)}</span>)}
-              {kv('버전명', <span className="cu-mono">{String(plan.version ?? '') || '—'}</span>)}
-              {kv('버전그룹', <span className="cu-mono">{String(plan.version_group ?? '') || '—'}</span>)}
-              {kv(
-                '담당',
-                <select
-                  className="kvin"
-                  value={String(plan.assignee ?? '')}
-                  onChange={(e) => void saveFull({ assignee: e.target.value })}
-                >
-                  {!users.includes(String(plan.assignee ?? '')) && (
-                    <option value={String(plan.assignee ?? '')}>{String(plan.assignee ?? '') || '(안 정함)'}</option>
-                  )}
-                  {users.map((u) => (
-                    <option key={u} value={u}>{u}</option>
-                  ))}
-                </select>,
-              )}
-              {kv('사업자', String(plan.customer ?? '') || '—')}
-              {kv('제품군', String(plan.family ?? '') || '—')}
-              {kv('모델그룹', <span className="cu-mono">{String(plan.model_group ?? '') || '—'}</span>)}
-              {kv('모델명', String(plan.model ?? '') || '—')}
-              {kv('REQ', <>{reqN}건</>)}
-              {kv(
-                '시험 항목',
-                <>
-                  {itemRows.length}건 <span className="cu-m">(자동 {nAuto} · 수동 {nMan})</span>
-                </>,
-              )}
-              {kv(
-                '실행',
-                myRuns.length ? (
-                  <>
-                    {myRuns.length}회{openN ? <span className="cu-m"> · 진행 중 {openN}건</span> : null}
-                  </>
-                ) : (
-                  <span className="cu-m">없음</span>
-                ),
-              )}
-              {kv(
-                '만든 날짜',
-                <>
-                  {String(plan._created_at_pg ?? '').slice(0, 10) || '—'}{' '}
-                  <span className="cu-m">{ago(plan._created_at_pg)}</span>
-                </>,
-              )}
-              <span className="k">설명</span>
-              <span className="v wide">
-                <span
-                  className="edt desc"
-                  title="더블클릭하면 고칩니다"
-                  onDoubleClick={(e) => editInline(e.currentTarget, String(plan.description ?? ''), (v) => void saveFull({ description: v }))}
-                >
-                  {String(plan.description ?? '') || <span className="cu-m">—</span>}
-                </span>
-              </span>
+        {/* 기본 정보 — **네 묶음으로 가른다**(지시):
+            대상 │ 사이클 │ 구성 │ 사람·이력. 한 판에 열두 칸을 늘어놓았더니
+            어느 칸이 어느 얘기인지 눈이 매번 갈랐다. 설명은 지시 목록에
+            없지만 고칠 자리가 사라지면 안 되어 아래 한 줄로 남긴다. */}
+        <div className="cu-sec metarow">
+          <div className="cu-card metacard">
+            <h2>대상</h2>
+            <div className="pad">
+              <div className="kv1">
+                {kv('모델그룹', <span className="cu-mono">{String(plan.model_group ?? '') || '—'}</span>)}
+                {kv('모델명', String(plan.model ?? '') || '—')}
+                {kv('버전그룹', <span className="cu-mono">{String(plan.version_group ?? '') || '—'}</span>)}
+                {kv('버전명', <span className="cu-mono">{String(plan.version ?? '') || '—'}</span>)}
+              </div>
             </div>
+          </div>
+          <div className="cu-card metacard">
+            <h2>사이클</h2>
+            <div className="pad">
+              <div className="kv1">
+                {kv('사이클 ID', <span className="cu-mono">{String(plan.cid ?? plan.id)}</span>)}
+                {kv(
+                  '사이클 제목',
+                  <span
+                    className="edt desc"
+                    title="더블클릭하면 고칩니다"
+                    onDoubleClick={(e) =>
+                      editInline(e.currentTarget, String(plan.name ?? ''), (v) => {
+                        if (v.trim()) void saveFull({ name: v.trim() })
+                      })
+                    }
+                  >
+                    {String(plan.name ?? plan.version ?? '') || <span className="cu-m">—</span>}
+                  </span>,
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="cu-card metacard">
+            <h2>구성</h2>
+            <div className="pad">
+              <div className="kv1">
+                {kv('요구사항', <>{reqN}건</>)}
+                {kv(
+                  '시험 항목',
+                  <>
+                    {itemRows.length}건 <span className="cu-m">(자동 {nAuto} · 수동 {nMan})</span>
+                  </>,
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="cu-card metacard">
+            <h2>사람 · 이력</h2>
+            <div className="pad">
+              <div className="kv1">
+                {kv(
+                  '담당자',
+                  <select
+                    className="kvin"
+                    value={String(plan.assignee ?? '')}
+                    onChange={(e) => void saveFull({ assignee: e.target.value })}
+                  >
+                    {!users.includes(String(plan.assignee ?? '')) && (
+                      <option value={String(plan.assignee ?? '')}>{String(plan.assignee ?? '') || '(안 정함)'}</option>
+                    )}
+                    {users.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>,
+                )}
+                {kv('생성자', String(plan.created_by ?? '') || '—')}
+                {kv('수정자', String(full?.updated_by ?? (plan as unknown as Record<string, unknown>).updated_by ?? '') || '—')}
+                {kv(
+                  '생성일자',
+                  <>
+                    {String(plan._created_at_pg ?? '').slice(0, 10) || '—'}{' '}
+                    <span className="cu-m">{ago(plan._created_at_pg)}</span>
+                  </>,
+                )}
+                {kv(
+                  '수정일자',
+                  <>
+                    {String(plan._updated_at_pg ?? '').slice(0, 10) || '—'}{' '}
+                    <span className="cu-m">{ago(plan._updated_at_pg)}</span>
+                  </>,
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="cu-sec cu-card">
+          <h2>설명</h2>
+          <div className="pad">
+            <span
+              className="edt desc"
+              title="더블클릭하면 고칩니다"
+              onDoubleClick={(e) => editInline(e.currentTarget, String(plan.description ?? ''), (v) => void saveFull({ description: v }))}
+            >
+              {String(plan.description ?? '') || <span className="cu-m">—</span>}
+            </span>
           </div>
         </div>
 
