@@ -38,8 +38,11 @@ export const VERD_BASE: VerdDef[] = [
   { v: '', label: '미실행', color: '#c3cad4', fg: '#64748b', group: 'neutral' },
 ]
 
-/** 옛 네 글자 → 판정 값. b(기타)는 Blocked 로 옮기기로 정했다(승인) */
-export const LETTER_VERD: Record<string, string> = { p: 'Pass', f: 'Fail', b: 'Blocked', n: '' }
+/** 옛 네 글자·레거시 동의어 → 판정 값. b(기타)는 Blocked 로 옮기기로 정했다(승인) */
+export const LETTER_VERD: Record<string, string> = {
+  p: 'Pass', f: 'Fail', b: 'Blocked', n: '',
+  합격: 'Pass', 불합격: 'Fail', 미실행: '',
+}
 
 interface CodeItem {
   kind?: string
@@ -48,8 +51,10 @@ interface CodeItem {
   note?: string | null
 }
 
-/** 셋업의 판정 목록 — 기본 여섯에 저장분을 덮고, 새 값을 뒤에 붙인다 */
-export function useVerdicts(): VerdDef[] {
+/** 셋업의 판정 목록 + 도착 여부 — Test Summary 초안처럼 「셋업을 다 읽고
+    셈했나」 가 중요한 곳은 ready 를 함께 본다(검증 지적: 커스텀 계열이
+    폴백(중립)으로 셈해진 채 굳는다) */
+export function useVerdictsState(): { defs: VerdDef[]; ready: boolean } {
   const q = useQuery({
     queryKey: ['codes'],
     staleTime: 60_000,
@@ -59,7 +64,7 @@ export function useVerdicts(): VerdDef[] {
       return (await r.json()) as { codes?: CodeItem[]; items?: CodeItem[] }
     },
   })
-  return useMemo(() => {
+  const defs = useMemo(() => {
     const out = VERD_BASE.map((d) => ({ ...d }))
     const rows = (q.data?.codes ?? q.data?.items ?? [])
       .filter((c) => c.kind === 'cycle_result')
@@ -86,6 +91,12 @@ export function useVerdicts(): VerdDef[] {
     }
     return out
   }, [q.data])
+  return { defs, ready: q.data !== undefined || q.isError }
+}
+
+/** 셋업의 판정 목록 — 기본 여섯에 저장분을 덮고, 새 값을 뒤에 붙인다 */
+export function useVerdicts(): VerdDef[] {
+  return useVerdictsState().defs
 }
 
 /** 판정 값의 정의 — 옛 글자(p/f/b/n)도 알아듣고, 모르는 값은 중립 보라로 */

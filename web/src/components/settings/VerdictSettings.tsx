@@ -116,6 +116,20 @@ export default function VerdictSettings() {
       group?: Grp
       sort?: number
     }) => {
+      /* 라벨 겹침 방어 — 결과 칸은 라벨로 고르므로, 두 판정이 같은 글자면
+         엉뚱한 판정 값이 저장된다(검증 지적). 값이 다른데 보이는 글자가
+         같아지려 하면 거절한다. */
+      if (p.label) {
+        const clash =
+          BASE.some((b) => b.v !== p.value && (metaOf(byVal.get(b.v)).label || b.label) === p.label) ||
+          [...byVal.values()].some(
+            (it) =>
+              it.value !== p.value &&
+              !BASE.some((b) => b.v === it.value) &&
+              (metaOf(it).label || it.value) === p.label,
+          )
+        if (clash) throw new Error(`「${p.label}」 는 다른 판정이 이미 쓰는 글자입니다`)
+      }
       const r = await apiFetch('/api/codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -436,6 +450,12 @@ export default function VerdictSettings() {
               if (!v) return
               if (BASE.some((b) => b.v === v) || byVal.has(v)) {
                 setMsg({ k: 'err', t: '이미 있는 값입니다' })
+                return
+              }
+              /* 옛 판정 글자·표식과 겹치는 값은 기록 통역이 다른 판정으로
+                 바꿔 읽는다 — 서버(code_upsert)도 같은 봉인을 한다 */
+              if (['p', 'f', 'b', 'n'].includes(v.toLowerCase()) || ['합격', '불합격', '미실행'].includes(v)) {
+                setMsg({ k: 'err', t: `「${v}」 는 옛 판정 기록과 겹쳐 쓸 수 없는 값입니다` })
                 return
               }
               save.mutate({ value: v, color: dColor, fg: dFg, group: dGroup, sort: extra.length + 1 })

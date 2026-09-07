@@ -228,7 +228,7 @@ export default function RunsBoard({
   /* ── 자리 잡기 ── */
   const openRunId = (id: string) => {
     setSelRun(id)
-    setVf('')
+    setVf(null)
     prefSet('utop.runs.open', id)
     reflectUrl('run', id)
     const r = runs.find((x) => x.id === id)
@@ -1192,7 +1192,14 @@ export default function RunsBoard({
                 <div className="cu-m">{t.total} 개 중 {t.done} 완료됨</div>
               </div>
               <div className="sumrows">
-                {verds.map((d) => {
+                {[
+                  ...verds,
+                  /* 셋업에서 지워졌지만 기록에 남은 판정 — 안 보이면 퍼센트가
+                     안 맞고 거를 수도 없다(검증 지적) */
+                  ...[...runByVerd.keys()]
+                    .filter((k) => !verds.some((d) => d.v === k))
+                    .map((k) => ({ ...vDef(verds, k), label: `${k} (지워진 판정)` })),
+                ].map((d) => {
                   const nn = runByVerd.get(d.v) ?? 0
                   const on = vf === d.v
                   return (
@@ -1319,7 +1326,8 @@ export default function RunsBoard({
             onCell={(id, key, v) => {
               if (key === 'who') void setWho([id], v)
               if (key === 'result') {
-                const d = verds.find((x) => x.label === v)
+                /* 「– 비움」·Delete 는 빈 글을 준다 — 미실행('') 판정이다 */
+                const d = v === '' ? { v: '' } : verds.find((x) => x.label === v)
                 if (d) void setVerdict(id, d.v)
               }
             }}

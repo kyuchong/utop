@@ -495,10 +495,20 @@ def is_manual_step(s: dict) -> bool:
     return bool(s.get("kind") == "manual" or s.get("manual") or s.get("action") == "수동")
 
 
+# 레거시 동의어 — 옛 자료의 한국말 판정을 셋업 값으로(웹 isPass·isFail 과 한 벌)
+_VERD_SYN = {"합격": "Pass", "불합격": "Fail"}
+
+
 def item_verdict(it: dict, steps: list) -> str:
     """항목 하나의 결과 — 화면(Cycles.itemVerdict)과 같은 규칙."""
-    if str(it.get("result") or "").strip():
-        return str(it["result"]).strip()
+    raw = str(it.get("result") or "").strip()
+    if raw == "미실행":
+        # 웹의 「강제 미실행」 표식 — 판정 값이 아니라 지우개다(웹 itemVerdict:280
+        # 과 같은 특례). 이게 없으면 mirror 가 문자 그대로를 실행 기록에 남겨
+        # 유령 판정이 된다(검증 지적).
+        return ""
+    if raw:
+        return _VERD_SYN.get(raw, raw)
     auto = [s for s in steps if not is_manual_step(s)]
     if not auto:
         return "진행불가" if steps else ""
@@ -507,7 +517,7 @@ def item_verdict(it: dict, steps: list) -> str:
     if any(str(s.get("result") or "").lower() == "pass" for s in auto):
         return "Pass"
     mixed = next((s for s in auto if s.get("result")), None)
-    return str(mixed.get("result")) if mixed else ""
+    return _VERD_SYN.get(str(mixed.get("result")), str(mixed.get("result"))) if mixed else ""
 
 
 def _cycle_item_meta_lite(it: dict) -> dict:
@@ -591,13 +601,17 @@ async def cycle_list_meta() -> list[dict]:
 # ══════════════════════════════════════════════════════════════════════
 _RUN_COUNTS = """
   (SELECT jsonb_object_agg(t.value, t.cnt)
-     FROM (SELECT value, count(*) AS cnt
-             FROM jsonb_each_text(data->'results') GROUP BY value) t) AS res_hist
+     FROM (SELECT COALESCE(value, '') AS value, count(*) AS cnt
+             FROM jsonb_each_text(data->'results') GROUP BY 1) t) AS res_hist
 """
+# COALESCE 가 없으면 JSON null 값 하나가(jsonb_object_agg 의 키가 못 된다)
+# 실행 목록 전체를 500 으로 만든다(검증 지적 — 실측 재현).
 
 
-# 옛 네 글자 → 판정 값. 이행기의 남은 글자도 셈이 알아듣는다
-_LETTER_VERD = {"p": "Pass", "f": "Fail", "b": "Blocked", "n": ""}
+
+# 옛 네 글자·레거시 동의어 → 판정 값. 이행기의 남은 기록도 셈이 알아듣는다
+_LETTER_VERD = {"p": "Pass", "f": "Fail", "b": "Blocked", "n": "",
+                "합격": "Pass", "불합격": "Fail", "미실행": ""}
 
 
 async def verdict_groups() -> dict:
@@ -1856,6 +1870,10 @@ async def code_upsert(item: dict) -> None:
         raise ValueError(f"알 수 없는 종류입니다: {kind}")
     if not value:
         raise ValueError("값이 필요합니다")
+    # 판정 값의 예약어 — 옛 글자·표식과 겹치면 통역·시동 마이그레이션이
+    # 그 기록을 조용히 다른 판정으로 바꿔친다(검증 지적). 값 자체를 봉인한다.
+    if kind == "cycle_result" and (value.lower() in ("p", "f", "b", "n") or value in ("합격", "불합격", "미실행")):
+        raise ValueError(f"「{value}」 는 옛 판정 기록과 겹쳐 판정 값으로 쓸 수 없습니다")
     async with pool().acquire() as c:
         await c.execute(
             """INSERT INTO code_item (kind, value, sort_order, note)
@@ -2160,20 +2178,25 @@ async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
 async def plan_run_verdicts_full() -> int:
     """실행 기록의 판정을 네 글자(p/f/b/n)에서 **셋업 판정 값**으로 옮긴다.
 
-    p→Pass · f→Fail · b→Blocked(승인) · n→''(미실행). 값은 손대지 않으므로
-    두 번 돌면 옮길 것이 없다 — 멱등. 판정 값 자체가 p/f/b/n 인 커스텀은
-    없음을 확인하고 정했다."""
+    p→Pass · f→Fail · b→Blocked(승인) · n→''(미실행). 레거시 동의어
+    (합격·불합격·미실행 표식)와 JSON null 도 이때 같이 걷는다. 옮긴 값은
+    다시 안 걸리므로 두 번 돌면 할 일이 없다 — 멱등. 판정 값 자체가
+    p/f/b/n 인 커스텀은 code_upsert 가 봉인한다."""
     async with pool().acquire() as c:
         n = await c.execute("""
             UPDATE plan_run SET data = jsonb_set(data, '{results}', (
               SELECT COALESCE(jsonb_object_agg(e.key, to_jsonb(
-                CASE e.value WHEN 'p' THEN 'Pass' WHEN 'f' THEN 'Fail'
-                             WHEN 'b' THEN 'Blocked' WHEN 'n' THEN ''
-                             ELSE e.value END)), '{}'::jsonb)
+                CASE COALESCE(e.value, '')
+                     WHEN 'p' THEN 'Pass' WHEN 'f' THEN 'Fail'
+                     WHEN 'b' THEN 'Blocked' WHEN 'n' THEN ''
+                     WHEN '합격' THEN 'Pass' WHEN '불합격' THEN 'Fail'
+                     WHEN '미실행' THEN ''
+                     ELSE COALESCE(e.value, '') END)), '{}'::jsonb)
               FROM jsonb_each_text(data->'results') e))
             WHERE data ? 'results'
               AND EXISTS (SELECT 1 FROM jsonb_each_text(data->'results')
-                          WHERE value IN ('p','f','b','n'))
+                          WHERE value IS NULL
+                             OR value IN ('p','f','b','n','합격','불합격','미실행'))
         """)
         try:
             return int(str(n).split()[-1])

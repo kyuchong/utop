@@ -32,7 +32,7 @@ import CycleInsight from '@/components/cycle/CycleInsight'
 import TestSummary from '@/components/cycle/TestSummary'
 import AssigneePicker from '@/components/AssigneePicker'
 import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserPeople } from '@/pages/qaBits'
-import { useVerdicts, vDef, vGroup } from '@/lib/verdicts'
+import { useVerdictsState, vDef, vGroup } from '@/lib/verdicts'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
 import './CyclesBoard.css'
@@ -150,7 +150,7 @@ export default function CyclesBoard({
   })
   const people = useUserPeople()
   /** 실행 판정 기준 — 셋업이 정본. 막대 색·Test Summary 셈이 쓴다 */
-  const verds = useVerdicts()
+  const { defs: verds, ready: verdsReady } = useVerdictsState()
   const verdPal = useMemo(
     () => ({
       p: vDef(verds, 'Pass').color,
@@ -424,7 +424,7 @@ export default function CyclesBoard({
     }
     return m
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [failQs.map((q2) => q2.dataUpdatedAt).join(',')])
+  }, [failQs.map((q2) => q2.dataUpdatedAt).join(','), verds])
 
   /** Test Summary 용 합산 — 실행들이 남긴 판정을 항목별로 겹쳐(뒤가 이김) 센다 */
   const sumOfRuns = useMemo(() => {
@@ -457,10 +457,14 @@ export default function CyclesBoard({
     return {
       stat,
       fails,
-      ready: !myRuns.length || failQs.every((q2) => q2.data !== undefined || q2.isError),
+      /* 셋업(판정 계열)까지 와야 셈이 맞다 — 커스텀 pass/fail 이 폴백(중립)으로
+         셈해진 초안이 굳으면 안 된다(검증 지적) */
+      ready:
+        verdsReady &&
+        (!myRuns.length || failQs.every((q2) => q2.data !== undefined || q2.isError)),
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myRuns, itemRows, failQs.map((q2) => q2.dataUpdatedAt).join(',')])
+  }, [myRuns, itemRows, failQs.map((q2) => q2.dataUpdatedAt).join(','), verds, verdsReady])
 
   /** 전문을 통째로 고쳐 저장한다 — 서버는 data 를 통으로 받는다 */
   async function saveFull(patch: Partial<PlanFull>) {

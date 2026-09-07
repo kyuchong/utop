@@ -12346,7 +12346,7 @@ async def api_plan_run_regression(plan_id: str, a: str = "", b: str = ""):
     groups = await db.verdict_groups()
 
     def _grp(v: str) -> str:
-        vv = {"p": "Pass", "f": "Fail", "b": "Blocked", "n": ""}.get(str(v), str(v))
+        vv = db._LETTER_VERD.get(str(v), str(v))
         return "none" if not vv else groups.get(vv, "neutral")
 
     async def status_map(ver: str) -> dict:
