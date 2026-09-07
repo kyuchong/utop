@@ -139,7 +139,9 @@ export default function CyclesBoard({
   })
   const catQ = useQuery({
     queryKey: ['device-catalog'],
-    enabled: needMake,
+    /* 만들기 창뿐 아니라 **개요의 대상 드롭다운**도 쓴다(지시) — 상세를
+       열면 받아 온다 */
+    enabled: needMake || !!open,
     staleTime: 60_000,
     queryFn: async () => {
       const r = await apiFetch('/api/device-catalog2')
@@ -419,6 +421,68 @@ export default function CyclesBoard({
     await qc.invalidateQueries({ queryKey: ['cycles'] })
   }
 
+  /* 대상 드롭다운이 부르는 것들 — 개요에서 바로 고친다(지시) */
+  const catGroups = useMemo(
+    () =>
+      [...new Set(((catQ.data?.items ?? []) as Array<Record<string, unknown>>)
+        .filter((x) => String(x.kind) === 'group')
+        .map((x) => String(x.name ?? '')))].filter(Boolean).sort(cmp),
+    [catQ.data, cmp],
+  )
+  const catModels = useMemo(
+    () =>
+      [...new Set(((catQ.data?.items ?? []) as Array<Record<string, unknown>>)
+        .filter((x) => String(x.kind) === 'model' && String(x.model_group ?? '') === String(plan?.model_group ?? ''))
+        .map((x) => String(x.name ?? '')))].filter(Boolean).sort(cmp),
+    [catQ.data, plan, cmp],
+  )
+  const vgOfModel = useMemo(
+    () => (vgQ.data?.groups ?? {})[String(plan?.model ?? '')] ?? [],
+    [vgQ.data, plan],
+  )
+
+  /** 모델그룹·모델명 바꾸기 — 담긴 항목은 모델 규칙으로 담긴 것이라,
+      모델이 달라지면 물어보고 비운다(목업의 규칙 그대로) */
+  async function setTarget(mg: string, model: string) {
+    if (!full || !plan) return
+    let nextModel = model
+    if (!nextModel) {
+      const ms = ((catQ.data?.items ?? []) as Array<Record<string, unknown>>)
+        .filter((x) => String(x.kind) === 'model' && String(x.model_group ?? '') === mg)
+        .map((x) => String(x.name ?? ''))
+      nextModel = ms.includes(String(plan.model ?? '')) ? String(plan.model ?? '') : (ms[0] ?? '')
+    }
+    const modelChanged = nextModel !== String(plan.model ?? '')
+    const n = (full.items ?? []).length
+    if (modelChanged && n) {
+      if (
+        !window.confirm(
+          `대상 모델을 ${nextModel || '(없음)'} 로 바꾸면 담긴 시험 항목 ${n}건이 비워집니다.\n` +
+            '항목은 모델그룹·모델명 규칙으로 담긴 것이라 그대로 둘 수 없습니다.\n계속할까요?',
+        )
+      )
+        return
+    }
+    await saveFull({
+      model_group: mg,
+      model: nextModel,
+      ...(modelChanged && n ? { items: [] } : {}),
+    })
+  }
+
+  /** 버전그룹 바꾸기 — 그 모델의 폴더 목록에도 넣어 트리와 한 살림으로 */
+  async function setVg(vg: string) {
+    if (!plan) return
+    await saveFull({ version_group: vg })
+    if (vg && plan.model) {
+      await apiFetch('/api/cycle-version-groups/add', {
+        method: 'POST',
+        body: JSON.stringify({ model: plan.model, group: vg }),
+      }).catch(() => undefined)
+      void vgQ.refetch()
+    }
+  }
+
   async function dropItems(ids: string[]) {
     if (!full || !ids.length) return
     if (
@@ -690,11 +754,66 @@ export default function CyclesBoard({
           <div className="cu-card metacard">
             <h2>대상</h2>
             <div className="pad">
+              {/* 값을 그 자리에서 고친다(지시: 드롭다운) — 목록이 있는 칸은
+                  드롭다운, 버전명은 자유 글이라 입력칸이다 */}
               <div className="kv1">
-                {kv('모델그룹', <span className="cu-mono">{String(plan.model_group ?? '') || '—'}</span>)}
-                {kv('모델명', String(plan.model ?? '') || '—')}
-                {kv('버전그룹', <span className="cu-mono">{String(plan.version_group ?? '') || '—'}</span>)}
-                {kv('버전명', <span className="cu-mono">{String(plan.version ?? '') || '—'}</span>)}
+                {kv(
+                  '모델그룹',
+                  <select
+                    className="kvin cu-mono"
+                    value={String(plan.model_group ?? '')}
+                    onChange={(e) => void setTarget(e.target.value, '')}
+                  >
+                    {!catGroups.includes(String(plan.model_group ?? '')) && (
+                      <option value={String(plan.model_group ?? '')}>{String(plan.model_group ?? '') || '(안 고름)'}</option>
+                    )}
+                    {catGroups.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>,
+                )}
+                {kv(
+                  '모델명',
+                  <select
+                    className="kvin"
+                    value={String(plan.model ?? '')}
+                    onChange={(e) => void setTarget(String(plan.model_group ?? ''), e.target.value)}
+                  >
+                    {!catModels.includes(String(plan.model ?? '')) && (
+                      <option value={String(plan.model ?? '')}>{String(plan.model ?? '') || '(안 고름)'}</option>
+                    )}
+                    {catModels.map((m2) => (
+                      <option key={m2} value={m2}>{m2}</option>
+                    ))}
+                  </select>,
+                )}
+                {kv(
+                  '버전그룹',
+                  <select
+                    className="kvin cu-mono"
+                    value={String(plan.version_group ?? '')}
+                    onChange={(e) => void setVg(e.target.value)}
+                  >
+                    {!vgOfModel.includes(String(plan.version_group ?? '')) && (
+                      <option value={String(plan.version_group ?? '')}>{String(plan.version_group ?? '') || '(안 고름)'}</option>
+                    )}
+                    {vgOfModel.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>,
+                )}
+                {kv(
+                  '버전명',
+                  <input
+                    className="kvin cu-mono"
+                    defaultValue={String(plan.version ?? '')}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim()
+                      if (v && v !== String(plan.version ?? '')) void saveFull({ version: v })
+                    }}
+                  />,
+                )}
               </div>
             </div>
           </div>
