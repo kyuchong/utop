@@ -339,6 +339,8 @@
 .qav .kvin:hover { border-color: var(--c-border); background: var(--c-surface); }
 .qav .kvin:focus { border-color: var(--c-primary); background: var(--c-surface); outline: none; }
 .qav select.kvin { cursor: pointer; }
+/* 담당 칸 — select 아니라 고르개(조직·검색) 여는 단추. select 처럼 보이게 */
+.qav button.kvin { cursor: pointer; text-align: left; }
 /* 더블클릭 수정 자리 */
 .qav .edt { cursor: text; border-bottom: 1px dashed transparent; }
 .qav .edt:hover { border-bottom-color: var(--c-border); }

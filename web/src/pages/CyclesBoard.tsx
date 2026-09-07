@@ -30,7 +30,8 @@ import CycleEdit from '@/components/cycle/CycleEdit'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
 import CycleInsight from '@/components/cycle/CycleInsight'
 import TestSummary from '@/components/cycle/TestSummary'
-import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserNames } from '@/pages/qaBits'
+import AssigneePicker from '@/components/AssigneePicker'
+import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserPeople } from '@/pages/qaBits'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
 import './CyclesBoard.css'
@@ -146,8 +147,10 @@ export default function CyclesBoard({
       return (await r.json()) as { items: Array<Record<string, unknown>> }
     },
   })
-  const users = useUserNames()
+  const people = useUserPeople()
   const reqIndex = useReqIndex()
+  /** 담당자 고르개(조직 클릭·이름 검색) — 개요의 담당자 칸이 연다 */
+  const [assAt, setAssAt] = useState<{ x: number; y: number } | null>(null)
 
   /* 시험 항목 탭의 노션 표 — 열 정의는 코드가 정본, 폭·숨김·차례는 계정에.
      유형 선택지는 담긴 값에서 뽑아 색만 자동으로 입힌다. */
@@ -592,7 +595,7 @@ export default function CyclesBoard({
             view={lsView}
             onView={setLsView}
             onColumns={setLsCols}
-            people={users.map((u) => ({ name: u, org: '' }))}
+            people={people}
             meName={meName}
             onCell={(rowId, key, v) => {
               if (key === 'assignee') void saveAssigneeOf(rowId, v)
@@ -813,18 +816,19 @@ export default function CyclesBoard({
               <div className="kv1">
                 {kv(
                   '담당자',
-                  <select
-                    className="kvin"
-                    value={String(plan.assignee ?? '')}
-                    onChange={(e) => void saveFull({ assignee: e.target.value })}
+                  /* 조직을 눌러 좁히거나 이름으로 찾아 고른다(지시) —
+                     온 화면 공용 고르개(AssigneePicker) 그대로 */
+                  <button
+                    type="button"
+                    className="kvin cyb-ass"
+                    onClick={(e) => {
+                      const r2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setAssAt({ x: r2.left, y: r2.bottom + 4 })
+                    }}
                   >
-                    {!users.includes(String(plan.assignee ?? '')) && (
-                      <option value={String(plan.assignee ?? '')}>{String(plan.assignee ?? '') || '(안 정함)'}</option>
-                    )}
-                    {users.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>,
+                    {String(plan.assignee ?? '') || <span className="cu-m">(안 정함)</span>}
+                    <span className="cu-m"> ▾</span>
+                  </button>,
                 )}
                 {kv('생성자', String(plan.created_by ?? '') || '—')}
                 {kv('수정자', String(full?.updated_by ?? (plan as unknown as Record<string, unknown>).updated_by ?? '') || '—')}
@@ -1109,6 +1113,15 @@ export default function CyclesBoard({
     <div className="qav cyb">
       {open ? renderDetail() : renderList()}
 
+      {!!assAt && !!plan && (
+        <AssigneePicker
+          at={assAt}
+          value={String(plan.assignee ?? '')}
+          me={meName}
+          onPick={(name) => void saveFull({ assignee: name })}
+          onClose={() => setAssAt(null)}
+        />
+      )}
       {making && (
         <MakeCycle
           me={me}

@@ -216,19 +216,22 @@ export function useNCols(prefKey: string, defs: NCol[]): [NCol[], (c: NCol[]) =>
   return [cols, setCols]
 }
 
-/** 담당 고르개 후보 — 지라에서 온 계정까지, 퇴사자는 뺀 이름 목록 */
-export function useUserNames(): string[] {
+/** 담당 후보를 **조직째** — 노션 표 사람 고르개·담당 고르개가 조직으로 묶는다 */
+export function useUserPeople(): Array<{ name: string; org: string }> {
   const q = useQuery({
     queryKey: ['user-names'],
     staleTime: 300_000,
     queryFn: async () => {
       const r = await apiFetch('/api/user-names')
       if (!r.ok) throw new Error('담당 후보를 불러오지 못했습니다')
-      return (await r.json()) as { names?: Array<{ name?: string }> }
+      return (await r.json()) as { names?: Array<{ name?: string; org?: string }> }
     },
   })
   return useMemo(
-    () => (q.data?.names ?? []).map((n) => String(n?.name ?? '')).filter(Boolean),
+    () =>
+      (q.data?.names ?? [])
+        .map((n) => ({ name: String(n?.name ?? ''), org: String(n?.org ?? '') }))
+        .filter((n) => n.name),
     [q.data],
   )
 }

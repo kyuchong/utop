@@ -32,7 +32,8 @@ import { CycleMailOne } from '@/components/cycle/CyclePlan'
 import CycleReport from '@/components/cycle/CycleReport'
 import type { CycleMeta } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
-import { Donut, StatBar, VERD, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserNames, verdName } from '@/pages/qaBits'
+import AssigneePicker from '@/components/AssigneePicker'
+import { Donut, StatBar, VERD, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserPeople, verdName } from '@/pages/qaBits'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
 import './RunsBoard.css'
@@ -143,7 +144,9 @@ export default function RunsBoard({
       return (await r.json()) as { items: Array<Record<string, unknown>> }
     },
   })
-  const users = useUserNames()
+  const people = useUserPeople()
+  /** 실행 담당 고르개(조직 클릭·이름 검색) — 세부 정보의 담당 칸이 연다 */
+  const [ownAt, setOwnAt] = useState<{ x: number; y: number } | null>(null)
   const reqIndex = useReqIndex()
 
   /* 항목 표(노션 표) — 열 정의는 코드가 정본, 폭·숨김·차례는 계정에 */
@@ -1239,18 +1242,18 @@ export default function RunsBoard({
                       )}
                       {kv2(
                         '담당',
-                        <select
-                          className="kvin"
-                          value={String(r.owner ?? '')}
-                          onChange={(e) => void saveRun({ owner: e.target.value })}
+                        /* 조직을 눌러 좁히거나 이름으로 찾아 고른다(지시) */
+                        <button
+                          type="button"
+                          className="kvin rnb-own"
+                          onClick={(e) => {
+                            const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                            setOwnAt({ x: b.left, y: b.bottom + 4 })
+                          }}
                         >
-                          {!users.includes(String(r.owner ?? '')) && (
-                            <option value={String(r.owner ?? '')}>{String(r.owner ?? '') || '(안 정함)'}</option>
-                          )}
-                          {users.map((u) => (
-                            <option key={u} value={u}>{u}</option>
-                          ))}
-                        </select>,
+                          {String(r.owner ?? '') || <span className="cu-m">(안 정함)</span>}
+                          <span className="cu-m"> ▾</span>
+                        </button>,
                       )}
                       {kv2('생성', `${String(r.created_at ?? '').slice(0, 10)} · ${ago(r.created_at)}`)}
                       {kv2('상태', r.closed_at ? '종료' : t.n ? `진행 중 · 미실행 ${t.n}건` : '완료')}
@@ -1292,7 +1295,7 @@ export default function RunsBoard({
             view={riView}
             onView={setRiView}
             onColumns={setRiCols}
-            people={users.map((u) => ({ name: u, org: '' }))}
+            people={people}
             meName={meName}
             onCell={(id, key, v) => {
               if (key === 'who') void setWho([id], v)
@@ -1446,35 +1449,40 @@ export default function RunsBoard({
         </>
       )}
 
-      {/* 노션 표의 「담당 일괄 · 상태 바꾸기」 — 고른 줄에 한 번에 */}
-      {!!bulkAt && (
+      {/* 노션 표의 「담당 일괄」 — 고른 줄 모두에게, 조직·검색 되는 공용 고르개로.
+          비움을 고르면 항목 담당이 지워져 실행 담당을 따라간다 */}
+      {!!bulkAt && bulkAt.kind === 'assign' && (
+        <AssigneePicker
+          at={{ x: window.innerWidth / 2 - 150, y: 160 }}
+          me={meName}
+          onPick={(name) => { const ids = bulkAt.ids; setBulkAt(null); void setWho(ids, name) }}
+          onClose={() => setBulkAt(null)}
+        />
+      )}
+      {/* 「상태 바꾸기」 — 판정 네 가지라 단출한 메뉴 그대로 */}
+      {!!bulkAt && bulkAt.kind === 'status' && (
         <>
           <span className="qa-moreovl" role="presentation" onClick={() => setBulkAt(null)} />
           <div className="qa-menu" role="menu" style={{ left: '50%', top: 160, transform: 'translateX(-50%)' }}>
-            {bulkAt.kind === 'assign' ? (
-              <>
-                <div className="qa-menuh">고른 {bulkAt.ids.length}건의 할당 대상</div>
-                <button type="button" role="menuitem" onClick={() => { setBulkAt(null); void setWho(bulkAt.ids, '') }}>
-                  (실행 담당)
-                </button>
-                {users.map((u) => (
-                  <button key={u} type="button" role="menuitem" onClick={() => { setBulkAt(null); void setWho(bulkAt.ids, u) }}>
-                    {u}
-                  </button>
-                ))}
-              </>
-            ) : (
-              <>
-                <div className="qa-menuh">고른 {bulkAt.ids.length}건의 결과</div>
-                {VERD.map((d) => (
-                  <button key={d.v} type="button" role="menuitem" onClick={() => { setBulkAt(null); void setVerdicts(bulkAt.ids, d.v) }}>
-                    {d.ico} {d.label}
-                  </button>
-                ))}
-              </>
-            )}
+            <div className="qa-menuh">고른 {bulkAt.ids.length}건의 결과</div>
+            {VERD.map((d) => (
+              <button key={d.v} type="button" role="menuitem" onClick={() => { setBulkAt(null); void setVerdicts(bulkAt.ids, d.v) }}>
+                {d.ico} {d.label}
+              </button>
+            ))}
           </div>
         </>
+      )}
+
+      {/* 실행 담당 고르개 — 세부 정보의 담당 칸에서 연다 */}
+      {!!ownAt && !!selRun && (
+        <AssigneePicker
+          at={ownAt}
+          value={String(runs.find((x) => x.id === selRun)?.owner ?? '')}
+          me={meName}
+          onPick={(name) => void saveRun({ owner: name })}
+          onClose={() => setOwnAt(null)}
+        />
       )}
 
       {/* 결과 메일·결과서 — 사이클 고르기 */}
