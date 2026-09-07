@@ -77,3 +77,7 @@
 .cyb .ov-verd { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding: 12px 14px; align-items: center; max-width: 680px; }
 .cyb .ov-verd .sumdonut { text-align: center; }
 .cyb .ov-verd .sumrows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; align-self: start; }
+
+/* 트리 — 개수는 이름 바로 오른쪽 (n) (지시: REQ-Coverage 꼴) */
+.cyb .cu-n .nm .cnt { margin-left: 5px; color: var(--c-text-faint); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.cyb .cu-n .nm .cnt.zero { color: var(--c-border); }

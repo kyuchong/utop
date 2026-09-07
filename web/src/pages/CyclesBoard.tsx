@@ -190,6 +190,8 @@ export default function CyclesBoard({
   /** 접힌 트리 마디 — 기본은 전부 펼침 */
   const [closed, setClosed] = useState<Set<string>>(new Set())
   const [treeQ, setTreeQ] = useState('')
+  /** 폴더 ⋯ 메뉴 — 트리의 사업자·모델·버전그룹 줄 */
+  const [folderMenu, setFolderMenu] = useState<{ x: number; y: number; t: 'cust' | 'model' | 'vg'; k: string } | null>(null)
   useEffect(() => prefSet('utop.cyc.side', sideOn ? '1' : '0'), [sideOn])
 
   /* ── 실행 탭 상태 (옛 Runs 화면을 들여온 것) ── */
@@ -977,6 +979,56 @@ export default function CyclesBoard({
   )
 
 
+  /** 이 폴더 범위의 사이클들 */
+  const plansInScope = (t: 'cust' | 'model' | 'vg', k: string) =>
+    plans.filter((p) => {
+      const cust = String(p.customer || '미지정')
+      const model = String(p.model || '미지정')
+      const vg = String(p.version_group || '미지정')
+      if (t === 'cust') return cust === k
+      if (t === 'model') return keyOf(cust, model) === k
+      return keyOf(cust, model, vg) === k
+    })
+
+  /** 버전그룹 폴더 이름 바꾸기 — 담긴 사이클을 전부 새 이름으로 옮긴다 */
+  async function renameVg(k: string) {
+    const parts = k.split('|')
+    const model = parts[1] ?? ''
+    const oldVg = parts[2] ?? ''
+    const list = plansInScope('vg', k)
+    const nv = window.prompt(
+      `버전그룹 이름 바꾸기 — 담긴 사이클 ${list.length}건이 함께 옮겨집니다.`,
+      oldVg === '미지정' ? '' : oldVg,
+    )
+    if (nv === null) return
+    const v = nv.trim()
+    if (!v || v === oldVg) return
+    for (const p of list) {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(p.id)}`)
+      if (!r.ok) continue
+      const d = (await r.json()) as PlanFull
+      await apiFetch(`/api/cycle/${encodeURIComponent(p.id)}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...d, version_group: v, updated_by: meName }),
+      })
+    }
+    if (model && model !== '미지정') {
+      await apiFetch('/api/cycle-version-groups/add', {
+        method: 'POST',
+        body: JSON.stringify({ model, group: v }),
+      }).catch(() => undefined)
+      if (oldVg && oldVg !== '미지정')
+        await apiFetch(
+          `/api/cycle-version-groups/${encodeURIComponent(model)}/${encodeURIComponent(oldVg)}`,
+          { method: 'DELETE' },
+        ).catch(() => undefined)
+    }
+    if (grpSel?.t === 'vg' && grpSel.k === k) setGrpSel({ t: 'vg', k: keyOf(parts[0] ?? '', model, v) })
+    void plansQ.refetch()
+    void vgQ.refetch()
+    void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
+  }
+
   /* ── 1열: 사이클 트리 ── */
   function renderSide() {
     return (
@@ -1048,12 +1100,31 @@ export default function CyclesBoard({
                 <span className="nm">
                   {n.ico ? `${n.ico} ` : ''}
                   {n.label}
+                  {/* 개수는 이름 바로 오른쪽에(지시: REQ-Coverage 꼴) —
+                      폴더는 사이클 수, 잎은 실행 횟수라 잎엔 「회」 를 붙인다 */}
+                  <span className={`cnt${n.zero ? ' zero' : ''}`} title={n.plan ? `실행 ${n.n}회` : `사이클 ${n.n}건`}>
+                    ({n.plan ? `${n.n}회` : n.n})
+                  </span>
                 </span>
-                {/* 층마다 세는 게 다르다(지적): 묶음은 사이클 수, 잎은 실행
-                    횟수 — 잎에 「회」 를 붙여 다른 셈임을 눈에 보이게 한다 */}
-                <span className={`c${n.zero ? ' zero' : ''}`} title={n.plan ? `실행 ${n.n}회` : `사이클 ${n.n}건`}>
-                  {n.plan ? `${n.n}회` : n.n}
-                </span>
+                {!n.plan && n.key !== '__all' && (
+                  <button
+                    type="button"
+                    className="cu-nbtn"
+                    title="폴더 일들"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const rc = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setFolderMenu({
+                        x: Math.max(8, rc.right - 176),
+                        y: rc.bottom + 2,
+                        t: n.d === 1 ? 'cust' : n.d === 2 ? 'model' : 'vg',
+                        k: n.key,
+                      })
+                    }}
+                  >
+                    ⋯
+                  </button>
+                )}
                 {!!n.plan && (
                   <button
                     type="button"
@@ -2011,6 +2082,59 @@ export default function CyclesBoard({
           </section>
         )}
       </div>
+
+      {/* 폴더 ⋯ — 트리의 사업자·모델·버전그룹 줄 일들 */}
+      {!!folderMenu && (() => {
+        const list = plansInScope(folderMenu.t, folderMenu.k)
+        const label = folderMenu.k.split('|').pop() || ''
+        return (
+          <>
+            <span className="qa-moreovl" role="presentation" onClick={() => setFolderMenu(null)} />
+            <div className="qa-menu" role="menu" style={{ left: folderMenu.x, top: folderMenu.y }}>
+              <div className="qa-menuh">
+                {label} · 사이클 {list.length}건
+              </div>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setFolderMenu(null)
+                  setMaking(true)
+                }}
+              >
+                ＋ 사이클 만들기
+              </button>
+              {folderMenu.t === 'vg' && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    const k = folderMenu.k
+                    setFolderMenu(null)
+                    void renameVg(k)
+                  }}
+                >
+                  폴더 이름 바꾸기
+                </button>
+              )}
+              <div className="qa-menusep" />
+              <button
+                type="button"
+                role="menuitem"
+                className="danger"
+                disabled={!list.length}
+                onClick={() => {
+                  const fm = folderMenu
+                  setFolderMenu(null)
+                  void delPlans(plansInScope(fm.t, fm.k).map((p) => p.id))
+                }}
+              >
+                폴더 지우기 — 사이클 {list.length}건 포함
+              </button>
+            </div>
+          </>
+        )
+      })()}
 
       {/* 실행 더보기 — 실행 하나짜리 일들 */}
       {!!runMoreAt && !!runLite && (
