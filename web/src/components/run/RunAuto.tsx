@@ -627,6 +627,9 @@ export default function RunAuto({
   }
 
   const vis = (slot: SlotId) => !hid.has(slots[slot])
+  const visSlots = (['LT', 'LB', 'RT', 'RB'] as SlotId[]).filter(vis)
+  /* 남은 판이 딱 둘인데 같은 열이면 — 위아래가 아니라 나란히 */
+  const twoSameCol = visSlots.length === 2 && visSlots[0]![0] === visSlots[1]![0]
   const panel = (slot: SlotId) => {
     const id = slots[slot]
     return (
@@ -697,7 +700,20 @@ export default function RunAuto({
     <div className="ra">
       {/* 위 띠는 **RunDetail 한 곳**에 있다(목업도 띠는 하나다). 여기에도
           두었더니 경과·진행이 두 줄로 겹쳐 보였다(지적). */}
-      {/* ── 아래: 네 판 작업대 — 내린 판의 자리는 남은 판이 다 쓴다 ── */}
+      {/* ── 아래: 네 판 작업대 — 내린 판의 자리는 남은 판이 다 쓴다.
+          남은 두 판이 **같은 열**이면 자동으로 2열로 편다(지시: 두 판을
+          위아래로 쌓지 말고 나란히) ── */}
+      {twoSameCol ? (
+        <div className="ra-desk" ref={deskRef}>
+          <div className="ra-col" style={{ width: `${size.v}%` }}>
+            <div style={{ flex: 1, minHeight: 0 }}>{panel(visSlots[0]!)}</div>
+          </div>
+          <div className={`ra-vsash${drag === 'v' ? ' on' : ''}`} onMouseDown={startSash('v')} />
+          <div className="ra-col" style={{ flex: 1 }}>
+            <div style={{ flex: 1, minHeight: 0 }}>{panel(visSlots[1]!)}</div>
+          </div>
+        </div>
+      ) : (
       <div className="ra-desk" ref={deskRef}>
         {(vis('LT') || vis('LB')) && (
           <div
@@ -736,6 +752,7 @@ export default function RunAuto({
           <div className="ra-alldown">모든 판을 내렸습니다 — 아래 띠에서 올려 보세요</div>
         )}
       </div>
+      )}
       {hid.size > 0 && (
         <div className="ra-dockbar">
           {(['steps', 'response', 'events', 'tc'] as PanelId[])
