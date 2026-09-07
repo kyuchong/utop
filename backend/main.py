@@ -10131,6 +10131,81 @@ async def wiki_import_docx(payload: dict):
     if not blob:
         return {"ok": False, "error": "빈 파일입니다"}
 
+    # ── PDF 도 받는다(지시: 제품 스펙 PDF 를 위키 문서로) — markitdown 이
+    # 글자를 뽑고, 아래 미니 변환기가 제목·목록·표 정도만 HTML 로 편다.
+    # 스캔 이미지 PDF 는 글자가 안 나온다 — 그건 변환 실패로 말해 준다.
+    name = str(payload.get("name") or "")
+    is_pdf = name.lower().endswith(".pdf") or blob[:5] == b"%PDF-"
+    if is_pdf:
+        try:
+            from markitdown import MarkItDown
+        except Exception as e:
+            return {"ok": False, "error": "PDF 변환기가 없습니다: " + str(e)[:120]}
+        import tempfile as _tf, os as _os, html as _html, re as _re2
+        tmp = None
+        try:
+            with _tf.NamedTemporaryFile(suffix=".pdf", delete=False) as fh:
+                fh.write(blob)
+                tmp = fh.name
+            md = MarkItDown(enable_plugins=False).convert(tmp).text_content or ""
+        except Exception as e:
+            return {"ok": False, "error": f"PDF 를 읽지 못했습니다: {str(e)[:140]}"}
+        finally:
+            if tmp:
+                try:
+                    _os.unlink(tmp)
+                except Exception:
+                    pass
+        if len(md.strip()) < 20:
+            return {"ok": False, "error": "PDF 에서 글자를 찾지 못했습니다 — 스캔 이미지 PDF 는 읽을 수 없습니다"}
+        # 마크다운 비슷한 글 → 단순 HTML (제목·글머리표·표·문단)
+        out_lines: list[str] = []
+        para: list[str] = []
+        in_ul = False
+        def _flush():
+            nonlocal para
+            if para:
+                out_lines.append("<p>" + _html.escape(" ".join(para)) + "</p>")
+                para = []
+        def _ul_close():
+            nonlocal in_ul
+            if in_ul:
+                out_lines.append("</ul>")
+                in_ul = False
+        lines = md.splitlines()
+        i2 = 0
+        while i2 < len(lines):
+            ln = lines[i2].rstrip()
+            m = _re2.match(r"^(#{1,4})\s+(.*)$", ln)
+            if m:
+                _flush(); _ul_close()
+                lv = min(3, len(m.group(1)) + 1)
+                out_lines.append(f"<h{lv}>" + _html.escape(m.group(2)) + f"</h{lv}>")
+            elif _re2.match(r"^\s*[-*•]\s+", ln):
+                _flush()
+                if not in_ul:
+                    out_lines.append("<ul>"); in_ul = True
+                out_lines.append("<li>" + _html.escape(_re2.sub(r"^\s*[-*•]\s+", "", ln)) + "</li>")
+            elif "|" in ln and ln.strip().startswith("|"):
+                _flush(); _ul_close()
+                trs = []
+                while i2 < len(lines) and "|" in lines[i2] and lines[i2].strip().startswith("|"):
+                    cells = [c.strip() for c in lines[i2].strip().strip("|").split("|")]
+                    if not all(_re2.fullmatch(r":?-{2,}:?", c or "-") for c in cells):
+                        trs.append("<tr>" + "".join("<td>" + _html.escape(c) + "</td>" for c in cells) + "</tr>")
+                    i2 += 1
+                out_lines.append("<table><tbody>" + "".join(trs) + "</tbody></table>")
+                continue
+            elif not ln.strip():
+                _flush(); _ul_close()
+            else:
+                para.append(ln.strip())
+            i2 += 1
+        _flush(); _ul_close()
+        html2 = "".join(out_lines)
+        print(f"[pdf-import] {name or '(이름 없음)'} {len(blob)}B → 글자 {len(md)} → html {len(html2)}", flush=True)
+        return {"ok": True, "html": html2, "images": 0}
+
     try:
         import mammoth
         from bs4 import BeautifulSoup
@@ -13878,11 +13953,20 @@ def _chunk_text(text, size=RAG_CHUNK_SIZE, overlap=RAG_CHUNK_OVERLAP):
     return chunks
 
 async def _manual_chunk_corpus_async():
-    """DB 에서 manuals 를 가져와 청크 코퍼스 생성 — async 네이티브 버전."""
+    """DB 에서 manuals + **위키 문서**를 가져와 청크 코퍼스 생성 — async 네이티브.
+
+    위키가 코퍼스에 합류한 까닭(지시): 제품 스펙이 위키 문서로 살고,
+    Knowledge AI 가 그것을 뜻으로 찾아야 한다. 서명에 위키 갱신 시각이
+    들어 있어 문서를 저장·삭제하면 다음 질문 때 저절로 다시 색인된다.
+    """
     # 캐시 히트 fast path — 시그니처만 조회
     async with db.pool().acquire() as c:
         sig_rows = await c.fetch("SELECT id, updated_at FROM manuals WHERE active=true ORDER BY id")
-    sig_only = tuple((r["id"], r["updated_at"].timestamp() if r["updated_at"] else 0) for r in sig_rows)
+        wsig_rows = await c.fetch("SELECT id, updated_at FROM wiki_page ORDER BY id")
+    sig_only = (
+        tuple((r["id"], r["updated_at"].timestamp() if r["updated_at"] else 0) for r in sig_rows),
+        tuple((r["id"], r["updated_at"].timestamp() if r["updated_at"] else 0) for r in wsig_rows),
+    )
     if _RAG_CACHE.get("sig") == sig_only and _RAG_CACHE.get("corpus") is not None:
         return _RAG_CACHE["corpus"]
     # 캐시 미스 → 전체 fetch
@@ -13891,12 +13975,18 @@ async def _manual_chunk_corpus_async():
             "SELECT id, data, updated_at FROM manuals WHERE active=true ORDER BY id"
         )
         rows = [(r["id"], r["data"], r["updated_at"]) for r in rows_full]
+        wiki_rows = await c.fetch(
+            "SELECT id, project, title, plain FROM wiki_page WHERE coalesce(plain,'') <> ''"
+        )
     # 코퍼스 조립 (CPU 작업 — 이벤트 루프 잠깐 잡음. 매뉴얼 100개 정도면 문제 없음)
-    return _build_corpus_from_rows(rows, sig_only)
+    return _build_corpus_from_rows(rows, sig_only, wiki_rows=wiki_rows)
 
 
-def _build_corpus_from_rows(rows, sig):
-    """rows 를 corpus 리스트로 변환 + 캐시 저장. CPU-only 라 sync."""
+def _build_corpus_from_rows(rows, sig, wiki_rows=None):
+    """rows 를 corpus 리스트로 변환 + 캐시 저장. CPU-only 라 sync.
+
+    wiki_rows 가 오면 위키 문서도 source='wiki' 로 합류한다 — 청크에
+    문서 id·프로젝트를 실어 근거 카드가 그 문서로 갈 수 있게 한다."""
     corpus = []
     _emodel = str((_rag_cfg().get("embed_model") if callable(globals().get("_rag_cfg")) else None) or "bge-m3")
     for _rid, d, _ua in rows:
@@ -13907,6 +13997,18 @@ def _build_corpus_from_rows(rows, sig):
             stag = "confluence" if _src.startswith("conf") else (_src if _src in ("tc", "req", "jira", "manual") else "manual")
             for ch in _chunk_text(d.get("text", "")):
                 corpus.append({"name": name, "text": ch, "tokens": _rag_tokenize(ch), "key": _embed_key(ch, _emodel), "images_ref": imgs, "source": stag})
+        except Exception:
+            pass
+    _emodel2 = str((_rag_cfg().get("embed_model") if callable(globals().get("_rag_cfg")) else None) or "bge-m3")
+    for w in (wiki_rows or []):
+        try:
+            title = str(w["title"] or "(이름 없음)")
+            for ch in _chunk_text(str(w["plain"] or "")):
+                corpus.append({
+                    "name": title, "text": ch, "tokens": _rag_tokenize(ch),
+                    "key": _embed_key(ch, _emodel2), "images_ref": [], "source": "wiki",
+                    "wiki_id": str(w["id"]), "project": str(w["project"] or ""),
+                })
         except Exception:
             pass
     _RAG_CACHE["sig"] = sig
@@ -13921,15 +14023,20 @@ def _manual_chunk_corpus():
         conn = await __import__('asyncpg').connect(dsn=db.DSN)
         try:
             sig_rows = await conn.fetch("SELECT id, updated_at FROM manuals WHERE active=true ORDER BY id")
-            sig_only = tuple((r["id"], r["updated_at"].timestamp() if r["updated_at"] else 0) for r in sig_rows)
+            wsig_rows = await conn.fetch("SELECT id, updated_at FROM wiki_page ORDER BY id")
+            sig_only = (
+                tuple((r["id"], r["updated_at"].timestamp() if r["updated_at"] else 0) for r in sig_rows),
+                tuple((r["id"], r["updated_at"].timestamp() if r["updated_at"] else 0) for r in wsig_rows),
+            )
             if _RAG_CACHE.get("sig") == sig_only and _RAG_CACHE.get("corpus") is not None:
                 return _RAG_CACHE["corpus"]
             rows_full = await conn.fetch("SELECT id, data, updated_at FROM manuals WHERE active=true ORDER BY id")
             rows = [(r["id"], r["data"], r["updated_at"]) for r in rows_full]
+            wiki_rows = await conn.fetch("SELECT id, project, title, plain FROM wiki_page WHERE coalesce(plain,'') <> ''")
         finally:
             try: await conn.close()
             except Exception: pass
-        return _build_corpus_from_rows(rows, sig_only)
+        return _build_corpus_from_rows(rows, sig_only, wiki_rows=wiki_rows)
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(_work())
@@ -14169,6 +14276,39 @@ async def _hybrid_search(query, top_k=6, min_score=None, sources=None):
                        if 0 <= i < len(cand) and (sc is None or float(sc) >= ms)]
             return ordered[:top_k], mode + "+rerank"
     return [(c, None) for c in cand[:top_k]], mode
+
+@app.get("/api/kb/wiki-status")
+async def kb_wiki_status():
+    """위키 색인 상태 — RAG 설정 화면의 「위키 색인」 카드가 읽는다."""
+    corpus = await _manual_chunk_corpus_async()
+    wk = [c for c in corpus if c.get("source") == "wiki"]
+    cfg = _rag_cfg()
+    embed_on = bool(cfg.get("use_embed") and cfg.get("embed_url"))
+    embedded = 0
+    if embed_on and wk:
+        _embed_load()
+        embedded = sum(1 for c in wk if c.get("key") in _EMBED["keys"])
+    return {"pages": len({c.get("wiki_id") for c in wk}), "chunks": len(wk),
+            "embedded": embedded, "embed_on": embed_on}
+
+
+@app.post("/api/kb/wiki-reindex")
+async def kb_wiki_reindex():
+    """위키 다시 색인 — 캐시를 버려 코퍼스를 새로 짓고, 임베딩 서버가
+    설정돼 있으면 위키 청크 임베딩까지 미리 만들어 둔다(첫 질문이 안 느리게)."""
+    _RAG_CACHE["sig"] = None
+    _RAG_CACHE["corpus"] = None
+    corpus = await _manual_chunk_corpus_async()
+    wk = [c for c in corpus if c.get("source") == "wiki"]
+    cfg = _rag_cfg()
+    embed_on = bool(cfg.get("use_embed") and cfg.get("embed_url"))
+    ok = True
+    if embed_on and wk:
+        ok = await _ensure_embeddings(wk)
+    return {"ok": ok, "pages": len({c.get("wiki_id") for c in wk}), "chunks": len(wk),
+            "embed_on": embed_on,
+            **({} if ok else {"error": "임베딩을 만들지 못했습니다 — RAG 설정의 임베딩 서버를 확인하세요"})}
+
 
 @app.post("/api/rag/search")
 async def rag_search(payload: dict):
@@ -17229,19 +17369,46 @@ def _kai_snip(text: str, terms: list[str], width: int = 260) -> str:
     return ("…" if s0 > 0 else "") + out + ("…" if s0 + width < len(text) else "")
 
 
-async def _kai_search(q: str, scopes: set[str]) -> list[dict]:
-    """네 저장소를 훑어 근거 후보를 모은다 — 전부 우리 것만 읽는다."""
+async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = None) -> list[dict]:
+    """네 저장소를 훑어 근거 후보를 모은다 — 전부 우리 것만 읽는다.
+
+    위키는 **하이브리드 검색**(BM25+임베딩+리랭크 — 매뉴얼 RAG 와 같은 관)
+    을 먼저 탄다: 「동작 온도」 로 물어도 Operating Temperature 문서가
+    걸린다(지시: 제품 스펙 조회). project 를 주면 그 프로젝트 것과 공용
+    (프로젝트 빈 값) 문서만 본다 — 상단 프로젝트 선택을 따라간다(질문)."""
     terms = _kai_terms(q)
     if not terms:
         return []
     like = [f"%{t}%" for t in terms]
     out: list[dict] = []
+    if "wiki" in scopes:
+        hits = []
+        try:
+            hits, _mode = await _hybrid_search(q, top_k=10, sources={"wiki"})
+        except Exception as e:  # noqa: BLE001
+            print(f"[kai] wiki 하이브리드 실패 — ILIKE 로 폴백: {e}", flush=True)
+            hits = []
+        seen_w: set[str] = set()
+        for h, _sc in hits:
+            if projects and str(h.get("project") or "") not in ("", *projects):
+                continue
+            wid = str(h.get("wiki_id") or "")
+            if not wid or wid in seen_w:
+                continue
+            seen_w.add(wid)
+            out.append({"kind": "wiki", "id": wid, "title": str(h.get("name") or "(이름 없음)"),
+                        "snippet": str(h.get("text") or "")[:280]})
+            if len(seen_w) >= 3:
+                break
     async with db.pool().acquire() as c:
-        if "wiki" in scopes:
+        if "wiki" in scopes and not any(x["kind"] == "wiki" for x in out):
+            # 폴백 — 색인이 아직 안 섰거나 하이브리드가 빈손일 때(글자 일치)
             rows = await c.fetch(
-                """SELECT id, title, plain FROM wiki_page
+                """SELECT id, project, title, plain FROM wiki_page
                    WHERE title ILIKE ANY($1::text[]) OR plain ILIKE ANY($1::text[])
                    LIMIT 40""", like)
+            if projects:
+                rows = [r for r in rows if str(r["project"] or "") in ("", *projects)]
             def _wscore(r):
                 tl, pl = (r["title"] or "").lower(), (r["plain"] or "").lower()
                 return sum((3 if t.lower() in tl else 0) + pl.count(t.lower()) for t in terms)
@@ -17353,6 +17520,7 @@ async def kai_ask_stream(payload: dict, request: Request):
 
     q = str(payload.get("q") or "").strip()
     scopes = {str(x) for x in (payload.get("scopes") or [])} or {"wiki", "tc", "cycle", "jira"}
+    projects = [str(x) for x in (payload.get("projects") or []) if str(x).strip()]
     tid_in = str(payload.get("tid") or "")
     u = _kai_user(request)
 
@@ -17362,7 +17530,7 @@ async def kai_ask_stream(payload: dict, request: Request):
         if not q:
             yield ev({"type": "done", "error": "질문이 비었습니다"})
             return
-        srcs = await _kai_search(q, scopes)
+        srcs = await _kai_search(q, scopes, projects)
         yield ev({"type": "meta", "sources": srcs})
 
         blocks = []
@@ -17448,7 +17616,7 @@ async def kai_ask(payload: dict, request: Request):
     if not q:
         return {"ok": False, "error": "질문이 비었습니다"}
     scopes = {str(x) for x in (payload.get("scopes") or [])} or {"wiki", "tc", "cycle", "jira"}
-    srcs = await _kai_search(q, scopes)
+    srcs = await _kai_search(q, scopes, [str(x) for x in (payload.get("projects") or []) if str(x).strip()])
 
     # 근거 묶음 → LLM. [n] 으로 짚어 답하게 한다. 근거 밖은 모른다고 말하게.
     blocks = []
@@ -18208,7 +18376,7 @@ async def issues_get(project: str):
 async def issues_sync(payload: dict):
     """프로젝트 이슈를 Jira에서 가져와 utop에 저장. 마지막 마커 이후 변경분만(증분), full=True면 전체."""
     from datetime import datetime as _dt, timedelta as _td
-    project = str(payload.get("project") or "").strip()
+    projects = [str(x) for x in (payload.get("projects") or []) if str(x).strip()]
     if not project:
         return {"ok": False, "error": "프로젝트가 없습니다"}
     fields = str(payload.get("fields") or "summary,status,issuetype,assignee,priority,updated")

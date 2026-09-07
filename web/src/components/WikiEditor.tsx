@@ -647,10 +647,10 @@ export default function WikiEditor({
             짜지 않는 까닭은, 편집기가 아는 꼴이 곧 편집기가 다시 열 수 있는
             꼴이기 때문이다. */}
         <label className="btn small wke-imp">
-          워드 가져오기
+          문서 가져오기
           <input
             type="file"
-            accept=".docx"
+            accept=".docx,.pdf"
             hidden
             onChange={async (e) => {
               const f = e.target.files?.[0]
@@ -667,7 +667,7 @@ export default function WikiEditor({
                 const ask = async (bodyFrom?: number) =>
                   await apiFetch('/api/wiki/import-docx', {
                     method: 'POST',
-                    body: JSON.stringify(bodyFrom ? { data: b64, body_from: bodyFrom } : { data: b64 }),
+                    body: JSON.stringify(bodyFrom ? { data: b64, body_from: bodyFrom, name: f.name } : { data: b64, name: f.name }),
                   })
                 let r = await ask()
                 const j = (await r.json().catch(() => ({}))) as {

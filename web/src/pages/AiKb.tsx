@@ -14,6 +14,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { apiFetch } from '@/api/client'
 import { goto } from '@/api/goto'
+import { currentProjects } from '@/components/ProjectPicker'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import './AiKb.css'
 
@@ -147,7 +148,8 @@ export default function AiKb() {
     try {
       const r = await apiFetch('/api/kai/ask-stream', {
         method: 'POST',
-        body: JSON.stringify({ tid, q, scopes: [...scopes] }),
+        /* 상단에서 고른 프로젝트를 따라간다(질문) — 그 프로젝트 것과 공용 문서만 */
+        body: JSON.stringify({ tid, q, scopes: [...scopes], projects: currentProjects() }),
       })
       if (!r.ok || !r.body) throw new Error('답을 만들지 못했습니다')
       const reader = r.body.getReader()

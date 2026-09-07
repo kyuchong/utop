@@ -123,6 +123,34 @@ export default function LlmSettings() {
 
   if (loading) return <div className="empty">불러오는 중…</div>
 
+  /* 위키 색인 — Knowledge AI 가 뜻으로 찾는 대상. 상태와 다시 색인만 여기서 */
+  const [kb, setKb] = useState<{ pages?: number; chunks?: number; embedded?: number; embed_on?: boolean } | null>(null)
+  const [kbBusy, setKbBusy] = useState(false)
+  useEffect(() => {
+    apiFetch('/api/kb/wiki-status')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setKb(j))
+      .catch(() => setKb(null))
+  }, [])
+  async function kbReindex() {
+    setKbBusy(true)
+    try {
+      const r = await apiFetch('/api/kb/wiki-reindex', { method: 'POST' })
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean; pages?: number; chunks?: number; error?: string
+      }
+      setNote(
+        j.ok
+          ? { kind: 'ok', msg: `위키 색인 완료 — 문서 ${j.pages ?? 0}건 · 토막 ${j.chunks ?? 0}개` }
+          : { kind: 'err', msg: j.error || '색인에 실패했습니다' },
+      )
+      const st = await apiFetch('/api/kb/wiki-status').then((x) => (x.ok ? x.json() : null)).catch(() => null)
+      if (st) setKb(st)
+    } finally {
+      setKbBusy(false)
+    }
+  }
+
   /** 임베딩·리랭커 탭은 칸 구성이 같다. 한 곳에서 그린다. */
   const serverTab = (which: 'embed' | 'rerank') => {
     const isEmbed = which === 'embed'
@@ -219,6 +247,31 @@ export default function LlmSettings() {
           확인을 누르면 먼저 저장한 뒤 서버가 실제로 한 번씩 불러 봅니다.
           사내망 밖에서는 실패하는 게 정상입니다.
         </div>
+
+        {isEmbed && (
+          <section className="llm-sec">
+            <div className="set-head">
+              <div>
+                <h3>위키 색인</h3>
+                <p className="muted small">
+                  Knowledge AI 가 위키 문서(제품 스펙 포함)를 뜻으로 찾을 수 있게 하는 색인입니다.
+                  문서를 저장하면 저절로 갱신됩니다 — 이 단추는 처음 한 번, 기존 문서 일괄용입니다.
+                </p>
+              </div>
+            </div>
+            <div className="hint">
+              {kb
+                ? `문서 ${kb.pages ?? 0}건 · 토막 ${kb.chunks ?? 0}개` +
+                  (kb.embed_on ? ` · 임베딩 ${kb.embedded ?? 0}/${kb.chunks ?? 0}` : ' · 임베딩 꺼짐(글자 검색만 동작)')
+                : '상태를 읽지 못했습니다 — 서버를 새로 받았는지 확인하세요'}
+            </div>
+            <div className="llm-foot">
+              <button className="btn" type="button" onClick={() => void kbReindex()} disabled={kbBusy}>
+                {kbBusy ? '색인 중…' : '다시 색인'}
+              </button>
+            </div>
+          </section>
+        )}
       </>
     )
   }

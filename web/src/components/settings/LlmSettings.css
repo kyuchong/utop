@@ -199,3 +199,6 @@
   background: var(--c-surface-alt);
   color: var(--c-text-muted);
 }
+
+/* 위키 색인 카드 — 임베딩 탭 아래 한 단 */
+.llm-sec { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--c-border-soft, #eef1f4); }
