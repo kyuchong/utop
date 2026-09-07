@@ -136,6 +136,18 @@ export default function CyclesBoard({
       return (await r.json()) as { runs: RunLite[] }
     },
   })
+  /* 폴더 실체 — 사이클이 없어도 폴더가 트리에 서야 한다(승인).
+     저장은 기존 /api/cycle-folders 문서의 paths 칸을 쓴다(옛 칸은 보존).
+     옛 경로 문자열(사업자/제품군/모델그룹/모델/버전그룹)도 번역해 합류. */
+  const foldersQ = useQuery({
+    queryKey: ['cycle-folders'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/cycle-folders')
+      if (!r.ok) return {} as Record<string, unknown>
+      return (await r.json()) as Record<string, unknown>
+    },
+  })
   const tcQ = useQuery({
     queryKey: ['tc-meta'],
     staleTime: 60_000,
@@ -192,6 +204,10 @@ export default function CyclesBoard({
   const [treeQ, setTreeQ] = useState('')
   /** 폴더 ⋯ 메뉴 — 트리의 사업자·모델·버전그룹 줄 */
   const [folderMenu, setFolderMenu] = useState<{ x: number; y: number; t: 'cust' | 'model' | 'vg'; k: string } | null>(null)
+  /** ＋ 폴더 창 — 사업자 ▸ 제품명 ▸ 버전그룹 (뒤 단계는 비워도 됨) */
+  const [folderDlg, setFolderDlg] = useState<{ customer: string; model: string; vg: string } | null>(null)
+  /** 사이클 만들기 씨앗 — 버전그룹 ⋯ 의 ＋사이클이 채운다(지시: 자동 채움) */
+  const [mkSeed, setMkSeed] = useState<{ customer?: string; model?: string; version_group?: string } | null>(null)
   useEffect(() => prefSet('utop.cyc.side', sideOn ? '1' : '0'), [sideOn])
 
   /* ── 실행 탭 상태 (옛 Runs 화면을 들여온 것) ── */
@@ -333,6 +349,54 @@ export default function CyclesBoard({
     [plans, cmp],
   )
 
+  interface FolderPath {
+    customer: string
+    model?: string
+    version_group?: string
+  }
+  const folderPathsRaw = useMemo<FolderPath[]>(() => {
+    const doc = foldersQ.data ?? {}
+    const arr = Array.isArray(doc.paths) ? (doc.paths as FolderPath[]) : []
+    return arr.filter((x) => x && String(x.customer ?? '').trim())
+  }, [foldersQ.data])
+  const folderPaths = useMemo<FolderPath[]>(() => {
+    const out = [...folderPathsRaw]
+    const legacy = Array.isArray((foldersQ.data ?? {}).folders)
+      ? ((foldersQ.data as Record<string, unknown>).folders as unknown[])
+      : []
+    for (const it of legacy) {
+      const seg = String(it ?? '').split('/')
+      if (seg.length === 5 && seg[0])
+        out.push({ customer: seg[0]!, model: seg[3] || undefined, version_group: seg[4] || undefined })
+    }
+    return out
+  }, [folderPathsRaw, foldersQ.data])
+  async function saveFolderPaths(next: FolderPath[]) {
+    const doc = { ...(foldersQ.data ?? {}), paths: next }
+    const r = await apiFetch('/api/cycle-folders', { method: 'POST', body: JSON.stringify(doc) })
+    if (!r.ok) window.alert('폴더를 저장하지 못했습니다')
+    await qc.invalidateQueries({ queryKey: ['cycle-folders'] })
+  }
+  async function addFolderPath(customer: string, model?: string, vg?: string) {
+    const c = customer.trim()
+    if (!c) return
+    const m = (model ?? '').trim() || undefined
+    const v = (vg ?? '').trim() || undefined
+    if (
+      folderPathsRaw.some(
+        (x) => x.customer === c && (x.model ?? '') === (m ?? '') && (x.version_group ?? '') === (v ?? ''),
+      )
+    )
+      return
+    await saveFolderPaths([...folderPathsRaw, { customer: c, ...(m ? { model: m } : {}), ...(v ? { version_group: v } : {}) }])
+    if (m && v)
+      await apiFetch('/api/cycle-version-groups/add', {
+        method: 'POST',
+        body: JSON.stringify({ model: m, group: v }),
+      }).catch(() => undefined)
+    void vgQ.refetch()
+  }
+
   /* ── 1열 트리: 사업자 ▸ 모델 ▸ 버전그룹 ▸ 사이클 (지시: 통합 시안) ── */
   const treeHit = (t2: string) => !treeQ || t2.toLowerCase().includes(treeQ.trim().toLowerCase())
   interface TreeRow {
@@ -348,6 +412,37 @@ export default function CyclesBoard({
     plan?: CycleMeta
   }
   const treeRows = useMemo<TreeRow[]>(() => {
+    /* 폴더 실체 ∪ 사이클에서 파생된 경로 — 빈 폴더도 선다(승인) */
+    const custMap = new Map<string, Map<string, Map<string, CycleMeta[]>>>()
+    const touch = (c: string, m?: string, v?: string) => {
+      let mm = custMap.get(c)
+      if (!mm) {
+        mm = new Map()
+        custMap.set(c, mm)
+      }
+      if (m === undefined) return
+      let vm = mm.get(m)
+      if (!vm) {
+        vm = new Map()
+        mm.set(m, vm)
+      }
+      if (v !== undefined && !vm.has(v)) vm.set(v, [])
+    }
+    for (const f of folderPaths) {
+      const c = f.customer || '미지정'
+      if (f.model) {
+        if (f.version_group) touch(c, f.model, f.version_group)
+        else touch(c, f.model)
+      } else touch(c)
+    }
+    for (const p of plans) {
+      const c = String(p.customer || '미지정')
+      const m = String(p.model || '미지정')
+      const v = String(p.version_group || '미지정')
+      touch(c, m, v)
+      custMap.get(c)!.get(m)!.get(v)!.push(p)
+    }
+
     const out: TreeRow[] = []
     out.push({
       d: 0,
@@ -357,20 +452,21 @@ export default function CyclesBoard({
       zero: !plans.length,
       on: !open && !grpSel,
     })
-    const custs = [...new Set(plans.map((p) => String(p.customer || '미지정')))].sort(cmp)
+    const custs = [...custMap.keys()].sort(cmp)
     for (const cust of custs) {
-      const custPlans = plans.filter((p) => String(p.customer || '미지정') === cust)
-      const models = [...new Set(custPlans.map((p) => String(p.model || '미지정')))].sort(cmp)
+      const mm = custMap.get(cust)!
       const custRows: TreeRow[] = []
-      for (const model of models) {
+      let custPlanN = 0
+      for (const model of [...mm.keys()].sort(cmp)) {
         const mk = keyOf(cust, model)
-        const mPlans = custPlans.filter((p) => String(p.model || '미지정') === model)
-        const vgs = [...new Set(mPlans.map((p) => String(p.version_group || '미지정')))].sort(cmp)
+        const vm = mm.get(model)!
         const modelRows: TreeRow[] = []
-        for (const vg of vgs) {
+        let modelPlanN = 0
+        for (const vg of [...vm.keys()].sort(cmp)) {
           const vk = keyOf(cust, model, vg)
-          const vPlans = mPlans
-            .filter((p) => String(p.version_group || '미지정') === vg)
+          const vPlans = vm
+            .get(vg)!
+            .slice()
             .sort((a, b) => cmp(String(b.version ?? b.name ?? ''), String(a.version ?? a.name ?? '')))
           const planRows: TreeRow[] = []
           for (const p of vPlans) {
@@ -387,30 +483,30 @@ export default function CyclesBoard({
               plan: p,
             })
           }
-          if (!planRows.length) continue
-          const vn = planRows.reduce((a, r) => a + r.n, 0)
+          /* 찾는 중엔 걸린 것만 — 평소엔 빈 폴더도 선다 */
+          if (treeQ && !planRows.length && !treeHit(`${cust} ${model} ${vg}`)) continue
+          modelPlanN += vPlans.length
           modelRows.push({
             d: 3,
             key: vk,
             label: vg,
-            n: planRows.length,
-            zero: !planRows.length,
+            n: vPlans.length,
+            zero: !vPlans.length,
             caret: true,
             open: !closed.has(vk),
             on: !open && grpSel?.t === 'vg' && grpSel.k === vk,
             ico: '🔖',
           })
-          void vn
           if (!closed.has(vk)) modelRows.push(...planRows)
         }
-        if (!modelRows.length) continue
-        const mCnt = mPlans.length
+        if (treeQ && !modelRows.length && !treeHit(`${cust} ${model}`)) continue
+        custPlanN += modelPlanN
         custRows.push({
           d: 2,
           key: mk,
           label: model,
-          n: mCnt,
-          zero: !mCnt,
+          n: modelPlanN,
+          zero: !modelPlanN,
           caret: true,
           open: !closed.has(mk),
           on: !open && grpSel?.t === 'model' && grpSel.k === mk,
@@ -418,20 +514,20 @@ export default function CyclesBoard({
         })
         if (!closed.has(mk)) custRows.push(...modelRows)
       }
-      if (!custRows.length) continue
+      if (treeQ && !custRows.length && !treeHit(cust)) continue
       out.push({
         d: 1,
         key: keyOf(cust),
         label: cust,
-        n: custPlans.length,
-        zero: !custPlans.length,
+        n: custPlanN,
+        zero: !custPlanN,
         on: !open && grpSel?.t === 'cust' && grpSel.k === cust,
         ico: '🏢',
       })
       out.push(...custRows)
     }
     return out
-  }, [plans, runsByPlan, closed, open, grpSel, treeQ, cmp])
+  }, [plans, folderPaths, runsByPlan, closed, open, grpSel, treeQ, cmp])
 
   /** 2열 범위 — 트리에서 고른 묶음의 사이클만 */
   const scopedRows = useMemo(() => {
@@ -474,6 +570,13 @@ export default function CyclesBoard({
       )
     )
       return
+    await reallyDelPlans(ids)
+  }
+
+  /** 확인 없이 실제로 지운다 — delPlans·폴더 지우기가 함께 쓴다 */
+  async function reallyDelPlans(ids: string[]) {
+    const list = ids.map((id) => planOf.get(id)).filter((p): p is CycleMeta => !!p)
+    if (!list.length) return
     try {
       let bad = 0
       for (const p of list) {
@@ -1023,10 +1126,82 @@ export default function CyclesBoard({
           { method: 'DELETE' },
         ).catch(() => undefined)
     }
+    await saveFolderPaths(
+      folderPathsRaw.map((x) =>
+        x.customer === (parts[0] ?? '') && (x.model ?? '') === model && (x.version_group ?? '') === oldVg
+          ? { ...x, version_group: v }
+          : x,
+      ),
+    )
     if (grpSel?.t === 'vg' && grpSel.k === k) setGrpSel({ t: 'vg', k: keyOf(parts[0] ?? '', model, v) })
     void plansQ.refetch()
     void vgQ.refetch()
     void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })
+  }
+
+  /** 폴더 지우기 — 담긴 사이클·실행째. 폴더 실체(paths)도 걷는다 */
+  async function delFolder(t: 'cust' | 'model' | 'vg', k: string) {
+    const parts = k.split('|')
+    const list = plansInScope(t, k)
+    let runN = 0
+    for (const p of list) runN += (runsByPlan.get(p.id) ?? []).length
+    const label = parts[parts.length - 1] || ''
+    if (
+      !window.confirm(
+        `폴더 「${label}」 을 지웁니다.` +
+          (list.length
+            ? `\n담긴 사이클 ${list.length}건${runN ? `과 실행 ${runN}건·판정 결과` : ''}이 함께 사라집니다. 되돌릴 수 없습니다.`
+            : '\n빈 폴더입니다.'),
+      )
+    )
+      return
+    if (list.length) await reallyDelPlans(list.map((p) => p.id))
+    /* 폴더 실체 걷기 — 이 경로와 그 아래 전부 */
+    const c = parts[0] ?? ''
+    const m = parts[1]
+    const v = parts[2]
+    const keep = folderPathsRaw.filter((x) => {
+      if (x.customer !== c) return true
+      if (t === 'cust') return false
+      if ((x.model ?? '') !== (m ?? '')) return true
+      if (t === 'model') return false
+      return (x.version_group ?? '') !== (v ?? '')
+    })
+    await saveFolderPaths(keep)
+    /* 버전그룹 등록부도 걷는다(비었을 때만 지워지는 기존 규칙) */
+    if (t === 'vg' && m && v && m !== '미지정' && v !== '미지정')
+      await apiFetch(
+        `/api/cycle-version-groups/${encodeURIComponent(m)}/${encodeURIComponent(v)}`,
+        { method: 'DELETE' },
+      ).catch(() => undefined)
+    if (grpSel && grpSel.k.startsWith(k)) setGrpSel(null)
+    void plansQ.refetch()
+    void vgQ.refetch()
+  }
+
+  /** 사업자 폴더 이름 바꾸기 — 담긴 사이클의 사업자를 일괄로 옮긴다 */
+  async function renameCustomer(k: string) {
+    const oldC = k.split('|')[0] ?? ''
+    const list = plansInScope('cust', k)
+    const nv = window.prompt(
+      `사업자 이름 바꾸기 — 담긴 사이클 ${list.length}건이 함께 옮겨집니다.`,
+      oldC === '미지정' ? '' : oldC,
+    )
+    if (nv === null) return
+    const v = nv.trim()
+    if (!v || v === oldC) return
+    for (const p of list) {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(p.id)}`)
+      if (!r.ok) continue
+      const d = (await r.json()) as PlanFull
+      await apiFetch(`/api/cycle/${encodeURIComponent(p.id)}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...d, customer: v, updated_by: meName }),
+      })
+    }
+    await saveFolderPaths(folderPathsRaw.map((x) => (x.customer === oldC ? { ...x, customer: v } : x)))
+    if (grpSel?.t === 'cust' && grpSel.k === k) setGrpSel({ t: 'cust', k: v })
+    void plansQ.refetch()
   }
 
   /* ── 1열: 사이클 트리 ── */
@@ -1036,8 +1211,18 @@ export default function CyclesBoard({
         <div className="run-side-hd">
           <b>시험 사이클</b>
           <span className="cu-sp" />
-          <button type="button" className="cu-new small" title="새 사이클을 만듭니다" onClick={() => setMaking(true)}>
-            <i aria-hidden="true">＋</i>사이클
+          {/* 위 ＋는 **폴더**를 만든다(승인) — 사업자 ▸ 제품명 ▸ 버전그룹.
+              사이클은 버전그룹 ⋯ 나 목록의 ＋사이클로 만든다. */}
+          <button
+            type="button"
+            className="cu-new small"
+            title="폴더를 만듭니다 — 사업자 ▸ 제품명 ▸ 버전그룹 (뒤 단계는 비워도 됩니다)"
+            onClick={() => {
+              setNeedMake(true)
+              setFolderDlg({ customer: '', model: '', vg: '' })
+            }}
+          >
+            <i aria-hidden="true">＋</i>폴더
           </button>
         </div>
         <div className="run-side-bar">
@@ -2083,6 +2268,84 @@ export default function CyclesBoard({
         )}
       </div>
 
+      {/* ＋ 폴더 — 사업자 ▸ 제품명 ▸ 버전그룹. 뒤 단계는 비워도 된다(승인) */}
+      {!!folderDlg && (() => {
+        const custsAll = [...new Set([
+          ...folderPaths.map((x) => x.customer),
+          ...plans.map((p) => String(p.customer || '')).filter(Boolean),
+        ])].sort(cmp)
+        const modelsAll = [...new Set(((catQ.data?.items ?? []) as Array<Record<string, unknown>>)
+          .filter((x) => String(x.kind) === 'model')
+          .map((x) => String(x.name ?? '')))].filter(Boolean).sort(cmp)
+        const d = folderDlg
+        return (
+          <div className="cyb-fdlg-back" onMouseDown={(e) => e.target === e.currentTarget && setFolderDlg(null)}>
+            <div className="cyb-fdlg" role="dialog" aria-modal="true" aria-label="폴더 만들기">
+              <header>
+                <b>폴더 만들기</b>
+                <span className="cu-sp" />
+                <button type="button" className="btn icon" title="닫기" onClick={() => setFolderDlg(null)}>✕</button>
+              </header>
+              <div className="body">
+                <label>
+                  <span>사업자 <i className="req">*</i></span>
+                  <input
+                    className="kvin"
+                    list="cyb-custs"
+                    value={d.customer}
+                    placeholder="예: LGUP (있는 이름을 고르거나 새로 적기)"
+                    onChange={(e) => setFolderDlg({ ...d, customer: e.target.value })}
+                  />
+                  <datalist id="cyb-custs">
+                    {custsAll.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                </label>
+                <label>
+                  <span>제품명</span>
+                  <select
+                    className="kvin"
+                    value={d.model}
+                    onChange={(e) => setFolderDlg({ ...d, model: e.target.value })}
+                  >
+                    <option value="">(여기까지만 — 사업자 폴더)</option>
+                    {modelsAll.map((m2) => (
+                      <option key={m2} value={m2}>{m2}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>버전그룹</span>
+                  <input
+                    className="kvin"
+                    value={d.vg}
+                    placeholder={d.model ? '예: R100 (비우면 제품명 폴더까지)' : '먼저 제품명을 고르세요'}
+                    disabled={!d.model}
+                    onChange={(e) => setFolderDlg({ ...d, vg: e.target.value })}
+                  />
+                </label>
+                <p className="cu-m">제품명은 장비 카탈로그에서 고릅니다. 사이클은 버전그룹 폴더의 ⋯ 에서 만듭니다.</p>
+              </div>
+              <footer>
+                <button type="button" className="btn" onClick={() => setFolderDlg(null)}>취소</button>
+                <button
+                  type="button"
+                  className="cu-new"
+                  disabled={!d.customer.trim()}
+                  onClick={() => {
+                    void addFolderPath(d.customer, d.model || undefined, d.vg || undefined)
+                    setFolderDlg(null)
+                  }}
+                >
+                  만들기
+                </button>
+              </footer>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* 폴더 ⋯ — 트리의 사업자·모델·버전그룹 줄 일들 */}
       {!!folderMenu && (() => {
         const list = plansInScope(folderMenu.t, folderMenu.k)
@@ -2094,16 +2357,67 @@ export default function CyclesBoard({
               <div className="qa-menuh">
                 {label} · 사이클 {list.length}건
               </div>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setFolderMenu(null)
-                  setMaking(true)
-                }}
-              >
-                ＋ 사이클 만들기
-              </button>
+              {folderMenu.t === 'cust' && label !== '미지정' && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    const c = folderMenu.k.split('|')[0] ?? ''
+                    setFolderMenu(null)
+                    setNeedMake(true)
+                    setFolderDlg({ customer: c, model: '', vg: '' })
+                  }}
+                >
+                  ＋ 제품명 폴더
+                </button>
+              )}
+              {folderMenu.t === 'model' && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    const parts = folderMenu.k.split('|')
+                    setFolderMenu(null)
+                    const nv = window.prompt('새 버전그룹 이름', '')
+                    if (nv === null || !nv.trim()) return
+                    void addFolderPath(parts[0] ?? '', parts[1] ?? '', nv.trim())
+                  }}
+                >
+                  ＋ 버전그룹 폴더
+                </button>
+              )}
+              {folderMenu.t === 'vg' && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    const parts = folderMenu.k.split('|')
+                    setFolderMenu(null)
+                    /* 사업자·제품명·버전그룹이 미리 채워진다(지시) */
+                    setMkSeed({
+                      customer: parts[0] ?? '',
+                      model: parts[1] ?? '',
+                      version_group: parts[2] ?? '',
+                    })
+                    setMaking(true)
+                  }}
+                >
+                  ＋ 사이클 만들기
+                </button>
+              )}
+              {folderMenu.t === 'cust' && label !== '미지정' && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    const k = folderMenu.k
+                    setFolderMenu(null)
+                    void renameCustomer(k)
+                  }}
+                >
+                  폴더 이름 바꾸기
+                </button>
+              )}
               {folderMenu.t === 'vg' && (
                 <button
                   type="button"
@@ -2122,14 +2436,13 @@ export default function CyclesBoard({
                 type="button"
                 role="menuitem"
                 className="danger"
-                disabled={!list.length}
                 onClick={() => {
                   const fm = folderMenu
                   setFolderMenu(null)
-                  void delPlans(plansInScope(fm.t, fm.k).map((p) => p.id))
+                  void delFolder(fm.t, fm.k)
                 }}
               >
-                폴더 지우기 — 사이클 {list.length}건 포함
+                폴더 지우기{list.length ? ` — 사이클 ${list.length}건 포함` : ''}
               </button>
             </div>
           </>
@@ -2245,9 +2558,14 @@ export default function CyclesBoard({
       {making && (
         <MakeCycle
           me={me}
-          onClose={() => setMaking(false)}
+          seed={mkSeed ?? undefined}
+          onClose={() => {
+            setMaking(false)
+            setMkSeed(null)
+          }}
           onMade={(id) => {
             setMaking(false)
+            setMkSeed(null)
             void plansQ.refetch()
             void vgQ.refetch()
             openPlanId(id)

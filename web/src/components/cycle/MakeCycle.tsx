@@ -32,19 +32,23 @@ function today(): string {
 
 export default function MakeCycle({
   me,
+  seed,
   onClose,
   onMade,
 }: {
   me?: { username?: string; name?: string } | null
+  /** 미리 채울 자리 — 버전그룹 폴더의 「＋ 사이클」 이 준다(지시: 자동 채움) */
+  seed?: { customer?: string; model?: string; version_group?: string }
   onClose: () => void
   /** 만든 사이클의 안쪽 id 와 **선 자리** — 트리에서 바로 짚을 수 있게 */
   onMade: (id: string, at: { cust: string; model: string; vg: string; ver: string }) => void
 }) {
-  const [cust, setCust] = useState('')
+  const unset = (v?: string) => (!v || v === '미지정' ? '' : v)
+  const [cust, setCust] = useState(unset(seed?.customer))
   const [family, setFamily] = useState('')
   const [mgroup, setMgroup] = useState('')
-  const [model, setModel] = useState('')
-  const [vgroup, setVgroup] = useState('')
+  const [model, setModel] = useState(unset(seed?.model))
+  const [vgroup, setVgroup] = useState(unset(seed?.version_group))
   const [newVg, setNewVg] = useState('')
   const [version, setVersion] = useState('')
   const [owner, setOwner] = useState(me?.name || me?.username || '')
@@ -176,7 +180,7 @@ export default function MakeCycle({
     if (mgroup && !mgroups.includes(mgroup)) setMgroup('')
   }, [mgroups, mgroup])
   useEffect(() => {
-    if (model && !models.includes(model)) setModel('')
+    if (model && models.length && !models.includes(model)) setModel('')
   }, [models, model])
 
   const vg = (newVg.trim() || vgroup).trim()
@@ -250,6 +254,7 @@ export default function MakeCycle({
                 <span>사업자</span>
                 <select value={cust} onChange={(e) => setCust(e.target.value)}>
                   <option value="">(안 고름)</option>
+                  {!!cust && !custs.includes(cust) && <option value={cust}>{cust}</option>}
                   {custs.map((v) => (
                     <option key={v} value={v}>
                       {v}
@@ -308,6 +313,7 @@ export default function MakeCycle({
                   }}
                 >
                   <option value="">(새로 적기)</option>
+                  {!!vgroup && !vgs.includes(vgroup) && <option value={vgroup}>{vgroup}</option>}
                   {vgs.map((v) => (
                     <option key={v} value={v}>
                       {v}

@@ -81,3 +81,13 @@
 /* 트리 — 개수는 이름 바로 오른쪽 (n) (지시: REQ-Coverage 꼴) */
 .cyb .cu-n .nm .cnt { margin-left: 5px; color: var(--c-text-faint); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 .cyb .cu-n .nm .cnt.zero { color: var(--c-border); }
+
+/* ＋ 폴더 창 — 작고 단출하게 */
+.cyb-fdlg-back { position: fixed; inset: 0; z-index: 70; background: rgba(18, 80, 94, 0.35); display: grid; place-items: center; }
+.cyb-fdlg { width: min(420px, 92vw); background: var(--c-surface, #fff); border-radius: 10px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; }
+.cyb-fdlg header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--c-border-soft); }
+.cyb-fdlg .body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.cyb-fdlg label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); color: var(--c-text-faint); }
+.cyb-fdlg label .kvin { width: 100%; }
+.cyb-fdlg .req { color: var(--c-fail); font-style: normal; }
+.cyb-fdlg footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--c-border-soft); }
