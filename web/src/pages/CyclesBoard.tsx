@@ -257,11 +257,20 @@ export default function CyclesBoard({
     { key: 'iss', label: '결함', type: 'number', width: 60 },
     { key: 'runs', label: '실행', type: 'text', width: 104 },
     { key: 'last', label: '마지막 실행', type: 'text', width: 190 },
-    { key: 'stat', label: '판정 현황', type: 'text', width: 190 },
+    { key: 'stat', label: '판정 현황', type: 'text', width: 110 },
     { key: 'assignee', label: '담당', type: 'person', width: 96 },
     { key: 'created', label: '생성일자', type: 'text', width: 100 },
   ]
   const [lsCols, setLsCols] = useNCols('utop.ntb.cyc.cols', LS_DEFS)
+  /* 판정 현황을 좁힌다(지시) — 계정에 남은 옛 폭(190)이 정의를 이기므로
+     한 번만 바로잡고 표식을 남긴다. 사람이 다시 넓히는 것은 그대로 둔다 */
+  useEffect(() => {
+    if (prefGet('utop.ntb.cyc.statslim') === '1') return
+    prefSet('utop.ntb.cyc.statslim', '1')
+    const cur = lsCols.find((c) => c.key === 'stat')
+    if (cur && (cur.width ?? 0) > 120) setLsCols(lsCols.map((c) => (c.key === 'stat' ? { ...c, width: 110 } : c)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const plans = useMemo(() => plansQ.data?.cycles ?? plansQ.data?.items ?? [], [plansQ.data])
   const runs = useMemo(() => runsQ.data?.runs ?? [], [runsQ.data])
@@ -1194,7 +1203,7 @@ export default function CyclesBoard({
               if (col.key === 'stat') {
                 const rs = runsByPlan.get(String(row.__id)) ?? []
                 const t = sumRuns(rs)
-                return t.total ? <StatBar t={t} pal={verdPal} /> : <span className="cu-m">—</span>
+                return t.total ? <StatBar t={t} pal={verdPal} slim /> : <span className="cu-m">—</span>
               }
               if (col.key === 'runs' && !row.runs) return <span className="cu-m">—</span>
               if (col.key === 'last' && !row.last) return <span className="cu-m">—</span>
@@ -1835,6 +1844,16 @@ export default function CyclesBoard({
               else if (a === 'status') setBulkAt({ kind: 'status', ids })
               else window.alert('이 표에서는 아직 없는 동작입니다')
             }}
+            toolbarLeft={
+              <button
+                type="button"
+                className="cu-new small"
+                title="사이클에 시험 항목을 담습니다 — 이미 뜬 이 실행에는 안 들어가고, 새 실행을 만들면 담깁니다"
+                onClick={() => setAddTo(true)}
+              >
+                <i aria-hidden="true">＋</i>항목 담기
+              </button>
+            }
             perPage={100}
           />
         </div>

@@ -297,6 +297,8 @@
 .qav .q-stats i.f { background: var(--c-fail); }
 .qav .q-stats i.b { background: var(--c-draft); }
 .qav .q-stats i.n { background: var(--c-border); color: var(--c-text-muted); }
+/* 좁은 칸용 — 숫자 없이 얇게, 내역은 툴팁이 말한다(지시) */
+.qav .q-stats.slim { height: 10px; min-width: 60px; max-width: 110px; cursor: help; }
 
 /* ── 도넛 ─────────────────────────────────────────────────────────── */
 .qav .donut2 .dbg { stroke: var(--c-border-soft); }

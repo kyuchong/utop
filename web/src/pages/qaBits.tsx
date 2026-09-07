@@ -57,8 +57,9 @@ export function sumRuns(rs: RunLite[]) {
 }
 export type Tally = ReturnType<typeof sumRuns>
 
-/** 판정 현황 막대 — 색 구간에 건수를 얹는다. pal 은 셋업 판정 색(계열 대표) */
-export function StatBar({ t, pal }: { t: Tally; pal?: Record<string, string> }) {
+/** 판정 현황 막대 — 색 구간에 건수를 얹는다. pal 은 셋업 판정 색(계열 대표).
+    slim 은 좁은 칸용(지시): 숫자를 안 얹는 대신 올리면 자세한 내역이 뜬다 */
+export function StatBar({ t, pal, slim }: { t: Tally; pal?: Record<string, string>; slim?: boolean }) {
   if (!t.total) return <span className="cu-m">—</span>
   const parts: Array<[number, string, string]> = [
     [t.pass, 'p', '합격'],
@@ -66,17 +67,23 @@ export function StatBar({ t, pal }: { t: Tally; pal?: Record<string, string> }) 
     [t.etc, 'b', '검증 불가'],
     [t.none, 'n', '미실행'],
   ]
+  const pct = (v: number) => (t.total ? Math.round((v / t.total) * 100) : 0)
+  const detail =
+    parts
+      .filter(([v]) => v > 0)
+      .map(([v, , name]) => `${name} ${v} (${pct(v)}%)`)
+      .join(' · ') + ` — 총 ${t.total}건, 합격률 ${t.rate}%`
   return (
-    <div className="q-stats">
+    <div className={`q-stats${slim ? ' slim' : ''}`} title={slim ? detail : undefined}>
       {parts.map(([v, cls, name]) =>
         v ? (
           <i
             key={cls}
             className={cls}
             style={{ flexGrow: v, ...(pal?.[cls] ? { background: pal[cls] } : {}) }}
-            title={`${name} ${v}`}
+            title={slim ? undefined : `${name} ${v}`}
           >
-            {v}
+            {slim ? '' : v}
           </i>
         ) : null,
       )}
