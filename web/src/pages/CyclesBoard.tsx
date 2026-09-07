@@ -196,6 +196,7 @@ export default function CyclesBoard({
     { key: 'mg', label: '모델그룹', type: 'text', width: 90 },
     { key: 'model', label: '모델명', type: 'text', width: 96 },
     { key: 'items', label: '항목', type: 'number', width: 60 },
+    { key: 'iss', label: '결함', type: 'number', width: 60 },
     { key: 'runs', label: '실행', type: 'text', width: 104 },
     { key: 'last', label: '마지막 실행', type: 'text', width: 190 },
     { key: 'stat', label: '판정 현황', type: 'text', width: 190 },
@@ -589,6 +590,8 @@ export default function CyclesBoard({
         mg: String(p.model_group ?? ''),
         model: String(p.model ?? ''),
         items: String(p._item_count ?? p.items?.length ?? 0),
+        /* 결함 — 항목에 달린 결함 수의 합(레거시 플랜 표와 같은 셈) */
+        iss: String((p.items ?? []).reduce((n2, it) => n2 + (it.issues?.length ?? 0), 0)),
         runs: rs.length ? `${rs.length}회${openRunN ? ` (진행 ${openRunN})` : ''}` : '',
         last: last ? `${String(last.name || last.id)} · ${ago(last.created_at)}` : '',
         stat: t.total ? `통과 ${t.pass} · 실패 ${t.fail} · 미실행 ${t.none}` : '',
@@ -618,7 +621,7 @@ export default function CyclesBoard({
             onCell={(rowId, key, v) => {
               if (key === 'assignee') void saveAssigneeOf(rowId, v)
             }}
-            readOnlyKeys={['id', 'title', 'vg', 'customer', 'mg', 'model', 'items', 'runs', 'last', 'stat', 'created']}
+            readOnlyKeys={['id', 'title', 'vg', 'customer', 'mg', 'model', 'items', 'iss', 'runs', 'last', 'stat', 'created']}
             lockDefs
             idKey="id"
             titleKey="title"

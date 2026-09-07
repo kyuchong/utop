@@ -695,9 +695,6 @@ export default function RunsBoard({
           <button type="button" className="cu-new small" title="새 사이클(버전)을 만듭니다" onClick={() => setMaking(true)}>
             <i aria-hidden="true">＋</i>사이클
           </button>
-          <button type="button" className="cu-colbtn" title="목록 판 접기" onClick={() => setSideOn(false)}>
-            <IconPanel open />
-          </button>
         </div>
         <div className="run-side-bar">
           <input
@@ -836,11 +833,14 @@ export default function RunsBoard({
     return (
       <section className="panel run-main">
         <div className="run-crumb">
-          {!sideOn && (
-            <button type="button" className="cu-colbtn" title="목록 판 펴기" onClick={() => setSideOn(true)}>
-              <IconPanel />
-            </button>
-          )}
+          <button
+            type="button"
+            className="cu-colbtn"
+            title={sideOn ? '목록 판 접기' : '목록 판 펴기'}
+            onClick={() => setSideOn((v) => !v)}
+          >
+            <IconPanel open={sideOn} />
+          </button>
           <b className="rd-ver">{label.name}</b>
           <span className="cu-chip">{label.chip}</span>
           <span className="cu-sp" />
@@ -992,11 +992,14 @@ export default function RunsBoard({
     return (
       <section className="panel run-main">
         <div className="run-crumb">
-          {!sideOn && (
-            <button type="button" className="cu-colbtn" title="목록 판 펴기" onClick={() => setSideOn(true)}>
-              <IconPanel />
-            </button>
-          )}
+          <button
+            type="button"
+            className="cu-colbtn"
+            title={sideOn ? '목록 판 접기' : '목록 판 펴기'}
+            onClick={() => setSideOn((v) => !v)}
+          >
+            <IconPanel open={sideOn} />
+          </button>
           <span className="cu-m">
             {String(p.version ?? p.name ?? '')} <span className="cu-mono">({String(p.cid ?? p.id)})</span>
           </span>
@@ -1072,11 +1075,14 @@ export default function RunsBoard({
       <section className="panel run-main">
         {/* 1) 브레드크럼 줄 — 왼쪽 경로, 오른쪽 액션 */}
         <div className="run-crumb">
-          {!sideOn && (
-            <button type="button" className="cu-colbtn" title="목록 판 펴기" onClick={() => setSideOn(true)}>
-              <IconPanel />
-            </button>
-          )}
+          <button
+            type="button"
+            className="cu-colbtn"
+            title={sideOn ? '목록 판 접기' : '목록 판 펴기'}
+            onClick={() => setSideOn((v) => !v)}
+          >
+            <IconPanel open={sideOn} />
+          </button>
           <span className="cu-m">
             {String(r.name || r.id)} <span className="cu-mono">({r.id})</span>
           </span>

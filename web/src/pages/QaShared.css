@@ -91,20 +91,22 @@
 /* ── 판 머리·탭 ───────────────────────────────────────────────────── */
 .qav .cu-hd { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) 6px; flex: none; }
 .qav .cu-hd b { font-size: var(--fs-lg); }
+/* 판 여닫이 — REQ-Coverage 의 접기 단추(.rqtc-foldb)와 한 꼴(지시) */
 .qav .cu-colbtn {
-  width: var(--row-h);
-  height: var(--row-h);
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--c-border);
-  background: var(--c-surface);
+  border: 1px solid transparent;
+  background: var(--c-primary-bg);
   border-radius: var(--r-box);
-  color: var(--c-nav-fg-strong);
+  color: var(--c-primary);
   cursor: pointer;
   padding: 0;
   flex: none;
 }
-.qav .cu-colbtn:hover { background: var(--c-surface-alt); }
+.qav .cu-colbtn svg { width: 16px; height: 16px; }
+.qav .cu-colbtn:hover { background: var(--c-primary); border-color: transparent; color: #fff; }
 .qav .cu-chip {
   background: var(--c-surface-alt);
   border: 1px solid var(--c-border-soft);
