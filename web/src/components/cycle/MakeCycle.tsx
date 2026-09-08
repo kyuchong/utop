@@ -352,9 +352,6 @@ export default function MakeCycle({
         </div>
 
         <footer className="mkc-foot">
-          <span className="mkc-where">
-            {[cust, model].filter(Boolean).join(' · ') || '대상을 고르세요'}
-          </span>
           <span className="mkc-sp" />
           <button type="button" className="btn small" disabled={busy} onClick={onClose}>
             취소

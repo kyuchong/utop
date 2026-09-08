@@ -530,16 +530,19 @@ export default function CyclesBoard({
         if (!closed.has(mk)) custRows.push(...modelRows)
       }
       if (treeQ && !custRows.length && !treeHit(cust)) continue
+      const ck = keyOf(cust)
       out.push({
         d: 1,
-        key: keyOf(cust),
+        key: ck,
         label: cust,
         n: custPlanN,
         zero: !custPlanN,
+        caret: true,
+        open: !closed.has(ck),
         on: !open && grpSel?.t === 'cust' && grpSel.k === cust,
         ico: '🏢',
       })
-      out.push(...custRows)
+      if (!closed.has(ck)) out.push(...custRows)
     }
     return out
   }, [plans, folderPaths, runsByPlan, closed, open, grpSel, treeQ, cmp])
