@@ -43,6 +43,8 @@ export interface RunFull {
   notes?: Record<string, string>
   /** 항목마다 **판정한 시각** — 목록의 「시험 시간」 칸이 읽는다 */
   vat?: Record<string, string>
+  /** 항목마다 배정한 담당자 — 목록의 「담당자」 칸이 읽는다 */
+  assignees?: Record<string, string>
   /** 절차마다의 판정 — 수동 시험에서 쓴다 */
   pchk?: Record<string, string[]>
   /** 스텝마다의 실측값·판정 시각·판정자 */
@@ -904,6 +906,17 @@ export default function RunDetail({
     },
     staleTime: 30_000,
   })
+  /** 사이클에 담을 때의 담당자 — 실행에 배정이 없으면 이걸 쓴다 */
+  const cycAssignee = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const it of (cycQ.data?.items ?? []) as Array<Record<string, unknown>>) {
+      const k = String(it?.tcid ?? '')
+      const v = String(it?.assignee ?? '')
+      if (k && v) m.set(k, v)
+    }
+    return m
+  }, [cycQ.data])
+
   const defCount = useMemo(() => {
     const m = new Map<string, number>()
     for (const d of defQ.data?.defects ?? []) {
@@ -1368,7 +1381,13 @@ export default function RunDetail({
             return {
               id,
               title: String(t2?.name ?? id),
-              assignee: String((t2 as Record<string, unknown> | undefined)?.assignee ?? ''),
+              /* 담당자는 **실행에서 배정한 사람**이 먼저다 — 없으면 사이클에
+                 담을 때의 담당자, 그것도 없으면 시험 항목의 담당자(지적: 늘 비었다) */
+              assignee: String(
+                (run.assignees ?? {})[id] ||
+                  cycAssignee.get(id) ||
+                  ((t2 as Record<string, unknown> | undefined)?.assignee ?? ''),
+              ),
               runner: String(run.owner ?? ''),
               v: (results[id] ?? 'n') as Verdict,
               /* 목록의 판정 칸은 **저장된 값 그대로**를 고른다(글자 갈래가 아니라) */
