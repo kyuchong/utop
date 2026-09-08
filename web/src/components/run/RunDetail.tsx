@@ -6,6 +6,7 @@ import { isManual } from '@/lib/runMode'
 import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
 import type { CycleMeta, CycleStep } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
+import { useReqIndex } from '@/pages/qaBits'
 import RunAuto from './RunAuto'
 import RunManual from './RunManual'
 import './RunDetail.css'
@@ -278,21 +279,6 @@ export default function RunDetail({
     return m
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reqQ.data])
-  /** 요구사항 **폴더** — 묶기(Group by)의 「폴더」 가 쓴다 */
-  const reqFolder = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const r of reqQ.data?.reqs ?? []) {
-      const f = String(r.folder ?? r.cat ?? '').trim()
-      if (!f) continue
-      for (const k of [r.id, r.pk, r.reqid]) {
-        const key = String(k ?? '').trim()
-        if (key) m.set(key, f)
-      }
-    }
-    return m
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reqQ.data])
-
   /** 요구사항 **본문** — 오른쪽 서랍이 편다 */
   const reqBody = useMemo(() => {
     const m = new Map<string, string>()
@@ -926,6 +912,10 @@ export default function RunDetail({
     return m
   }, [defQ.data])
 
+  /** 요구사항 이름·폴더 — **분류(cat1~4) 이름을 이어 만든다.** 요구사항에
+      folder 라는 칸은 없어, 그걸 읽던 동안 폴더가 늘 「미분류」 였다(지적) */
+  const reqIndex = useReqIndex()
+
   const msteps = manualSteps(oneQ.data)
 
   /* ── 담을 때의 시험서 vs 지금의 시험서 (지시: Update this test script) ──
@@ -1393,8 +1383,11 @@ export default function RunDetail({
               /* 목록의 판정 칸은 **저장된 값 그대로**를 고른다(글자 갈래가 아니라) */
               raw: String(rawResults[id] ?? ''),
               /* 묶기(Group by)가 쓰는 값들 */
-              req: reqLabel.get(String(t2?.req_id ?? '')) || String(t2?.req_id ?? ''),
-              folder: reqFolder.get(String(t2?.req_id ?? '')) || '미분류',
+              req:
+                reqIndex.get(String(t2?.req_id ?? ''))?.label ||
+                reqLabel.get(String(t2?.req_id ?? '')) ||
+                String(t2?.req_id ?? ''),
+              folder: reqIndex.get(String(t2?.req_id ?? ''))?.folder || '미분류',
               type: String((t2 as Record<string, unknown> | undefined)?.type ?? ''),
               kind: isManual(String((t2 as Record<string, unknown> | undefined)?.run_type ?? '')) ? '수동' : '자동',
               /* 지난 빌드 결과는 아직 안 싣는다 — 없는 것을 지어내지 않는다 */
