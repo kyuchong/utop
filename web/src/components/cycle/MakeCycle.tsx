@@ -91,8 +91,12 @@ export default function MakeCycle({
 
   const cat = useMemo(() => catQ.data?.items ?? [], [catQ.data])
   const custs = useMemo(
-    () => (codesQ.data?.items ?? []).filter((i) => i.kind === 'cycle_customer').map((i) => i.value),
-    [codesQ.data],
+    () => [...new Set([
+      /* 장비 카탈로그의 사업자(operator)도 합친다(지적: 코드표만으론 빠진다) */
+      ...cat.filter((x) => String(x.kind) === 'operator').map((x) => String(x.name ?? '')),
+      ...(codesQ.data?.items ?? []).filter((i) => i.kind === 'cycle_customer').map((i) => i.value),
+    ])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'ko')),
+    [cat, codesQ.data],
   )
   const of = (kind: string) =>
     [...new Set(cat.filter((x) => x.kind === kind).map((x) => String(x.name ?? '')))]

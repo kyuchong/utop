@@ -2344,6 +2344,10 @@ export default function CyclesBoard({
       {!!folderDlg && (() => {
         const d = folderDlg
         const custsAll = [...new Set([
+          /* 장비 카탈로그의 사업자(operator)가 정본(지적) — 코드표·기존 값도 합친다 */
+          ...(((catQ.data?.items ?? []) as Array<Record<string, unknown>>)
+            .filter((x) => String(x.kind) === 'operator')
+            .map((x) => String(x.name ?? ''))),
           ...((codesQ.data?.items ?? [])
             .filter((x) => String(x.kind) === 'cycle_customer')
             .map((x) => String(x.value ?? ''))),
