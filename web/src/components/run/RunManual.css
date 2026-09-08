@@ -389,9 +389,9 @@
    안에 두면 짧은 글은 배지 오른쪽에 붙고, 덩어리는 아래로 내려가
    카드 왼쪽 끝부터 전체 폭을 쓴다. */
 .rm-fl .l {
-  display: inline-block; background: #eef2f4; color: #6f7f88; border-radius: 4px;
-  font-size: 10.5px; line-height: 1.5; padding: 1px 6px; margin: 0 8px 2px 0;
-  white-space: nowrap; vertical-align: 1px;
+  display: inline-block; background: #e6ecf0; color: #3f4d55; border-radius: 4px;
+  font-size: 12.5px; line-height: 1.5; padding: 1px 7px; margin: 0 8px 2px 0;
+  white-space: nowrap; vertical-align: 1px; font-weight: 600;
 }
 .rm-fl .v { font-size: 12.5px; min-width: 0; }
 /* 짧은 글은 배지 **오른쪽에 이어** 서야 한다 — 블록이면 줄이 바뀐다 */

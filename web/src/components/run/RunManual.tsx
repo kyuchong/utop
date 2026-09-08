@@ -22,13 +22,6 @@ import './RunManual.css'
 
 export type V = 'p' | 'f' | 'b' | 'n'
 const TAG: Record<V, string> = { p: 'PASS', f: 'FAIL', b: 'BLOCKED', n: 'WAIT' }
-/** 판정 시각 — 이 곳 시간으로, 한 줄에 들어가게 짧게 */
-const stamp = (iso: string) => {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '–'
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
 /** 시험 시간 — 「26/09/01 23:01:01」(지시) */
 const stampFull = (iso: string) => {
   const d = new Date(iso)
@@ -523,7 +516,7 @@ export default function RunManual({
                     {/* 제목은 안 낸다(지시) — 바로 아래 Test Step 과 같은 글자다 */}
                     <span className="rm-sp" />
                     {!!m?.at && (
-                      <span className="rm-muted" title={`판정자 ${m.by || '–'}`}>{stamp(m.at)}</span>
+                      <span className="rm-when" title={`판정자 ${m.by || '–'}`}>{stampFull(m.at)}</span>
                     )}
                     <span className="rm-vb">
                       {quickV.map((d) => (
