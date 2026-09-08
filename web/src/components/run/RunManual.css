@@ -368,18 +368,21 @@
 .rm-sct { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #4d5760; }
 .rm-vb { display: inline-flex; gap: 3px; flex: none; }
 .rm-v {
-  min-width: 26px; height: 20px; border: 1px solid #dce4e7; background: #fff;
+  min-width: 28px; height: 22px; padding: 0 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #dce4e7; background: #fff;
   border-radius: 4px; font: inherit; font-size: 11.5px; font-weight: 800; color: #7e9198; cursor: pointer;
 }
 .rm-v.p.on { background: #18a35d; border-color: #18a35d; color: #fff; }
 .rm-v.f.on { background: #e34963; border-color: #e34963; color: #fff; }
 .rm-v.b.on { background: #e49a31; border-color: #e49a31; color: #fff; }
 
-.rm-fl { display: grid; grid-template-columns: 76px minmax(0, 1fr); border-top: 1px solid #f1f4f5; }
+.rm-fl { display: grid; grid-template-columns: minmax(0, 1fr) 76px; border-top: 1px solid #f1f4f5; }
 .rm-fl:first-of-type { border-top: 0; }
-/* 배경 띠와 세로선을 걷었다 — 빈 칸이 넓은 판처럼 보여 자리를 먹었다(지적) */
-.rm-fl .l { background: none; color: #8b9aa2; font-size: 11px; padding: 5px 7px 5px 0; text-align: right; line-height: 1.35; }
-.rm-fl .v { padding: 5px 9px; font-size: 12.5px; min-width: 0; }
+/* 라벨은 **오른쪽 끝**에 선다(지시) — 값이 카드 왼쪽 끝부터 전체 폭을 쓴다 */
+.rm-fl .l { order: 2; background: none; color: #8b9aa2; font-size: 11px; padding: 5px 9px 5px 4px; text-align: right; line-height: 1.35; }
+.rm-fl .v:first-child { order: 1; }
+.rm-fl .v { padding: 5px 4px 5px 9px; font-size: 12.5px; min-width: 0; }
 .rm-bt { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; }
 .rm-ata {
   width: 100%; min-height: 26px; border: 1px solid #dce4e7; border-radius: 4px;
@@ -483,8 +486,22 @@
 
 /* 스텝의 톱니바퀴 — 자주 안 쓰는 판정(지시) */
 .rm-cog {
-  min-width: 24px; height: 20px; border: 1px solid #dce4e7; background: #fff;
-  border-radius: 4px; font: inherit; font-size: 11px; color: #7e9198; cursor: pointer;
+  min-width: 30px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #dce4e7; background: #fff;
+  border-radius: 4px; font: inherit; font-size: 15px; line-height: 1; color: #7e9198; cursor: pointer;
 }
 .rm-cog:hover { border-color: var(--c-primary, #1769d2); color: var(--c-primary, #1769d2); }
 .rm-cog.on { background: #7c4dff; border-color: #7c4dff; color: #fff; }
+
+/* 열 머리 가운데 정렬(지시) */
+.rm-grid thead th.rm-mid { text-align: center; }
+
+/* 담당자 아이콘 — 누르면 「이 줄부터 아래 전부」 판정 */
+.rm-avb {
+  display: inline-flex; align-items: center; gap: 2px;
+  border: 0; background: none; padding: 0; cursor: pointer;
+}
+.rm-avb:hover .rm-avc { color: var(--c-primary, #1769d2); }
+.rm-av.none { background: #d6dbe0; color: #6f7c84; }
+.rm-avc { font-style: normal; font-size: 10px; color: #a8b4ba; }

@@ -132,6 +132,8 @@ export default function RunManual({
   const [bulkAt, setBulkAt] = useState<{ x: number; y: number } | null>(null)
   /** 스텝의 톱니바퀴 메뉴 — 자주 안 쓰는 판정 */
   const [cogAt, setCogAt] = useState<{ x: number; y: number; ix: number } | null>(null)
+  /** 「이 줄부터 아래 전부」 판정 — Zephyr 의 SET ALL BELOW TO (지시) */
+  const [belowAt, setBelowAt] = useState<{ x: number; y: number; id: string } | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState(false)
 
@@ -197,6 +199,8 @@ export default function RunManual({
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko')).map(([k, rows]) => ({ k, rows }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slice, grp, verds])
+  /** 보이는 차례 그대로 편 줄 — 「아래 전부」 가 이 차례를 따른다 */
+  const flatRows = useMemo(() => groups.flatMap((g) => g.rows), [groups])
   /** 지금 쪽에 보이는 줄 전부 */
   const pageKeys = slice.map((x) => x.id)
   const allOn = pageKeys.length > 0 && pageKeys.every((k) => sel.has(k))
@@ -302,9 +306,9 @@ export default function RunManual({
                   </th>
                   <th style={{ width: 108 }}>TC ID</th>
                   <th>시험 항목</th>
-                  <th style={{ width: 52 }}>담당자</th>
-                  <th style={{ width: 148 }}>시험 시간</th>
-                  <th style={{ width: 100 }}>
+                  <th className="rm-mid" style={{ width: 58 }}>담당자</th>
+                  <th className="rm-mid" style={{ width: 148 }}>시험 시간</th>
+                  <th className="rm-mid" style={{ width: 100 }}>
                     판정
                     {/* 고른 줄에 한 판정을 한 번에(지시: SET ALL) */}
                     <button
@@ -384,12 +388,23 @@ export default function RunManual({
                             </td>
                             <td className="rm-t" title={x.title}>{x.title}</td>
                             {/* 담당자 — 동그란 아이콘, 온마우스로 온 이름(지시) */}
-                            <td className="rm-who" title={who || '담당자 없음'}>
-                              {who ? (
-                                <span className="rm-av" style={{ background: avColor(who) }}>{initial(who)}</span>
-                              ) : (
-                                <span className="rm-muted">–</span>
-                              )}
+                            <td className="rm-who" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className="rm-avb"
+                                title={`${who || '담당자 없음'} — 누르면 이 줄부터 아래 전부를 한 판정으로`}
+                                onClick={(e) => {
+                                  const r2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                  setBelowAt({ x: Math.max(8, r2.left - 40), y: r2.bottom + 4, id: x.id })
+                                }}
+                              >
+                                {who ? (
+                                  <span className="rm-av" style={{ background: avColor(who) }}>{initial(who)}</span>
+                                ) : (
+                                  <span className="rm-av none">–</span>
+                                )}
+                                <i className="rm-avc">⌄</i>
+                              </button>
                             </td>
                             <td className="rm-when" title={when || '아직 판정 안 함'}>
                               {when || <span className="rm-muted">–</span>}
@@ -617,6 +632,40 @@ export default function RunManual({
           }}
         />
       )}
+
+      {/* 이 줄부터 아래 전부 — Zephyr 의 SET ALL BELOW TO(지시) */}
+      {!!belowAt && (() => {
+        const at2 = flatRows.findIndex((r) => r.id === belowAt.id)
+        const targets = at2 < 0 ? [] : flatRows.slice(at2).map((r) => r.id)
+        return (
+          <>
+            <span className="rm-dovl" role="presentation" onClick={() => setBelowAt(null)} />
+            <div className="rm-menu" role="menu" style={{ left: belowAt.x, top: belowAt.y }}>
+              <div className="rm-menuh">이 줄부터 아래 {targets.length}건을</div>
+              {verds.map((o) => (
+                <button
+                  type="button"
+                  role="menuitem"
+                  key={o.v || '(none)'}
+                  onClick={() => {
+                    setBelowAt(null)
+                    if (!targets.length) return
+                    if (
+                      !window.confirm(
+                        `이 줄부터 아래 ${targets.length}건을 「${o.label}」 로 판정합니다.\n계속할까요?`,
+                      )
+                    )
+                      return
+                    onVerdicts?.(targets, o.v)
+                  }}
+                >
+                  <i style={{ background: o.color }} /> {o.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )
+      })()}
 
       {/* 스텝의 다른 판정 — 자주 안 쓰는 것들(지시) */}
       {!!cogAt && (
