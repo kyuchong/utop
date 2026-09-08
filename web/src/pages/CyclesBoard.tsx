@@ -1059,6 +1059,10 @@ export default function CyclesBoard({
     setRunMode(mode)
     setRunFocus(focus)
     setRunnerOn(true)
+    /* 3열에 끼워 넣으면 실행기가 화면의 3분의 1을 받아 스텝 표가 설 자리가
+       없다(지적). 시험하는 동안은 **화면을 통째로** 쓰고, 「← 돌아가기」 로
+       나온다 — Azure·Zephyr·qTest 도 실행은 제 화면에서 돈다 */
+    setWide(true)
   }
 
   /* 실행 본문의 항목 줄 — 차례는 orderTcIds 한 곳이 정한다 */
@@ -2323,14 +2327,27 @@ export default function CyclesBoard({
               focus={runFocus}
               onBack={() => setRunnerOn(false)}
               lead={
-                <button
-                  type="button"
-                  className="cu-colbtn"
-                  title={wide ? '축소' : '전체로 확장'}
-                  onClick={() => setWide((v) => !v)}
-                >
-                  {wide ? '⇤' : '⇥'}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn small"
+                    title="시험을 멈추지 않고 사이클 화면으로 돌아갑니다"
+                    onClick={() => {
+                      setRunnerOn(false)
+                      setWide(false)
+                    }}
+                  >
+                    ← 돌아가기
+                  </button>
+                  <button
+                    type="button"
+                    className="cu-colbtn"
+                    title={wide ? '사이클 화면과 나란히 보기' : '전체로 확장'}
+                    onClick={() => setWide((v) => !v)}
+                  >
+                    {wide ? '⇤' : '⇥'}
+                  </button>
+                </>
               }
               onClose={() => {
                 setRunnerOn(false)
