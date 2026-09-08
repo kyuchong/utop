@@ -1843,8 +1843,8 @@ export default function CyclesBoard({
                 /* 위키와 같은 블록 노트(지시) — 고친 것은 초안에 담기고
                    머리의 저장 단추가 실어 보낸다 */
                 const dd = (draft.description_doc ?? full?.description_doc) as unknown
-                const hasDoc = Array.isArray(dd) && dd.length > 0
-                if (!descEdit && !hasDoc && !pv('description').trim())
+                /* 비었는지는 **글자**로 본다 — 빈 문단만 남은 블록 저장분은 빈 것이다 */
+                if (!descEdit && !pv('description').trim())
                   return <p className="cu-m">설명이 없습니다. 「편집」 을 눌러 넣으세요.</p>
                 return (
                   <DescNote

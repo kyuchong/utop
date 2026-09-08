@@ -166,5 +166,7 @@
 .cyb .cyb-descbody > * { min-height: 0; }
 .cyb .cyb-desccard { display: flex; flex-direction: column; min-height: 260px; }
 
-/* 블록 노트가 카드 안에서 제 폭을 다 쓰게 — 위키의 넓은 여백은 카드엔 과하다 */
-.cyb .cyb-descbody .bn-editor { padding-inline: 44px 12px; }
+/* 블록 노트가 카드 안에서 제 폭·높이를 다 쓰게 — 위키의 넓은 여백은 카드엔 과하다.
+   BlockNote 는 제 높이를 안 가진다(9px 로 짜부라졌다) — 틀이 키를 줘야 한다 */
+.cyb .cyb-descbody .bn-container { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cyb .cyb-descbody .bn-editor { flex: 1; min-height: 220px; padding-inline: 44px 12px; }
