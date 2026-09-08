@@ -891,6 +891,28 @@ export default function RunDetail({
     staleTime: 30_000,
   })
 
+  /** 이 사이클의 결함 — 목록의 「버그」 칸이 읽는다 */
+  const defQ = useQuery({
+    queryKey: ['run-defects', String(plan?.id ?? run?.plan_id ?? '')],
+    enabled: !!(plan?.id ?? run?.plan_id),
+    queryFn: async () => {
+      const r = await apiFetch(
+        `/api/defects?cycle_id=${encodeURIComponent(String(plan?.id ?? run?.plan_id ?? ''))}`,
+      )
+      if (!r.ok) throw new Error('결함을 불러오지 못했습니다')
+      return (await r.json()) as { defects?: Array<{ tcid?: string }> }
+    },
+    staleTime: 30_000,
+  })
+  const defCount = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const d of defQ.data?.defects ?? []) {
+      const k = String(d.tcid ?? '')
+      if (k) m.set(k, (m.get(k) ?? 0) + 1)
+    }
+    return m
+  }, [defQ.data])
+
   const msteps = manualSteps(oneQ.data)
 
   /* ── 담을 때의 시험서 vs 지금의 시험서 (지시: Update this test script) ──
@@ -1358,7 +1380,7 @@ export default function RunDetail({
               kind: isManual(String((t2 as Record<string, unknown> | undefined)?.run_type ?? '')) ? '수동' : '자동',
               /* 지난 빌드 결과는 아직 안 싣는다 — 없는 것을 지어내지 않는다 */
               last: 'n' as Verdict,
-              bugs: 0,
+              bugs: defCount.get(id) ?? 0,
               /* 시험 시간 — 판정한 시각. 없으면 실행 기록의 시각 */
               at: String((run.vat ?? {})[id] ?? (run.logs ?? {})[id]?.at ?? ''),
             }
@@ -1403,7 +1425,6 @@ export default function RunDetail({
           runId={runId}
           onBug={() => void qc.invalidateQueries({ queryKey: ['plan-run', runId] })}
           /* 목록에서 항목을 통째로 판정한다 — 절차가 없는 항목의 유일한 길 */
-          onVerdict={(tcid, value) => void save({ ...startStamp(), ...vatStamp([tcid]), results: { ...rawResults, [tcid]: value } })}
           /* 고른 줄에 한 판정을 한 번에(지시: 체크한 줄만) */
           onVerdicts={(tcids, value) => {
             const next = { ...rawResults }
