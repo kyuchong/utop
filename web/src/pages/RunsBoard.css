@@ -51,20 +51,21 @@
 .rnb .cu-n.d2 { padding-left: var(--sp-3); }
 .rnb .cu-n.d3 { padding-left: var(--sp-5); }
 .rnb .cu-n.d4 { padding-left: 32px; }
+/* 접기 화살 — REQ-Coverage 1열(.rqtc-caret)과 같은 크기·색(지시) */
 .rnb .cu-caret {
   flex: none;
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   border: 0;
   background: none;
-  color: var(--c-text-faint);
+  color: var(--c-text-muted);
   cursor: pointer;
   border-radius: 3px;
   padding: 0;
 }
-.rnb .cu-caret svg { transition: transform 0.12s; }
+.rnb .cu-caret svg { width: 18px; height: 18px; transition: transform 0.12s; }
 .rnb .cu-caret.open svg { transform: rotate(90deg) }
 .rnb .cu-caret.none { visibility: hidden; }
 
