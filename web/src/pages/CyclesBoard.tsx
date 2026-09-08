@@ -2241,10 +2241,10 @@ export default function CyclesBoard({
             실행 <span className="dim">{myRuns.length}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'itm'} className={tab === 'itm' ? 'on' : ''} onClick={() => setTab('itm')}>
-            수동 시험항목 <span className="dim">{nMan}</span>
+            Manual <span className="dim">{nMan}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'ita'} className={tab === 'ita' ? 'on' : ''} onClick={() => setTab('ita')}>
-            자동 시험항목 <span className="dim">{nAuto}</span>
+            Automation <span className="dim">{nAuto}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'def'} className={tab === 'def' ? 'on' : ''} onClick={() => setTab('def')}>
             결함 내역
