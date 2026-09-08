@@ -108,7 +108,9 @@ export default function CyclesBoard({
     setOpen(id)
     setTab('info')
     prefSet('utop.cycle.sel', id)
-    reflectUrl('cycle', id)
+    /* 주소에는 **부여 ID(cid)** 를 비춘다(지적: cycle-178… 은 사람이 못 읽는다).
+       아직 목록을 못 받았으면 안쪽 id 그대로 — 받은 뒤 다시 열면 좋아진다 */
+    reflectUrl('cycle', String(planOf.get(id)?.cid ?? id))
   }
   const closePlan = () => {
     setOpen('')
@@ -335,7 +337,10 @@ export default function CyclesBoard({
   useEffect(
     () =>
       onGoto((kind, id) => {
-        if (kind === 'cycle') openPlanId(id)
+        if (kind === 'cycle') {
+          const hit = planOf.get(id) ?? plans.find((p) => String(p.cid ?? '') === id)
+          openPlanId(hit ? hit.id : id)
+        }
         if (kind === 'ce') {
           const hit = plans.find((p) => String(p.ce ?? '') === id)
           if (hit) openPlanId(hit.id)
@@ -354,11 +359,21 @@ export default function CyclesBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [plans, runs],
   )
-  /* 남이 지운 사이클을 붙들고 있으면 상세가 영영 빈다 */
+  /* 남이 지운 사이클을 붙들고 있으면 상세가 영영 빈다.
+     주소가 부여 ID(cid)로 왔으면 먼저 안쪽 id 로 바꿔 태운다 */
   useEffect(() => {
-    if (open && plansQ.isSuccess && !planOf.get(open)) closePlan()
+    if (!open || !plansQ.isSuccess) return
+    if (planOf.get(open)) return
+    const hit = plans.find((p) => String(p.cid ?? '') === open)
+    if (hit) {
+      setOpen(hit.id)
+      prefSet('utop.cycle.sel', hit.id)
+      reflectUrl('cycle', String(hit.cid ?? hit.id))
+      return
+    }
+    closePlan()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, plansQ.isSuccess, planOf])
+  }, [open, plansQ.isSuccess, planOf, plans])
 
   /* ── 목록 ── */
   const cmp = useMemo(
@@ -1255,7 +1270,7 @@ export default function CyclesBoard({
     return (
       <section className="panel run-side">
         <div className="run-side-hd">
-          <b>시험 사이클</b>
+          <b>Cycles</b>
           <span className="cu-sp" />
           <button
             type="button"
@@ -2214,8 +2229,11 @@ export default function CyclesBoard({
       <section className="panel" style={{ height: '100%' }}>
         <div className="cu-hd">
           {colBtn}
-          <button type="button" className="btn icon" title="목록으로" onClick={closePlan}>
-            ←
+          <button type="button" className="btn small" onClick={closePlan}>
+            ← 목록
+          </button>
+          <button type="button" className="btn small" disabled title="이 화면의 수정은 바로 저장됩니다">
+            저장됨
           </button>
           {/* 자리 빵부스러기 — REQ-Coverage 와 같은 꼴(지시): 사업자 / 제품 /
               버전그룹 / 제목. 앞 세 단계는 눌러 그 범위 목록으로 간다 */}
@@ -2252,6 +2270,7 @@ export default function CyclesBoard({
               {String(plan.name ?? plan.version ?? plan.id)}
             </b>
           </span>
+          <span className="cu-chip cu-mono" title="사이클 ID">{String(plan.cid ?? plan.id)}</span>
           {/* 사이클·버전그룹·대상 칩은 걷었다(지시) — 같은 값이 트리와
               개요 카드에 이미 있어 제목 옆에선 소음이었다 */}
           <span className="cu-sp" />

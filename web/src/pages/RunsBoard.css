@@ -51,11 +51,11 @@
 .rnb .cu-n.d2 { padding-left: var(--sp-3); }
 .rnb .cu-n.d3 { padding-left: var(--sp-5); }
 .rnb .cu-n.d4 { padding-left: 32px; }
-/* 접기 화살 — REQ-Coverage 1열(.rqtc-caret)과 같은 크기·색(지시) */
+/* 접기 화살 — 줄 높이에 눌리지 않게 한 단계 작게(지적: 너무 크다) */
 .rnb .cu-caret {
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   border: 0;
@@ -65,7 +65,7 @@
   border-radius: 3px;
   padding: 0;
 }
-.rnb .cu-caret svg { width: 18px; height: 18px; transition: transform 0.12s; }
+.rnb .cu-caret svg { width: 14px; height: 14px; transition: transform 0.12s; }
 .rnb .cu-caret.open svg { transform: rotate(90deg) }
 .rnb .cu-caret.none { visibility: hidden; }
 
