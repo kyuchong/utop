@@ -1836,7 +1836,7 @@ export default function CyclesBoard({
           toolbarLeft={
             <>
               <button type="button" className="cu-new small" onClick={() => setAddTo(true)}>
-                <i aria-hidden="true">＋</i>항목 담기
+                <i aria-hidden="true">＋</i>Add Coverage
               </button>
               <button
                 type="button"
@@ -1853,7 +1853,7 @@ export default function CyclesBoard({
                 }
                 onClick={() => openRunner(man ? 'M' : 'A')}
               >
-                {man ? '✎ 수동 시험' : '▶ 자동 시험'}
+                {man ? '✎ Manual Test Start' : '▶ Automation Test Start'}
               </button>
             </>
           }
