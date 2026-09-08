@@ -161,7 +161,9 @@
 .ntb-bulk button { border: 0; background: none; color: #fff; opacity: .85; font: inherit; font-size: 12.5px; cursor: pointer; }
 .ntb-bulk button:hover { opacity: 1; }
 .ntb-bulk button.dg { color: #fca5a5; }
-.ntb-bx { opacity: .5 !important; }
+.ntb-bsep { width: 1px; height: 15px; background: #4b4643; }
+.ntb-bulk .ntb-bx { border: 1px solid #4b4643; border-radius: 5px; padding: 3px 9px; }
+.ntb-bulk .ntb-bx { opacity: .85; }
 
 /* 남는 폭 먹는 빈 칸 — 지정한 폭이 그대로 서게 한다 */
 .ntb-fill { padding: 0 !important; }

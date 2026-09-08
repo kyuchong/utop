@@ -124,6 +124,8 @@ export default function RunManual({
   const [drw, setDrw] = useState<'' | 'req' | 'tc'>('')
   /** 스텝의 톱니바퀴 메뉴 — 자주 안 쓰는 판정 */
   const [cogAt, setCogAt] = useState<{ x: number; y: number; ix: number } | null>(null)
+  /** 일괄 판정을 마치면 이 숫자를 올려 표의 선택을 푼다 */
+  const [selEpoch, setSelEpoch] = useState(0)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState(false)
 
@@ -243,14 +245,15 @@ export default function RunManual({
               meName=""
               onOpen={(id) => onPick(id)}
               onPeek={(id) => onPick(id)}
-              /* 세로 색바 대신 **점** — 열을 하나 더 안 쓰고 결과를 색으로 읽는다 */
+              /* 결과는 ID 앞의 **세로 막대**로 읽는다 — 점은 너무 작아
+                 판정을 찍어도 바뀐 티가 안 났다(지적) */
               rowIcon={(r) => {
                 const it = items.find((x) => x.id === r.__id)
                 const d = vDef(verds, String(it?.raw ?? ''))
                 return (
                   <span
                     className="rm-dot"
-                    title={d.label}
+                    title={`판정 ${d.label}`}
                     style={{ background: it?.raw ? d.color : '#d6dbe0' }}
                   />
                 )
@@ -271,7 +274,9 @@ export default function RunManual({
               onBulk={(action, ids) => {
                 if (!action.startsWith('v:')) return
                 onVerdicts?.(ids, action.slice(2))
+                setSelEpoch((n) => n + 1)
               }}
+              selEpoch={selEpoch}
               perPage={50}
             />
           </div>

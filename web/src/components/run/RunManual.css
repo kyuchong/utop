@@ -562,5 +562,6 @@
 
 /* ── 목록이 노션 표가 됐다(승인) — 표가 제 안에서 굴러야 도구줄이 붙박이로 선다 ── */
 .rm-ntb { flex: 1; min-height: 0; overflow: auto; }
-/* 결과는 ID 앞의 **점** 하나로 읽는다 — 열을 더 쓰지 않는다 */
-.rm-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+/* 결과는 ID 앞의 **세로 막대**로 읽는다 — 점은 너무 작아 판정을 찍어도
+   바뀐 티가 안 났다(지적). 열은 여전히 하나도 더 쓰지 않는다 */
+.rm-dot { display: inline-block; width: 4px; height: 17px; border-radius: 2px; vertical-align: -4px; }

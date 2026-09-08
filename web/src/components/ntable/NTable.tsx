@@ -43,6 +43,9 @@ export interface NTableProps {
   bulk?: Array<{ k: string; label: string; danger?: boolean }>
   /** 지금 체크된 줄 — 화면 제 도구줄(복제·삭제·⋯)이 이걸 본다 */
   onSelect?: (ids: string[]) => void
+  /** 이 숫자가 바뀌면 **고른 줄을 푼다** — 일을 끝낸 화면이 부른다.
+      선택이 남아 있으면 방금 한 일이 또 될 것 같아 사람이 멈칫한다 */
+  selEpoch?: number
   /** ID 앞에 붙는 작은 표시 — 줄의 성격을 한눈에(자동·수동 같은).
       값이 아니라 **표시**라 열을 하나 더 쓰지 않고 ID 칸에 얹는다. */
   rowIcon?: (row: NRow) => React.ReactNode
@@ -93,6 +96,11 @@ export default function NTable(p: NTableProps) {
   /* 고른 줄을 바깥에 흘려 준다 — 안 그러면 화면의 「복제·삭제·⋯」 가
      영영 안 켜진다(플랜에서 재현). 그릴 때가 아니라 바뀔 때만 알린다. */
   const [panel, setPanel] = useState<{ kind: 'filter' | 'sort' | 'props'; x: number; y: number } | null>(null)
+  /* 바깥이 일을 끝냈다고 알리면 선택을 푼다 */
+  useEffect(() => {
+    if (p.selEpoch === undefined) return
+    setChecked(new Set())
+  }, [p.selEpoch])
   const [checked, setChecked] = useState<Set<string>>(new Set())
   useEffect(() => {
     p.onSelect?.([...checked])
@@ -1243,7 +1251,8 @@ export default function NTable(p: NTableProps) {
               {b.label}
             </button>
           ))}
-          <button type="button" className="ntb-bx" onClick={() => setChecked(new Set())}>✕</button>
+          <span className="ntb-bsep" />
+          <button type="button" className="ntb-bx" onClick={() => setChecked(new Set())}>선택 해제</button>
         </div>
       )}
     </div>
