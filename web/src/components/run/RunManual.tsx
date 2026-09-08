@@ -4,7 +4,7 @@ import { prefGet, prefSet } from '@/lib/prefs'
 import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
 import NTable from '@/components/ntable/NTable'
 import { EMPTY_VIEW } from '@/components/ntable/types'
-import type { NCol, NRow, NView } from '@/components/ntable/types'
+import type { NCalc, NCol, NRow, NView } from '@/components/ntable/types'
 import { useNCols, useUserPeople } from '@/pages/qaBits'
 import './RunManual.css'
 
@@ -126,6 +126,8 @@ export default function RunManual({
   const [cogAt, setCogAt] = useState<{ x: number; y: number; ix: number } | null>(null)
   /** 일괄 판정을 마치면 이 숫자를 올려 표의 선택을 푼다 */
   const [selEpoch, setSelEpoch] = useState(0)
+  /** 한 줄만 판정 — 목록의 판정 막대를 누르면 뜬다(지시) */
+  const [rowAt, setRowAt] = useState<{ x: number; y: number; id: string } | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState(false)
 
@@ -177,6 +179,14 @@ export default function RunManual({
     { key: 'at', label: '시험 시간', type: 'text', width: 150, hidden: true },
   ]
   const [lsCols, setLsCols] = useNCols('utop.ntb.runman.cols', LS_DEFS)
+  /* 아래 「계산」 줄 — 고른 값을 들고 있어야 셈이 뜬다(지적: 눌러도 안 먹었다) */
+  const [lsCalcs, setLsCalcs] = useState<Record<string, NCalc>>(() => {
+    try {
+      return JSON.parse(prefGet('utop.ntb.runman.calcs') ?? '{}') as Record<string, NCalc>
+    } catch {
+      return {}
+    }
+  })
   /* 버그를 기본 켜짐으로 바꿨다(지시). 계정에 남은 옛 「숨김」 이 정의를
      이기므로 한 번만 걷어 주고 표식을 남긴다 — 사람이 다시 끄는 것은 그대로 */
   useEffect(() => {
@@ -200,6 +210,19 @@ export default function RunManual({
     [items],
   )
 
+
+  /** 이름 첫 글자 — 「전규종(검증)」 → 「전」 */
+  const initial = (v: string) => {
+    const nm = String(v || '').split('(')[0]!.trim()
+    if (!nm) return '–'
+    return /[A-Za-z]/.test(nm[0] ?? '') ? nm[0]!.toUpperCase() : nm[0]!
+  }
+  /** 아바타 색 — 이름마다 달라 여럿이 섞여도 한눈에 갈린다 */
+  const avColor = (v: string) => {
+    let h = 0
+    for (const ch of String(v)) h = (h * 31 + ch.charCodeAt(0)) % 360
+    return `hsl(${h} 42% 46%)`
+  }
 
   /** 머리 번호 한 칸 — 누를 수 있는 것은 오른쪽 서랍을 연다 */
   const keyChip = (label: string, v?: string, opt?: { tone?: 'run'; open?: 'req' | 'tc' }) =>
@@ -250,15 +273,34 @@ export default function RunManual({
               rowIcon={(r) => {
                 const it = items.find((x) => x.id === r.__id)
                 const d = vDef(verds, String(it?.raw ?? ''))
+                /* 한 줄만 판정할 때는 이 막대를 누른다(지시). 여러 줄은
+                   체크해서 아래 바로 — 두 길이 하는 일이 다르다 */
                 return (
-                  <span
+                  <button
+                    type="button"
                     className="rm-dot"
-                    title={`판정 ${d.label}`}
+                    title={`판정 ${d.label} — 누르면 이 줄만 판정합니다`}
                     style={{ background: it?.raw ? d.color : '#d6dbe0' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const b2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setRowAt({ x: b2.left, y: b2.bottom + 4, id: String(r.__id) })
+                    }}
                   />
                 )
               }}
               renderCell={(r, c) => {
+                if (c.key === 'who' || c.key === 'runner') {
+                  /* 담당자·실행자는 **아이콘**으로(지시) — 온 이름은 온마우스로 */
+                  const nm = String(r[c.key] ?? '')
+                  return nm ? (
+                    <span className="rm-av" title={nm} style={{ background: avColor(nm) }}>
+                      {initial(nm)}
+                    </span>
+                  ) : (
+                    <span className="rm-muted">–</span>
+                  )
+                }
                 if (c.key === 'bugs') {
                   const n = Number(r.bugs ?? 0)
                   return n ? <span className="rm-bugn">{n}</span> : <span className="rm-muted">–</span>
@@ -277,6 +319,11 @@ export default function RunManual({
                 setSelEpoch((n) => n + 1)
               }}
               selEpoch={selEpoch}
+              calcs={lsCalcs}
+              onCalcs={(v) => {
+                setLsCalcs(v)
+                prefSet('utop.ntb.runman.calcs', JSON.stringify(v))
+              }}
               perPage={50}
             />
           </div>
@@ -498,37 +545,26 @@ export default function RunManual({
         />
       )}
 
-      {/* 스텝의 다른 판정 — 자주 안 쓰는 것들(지시) */}
-      {!!cogAt && (
+      {/* 한 줄 판정 — 목록의 판정 막대를 누르면(지시) */}
+      {!!rowAt && (
         <>
-          <span className="rm-dovl" role="presentation" onClick={() => setCogAt(null)} />
-          <div className="rm-menu" role="menu" style={{ left: cogAt.x, top: cogAt.y }}>
-            <div className="rm-menuh">Step #{cogAt.ix + 1} 판정</div>
-            {restV.map((d) => (
+          <span className="rm-dovl" role="presentation" onClick={() => setRowAt(null)} />
+          <div className="rm-menu" role="menu" style={{ left: rowAt.x, top: rowAt.y }}>
+            <div className="rm-menuh">{rowAt.id} 판정</div>
+            {verds.map((o) => (
               <button
                 type="button"
                 role="menuitem"
-                key={d.v}
+                key={o.v || '(none)'}
                 onClick={() => {
-                  const ix = cogAt.ix
-                  setCogAt(null)
-                  onStep(ix, d.v)
+                  const id = rowAt.id
+                  setRowAt(null)
+                  onVerdicts?.([id], o.v)
                 }}
               >
-                <i style={{ background: d.color }} /> {d.label}
+                <i style={{ background: o.color }} /> {o.label}
               </button>
             ))}
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                const ix = cogAt.ix
-                setCogAt(null)
-                onStep(ix, pchk[ix] ?? '')
-              }}
-            >
-              <i style={{ background: '#d6dbe0' }} /> 판정 비우기
-            </button>
           </div>
         </>
       )}
@@ -568,40 +604,6 @@ export default function RunManual({
         </>
       )}
 
-      {/* 스텝의 다른 판정 — 자주 안 쓰는 것들(지시) */}
-      {!!cogAt && (
-        <>
-          <span className="rm-dovl" role="presentation" onClick={() => setCogAt(null)} />
-          <div className="rm-menu" role="menu" style={{ left: cogAt.x, top: cogAt.y }}>
-            <div className="rm-menuh">Step #{cogAt.ix + 1} 판정</div>
-            {restV.map((d) => (
-              <button
-                type="button"
-                role="menuitem"
-                key={d.v}
-                onClick={() => {
-                  const ix = cogAt.ix
-                  setCogAt(null)
-                  onStep(ix, d.v)
-                }}
-              >
-                <i style={{ background: d.color }} /> {d.label}
-              </button>
-            ))}
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                const ix = cogAt.ix
-                setCogAt(null)
-                onStep(ix, pchk[ix] ?? '')
-              }}
-            >
-              <i style={{ background: '#d6dbe0' }} /> 판정 비우기
-            </button>
-          </div>
-        </>
-      )}
 
       {/* ── 오른쪽 서랍 — 요구사항 · 시험항목 (지시) ──
           릴리즈의 Jira 서랍과 **같은 방향·같은 꼴**이다. 화면마다 여는

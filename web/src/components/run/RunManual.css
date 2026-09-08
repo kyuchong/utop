@@ -564,4 +564,5 @@
 .rm-ntb { flex: 1; min-height: 0; overflow: auto; }
 /* 결과는 ID 앞의 **세로 막대**로 읽는다 — 점은 너무 작아 판정을 찍어도
    바뀐 티가 안 났다(지적). 열은 여전히 하나도 더 쓰지 않는다 */
-.rm-dot { display: inline-block; width: 4px; height: 17px; border-radius: 2px; vertical-align: -4px; }
+.rm-dot { display: inline-block; width: 5px; height: 18px; border-radius: 2px; vertical-align: -4px; border: 0; padding: 0; cursor: pointer; }
+.rm-dot:hover { box-shadow: 0 0 0 2px var(--c-primary-bg, #e9f1ff); }
