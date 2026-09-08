@@ -1455,6 +1455,7 @@ export default function RunDetail({
             reqId: reqLabel.get(String(oneQ.data?.req_id ?? '')) || String(oneQ.data?.req_id ?? ''),
             reqTitle: reqName.get(String(oneQ.data?.req_id ?? '')) ?? '',
             reqBody: reqBody.get(String(oneQ.data?.req_id ?? '')) ?? '',
+            reqFolder: reqIndex.get(String(oneQ.data?.req_id ?? ''))?.folder ?? '',
           }}
           planId={String(run.plan_id ?? '')}
           runId={runId}

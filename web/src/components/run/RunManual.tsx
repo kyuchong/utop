@@ -3,6 +3,7 @@ import { apiFetch } from '@/api/client'
 import { goto } from '@/api/goto'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
+import Markdown from '@/components/Markdown'
 import NTable, { seedOptions } from '@/components/ntable/NTable'
 import { EMPTY_VIEW } from '@/components/ntable/types'
 import type { NCalc, NCol, NRow, NView } from '@/components/ntable/types'
@@ -98,6 +99,7 @@ export default function RunManual({
     reqId?: string
     reqTitle?: string
     reqBody?: string
+    reqFolder?: string
   }
   planId: string
   runId: string
@@ -693,23 +695,20 @@ export default function RunManual({
               {drw === 'req' ? (
                 <>
                   <h3 className="rm-dh">{info.reqTitle || '제목 없음'}</h3>
-                  {info.reqBody ? (
-                    <pre className="rm-dpre">{info.reqBody}</pre>
-                  ) : (
-                    <div className="rm-muted">요구사항 본문이 없습니다.</div>
-                  )}
+                  {!!info.reqFolder && <div className="rm-dpath">{info.reqFolder}</div>}
+                  {/* 본문은 **마크다운**이다 — 날글자로 뱉으면 `**제목:**` 이
+                      그대로 보인다(지적). 위키·요구사항 화면과 같은 부품으로 그린다 */}
+                  <Markdown text={info.reqBody ?? ''} empty="요구사항 본문이 없습니다." />
                 </>
               ) : (
                 <>
                   <h3 className="rm-dh">{one?.title ?? cur}</h3>
-                  <div className="rm-kv">
-                    <span className="k">시험 목적</span>
-                    <span>{info.purpose || '–'}</span>
-                    <span className="k">사전 조건</span>
-                    <span>{info.cond || '–'}</span>
-                    <span className="k">판정 기준</span>
-                    <span>{info.crit || '–'}</span>
-                  </div>
+                  <div className="rm-dh2">시험 목적</div>
+                  <Markdown text={info.purpose} empty="적혀 있지 않습니다." />
+                  <div className="rm-dh2">사전 조건</div>
+                  <Markdown text={info.cond} empty="적혀 있지 않습니다." />
+                  <div className="rm-dh2">판정 기준</div>
+                  <Markdown text={info.crit} empty="적혀 있지 않습니다." />
                   <div className="rm-dh2">구성도</div>
                   {info.topoImg ? (
                     <button

@@ -584,3 +584,10 @@
 /* 아직 판정 안 한 자리 — 눌러서 판정하면 그 사람 아이콘이 선다 */
 .ntb-av.rm-avnone { background: #fff; border: 1px dashed #c3cbd4; color: #a8b4ba; font-weight: 400; }
 .rm-avb2:hover .rm-avnone { border-color: var(--c-primary, #1769d2); color: var(--c-primary, #1769d2); }
+
+/* 서랍 — 요구사항 폴더 길 */
+.rm-dpath { font-size: 11.5px; color: #8b9aa2; margin: -4px 0 10px; }
+.rm-dbody .md { font-size: 12.5px; }
+.rm-dbody .md h1, .rm-dbody .md h2, .rm-dbody .md h3 { font-size: 14px; margin: 12px 0 6px; }
+.rm-dbody .md table { border-collapse: collapse; font-size: 12px; }
+.rm-dbody .md td, .rm-dbody .md th { border: 1px solid #e2e8eb; padding: 4px 7px; }
