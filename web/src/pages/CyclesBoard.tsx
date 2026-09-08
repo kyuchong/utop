@@ -1562,6 +1562,14 @@ export default function CyclesBoard({
     /* 초안 우선 값 — 고친 것이 화면에 바로 보여야 저장 단추의 뜻이 선다 */
     const pv = (k: string) =>
       String((draft as Record<string, unknown>)[k] ?? (plan as unknown as Record<string, unknown>)[k] ?? '')
+    const catRows = (catQ.data?.items ?? []) as Array<Record<string, unknown>>
+    const custsAll = [...new Set([
+      ...catRows.filter((x) => String(x.kind) === 'operator').map((x) => String(x.name ?? '')),
+      ...((codesQ.data?.items ?? []).filter((x) => x.kind === 'cycle_customer').map((x) => String(x.value ?? ''))),
+      ...plans.map((p2) => String(p2.customer || '')),
+    ])].filter(Boolean).sort(cmp)
+    const famsAll = [...new Set(catRows.filter((x) => String(x.kind) === 'family').map((x) => String(x.name ?? '')))]
+      .filter(Boolean).sort(cmp)
     return (
       <div className="cu-scroll">
         <div className="cu-sec cyb-inforow">
@@ -1570,6 +1578,28 @@ export default function CyclesBoard({
             <h2>기본 정보</h2>
             <div className="pad">
               <div className="kv1">
+                {kv(
+                  '사업자',
+                  <select className="kvin" value={pv('customer')} onChange={(e) => stage({ customer: e.target.value })}>
+                    {!custsAll.includes(pv('customer')) && (
+                      <option value={pv('customer')}>{pv('customer') || '(안 고름)'}</option>
+                    )}
+                    {custsAll.map((c2) => (
+                      <option key={c2} value={c2}>{c2}</option>
+                    ))}
+                  </select>,
+                )}
+                {kv(
+                  '제품군',
+                  <select className="kvin" value={pv('family')} onChange={(e) => stage({ family: e.target.value })}>
+                    {!famsAll.includes(pv('family')) && (
+                      <option value={pv('family')}>{pv('family') || '(안 고름)'}</option>
+                    )}
+                    {famsAll.map((f2) => (
+                      <option key={f2} value={f2}>{f2}</option>
+                    ))}
+                  </select>,
+                )}
                 {kv(
                   '모델그룹',
                   <select
@@ -1632,38 +1662,6 @@ export default function CyclesBoard({
             <h2>시험 정보</h2>
             <div className="pad">
               <div className="kv1">
-                {kv('요구사항', <>{reqN}건</>)}
-                {kv(
-                  '전체 항목',
-                  <>
-                    {itemRows.length}건 <span className="cu-m">(자동 {nAuto} · 수동 {nMan})</span>
-                  </>,
-                )}
-                {kv(
-                  '수동 항목',
-                  <>
-                    {nMan}건{' '}
-                    <span className="cu-m">
-                      (요구사항 {new Set(itemRows.filter((r) => r.man).map((r) => r.reqLabel).filter(Boolean)).size}건)
-                    </span>
-                  </>,
-                )}
-                {kv(
-                  '자동 항목',
-                  <>
-                    {nAuto}건{' '}
-                    <span className="cu-m">
-                      (요구사항 {new Set(itemRows.filter((r) => !r.man).map((r) => r.reqLabel).filter(Boolean)).size}건)
-                    </span>
-                  </>,
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="cu-card metacard">
-            <h2>이력</h2>
-            <div className="pad">
-              <div className="kv1">
                 {kv(
                   '담당자',
                   <button
@@ -1696,6 +1694,38 @@ export default function CyclesBoard({
                     />
                   </span>,
                 )}
+                {kv('요구사항', <>{reqN}건</>)}
+                {kv(
+                  '전체 항목',
+                  <>
+                    {itemRows.length}건 <span className="cu-m">(자동 {nAuto} · 수동 {nMan})</span>
+                  </>,
+                )}
+                {kv(
+                  '수동 항목',
+                  <>
+                    {nMan}건{' '}
+                    <span className="cu-m">
+                      (요구사항 {new Set(itemRows.filter((r) => r.man).map((r) => r.reqLabel).filter(Boolean)).size}건)
+                    </span>
+                  </>,
+                )}
+                {kv(
+                  '자동 항목',
+                  <>
+                    {nAuto}건{' '}
+                    <span className="cu-m">
+                      (요구사항 {new Set(itemRows.filter((r) => !r.man).map((r) => r.reqLabel).filter(Boolean)).size}건)
+                    </span>
+                  </>,
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="cu-card metacard">
+            <h2>이력</h2>
+            <div className="pad">
+              <div className="kv1">
                 {kv('생성자', String(plan.created_by ?? '') || '—')}
                 {kv('수정자', String(full?.updated_by ?? (plan as unknown as Record<string, unknown>).updated_by ?? '') || '—')}
                 {kv(

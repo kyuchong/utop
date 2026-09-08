@@ -52,7 +52,7 @@
 /* 기본 정보 네 묶음 — 대상 │ 사이클 │ 구성 │ 사람·이력 (지시) */
 /* Info 배치(지시): 1열에 기본 정보·시험 정보·이력을 세로 3행, 2열에 설명 —
    카드 가로 폭이 너무 남아서 세로로 쌓고 설명이 남는 폭을 갖는다 */
-.cyb .cyb-inforow { display: grid; grid-template-columns: minmax(360px, 480px) minmax(0, 1fr); gap: var(--sp-3); }
+.cyb .cyb-inforow { display: grid; grid-template-columns: minmax(330px, 420px) minmax(0, 1fr); gap: var(--sp-3); }
 .cyb .cyb-infocol { display: grid; gap: var(--sp-3); align-content: start; }
 .cyb .cyb-desccard h2 { margin: 0; }
 @media (max-width: 1100px) { .cyb .cyb-inforow { grid-template-columns: 1fr; } }
