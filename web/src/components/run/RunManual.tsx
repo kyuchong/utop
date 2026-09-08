@@ -268,28 +268,49 @@ export default function RunManual({
               meName=""
               onOpen={(id) => onPick(id)}
               onPeek={(id) => onPick(id)}
-              /* 결과는 ID 앞의 **세로 막대**로 읽는다 — 점은 너무 작아
-                 판정을 찍어도 바뀐 티가 안 났다(지적) */
-              rowIcon={(r) => {
-                const it = items.find((x) => x.id === r.__id)
-                const d = vDef(verds, String(it?.raw ?? ''))
-                /* 한 줄만 판정할 때는 이 막대를 누른다(지시). 여러 줄은
-                   체크해서 아래 바로 — 두 길이 하는 일이 다르다 */
-                return (
-                  <button
-                    type="button"
-                    className="rm-dot"
-                    title={`판정 ${d.label} — 누르면 이 줄만 판정합니다`}
-                    style={{ background: it?.raw ? d.color : '#d6dbe0' }}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const b2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                      setRowAt({ x: b2.left, y: b2.bottom + 4, id: String(r.__id) })
-                    }}
-                  />
-                )
-              }}
               renderCell={(r, c) => {
+                if (c.key === 'id') {
+                  /* TC ID 를 누르면 **이 줄만 판정**한다(지시) */
+                  const it = items.find((x) => x.id === r.__id)
+                  const d = vDef(verds, String(it?.raw ?? ''))
+                  return (
+                    <span className="ntb-idw">
+                      <span
+                        className="rm-dot"
+                        title={`판정 ${d.label}`}
+                        style={{ background: it?.raw ? d.color : '#d6dbe0' }}
+                      />
+                      <button
+                        type="button"
+                        className="ntb-id"
+                        title="누르면 이 줄만 판정합니다"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const b2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setRowAt({ x: b2.left, y: b2.bottom + 4, id: String(r.__id) })
+                        }}
+                      >
+                        {String(r.id ?? '')}
+                      </button>
+                    </span>
+                  )
+                }
+                if (c.key === 'title') {
+                  /* 제목을 누르면 **오른쪽에 시험 스텝**이 뜬다(지시) */
+                  return (
+                    <button
+                      type="button"
+                      className="rm-titleb"
+                      title="시험 스텝 보기"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onPick(String(r.__id))
+                      }}
+                    >
+                      {String(r.title ?? '')}
+                    </button>
+                  )
+                }
                 if (c.key === 'who' || c.key === 'runner') {
                   /* 사람 칸은 **표가 이미 쓰는 꼴**이다(지시: 아이콘을 잘 고를 것)
                      — 동그란 아이콘 + 이름. 칸이 좁으면 이름이 잘려 아이콘만
