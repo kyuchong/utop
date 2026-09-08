@@ -480,3 +480,11 @@
 
 /* 시험 시간 — 숫자가 줄줄이 서게 */
 .rm-when { font-size: 11px; color: #46555d; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+
+/* 스텝의 톱니바퀴 — 자주 안 쓰는 판정(지시) */
+.rm-cog {
+  min-width: 24px; height: 20px; border: 1px solid #dce4e7; background: #fff;
+  border-radius: 4px; font: inherit; font-size: 11px; color: #7e9198; cursor: pointer;
+}
+.rm-cog:hover { border-color: var(--c-primary, #1769d2); color: var(--c-primary, #1769d2); }
+.rm-cog.on { background: #7c4dff; border-color: #7c4dff; color: #fff; }

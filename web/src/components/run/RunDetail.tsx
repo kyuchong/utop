@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isManual } from '@/lib/runMode'
-import { LETTER_VERD, useVerdicts, vLetter } from '@/lib/verdicts'
+import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
 import type { CycleMeta, CycleStep } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
 import RunAuto from './RunAuto'
@@ -543,18 +543,24 @@ export default function RunDetail({
     const mArr = [...((run?.pmeta ?? {})[cid] ?? [])]
     mArr[ix] = { ...(mArr[ix] ?? {}), at: arr[ix] ? new Date().toISOString() : undefined, by: arr[ix] ? run?.owner ?? '' : undefined }
     const pmeta = { ...(run?.pmeta ?? {}), [cid]: mArr }
-    /* 절차 판정에서 항목 결과를 뽑는다 — 하나라도 실패면 실패 */
+    /* 절차 판정에서 항목 결과를 뽑는다 — 하나라도 실패면 실패.
+       스텝에는 이제 **셋업의 판정 값**이 담긴다(옛 p/f/b 글자도 알아듣는다).
+       굴린 결과는 **그 값 그대로** 싣는다 — 「진행불가」 가 Blocked 로
+       뭉개지지 않게. */
     const n = manualSteps(oneQ.data).length
-    const roll: Verdict = arr.includes('f')
-      ? 'f'
-      : arr.includes('b')
-        ? 'b'
-        : arr.filter((x) => x === 'p').length >= n
-          ? 'p'
-          : 'n'
+    const vals = arr.filter(Boolean)
+    const letters = vals.map((x) => vLetter(verds, x))
+    const at = (l: 'p' | 'f' | 'b') => vals[letters.indexOf(l)] ?? ''
+    const roll = letters.includes('f')
+      ? at('f')
+      : letters.includes('b')
+        ? at('b')
+        : n > 0 && letters.filter((x) => x === 'p').length >= n
+          ? at('p')
+          : ''
     /* 저장은 **판정 값**으로, 원본(rawResults) 위에 — 글자 지도를 통째로
        저장하면 다른 항목의 값(커스텀 판정)까지 글자로 뭉개진다 */
-    await save({ ...startStamp(), ...vatStamp([cid]), pchk, pmeta, results: { ...rawResults, [cid]: LETTER_VERD[roll] ?? '' } })
+    await save({ ...startStamp(), ...vatStamp([cid]), pchk, pmeta, results: { ...rawResults, [cid]: vDef(verds, roll).v } })
   }
 
   /* 도는 동안에는 **실행기를 따라간다.** 안 그러면 CLI 판은 첫 스텝에

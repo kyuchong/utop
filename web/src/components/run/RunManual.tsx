@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
-import { useVerdicts, vDef } from '@/lib/verdicts'
+import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
 import './RunManual.css'
 
 /**
@@ -109,6 +109,11 @@ export default function RunManual({
   stale?: { changed: boolean; detail: string; onUpdate: () => void; onDiff?: () => void }
 }) {
   const verds = useVerdicts()
+  /** 스텝에서 자주 쓰는 판정 — 나머지는 톱니바퀴 메뉴로(지시) */
+  const QUICK = ['Pass', 'Fail', 'Blocked', '진행불가']
+  const quickV = QUICK.map((k) => verds.find((d) => d.v === k)).filter((d): d is NonNullable<typeof d> => !!d)
+  const restV = verds.filter((d) => !!d.v && !QUICK.includes(d.v))
+  const shortV = (v: string) => (v === '진행불가' ? '불가' : v.slice(0, 1).toUpperCase())
   const [w, setW] = useState(() => Number(prefGet('utop.run.man.w') ?? '') || 44)
   /** 크게 볼 사진 — 줄여 놓으면 글자가 안 읽힌다(시험서와 같은 규칙) */
   const [big, setBig] = useState('')
@@ -125,6 +130,8 @@ export default function RunManual({
   /** 고른 줄 — 일괄 판정이 여기에만 찍힌다(승인: 체크한 줄만) */
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [bulkAt, setBulkAt] = useState<{ x: number; y: number } | null>(null)
+  /** 스텝의 톱니바퀴 메뉴 — 자주 안 쓰는 판정 */
+  const [cogAt, setCogAt] = useState<{ x: number; y: number; ix: number } | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState(false)
 
@@ -455,12 +462,16 @@ export default function RunManual({
             {keyChip('항목', cur, { open: 'tc' })}
             {keyChip('사이클', keys?.cycle)}
             {keyChip('실행', keys?.run ?? runId, { tone: 'run' })}
+            <span className="rm-sp" />
+            {!!one?.bugs && <span className="rm-muted">🐞 {one.bugs}</span>}
+            {/* 결함은 **실패한 항목에만**(지시) — 통과한 시험에 결함 단추가
+                서 있으면 눌러 볼 일이 없다 */}
+            {one?.v === 'f' && (
+              <button type="button" className="rm-bugbtn" onClick={() => setBug(true)}>🐞 결함</button>
+            )}
             <span className={`rm-hv ${one?.v ?? 'n'}`}>
               {TAG[one?.v ?? 'n']} {marked}/{steps.length}
             </span>
-            <span className="rm-sp" />
-            {!!one?.bugs && <span className="rm-muted">🐞 {one.bugs}</span>}
-            <button type="button" className="rm-bugbtn" onClick={() => setBug(true)}>🐞 결함</button>
           </div>
 
           {/* 담을 때보다 시험 항목이 바뀌었다(지시) */}
@@ -482,28 +493,42 @@ export default function RunManual({
               const v = pchk[i] ?? ''
               const m = (pmeta ?? [])[i] ?? null
               return (
-                <div className={`rm-sc${v ? ` v-${v}` : ''}`} key={i}>
+                <div className={`rm-sc${v ? ` v-${vLetter(verds, v)}` : ''}`} key={i}>
                   <div className="rm-sch">
                     <b>Step #{i + 1}</b>
                     {/* 판정한 스텝은 **한눈에 보이게**(지시) — 글자로도 말한다 */}
-                    {!!v && <span className={`rm-sv ${v}`}>{TAG[v as V]}</span>}
+                    {!!v && (
+                      <span className={`rm-sv ${vLetter(verds, v)}`}>{vDef(verds, v).label}</span>
+                    )}
                     {/* 제목은 안 낸다(지시) — 바로 아래 Test Step 과 같은 글자다 */}
                     <span className="rm-sp" />
                     {!!m?.at && (
                       <span className="rm-muted" title={`판정자 ${m.by || '–'}`}>{stamp(m.at)}</span>
                     )}
                     <span className="rm-vb">
-                      {(['p', 'f', 'b'] as const).map((o) => (
+                      {quickV.map((d) => (
                         <button
                           type="button"
-                          key={o}
-                          className={`rm-v ${o}${v === o ? ' on' : ''}`}
-                          title={o === 'p' ? '통과' : o === 'f' ? '실패' : '기타'}
-                          onClick={() => onStep(i, o)}
+                          key={d.v}
+                          className={`rm-v ${vLetter(verds, d.v)}${vDef(verds, v).v === d.v ? ' on' : ''}`}
+                          title={d.label}
+                          onClick={() => onStep(i, d.v)}
                         >
-                          {o === 'p' ? 'P' : o === 'f' ? 'F' : 'B'}
+                          {shortV(d.v)}
                         </button>
                       ))}
+                      {/* 자주 안 쓰는 판정은 톱니바퀴에(지시) */}
+                      <button
+                        type="button"
+                        className={`rm-cog${v && !QUICK.includes(vDef(verds, v).v) ? ' on' : ''}`}
+                        title="다른 판정 기준"
+                        onClick={(e) => {
+                          const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setCogAt({ x: Math.max(8, r.right - 170), y: r.bottom + 4, ix: i })
+                        }}
+                      >
+                        ⚙
+                      </button>
                     </span>
                   </div>
                   <div className="rm-fl">
@@ -591,6 +616,41 @@ export default function RunManual({
             onBug()
           }}
         />
+      )}
+
+      {/* 스텝의 다른 판정 — 자주 안 쓰는 것들(지시) */}
+      {!!cogAt && (
+        <>
+          <span className="rm-dovl" role="presentation" onClick={() => setCogAt(null)} />
+          <div className="rm-menu" role="menu" style={{ left: cogAt.x, top: cogAt.y }}>
+            <div className="rm-menuh">Step #{cogAt.ix + 1} 판정</div>
+            {restV.map((d) => (
+              <button
+                type="button"
+                role="menuitem"
+                key={d.v}
+                onClick={() => {
+                  const ix = cogAt.ix
+                  setCogAt(null)
+                  onStep(ix, d.v)
+                }}
+              >
+                <i style={{ background: d.color }} /> {d.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const ix = cogAt.ix
+                setCogAt(null)
+                onStep(ix, pchk[ix] ?? '')
+              }}
+            >
+              <i style={{ background: '#d6dbe0' }} /> 판정 비우기
+            </button>
+          </div>
+        </>
       )}
 
       {/* 고른 줄 일괄 판정 — 셋업의 판정 목록 그대로 */}
