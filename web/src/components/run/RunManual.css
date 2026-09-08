@@ -262,3 +262,123 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
   cursor: zoom-out;
 }
+
+
+/* ══════════════════════════════════════════════════════════════
+   2안 배치(지시) — 왼쪽 목록의 판정 칸, 오른쪽 시험서의 머리·번호·
+   접이 블록·스텝 카드. 옛 규칙(rm-head/rm-step/rm-cmp…)은 안 쓴다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* 목록의 판정 칸 — 셋업 판정 목록이 그대로 뜬다 */
+.rm-vs {
+  width: 100%;
+  height: 22px;
+  border: 1px solid #dce4e7;
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #7e9198;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.rm-vs:disabled { cursor: default; opacity: 0.6; }
+.rm-vs option { color: #131920; font-weight: 400; }
+
+/* 오른쪽 머리 한 줄 */
+.rm-hd1 {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 9px; border-bottom: 1px solid var(--c-border-soft, #e2e8eb);
+  flex: none; min-width: 0;
+}
+.rm-h1t { font-size: 13px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-hv { font-size: 10px; font-weight: 800; border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+.rm-hv.p { background: #eaf8f1; color: #0f9151; }
+.rm-hv.f { background: #fff0f3; color: #d43f5f; }
+.rm-hv.b { background: #fff4df; color: #a66d18; }
+.rm-hv.n { background: #eef2f3; color: #7e9198; }
+
+/* 네 번호 한 줄 — 요구사항 / 항목 / 사이클 / 실행 */
+.rm-keys {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 4px 9px; border-bottom: 1px solid var(--c-border-soft, #e2e8eb);
+  background: #fbfdff; flex: none;
+}
+.rm-kc { display: inline-flex; align-items: center; gap: 5px; }
+.rm-kc em { font-style: normal; font-size: 10px; color: #82959c; }
+.rm-kc b {
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-size: 10.5px; font-weight: 700; color: var(--c-primary, #1769d2);
+  background: var(--c-primary-bg, #e9f1ff); border: 1px solid #cfe0f8;
+  border-radius: 9px; padding: 0 7px;
+}
+.rm-kc b.run { color: #18864b; background: #e8f5ee; border-color: #bfe0cd; }
+
+/* 시험서가 담을 때보다 바뀌었다 */
+.rm-stale {
+  display: flex; align-items: center; gap: 8px; flex: none;
+  padding: 4px 9px; background: #fff8e1; border-bottom: 1px solid #f0e0a8;
+  font-size: 11px; color: #7a5c00;
+}
+.rm-stale b { white-space: nowrap; }
+.rm-stale button {
+  border: 1px solid #d9c68a; background: #fff; border-radius: 4px;
+  padding: 1px 8px; font: inherit; font-size: 10.5px; color: #7a5c00; cursor: pointer;
+}
+.rm-stale button.go { background: var(--c-primary, #1769d2); border-color: var(--c-primary, #1769d2); color: #fff; font-weight: 700; }
+
+/* 몸통 — 접이 블록과 스텝 카드가 세로를 나눠 쓴다 */
+.rm-scroll { flex: 1; min-height: 0; overflow: auto; padding: 7px 9px; display: flex; flex-direction: column; gap: 6px; }
+
+.rm-blk { border: 1px solid var(--c-border-soft, #e2e8eb); border-radius: 6px; background: #fff; overflow: hidden; flex: none; }
+.rm-blkh {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 4px 9px; background: #f6f8f9; border: 0; border-bottom: 1px solid #eef2f3;
+  font: inherit; font-size: 11.5px; color: #4d5760; cursor: pointer; text-align: left;
+}
+.rm-blkh.as-h { cursor: default; }
+.rm-blkh b { font-size: 11.5px; color: #131920; white-space: nowrap; }
+.rm-blkq { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #4d5760; }
+.rm-car { color: #82959c; font-size: 11px; }
+.rm-blkb { padding: 6px 9px; }
+.rm-kv { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 3px 9px; font-size: 11.5px; align-items: start; }
+.rm-kv .k { color: #82959c; }
+.rm-hint { color: #7a5c00; font-size: 11px; }
+
+/* 스텝 카드 — 네 칸이 **한 줄씩**(2안) */
+.rm-sc { border: 1px solid var(--c-border-soft, #e2e8eb); border-radius: 6px; background: #fff; overflow: hidden; flex: none; }
+.rm-sc.v-f { border-color: #f0cccc; }
+.rm-sc.v-p { border-color: #cfe6da; }
+.rm-sch {
+  display: flex; align-items: center; gap: 7px;
+  padding: 3px 9px; background: #f6f8f9; border-bottom: 1px solid #eef2f3; font-size: 11.5px;
+}
+.rm-sch b { font-family: var(--font-mono, ui-monospace, Consolas, monospace); color: #131920; white-space: nowrap; }
+.rm-sct { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #4d5760; }
+.rm-vb { display: inline-flex; gap: 3px; flex: none; }
+.rm-v {
+  min-width: 26px; height: 20px; border: 1px solid #dce4e7; background: #fff;
+  border-radius: 4px; font: inherit; font-size: 10.5px; font-weight: 800; color: #7e9198; cursor: pointer;
+}
+.rm-v.p.on { background: #18a35d; border-color: #18a35d; color: #fff; }
+.rm-v.f.on { background: #e34963; border-color: #e34963; color: #fff; }
+.rm-v.b.on { background: #e49a31; border-color: #e49a31; color: #fff; }
+
+.rm-fl { display: grid; grid-template-columns: 106px minmax(0, 1fr); border-top: 1px solid #f1f4f5; }
+.rm-fl:first-of-type { border-top: 0; }
+.rm-fl .l { background: #fafbfc; color: #82959c; font-size: 10.5px; padding: 4px 9px; border-right: 1px solid #f1f4f5; }
+.rm-fl .v { padding: 4px 9px; font-size: 11.5px; min-width: 0; }
+.rm-bt { white-space: pre-wrap; word-break: break-word; }
+.rm-ata {
+  width: 100%; min-height: 26px; border: 1px solid #dce4e7; border-radius: 4px;
+  padding: 3px 6px; font: inherit; font-size: 11.5px; resize: vertical;
+}
+.rm-shot { border: 1px solid #dce4e7; border-radius: 4px; background: #fff; padding: 2px; cursor: zoom-in; display: block; max-width: 100%; }
+.rm-shot img { display: block; width: 100%; height: auto; }
+.rm-ta { width: 100%; min-height: 54px; border: 0; padding: 6px 9px; font: inherit; font-size: 11.5px; resize: vertical; }
+.rm-ta:focus { outline: 2px solid var(--c-primary-bg, #e9f1ff); outline-offset: -2px; }
+.rm-bugbtn {
+  border: 1px solid #dce4e7; background: #fff; border-radius: 4px;
+  padding: 2px 8px; font: inherit; font-size: 10.5px; color: #4d5760; cursor: pointer; white-space: nowrap;
+}

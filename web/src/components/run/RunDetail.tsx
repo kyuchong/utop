@@ -260,6 +260,20 @@ export default function RunDetail({
     },
     staleTime: 60_000,
   })
+  /** 요구사항 **보이는 번호**(E61xx-R0002) — 머리의 네 번호가 쓴다 */
+  const reqLabel = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of reqQ.data?.reqs ?? []) {
+      const label = String(r.reqid ?? '').trim()
+      if (!label) continue
+      for (const k of [r.id, r.pk, r.reqid]) {
+        const key = String(k ?? '').trim()
+        if (key) m.set(key, label)
+      }
+    }
+    return m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reqQ.data])
   const reqName = useMemo(() => {
     const m = new Map<string, string>()
     for (const r of reqQ.data?.reqs ?? []) {
@@ -788,6 +802,83 @@ export default function RunDetail({
   const note = (run.notes ?? {})[cur] ?? ''
   const pv = (run.pchk ?? {})[cur] ?? []
   const msteps = manualSteps(oneQ.data)
+
+  /* ── 담을 때의 시험서 vs 지금의 시험서 (지시: Update this test script) ──
+     사이클에 담을 때 항목의 스텝이 통째로 복제돼 들어간다. 그 뒤 시험 항목을
+     고치면 **담긴 것과 달라진다.** 지금 화면은 라이브 TC 를 읽고 있어 그
+     사실을 아무도 모른다 — 다르면 띠로 말하고, 눌러서 최신으로 옮긴다. */
+  const snapSteps = useMemo(() => {
+    const it = ((plan?.items ?? []) as unknown as Array<Record<string, unknown>>).find(
+      (x) => String(x?.tcid ?? '') === cur,
+    )
+    const raw = (it?.steps as CycleStep[] | undefined) ?? (it?.checks as CycleStep[] | undefined) ?? []
+    return Array.isArray(raw) ? raw : []
+  }, [plan, cur])
+  const liveSteps = useMemo(() => {
+    const raw = (oneQ.data?.steps as CycleStep[] | undefined) ?? []
+    const st = raw.length ? raw : ((oneQ.data?.checks as CycleStep[] | undefined) ?? [])
+    return Array.isArray(st) ? st : []
+  }, [oneQ.data])
+  /** 견줄 때 쓰는 알맹이만 — 실행 결과(took_ms·output 따위)는 빼고 본다 */
+  const stepGist = (arr: CycleStep[]) =>
+    JSON.stringify(
+      arr.map((x) => {
+        const o = (x ?? {}) as Record<string, unknown>
+        return [o.step, o.cli, o.data, o.expected, o.criteria, o.kind, o.action]
+      }),
+    )
+  const stale = useMemo(() => {
+    /* 담긴 것이 없으면(옛 사이클) 견줄 게 없다 — 조용히 있는다 */
+    if (!cur || !snapSteps.length) return undefined
+    const a = stepGist(snapSteps)
+    const b = stepGist(liveSteps)
+    if (a === b) return undefined
+    const dn = liveSteps.length - snapSteps.length
+    const detail =
+      dn !== 0
+        ? `담을 때보다 시험 항목이 바뀌었습니다 — 스텝 ${snapSteps.length}→${liveSteps.length}`
+        : '담을 때보다 시험 항목의 내용이 바뀌었습니다 — 스텝 수는 같습니다'
+    return {
+      changed: true,
+      detail,
+      onUpdate: () => void refreshSnapshot(),
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur, snapSteps, liveSteps])
+
+  /** 사이클에 담긴 이 항목의 시험서를 **최신 TC 로 옮긴다** */
+  async function refreshSnapshot() {
+    const pid = String(plan?.id ?? run?.plan_id ?? '')
+    if (!pid || !cur) return
+    if (
+      !window.confirm(
+        '사이클에 담긴 이 항목의 시험서를 최신 시험 항목으로 갱신합니다.\n' +
+          '이미 적어 둔 판정·실측값은 그대로 둡니다. 계속할까요?',
+      )
+    )
+      return
+    const r = await apiFetch(`/api/cycle/${encodeURIComponent(pid)}`)
+    if (!r.ok) {
+      window.alert('사이클을 불러오지 못했습니다')
+      return
+    }
+    const doc = (await r.json()) as Record<string, unknown>
+    const items = ((doc.items ?? []) as Array<Record<string, unknown>>).map((x) =>
+      String(x?.tcid ?? '') === cur
+        ? { ...x, name: String(oneQ.data?.name ?? x.name ?? ''), steps: liveSteps }
+        : x,
+    )
+    const w = await apiFetch(`/api/cycle/${encodeURIComponent(pid)}`, {
+      method: 'POST',
+      body: JSON.stringify({ ...doc, items }),
+    })
+    if (!w.ok) {
+      window.alert('갱신하지 못했습니다')
+      return
+    }
+    await qc.invalidateQueries({ queryKey: ['cycles'] })
+    await qc.invalidateQueries({ queryKey: ['cycle-full', pid] })
+  }
   const log = (run.logs ?? {})[cur]
   /** 지금 보고 있는 스텝 — 아직 판정 안 한 첫 스텝이다. 다 했으면 마지막 */
   const stepNow = (() => {
@@ -1153,6 +1244,8 @@ export default function RunDetail({
               assignee: String((t2 as Record<string, unknown> | undefined)?.assignee ?? ''),
               runner: String(run.owner ?? ''),
               v: (results[id] ?? 'n') as Verdict,
+              /* 목록의 판정 칸은 **저장된 값 그대로**를 고른다(글자 갈래가 아니라) */
+              raw: String(rawResults[id] ?? ''),
               /* 지난 빌드 결과는 아직 안 싣는다 — 없는 것을 지어내지 않는다 */
               last: 'n' as Verdict,
               bugs: 0,
@@ -1191,10 +1284,16 @@ export default function RunDetail({
               (Array.isArray(oneQ.data?.topoNodes) && (oneQ.data.topoNodes as unknown[]).length > 0) ||
               (Array.isArray(oneQ.data?.wiring) && (oneQ.data.wiring as unknown[]).length > 0),
             crit: String(oneQ.data?.criteria ?? ''),
+            reqId: reqLabel.get(String(oneQ.data?.req_id ?? '')) || String(oneQ.data?.req_id ?? ''),
+            reqTitle: reqName.get(String(oneQ.data?.req_id ?? '')) ?? '',
           }}
           planId={String(run.plan_id ?? '')}
           runId={runId}
           onBug={() => void qc.invalidateQueries({ queryKey: ['plan-run', runId] })}
+          /* 목록에서 항목을 통째로 판정한다 — 절차가 없는 항목의 유일한 길 */
+          onVerdict={(tcid, value) => void save({ results: { ...rawResults, [tcid]: value } })}
+          keys={{ cycle: String(plan?.cid ?? plan?.id ?? ''), run: runId }}
+          stale={stale}
         />
       )}
     </div>
