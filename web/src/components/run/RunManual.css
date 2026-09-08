@@ -559,3 +559,8 @@
   border-radius: 5px; padding: 3px 10px; font: inherit; font-size: 12px; cursor: pointer;
 }
 .rm-bbx:hover { opacity: 1; }
+
+/* ── 목록이 노션 표가 됐다(승인) — 표가 제 안에서 굴러야 도구줄이 붙박이로 선다 ── */
+.rm-ntb { flex: 1; min-height: 0; overflow: auto; }
+/* 결과는 ID 앞의 **점** 하나로 읽는다 — 열을 더 쓰지 않는다 */
+.rm-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
