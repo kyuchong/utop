@@ -318,6 +318,15 @@
 .rd-live .rd-lb > b { font-size: 15px; line-height: 1.2; }
 
 
-/* 수동 실행기 — 경과·진행 띠가 **머리줄 안**에 선다(지시) */
-.rd-inline { display: flex; align-items: center; min-width: 0; flex: 1; }
-.rd-inline .rd-live { border: 0; padding: 0; margin: 0; background: none; flex: 1; min-width: 0; }
+/* 수동 실행기 — 경과·진행 띠가 **머리줄 안**에 선다(지시).
+   좁은 자리라 막대 그림은 빼고 숫자만 남긴다(그러지 않으면 잘린다). */
+.rd-inline { display: flex; align-items: center; min-width: 0; flex: 1; overflow: hidden; }
+.rd-inline .rd-live {
+  border: 0; padding: 0; margin: 0; background: none; height: auto;
+  flex: 1; min-width: 0; gap: 12px; overflow: hidden;
+}
+.rd-inline .rd-lb { min-width: 0; flex: 0 1 auto; }
+.rd-inline .rd-lb.grow2 { flex: 0 1 auto; }
+.rd-inline .rd-bar2 { display: none; }
+.rd-inline .rd-lb i { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rd-inline .rd-sp { display: none; }

@@ -301,10 +301,11 @@
 
 /* 네 번호 한 줄 — 요구사항 / 항목 / 사이클 / 실행 */
 .rm-keys {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; overflow: hidden;
   padding: 4px 9px; border-bottom: 1px solid var(--c-border-soft, #e2e8eb);
   background: #fbfdff; flex: none;
 }
+.rm-keys .rm-kc { flex: none; }
 .rm-kc { display: inline-flex; align-items: center; gap: 5px; }
 .rm-kc em { font-style: normal; font-size: 11px; color: #82959c; }
 .rm-kc b {
