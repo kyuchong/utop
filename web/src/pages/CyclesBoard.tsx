@@ -1840,7 +1840,7 @@ export default function CyclesBoard({
               </button>
               <button
                 type="button"
-                className={man ? 'btn small' : 'cu-new small'}
+                className="cu-new small"
                 disabled={!hasRun || !runN}
                 title={
                   !hasRun
