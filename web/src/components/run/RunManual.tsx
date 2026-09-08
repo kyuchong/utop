@@ -172,8 +172,8 @@ export default function RunManual({
   const LS_DEFS: NCol[] = [
     { key: 'id', label: 'TC ID', type: 'text', width: 124, fixed: true },
     { key: 'title', label: '시험 항목', type: 'text', width: 300, fixed: true },
-    { key: 'who', label: '담당자', type: 'person', width: 96 },
-    { key: 'runner', label: '실행자', type: 'person', width: 96 },
+    { key: 'who', label: '담당자', type: 'person', width: 112 },
+    { key: 'runner', label: '실행자', type: 'person', width: 112 },
     { key: 'bugs', label: '버그', type: 'text', width: 62 },
     /* 시험 시간만 **기본 꺼짐**(지시) — 속성 판에서 켠다 */
     { key: 'at', label: '시험 시간', type: 'text', width: 150, hidden: true },
@@ -291,11 +291,15 @@ export default function RunManual({
               }}
               renderCell={(r, c) => {
                 if (c.key === 'who' || c.key === 'runner') {
-                  /* 담당자·실행자는 **아이콘**으로(지시) — 온 이름은 온마우스로 */
+                  /* 사람 칸은 **표가 이미 쓰는 꼴**이다(지시: 아이콘을 잘 고를 것)
+                     — 동그란 아이콘 + 이름. 칸이 좁으면 이름이 잘려 아이콘만
+                     남으니 「너무 길면 아이콘으로」 가 저절로 된다. 색은 이름마다
+                     달라 여럿이 섞인 목록에서 한눈에 갈린다. */
                   const nm = String(r[c.key] ?? '')
                   return nm ? (
-                    <span className="rm-av" title={nm} style={{ background: avColor(nm) }}>
-                      {initial(nm)}
+                    <span className="ntb-per" title={nm}>
+                      <span className="ntb-av" style={{ background: avColor(nm) }}>{initial(nm)}</span>
+                      <span className="ntb-txt">{nm}</span>
                     </span>
                   ) : (
                     <span className="rm-muted">–</span>
