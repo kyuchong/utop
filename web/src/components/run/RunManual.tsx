@@ -177,6 +177,14 @@ export default function RunManual({
     { key: 'bugs', label: '버그', type: 'text', width: 62 },
     /* 시험 시간만 **기본 꺼짐**(지시) — 속성 판에서 켠다 */
     { key: 'at', label: '시험 시간', type: 'text', width: 150, hidden: true },
+    /* 아래는 **묶기·거르기 감**이다(지시: Group by 를 되살려 달라).
+       숨긴 채로 두면 표에는 안 나오고 그룹·필터 목록에만 선다.
+       속성 판에서 켜면 열로도 볼 수 있다. */
+    { key: 'verdict', label: '판정', type: 'text', width: 96, hidden: true },
+    { key: 'folder', label: '폴더', type: 'text', width: 200, hidden: true },
+    { key: 'req', label: 'REQ', type: 'text', width: 120, hidden: true },
+    { key: 'type', label: '유형', type: 'text', width: 90, hidden: true },
+    { key: 'kind', label: '타입', type: 'text', width: 70, hidden: true },
   ]
   const [lsCols, setLsCols] = useNCols('utop.ntb.runman.cols', LS_DEFS)
   /* 아래 「계산」 줄 — 고른 값을 들고 있어야 셈이 뜬다(지적: 눌러도 안 먹었다) */
@@ -206,8 +214,13 @@ export default function RunManual({
         runner: x.runner || '',
         bugs: x.bugs || 0,
         at: stampFull(x.at),
+        verdict: vDef(verds, String(x.raw ?? '')).label,
+        folder: x.folder || '미분류',
+        req: x.req || '(요구사항 없음)',
+        type: x.type || '',
+        kind: x.kind || '',
       })),
-    [items],
+    [items, verds],
   )
 
 
