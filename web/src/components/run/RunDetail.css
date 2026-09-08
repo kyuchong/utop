@@ -359,3 +359,8 @@
 /* 2행 — 목록·시험서 두 카드. 바탕은 .rd 가 깔았으니 여기선 비운다 */
 .qav .rd.rd-cards .rm,
 .rd.rd-cards .rm { padding: 0; background: none; }
+
+/* 머리줄의 빵부스러기 — 좁아지면 앞쪽부터 줄어들되 끝(시험 이름)은 남는다 */
+.rd-crumb { min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.rd-crumb .crumbgo { cursor: default; }
+.rd-crumb .crumbgo:hover { text-decoration: none; }

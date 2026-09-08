@@ -1113,7 +1113,28 @@ export default function RunDetail({
       <div className="rd-bar">
         {lead}
         {lead ? (
-          <b className="rd-ver">{run.version || ''}</b>
+          /* 사이클 화면의 **빵부스러기를 그대로** 세우고 끝에 시험 이름을
+             붙인다(지시) — 어디서 온 시험인지 머리줄만 봐도 안다 */
+          <span className="cyb-crumb rd-crumb">
+            {(
+              [
+                ['🏢', String(plan?.customer || '미지정')],
+                ['📦', String(plan?.model || '미지정')],
+                ['🔖', String(plan?.version_group || '미지정')],
+              ] as Array<[string, string]>
+            ).map(([ico, l], i) => (
+              <span className="crumbi" key={`${ico}${l}`}>
+                {i > 0 && <i className="csep">/</i>}
+                <span className="cfico" aria-hidden="true">{ico}</span>
+                <span className="crumbgo">{l}</span>
+              </span>
+            ))}
+            <i className="csep">/</i>
+            <b className="crumbgo last">{String(plan?.name || run.version || '')}</b>
+            {!!plan?.cid && <span className="rd-key">{plan.cid}</span>}
+            <i className="csep">/</i>
+            <b className="crumbgo last">{isAuto ? 'Automation Test' : 'Manual Test'}</b>
+          </span>
         ) : (
           <button type="button" className="rd-home" onClick={onBack}>
             ← {run.version || '목록'}
@@ -1121,8 +1142,6 @@ export default function RunDetail({
         )}
         {/* 실행 키·플랜 칩은 걷었다(지시) — 아래 네 번호 줄(요구사항 /
             항목 / 사이클 / 실행)이 같은 값을 이미 말한다 */}
-        {/* 수동은 경과·진행 띠가 **머리줄 안**에 선다(지시: 아래 띠를 위로) */}
-        {!isAuto && <span className="rd-inline">{liveBand}</span>}
         <span className="rd-sp" />
         {/* 방식 딱지와 RUNNING/QUEUED 배지를 뺐다(지시). 상태는 위 띠의
             「지금 스텝」 이 이미 말한다 — Step 1 / 5 (대기) 처럼. */}
@@ -1184,6 +1203,8 @@ export default function RunDetail({
         {/* 「삭제」 는 뺐다(지시). 보고 있는 것을 그 자리에서 지우는 단추는
             누를 일보다 잘못 누를 일이 많다 — 지우기는 목록에서 골라서 한다
             (Runs 표의 여러 건 지우기. 결과가 있는 것은 거기서 미리 알린다). */}
+        {/* 경과·진행은 머리줄 **오른쪽 끝**에 선다(지시) */}
+        {!isAuto && <span className="rd-inline">{liveBand}</span>}
         {!!onClose && (
           <button type="button" className="rd-x" title="닫기" onClick={onClose}>
             ✕

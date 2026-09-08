@@ -301,9 +301,11 @@
 .rm-hv.n { background: #eef2f3; color: #7e9198; }
 
 /* 네 번호 한 줄 — 요구사항 / 항목 / 사이클 / 실행 */
+/* 왼쪽 카드의 표 도구줄과 **같은 키**로 세운다 — 두 카드의 첫 줄이
+   어긋나 보였다(지적) */
 .rm-keys {
   display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; overflow: hidden;
-  padding: 4px 9px; border-bottom: 1px solid var(--c-border-soft, #e2e8eb);
+  min-height: 41px; padding: 4px 9px; border-bottom: 1px solid var(--c-border-soft, #e2e8eb);
   background: #fbfdff; flex: none;
 }
 .rm-keys .rm-kc { flex: none; }
@@ -592,3 +594,6 @@
 .rm-dbody .md h1, .rm-dbody .md h2, .rm-dbody .md h3 { font-size: 14px; margin: 12px 0 6px; }
 .rm-dbody .md table { border-collapse: collapse; font-size: 12px; }
 .rm-dbody .md td, .rm-dbody .md th { border: 1px solid #e2e8eb; padding: 4px 7px; }
+
+/* 오른쪽 카드도 안쪽이 넘치면 제 안에서 굴린다 */
+.rm-right .rm-panel { overflow: hidden; }
