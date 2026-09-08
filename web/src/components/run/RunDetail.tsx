@@ -46,6 +46,8 @@ export interface RunFull {
   vat?: Record<string, string>
   /** 항목마다 배정한 담당자 — 목록의 「담당자」 칸이 읽는다 */
   assignees?: Record<string, string>
+  /** 항목마다 **판정한 사람** — 목록의 「실행자」 아이콘이 그 사람이다 */
+  runners?: Record<string, string>
   /** 절차마다의 판정 — 수동 시험에서 쓴다 */
   pchk?: Record<string, string[]>
   /** 스텝마다의 실측값·판정 시각·판정자 */
@@ -509,12 +511,17 @@ export default function RunDetail({
      자동 시험의 결과는 실행기가 내고, 수동 시험의 항목 결과는 스텝
      판정에서 굴러 나온다 — 사람이 항목 결과를 직접 찍는 자리는 없다. */
 
-  /** 판정 시각 도장 — 항목마다 언제 판정했는지 남긴다(목록의 시험 시간) */
+  /** 판정 도장 — 언제(vat) 누가(runners) 판정했는지 항목마다 남긴다.
+      실행자 아이콘은 이 값을 그린다(지시) */
   const vatStamp = (tcids: string[]) => {
     const now = new Date().toISOString()
     const vat = { ...(run?.vat ?? {}) }
-    for (const t of tcids) vat[t] = now
-    return { vat }
+    const runners = { ...(run?.runners ?? {}) }
+    for (const t of tcids) {
+      vat[t] = now
+      if (meName) runners[t] = meName
+    }
+    return { vat, runners }
   }
 
   /** 수동은 **첫 판정이 곧 시작**이다 — 시작 시각·실행자를 그때 박는다 */
@@ -911,6 +918,18 @@ export default function RunDetail({
     }
     return m
   }, [defQ.data])
+
+  /** 지금 보고 있는 사람 — 판정하면 그 사람이 그 항목의 실행자가 된다 */
+  const meQ = useQuery({
+    queryKey: ['me'],
+    staleTime: 300_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/me')
+      if (!r.ok) throw new Error('사용자를 불러오지 못했습니다')
+      return (await r.json()) as { user?: { name?: string; username?: string } }
+    },
+  })
+  const meName = String(meQ.data?.user?.name || meQ.data?.user?.username || '')
 
   /** 요구사항 이름·폴더 — **분류(cat1~4) 이름을 이어 만든다.** 요구사항에
       folder 라는 칸은 없어, 그걸 읽던 동안 폴더가 늘 「미분류」 였다(지적) */
@@ -1378,7 +1397,8 @@ export default function RunDetail({
                   cycAssignee.get(id) ||
                   ((t2 as Record<string, unknown> | undefined)?.assignee ?? ''),
               ),
-              runner: String(run.owner ?? ''),
+              /* 실행자는 **그 항목을 판정한 사람**이다 — 아직이면 비어 있다(지시) */
+              runner: String((run.runners ?? {})[id] ?? ''),
               v: (results[id] ?? 'n') as Verdict,
               /* 목록의 판정 칸은 **저장된 값 그대로**를 고른다(글자 갈래가 아니라) */
               raw: String(rawResults[id] ?? ''),

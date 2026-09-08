@@ -25,6 +25,10 @@ export interface NCol {
   options?: NOption[]
   /** ID·제목처럼 지우거나 타입을 못 바꾸는 열 */
   fixed?: boolean
+  /** 열 머리를 **아이콘만**으로 세운다 — 좁은 칸(사람 아이콘 같은)에서
+      이름 글자가 칸보다 넓어지는 것을 막는다. 이름(label)은 속성 판·
+      그룹·필터 목록과 온마우스에 그대로 쓴다. */
+  headIcon?: boolean
 }
 
 export interface NRow {

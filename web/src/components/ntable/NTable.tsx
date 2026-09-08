@@ -723,14 +723,15 @@ export default function NTable(p: NTableProps) {
                   <th key={c.key} style={{ width: wOf(c) }}>
                     <button
                       type="button"
-                      className={`ntb-hb${menuAt?.key === c.key ? ' on' : ''}`}
+                      title={c.label}
+                      className={`ntb-hb${menuAt?.key === c.key ? ' on' : ''}${c.headIcon ? ' ico' : ''}`}
                       onClick={(e) => {
                         const b = e.currentTarget.getBoundingClientRect()
                         setMenuAt(menuAt?.key === c.key ? null : { key: c.key, x: b.left, y: b.bottom + 4 })
                       }}
                     >
                       <I />
-                      <span className="l">{c.label}</span>
+                      {!c.headIcon && <span className="l">{c.label}</span>}
                       {s && <span className="ntb-ar">{s.dir === 'asc' ? '↑' : '↓'}</span>}
                     </button>
                     <span

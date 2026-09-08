@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import { goto } from '@/api/goto'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
 import NTable, { seedOptions } from '@/components/ntable/NTable'
@@ -172,8 +173,8 @@ export default function RunManual({
   const LS_DEFS: NCol[] = [
     { key: 'id', label: 'TC ID', type: 'text', width: 124, fixed: true },
     { key: 'title', label: '시험 항목', type: 'text', width: 300, fixed: true },
-    { key: 'who', label: '담당자', type: 'person', width: 58 },
-    { key: 'runner', label: '실행자', type: 'person', width: 58 },
+    { key: 'who', label: '담당자', type: 'person', width: 52, headIcon: true },
+    { key: 'runner', label: '실행자', type: 'person', width: 52, headIcon: true },
     { key: 'bugs', label: '버그', type: 'text', width: 62 },
     /* 시험 시간만 **기본 꺼짐**(지시) — 속성 판에서 켠다 */
     { key: 'at', label: '시험 시간', type: 'text', width: 150, hidden: true },
@@ -310,11 +311,10 @@ export default function RunManual({
                       <button
                         type="button"
                         className="ntb-id"
-                        title="누르면 이 줄만 판정합니다"
+                        title="시험 항목 상세 화면으로"
                         onClick={(e) => {
                           e.stopPropagation()
-                          const b2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                          setRowAt({ x: b2.left, y: b2.bottom + 4, id: String(r.__id) })
+                          goto('tc', String(r.__id))
                         }}
                       >
                         {String(r.id ?? '')}
@@ -340,15 +340,35 @@ export default function RunManual({
                 }
                 if (c.key === 'who' || c.key === 'runner') {
                   /* **아이콘만**이다(지시: 이름이 있으면 안 된다) — 이름은
-                     마우스를 올리면 뜬다. 색은 이름마다 달라 여럿이 섞여도 갈린다 */
+                     마우스를 올리면 뜬다. 색은 이름마다 달라 여럿이 섞여도 갈린다.
+                     **실행자** 아이콘을 누르면 그 줄만 판정한다(지시) */
                   const nm = String(r[c.key] ?? '')
+                  const face = nm ? (
+                    <span className="ntb-av" style={{ background: avColor(nm) }}>{initial(nm)}</span>
+                  ) : (
+                    /* 아직 판정 전 — 빈 동그라미를 눌러 판정하면 그 사람이 여기 선다 */
+                    <span className="ntb-av rm-avnone">+</span>
+                  )
+                  if (c.key !== 'runner')
+                    return (
+                      <span className="rm-avc2" title={nm || '없음'}>
+                        {nm ? face : <span className="rm-muted">–</span>}
+                      </span>
+                    )
                   return (
-                    <span className="rm-avc2" title={nm || '없음'}>
-                      {nm ? (
-                        <span className="ntb-av" style={{ background: avColor(nm) }}>{initial(nm)}</span>
-                      ) : (
-                        <span className="rm-muted">–</span>
-                      )}
+                    <span className="rm-avc2">
+                      <button
+                        type="button"
+                        className="rm-avb2"
+                        title={`${nm || '실행자 없음'} — 누르면 이 줄만 판정합니다`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const b2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setRowAt({ x: Math.max(8, b2.left - 60), y: b2.bottom + 4, id: String(r.__id) })
+                        }}
+                      >
+                        {face}
+                      </button>
                     </span>
                   )
                 }
