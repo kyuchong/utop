@@ -801,6 +801,19 @@ export default function RunDetail({
   const dut = binds.DUT ? devById.get(String(binds.DUT)) : undefined
   const note = (run.notes ?? {})[cur] ?? ''
   const pv = (run.pchk ?? {})[cur] ?? []
+  /** 사이클 **전문** — 담을 때 복제된 시험서가 여기 있다(목록 API 는 줄여 준다) */
+  const cycPid = String(plan?.id ?? run?.plan_id ?? '')
+  const cycQ = useQuery({
+    queryKey: ['cycle-full', cycPid],
+    enabled: !!cycPid,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycPid)}`)
+      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      return (await r.json()) as Record<string, unknown>
+    },
+    staleTime: 30_000,
+  })
+
   const msteps = manualSteps(oneQ.data)
 
   /* ── 담을 때의 시험서 vs 지금의 시험서 (지시: Update this test script) ──
@@ -808,12 +821,15 @@ export default function RunDetail({
      고치면 **담긴 것과 달라진다.** 지금 화면은 라이브 TC 를 읽고 있어 그
      사실을 아무도 모른다 — 다르면 띠로 말하고, 눌러서 최신으로 옮긴다. */
   const snapSteps = useMemo(() => {
-    const it = ((plan?.items ?? []) as unknown as Array<Record<string, unknown>>).find(
+    /* **목록 API 는 스텝을 줄여서 준다**(kind·action·manual·result 만) —
+       그걸로 견주면 언제나 「달라졌다」 가 된다(실측). 사이클 **전문**을
+       읽어야 담을 때의 시험서가 그대로 나온다. */
+    const it = ((cycQ.data?.items ?? []) as unknown as Array<Record<string, unknown>>).find(
       (x) => String(x?.tcid ?? '') === cur,
     )
     const raw = (it?.steps as CycleStep[] | undefined) ?? (it?.checks as CycleStep[] | undefined) ?? []
     return Array.isArray(raw) ? raw : []
-  }, [plan, cur])
+  }, [cycQ.data, cur])
   const liveSteps = useMemo(() => {
     const raw = (oneQ.data?.steps as CycleStep[] | undefined) ?? []
     const st = raw.length ? raw : ((oneQ.data?.checks as CycleStep[] | undefined) ?? [])
@@ -878,6 +894,7 @@ export default function RunDetail({
     }
     await qc.invalidateQueries({ queryKey: ['cycles'] })
     await qc.invalidateQueries({ queryKey: ['cycle-full', pid] })
+    await cycQ.refetch()
   }
   const log = (run.logs ?? {})[cur]
   /** 지금 보고 있는 스텝 — 아직 판정 안 한 첫 스텝이다. 다 했으면 마지막 */
