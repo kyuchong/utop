@@ -1686,16 +1686,34 @@ export default function CyclesBoard({
               <div className="kv1">
                 {kv('요구사항', <>{reqN}건</>)}
                 {kv(
-                  '시험 항목',
+                  '전체 항목',
                   <>
                     {itemRows.length}건 <span className="cu-m">(자동 {nAuto} · 수동 {nMan})</span>
+                  </>,
+                )}
+                {kv(
+                  '수동 항목',
+                  <>
+                    {nMan}건{' '}
+                    <span className="cu-m">
+                      (요구사항 {new Set(itemRows.filter((r) => r.man).map((r) => r.reqLabel).filter(Boolean)).size}건)
+                    </span>
+                  </>,
+                )}
+                {kv(
+                  '자동 항목',
+                  <>
+                    {nAuto}건{' '}
+                    <span className="cu-m">
+                      (요구사항 {new Set(itemRows.filter((r) => !r.man).map((r) => r.reqLabel).filter(Boolean)).size}건)
+                    </span>
                   </>,
                 )}
               </div>
             </div>
           </div>
           <div className="cu-card metacard">
-            <h2>사람 · 이력</h2>
+            <h2>이력</h2>
             <div className="pad">
               <div className="kv1">
                 {kv(
