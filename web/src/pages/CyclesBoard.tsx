@@ -2328,16 +2328,17 @@ export default function CyclesBoard({
               onBack={() => setRunnerOn(false)}
               lead={
                 <>
+                  {/* 돌아가기 — 사이클 화면의 접기 단추와 **같은 아이콘**(지시) */}
                   <button
                     type="button"
-                    className="btn small"
-                    title="시험을 멈추지 않고 사이클 화면으로 돌아갑니다"
+                    className="cu-colbtn"
+                    title="돌아가기 — 시험을 멈추지 않고 사이클 화면으로"
                     onClick={() => {
                       setRunnerOn(false)
                       setWide(false)
                     }}
                   >
-                    ← 돌아가기
+                    <IconPanel open />
                   </button>
                   <button
                     type="button"
