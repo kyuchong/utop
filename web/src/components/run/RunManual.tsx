@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
-import NTable from '@/components/ntable/NTable'
+import NTable, { seedOptions } from '@/components/ntable/NTable'
 import { EMPTY_VIEW } from '@/components/ntable/types'
 import type { NCalc, NCol, NRow, NView } from '@/components/ntable/types'
 import { useNCols, useUserPeople } from '@/pages/qaBits'
@@ -180,11 +180,13 @@ export default function RunManual({
     /* 아래는 **묶기·거르기 감**이다(지시: Group by 를 되살려 달라).
        숨긴 채로 두면 표에는 안 나오고 그룹·필터 목록에만 선다.
        속성 판에서 켜면 열로도 볼 수 있다. */
-    { key: 'verdict', label: '판정', type: 'text', width: 96, hidden: true },
-    { key: 'folder', label: '폴더', type: 'text', width: 200, hidden: true },
-    { key: 'req', label: 'REQ', type: 'text', width: 120, hidden: true },
-    { key: 'type', label: '유형', type: 'text', width: 90, hidden: true },
-    { key: 'kind', label: '타입', type: 'text', width: 70, hidden: true },
+    /* **선택형**이라야 거를 값이 생긴다(지적: 필터가 안 먹었다) —
+       선택지는 지금 목록의 값에서 만들어 붙인다 */
+    { key: 'verdict', label: '판정', type: 'select', width: 96, hidden: true, options: [] },
+    { key: 'folder', label: '폴더', type: 'select', width: 200, hidden: true, options: [] },
+    { key: 'req', label: 'REQ', type: 'select', width: 120, hidden: true, options: [] },
+    { key: 'type', label: '유형', type: 'select', width: 90, hidden: true, options: [] },
+    { key: 'kind', label: '타입', type: 'select', width: 70, hidden: true, options: [] },
   ]
   const [lsCols, setLsCols] = useNCols('utop.ntb.runman.cols', LS_DEFS)
   /* 아래 「계산」 줄 — 고른 값을 들고 있어야 셈이 뜬다(지적: 눌러도 안 먹었다) */
@@ -223,6 +225,18 @@ export default function RunManual({
     [items, verds],
   )
 
+
+  /** 표에 넘길 열 — 값에서 선택지를 만들어 붙인다(거르기·묶기가 이걸 쓴다).
+      판정만은 셋업의 색을 그대로 입힌다 */
+  const lsColsView = useMemo(
+    () =>
+      seedOptions(lsCols, lsRows).map((c) =>
+        c.key === 'verdict'
+          ? { ...c, options: verds.map((d) => ({ value: d.label, color: d.color })) }
+          : c,
+      ),
+    [lsCols, lsRows, verds],
+  )
 
   /** 이름 첫 글자 — 「전규종(검증)」 → 「전」 */
   const initial = (v: string) => {
@@ -267,13 +281,13 @@ export default function RunManual({
               REQ-Coverage 와 같은 표라 사람이 한 번만 배운다. */}
           <div className="rm-ntb">
             <NTable
-              columns={lsCols}
+              columns={lsColsView}
               rows={lsRows}
               view={lsView}
               onView={setLsView}
               onColumns={setLsCols}
               onCell={() => {}}
-              readOnlyKeys={lsCols.map((c) => c.key)}
+              readOnlyKeys={lsColsView.map((c) => c.key)}
               lockDefs
               idKey="id"
               titleKey="title"
