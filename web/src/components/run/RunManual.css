@@ -573,3 +573,6 @@
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .rm-titleb:hover { text-decoration: underline; }
+
+/* 담당자·실행자는 **아이콘만**(지시) — 가운데 세운다 */
+.rm-avc2 { display: flex; align-items: center; justify-content: center; }
