@@ -552,12 +552,12 @@ export default function RunManual({
                     </span>
                   </div>
                   <div className="rm-fl">
-                    <span className="l">Test Step</span>
-                    <div className="v">{s.desc || s.t || <span className="rm-muted">–</span>}</div>
+                    <div className="v">
+                    <span className="l">Test Step</span>{s.desc || s.t || <span className="rm-muted">–</span>}</div>
                   </div>
                   <div className="rm-fl">
-                    <span className="l">Test Data</span>
                     <div className="v">
+                    <span className="l">Test Data</span>
                       {!s.data && !s.dataImg && <span className="rm-muted">–</span>}
                       {s.data ? <div className="rm-bt">{s.data}</div> : null}
                       {s.dataImg ? (
@@ -574,8 +574,8 @@ export default function RunManual({
                     </div>
                   </div>
                   <div className="rm-fl">
-                    <span className="l">Expected Result</span>
                     <div className="v">
+                    <span className="l">Expected Result</span>
                       {!s.expected && !s.expImg && <span className="rm-muted">–</span>}
                       {s.expected ? <div className="rm-bt">{s.expected}</div> : null}
                       {s.expImg ? (
@@ -592,8 +592,8 @@ export default function RunManual({
                     </div>
                   </div>
                   <div className="rm-fl">
-                    <span className="l">Actual Result</span>
                     <div className="v">
+                    <span className="l">Actual Result</span>
                       <textarea
                         className="rm-ata"
                         defaultValue={m?.act ?? ''}

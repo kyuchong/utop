@@ -384,11 +384,20 @@
 .rm-fl::after { content: ''; display: block; clear: both; }
 .rm-fl:first-of-type { border-top: 0; }
 /* 라벨은 **오른쪽 끝**에 선다(지시) — 값이 카드 왼쪽 끝부터 전체 폭을 쓴다 */
+/* 배지는 값 **안쪽 첫 글자**다 — float 로 두면 사진·입력칸처럼 제 서식
+   문맥을 만드는 블록이 배지를 피해 들여쓰기된다(실측: A안처럼 보였다).
+   안에 두면 짧은 글은 배지 오른쪽에 붙고, 덩어리는 아래로 내려가
+   카드 왼쪽 끝부터 전체 폭을 쓴다. */
 .rm-fl .l {
-  float: left; background: #eef2f4; color: #6f7f88; border-radius: 4px;
-  font-size: 10.5px; line-height: 1.5; padding: 1px 6px; margin: 1px 8px 2px 0; white-space: nowrap;
+  display: inline-block; background: #eef2f4; color: #6f7f88; border-radius: 4px;
+  font-size: 10.5px; line-height: 1.5; padding: 1px 6px; margin: 0 8px 2px 0;
+  white-space: nowrap; vertical-align: 1px;
 }
 .rm-fl .v { font-size: 12.5px; min-width: 0; }
+/* 짧은 글은 배지 **오른쪽에 이어** 서야 한다 — 블록이면 줄이 바뀐다 */
+.rm-fl .rm-bt { display: inline; }
+/* 사진·입력칸은 제 줄에서 **카드 왼쪽 끝부터** 전체 폭 */
+.rm-fl .rm-shot, .rm-fl .rm-ata, .rm-fl .rm-shots { margin-top: 4px; }
 .rm-bt { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; }
 .rm-ata {
   width: 100%; min-height: 26px; border: 1px solid #dce4e7; border-radius: 4px;
