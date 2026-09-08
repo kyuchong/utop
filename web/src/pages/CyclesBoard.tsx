@@ -2247,7 +2247,7 @@ export default function CyclesBoard({
             Automation <span className="dim">{nAuto}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'def'} className={tab === 'def' ? 'on' : ''} onClick={() => setTab('def')}>
-            결함 내역
+            Defects
           </button>
           <button type="button" role="tab" aria-selected={tab === 'ai'} className={tab === 'ai' ? 'on' : ''} onClick={() => setTab('ai')}>
             AI 요약
