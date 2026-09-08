@@ -553,5 +553,9 @@
   padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 600; color: #26333b; cursor: pointer;
 }
 .rm-bb:hover { filter: brightness(0.95); }
-.rm-bbx { border: 0; background: none; color: #fff; opacity: .8; font: inherit; font-size: 13px; cursor: pointer; }
+.rm-bbsep { width: 1px; height: 16px; background: #4b4643; }
+.rm-bbx {
+  border: 1px solid #4b4643; background: none; color: #fff; opacity: .85;
+  border-radius: 5px; padding: 3px 10px; font: inherit; font-size: 12px; cursor: pointer;
+}
 .rm-bbx:hover { opacity: 1; }

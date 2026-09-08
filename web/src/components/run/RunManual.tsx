@@ -702,7 +702,8 @@ export default function RunManual({
               {o.label}
             </button>
           ))}
-          <button type="button" className="rm-bbx" title="선택 풀기" onClick={() => setSel(new Set())}>✕</button>
+          <span className="rm-bbsep" />
+          <button type="button" className="rm-bbx" onClick={() => setSel(new Set())}>선택 해제</button>
         </div>
       )}
 
