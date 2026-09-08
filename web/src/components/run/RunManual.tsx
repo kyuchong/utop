@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useVerdicts, vDef } from '@/lib/verdicts'
@@ -29,6 +29,13 @@ const stamp = (iso: string) => {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
+/** 시험 시간 — 「26/09/01 23:01:01」(지시) */
+const stampFull = (iso: string) => {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getFullYear() % 100)}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
 
 export interface MItem {
   id: string
@@ -43,6 +50,11 @@ export interface MItem {
   last: V
   bugs: number
   at: string
+  /** 묶기(Group by)가 쓰는 값 */
+  req?: string
+  folder?: string
+  type?: string
+  kind?: string
 }
 export interface MStep {
   t: string
@@ -64,7 +76,7 @@ export interface MMeta {
 
 export default function RunManual({
   items, cur, onPick, steps, pchk, pmeta, onStep, onAct, info, planId, runId, onBug,
-  onVerdict, keys, stale,
+  onVerdict, onVerdicts, keys, stale,
 }: {
   items: MItem[]
   cur: string
@@ -89,6 +101,8 @@ export default function RunManual({
   onBug: () => void
   /** 목록에서 항목을 통째로 판정할 때 — 절차가 없는 항목의 유일한 길 */
   onVerdict?: (tcid: string, value: string) => void
+  /** 고른 줄 여럿에 한 판정을 한 번에 */
+  onVerdicts?: (tcids: string[], value: string) => void
   /** 머리의 네 번호 — 요구사항 / 항목 / 사이클 / 실행 */
   keys?: { cycle?: string; run?: string }
   /** 담을 때보다 시험 항목이 바뀌었나 — 「Update this test script」 띠 */
@@ -106,6 +120,11 @@ export default function RunManual({
   /* 요구사항·시험항목은 **오른쪽 서랍**으로 뺐다(지시) — 스텝이 세로를 다 쓴다.
      서랍이 오른쪽인 것은 릴리즈의 Jira 서랍과 같은 규칙이다(한 방향으로 통일) */
   const [drw, setDrw] = useState<'' | 'req' | 'tc'>('')
+  /* 묶기(지시) — Zephyr 의 Group by 자리. 우리 자료에 있는 값만 둔다 */
+  const [grp, setGrp] = useState(() => prefGet('utop.run.man.grp') ?? '')
+  /** 고른 줄 — 일괄 판정이 여기에만 찍힌다(승인: 체크한 줄만) */
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const [bulkAt, setBulkAt] = useState<{ x: number; y: number } | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState(false)
 
@@ -151,9 +170,39 @@ export default function RunManual({
   const pages = Math.max(1, Math.ceil(shown.length / per))
   const at = Math.min(page, pages)
   const slice = shown.slice((at - 1) * per, (at - 1) * per + per)
+  /** 묶기 값 한 칸 — 없으면 빈 글자 */
+  const gval = (x: MItem) =>
+    grp === 'v' ? vDef(verds, String(x.raw ?? '')).label
+    : grp === 'who' ? (x.assignee || x.runner || '(없음)')
+    : grp === 'folder' ? (x.folder || '미분류')
+    : grp === 'req' ? (x.req || '(요구사항 없음)')
+    : grp === 'type' ? (x.type || '(없음)')
+    : grp === 'kind' ? (x.kind || '(없음)')
+    : ''
+  /** 묶음 — 고른 기준으로 이 쪽의 줄을 나눈다 */
+  const groups = useMemo(() => {
+    if (!grp) return [{ k: '', rows: slice }]
+    const m = new Map<string, MItem[]>()
+    for (const x of slice) {
+      const k = gval(x)
+      m.set(k, [...(m.get(k) ?? []), x])
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko')).map(([k, rows]) => ({ k, rows }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slice, grp, verds])
+  /** 지금 쪽에 보이는 줄 전부 */
+  const pageKeys = slice.map((x) => x.id)
+  const allOn = pageKeys.length > 0 && pageKeys.every((k) => sel.has(k))
 
   const one = items.find((x) => x.id === cur)
   const marked = pchk.filter(Boolean).length
+
+  /** 실행자 이니셜(지시) — 「전규종(검증)」 → 「전」. 온마우스로 온 이름 */
+  const initial = (v: string) => {
+    const nm = String(v || '').split('(')[0]!.trim()
+    if (!nm) return '–'
+    return /[A-Za-z]/.test(nm[0] ?? '') ? nm[0]!.toUpperCase() : nm[0]!
+  }
 
   /** 머리 번호 한 칸 — 누를 수 있는 것은 오른쪽 서랍을 연다 */
   const keyChip = (label: string, v?: string, opt?: { tone?: 'run'; open?: 'req' | 'tc' }) =>
@@ -181,6 +230,24 @@ export default function RunManual({
       <div className="rm-left" style={{ width: `${w}%` }}>
         <section className="rm-panel">
           <div className="rm-tools">
+            {/* 묶기 — Zephyr 의 Group by 자리(지시: 검색 왼쪽) */}
+            <select
+              className="rm-f"
+              value={grp}
+              title="묶어 보기"
+              onChange={(e) => {
+                setGrp(e.target.value)
+                prefSet('utop.run.man.grp', e.target.value)
+              }}
+            >
+              <option value="">묶기 없음</option>
+              <option value="v">판정</option>
+              <option value="who">실행자</option>
+              <option value="folder">폴더</option>
+              <option value="req">REQ</option>
+              <option value="type">유형</option>
+              <option value="kind">타입</option>
+            </select>
             <input
               className="rm-q"
               value={q}
@@ -209,48 +276,129 @@ export default function RunManual({
             <table>
               <thead>
                 <tr>
+                  <th className="rm-ck">
+                    <input
+                      type="checkbox"
+                      aria-label="이 쪽 전부 고르기"
+                      checked={allOn}
+                      onChange={() =>
+                        setSel(allOn ? new Set() : new Set(pageKeys))
+                      }
+                    />
+                  </th>
                   <th style={{ width: 108 }}>TC ID</th>
                   <th>시험 항목</th>
-                  <th style={{ width: 76 }}>실행자</th>
-                  <th style={{ width: 92 }}>판정</th>
+                  <th style={{ width: 52 }}>담당자</th>
+                  <th style={{ width: 116 }}>시험 시간</th>
+                  <th style={{ width: 100 }}>
+                    판정
+                    {/* 고른 줄에 한 판정을 한 번에(지시: SET ALL) */}
+                    <button
+                      type="button"
+                      className="rm-bulk"
+                      disabled={!sel.size || !onVerdicts}
+                      title={sel.size ? `고른 ${sel.size}건을 한 판정으로` : '먼저 줄을 고르세요'}
+                      onClick={(e) => {
+                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setBulkAt({ x: Math.max(8, r.right - 160), y: r.bottom + 4 })
+                      }}
+                    >
+                      ▾
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {slice.map((x) => {
-                  const d = vDef(verds, String(x.raw ?? ''))
+                {groups.map((g) => {
+                  const gk = g.rows.map((x) => x.id)
+                  const gOn = gk.length > 0 && gk.every((k) => sel.has(k))
+                  const gSome = !gOn && gk.some((k) => sel.has(k))
                   return (
-                    <tr
-                      key={x.id}
-                      className={`rm-r ${x.v}${x.id === cur ? ' on' : ''}`}
-                      onClick={() => onPick(x.id)}
-                    >
-                      <td className="rm-bar" title={`지금 결과 ${TAG[x.v]}`}>
-                        <span className="rm-id">{x.id}</span>
-                      </td>
-                      <td className="rm-t" title={x.title}>{x.title}</td>
-                      <td title={x.assignee || x.runner}>{x.assignee || x.runner || '–'}</td>
-                      <td>
-                        {/* 절차가 없는 항목의 **유일한 판정 자리**다. 선택지는
-                            셋업(실행 판정 기준)이 정본 — 색도 그 값을 따른다 */}
-                        <select
-                          className={`rm-vs ${x.v}`}
-                          value={d.v}
-                          disabled={!onVerdict}
-                          style={x.raw ? { color: d.fg, borderColor: d.color } : undefined}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => onVerdict?.(x.id, e.target.value)}
-                        >
-                          {verds.map((o) => (
-                            <option key={o.v || '(none)'} value={o.v}>{o.label}</option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
+                    <Fragment key={`g-${g.k}`}>
+                      {!!grp && (
+                        <tr className="rm-grh">
+                          <td colSpan={6}>
+                            <input
+                              type="checkbox"
+                              className="rm-gck"
+                              aria-label={`${g.k} 묶음 고르기`}
+                              checked={gOn}
+                              ref={(el) => {
+                                if (el) el.indeterminate = gSome
+                              }}
+                              onChange={() =>
+                                setSel((st) => {
+                                  const n = new Set(st)
+                                  if (gOn) gk.forEach((k) => n.delete(k))
+                                  else gk.forEach((k) => n.add(k))
+                                  return n
+                                })
+                              }
+                            />
+                            <b>{g.k || '(없음)'}</b>
+                            <span className="rm-muted">{g.rows.length}건</span>
+                          </td>
+                        </tr>
+                      )}
+                      {g.rows.map((x) => {
+                        const d = vDef(verds, String(x.raw ?? ''))
+                        const who = x.assignee || x.runner || ''
+                        const when = stampFull(x.at)
+                        return (
+                          <tr
+                            key={x.id}
+                            className={`rm-r ${x.v}${x.id === cur ? ' on' : ''}`}
+                            onClick={() => onPick(x.id)}
+                          >
+                            <td className="rm-ck" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                aria-label={`${x.id} 고르기`}
+                                checked={sel.has(x.id)}
+                                onChange={(e) =>
+                                  setSel((st) => {
+                                    const n = new Set(st)
+                                    if (e.target.checked) n.add(x.id)
+                                    else n.delete(x.id)
+                                    return n
+                                  })
+                                }
+                              />
+                            </td>
+                            <td className="rm-bar" title={`지금 결과 ${TAG[x.v]}`}>
+                              <span className="rm-id">{x.id}</span>
+                            </td>
+                            <td className="rm-t" title={x.title}>{x.title}</td>
+                            {/* 담당자는 이니셜만 — 온마우스로 온 이름(지시) */}
+                            <td className="rm-who" title={who || '–'}>{who ? initial(who) : '–'}</td>
+                            <td className="rm-when" title={when || '아직 판정 안 함'}>
+                              {when || <span className="rm-muted">–</span>}
+                            </td>
+                            <td>
+                              {/* 절차가 없는 항목의 **유일한 판정 자리**다. 선택지는
+                                  셋업(실행 판정 기준)이 정본 — 색도 그 값을 따른다 */}
+                              <select
+                                className={`rm-vs ${x.v}`}
+                                value={d.v}
+                                disabled={!onVerdict}
+                                style={x.raw ? { color: d.fg, borderColor: d.color } : undefined}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => onVerdict?.(x.id, e.target.value)}
+                              >
+                                {verds.map((o) => (
+                                  <option key={o.v || '(none)'} value={o.v}>{o.label}</option>
+                                ))}
+                              </select>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </Fragment>
                   )
                 })}
                 {!slice.length && (
                   <tr>
-                    <td colSpan={4} className="rm-none">
+                    <td colSpan={6} className="rm-none">
                       조건에 맞는 항목이 없습니다
                     </td>
                   </tr>
@@ -428,6 +576,30 @@ export default function RunManual({
             onBug()
           }}
         />
+      )}
+
+      {/* 고른 줄 일괄 판정 — 셋업의 판정 목록 그대로 */}
+      {!!bulkAt && (
+        <>
+          <span className="rm-dovl" role="presentation" onClick={() => setBulkAt(null)} />
+          <div className="rm-menu" role="menu" style={{ left: bulkAt.x, top: bulkAt.y }}>
+            <div className="rm-menuh">고른 {sel.size}건을</div>
+            {verds.map((o) => (
+              <button
+                type="button"
+                role="menuitem"
+                key={o.v || '(none)'}
+                onClick={() => {
+                  const ids = [...sel]
+                  setBulkAt(null)
+                  onVerdicts?.(ids, o.v)
+                }}
+              >
+                <i style={{ background: o.color }} /> {o.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       {/* ── 오른쪽 서랍 — 요구사항 · 시험항목 (지시) ──

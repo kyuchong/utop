@@ -41,6 +41,8 @@ export interface RunFull {
     }
   >
   notes?: Record<string, string>
+  /** 항목마다 **판정한 시각** — 목록의 「시험 시간」 칸이 읽는다 */
+  vat?: Record<string, string>
   /** 절차마다의 판정 — 수동 시험에서 쓴다 */
   pchk?: Record<string, string[]>
   /** 스텝마다의 실측값·판정 시각·판정자 */
@@ -274,6 +276,21 @@ export default function RunDetail({
     return m
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reqQ.data])
+  /** 요구사항 **폴더** — 묶기(Group by)의 「폴더」 가 쓴다 */
+  const reqFolder = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of reqQ.data?.reqs ?? []) {
+      const f = String(r.folder ?? r.cat ?? '').trim()
+      if (!f) continue
+      for (const k of [r.id, r.pk, r.reqid]) {
+        const key = String(k ?? '').trim()
+        if (key) m.set(key, f)
+      }
+    }
+    return m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reqQ.data])
+
   /** 요구사항 **본문** — 오른쪽 서랍이 편다 */
   const reqBody = useMemo(() => {
     const m = new Map<string, string>()
@@ -484,7 +501,8 @@ export default function RunDetail({
      견주던 탓에 253 에서는 수동 시험도 자동 작업대가 열렸다. */
   const isAuto = !isManual(run?.mode || meta?.run_type || meta?.kind || '자동')
   /** 멈출 것이 있나 — 도는 일감이 있거나, 수동이 시작만 눌린 상태 */
-  const canStop = jobLive || (!isAuto && !!run?.started_at)
+  /* 수동에는 중지가 없다(지시) — 멈출 실행기가 없고, 경과는 기록일 뿐이다 */
+  const canStop = jobLive
 
   const save = async (patch: Partial<RunFull>) => {
     const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}`, {
@@ -502,6 +520,14 @@ export default function RunDetail({
   /* 「고른 항목 판정」 단추가 쓰던 길은 그 줄과 함께 걷었다(지시).
      자동 시험의 결과는 실행기가 내고, 수동 시험의 항목 결과는 스텝
      판정에서 굴러 나온다 — 사람이 항목 결과를 직접 찍는 자리는 없다. */
+
+  /** 판정 시각 도장 — 항목마다 언제 판정했는지 남긴다(목록의 시험 시간) */
+  const vatStamp = (tcids: string[]) => {
+    const now = new Date().toISOString()
+    const vat = { ...(run?.vat ?? {}) }
+    for (const t of tcids) vat[t] = now
+    return { vat }
+  }
 
   /** 수동은 **첫 판정이 곧 시작**이다 — 시작 시각·실행자를 그때 박는다 */
   const startStamp = () =>
@@ -528,7 +554,7 @@ export default function RunDetail({
           : 'n'
     /* 저장은 **판정 값**으로, 원본(rawResults) 위에 — 글자 지도를 통째로
        저장하면 다른 항목의 값(커스텀 판정)까지 글자로 뭉개진다 */
-    await save({ ...startStamp(), pchk, pmeta, results: { ...rawResults, [cid]: LETTER_VERD[roll] ?? '' } })
+    await save({ ...startStamp(), ...vatStamp([cid]), pchk, pmeta, results: { ...rawResults, [cid]: LETTER_VERD[roll] ?? '' } })
   }
 
   /* 도는 동안에는 **실행기를 따라간다.** 안 그러면 CLI 판은 첫 스텝에
@@ -1293,10 +1319,16 @@ export default function RunDetail({
               v: (results[id] ?? 'n') as Verdict,
               /* 목록의 판정 칸은 **저장된 값 그대로**를 고른다(글자 갈래가 아니라) */
               raw: String(rawResults[id] ?? ''),
+              /* 묶기(Group by)가 쓰는 값들 */
+              req: reqLabel.get(String(t2?.req_id ?? '')) || String(t2?.req_id ?? ''),
+              folder: reqFolder.get(String(t2?.req_id ?? '')) || '미분류',
+              type: String((t2 as Record<string, unknown> | undefined)?.type ?? ''),
+              kind: isManual(String((t2 as Record<string, unknown> | undefined)?.run_type ?? '')) ? '수동' : '자동',
               /* 지난 빌드 결과는 아직 안 싣는다 — 없는 것을 지어내지 않는다 */
               last: 'n' as Verdict,
               bugs: 0,
-              at: String((run.logs ?? {})[id]?.at ?? '').slice(0, 10),
+              /* 시험 시간 — 판정한 시각. 없으면 실행 기록의 시각 */
+              at: String((run.vat ?? {})[id] ?? (run.logs ?? {})[id]?.at ?? ''),
             }
           })}
           cur={cur}
@@ -1337,7 +1369,13 @@ export default function RunDetail({
           runId={runId}
           onBug={() => void qc.invalidateQueries({ queryKey: ['plan-run', runId] })}
           /* 목록에서 항목을 통째로 판정한다 — 절차가 없는 항목의 유일한 길 */
-          onVerdict={(tcid, value) => void save({ ...startStamp(), results: { ...rawResults, [tcid]: value } })}
+          onVerdict={(tcid, value) => void save({ ...startStamp(), ...vatStamp([tcid]), results: { ...rawResults, [tcid]: value } })}
+          /* 고른 줄에 한 판정을 한 번에(지시: 체크한 줄만) */
+          onVerdicts={(tcids, value) => {
+            const next = { ...rawResults }
+            for (const t3 of tcids) next[t3] = value
+            void save({ ...startStamp(), ...vatStamp(tcids), results: next })
+          }}
           keys={{ cycle: String(plan?.cid ?? plan?.id ?? ''), run: runId }}
           stale={stale}
         />

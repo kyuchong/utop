@@ -424,3 +424,44 @@
   white-space: pre-wrap; word-break: break-word; margin: 0;
   font: inherit; font-size: 12.5px; line-height: 1.6; color: #2b343c;
 }
+
+
+/* ── 목록: 고르기 · 묶기 · 일괄 판정 (지시) ── */
+.rm-grid th.rm-ck, .rm-grid td.rm-ck { width: 30px; padding-left: 8px !important; padding-right: 0 !important; }
+.rm-ck input { cursor: pointer; margin: 0; vertical-align: -1px; }
+.rm-who { text-align: center; font-weight: 600; color: #46555d; }
+
+/* 판정 열 머리의 일괄 단추 */
+.rm-bulk {
+  margin-left: 5px; border: 1px solid #dce4e7; background: #fff; border-radius: 4px;
+  padding: 0 5px; font: inherit; font-size: 10.5px; color: #7e9198; cursor: pointer;
+}
+.rm-bulk:disabled { opacity: 0.4; cursor: default; }
+.rm-bulk:hover:not(:disabled) { border-color: var(--c-primary, #1769d2); color: var(--c-primary, #1769d2); }
+
+/* 묶음 머리 줄 */
+.rm-grh td {
+  background: #f2f6f7; border-bottom: 1px solid #e2e8eb;
+  padding: 3px 9px !important; font-size: 11.5px; color: #46555d;
+}
+.rm-gck { margin: 0 8px 0 0; vertical-align: -1px; cursor: pointer; }
+.rm-grh b { font-weight: 700; }
+.rm-grh .rm-muted { margin-left: 8px; }
+
+/* 일괄 판정 메뉴 */
+.rm-menu {
+  position: fixed; z-index: 72; min-width: 160px;
+  background: #fff; border: 1px solid var(--c-border, #c3cbd4); border-radius: 7px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16); padding: 4px; overflow: hidden;
+}
+.rm-menuh { padding: 4px 9px; font-size: 11px; color: #82959c; }
+.rm-menu button {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  border: 0; background: none; border-radius: 5px; padding: 5px 9px;
+  font: inherit; font-size: 12px; color: #26333b; cursor: pointer; text-align: left;
+}
+.rm-menu button:hover { background: var(--c-primary-bg, #e9f1ff); }
+.rm-menu button i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+
+/* 시험 시간 — 숫자가 줄줄이 서게 */
+.rm-when { font-size: 11px; color: #46555d; white-space: nowrap; font-variant-numeric: tabular-nums; }
