@@ -170,11 +170,20 @@ export default function RunManual({
     { key: 'title', label: '시험 항목', type: 'text', width: 300, fixed: true },
     { key: 'who', label: '담당자', type: 'person', width: 96 },
     { key: 'runner', label: '실행자', type: 'person', width: 96 },
-    /* 버그·시험 시간은 **기본 꺼짐**(지시) — 속성 판에서 켠다 */
-    { key: 'bugs', label: '버그', type: 'text', width: 62, hidden: true },
+    { key: 'bugs', label: '버그', type: 'text', width: 62 },
+    /* 시험 시간만 **기본 꺼짐**(지시) — 속성 판에서 켠다 */
     { key: 'at', label: '시험 시간', type: 'text', width: 150, hidden: true },
   ]
   const [lsCols, setLsCols] = useNCols('utop.ntb.runman.cols', LS_DEFS)
+  /* 버그를 기본 켜짐으로 바꿨다(지시). 계정에 남은 옛 「숨김」 이 정의를
+     이기므로 한 번만 걷어 주고 표식을 남긴다 — 사람이 다시 끄는 것은 그대로 */
+  useEffect(() => {
+    if (prefGet('utop.ntb.runman.bugon') === '1') return
+    prefSet('utop.ntb.runman.bugon', '1')
+    const cur2 = lsCols.find((c) => c.key === 'bugs')
+    if (cur2?.hidden) setLsCols(lsCols.map((c) => (c.key === 'bugs' ? { ...c, hidden: false } : c)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const lsRows = useMemo<NRow[]>(
     () =>
       items.map((x) => ({
