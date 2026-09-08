@@ -49,7 +49,7 @@
 .rm-r.p .rm-bar::before { background: #18a35d; }
 .rm-r.f .rm-bar::before { background: #e34963; }
 .rm-r.b .rm-bar::before { background: #e49a31; }
-.rm-id { font-weight: 800; color: #0a8795; }
+.rm-id { font-weight: 500; color: var(--c-primary, #1769d2); }
 .rm-t { font-weight: 600; }
 .rm-tag {
   display: inline-flex; align-items: center; justify-content: center; min-width: 42px;

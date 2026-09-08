@@ -939,13 +939,8 @@ export default function RunDetail({
             ← {run.version || '목록'}
           </button>
         )}
-        <span className="rd-key">{run.id}</span>
-        {plan && (
-          <>
-            <span className="rd-sep">·</span>
-            <span className="rd-plan">플랜 {plan.cid || plan.id}</span>
-          </>
-        )}
+        {/* 실행 키·플랜 칩은 걷었다(지시) — 아래 네 번호 줄(요구사항 /
+            항목 / 사이클 / 실행)이 같은 값을 이미 말한다 */}
         <span className="rd-sp" />
         {/* 방식 딱지와 RUNNING/QUEUED 배지를 뺐다(지시). 상태는 위 띠의
             「지금 스텝」 이 이미 말한다 — Step 1 / 5 (대기) 처럼. */}
@@ -963,21 +958,26 @@ export default function RunDetail({
             ■ 중지
           </button>
         ) : (
-          <button
-            type="button"
-            className="rd-btn go"
-            disabled={busy}
-            title={
-              !isAuto
-                ? '시험을 시작합니다 — 시작 시각과 실행자를 남깁니다'
-                : jobDone
-                  ? '같은 항목을 실행기에 다시 겁니다 — 결과는 새로 덮입니다'
-                  : '이 실행이 담은 항목을 실행기에 겁니다 — 실행기가 집어 가면 여기서 진행이 보입니다'
-            }
-            onClick={() => void start()}
-          >
-            {busy ? '거는 중…' : jobDone ? '▶ 다시 실행' : '▶ 시험 시작'}
-          </button>
+          /* 수동은 **아직 시작 안 했을 때만** 선다(지시: 다시 실행 제거).
+             사람이 하는 시험을 「다시 실행」 으로 되돌릴 일은 없다 —
+             판정을 고치면 그만이다. 자동은 그대로 다시 걸 수 있다. */
+          (isAuto || !run?.started_at) && (
+            <button
+              type="button"
+              className="rd-btn go"
+              disabled={busy}
+              title={
+                !isAuto
+                  ? '시험을 시작합니다 — 시작 시각과 실행자를 남깁니다'
+                  : jobDone
+                    ? '같은 항목을 실행기에 다시 겁니다 — 결과는 새로 덮입니다'
+                    : '이 실행이 담은 항목을 실행기에 겁니다 — 실행기가 집어 가면 여기서 진행이 보입니다'
+              }
+              onClick={() => void start()}
+            >
+              {busy ? '거는 중…' : jobDone ? '▶ 다시 실행' : '▶ 시험 시작'}
+            </button>
+          )
         )}
         {/* 「장비 배정」 은 뺐다 — binds 를 저장만 하고 실행기가 안 읽어,
             배정해도 그 장비로 안 돌았다(죽은 단추였다).
