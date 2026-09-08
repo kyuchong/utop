@@ -1105,7 +1105,10 @@ export default function RunDetail({
   )
 
   return (
-    <div className="panel rd">
+    /* 수동은 **카드 세 장**이다(지시) — 1행 머리, 2행 왼쪽 목록·오른쪽 시험서.
+       카드 사이·둘레로 앱 바탕이 비쳐 사이클 화면과 결이 같아진다.
+       자동 실행기는 판 짜임이 달라 그대로 둔다. */
+    <div className={`panel rd${isAuto ? '' : ' rd-cards'}`}>
       {/* ── 머리줄 ── */}
       <div className="rd-bar">
         {lead}
