@@ -164,8 +164,32 @@ export default function NTable(p: NTableProps) {
   }, [page, pageN])
   useEffect(() => setPage(1), [view.q, view.filters, view.sorts, per])
   const paged = useMemo(
-    () => (view.groupBy ? shown : shown.slice((page - 1) * per, page * per)),
-    [shown, view.groupBy, page, per],
+    () => {
+      /* 묶는 동안에도 쪽을 나눈다(지적: 25개로 해도 62줄이 다 나왔다).
+         묶음이 쪽마다 흩어지지 않게 묶음 차례로 줄을 세운 뒤 자른다 —
+         안정 정렬이라 묶음 안 차례는 그대로다 */
+      let base = shown
+      if (view.groupBy) {
+        const gc = colOf(view.groupBy)
+        const order = (gc?.options ?? []).map((o) => o.value)
+        const rank = (v: string) => {
+          const i = order.indexOf(v)
+          return i < 0 ? Number.MAX_SAFE_INTEGER : i
+        }
+        base = [...shown].sort((a, b) => {
+          const va = String(a[view.groupBy] ?? '')
+          const vb = String(b[view.groupBy] ?? '')
+          if (va === vb) return 0
+          const ra = rank(va)
+          const rb = rank(vb)
+          if (ra !== rb) return ra - rb
+          return va.localeCompare(vb, 'ko')
+        })
+      }
+      return base.slice((page - 1) * per, page * per)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shown, view.groupBy, page, per, columns],
   )
 
   /** 한 열의 계산 값 — 지금 보이는 줄들로 센다 */
@@ -910,14 +934,13 @@ export default function NTable(p: NTableProps) {
             ))}
           </select>
         </span>
-        {!view.groupBy && pageN > 1 && (
+        {pageN > 1 && (
           <span className="ntb-pg">
             <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
             {page} / {pageN}
             <button type="button" disabled={page >= pageN} onClick={() => setPage(page + 1)}>›</button>
           </span>
         )}
-        {view.groupBy && <span className="ntb-sub">묶는 동안은 쪽을 안 나눕니다</span>}
         <span className="sp" />
       </div>
 
