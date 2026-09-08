@@ -1048,7 +1048,18 @@ export default function RunDetail({
               return `${p2(Math.floor(sec / 3600))}:${p2(Math.floor((sec % 3600) / 60))}:${p2(sec % 60)}`
             })()}
           </b>
-          <i>
+          <i
+            className="rd-when"
+            title={
+              run.started_at
+                ? `${(() => {
+                    const d = new Date(run.started_at)
+                    const p = (n: number) => String(n).padStart(2, '0')
+                    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+                  })()} 시작`
+                : '아직 시작 안 함'
+            }
+          >
             {run.started_at
               ? `(${(() => {
                   const d = new Date(run.started_at)
@@ -1115,6 +1126,8 @@ export default function RunDetail({
         {lead ? (
           /* 사이클 화면의 **빵부스러기를 그대로** 세우고 끝에 시험 이름을
              붙인다(지시) — 어디서 온 시험인지 머리줄만 봐도 안다 */
+          <>
+          <i className="rd-vsep" aria-hidden="true" />
           <span className="cyb-crumb rd-crumb">
             {(
               [
@@ -1131,10 +1144,11 @@ export default function RunDetail({
             ))}
             <i className="csep">/</i>
             <b className="crumbgo last">{String(plan?.name || run.version || '')}</b>
-            {!!plan?.cid && <span className="rd-key">{plan.cid}</span>}
             <i className="csep">/</i>
             <b className="crumbgo last">{isAuto ? 'Automation Test' : 'Manual Test'}</b>
+            {!!plan?.cid && <span className="rd-key">{plan.cid}</span>}
           </span>
+          </>
         ) : (
           <button type="button" className="rd-home" onClick={onBack}>
             ← {run.version || '목록'}

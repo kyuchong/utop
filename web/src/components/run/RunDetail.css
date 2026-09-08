@@ -364,3 +364,17 @@
 .rd-crumb { min-width: 0; flex: 0 1 auto; overflow: hidden; }
 .rd-crumb .crumbgo { cursor: default; }
 .rd-crumb .crumbgo:hover { text-decoration: none; }
+
+/* 아이콘 단추와 빵부스러기 사이 — 세로 실금(지시) */
+.rd-vsep { flex: none; width: 1px; height: 16px; background: var(--c-border, #c3cbd4); margin: 0 4px; }
+
+/* 경과·진행은 **안 잘린다**(지적) — 자리가 모자라면 빵부스러기가 먼저 줄고,
+   그래도 좁으면 경과의 시작 시각만 접는다(온마우스로 본다) */
+.rd-inline { flex: none; }
+.rd-inline .rd-lb, .rd-inline .rd-lb i, .rd-inline .rd-lb b { white-space: nowrap; overflow: visible; text-overflow: clip; }
+@media (max-width: 1500px) {
+  .rd-inline .rd-when { display: none; }
+}
+@media (max-width: 1280px) {
+  .rd-inline .rd-lb.grow2 i { display: none; }
+}
