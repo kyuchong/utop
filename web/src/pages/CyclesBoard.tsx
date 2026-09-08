@@ -46,6 +46,31 @@ import './CyclesBoard.css'
 import './RunsBoard.css'
 
 /** GET /api/cycle/{id} — data JSONB 전문. 저장은 이 전문을 통째로 되민다 */
+/** 글자 복사 — http 로 여는 화면(210·253)에는 navigator.clipboard 가 없다.
+    그때는 옛 방식으로 — 복사가 안 되는데 아무 말 없는 것이 제일 나쁘다. */
+function copyText(t: string, ok: () => void) {
+  const legacy = () => {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = t
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      ok()
+    } catch {
+      window.prompt('복사하세요', t)
+    }
+  }
+  if (navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(t).then(ok, legacy)
+    return
+  }
+  legacy()
+}
+
 interface PlanFull {
   [k: string]: unknown
   items?: CycleItemLite[]
@@ -60,6 +85,9 @@ interface PlanFull {
   description?: string
   cid?: string
   status?: string
+  /** 시험 기간 — YYYY-MM-DD */
+  period_start?: string
+  period_end?: string
 }
 
 /** 실행 전문 + 실행 탭이 실행 기록(data)에 얹어 두는 값 */
@@ -104,7 +132,15 @@ export default function CyclesBoard({
   /* 만들기 창(MakePlanRun)이 쓰는 카탈로그 — 창을 열 때만 받아 온다 */
   const [needMake, setNeedMake] = useState(false)
 
+  /* 상세 메타의 **초안** — 수동 저장(지시): 고친 값은 여기 담기고,
+     머리의 저장 단추를 눌러야 실려 나간다 */
+  const [draft, setDraft] = useState<Partial<PlanFull>>({})
+  const [savingMeta, setSavingMeta] = useState(false)
+  const [cidDone, setCidDone] = useState(false)
+  const dirty = Object.keys(draft).length > 0
+
   const openPlanId = (id: string) => {
+    if (dirty && id !== open && !window.confirm('저장하지 않은 변경이 있습니다. 버리고 이동할까요?')) return
     setOpen(id)
     setTab('info')
     prefSet('utop.cycle.sel', id)
@@ -117,6 +153,11 @@ export default function CyclesBoard({
     prefRemove('utop.cycle.sel')
     window.history.pushState({ utop: true }, '', `${window.location.pathname}?p=cycles`)
   }
+  /* 다른 사이클로 옮기면 초안은 버린다 — 남의 사이클에 실리면 안 된다 */
+  useEffect(() => {
+    setDraft({})
+    setCidDone(false)
+  }, [open])
 
   /* ── 자료 ── */
   const plansQ = useQuery({
@@ -592,6 +633,7 @@ export default function CyclesBoard({
     return out
   }, [grpSel])
   const pickCrumb = (key: string) => {
+    if (open && dirty && !window.confirm('저장하지 않은 변경이 있습니다. 버리고 이동할까요?')) return
     const n = key.split('|').length
     setGrpSel({ t: n === 1 ? 'cust' : n === 2 ? 'model' : 'vg', k: key })
     if (open) closePlan()
@@ -854,6 +896,44 @@ export default function CyclesBoard({
     await qc.invalidateQueries({ queryKey: ['cycles'] })
   }
 
+  /** 초안에 담기 — 원래 값과 같아지면 그 칸은 도로 뺀다(무변경 저장 방지) */
+  function stage(patch: Partial<PlanFull>) {
+    setDraft((d) => {
+      const nd: Record<string, unknown> = { ...d }
+      const base = (full ?? plan ?? {}) as Record<string, unknown>
+      for (const [k, v] of Object.entries(patch)) {
+        if (typeof v === 'string' && String(base[k] ?? '') === v) delete nd[k]
+        else nd[k] = v
+      }
+      return nd as Partial<PlanFull>
+    })
+  }
+
+  /** 초안 → 저장 — 저장 단추가 부른다 */
+  async function saveDraft() {
+    if (!plan || !dirty || savingMeta) return
+    const patch: Partial<PlanFull> = { ...draft }
+    if (typeof patch.name === 'string' && !patch.name.trim()) delete patch.name
+    if (typeof patch.version === 'string') patch.version = patch.version.trim()
+    setSavingMeta(true)
+    try {
+      await saveFull(patch)
+      const vg = typeof patch.version_group === 'string' ? patch.version_group : ''
+      const mdl = String(patch.model ?? plan.model ?? '')
+      if (vg && mdl) {
+        /* 버전그룹은 그 모델의 폴더 목록에도 넣는다 — 트리와 한 살림 */
+        await apiFetch('/api/cycle-version-groups/add', {
+          method: 'POST',
+          body: JSON.stringify({ model: mdl, group: vg }),
+        }).catch(() => undefined)
+        void vgQ.refetch()
+      }
+      setDraft({})
+    } finally {
+      setSavingMeta(false)
+    }
+  }
+
   /* 대상 드롭다운이 부르는 것들 — 개요에서 바로 고친다(지시) */
   const catGroups = useMemo(
     () =>
@@ -865,55 +945,52 @@ export default function CyclesBoard({
   const catModels = useMemo(
     () =>
       [...new Set(((catQ.data?.items ?? []) as Array<Record<string, unknown>>)
-        .filter((x) => String(x.kind) === 'model' && String(x.model_group ?? '') === String(plan?.model_group ?? ''))
+        .filter((x) => String(x.kind) === 'model' && String(x.model_group ?? '') === String(draft.model_group ?? plan?.model_group ?? ''))
         .map((x) => String(x.name ?? '')))].filter(Boolean).sort(cmp),
-    [catQ.data, plan, cmp],
+    [catQ.data, plan, draft, cmp],
   )
   const vgOfModel = useMemo(
-    () => (vgQ.data?.groups ?? {})[String(plan?.model ?? '')] ?? [],
-    [vgQ.data, plan],
+    () => (vgQ.data?.groups ?? {})[String(draft.model ?? plan?.model ?? '')] ?? [],
+    [vgQ.data, plan, draft],
   )
 
-  /** 모델그룹·모델명 바꾸기 — 담긴 항목은 모델 규칙으로 담긴 것이라,
-      모델이 달라지면 물어보고 비운다(목업의 규칙 그대로) */
-  async function setTarget(mg: string, model: string) {
+  /** 모델그룹·모델명 바꾸기 — 초안에 담는다(지시: 수동 저장).
+      모델이 달라지면 담긴 항목은 저장할 때 비워진다 — 미리 물어본다 */
+  function setTarget(mg: string, model: string) {
     if (!full || !plan) return
+    const curModel = String((draft.model as string | undefined) ?? plan.model ?? '')
     let nextModel = model
     if (!nextModel) {
       const ms = ((catQ.data?.items ?? []) as Array<Record<string, unknown>>)
         .filter((x) => String(x.kind) === 'model' && String(x.model_group ?? '') === mg)
         .map((x) => String(x.name ?? ''))
-      nextModel = ms.includes(String(plan.model ?? '')) ? String(plan.model ?? '') : (ms[0] ?? '')
+      nextModel = ms.includes(curModel) ? curModel : (ms[0] ?? '')
     }
     const modelChanged = nextModel !== String(plan.model ?? '')
     const n = (full.items ?? []).length
     if (modelChanged && n) {
       if (
         !window.confirm(
-          `대상 모델을 ${nextModel || '(없음)'} 로 바꾸면 담긴 시험 항목 ${n}건이 비워집니다.\n` +
+          `대상 모델을 ${nextModel || '(없음)'} 로 바꾸면 저장할 때 담긴 시험 항목 ${n}건이 비워집니다.\n` +
             '항목은 모델그룹·모델명 규칙으로 담긴 것이라 그대로 둘 수 없습니다.\n계속할까요?',
         )
       )
         return
     }
-    await saveFull({
-      model_group: mg,
-      model: nextModel,
-      ...(modelChanged && n ? { items: [] } : {}),
+    setDraft((d) => {
+      /* 모델을 되돌리면 항목 비우기도 같이 무른다 */
+      const nd: Partial<PlanFull> = { ...d, model_group: mg, model: nextModel }
+      if (modelChanged && n) nd.items = []
+      else delete nd.items
+      if (String(full.model_group ?? '') === mg) delete nd.model_group
+      if (String(full.model ?? '') === nextModel) delete nd.model
+      return nd
     })
   }
 
-  /** 버전그룹 바꾸기 — 그 모델의 폴더 목록에도 넣어 트리와 한 살림으로 */
-  async function setVg(vg: string) {
-    if (!plan) return
-    await saveFull({ version_group: vg })
-    if (vg && plan.model) {
-      await apiFetch('/api/cycle-version-groups/add', {
-        method: 'POST',
-        body: JSON.stringify({ model: plan.model, group: vg }),
-      }).catch(() => undefined)
-      void vgQ.refetch()
-    }
+  /** 버전그룹 바꾸기 — 초안에 담고, 저장할 때 폴더 목록에도 넣는다 */
+  function setVg(vg: string) {
+    stage({ version_group: vg })
   }
 
   async function dropCycleItems(ids: string[]) {
@@ -1591,22 +1668,25 @@ export default function CyclesBoard({
   function renderInfo() {
     if (!plan) return null
     const reqN = new Set(itemRows.map((r) => r.reqLabel).filter(Boolean)).size
+    /* 초안 우선 값 — 고친 것이 화면에 바로 보여야 저장 단추의 뜻이 선다 */
+    const pv = (k: string) =>
+      String((draft as Record<string, unknown>)[k] ?? (plan as unknown as Record<string, unknown>)[k] ?? '')
     return (
       <div className="cu-scroll">
         <div className="cu-sec metarow">
           <div className="cu-card metacard">
-            <h2>대상</h2>
+            <h2>기본 정보</h2>
             <div className="pad">
               <div className="kv1">
                 {kv(
                   '모델그룹',
                   <select
                     className="kvin cu-mono"
-                    value={String(plan.model_group ?? '')}
-                    onChange={(e) => void setTarget(e.target.value, '')}
+                    value={pv('model_group')}
+                    onChange={(e) => setTarget(e.target.value, '')}
                   >
-                    {!catGroups.includes(String(plan.model_group ?? '')) && (
-                      <option value={String(plan.model_group ?? '')}>{String(plan.model_group ?? '') || '(안 고름)'}</option>
+                    {!catGroups.includes(pv('model_group')) && (
+                      <option value={pv('model_group')}>{pv('model_group') || '(안 고름)'}</option>
                     )}
                     {catGroups.map((g) => (
                       <option key={g} value={g}>{g}</option>
@@ -1617,11 +1697,11 @@ export default function CyclesBoard({
                   '모델명',
                   <select
                     className="kvin"
-                    value={String(plan.model ?? '')}
-                    onChange={(e) => void setTarget(String(plan.model_group ?? ''), e.target.value)}
+                    value={pv('model')}
+                    onChange={(e) => setTarget(pv('model_group'), e.target.value)}
                   >
-                    {!catModels.includes(String(plan.model ?? '')) && (
-                      <option value={String(plan.model ?? '')}>{String(plan.model ?? '') || '(안 고름)'}</option>
+                    {!catModels.includes(pv('model')) && (
+                      <option value={pv('model')}>{pv('model') || '(안 고름)'}</option>
                     )}
                     {catModels.map((m2) => (
                       <option key={m2} value={m2}>{m2}</option>
@@ -1632,50 +1712,26 @@ export default function CyclesBoard({
                   '버전그룹',
                   <select
                     className="kvin cu-mono"
-                    value={String(plan.version_group ?? '')}
-                    onChange={(e) => void setVg(e.target.value)}
+                    value={pv('version_group')}
+                    onChange={(e) => setVg(e.target.value)}
                   >
-                    {!vgOfModel.includes(String(plan.version_group ?? '')) && (
-                      <option value={String(plan.version_group ?? '')}>{String(plan.version_group ?? '') || '(안 고름)'}</option>
+                    {!vgOfModel.includes(pv('version_group')) && (
+                      <option value={pv('version_group')}>{pv('version_group') || '(안 고름)'}</option>
                     )}
                     {vgOfModel.map((g) => (
                       <option key={g} value={g}>{g}</option>
                     ))}
                   </select>,
                 )}
+                {kv('사이클 ID', <span className="cu-mono">{String(plan.cid ?? plan.id)}</span>)}
                 {kv(
                   '버전명',
                   <input
                     className="kvin cu-mono"
-                    defaultValue={String(plan.version ?? '')}
+                    value={pv('version')}
+                    onChange={(e) => stage({ version: e.target.value })}
                     onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
-                    onBlur={(e) => {
-                      const v = e.target.value.trim()
-                      if (v && v !== String(plan.version ?? '')) void saveFull({ version: v })
-                    }}
                   />,
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="cu-card metacard">
-            <h2>사이클</h2>
-            <div className="pad">
-              <div className="kv1">
-                {kv('사이클 ID', <span className="cu-mono">{String(plan.cid ?? plan.id)}</span>)}
-                {kv(
-                  '사이클 제목',
-                  <span
-                    className="edt desc"
-                    title="더블클릭하면 고칩니다"
-                    onDoubleClick={(e) =>
-                      editInline(e.currentTarget, String(plan.name ?? ''), (v) => {
-                        if (v.trim()) void saveFull({ name: v.trim() })
-                      })
-                    }
-                  >
-                    {String(plan.name ?? plan.version ?? '') || <span className="cu-m">—</span>}
-                  </span>,
                 )}
               </div>
             </div>
@@ -1730,6 +1786,24 @@ export default function CyclesBoard({
                     <span className="cu-m"> ▾</span>
                   </button>,
                 )}
+                {kv(
+                  '시험 기간',
+                  <span className="cyb-period">
+                    <input
+                      type="date"
+                      value={pv('period_start')}
+                      onChange={(e) => stage({ period_start: e.target.value })}
+                      title="시작일 — 누르면 달력이 뜹니다"
+                    />
+                    <i>~</i>
+                    <input
+                      type="date"
+                      value={pv('period_end')}
+                      onChange={(e) => stage({ period_end: e.target.value })}
+                      title="종료일 — 누르면 달력이 뜹니다"
+                    />
+                  </span>,
+                )}
                 {kv('생성자', String(plan.created_by ?? '') || '—')}
                 {kv('수정자', String(full?.updated_by ?? (plan as unknown as Record<string, unknown>).updated_by ?? '') || '—')}
                 {kv(
@@ -1756,9 +1830,9 @@ export default function CyclesBoard({
             <span
               className="edt desc"
               title="더블클릭하면 고칩니다"
-              onDoubleClick={(e) => editInline(e.currentTarget, String(plan.description ?? ''), (v) => void saveFull({ description: v }))}
+              onDoubleClick={(e) => editInline(e.currentTarget, pv('description'), (v) => stage({ description: v }))}
             >
-              {String(plan.description ?? '') || <span className="cu-m">—</span>}
+              {pv('description') || <span className="cu-m">—</span>}
             </span>
           </div>
         </div>
@@ -2247,12 +2321,27 @@ export default function CyclesBoard({
       <section className="panel" style={{ height: '100%' }}>
         <div className="cu-hd">
           {colBtn}
-          <button type="button" className="btn small" onClick={closePlan}>
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => {
+              if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 버리고 나갈까요?')) return
+              closePlan()
+            }}
+          >
             ← 목록
           </button>
-          <button type="button" className="btn small" disabled title="이 화면의 수정은 바로 저장됩니다">
-            저장됨
+          {/* 수동 저장(지시) — 고치면 초록으로 서고, 눌러야 실린다. REQ-Coverage 와 같은 벌 */}
+          <button
+            type="button"
+            className={`cyb-save${dirty ? ' dirty' : ''}`}
+            disabled={!dirty || savingMeta}
+            title={dirty ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
+            onClick={() => void saveDraft()}
+          >
+            {savingMeta ? '저장 중…' : dirty ? '저장' : '저장됨'}
           </button>
+          <i className="cyb-vsep" aria-hidden="true" />
           {/* 자리 빵부스러기 — REQ-Coverage 와 같은 꼴(지시): 사업자 / 제품 /
               버전그룹 / 제목. 앞 세 단계는 눌러 그 범위 목록으로 간다 */}
           <span className="cyb-crumb">
@@ -2280,15 +2369,27 @@ export default function CyclesBoard({
               className="edt crumbgo last"
               title="더블클릭하면 제목을 고칩니다"
               onDoubleClick={(e) =>
-                editInline(e.currentTarget, String(plan.name ?? ''), (v) => {
-                  if (v.trim()) void saveFull({ name: v.trim() })
+                editInline(e.currentTarget, String(draft.name ?? plan.name ?? ''), (v) => {
+                  if (v.trim()) stage({ name: v.trim() })
                 }, true)
               }
             >
-              {String(plan.name ?? plan.version ?? plan.id)}
+              {String(draft.name ?? plan.name ?? plan.version ?? plan.id)}
             </b>
           </span>
-          <span className="cu-chip cu-mono" title="사이클 ID">{String(plan.cid ?? plan.id)}</span>
+          <button
+            type="button"
+            className={`cu-chip cu-mono cyb-cid${cidDone ? ' done' : ''}`}
+            title="누르면 사이클 ID 를 복사합니다"
+            onClick={() =>
+              copyText(String(plan.cid ?? plan.id), () => {
+                setCidDone(true)
+                window.setTimeout(() => setCidDone(false), 1400)
+              })
+            }
+          >
+            {cidDone ? '복사됨 ✓' : String(plan.cid ?? plan.id)}
+          </button>
           {/* 사이클·버전그룹·대상 칩은 걷었다(지시) — 같은 값이 트리와
               개요 카드에 이미 있어 제목 옆에선 소음이었다 */}
           <span className="cu-sp" />
@@ -2318,13 +2419,13 @@ export default function CyclesBoard({
             Info
           </button>
           <button type="button" role="tab" aria-selected={tab === 'run'} className={tab === 'run' ? 'on' : ''} onClick={() => setTab('run')}>
-            실행 <span className="dim">{myRuns.length}</span>
+            실행 <span className="tabn">{myRuns.length}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'itm'} className={tab === 'itm' ? 'on' : ''} onClick={() => setTab('itm')}>
-            Manual <span className="dim">{nMan}</span>
+            Manual <span className="tabn">{nMan}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'ita'} className={tab === 'ita' ? 'on' : ''} onClick={() => setTab('ita')}>
-            Automation <span className="dim">{nAuto}</span>
+            Automation <span className="tabn">{nAuto}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'def'} className={tab === 'def' ? 'on' : ''} onClick={() => setTab('def')}>
             Defects

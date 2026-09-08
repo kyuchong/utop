@@ -46,7 +46,7 @@
 .cyb .cu-fill > .ntb, .cyb .cu-fill > div:last-child { flex: 1; min-height: 0; }
 
 /* 기본 정보 네 묶음 — 대상 │ 사이클 │ 구성 │ 사람·이력 (지시) */
-.cyb .metarow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-3); }
+.cyb .metarow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
 @media (max-width: 1280px) { .cyb .metarow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .cyb .metarow { grid-template-columns: 1fr; } }
 .cyb .metacard .kv1 {
@@ -99,3 +99,57 @@
 .cyb .rnb-ntb.flow { flex: none; overflow: visible; padding: 0; }
 .cyb .cu-scroll .runpick, .cyb .cu-scroll .run-titlerow { padding-left: 0; padding-right: 0; }
 .cyb .cu-scroll table.grid tr.on td { background: var(--c-primary-bg); }
+
+/* ── 상세 머리: 수동 저장 단추 · 구분선 · ID 복사 칩 (지시) ── */
+.cyb .cyb-save {
+  flex: none;
+  border: 1px solid var(--c-border, #d7dce0);
+  background: #fff;
+  border-radius: 5px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: #7c858c;
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* REQ-Coverage 의 저장 단추(tcx-save.dirty)와 같은 벌 — 색이 갈리면 안 된다 */
+.cyb .cyb-save.dirty {
+  border-color: #0a8795;
+  background: #0a8795;
+  color: #fff;
+  font-weight: 700;
+}
+.cyb .cyb-save:disabled { cursor: default; }
+.cyb .cyb-vsep { flex: none; width: 1px; height: 16px; background: var(--c-border, #d7dce0); margin: 0 2px; }
+.cyb .cyb-cid { cursor: pointer; }
+
+/* 탭의 개수 배지(지시) */
+.cyb .cu-tabs button .tabn {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  margin-left: 3px;
+  border-radius: 9px;
+  background: var(--c-border-soft, #e8ecef);
+  color: var(--c-text-muted, #6b7680);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.cyb .cu-tabs button.on .tabn { background: var(--c-primary, #0a8795); color: #fff; }
+
+/* 이력의 시험 기간 — 날짜 칸을 누르면 달력이 뜬다(지시) */
+.cyb .cyb-period { display: flex; align-items: center; gap: 4px; }
+.cyb .cyb-period input[type='date'] {
+  border: 1px solid var(--c-border, #d7dce0);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--c-text, #26333b);
+  background: #fff;
+  cursor: pointer;
+}
+.cyb .cyb-period i { font-style: normal; color: var(--c-text-muted, #6b7680); }
