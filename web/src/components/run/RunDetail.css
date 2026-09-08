@@ -330,3 +330,26 @@
 .rd-inline .rd-bar2 { display: none; }
 .rd-inline .rd-lb i { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rd-inline .rd-sp { display: none; }
+
+
+/* ── 수동 실행기 — 카드 세 장(지시) ──
+   흰 종이 한 장으로 화면을 다 덮던 것을 걷고, 머리·목록·시험서를 각각
+   카드로 세운다. 사이와 둘레로 **앱 바탕**이 비쳐 사이클 화면과 결이 같다. */
+.rd.rd-cards {
+  background: var(--c-app-bg, #cfe3e8);
+  border: 0;
+  border-radius: 0;
+  padding: 8px;
+  gap: 8px;
+  overflow: hidden;
+}
+/* 1행 — 머리 카드 */
+.rd.rd-cards > .rd-bar {
+  flex: none;
+  background: var(--c-surface, #fff);
+  border: 1px solid var(--c-border, #c3cbd4);
+  border-radius: 8px;
+  padding: 7px 12px;
+}
+/* 2행 — 목록·시험서 두 카드. 바탕은 .rd 가 깔았으니 여기선 비운다 */
+.rd.rd-cards .rm { padding: 0; background: none; }
