@@ -1366,7 +1366,7 @@ export default function CyclesBoard({
       title={sideOn ? '목록 판 접기' : '목록 판 펴기'}
       onClick={() => setSideOn((v) => !v)}
     >
-      <IconPanel open={sideOn} />
+      <IconPanel open={!sideOn} />
     </button>
   )
 
@@ -1407,24 +1407,26 @@ export default function CyclesBoard({
       <section className="panel lp">
         <div className="run-crumb">
           {colBtn}
-          <span className="crumbline">
-            <button type="button" className="crumb-b" onClick={() => { setGrpSel(null) }}>전체</button>
+          {/* 빵부스러기 — REQ-Coverage 와 같은 꼴(지시): / 구분, 트리와
+              같은 그림(🏢 사업자 · 📦 제품 · 🔖 버전그룹), 마지막은 굵게 */}
+          <span className="cyb-crumb">
+            <button type="button" className={`crumbgo${crumb.length ? '' : ' last'}`} onClick={() => setGrpSel(null)}>
+              전체
+            </button>
             {crumb.map(([k, l], i) => (
-              <React.Fragment key={k}>
-                <span className="cu-m">▸</span>
-                {i === crumb.length - 1 ? (
-                  <b>{l}</b>
-                ) : (
-                  <button type="button" className="crumb-b" onClick={() => pickCrumb(k)}>{l}</button>
-                )}
-              </React.Fragment>
+              <span className="crumbi" key={k}>
+                <i className="csep">/</i>
+                <span className="cfico" aria-hidden="true">{i === 0 ? '🏢' : i === 1 ? '📦' : '🔖'}</span>
+                <button
+                  type="button"
+                  className={`crumbgo${i === crumb.length - 1 ? ' last' : ''}`}
+                  onClick={() => pickCrumb(k)}
+                >
+                  {l}
+                </button>
+              </span>
             ))}
           </span>
-          <span className="cu-sp" />
-        </div>
-        <div className="lp-hd">
-          <h1>시험 사이클</h1>
-          <span className="cu-m">사이클은 한 버전의 시험 묶음입니다 — 실행·판정·결과서도 이 안에서 봅니다</span>
           <span className="cu-sp" />
           <button
             type="button"

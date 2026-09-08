@@ -51,7 +51,7 @@ export default function MakeCycle({
   const [vgroup, setVgroup] = useState(unset(seed?.version_group))
   const [newVg, setNewVg] = useState('')
   const [version, setVersion] = useState('')
-  const [owner, setOwner] = useState(me?.name || me?.username || '')
+  const owner = me?.name || me?.username || ''
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
@@ -86,15 +86,6 @@ export default function MakeCycle({
       const r = await apiFetch('/api/cycle-version-groups')
       if (!r.ok) throw new Error('버전그룹을 불러오지 못했습니다')
       return (await r.json()) as { groups: Record<string, string[]> }
-    },
-  })
-  const usersQ = useQuery({
-    queryKey: ['users-mentionable'],
-    staleTime: 60_000,
-    queryFn: async () => {
-      const r = await apiFetch('/api/users/mentionable')
-      if (!r.ok) throw new Error('사람을 불러오지 못했습니다')
-      return (await r.json()) as { users: Array<{ username?: string; name?: string }> }
     },
   })
 
@@ -355,29 +346,8 @@ export default function MakeCycle({
             </div>
           </fieldset>
 
-          <fieldset className="mkc-set">
-            <legend>담당</legend>
-            <div className="mkc-grid">
-              <label className="mkc-wide">
-                <span className="sr">담당</span>
-                <select value={owner} onChange={(e) => setOwner(e.target.value)}>
-                  <option value="">(안 정함)</option>
-                  {(usersQ.data?.users ?? []).map((u) => {
-                    const v = String(u.name || u.username || '')
-                    return (
-                      <option key={v} value={v}>
-                        {v}
-                      </option>
-                    )
-                  })}
-                </select>
-              </label>
-            </div>
-          </fieldset>
-
-          <p className="mkc-hint">
-            만든 뒤 <b>시험 항목</b>을 담고, 담긴 항목의 방식대로 자동·수동 실행을 시작합니다
-          </p>
+          {/* 담당 묶음·안내줄은 걷었다(지시) — 담당은 기본 「나」 로 만들어지고
+              개요의 담당자 칸에서 바꾼다 */}
           {!!err && <p className="mkc-err">{err}</p>}
         </div>
 

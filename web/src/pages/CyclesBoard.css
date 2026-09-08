@@ -63,11 +63,14 @@
    맞춰 누르면 넘친 줄이 잘린 채 스크롤바도 없다(지적: 62건인데 못 내림). */
 .cyb .cyb-ntb { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--sp-2) var(--sp-2); }
 
-/* 통합 화면(트리+범위) — 빵부스러기 줄 */
-.cyb .crumbline { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-sm); }
-.cyb .crumb-b { border: 0; background: none; padding: 2px 4px; border-radius: 4px; color: var(--c-text-faint); cursor: pointer; font: inherit; font-size: var(--fs-sm); }
-.cyb .crumb-b:hover { color: var(--c-primary); text-decoration: underline; }
-.cyb .crumbline b { color: var(--c-text); }
+/* 빵부스러기 — REQ-Coverage 와 같은 꼴(지시) */
+.cyb .cyb-crumb { display: flex; align-items: center; gap: 2px; font-size: var(--fs-md); min-width: 0; overflow: hidden; }
+.cyb .crumbi { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.cyb .cfico { flex: none; display: inline-flex; align-items: center; font-size: 13px; }
+.cyb .crumbgo { border: 0; background: none; padding: 2px 2px; color: var(--c-text-muted); cursor: pointer; font: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cyb .crumbgo:hover { text-decoration: underline; }
+.cyb .crumbgo.last { font-weight: 700; color: var(--c-text); }
+.cyb .csep { font-style: normal; color: var(--c-text-faint); margin: 0 4px; }
 /* 실행 탭 몸통 — 위 요소들은 제 키, 표가 남은 자리를 쓴다 */
 .cyb .run-tab { gap: 8px; }
 .cyb .run-tab .runpick, .cyb .run-tab .run-titlerow { padding: 0; }
