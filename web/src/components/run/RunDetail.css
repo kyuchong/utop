@@ -335,6 +335,8 @@
 /* ── 수동 실행기 — 카드 세 장(지시) ──
    흰 종이 한 장으로 화면을 다 덮던 것을 걷고, 머리·목록·시험서를 각각
    카드로 세운다. 사이와 둘레로 **앱 바탕**이 비쳐 사이클 화면과 결이 같다. */
+/* `.qav .panel` 이 뒤에서 같은 무게로 덮는다 — 한 겹 더 무겁게 쓴다(실측) */
+.qav .rd.rd-cards,
 .rd.rd-cards {
   background: var(--c-app-bg, #cfe3e8);
   border: 0;
@@ -344,6 +346,7 @@
   overflow: hidden;
 }
 /* 1행 — 머리 카드 */
+.qav .rd.rd-cards > .rd-bar,
 .rd.rd-cards > .rd-bar {
   flex: none;
   background: var(--c-surface, #fff);
@@ -352,4 +355,5 @@
   padding: 7px 12px;
 }
 /* 2행 — 목록·시험서 두 카드. 바탕은 .rd 가 깔았으니 여기선 비운다 */
+.qav .rd.rd-cards .rm,
 .rd.rd-cards .rm { padding: 0; background: none; }
