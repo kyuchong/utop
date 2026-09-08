@@ -1143,9 +1143,8 @@ export default function NTable(p: NTableProps) {
           ))}
           <div className="ntb-hr" />
           <div className="ntb-sec">묶기</div>
-          {columns
-            .filter((c) => c.type === 'select')
-            .map((c) => (
+          {/* 모든 필드로 묶는다(지시) — 전에는 선택형만 나왔다 */}
+          {columns.map((c) => (
               <button
                 type="button"
                 className="ntb-mi"
