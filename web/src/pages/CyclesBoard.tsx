@@ -95,7 +95,7 @@ export default function CyclesBoard({
 
   /** 열린 사이클 — 비면 목록. 주소(?cycle=)가 정본이다 */
   const [open, setOpen] = useState(() => prefGet('utop.cycle.sel') ?? '')
-  const [tab, setTab] = useState<'info' | 'run' | 'it' | 'ai' | 'sum'>('info')
+  const [tab, setTab] = useState<'info' | 'run' | 'itm' | 'ita' | 'def' | 'ai' | 'sum'>('info')
   const [making, setMaking] = useState(false)
   const [addTo, setAddTo] = useState(false)
   const [mkRun, setMkRun] = useState(false)
@@ -657,6 +657,27 @@ export default function CyclesBoard({
     },
   })
   const full = fullQ.data
+  /** 이 사이클의 결함 — 결함 내역 탭이 읽는다 */
+  const defQ = useQuery({
+    queryKey: ['cycle-defects', open],
+    enabled: !!open && tab === 'def',
+    queryFn: async () => {
+      const r = await apiFetch(`/api/defects?cycle_id=${encodeURIComponent(open)}`)
+      if (!r.ok) throw new Error('결함을 불러오지 못했습니다')
+      return (await r.json()) as {
+        defects: Array<{
+          id?: string
+          title?: string
+          status?: string
+          severity?: string | null
+          tcid?: string
+          tc_name?: string
+          jira_key?: string | null
+          created_at?: string
+        }>
+      }
+    },
+  })
   const myRuns = useMemo(
     () =>
       (runsByPlan.get(open) ?? []).slice().sort((a, b) =>
@@ -731,7 +752,7 @@ export default function CyclesBoard({
   const failQs = useQueries({
     queries: myRuns.map((r) => ({
       queryKey: ['plan-run', r.id],
-      enabled: !!open && (tab === 'it' || tab === 'sum'),
+      enabled: !!open && (tab === 'itm' || tab === 'ita' || tab === 'sum'),
       queryFn: async () => {
         const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}`)
         if (!res.ok) throw new Error('실행을 불러오지 못했습니다')
@@ -1701,13 +1722,14 @@ export default function CyclesBoard({
    * 열 폭·계산 줄이 저쪽과 한 벌이 된다. 값은 TC(REQ-Coverage)가 정본이라
    * 칸은 못 고친다. 기본 묶기는 폴더 — 옛 표의 폴더 ▸ REQ 층 중 위층이다.
    */
-  function renderItems() {
+  function renderItems(man: boolean) {
     if (!plan) return null
-    const repeats = itemRows.filter((r) => {
+    const mine = itemRows.filter((r) => r.man === man)
+    const repeats = mine.filter((r) => {
       const s = failStat.get(r.tcid)
       return !!s && s.fail >= 2
     })
-    const rows: NRow[] = itemRows.map((r) => {
+    const rows: NRow[] = mine.map((r) => {
       const st = failStat.get(r.tcid)
       return {
         __id: r.tcid,
@@ -2099,6 +2121,65 @@ export default function CyclesBoard({
     )
   }
 
+  /* ── 상세: 결함 내역 — 이 사이클에 등록된 결함(지시) ── */
+  function renderDefects() {
+    const list = defQ.data?.defects ?? []
+    return (
+      <div className="cu-scroll">
+        <div className="cu-sec cu-card flat">
+          <h2 className="flexh">
+            결함 내역 <span className="dim">{list.length}</span>
+          </h2>
+          {defQ.isLoading ? (
+            <div className="cu-empty"><strong>불러오는 중…</strong></div>
+          ) : list.length ? (
+            <table className="grid">
+              <thead>
+                <tr>
+                  <th style={{ width: 120 }}>결함 ID</th>
+                  <th>제목</th>
+                  <th style={{ width: 120 }}>시험 항목</th>
+                  <th style={{ width: 72 }}>상태</th>
+                  <th style={{ width: 80 }}>심각도</th>
+                  <th style={{ width: 110 }}>Jira</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((d) => (
+                  <tr key={String(d.id ?? d.title)}>
+                    <td className="cu-mono">{String(d.id ?? '') || '—'}</td>
+                    <td title={String(d.title ?? '')}>{String(d.title ?? '') || '—'}</td>
+                    <td>
+                      {d.tcid ? (
+                        <button type="button" className="linkbtn cu-mono" onClick={() => goto('tc', String(d.tcid))}>
+                          {String(d.tcid)}
+                        </button>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${String(d.status) === 'open' ? 'b-fail' : 'b-pass'}`}>
+                        {String(d.status ?? '') || '—'}
+                      </span>
+                    </td>
+                    <td>{String(d.severity ?? '') || '—'}</td>
+                    <td className="cu-mono">{String(d.jira_key ?? '') || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="cu-empty">
+              <strong>등록된 결함이 없습니다</strong>
+              <span>실행에서 실패한 항목에 결함을 등록하면 여기에 모입니다.</span>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   /* ── 상세 골격 ── */
   function renderDetail() {
     if (!plan) {
@@ -2150,7 +2231,8 @@ export default function CyclesBoard({
         {/* 순서는 **읽는 순서**다(옛 화면 그대로) — 한눈에 보고(개요),
             무엇이 일어났는지 읽고(AI 요약), 글로 옮기고(Test Summary),
             마지막에 항목 하나하나를 판다. */}
-        {/* 탭 차례는 지시대로: Info → 실행 → 시험 항목 → AI 요약 → Test Summary */}
+        {/* 탭 차례는 지시대로: Info → 실행 → 수동 시험항목 → 자동 시험항목
+            → 결함 내역 → AI 요약 → Test Summary */}
         <div className="cu-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'info'} className={tab === 'info' ? 'on' : ''} onClick={() => setTab('info')}>
             Info
@@ -2158,8 +2240,14 @@ export default function CyclesBoard({
           <button type="button" role="tab" aria-selected={tab === 'run'} className={tab === 'run' ? 'on' : ''} onClick={() => setTab('run')}>
             실행 <span className="dim">{myRuns.length}</span>
           </button>
-          <button type="button" role="tab" aria-selected={tab === 'it'} className={tab === 'it' ? 'on' : ''} onClick={() => setTab('it')}>
-            시험 항목 <span className="dim">{itemRows.length}</span>
+          <button type="button" role="tab" aria-selected={tab === 'itm'} className={tab === 'itm' ? 'on' : ''} onClick={() => setTab('itm')}>
+            수동 시험항목 <span className="dim">{nMan}</span>
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'ita'} className={tab === 'ita' ? 'on' : ''} onClick={() => setTab('ita')}>
+            자동 시험항목 <span className="dim">{nAuto}</span>
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'def'} className={tab === 'def' ? 'on' : ''} onClick={() => setTab('def')}>
+            결함 내역
           </button>
           <button type="button" role="tab" aria-selected={tab === 'ai'} className={tab === 'ai' ? 'on' : ''} onClick={() => setTab('ai')}>
             AI 요약
@@ -2194,8 +2282,12 @@ export default function CyclesBoard({
           </div>
         ) : tab === 'run' ? (
           renderRunTab()
+        ) : tab === 'def' ? (
+          renderDefects()
+        ) : tab === 'itm' ? (
+          renderItems(true)
         ) : (
-          renderItems()
+          renderItems(false)
         )}
       </section>
     )
