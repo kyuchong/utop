@@ -95,7 +95,7 @@ export default function CyclesBoard({
 
   /** 열린 사이클 — 비면 목록. 주소(?cycle=)가 정본이다 */
   const [open, setOpen] = useState(() => prefGet('utop.cycle.sel') ?? '')
-  const [tab, setTab] = useState<'ov' | 'ai' | 'sum' | 'it' | 'run'>('ov')
+  const [tab, setTab] = useState<'info' | 'run' | 'it' | 'ai' | 'sum'>('info')
   const [making, setMaking] = useState(false)
   const [addTo, setAddTo] = useState(false)
   const [mkRun, setMkRun] = useState(false)
@@ -106,7 +106,7 @@ export default function CyclesBoard({
 
   const openPlanId = (id: string) => {
     setOpen(id)
-    setTab('ov')
+    setTab('info')
     prefSet('utop.cycle.sel', id)
     reflectUrl('cycle', id)
   }
@@ -1532,128 +1532,16 @@ export default function CyclesBoard({
     void plansQ.refetch()
   }
 
-  /* ── 상세: 개요 ── */
-  function renderOverview() {
+  /* ── 상세: Info — 대상 · 사이클 · 구성 · 사람·이력 · 설명 (지시: 탭 재편) ── */
+  function renderInfo() {
     if (!plan) return null
-    const pctA = itemRows.length ? Math.round((nAuto / itemRows.length) * 100) : 0
-    const pctM = itemRows.length ? Math.round((nMan / itemRows.length) * 100) : 0
-    const cov = poolN ? ((itemRows.length / poolN) * 100).toFixed(1) : '0.0'
     const reqN = new Set(itemRows.map((r) => r.reqLabel).filter(Boolean)).size
     return (
       <div className="cu-scroll">
-        <div className="cu-sec statrow">
-          <div className="cu-card statcard">
-            <h2>자동 시험</h2>
-            <div className="sbody">
-              <Donut parts={[{ v: nAuto, cls: 'a' }]} total={itemRows.length} label={String(nAuto)} sub={`${pctA}%`} />
-              <div className="statcap">{nAuto ? '장비에 접속해 스텝을 순서대로 돌립니다' : '자동 항목이 없습니다'}</div>
-            </div>
-          </div>
-          <div className="cu-card statcard">
-            <h2>수동 시험</h2>
-            <div className="sbody">
-              <Donut parts={[{ v: nMan, cls: 'm' }]} total={itemRows.length} label={String(nMan)} sub={`${pctM}%`} />
-              <div className="statcap">{nMan ? '사람이 확인하고 판정을 기록합니다' : '수동 항목이 없습니다'}</div>
-            </div>
-          </div>
-          <div className="cu-card statcard">
-            <h2>커버리지</h2>
-            <div className="sbody">
-              <Donut parts={[{ v: itemRows.length, cls: 'c' }]} total={poolN} label={String(itemRows.length)} sub={`${cov}%`} />
-              <div className="statcap">
-                {String(plan.model ?? plan.model_group ?? '전체')} 시험 {poolN}건 중
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 판정 요약 — 실행 탭의 요약을 개요로 옮겼다(지시: 통합 시안).
-            수치는 지금 고른 실행(기본: 마지막 실행) 기준, 알약을 누르면
-            실행 탭이 그 판정만 걸러 열린다. */}
-        <div className="cu-sec cu-card">
-          <h2 className="flexh">
-            판정 요약{' '}
-            <span className="dim">
-              {runLite && myRuns.some((x) => x.id === runLite.id)
-                ? `실행 ${runLite.id} · ${String(runLite.created_at ?? '').slice(0, 10)}`
-                : '실행 없음'}
-            </span>
-            <span className="cu-sp" />
-            {!!myRuns.length && (
-              <button type="button" className="btn small" onClick={() => setTab('run')}>
-                실행 탭에서 보기 ›
-              </button>
-            )}
-          </h2>
-          <div className="ov-verd">
-            <div className="sumdonut">
-              <Donut
-                big
-                parts={[
-                  { v: runTally.p, cls: 'p', color: vDef(verds, 'Pass').color },
-                  { v: runTally.f, cls: 'f', color: vDef(verds, 'Fail').color },
-                  { v: runTally.b, cls: 'b', color: vDef(verds, 'Blocked').color },
-                ]}
-                total={runTally.total}
-                label={
-                  myRuns.length && runTally.total
-                    ? `${Math.round((runTally.done / runTally.total) * 100)}%`
-                    : '0%'
-                }
-                sub={myRuns.length ? '완료' : '실행 없음'}
-              />
-              <div className="cu-m">
-                {myRuns.length
-                  ? `${runTally.total}개 중 ${runTally.done} 완료됨`
-                  : '실행 탭의 ＋실행으로 첫 실행을 만드세요'}
-              </div>
-            </div>
-            <div className="sumrows">
-              {[
-                ...verds,
-                ...[...runByVerd.keys()]
-                  .filter((k2) => !verds.some((d) => d.v === k2))
-                  .map((k2) => ({ ...vDef(verds, k2), label: `${k2} (지워진 판정)` })),
-              ].map((d) => {
-                const nn = runByVerd.get(d.v) ?? 0
-                return (
-                  <button
-                    key={d.v || '(none)'}
-                    type="button"
-                    className={`sumrow${myRuns.length ? ' hit' : ''}`}
-                    disabled={!myRuns.length}
-                    title={myRuns.length ? `실행 탭에서 ${d.label}만 보기` : undefined}
-                    onClick={() => {
-                      if (!myRuns.length) return
-                      setVf(d.v)
-                      setTab('run')
-                    }}
-                  >
-                    <span
-                      className={`vpill${d.v ? '' : ' v-n'}`}
-                      style={d.v ? { background: d.color, color: '#fff' } : undefined}
-                    >
-                      {runTally.total ? Math.round((nn / runTally.total) * 100) : 0}%
-                    </span>
-                    <b>{nn || '-'}</b>
-                    <span className="cu-m">{d.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* 기본 정보 — **네 묶음으로 가른다**(지시):
-            대상 │ 사이클 │ 구성 │ 사람·이력. 한 판에 열두 칸을 늘어놓았더니
-            어느 칸이 어느 얘기인지 눈이 매번 갈랐다. 설명은 지시 목록에
-            없지만 고칠 자리가 사라지면 안 되어 아래 한 줄로 남긴다. */}
         <div className="cu-sec metarow">
           <div className="cu-card metacard">
             <h2>대상</h2>
             <div className="pad">
-              {/* 값을 그 자리에서 고친다(지시: 드롭다운) — 목록이 있는 칸은
-                  드롭다운, 버전명은 자유 글이라 입력칸이다 */}
               <div className="kv1">
                 {kv(
                   '모델그룹',
@@ -1757,8 +1645,6 @@ export default function CyclesBoard({
               <div className="kv1">
                 {kv(
                   '담당자',
-                  /* 조직을 눌러 좁히거나 이름으로 찾아 고른다(지시) —
-                     온 화면 공용 고르개(AssigneePicker) 그대로 */
                   <button
                     type="button"
                     className="kvin cyb-ass"
@@ -1803,63 +1689,6 @@ export default function CyclesBoard({
             </span>
           </div>
         </div>
-
-        <div className="cu-sec cu-card flat">
-          {/* ＋ 실행은 머리줄에 이미 있다 — 같은 단추가 두 곳이면 어느
-              쪽이 정본인지 헷갈린다(지적: 중복) */}
-          <h2>
-            이 사이클의 실행 <span className="dim">{myRuns.length}</span>
-          </h2>
-          {myRuns.length ? (
-            <table className="grid">
-              <thead>
-                <tr>
-                  <th>실행 ID</th>
-                  <th style={{ width: 72 }}>방식</th>
-                  <th className="num" style={{ width: 60 }}>항목</th>
-                  <th style={{ width: 180 }}>판정 현황</th>
-                  <th style={{ width: 76 }}>담당</th>
-                  <th style={{ width: 96 }}>생성</th>
-                  <th style={{ width: 80 }}>진행</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myRuns.map((r) => {
-                  const t = sumRuns([r])
-                  return (
-                    <tr key={r.id} onClick={() => { setTab('run'); openRun(r.id) }} title="실행 탭에서 엽니다">
-                      <td className="idcell cu-mono">{r.id}</td>
-                      <td>{String(r.mode ?? '') || '—'}</td>
-                      <td className="num">{r.n_total}</td>
-                      <td>
-                        <StatBar t={t} pal={verdPal} />
-                      </td>
-                      <td>{String(r.owner ?? '') || '—'}</td>
-                      <td className="cu-m">{String(r.created_at ?? '').slice(0, 10)}</td>
-                      <td>
-                        {r.closed_at ? (
-                          <span className="badge b-wait">종료</span>
-                        ) : t.none ? (
-                          <span className="badge b-run">{t.none} 남음</span>
-                        ) : (
-                          <span className="badge b-pass">완료</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <div className="cu-empty">
-              <strong>아직 실행이 없습니다</strong>
-              <span>담긴 항목으로 자동·수동 시험 실행을 만듭니다.</span>
-            </div>
-          )}
-        </div>
-        <p className="cu-m" style={{ margin: 0 }}>
-          판정 결과는 실행 탭에서 봅니다 — 실행 하나가 빌드 하나의 결과입니다.
-        </p>
       </div>
     )
   }
@@ -1952,208 +1781,320 @@ export default function CyclesBoard({
     )
   }
 
-  /* ── 상세: 실행 탭 — 옛 Runs 의 실행 본문 그대로 ── */
+  /* ── 상세: 실행 탭 — 자동/수동/커버리지 · 판정 요약 · 이 사이클의 실행 ·
+     선택한 실행의 본문(옛 Runs)까지 실행 이야기는 전부 여기(지시: 탭 재편) ── */
   function renderRunTab() {
     if (!plan) return null
-    if (!myRuns.length) {
-      const nIds = itemRows.length
-      return (
-        <div className="cu-fill">
-          <div className="cu-empty" style={{ margin: 'auto', padding: '48px 14px' }}>
-            <strong style={{ fontSize: 15 }}>이 사이클에는 아직 시험 실행이 없습니다</strong>
-            <span>
-              {nIds
-                ? `담긴 시험 항목 ${nIds}건 (자동 ${nAuto} · 수동 ${nMan}) 을 담아 실행을 만듭니다 —
-                   자동·수동은 만든 뒤 실행 안에서 골라 돌립니다.`
-                : '담긴 시험 항목이 없습니다 — 시험 항목 탭에서 먼저 담으세요.'}
-            </span>
-            <div className="rnb-acts">
-              <button
-                type="button"
-                className="cu-new"
-                disabled={!nIds || !!busyRun}
-                onClick={() => void makeRun(plan)}
-              >
-                <i aria-hidden="true">▶</i>
-                {busyRun ? '만드는 중…' : `실행 만들기 ${nIds}건`}
-              </button>
-              <button
-                type="button"
-                className="btn"
-                title="모델·버전을 직접 골라 실행을 만듭니다"
-                onClick={() => {
-                  setNeedMake(true)
-                  setMkRun(true)
-                }}
-              >
-                ＋ 실행 만들기
-              </button>
-            </div>
-          </div>
-        </div>
-      )
-    }
+    const pctA = itemRows.length ? Math.round((nAuto / itemRows.length) * 100) : 0
+    const pctM = itemRows.length ? Math.round((nMan / itemRows.length) * 100) : 0
+    const cov = poolN ? ((itemRows.length / poolN) * 100).toFixed(1) : '0.0'
     const r = runLite && myRuns.some((x) => x.id === runLite.id) ? runLite : undefined
-    if (!r)
-      return (
-        <div className="cu-fill">
-          <div className="cu-empty" style={{ margin: 'auto' }}>
-            <strong>불러오는 중…</strong>
-          </div>
-        </div>
-      )
     const t = runTally
     const nA = runItems.filter((x) => !x.man).length
     const nM = runItems.length - nA
-    const modeTxt =
-      r.mode === 'empty' ? '직접 구성' : nA && nM ? '전체 항목' : nA ? '자동' : nM ? '수동' : '빈 실행'
+    const modeTxt = r
+      ? r.mode === 'empty' ? '직접 구성' : nA && nM ? '전체 항목' : nA ? '자동' : nM ? '수동' : '빈 실행'
+      : ''
     return (
-      <div className="cu-fill run-tab">
-        {/* 실행 고르개 + 실행 하나짜리 일들 */}
-        <div className="runpick">
-          <span className="cu-m">이 사이클의 실행</span>
-          {myRuns.map((x) => (
-            <button
-              key={x.id}
-              type="button"
-              className={`rpick${x.id === r.id ? ' on' : ''}`}
-              onClick={() => openRun(x.id)}
-            >
-              {x.n_none ? '▤' : '✓'} {x.id}{' '}
-              <span className="cu-m">{String(x.created_at ?? '').slice(0, 10)}</span>
-            </button>
-          ))}
-          <span className="cu-sp" />
-          <button
-            type="button"
-            className="btn small"
-            onClick={(e) => {
-              const rc = (e.currentTarget as HTMLElement).getBoundingClientRect()
-              setRunMoreAt({ x: Math.max(8, rc.right - 180), y: rc.bottom + 4 })
-            }}
-          >
-            더보기 ▾
-          </button>
+      <div className="cu-scroll">
+        <div className="cu-sec statrow">
+          <div className="cu-card statcard">
+            <h2>자동 시험</h2>
+            <div className="sbody">
+              <Donut parts={[{ v: nAuto, cls: 'a' }]} total={itemRows.length} label={String(nAuto)} sub={`${pctA}%`} />
+              <div className="statcap">{nAuto ? '장비에 접속해 스텝을 순서대로 돌립니다' : '자동 항목이 없습니다'}</div>
+            </div>
+          </div>
+          <div className="cu-card statcard">
+            <h2>수동 시험</h2>
+            <div className="sbody">
+              <Donut parts={[{ v: nMan, cls: 'm' }]} total={itemRows.length} label={String(nMan)} sub={`${pctM}%`} />
+              <div className="statcap">{nMan ? '사람이 확인하고 판정을 기록합니다' : '수동 항목이 없습니다'}</div>
+            </div>
+          </div>
+          <div className="cu-card statcard">
+            <h2>커버리지</h2>
+            <div className="sbody">
+              <Donut parts={[{ v: itemRows.length, cls: 'c' }]} total={poolN} label={String(itemRows.length)} sub={`${cov}%`} />
+              <div className="statcap">
+                {String(plan.model ?? plan.model_group ?? '전체')} 시험 {poolN}건 중
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* 제목 줄 + 자동·수동 열기 */}
-        <div className="run-titlerow">
-          <h1
-            className="run-title edt"
-            title="더블클릭하면 고칩니다"
-            onDoubleClick={(e) =>
-              editInline(e.currentTarget, String(r.name ?? r.id), (v) => {
-                if (v.trim()) void saveRun({ name: v.trim() })
-              }, true)
-            }
-          >
-            {String(r.name || r.id)}
-          </h1>
-          <span className="cu-mono cu-m">({r.id})</span>
-          <span className={`cu-chip${modeTxt === '자동' ? ' auto' : ''}`}>{modeTxt}</span>
-          {!!t.total && !t.n && <span className="cu-chip done">✓ 완료</span>}
-          {!!r.closed_at && <span className="cu-chip">종료</span>}
-          <span className="cu-m">담당</span>
-          <button
-            type="button"
-            className="kvin rnb-own"
-            style={{ width: 'auto' }}
-            title="조직을 눌러 좁히거나 이름으로 찾아 고릅니다"
-            onClick={(e) => {
-              const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
-              setOwnAt({ x: b.left, y: b.bottom + 4 })
-            }}
-          >
-            {String(r.owner ?? '') || <span className="cu-m">(안 정함)</span>}
-            <span className="cu-m"> ▾</span>
-          </button>
-          {vf !== null && (
-            <span className="vfchip">
-              {vName(verds, vf)}만 보는 중
-              <button type="button" className="linkbtn" onClick={() => setVf(null)}>전체</button>
+        {/* 판정 요약 — 지금 고른 실행 기준, 알약을 누르면 아래 표가 걸러진다 */}
+        <div className="cu-sec cu-card">
+          <h2 className="flexh">
+            판정 요약{' '}
+            <span className="dim">
+              {r ? `실행 ${r.id} · ${String(r.created_at ?? '').slice(0, 10)}` : '실행 없음'}
             </span>
-          )}
-          <span className="cu-sp" />
-          <button
-            type="button"
-            className="cu-new"
-            disabled={!nA}
-            title="장비에 접속해 스텝을 순서대로 돌립니다"
-            onClick={() => openRunner('A')}
-          >
-            <i aria-hidden="true">▶</i>자동 시험 {nA}
-          </button>
-          <button
-            type="button"
-            className="btn small"
-            disabled={!nM}
-            title="사람이 확인하고 판정을 기록합니다"
-            onClick={() => openRunner('M')}
-          >
-            ✎ 수동 시험 {nM}
-          </button>
+          </h2>
+          <div className="ov-verd">
+            <div className="sumdonut">
+              <Donut
+                big
+                parts={[
+                  { v: t.p, cls: 'p', color: vDef(verds, 'Pass').color },
+                  { v: t.f, cls: 'f', color: vDef(verds, 'Fail').color },
+                  { v: t.b, cls: 'b', color: vDef(verds, 'Blocked').color },
+                ]}
+                total={t.total}
+                label={myRuns.length && t.total ? `${Math.round((t.done / t.total) * 100)}%` : '0%'}
+                sub={myRuns.length ? '완료' : '실행 없음'}
+              />
+              <div className="cu-m">
+                {myRuns.length ? `${t.total}개 중 ${t.done} 완료됨` : '아래 실행 만들기로 첫 실행을 만드세요'}
+              </div>
+            </div>
+            <div className="sumrows">
+              {[
+                ...verds,
+                ...[...runByVerd.keys()]
+                  .filter((k2) => !verds.some((d) => d.v === k2))
+                  .map((k2) => ({ ...vDef(verds, k2), label: `${k2} (지워진 판정)` })),
+              ].map((d) => {
+                const nn = runByVerd.get(d.v) ?? 0
+                const on = vf === d.v
+                return (
+                  <button
+                    key={d.v || '(none)'}
+                    type="button"
+                    className={`sumrow${myRuns.length ? ' hit' : ''}${on ? ' on' : ''}`}
+                    disabled={!myRuns.length}
+                    title={myRuns.length ? `${d.label}만 보기${on ? ' (해제하려면 다시 누르세요)' : ''}` : undefined}
+                    onClick={() => setVf(on ? null : d.v)}
+                  >
+                    <span
+                      className={`vpill${d.v ? '' : ' v-n'}`}
+                      style={d.v ? { background: d.color, color: '#fff' } : undefined}
+                    >
+                      {t.total ? Math.round((nn / t.total) * 100) : 0}%
+                    </span>
+                    <b>{nn || '-'}</b>
+                    <span className="cu-m">{d.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* 항목 표 — 노션 표(Runs 와 같은 열·저장키) */}
-        <div className="rnb-ntb">
-          <NTable
-            columns={riCols.map((c) =>
-              c.key === 'result'
-                ? { ...c, options: verds.map((d) => ({ value: d.label, color: d.color })) }
-                : c,
-            )}
-            rows={shownRunItems.map((it) => ({
-              __id: it.tcid,
-              id: it.tcid,
-              title: it.title || '(이름 없음)',
-              folder: it.folder,
-              who: it.who,
-              result: vName(verds, it.v),
-            }))}
-            view={riView}
-            onView={setRiView}
-            onColumns={setRiCols}
-            people={people}
-            meName={meName}
-            onCell={(id, key, v) => {
-              if (key === 'who') void setWho([id], v)
-              if (key === 'result') {
-                /* 「– 비움」·Delete 는 빈 글을 준다 — 미실행('') 판정이다 */
-                const d = v === '' ? { v: '' } : verds.find((x) => x.label === v)
-                if (d) void setVerdict(id, d.v)
-              }
-            }}
-            readOnlyKeys={['id', 'title', 'folder']}
-            lockDefs
-            idKey="id"
-            titleKey="title"
-            rowIcon={(row) => {
-              const man = runItems.find((x) => x.tcid === row.__id)?.man
-              return <span className="cu-m" title={man ? '수동' : '자동'}>{man ? '✎' : '▶'}</span>
-            }}
-            onOpen={(id) => {
-              const man = runItems.find((x) => x.tcid === id)?.man
-              openRunner(man ? 'M' : 'A', id)
-            }}
-            onBulk={(a, ids) => {
-              if (a === 'del') void dropRunItems(ids)
-              else if (a === 'assign') setBulkAt({ kind: 'assign', ids })
-              else if (a === 'status') setBulkAt({ kind: 'status', ids })
-              else window.alert('이 표에서는 아직 없는 동작입니다')
-            }}
-            toolbarLeft={
+        {/* 이 사이클의 실행 — 줄을 누르면 아래 본문이 그 실행으로 바뀐다 */}
+        <div className="cu-sec cu-card flat">
+          <h2 className="flexh">
+            이 사이클의 실행 <span className="dim">{myRuns.length}</span>
+            <span className="cu-sp" />
+            <button
+              type="button"
+              className="cu-new small"
+              disabled={!itemRows.length || !!busyRun}
+              title="담긴 항목 전부로 새 실행을 만듭니다"
+              onClick={() => void makeRun(plan)}
+            >
+              <i aria-hidden="true">▶</i>
+              {busyRun ? '만드는 중…' : `실행 만들기 ${itemRows.length}건`}
+            </button>
+          </h2>
+          {myRuns.length ? (
+            <table className="grid">
+              <thead>
+                <tr>
+                  <th>실행 ID</th>
+                  <th style={{ width: 72 }}>방식</th>
+                  <th className="num" style={{ width: 60 }}>항목</th>
+                  <th style={{ width: 180 }}>판정 현황</th>
+                  <th style={{ width: 76 }}>담당</th>
+                  <th style={{ width: 96 }}>생성</th>
+                  <th style={{ width: 80 }}>진행</th>
+                </tr>
+              </thead>
+              <tbody>
+                {myRuns.map((x) => {
+                  const rt = sumRuns([x])
+                  return (
+                    <tr
+                      key={x.id}
+                      className={x.id === selRun ? 'on' : undefined}
+                      onClick={() => openRun(x.id)}
+                      title="아래 본문에서 엽니다"
+                    >
+                      <td className="idcell cu-mono">{x.id}</td>
+                      <td>{String(x.mode ?? '') || '—'}</td>
+                      <td className="num">{x.n_total}</td>
+                      <td>
+                        <StatBar t={rt} pal={verdPal} slim />
+                      </td>
+                      <td>{String(x.owner ?? '') || '—'}</td>
+                      <td className="cu-m">{String(x.created_at ?? '').slice(0, 10)}</td>
+                      <td>
+                        {x.closed_at ? (
+                          <span className="badge b-wait">종료</span>
+                        ) : rt.none ? (
+                          <span className="badge b-run">{rt.none} 남음</span>
+                        ) : (
+                          <span className="badge b-pass">완료</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <div className="cu-empty">
+              <strong>아직 실행이 없습니다</strong>
+              <span>{itemRows.length ? '위 실행 만들기로 담긴 항목 전부를 담아 실행을 만듭니다.' : '시험 항목 탭에서 먼저 항목을 담으세요.'}</span>
+            </div>
+          )}
+        </div>
+
+        {/* 선택한 실행의 본문 — 옛 Runs 화면 그대로 */}
+        {!!r && (
+          <>
+            <div className="runpick">
+              <span className="cu-m">보는 실행</span>
+              {myRuns.map((x) => (
+                <button
+                  key={x.id}
+                  type="button"
+                  className={`rpick${x.id === r.id ? ' on' : ''}`}
+                  onClick={() => openRun(x.id)}
+                >
+                  {x.n_none ? '▤' : '✓'} {x.id}{' '}
+                  <span className="cu-m">{String(x.created_at ?? '').slice(0, 10)}</span>
+                </button>
+              ))}
+              <span className="cu-sp" />
               <button
                 type="button"
-                className="cu-new small"
-                title="사이클에 시험 항목을 담습니다 — 이미 뜬 이 실행에는 안 들어가고, 새 실행을 만들면 담깁니다"
-                onClick={() => setAddTo(true)}
+                className="btn small"
+                onClick={(e) => {
+                  const rc = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                  setRunMoreAt({ x: Math.max(8, rc.right - 180), y: rc.bottom + 4 })
+                }}
               >
-                <i aria-hidden="true">＋</i>항목 담기
+                더보기 ▾
               </button>
-            }
-            perPage={100}
-          />
-        </div>
+            </div>
+            <div className="run-titlerow">
+              <h1
+                className="run-title edt"
+                title="더블클릭하면 고칩니다"
+                onDoubleClick={(e) =>
+                  editInline(e.currentTarget, String(r.name ?? r.id), (v) => {
+                    if (v.trim()) void saveRun({ name: v.trim() })
+                  }, true)
+                }
+              >
+                {String(r.name || r.id)}
+              </h1>
+              <span className="cu-mono cu-m">({r.id})</span>
+              <span className={`cu-chip${modeTxt === '자동' ? ' auto' : ''}`}>{modeTxt}</span>
+              {!!t.total && !t.n && <span className="cu-chip done">✓ 완료</span>}
+              {!!r.closed_at && <span className="cu-chip">종료</span>}
+              <span className="cu-m">담당</span>
+              <button
+                type="button"
+                className="kvin rnb-own"
+                style={{ width: 'auto' }}
+                title="조직을 눌러 좁히거나 이름으로 찾아 고릅니다"
+                onClick={(e) => {
+                  const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                  setOwnAt({ x: b.left, y: b.bottom + 4 })
+                }}
+              >
+                {String(r.owner ?? '') || <span className="cu-m">(안 정함)</span>}
+                <span className="cu-m"> ▾</span>
+              </button>
+              {vf !== null && (
+                <span className="vfchip">
+                  {vName(verds, vf)}만 보는 중
+                  <button type="button" className="linkbtn" onClick={() => setVf(null)}>전체</button>
+                </span>
+              )}
+              <span className="cu-sp" />
+              <button
+                type="button"
+                className="cu-new"
+                disabled={!nA}
+                title="장비에 접속해 스텝을 순서대로 돌립니다"
+                onClick={() => openRunner('A')}
+              >
+                <i aria-hidden="true">▶</i>자동 시험 {nA}
+              </button>
+              <button
+                type="button"
+                className="btn small"
+                disabled={!nM}
+                title="사람이 확인하고 판정을 기록합니다"
+                onClick={() => openRunner('M')}
+              >
+                ✎ 수동 시험 {nM}
+              </button>
+            </div>
+            <div className="rnb-ntb flow">
+              <NTable
+                columns={riCols.map((c) =>
+                  c.key === 'result'
+                    ? { ...c, options: verds.map((d) => ({ value: d.label, color: d.color })) }
+                    : c,
+                )}
+                rows={shownRunItems.map((it) => ({
+                  __id: it.tcid,
+                  id: it.tcid,
+                  title: it.title || '(이름 없음)',
+                  folder: it.folder,
+                  who: it.who,
+                  result: vName(verds, it.v),
+                }))}
+                view={riView}
+                onView={setRiView}
+                onColumns={setRiCols}
+                people={people}
+                meName={meName}
+                onCell={(id, key, v) => {
+                  if (key === 'who') void setWho([id], v)
+                  if (key === 'result') {
+                    /* 「– 비움」·Delete 는 빈 글을 준다 — 미실행('') 판정이다 */
+                    const d = v === '' ? { v: '' } : verds.find((x) => x.label === v)
+                    if (d) void setVerdict(id, d.v)
+                  }
+                }}
+                readOnlyKeys={['id', 'title', 'folder']}
+                lockDefs
+                idKey="id"
+                titleKey="title"
+                rowIcon={(row) => {
+                  const man = runItems.find((x) => x.tcid === row.__id)?.man
+                  return <span className="cu-m" title={man ? '수동' : '자동'}>{man ? '✎' : '▶'}</span>
+                }}
+                onOpen={(id) => {
+                  const man = runItems.find((x) => x.tcid === id)?.man
+                  openRunner(man ? 'M' : 'A', id)
+                }}
+                onBulk={(a, ids) => {
+                  if (a === 'del') void dropRunItems(ids)
+                  else if (a === 'assign') setBulkAt({ kind: 'assign', ids })
+                  else if (a === 'status') setBulkAt({ kind: 'status', ids })
+                  else window.alert('이 표에서는 아직 없는 동작입니다')
+                }}
+                toolbarLeft={
+                  <button
+                    type="button"
+                    className="cu-new small"
+                    title="사이클에 시험 항목을 담습니다 — 이미 뜬 이 실행에는 안 들어가고, 새 실행을 만들면 담깁니다"
+                    onClick={() => setAddTo(true)}
+                  >
+                    <i aria-hidden="true">＋</i>항목 담기
+                  </button>
+                }
+                perPage={100}
+              />
+            </div>
+          </>
+        )}
       </div>
     )
   }
@@ -2209,9 +2150,16 @@ export default function CyclesBoard({
         {/* 순서는 **읽는 순서**다(옛 화면 그대로) — 한눈에 보고(개요),
             무엇이 일어났는지 읽고(AI 요약), 글로 옮기고(Test Summary),
             마지막에 항목 하나하나를 판다. */}
+        {/* 탭 차례는 지시대로: Info → 실행 → 시험 항목 → AI 요약 → Test Summary */}
         <div className="cu-tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === 'ov'} className={tab === 'ov' ? 'on' : ''} onClick={() => setTab('ov')}>
-            개요
+          <button type="button" role="tab" aria-selected={tab === 'info'} className={tab === 'info' ? 'on' : ''} onClick={() => setTab('info')}>
+            Info
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'run'} className={tab === 'run' ? 'on' : ''} onClick={() => setTab('run')}>
+            실행 <span className="dim">{myRuns.length}</span>
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'it'} className={tab === 'it' ? 'on' : ''} onClick={() => setTab('it')}>
+            시험 항목 <span className="dim">{itemRows.length}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'ai'} className={tab === 'ai' ? 'on' : ''} onClick={() => setTab('ai')}>
             AI 요약
@@ -2219,15 +2167,9 @@ export default function CyclesBoard({
           <button type="button" role="tab" aria-selected={tab === 'sum'} className={tab === 'sum' ? 'on' : ''} onClick={() => setTab('sum')}>
             Test Summary
           </button>
-          <button type="button" role="tab" aria-selected={tab === 'it'} className={tab === 'it' ? 'on' : ''} onClick={() => setTab('it')}>
-            시험 항목 <span className="dim">{itemRows.length}</span>
-          </button>
-          <button type="button" role="tab" aria-selected={tab === 'run'} className={tab === 'run' ? 'on' : ''} onClick={() => setTab('run')}>
-            실행 <span className="dim">{myRuns.length}</span>
-          </button>
         </div>
-        {tab === 'ov' ? (
-          renderOverview()
+        {tab === 'info' ? (
+          renderInfo()
         ) : tab === 'ai' ? (
           /* AI 요약 — 창이 아니라 탭 안에(옛 화면 그대로). 부품 한 벌 */
           <div className="cu-fill">
@@ -2237,7 +2179,7 @@ export default function CyclesBoard({
               cycleId={plan.id}
               title={[plan.model, plan.version].filter(Boolean).join(' · ') || String(plan.cid ?? plan.id)}
               items={[]}
-              onClose={() => setTab('ov')}
+              onClose={() => setTab('info')}
             />
           </div>
         ) : tab === 'sum' ? (

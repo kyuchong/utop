@@ -94,3 +94,8 @@
 .cyb-fdlg label .kvin { width: 100%; }
 .cyb-fdlg .req { color: var(--c-fail); font-style: normal; }
 .cyb-fdlg footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--c-border-soft); }
+
+/* 실행 탭 안의 항목 표 — 페이지가 굴리고 표는 자연 키로 흐른다 */
+.cyb .rnb-ntb.flow { flex: none; overflow: visible; padding: 0; }
+.cyb .cu-scroll .runpick, .cyb .cu-scroll .run-titlerow { padding-left: 0; padding-right: 0; }
+.cyb .cu-scroll table.grid tr.on td { background: var(--c-primary-bg); }
