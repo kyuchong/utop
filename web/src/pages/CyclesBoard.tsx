@@ -1853,8 +1853,7 @@ export default function CyclesBoard({
                 }
                 onClick={() => openRunner(man ? 'M' : 'A')}
               >
-                {man ? '✎ 수동 시험 ' : '▶ 자동 시험 '}
-                {runN}
+                {man ? '✎ 수동 시험' : '▶ 자동 시험'}
               </button>
             </>
           }
