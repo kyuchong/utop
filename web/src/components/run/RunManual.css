@@ -375,9 +375,10 @@
 .rm-v.f.on { background: #e34963; border-color: #e34963; color: #fff; }
 .rm-v.b.on { background: #e49a31; border-color: #e49a31; color: #fff; }
 
-.rm-fl { display: grid; grid-template-columns: 84px minmax(0, 1fr); border-top: 1px solid #f1f4f5; }
+.rm-fl { display: grid; grid-template-columns: 76px minmax(0, 1fr); border-top: 1px solid #f1f4f5; }
 .rm-fl:first-of-type { border-top: 0; }
-.rm-fl .l { background: #fafbfc; color: #82959c; font-size: 11.5px; padding: 5px 8px; border-right: 1px solid #f1f4f5; text-align: right; }
+/* 배경 띠와 세로선을 걷었다 — 빈 칸이 넓은 판처럼 보여 자리를 먹었다(지적) */
+.rm-fl .l { background: none; color: #8b9aa2; font-size: 11px; padding: 5px 7px 5px 0; text-align: right; line-height: 1.35; }
 .rm-fl .v { padding: 5px 9px; font-size: 12.5px; min-width: 0; }
 .rm-bt { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; }
 .rm-ata {
@@ -438,7 +439,12 @@
 /* ── 목록: 고르기 · 묶기 · 일괄 판정 (지시) ── */
 .rm-grid th.rm-ck, .rm-grid td.rm-ck { width: 30px; padding-left: 8px !important; padding-right: 0 !important; }
 .rm-ck input { cursor: pointer; margin: 0; vertical-align: -1px; }
-.rm-who { text-align: center; font-weight: 600; color: #46555d; }
+.rm-who { text-align: center; }
+.rm-av {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 21px; height: 21px; border-radius: 50%; color: #fff;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0;
+}
 
 /* 판정 열 머리의 일괄 단추 */
 .rm-bulk {
@@ -473,4 +479,4 @@
 .rm-menu button i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
 
 /* 시험 시간 — 숫자가 줄줄이 서게 */
-.rm-when { font-size: 11px; color: #46555d; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rm-when { font-size: 11px; color: #46555d; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }

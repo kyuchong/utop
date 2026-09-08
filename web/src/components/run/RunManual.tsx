@@ -204,6 +204,13 @@ export default function RunManual({
     return /[A-Za-z]/.test(nm[0] ?? '') ? nm[0]!.toUpperCase() : nm[0]!
   }
 
+  /** 아바타 색 — 이름마다 다른 색이라 여럿이 섞여도 한눈에 갈린다 */
+  const avColor = (v: string) => {
+    let h = 0
+    for (const ch of String(v)) h = (h * 31 + ch.charCodeAt(0)) % 360
+    return `hsl(${h} 42% 46%)`
+  }
+
   /** 머리 번호 한 칸 — 누를 수 있는 것은 오른쪽 서랍을 연다 */
   const keyChip = (label: string, v?: string, opt?: { tone?: 'run'; open?: 'req' | 'tc' }) =>
     v ? (
@@ -289,7 +296,7 @@ export default function RunManual({
                   <th style={{ width: 108 }}>TC ID</th>
                   <th>시험 항목</th>
                   <th style={{ width: 52 }}>담당자</th>
-                  <th style={{ width: 116 }}>시험 시간</th>
+                  <th style={{ width: 148 }}>시험 시간</th>
                   <th style={{ width: 100 }}>
                     판정
                     {/* 고른 줄에 한 판정을 한 번에(지시: SET ALL) */}
@@ -369,8 +376,14 @@ export default function RunManual({
                               <span className="rm-id">{x.id}</span>
                             </td>
                             <td className="rm-t" title={x.title}>{x.title}</td>
-                            {/* 담당자는 이니셜만 — 온마우스로 온 이름(지시) */}
-                            <td className="rm-who" title={who || '–'}>{who ? initial(who) : '–'}</td>
+                            {/* 담당자 — 동그란 아이콘, 온마우스로 온 이름(지시) */}
+                            <td className="rm-who" title={who || '담당자 없음'}>
+                              {who ? (
+                                <span className="rm-av" style={{ background: avColor(who) }}>{initial(who)}</span>
+                              ) : (
+                                <span className="rm-muted">–</span>
+                              )}
+                            </td>
                             <td className="rm-when" title={when || '아직 판정 안 함'}>
                               {when || <span className="rm-muted">–</span>}
                             </td>
