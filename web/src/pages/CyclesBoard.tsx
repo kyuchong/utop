@@ -18,6 +18,7 @@ import { apiFetch } from '@/api/client'
 import { goto, onGoto, reflectUrl } from '@/api/goto'
 import { prefGet, prefRemove, prefSet } from '@/lib/prefs'
 import { normMode } from '@/lib/runMode'
+import DescNote from '@/components/DescNote'
 import { exportCycleCsv, CloneDialog } from '@/pages/Cycles'
 import type { CycleItemLite, CycleMeta } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
@@ -88,6 +89,8 @@ interface PlanFull {
   /** 시험 기간 — YYYY-MM-DD */
   period_start?: string
   period_end?: string
+  /** 설명의 블록 저장분(정본) — description 은 함께 뽑아 둔 마크다운 */
+  description_doc?: unknown[]
 }
 
 /** 실행 전문 + 실행 탭이 실행 기록(data)에 얹어 두는 값 */
@@ -137,6 +140,7 @@ export default function CyclesBoard({
   const [draft, setDraft] = useState<Partial<PlanFull>>({})
   const [savingMeta, setSavingMeta] = useState(false)
   const [cidDone, setCidDone] = useState(false)
+  const [descEdit, setDescEdit] = useState(false)
   const dirty = Object.keys(draft).length > 0
 
   const openPlanId = (id: string) => {
@@ -157,6 +161,7 @@ export default function CyclesBoard({
   useEffect(() => {
     setDraft({})
     setCidDone(false)
+    setDescEdit(false)
   }, [open])
 
   /* ── 자료 ── */
@@ -1673,7 +1678,8 @@ export default function CyclesBoard({
       String((draft as Record<string, unknown>)[k] ?? (plan as unknown as Record<string, unknown>)[k] ?? '')
     return (
       <div className="cu-scroll">
-        <div className="cu-sec metarow">
+        <div className="cu-sec cyb-inforow">
+          <div className="cyb-infocol">
           <div className="cu-card metacard">
             <h2>기본 정보</h2>
             <div className="pad">
@@ -1723,7 +1729,7 @@ export default function CyclesBoard({
                     ))}
                   </select>,
                 )}
-                {kv('사이클 ID', <span className="cu-mono">{String(plan.cid ?? plan.id)}</span>)}
+                {kv('사이클 ID', <span className="kvin cu-mono kvro">{String(plan.cid ?? plan.id)}</span>)}
                 {kv(
                   '버전명',
                   <input
@@ -1737,7 +1743,7 @@ export default function CyclesBoard({
             </div>
           </div>
           <div className="cu-card metacard">
-            <h2>구성</h2>
+            <h2>시험 정보</h2>
             <div className="pad">
               <div className="kv1">
                 {kv('요구사항', <>{reqN}건</>)}
@@ -1823,17 +1829,38 @@ export default function CyclesBoard({
               </div>
             </div>
           </div>
-        </div>
-        <div className="cu-sec cu-card">
-          <h2>설명</h2>
-          <div className="pad">
-            <span
-              className="edt desc"
-              title="더블클릭하면 고칩니다"
-              onDoubleClick={(e) => editInline(e.currentTarget, pv('description'), (v) => stage({ description: v }))}
-            >
-              {pv('description') || <span className="cu-m">—</span>}
-            </span>
+          </div>
+          <div className="cu-card cyb-desccard">
+            <h2 className="flexh">
+              설명
+              <span className="cu-sp" />
+              <button type="button" className="btn small" onClick={() => setDescEdit((v) => !v)}>
+                {descEdit ? '편집 닫기' : '편집'}
+              </button>
+            </h2>
+            <div className="pad cyb-descbody">
+              {(() => {
+                /* 위키와 같은 블록 노트(지시) — 고친 것은 초안에 담기고
+                   머리의 저장 단추가 실어 보낸다 */
+                const dd = (draft.description_doc ?? full?.description_doc) as unknown
+                const hasDoc = Array.isArray(dd) && dd.length > 0
+                if (!descEdit && !hasDoc && !pv('description').trim())
+                  return <p className="cu-m">설명이 없습니다. 「편집」 을 눌러 넣으세요.</p>
+                return (
+                  <DescNote
+                    key={open}
+                    doc={dd}
+                    text={pv('description')}
+                    editable={descEdit}
+                    onChange={
+                      descEdit
+                        ? (d, md) => stage({ description_doc: d, description: md })
+                        : undefined
+                    }
+                  />
+                )
+              })()}
+            </div>
           </div>
         </div>
       </div>

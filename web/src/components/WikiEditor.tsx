@@ -43,7 +43,7 @@ import { reqLabel, reqPk } from '@/types'
  * 그건 BlockNote 팔레트에서 고른 값이 글 안에 박혀 있어, 여기서 바꾸면
  * 이미 쓴 문서의 색이 소리 없이 달라진다.
  */
-const THEME = {
+export const THEME = {
   ...lightDefaultTheme,
   colors: {
     ...lightDefaultTheme.colors,

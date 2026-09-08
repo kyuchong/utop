@@ -46,9 +46,16 @@
 .cyb .cu-fill > .ntb, .cyb .cu-fill > div:last-child { flex: 1; min-height: 0; }
 
 /* 기본 정보 네 묶음 — 대상 │ 사이클 │ 구성 │ 사람·이력 (지시) */
-.cyb .metarow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
-@media (max-width: 1280px) { .cyb .metarow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 760px) { .cyb .metarow { grid-template-columns: 1fr; } }
+/* Info 배치(지시): 1열에 기본 정보·시험 정보·이력을 세로 3행, 2열에 설명 —
+   카드 가로 폭이 너무 남아서 세로로 쌓고 설명이 남는 폭을 갖는다 */
+.cyb .cyb-inforow { display: grid; grid-template-columns: minmax(360px, 480px) minmax(0, 1fr); gap: var(--sp-3); }
+.cyb .cyb-infocol { display: grid; gap: var(--sp-3); align-content: start; }
+.cyb .cyb-desccard h2 { margin: 0; }
+@media (max-width: 1100px) { .cyb .cyb-inforow { grid-template-columns: 1fr; } }
+
+/* 읽기 전용 값(사이클 ID) — 입력칸과 같은 크기·들여쓰기, 손대도 테두리는 안 선다 */
+.cyb .kvin.kvro { display: inline-flex; align-items: center; }
+.cyb .kvin.kvro:hover { border-color: transparent; background: transparent; }
 .cyb .metacard .kv1 {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
@@ -153,3 +160,11 @@
   cursor: pointer;
 }
 .cyb .cyb-period i { font-style: normal; color: var(--c-text-muted, #6b7680); }
+
+/* 설명 카드 — 마크다운 편집기가 남는 자리를 쓴다 */
+.cyb .cyb-descbody { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.cyb .cyb-descbody > * { min-height: 0; }
+.cyb .cyb-desccard { display: flex; flex-direction: column; min-height: 260px; }
+
+/* 블록 노트가 카드 안에서 제 폭을 다 쓰게 — 위키의 넓은 여백은 카드엔 과하다 */
+.cyb .cyb-descbody .bn-editor { padding-inline: 44px 12px; }
