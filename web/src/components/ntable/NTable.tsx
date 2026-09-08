@@ -750,6 +750,33 @@ export default function NTable(p: NTableProps) {
                   {view.groupBy && (
                     <tr className="ntb-grh">
                       <td colSpan={vis.length + 2}>
+                        {/* 묶음 체크(지시) — 이 묶음의 줄만 통째로 고른다.
+                            머리줄의 체크는 그대로 **전체**를 고른다 */}
+                        {(() => {
+                          const keys = g.rows.map((r) => r.__id)
+                          const on = keys.length > 0 && keys.every((k) => checked.has(k))
+                          const some = !on && keys.some((k) => checked.has(k))
+                          return (
+                            <input
+                              type="checkbox"
+                              className="ntb-gck"
+                              aria-label={`${g.value || '(없음)'} 묶음 고르기`}
+                              title={`이 묶음 ${keys.length}건 고르기`}
+                              checked={on}
+                              ref={(el) => {
+                                if (el) el.indeterminate = some
+                              }}
+                              onChange={() =>
+                                setChecked((st) => {
+                                  const n = new Set(st)
+                                  if (on) keys.forEach((k) => n.delete(k))
+                                  else keys.forEach((k) => n.add(k))
+                                  return n
+                                })
+                              }
+                            />
+                          )
+                        })()}
                         <button
                           type="button"
                           className="ntb-gtog"

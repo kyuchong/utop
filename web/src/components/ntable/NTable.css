@@ -65,6 +65,7 @@
 
 /* 묶음 줄 */
 .ntb-grh td { background: var(--ntb-hov); border-bottom: 1px solid var(--ntb-line); padding: 3px 9px; font-size: 12.5px; }
+.ntb-gck { margin: 0 8px 0 0; vertical-align: -1px; cursor: pointer; }
 .ntb-gtog { border: 0; background: none; color: var(--ntb-mut); cursor: pointer; padding: 0 6px 0 0; font-size: 12px; }
 .ntb-gcnt { color: var(--ntb-mut); margin-left: 8px; font-size: 12px; }
 .ntb-gnew { float: right; border: 0; background: none; color: var(--ntb-mut); font: inherit; font-size: 12px; cursor: pointer; }
