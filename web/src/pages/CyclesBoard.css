@@ -72,7 +72,8 @@
 /* 목록 노션 표 — 남는 높이를 다 갖고 제 안에서 굴린다 */
 /* 노션 표의 스크롤은 **이 판**이 맡는다(NTable 설계) — 자식 높이를 판에
    맞춰 누르면 넘친 줄이 잘린 채 스크롤바도 없다(지적: 62건인데 못 내림). */
-.cyb .cyb-ntb { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--sp-2) var(--sp-2); }
+/* 바닥 안쪽 여백을 주면 붙박이 발판 아래 그 여백만큼 줄이 비쳐 보인다(지적: 버그) */
+.cyb .cyb-ntb { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--sp-2); }
 
 /* 빵부스러기 — REQ-Coverage 와 같은 꼴(지시) */
 .cyb .cyb-crumb { display: flex; align-items: center; gap: 2px; font-size: var(--fs-md); min-width: 0; overflow: hidden; }
@@ -188,3 +189,15 @@
   background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 9l6 6 6-6' fill='none' stroke='%23555f6a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
   pointer-events: none;
 }
+
+/* Test Result 배치(지시): 1열 3행 차트, 2열에 일자별 시험 현황 그래프 */
+.cyb .cyb-runrow { display: grid; grid-template-columns: minmax(340px, 440px) minmax(0, 1fr); gap: var(--sp-3); align-items: stretch; }
+.cyb .cyb-runcol { display: grid; gap: var(--sp-3); align-content: start; }
+@media (max-width: 1100px) { .cyb .cyb-runrow { grid-template-columns: 1fr; } }
+.cyb .cyb-daycard { display: flex; flex-direction: column; }
+.cyb .cyb-daybody { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.cyb .cyb-daychart { width: 100%; height: auto; max-height: 440px; }
+.cyb .cyb-daychart .tick { font-size: 10px; fill: var(--c-text-faint, #98a2ad); }
+.cyb .cyb-daychart .val { font-size: 11px; font-weight: 700; fill: var(--c-text-muted, #6b7680); }
+.cyb .cyb-daylegend { display: flex; gap: 14px; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.cyb .cyb-daylegend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }

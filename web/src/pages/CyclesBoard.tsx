@@ -1090,17 +1090,6 @@ export default function CyclesBoard({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runFull, tcOf, reqIndex, verds])
-  const runTally = useMemo(() => {
-    const t = { p: 0, f: 0, b: 0, n: 0, total: runItems.length, done: 0 }
-    for (const it of runItems) t[vLetter(verds, it.v)]++
-    t.done = t.p + t.f + t.b
-    return t
-  }, [runItems, verds])
-  const runByVerd = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const it of runItems) m.set(it.v, (m.get(it.v) ?? 0) + 1)
-    return m
-  }, [runItems])
 
   /* ── 그리기 ── */
   const kv = (k: string, v: React.ReactNode) => (
@@ -1880,118 +1869,70 @@ export default function CyclesBoard({
      선택한 실행의 본문(옛 Runs)까지 실행 이야기는 전부 여기(지시: 탭 재편) ── */
   function renderRunTab() {
     if (!plan) return null
-    const pctA = itemRows.length ? Math.round((nAuto / itemRows.length) * 100) : 0
-    const pctM = itemRows.length ? Math.round((nMan / itemRows.length) * 100) : 0
     const cov = poolN ? ((itemRows.length / poolN) * 100).toFixed(1) : '0.0'
     const r = runLite && myRuns.some((x) => x.id === runLite.id) ? runLite : undefined
-    const t = runTally
-    return (
-      <div className="cu-scroll">
-        <div className="cu-sec statrow">
-          {/* 판정 요약과 같은 꼴(지시) — 왼쪽 도넛, 오른쪽 알약 줄 */}
-          <div className="cu-card statcard">
-            <h2>자동 시험</h2>
-            <div className="ov-verd">
-              <div className="sumdonut">
-                <Donut parts={[{ v: nAuto, cls: 'a' }]} total={itemRows.length} label={String(nAuto)} sub={`${pctA}%`} />
-                <div className="cu-m">전체 {itemRows.length}건 중</div>
-              </div>
-              <div className="sumrows">
-                <span className="sumrow">
-                  <span className="vpill pa">{pctA}%</span>
-                  <b>{nAuto}</b>
-                  <span className="cu-m">자동 항목</span>
-                </span>
-                <span className="sumrow">
-                  <span className="cu-m">{nAuto ? '장비에 접속해 스텝을 순서대로 돌립니다' : '자동 항목이 없습니다'}</span>
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="cu-card statcard">
-            <h2>수동 시험</h2>
-            <div className="ov-verd">
-              <div className="sumdonut">
-                <Donut parts={[{ v: nMan, cls: 'm' }]} total={itemRows.length} label={String(nMan)} sub={`${pctM}%`} />
-                <div className="cu-m">전체 {itemRows.length}건 중</div>
-              </div>
-              <div className="sumrows">
-                <span className="sumrow">
-                  <span className="vpill pm">{pctM}%</span>
-                  <b>{nMan}</b>
-                  <span className="cu-m">수동 항목</span>
-                </span>
-                <span className="sumrow">
-                  <span className="cu-m">{nMan ? '사람이 확인하고 판정을 기록합니다' : '수동 항목이 없습니다'}</span>
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="cu-card statcard">
-            <h2>커버리지</h2>
-            <div className="ov-verd">
-              <div className="sumdonut">
-                <Donut parts={[{ v: itemRows.length, cls: 'c' }]} total={poolN} label={String(itemRows.length)} sub={`${cov}%`} />
-                <div className="cu-m">
-                  {String(plan.model ?? plan.model_group ?? '전체')} 시험 {poolN}건 중
-                </div>
-              </div>
-              <div className="sumrows">
-                <span className="sumrow">
-                  <span className="vpill pc">{cov}%</span>
-                  <b>{itemRows.length}</b>
-                  <span className="cu-m">담은 항목</span>
-                </span>
-                <span className="sumrow">
-                  <span className="vpill v-n">{poolN ? (100 - Number(cov)).toFixed(1) : '0.0'}%</span>
-                  <b>{Math.max(0, poolN - itemRows.length)}</b>
-                  <span className="cu-m">안 담김</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* 판정 요약 — 지금 고른 실행 기준, 알약을 누르면 아래 표가 걸러진다 */}
-        <div className="cu-sec cu-card">
+    /* 방식별 판정 셈 — 실행이 있으면 보는 실행의 항목, 없으면 담긴 항목 전부 미실행 */
+    const modeStat = (man: boolean) => {
+      const vals = r
+        ? runItems.filter((x) => x.man === man).map((x) => x.v)
+        : itemRows.filter((x) => x.man === man).map(() => '')
+      const by = new Map<string, number>()
+      let p = 0
+      let f = 0
+      let b = 0
+      let none = 0
+      for (const v of vals) {
+        const val = vDef(verds, v).v
+        by.set(val, (by.get(val) ?? 0) + 1)
+        const l = vLetter(verds, v)
+        if (l === 'p') p += 1
+        else if (l === 'f') f += 1
+        else if (l === 'n') none += 1
+        else b += 1
+      }
+      return { total: vals.length, by, p, f, b, done: vals.length - none }
+    }
+
+    /* 카드 한 장 — 판정 요약과 같은 꼴(지시): 왼쪽 도넛, 오른쪽 판정별 알약 */
+    const verdCard = (title: string, man: boolean) => {
+      const st = modeStat(man)
+      return (
+        <div className="cu-card statcard">
           <h2 className="flexh">
-            판정 요약{' '}
-            <span className="dim">
-              {r ? `실행 ${r.id} · ${String(r.created_at ?? '').slice(0, 10)}` : '실행 없음'}
-            </span>
+            {title} <span className="dim">{r ? `실행 ${r.id}` : '실행 없음'}</span>
           </h2>
           <div className="ov-verd">
             <div className="sumdonut">
               <Donut
-                big
                 parts={[
-                  { v: t.p, cls: 'p', color: vDef(verds, 'Pass').color },
-                  { v: t.f, cls: 'f', color: vDef(verds, 'Fail').color },
-                  { v: t.b, cls: 'b', color: vDef(verds, 'Blocked').color },
+                  { v: st.p, cls: 'p', color: vDef(verds, 'Pass').color },
+                  { v: st.f, cls: 'f', color: vDef(verds, 'Fail').color },
+                  { v: st.b, cls: 'b', color: vDef(verds, 'Blocked').color },
                 ]}
-                total={t.total}
-                label={myRuns.length && t.total ? `${Math.round((t.done / t.total) * 100)}%` : '0%'}
-                sub={myRuns.length ? '완료' : '실행 없음'}
+                total={st.total}
+                label={st.total ? `${Math.round((st.done / st.total) * 100)}%` : '0%'}
+                sub="완료"
               />
               <div className="cu-m">
-                {myRuns.length ? `${t.total}개 중 ${t.done} 완료됨` : '오른쪽 위 더보기의 「실행 하나 더」 로 첫 실행을 만드세요'}
+                {st.total}개 중 {st.done} 완료됨
               </div>
             </div>
             <div className="sumrows">
               {[
                 ...verds,
-                ...[...runByVerd.keys()]
+                ...[...st.by.keys()]
                   .filter((k2) => !verds.some((d) => d.v === k2))
                   .map((k2) => ({ ...vDef(verds, k2), label: `${k2} (지워진 판정)` })),
               ].map((d) => {
-                const nn = runByVerd.get(d.v) ?? 0
+                const nn = st.by.get(d.v) ?? 0
                 return (
                   <span key={d.v || '(none)'} className="sumrow">
                     <span
                       className={`vpill${d.v ? '' : ' v-n'}`}
                       style={d.v ? { background: d.color, color: '#fff' } : undefined}
                     >
-                      {t.total ? Math.round((nn / t.total) * 100) : 0}%
+                      {st.total ? Math.round((nn / st.total) * 100) : 0}%
                     </span>
                     <b>{nn || '-'}</b>
                     <span className="cu-m">{d.label}</span>
@@ -2001,7 +1942,130 @@ export default function CyclesBoard({
             </div>
           </div>
         </div>
+      )
+    }
 
+    /* 일자별 시험 현황 — 실행 생성일 기준으로 그날 실린 판정을 쌓는다 */
+    const days = (() => {
+      const m = new Map<string, { p: number; f: number; b: number }>()
+      for (const x of myRuns) {
+        const d = String(x.created_at ?? '').slice(0, 10)
+        if (!d) continue
+        const cur = m.get(d) ?? { p: 0, f: 0, b: 0 }
+        cur.p += x.n_pass
+        cur.f += x.n_fail
+        cur.b += x.n_etc
+        m.set(d, cur)
+      }
+      return [...m.entries()].sort((a, b2) => a[0].localeCompare(b2[0]))
+    })()
+    const cP = vDef(verds, 'Pass').color
+    const cF = vDef(verds, 'Fail').color
+    const cB = vDef(verds, 'Blocked').color
+    const dayChart = () => {
+      if (!days.length)
+        return (
+          <div className="cu-empty">
+            <strong>아직 실행이 없습니다</strong>
+            <span>실행이 생기면 일자별 판정 수가 여기 쌓입니다.</span>
+          </div>
+        )
+      const W = 640
+      const H = 320
+      const padL = 34
+      const padB = 26
+      const padT = 16
+      const max = Math.max(1, ...days.map(([, v]) => v.p + v.f + v.b))
+      const slot = (W - padL - 8) / days.length
+      const bw = Math.max(10, Math.min(48, slot - 12))
+      const x0 = (i: number) => padL + 8 + i * slot + (slot - bw) / 2
+      const y = (n: number) => padT + (H - padT - padB) * (1 - n / max)
+      const hOf = (n: number) => ((H - padT - padB) * n) / max
+      return (
+        <svg className="cyb-daychart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="일자별 시험 현황">
+          {[0, 0.5, 1].map((t2) => (
+            <g key={t2}>
+              <line x1={padL} x2={W - 4} y1={y(max * t2)} y2={y(max * t2)} stroke="var(--c-border-soft, #e8ecef)" />
+              <text x={padL - 6} y={y(max * t2) + 4} textAnchor="end" className="tick">
+                {Math.round(max * t2)}
+              </text>
+            </g>
+          ))}
+          {days.map(([d, v], i) => {
+            const total = v.p + v.f + v.b
+            let top = y(0)
+            const seg = (n: number, color: string, k: string) => {
+              if (!n) return null
+              top -= hOf(n)
+              return <rect key={k} x={x0(i)} y={top} width={bw} height={hOf(n)} fill={color} rx={2} />
+            }
+            return (
+              <g key={d}>
+                {seg(v.p, cP, 'p')}
+                {seg(v.f, cF, 'f')}
+                {seg(v.b, cB, 'b')}
+                {!!total && (
+                  <text x={x0(i) + bw / 2} y={top - 5} textAnchor="middle" className="val">
+                    {total}
+                  </text>
+                )}
+                <text x={x0(i) + bw / 2} y={H - 8} textAnchor="middle" className="tick">
+                  {d.slice(5)}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+      )
+    }
+
+    return (
+      <div className="cu-scroll">
+        {/* 총 2열 — 1열 3행은 차트, 2열은 일자별 시험 현황(지시) */}
+        <div className="cu-sec cyb-runrow">
+          <div className="cyb-runcol">
+            {verdCard('자동 시험', false)}
+            {verdCard('수동 시험', true)}
+            <div className="cu-card statcard">
+              <h2>커버리지</h2>
+              <div className="ov-verd">
+                <div className="sumdonut">
+                  <Donut parts={[{ v: itemRows.length, cls: 'c' }]} total={poolN} label={String(itemRows.length)} sub={`${cov}%`} />
+                  <div className="cu-m">
+                    {String(plan.model ?? plan.model_group ?? '전체')} 시험 {poolN}건 중
+                  </div>
+                </div>
+                <div className="sumrows">
+                  <span className="sumrow">
+                    <span className="vpill pc">{cov}%</span>
+                    <b>{itemRows.length}</b>
+                    <span className="cu-m">담은 항목</span>
+                  </span>
+                  <span className="sumrow">
+                    <span className="vpill v-n">{poolN ? (100 - Number(cov)).toFixed(1) : '0.0'}%</span>
+                    <b>{Math.max(0, poolN - itemRows.length)}</b>
+                    <span className="cu-m">안 담김</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="cu-card cyb-daycard">
+            <h2 className="flexh">
+              일자별 시험 현황 <span className="dim">실행 생성일 기준 · 판정 수</span>
+            </h2>
+            <div className="pad cyb-daybody">
+              {dayChart()}
+              {!!days.length && (
+                <div className="cyb-daylegend">
+                  <span><i style={{ background: cP }} /> Pass</span>
+                  <span><i style={{ background: cF }} /> Fail</span>
+                  <span><i style={{ background: cB }} /> 그 밖(중립 계열)</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     )
   }

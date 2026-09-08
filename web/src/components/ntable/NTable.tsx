@@ -5,7 +5,7 @@ import {
   DateEditor, FieldMenu, PersonEditor, Pill, Pop, SelectEditor, TextEditor,
 } from './NParts'
 import {
-  IcCheck, IcDots, IcFilter, IcGroup, IcHide, IcOpen, IcPlus, IcSearch,
+  IcCheck, IcFilter, IcGroup, IcHide, IcOpen, IcPlus, IcSearch,
   IcSortAsc, IcSortDesc, TYPE_ICON,
 } from './NIcons'
 import './NTable.css'
@@ -110,6 +110,11 @@ export default function NTable(p: NTableProps) {
   /** 끌어 채우는 중 — 어디까지 왔나 */
   const [fillTo, setFillTo] = useState<number | null>(null)
   const [page, setPage] = useState(1)
+  /* 줄 수 — 부모가 안 받아 주는 화면이 대부분이라(지적: 25·50·75 가 안 먹혔다)
+     표가 스스로 들고, 받아 주는 부모에게는 그대로 알린다 */
+  const [perLoc, setPerLoc] = useState(perPage)
+  useEffect(() => setPerLoc(perPage), [perPage])
+  const per = Math.max(1, perLoc)
   const drag = useRef<{ key: string; x0: number; w0: number } | null>(null)
 
   const vis = useMemo(() => columns.filter((c) => !c.hidden), [columns])
@@ -153,14 +158,14 @@ export default function NTable(p: NTableProps) {
   }, [rows, view, vis])
 
   /* 쪽 나누기 — 묶기를 켜면 나누지 않는다(묶음을 쪼개면 뜻이 깨진다) */
-  const pageN = Math.max(1, Math.ceil(shown.length / Math.max(1, perPage)))
+  const pageN = Math.max(1, Math.ceil(shown.length / per))
   useEffect(() => {
     if (page > pageN) setPage(pageN)
   }, [page, pageN])
-  useEffect(() => setPage(1), [view.q, view.filters, view.sorts, perPage])
+  useEffect(() => setPage(1), [view.q, view.filters, view.sorts, per])
   const paged = useMemo(
-    () => (view.groupBy ? shown : shown.slice((page - 1) * perPage, page * perPage)),
-    [shown, view.groupBy, page, perPage],
+    () => (view.groupBy ? shown : shown.slice((page - 1) * per, page * per)),
+    [shown, view.groupBy, page, per],
   )
 
   /** 한 열의 계산 값 — 지금 보이는 줄들로 센다 */
@@ -671,9 +676,6 @@ export default function NTable(p: NTableProps) {
             <tr>
               <th className="ntb-gp">
                 <div className="ntb-gpin">
-                  {/* 줄에는 끌기 손잡이가 있고 머리줄에는 없어 체크박스가
-                      25px 어긋났다(실측) — 같은 자리를 비워 맞춘다 */}
-                  <IcDots className="ntb-grip" style={{ visibility: 'hidden' }} aria-hidden="true" />
                   <input
                     type="checkbox"
                     aria-label="모두 고르기"
@@ -765,7 +767,6 @@ export default function NTable(p: NTableProps) {
                       <tr key={r.__id} className={checked.has(r.__id) ? 'ntb-row on' : 'ntb-row'}>
                         <td className="ntb-gp">
                           <div className="ntb-gpin">
-                            <IcDots className="ntb-grip" />
                             <input
                               type="checkbox"
                               checked={checked.has(r.__id)}
@@ -896,9 +897,13 @@ export default function NTable(p: NTableProps) {
         <span className="ntb-pg">
           <span>줄 수</span>
           <select
-            value={perPage}
+            value={per}
             title="한 쪽에 보여 줄 줄 수"
-            onChange={(e) => onPerPage?.(Number(e.target.value))}
+            onChange={(e) => {
+              const n = Number(e.target.value)
+              setPerLoc(n)
+              onPerPage?.(n)
+            }}
           >
             {[25, 50, 75, 100].map((n) => (
               <option key={n} value={n}>{n}개</option>
