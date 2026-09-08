@@ -341,8 +341,10 @@
   background: var(--c-app-bg, #cfe3e8);
   border: 0;
   border-radius: 0;
-  padding: 8px;
-  gap: 8px;
+  /* 여백은 **사이클 화면과 같은 벌**이다(실측) — 둘레 4px 는 바깥 격자가
+     이미 주므로 여기선 0, 카드 사이만 6px */
+  padding: 0;
+  gap: 6px;
   overflow: hidden;
 }
 /* 1행 — 머리 카드 */

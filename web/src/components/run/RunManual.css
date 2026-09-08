@@ -15,12 +15,13 @@
 .rm-panel > header small { font-size: 10px; color: #8c9da3; }
 
 /* 분할바 */
-.rm-sash { width: 9px; flex: 0 0 9px; cursor: col-resize; position: relative; }
+/* 두 카드 사이도 6px — 사이클 화면의 판 사이와 같다(실측) */
+.rm-sash { width: 6px; flex: 0 0 6px; cursor: col-resize; position: relative; }
 .rm-sash::before {
-  content: ''; position: absolute; left: 4px; top: 0; bottom: 0; width: 1px;
+  content: ''; position: absolute; left: 2.5px; top: 0; bottom: 0; width: 1px;
   background: #d9e2e5; transition: 0.15s;
 }
-.rm-sash:hover::before, .rm-sash.on::before { width: 2px; left: 3.5px; background: #7aaee5; }
+.rm-sash:hover::before, .rm-sash.on::before { width: 2px; left: 2px; background: #7aaee5; }
 
 /* 도구줄 */
 .rm-tools { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-bottom: 1px solid var(--c-border, #e2e8eb); }
