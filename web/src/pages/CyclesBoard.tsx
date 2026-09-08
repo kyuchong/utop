@@ -2142,16 +2142,6 @@ export default function CyclesBoard({
                 </button>
               ))}
               <span className="cu-sp" />
-              <button
-                type="button"
-                className="btn small"
-                onClick={(e) => {
-                  const rc = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                  setRunMoreAt({ x: Math.max(8, rc.right - 180), y: rc.bottom + 4 })
-                }}
-              >
-                더보기 ▾
-              </button>
             </div>
             <div className="run-titlerow">
               <h1
@@ -2423,16 +2413,16 @@ export default function CyclesBoard({
           {/* ⋯ 는 걷었다(지시) — 복제·고치기·CSV·지우기·실행 만들기는
               목록에서 줄을 골랐을 때 아래 선택 바가 맡는다 */}
           <div className="cu-hdbtns">
+            {/* 실행 더보기 — 결과 메일·고객사 결과서·실행 하나 더(지시: 상단 오른쪽) */}
             <button
               type="button"
-              className="cu-new"
-              title="이 사이클에 담긴 시험 항목으로 시험 실행을 만듭니다"
-              onClick={() => {
-                setNeedMake(true)
-                setMkRun(true)
+              className="btn small"
+              onClick={(e) => {
+                const rc = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                setRunMoreAt({ x: Math.max(8, rc.right - 180), y: rc.bottom + 4 })
               }}
             >
-              <i aria-hidden="true">＋</i>실행
+              더보기 ▾
             </button>
           </div>
         </div>
@@ -2760,7 +2750,7 @@ export default function CyclesBoard({
       })()}
 
       {/* 실행 더보기 — 실행 하나짜리 일들 */}
-      {!!runMoreAt && !!runLite && (
+      {!!runMoreAt && (
         <>
           <span className="qa-moreovl" role="presentation" onClick={() => setRunMoreAt(null)} />
           <div className="qa-menu" role="menu" style={{ left: runMoreAt.x, top: runMoreAt.y }}>
@@ -2795,18 +2785,22 @@ export default function CyclesBoard({
             >
               ＋ 실행 하나 더
             </button>
-            <div className="qa-menusep" />
-            <button
-              type="button"
-              role="menuitem"
-              className="danger"
-              onClick={() => {
-                setRunMoreAt(null)
-                void delRun(runLite.id)
-              }}
-            >
-              실행 지우기
-            </button>
+            {!!runLite && (
+              <>
+                <div className="qa-menusep" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="danger"
+                  onClick={() => {
+                    setRunMoreAt(null)
+                    void delRun(runLite.id)
+                  }}
+                >
+                  실행 지우기
+                </button>
+              </>
+            )}
           </div>
         </>
       )}
