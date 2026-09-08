@@ -211,6 +211,13 @@ export default function CyclesBoard({
   /** 접힌 트리 마디 — 기본은 전부 펼침 */
   const [closed, setClosed] = useState<Set<string>>(new Set())
   const [treeQ, setTreeQ] = useState('')
+  /** 트리 보기 — 폴더만 / 폴더+버전명(사이클). REQ-Coverage 의 ⋯ 과 같은 결 */
+  const [leafOn, setLeafOn] = useState(() => prefGet('utop.cyc.leaves') !== '0')
+  const [treeModeAt, setTreeModeAt] = useState<{ x: number; y: number } | null>(null)
+  const setLeaves = (v: boolean) => {
+    setLeafOn(v)
+    prefSet('utop.cyc.leaves', v ? '1' : '0')
+  }
   /** 폴더 ⋯ 메뉴 — 트리의 사업자·모델·버전그룹 줄 */
   const [folderMenu, setFolderMenu] = useState<{ x: number; y: number; t: 'cust' | 'model' | 'vg'; k: string } | null>(null)
   /** ＋ 폴더 창 — 사업자 ▸ 제품명 ▸ 버전그룹 (뒤 단계는 비워도 됨) */
@@ -512,7 +519,7 @@ export default function CyclesBoard({
             on: !open && grpSel?.t === 'vg' && grpSel.k === vk,
             ico: '🔖',
           })
-          if (!closed.has(vk)) modelRows.push(...planRows)
+          if (leafOn && !closed.has(vk)) modelRows.push(...planRows)
         }
         if (treeQ && !modelRows.length && !treeHit(`${cust} ${model}`)) continue
         custPlanN += modelPlanN
@@ -545,7 +552,7 @@ export default function CyclesBoard({
       if (!closed.has(ck)) out.push(...custRows)
     }
     return out
-  }, [plans, folderPaths, runsByPlan, closed, open, grpSel, treeQ, cmp])
+  }, [plans, folderPaths, runsByPlan, closed, open, grpSel, treeQ, cmp, leafOn])
 
   /** 2열 범위 — 트리에서 고른 묶음의 사이클만 */
   const scopedRows = useMemo(() => {
@@ -1250,6 +1257,18 @@ export default function CyclesBoard({
         <div className="run-side-hd">
           <b>시험 사이클</b>
           <span className="cu-sp" />
+          <button
+            type="button"
+            className="btn small"
+            title="트리 보기 — 폴더만 / 폴더＋버전명"
+            aria-haspopup="menu"
+            onClick={(e) => {
+              const rc = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              setTreeModeAt({ x: rc.left, y: rc.bottom + 4 })
+            }}
+          >
+            ⋯
+          </button>
           {/* 위 ＋는 **폴더**를 만든다(승인) — 사업자 ▸ 제품명 ▸ 버전그룹.
               사이클은 버전그룹 ⋯ 나 목록의 ＋사이클로 만든다. */}
           <button
@@ -2198,17 +2217,41 @@ export default function CyclesBoard({
           <button type="button" className="btn icon" title="목록으로" onClick={closePlan}>
             ←
           </button>
-          <b
-            className="edt"
-            title="더블클릭하면 제목을 고칩니다"
-            onDoubleClick={(e) =>
-              editInline(e.currentTarget, String(plan.name ?? ''), (v) => {
-                if (v.trim()) void saveFull({ name: v.trim() })
-              }, true)
-            }
-          >
-            {String(plan.name ?? plan.version ?? plan.id)}
-          </b>
+          {/* 자리 빵부스러기 — REQ-Coverage 와 같은 꼴(지시): 사업자 / 제품 /
+              버전그룹 / 제목. 앞 세 단계는 눌러 그 범위 목록으로 간다 */}
+          <span className="cyb-crumb">
+            {(() => {
+              const cust = String(plan.customer || '미지정')
+              const model = String(plan.model || '미지정')
+              const vg = String(plan.version_group || '미지정')
+              const segs: Array<[string, string, string]> = [
+                ['🏢', cust, keyOf(cust)],
+                ['📦', model, keyOf(cust, model)],
+                ['🔖', vg, keyOf(cust, model, vg)],
+              ]
+              return segs.map(([ico, l, k], i) => (
+                <span className="crumbi" key={k}>
+                  {i > 0 && <i className="csep">/</i>}
+                  <span className="cfico" aria-hidden="true">{ico}</span>
+                  <button type="button" className="crumbgo" onClick={() => pickCrumb(k)}>
+                    {l}
+                  </button>
+                </span>
+              ))
+            })()}
+            <i className="csep">/</i>
+            <b
+              className="edt crumbgo last"
+              title="더블클릭하면 제목을 고칩니다"
+              onDoubleClick={(e) =>
+                editInline(e.currentTarget, String(plan.name ?? ''), (v) => {
+                  if (v.trim()) void saveFull({ name: v.trim() })
+                }, true)
+              }
+            >
+              {String(plan.name ?? plan.version ?? plan.id)}
+            </b>
+          </span>
           {/* 사이클·버전그룹·대상 칩은 걷었다(지시) — 같은 값이 트리와
               개요 카드에 이미 있어 제목 옆에선 소음이었다 */}
           <span className="cu-sp" />
@@ -2449,6 +2492,23 @@ export default function CyclesBoard({
           </div>
         )
       })()}
+
+      {/* 트리 보기 ⋯ — REQ-Coverage 와 같은 결(지시) */}
+      {!!treeModeAt && (
+        <>
+          <span className="qa-moreovl" role="presentation" onClick={() => setTreeModeAt(null)} />
+          <div className="qa-menu" role="menu" style={{ left: treeModeAt.x, top: treeModeAt.y }}>
+            <button type="button" role="menuitem" onClick={() => { setTreeModeAt(null); setLeaves(false) }}>
+              <span style={{ width: 14, display: 'inline-block', color: 'var(--c-primary)' }}>{leafOn ? '' : '✓'}</span>
+              폴더만 보기
+            </button>
+            <button type="button" role="menuitem" onClick={() => { setTreeModeAt(null); setLeaves(true) }}>
+              <span style={{ width: 14, display: 'inline-block', color: 'var(--c-primary)' }}>{leafOn ? '✓' : ''}</span>
+              폴더 + 버전명
+            </button>
+          </div>
+        </>
+      )}
 
       {/* 폴더 ⋯ — 트리의 사업자·모델·버전그룹 줄 일들 */}
       {!!folderMenu && (() => {
