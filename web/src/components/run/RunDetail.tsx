@@ -274,6 +274,20 @@ export default function RunDetail({
     return m
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reqQ.data])
+  /** 요구사항 **본문** — 오른쪽 서랍이 편다 */
+  const reqBody = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of reqQ.data?.reqs ?? []) {
+      const body = String(r.body_md ?? r.desc ?? r.description ?? '').trim()
+      if (!body) continue
+      for (const k of [r.id, r.pk, r.reqid]) {
+        const key = String(k ?? '').trim()
+        if (key) m.set(key, body)
+      }
+    }
+    return m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reqQ.data])
   const reqName = useMemo(() => {
     const m = new Map<string, string>()
     for (const r of reqQ.data?.reqs ?? []) {
@@ -1303,6 +1317,7 @@ export default function RunDetail({
             crit: String(oneQ.data?.criteria ?? ''),
             reqId: reqLabel.get(String(oneQ.data?.req_id ?? '')) || String(oneQ.data?.req_id ?? ''),
             reqTitle: reqName.get(String(oneQ.data?.req_id ?? '')) ?? '',
+            reqBody: reqBody.get(String(oneQ.data?.req_id ?? '')) ?? '',
           }}
           planId={String(run.plan_id ?? '')}
           runId={runId}

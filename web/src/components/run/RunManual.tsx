@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useVerdicts, vDef } from '@/lib/verdicts'
@@ -81,9 +81,10 @@ export default function RunManual({
     purpose: string; cond: string; crit: string
     topoImg?: string; topoW?: number
     topoHas?: boolean
-    /** 요구사항 — 머리 번호와 접이 블록이 쓴다 */
+    /** 요구사항 — 머리 번호와 서랍이 쓴다 */
     reqId?: string
     reqTitle?: string
+    reqBody?: string
   }
   planId: string
   runId: string
@@ -104,11 +105,21 @@ export default function RunManual({
   const [per, setPer] = useState(() => Number(prefGet('utop.run.man.per') ?? '') || 50)
   const [page, setPage] = useState(1)
   const [bug, setBug] = useState(false)
-  /* 요구사항·시험항목 블록은 접힌다 — 스텝이 세로를 다 쓰게(지시: 공간 낭비 금지) */
-  const [openReq, setOpenReq] = useState(false)
-  const [openTc, setOpenTc] = useState(true)
+  /* 요구사항·시험항목은 **오른쪽 서랍**으로 뺐다(지시) — 스텝이 세로를 다 쓴다.
+     서랍이 오른쪽인 것은 릴리즈의 Jira 서랍과 같은 규칙이다(한 방향으로 통일) */
+  const [drw, setDrw] = useState<'' | 'req' | 'tc'>('')
   const wrapRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState(false)
+
+  /* Esc 로 서랍을 닫는다 — 사진 크게 보기가 떠 있으면 그쪽이 먼저다 */
+  useEffect(() => {
+    if (!drw) return
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !big) setDrw('')
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [drw, big])
 
   const startSash = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -146,12 +157,23 @@ export default function RunManual({
   const one = items.find((x) => x.id === cur)
   const marked = pchk.filter(Boolean).length
 
-  /** 머리 번호 한 칸 */
-  const keyChip = (label: string, v?: string, tone?: 'run') =>
+  /** 머리 번호 한 칸 — 누를 수 있는 것은 오른쪽 서랍을 연다 */
+  const keyChip = (label: string, v?: string, opt?: { tone?: 'run'; open?: 'req' | 'tc' }) =>
     v ? (
       <span className="rm-kc">
         <em>{label}</em>
-        <b className={tone === 'run' ? 'run' : undefined}>{v}</b>
+        {opt?.open ? (
+          <button
+            type="button"
+            className="rm-kb"
+            title={`${label} 자세히 — 오른쪽에서 펼칩니다`}
+            onClick={() => setDrw(opt.open ?? '')}
+          >
+            {v}
+          </button>
+        ) : (
+          <b className={opt?.tone === 'run' ? 'run' : undefined}>{v}</b>
+        )}
       </span>
     ) : null
 
@@ -183,9 +205,6 @@ export default function RunManual({
                 <option key={k}>{k}</option>
               ))}
             </select>
-            <span className="rm-sum">
-              {shown.length ? `${(at - 1) * per + 1}-${Math.min(at * per, shown.length)} / ${shown.length}` : '0 / 0'}
-            </span>
           </div>
 
           <div className="rm-grid">
@@ -284,10 +303,10 @@ export default function RunManual({
 
           {/* 네 번호 — 요구사항 / 항목 / 사이클 / 실행 (지시) */}
           <div className="rm-keys">
-            {keyChip('요구사항', info.reqId)}
-            {keyChip('항목', cur)}
+            {keyChip('요구사항', info.reqId, { open: 'req' })}
+            {keyChip('항목', cur, { open: 'tc' })}
             {keyChip('사이클', keys?.cycle)}
-            {keyChip('실행', keys?.run ?? runId, 'run')}
+            {keyChip('실행', keys?.run ?? runId, { tone: 'run' })}
           </div>
 
           {/* 담을 때보다 시험 항목이 바뀌었다(지시) */}
@@ -304,71 +323,6 @@ export default function RunManual({
           )}
 
           <div className="rm-scroll">
-            {/* 요구사항 — 제목은 늘 보이고, 본문은 눌러서 편다 */}
-            <div className="rm-blk">
-              <button type="button" className="rm-blkh" onClick={() => setOpenReq((v) => !v)}>
-                <b>요구사항</b>
-                <span className="rm-blkq" title={info.reqTitle || ''}>
-                  {info.reqTitle || <span className="rm-muted">연결된 요구사항이 없습니다</span>}
-                </span>
-                <span className="rm-sp" />
-                <span className="rm-car">{openReq ? '⌃' : '⌄'}</span>
-              </button>
-              {openReq && (
-                <div className="rm-blkb">
-                  <div className="rm-kv">
-                    <span className="k">요구사항</span>
-                    <span>{info.reqId || '–'}</span>
-                    <span className="k">제목</span>
-                    <span>{info.reqTitle || '–'}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 시험항목 — 시험 목적·조건·판정 기준·구성도 */}
-            <div className="rm-blk">
-              <button type="button" className="rm-blkh" onClick={() => setOpenTc((v) => !v)}>
-                <b>시험항목</b>
-                <span className="rm-blkq">{info.crit || info.purpose || ''}</span>
-                <span className="rm-sp" />
-                <span className="rm-car">{openTc ? '⌃' : '⌄'}</span>
-              </button>
-              {openTc && (
-                <div className="rm-blkb">
-                  <div className="rm-kv">
-                    <span className="k">시험 목적</span>
-                    <span>{info.purpose || '–'}</span>
-                    <span className="k">사전 조건</span>
-                    <span>{info.cond || '–'}</span>
-                    <span className="k">판정 기준</span>
-                    <span>{info.crit || '–'}</span>
-                    <span className="k">구성도</span>
-                    <span>
-                      {info.topoImg ? (
-                        <button
-                          type="button"
-                          className="rm-shot"
-                          style={info.topoW ? { width: Math.min(info.topoW, 420) } : undefined}
-                          title="크게 보기"
-                          onClick={() => setBig(info.topoImg ?? '')}
-                        >
-                          <img src={info.topoImg} alt="구성도" />
-                        </button>
-                      ) : info.topoHas ? (
-                        <span className="rm-hint">
-                          배선은 있는데 구성도 <b>그림</b>이 아직 없습니다 — 시험 항목의
-                          <b> Topology</b> 탭에서 <b>「다시 그리기」</b> 를 누르면 만들어집니다.
-                        </span>
-                      ) : (
-                        '–'
-                      )}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* 스텝 — 카드 한 장에 네 칸이 한 줄씩(지시: 2안) */}
             {steps.map((s, i) => {
               const v = pchk[i] ?? ''
@@ -490,6 +444,65 @@ export default function RunManual({
             onBug()
           }}
         />
+      )}
+
+      {/* ── 오른쪽 서랍 — 요구사항 · 시험항목 (지시) ──
+          릴리즈의 Jira 서랍과 **같은 방향·같은 꼴**이다. 화면마다 여는
+          쪽이 다르면 사람이 자리를 매번 다시 찾는다. */}
+      {!!drw && (
+        <>
+          <span className="rm-dovl" role="presentation" onClick={() => setDrw('')} />
+          <aside className="rm-drw" role="dialog" aria-modal="true">
+            <header>
+              <b>{drw === 'req' ? '요구사항' : '시험항목'}</b>
+              <span className="rm-dk">{drw === 'req' ? info.reqId || '–' : cur}</span>
+              <span className="rm-sp" />
+              <button type="button" className="rm-dx" title="닫기 (Esc)" onClick={() => setDrw('')}>✕</button>
+            </header>
+            <div className="rm-dbody">
+              {drw === 'req' ? (
+                <>
+                  <h3 className="rm-dh">{info.reqTitle || '제목 없음'}</h3>
+                  {info.reqBody ? (
+                    <pre className="rm-dpre">{info.reqBody}</pre>
+                  ) : (
+                    <div className="rm-muted">요구사항 본문이 없습니다.</div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h3 className="rm-dh">{one?.title ?? cur}</h3>
+                  <div className="rm-kv">
+                    <span className="k">시험 목적</span>
+                    <span>{info.purpose || '–'}</span>
+                    <span className="k">사전 조건</span>
+                    <span>{info.cond || '–'}</span>
+                    <span className="k">판정 기준</span>
+                    <span>{info.crit || '–'}</span>
+                  </div>
+                  <div className="rm-dh2">구성도</div>
+                  {info.topoImg ? (
+                    <button
+                      type="button"
+                      className="rm-shot"
+                      title="크게 보기"
+                      onClick={() => setBig(info.topoImg ?? '')}
+                    >
+                      <img src={info.topoImg} alt="구성도" />
+                    </button>
+                  ) : info.topoHas ? (
+                    <div className="rm-hint">
+                      배선은 있는데 구성도 <b>그림</b>이 아직 없습니다 — 시험 항목의
+                      <b> Topology</b> 탭에서 <b>「다시 그리기」</b> 를 누르면 만들어집니다.
+                    </div>
+                  ) : (
+                    <div className="rm-muted">구성도가 없습니다.</div>
+                  )}
+                </>
+              )}
+            </div>
+          </aside>
+        </>
       )}
 
       {/* 사진 크게 보기 — 시험서(TcManual)와 같은 방식 */}
