@@ -316,3 +316,8 @@
 .rd-live .rd-sub { font-size: 11.5px; line-height: 1.35; color: #93a6ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 이 줄이 위의 15px 를 이기고 있었다(더 구체적이라) — 같은 값으로 맞춘다 */
 .rd-live .rd-lb > b { font-size: 15px; line-height: 1.2; }
+
+
+/* 수동 실행기 — 경과·진행 띠가 **머리줄 안**에 선다(지시) */
+.rd-inline { display: flex; align-items: center; min-width: 0; flex: 1; }
+.rd-inline .rd-live { border: 0; padding: 0; margin: 0; background: none; flex: 1; min-width: 0; }

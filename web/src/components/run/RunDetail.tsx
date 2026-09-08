@@ -503,6 +503,12 @@ export default function RunDetail({
      자동 시험의 결과는 실행기가 내고, 수동 시험의 항목 결과는 스텝
      판정에서 굴러 나온다 — 사람이 항목 결과를 직접 찍는 자리는 없다. */
 
+  /** 수동은 **첫 판정이 곧 시작**이다 — 시작 시각·실행자를 그때 박는다 */
+  const startStamp = () =>
+    !isAuto && !run?.started_at
+      ? { started_at: new Date().toISOString(), runner: run?.runner || run?.owner || '' }
+      : {}
+
   const setProc = async (cid: string, ix: number, v: string) => {
     const arr = [...((run?.pchk ?? {})[cid] ?? [])]
     arr[ix] = arr[ix] === v ? '' : v
@@ -522,7 +528,7 @@ export default function RunDetail({
           : 'n'
     /* 저장은 **판정 값**으로, 원본(rawResults) 위에 — 글자 지도를 통째로
        저장하면 다른 항목의 값(커스텀 판정)까지 글자로 뭉개진다 */
-    await save({ pchk, pmeta, results: { ...rawResults, [cid]: LETTER_VERD[roll] ?? '' } })
+    await save({ ...startStamp(), pchk, pmeta, results: { ...rawResults, [cid]: LETTER_VERD[roll] ?? '' } })
   }
 
   /* 도는 동안에는 **실행기를 따라간다.** 안 그러면 CLI 판은 첫 스텝에
@@ -813,7 +819,6 @@ export default function RunDetail({
 
   const binds = run.binds ?? {}
   const dut = binds.DUT ? devById.get(String(binds.DUT)) : undefined
-  const note = (run.notes ?? {})[cur] ?? ''
   const pv = (run.pchk ?? {})[cur] ?? []
   /** 사이클 **전문** — 담을 때 복제된 시험서가 여기 있다(목록 API 는 줄여 준다) */
   const cycPid = String(plan?.id ?? run?.plan_id ?? '')
@@ -927,6 +932,76 @@ export default function RunDetail({
     return pv.length ? msteps.length - 1 : 0
   })()
 
+  /** 경과·진행 띠 — 자동은 머리줄 **아래**, 수동은 머리줄 **안**에 선다(지시) */
+  const liveBand = (
+    <div className="rd-live">
+        <span className="rd-lb">
+          <em>경과</em>
+          <b>
+            {(() => {
+              if (!run.started_at) return '—'
+              const end = stoppedAt ? new Date(stoppedAt).getTime() : Date.now()
+              const sec = Math.max(0, Math.floor((end - new Date(run.started_at).getTime()) / 1000))
+              const p2 = (n: number) => String(n).padStart(2, '0')
+              return `${p2(Math.floor(sec / 3600))}:${p2(Math.floor((sec % 3600) / 60))}:${p2(sec % 60)}`
+            })()}
+          </b>
+          <i>
+            {run.started_at
+              ? `(${(() => {
+                  const d = new Date(run.started_at)
+                  const p = (n: number) => String(n).padStart(2, '0')
+                  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+                })()} 시작)`
+              : '(아직 시작 안 함)'}
+          </i>
+        </span>
+
+        <span className="rd-lb grow2">
+          <em>진행</em>
+          <span className="rd-bar2">
+            <i className="p" style={{ flexGrow: tally.p }} />
+            <i className="f" style={{ flexGrow: tally.f }} />
+            <i className="b" style={{ flexGrow: tally.b }} />
+            <i className="n" style={{ flexGrow: tally.n }} />
+          </span>
+          <b>{pct}%</b>
+          <i>
+            (<span className="p">Pass {tally.p}</span> <span className="f">Fail {tally.f}</span> 대기{' '}
+            {tally.n} · 전체 {tally.total})
+          </i>
+        </span>
+
+        {isAuto && (
+        <span className="rd-lb grow3">
+          <em>지금 항목</em>
+          <b className="rd-ell">
+            {cur}
+            {meta?.name ? ` · ${meta.name}` : ''}
+          </b>
+          <i className="rd-ell">
+            (할당자 {String((meta as Record<string, unknown> | undefined)?.assignee ?? '–')} · 실행자{' '}
+            {run.runner || run.owner || '–'})
+          </i>
+        </span>
+        )}
+
+        {isAuto && (
+        <span className="rd-lb last">
+          <em>지금 스텝</em>
+          <b>
+            {msteps.length ? `Step ${Math.min(stepNow + 1, msteps.length)} / ${msteps.length}` : '스텝 없음'}
+          </b>
+          <i className="rd-ell" title={msteps[stepNow]?.t ?? ''}>
+            {msteps.length ? `(${msteps[stepNow]?.t || '—'})` : ''}
+          </i>
+        </span>
+        )}
+        {/* 남는 자리는 여기가 먹는다 — 칸이 늘어나면 구분선만 밀려난다 */}
+        <span className="rd-sp" />
+      </div>
+  )
+
   return (
     <div className="panel rd">
       {/* ── 머리줄 ── */}
@@ -941,6 +1016,8 @@ export default function RunDetail({
         )}
         {/* 실행 키·플랜 칩은 걷었다(지시) — 아래 네 번호 줄(요구사항 /
             항목 / 사이클 / 실행)이 같은 값을 이미 말한다 */}
+        {/* 수동은 경과·진행 띠가 **머리줄 안**에 선다(지시: 아래 띠를 위로) */}
+        {!isAuto && <span className="rd-inline">{liveBand}</span>}
         <span className="rd-sp" />
         {/* 방식 딱지와 RUNNING/QUEUED 배지를 뺐다(지시). 상태는 위 띠의
             「지금 스텝」 이 이미 말한다 — Step 1 / 5 (대기) 처럼. */}
@@ -958,10 +1035,10 @@ export default function RunDetail({
             ■ 중지
           </button>
         ) : (
-          /* 수동은 **아직 시작 안 했을 때만** 선다(지시: 다시 실행 제거).
-             사람이 하는 시험을 「다시 실행」 으로 되돌릴 일은 없다 —
-             판정을 고치면 그만이다. 자동은 그대로 다시 걸 수 있다. */
-          (isAuto || !run?.started_at) && (
+          /* 수동에는 실행 단추가 없다(지시) — 첫 판정을 남기는 순간이
+             곧 시작이라, 시작 시각·실행자는 그때 자동으로 박힌다.
+             자동은 실행기에 걸어야 하니 그대로 선다. */
+          isAuto && (
             <button
               type="button"
               className="rd-btn go"
@@ -1022,68 +1099,7 @@ export default function RunDetail({
         </div>
       )}
 
-      <div className="rd-live">
-        <span className="rd-lb">
-          <em>경과</em>
-          <b>
-            {(() => {
-              if (!run.started_at) return '—'
-              const end = stoppedAt ? new Date(stoppedAt).getTime() : Date.now()
-              const sec = Math.max(0, Math.floor((end - new Date(run.started_at).getTime()) / 1000))
-              const p2 = (n: number) => String(n).padStart(2, '0')
-              return `${p2(Math.floor(sec / 3600))}:${p2(Math.floor((sec % 3600) / 60))}:${p2(sec % 60)}`
-            })()}
-          </b>
-          <i>
-            {run.started_at
-              ? `(${(() => {
-                  const d = new Date(run.started_at)
-                  const p = (n: number) => String(n).padStart(2, '0')
-                  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
-                })()} 시작)`
-              : '(아직 시작 안 함)'}
-          </i>
-        </span>
-
-        <span className="rd-lb grow2">
-          <em>진행</em>
-          <span className="rd-bar2">
-            <i className="p" style={{ flexGrow: tally.p }} />
-            <i className="f" style={{ flexGrow: tally.f }} />
-            <i className="b" style={{ flexGrow: tally.b }} />
-            <i className="n" style={{ flexGrow: tally.n }} />
-          </span>
-          <b>{pct}%</b>
-          <i>
-            (<span className="p">Pass {tally.p}</span> <span className="f">Fail {tally.f}</span> 대기{' '}
-            {tally.n} · 전체 {tally.total})
-          </i>
-        </span>
-
-        <span className="rd-lb grow3">
-          <em>지금 항목</em>
-          <b className="rd-ell">
-            {cur}
-            {meta?.name ? ` · ${meta.name}` : ''}
-          </b>
-          <i className="rd-ell">
-            (할당자 {String((meta as Record<string, unknown> | undefined)?.assignee ?? '–')} · 실행자{' '}
-            {run.runner || run.owner || '–'})
-          </i>
-        </span>
-
-        <span className="rd-lb last">
-          <em>지금 스텝</em>
-          <b>
-            {msteps.length ? `Step ${Math.min(stepNow + 1, msteps.length)} / ${msteps.length}` : '스텝 없음'}
-          </b>
-          <i className="rd-ell" title={msteps[stepNow]?.t ?? ''}>
-            {msteps.length ? `(${msteps[stepNow]?.t || '—'})` : ''}
-          </i>
-        </span>
-        {/* 남는 자리는 여기가 먹는다 — 칸이 늘어나면 구분선만 밀려난다 */}
-        <span className="rd-sp" />
-      </div>
+      {isAuto && liveBand}
 
       {!ids.length ? (
         <div className="rd-empty">
@@ -1296,8 +1312,6 @@ export default function RunDetail({
           pmeta={(run.pmeta ?? {})[cur] ?? []}
           onStep={(ix, v) => void setProc(cur, ix, v)}
           onAct={(ix, t) => void setAct(cur, ix, t)}
-          note={note}
-          onNote={(v) => void save({ notes: { ...(run.notes ?? {}), [cur]: v } })}
           /* **없는 칸을 읽고 있었다**(지적: 채웠는데 빈칸으로 들어간다).
              TC 가 담는 이름은 이렇다 — 시험 목적은 object_md, 사전 준비
              조건은 precondition_md, 구성도는 topo_img(올린 그림 주소)다.
@@ -1323,7 +1337,7 @@ export default function RunDetail({
           runId={runId}
           onBug={() => void qc.invalidateQueries({ queryKey: ['plan-run', runId] })}
           /* 목록에서 항목을 통째로 판정한다 — 절차가 없는 항목의 유일한 길 */
-          onVerdict={(tcid, value) => void save({ results: { ...rawResults, [tcid]: value } })}
+          onVerdict={(tcid, value) => void save({ ...startStamp(), results: { ...rawResults, [tcid]: value } })}
           keys={{ cycle: String(plan?.cid ?? plan?.id ?? ''), run: runId }}
           stale={stale}
         />

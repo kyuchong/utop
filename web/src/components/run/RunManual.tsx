@@ -63,7 +63,7 @@ export interface MMeta {
 }
 
 export default function RunManual({
-  items, cur, onPick, steps, pchk, pmeta, onStep, onAct, note, onNote, info, planId, runId, onBug,
+  items, cur, onPick, steps, pchk, pmeta, onStep, onAct, info, planId, runId, onBug,
   onVerdict, keys, stale,
 }: {
   items: MItem[]
@@ -75,8 +75,6 @@ export default function RunManual({
   pmeta?: Array<MMeta | null>
   onStep: (ix: number, v: string) => void
   onAct?: (ix: number, text: string) => void
-  note: string
-  onNote: (v: string) => void
   info: {
     purpose: string; cond: string; crit: string
     topoImg?: string; topoW?: number
@@ -290,23 +288,18 @@ export default function RunManual({
       {/* ── 오른쪽: 한 항목의 시험서 ── */}
       <div className="rm-right">
         <section className="rm-panel">
-          {/* 머리 한 줄 — 이름·판정·진행이 전부 여기(지시: 공간 낭비 금지) */}
-          <div className="rm-hd1">
-            <b className="rm-h1t" title={one?.title ?? ''}>{one?.title ?? cur}</b>
-            <span className={`rm-hv ${one?.v ?? 'n'}`}>
-              {TAG[one?.v ?? 'n']} {marked}/{steps.length}
-            </span>
-            <span className="rm-sp" />
-            {!!one?.bugs && <span className="rm-muted">🐞 {one.bugs}</span>}
-            <button type="button" className="rm-bugbtn" onClick={() => setBug(true)}>🐞 결함</button>
-          </div>
-
           {/* 네 번호 — 요구사항 / 항목 / 사이클 / 실행 (지시) */}
           <div className="rm-keys">
             {keyChip('요구사항', info.reqId, { open: 'req' })}
             {keyChip('항목', cur, { open: 'tc' })}
             {keyChip('사이클', keys?.cycle)}
             {keyChip('실행', keys?.run ?? runId, { tone: 'run' })}
+            <span className={`rm-hv ${one?.v ?? 'n'}`}>
+              {TAG[one?.v ?? 'n']} {marked}/{steps.length}
+            </span>
+            <span className="rm-sp" />
+            {!!one?.bugs && <span className="rm-muted">🐞 {one.bugs}</span>}
+            <button type="button" className="rm-bugbtn" onClick={() => setBug(true)}>🐞 결함</button>
           </div>
 
           {/* 담을 때보다 시험 항목이 바뀌었다(지시) */}
@@ -331,7 +324,7 @@ export default function RunManual({
                 <div className={`rm-sc${v ? ` v-${v}` : ''}`} key={i}>
                   <div className="rm-sch">
                     <b>Step #{i + 1}</b>
-                    <span className="rm-sct" title={s.t}>{s.t || ''}</span>
+                    {/* 제목은 안 낸다(지시) — 바로 아래 Test Step 과 같은 글자다 */}
                     <span className="rm-sp" />
                     {!!m?.at && (
                       <span className="rm-muted" title={`판정자 ${m.by || '–'}`}>{stamp(m.at)}</span>
@@ -416,16 +409,7 @@ export default function RunManual({
               </div>
             )}
 
-            <div className="rm-blk">
-              <div className="rm-blkh as-h"><b>비고 · 특이사항</b></div>
-              <textarea
-                className="rm-ta"
-                defaultValue={note}
-                key={`n-${cur}`}
-                placeholder="결과서의 비고 칸에 그대로 들어갑니다"
-                onBlur={(e) => e.target.value !== note && onNote(e.target.value)}
-              />
-            </div>
+
           </div>
         </section>
       </div>
