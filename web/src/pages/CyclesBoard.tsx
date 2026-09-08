@@ -1673,7 +1673,6 @@ export default function CyclesBoard({
                     }}
                   >
                     {String(plan.assignee ?? '') || <span className="cu-m">(안 정함)</span>}
-                    <span className="cu-m"> ▾</span>
                   </button>,
                 )}
                 {kv(

@@ -174,3 +174,17 @@
    BlockNote 는 제 높이를 안 가진다(9px 로 짜부라졌다) — 틀이 키를 줘야 한다 */
 .cyb .cyb-descbody .bn-container { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .cyb .cyb-descbody .bn-editor { flex: 1; min-height: 220px; padding-inline: 44px 12px; }
+
+/* 담당자 단추도 select 처럼 오른쪽 끝에 화살표(지시) — 글자 옆 ▾ 는 걷었다 */
+.cyb .cyb-ass { position: relative; padding-right: 24px; }
+.cyb .cyb-ass::after {
+  content: '';
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 9l6 6 6-6' fill='none' stroke='%23555f6a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
+  pointer-events: none;
+}
