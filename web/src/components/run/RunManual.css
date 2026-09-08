@@ -522,9 +522,12 @@
 .rm-avc { font-style: normal; font-size: 10px; color: #a8b4ba; }
 
 /* Actual Result 아래 사진 자리(지시) — 붙여넣기·끌어 놓기 */
-.rm-shots { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; }
-.rm-shotw { position: relative; display: inline-block; }
-.rm-shotw .rm-shot { max-width: 220px; }
+/* 붙여넣은 증적 사진 — **읽을 수 있는 크기**로(지적: 손톱만 했다).
+   시험서의 사진(Test Data·Expected)과 같은 눈금으로, 세로로 쌓는다.
+   누르면 크게 보기가 뜬다. */
+.rm-shots { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 6px; }
+.rm-shotw { position: relative; display: block; max-width: 100%; }
+.rm-shotw .rm-shot { max-width: 100%; }
 .rm-shotx {
   position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
   border: 1px solid #dce4e7; background: #fff; border-radius: 50%;
