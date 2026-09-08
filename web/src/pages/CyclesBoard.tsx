@@ -139,6 +139,15 @@ export default function CyclesBoard({
   /* 폴더 실체 — 사이클이 없어도 폴더가 트리에 서야 한다(승인).
      저장은 기존 /api/cycle-folders 문서의 paths 칸을 쓴다(옛 칸은 보존).
      옛 경로 문자열(사업자/제품군/모델그룹/모델/버전그룹)도 번역해 합류. */
+  const codesQ = useQuery({
+    queryKey: ['codes'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as { items?: Array<{ kind?: string; value?: string }> }
+    },
+  })
   const foldersQ = useQuery({
     queryKey: ['cycle-folders'],
     staleTime: 60_000,
@@ -205,7 +214,13 @@ export default function CyclesBoard({
   /** 폴더 ⋯ 메뉴 — 트리의 사업자·모델·버전그룹 줄 */
   const [folderMenu, setFolderMenu] = useState<{ x: number; y: number; t: 'cust' | 'model' | 'vg'; k: string } | null>(null)
   /** ＋ 폴더 창 — 사업자 ▸ 제품명 ▸ 버전그룹 (뒤 단계는 비워도 됨) */
-  const [folderDlg, setFolderDlg] = useState<{ customer: string; model: string; vg: string } | null>(null)
+  const [folderDlg, setFolderDlg] = useState<{
+    customer: string
+    customerNew: string
+    model: string
+    vg: string
+    vgNew: string
+  } | null>(null)
   /** 사이클 만들기 씨앗 — 버전그룹 ⋯ 의 ＋사이클이 채운다(지시: 자동 채움) */
   const [mkSeed, setMkSeed] = useState<{ customer?: string; model?: string; version_group?: string } | null>(null)
   useEffect(() => prefSet('utop.cyc.side', sideOn ? '1' : '0'), [sideOn])
@@ -1219,7 +1234,7 @@ export default function CyclesBoard({
             title="폴더를 만듭니다 — 사업자 ▸ 제품명 ▸ 버전그룹 (뒤 단계는 비워도 됩니다)"
             onClick={() => {
               setNeedMake(true)
-              setFolderDlg({ customer: '', model: '', vg: '' })
+              setFolderDlg({ customer: '', customerNew: '', model: '', vg: '', vgNew: '' })
             }}
           >
             <i aria-hidden="true">＋</i>폴더
@@ -1411,7 +1426,24 @@ export default function CyclesBoard({
           <h1>시험 사이클</h1>
           <span className="cu-m">사이클은 한 버전의 시험 묶음입니다 — 실행·판정·결과서도 이 안에서 봅니다</span>
           <span className="cu-sp" />
-          <button type="button" className="cu-new" onClick={() => setMaking(true)}>
+          <button
+            type="button"
+            className="cu-new"
+            title="사이클을 만듭니다 — 트리에서 고른 사업자·제품명·버전그룹이 미리 채워집니다"
+            onClick={() => {
+              const parts = grpSel ? grpSel.k.split('|') : []
+              setMkSeed(
+                grpSel
+                  ? {
+                      customer: parts[0] ?? '',
+                      model: parts[1] ?? '',
+                      version_group: parts[2] ?? '',
+                    }
+                  : null,
+              )
+              setMaking(true)
+            }}
+          >
             <i aria-hidden="true">＋</i>사이클
           </button>
         </div>
@@ -2268,16 +2300,23 @@ export default function CyclesBoard({
         )}
       </div>
 
-      {/* ＋ 폴더 — 사업자 ▸ 제품명 ▸ 버전그룹. 뒤 단계는 비워도 된다(승인) */}
+      {/* ＋ 폴더 — 사업자 ▸ 제품명 ▸ 버전그룹, 셋 다 드롭다운(지시).
+          사업자·버전그룹은 「새로 적기」 를 고르면 입력칸이 나온다 */}
       {!!folderDlg && (() => {
+        const d = folderDlg
         const custsAll = [...new Set([
+          ...((codesQ.data?.items ?? [])
+            .filter((x) => String(x.kind) === 'cycle_customer')
+            .map((x) => String(x.value ?? ''))),
           ...folderPaths.map((x) => x.customer),
-          ...plans.map((p) => String(p.customer || '')).filter(Boolean),
-        ])].sort(cmp)
+          ...plans.map((p) => String(p.customer || '')),
+        ])].filter(Boolean).sort(cmp)
         const modelsAll = [...new Set(((catQ.data?.items ?? []) as Array<Record<string, unknown>>)
           .filter((x) => String(x.kind) === 'model')
           .map((x) => String(x.name ?? '')))].filter(Boolean).sort(cmp)
-        const d = folderDlg
+        const vgsAll = d.model ? ((vgQ.data?.groups ?? {})[d.model] ?? []).slice().sort(cmp) : []
+        const custVal = d.customer === '__new' ? d.customerNew.trim() : d.customer
+        const vgVal = d.vg === '__new' ? d.vgNew.trim() : d.vg
         return (
           <div className="cyb-fdlg-back" onMouseDown={(e) => e.target === e.currentTarget && setFolderDlg(null)}>
             <div className="cyb-fdlg" role="dialog" aria-modal="true" aria-label="폴더 만들기">
@@ -2289,25 +2328,33 @@ export default function CyclesBoard({
               <div className="body">
                 <label>
                   <span>사업자 <i className="req">*</i></span>
-                  <input
+                  <select
                     className="kvin"
-                    list="cyb-custs"
                     value={d.customer}
-                    placeholder="예: LGUP (있는 이름을 고르거나 새로 적기)"
                     onChange={(e) => setFolderDlg({ ...d, customer: e.target.value })}
-                  />
-                  <datalist id="cyb-custs">
+                  >
+                    <option value="">(고르세요)</option>
                     {custsAll.map((c) => (
-                      <option key={c} value={c} />
+                      <option key={c} value={c}>{c}</option>
                     ))}
-                  </datalist>
+                    <option value="__new">＋ 새 사업자…</option>
+                  </select>
+                  {d.customer === '__new' && (
+                    <input
+                      className="kvin"
+                      autoFocus
+                      value={d.customerNew}
+                      placeholder="새 사업자 이름"
+                      onChange={(e) => setFolderDlg({ ...d, customerNew: e.target.value })}
+                    />
+                  )}
                 </label>
                 <label>
                   <span>제품명</span>
                   <select
                     className="kvin"
                     value={d.model}
-                    onChange={(e) => setFolderDlg({ ...d, model: e.target.value })}
+                    onChange={(e) => setFolderDlg({ ...d, model: e.target.value, vg: '', vgNew: '' })}
                   >
                     <option value="">(여기까지만 — 사업자 폴더)</option>
                     {modelsAll.map((m2) => (
@@ -2317,13 +2364,27 @@ export default function CyclesBoard({
                 </label>
                 <label>
                   <span>버전그룹</span>
-                  <input
+                  <select
                     className="kvin"
                     value={d.vg}
-                    placeholder={d.model ? '예: R100 (비우면 제품명 폴더까지)' : '먼저 제품명을 고르세요'}
                     disabled={!d.model}
                     onChange={(e) => setFolderDlg({ ...d, vg: e.target.value })}
-                  />
+                  >
+                    <option value="">{d.model ? '(여기까지만 — 제품명 폴더)' : '먼저 제품명을 고르세요'}</option>
+                    {vgsAll.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                    {!!d.model && <option value="__new">＋ 새 버전그룹…</option>}
+                  </select>
+                  {d.vg === '__new' && (
+                    <input
+                      className="kvin"
+                      autoFocus
+                      value={d.vgNew}
+                      placeholder="예: R300"
+                      onChange={(e) => setFolderDlg({ ...d, vgNew: e.target.value })}
+                    />
+                  )}
                 </label>
                 <p className="cu-m">제품명은 장비 카탈로그에서 고릅니다. 사이클은 버전그룹 폴더의 ⋯ 에서 만듭니다.</p>
               </div>
@@ -2332,9 +2393,9 @@ export default function CyclesBoard({
                 <button
                   type="button"
                   className="cu-new"
-                  disabled={!d.customer.trim()}
+                  disabled={!custVal}
                   onClick={() => {
-                    void addFolderPath(d.customer, d.model || undefined, d.vg || undefined)
+                    void addFolderPath(custVal, d.model || undefined, vgVal || undefined)
                     setFolderDlg(null)
                   }}
                 >
@@ -2365,7 +2426,7 @@ export default function CyclesBoard({
                     const c = folderMenu.k.split('|')[0] ?? ''
                     setFolderMenu(null)
                     setNeedMake(true)
-                    setFolderDlg({ customer: c, model: '', vg: '' })
+                    setFolderDlg({ customer: c, customerNew: '', model: '', vg: '', vgNew: '' })
                   }}
                 >
                   ＋ 제품명 폴더
@@ -2384,25 +2445,6 @@ export default function CyclesBoard({
                   }}
                 >
                   ＋ 버전그룹 폴더
-                </button>
-              )}
-              {folderMenu.t === 'vg' && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    const parts = folderMenu.k.split('|')
-                    setFolderMenu(null)
-                    /* 사업자·제품명·버전그룹이 미리 채워진다(지시) */
-                    setMkSeed({
-                      customer: parts[0] ?? '',
-                      model: parts[1] ?? '',
-                      version_group: parts[2] ?? '',
-                    })
-                    setMaking(true)
-                  }}
-                >
-                  ＋ 사이클 만들기
                 </button>
               )}
               {folderMenu.t === 'cust' && label !== '미지정' && (
