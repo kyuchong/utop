@@ -72,10 +72,12 @@ export interface MMeta {
   at?: string
   by?: string
   act?: string
+  /** 실측 증적 사진 — 결과서에 그대로 실린다 */
+  imgs?: string[]
 }
 
 export default function RunManual({
-  items, cur, onPick, steps, pchk, pmeta, onStep, onAct, info, planId, runId, onBug,
+  items, cur, onPick, steps, pchk, pmeta, onStep, onAct, onShot, onShotDel, info, planId, runId, onBug,
   onVerdict, onVerdicts, keys, stale,
 }: {
   items: MItem[]
@@ -87,6 +89,9 @@ export default function RunManual({
   pmeta?: Array<MMeta | null>
   onStep: (ix: number, v: string) => void
   onAct?: (ix: number, text: string) => void
+  /** 실측 사진 붙이기·떼기 — 스텝마다 */
+  onShot?: (ix: number, file: File) => void
+  onShotDel?: (ix: number, url: string) => void
   info: {
     purpose: string; cond: string; crit: string
     topoImg?: string; topoW?: number
@@ -547,11 +552,11 @@ export default function RunManual({
                     </span>
                   </div>
                   <div className="rm-fl">
-                    <div className="l">Test Step</div>
+                    <span className="l">Test Step</span>
                     <div className="v">{s.desc || s.t || <span className="rm-muted">–</span>}</div>
                   </div>
                   <div className="rm-fl">
-                    <div className="l">Test Data</div>
+                    <span className="l">Test Data</span>
                     <div className="v">
                       {!s.data && !s.dataImg && <span className="rm-muted">–</span>}
                       {s.data ? <div className="rm-bt">{s.data}</div> : null}
@@ -569,7 +574,7 @@ export default function RunManual({
                     </div>
                   </div>
                   <div className="rm-fl">
-                    <div className="l">Expected Result</div>
+                    <span className="l">Expected Result</span>
                     <div className="v">
                       {!s.expected && !s.expImg && <span className="rm-muted">–</span>}
                       {s.expected ? <div className="rm-bt">{s.expected}</div> : null}
@@ -587,7 +592,7 @@ export default function RunManual({
                     </div>
                   </div>
                   <div className="rm-fl">
-                    <div className="l">Actual Result</div>
+                    <span className="l">Actual Result</span>
                     <div className="v">
                       <textarea
                         className="rm-ata"
@@ -597,7 +602,55 @@ export default function RunManual({
                         onBlur={(e) => {
                           if (e.target.value !== (m?.act ?? '')) onAct?.(i, e.target.value)
                         }}
+                        onPaste={(e) => {
+                          /* 글 칸에서 바로 Ctrl+V — 사람은 여기에 붙여넣는다 */
+                          const f = [...(e.clipboardData?.items ?? [])]
+                            .find((x) => x.type.startsWith('image/'))
+                            ?.getAsFile()
+                          if (f && onShot) {
+                            e.preventDefault()
+                            onShot(i, f)
+                          }
+                        }}
                       />
+                      {/* 사진 자리(지시) — 붙여넣기·끌어 놓기 둘 다 */}
+                      <div
+                        className="rm-shots"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          const f = [...(e.dataTransfer?.files ?? [])].find((x) => x.type.startsWith('image/'))
+                          if (f && onShot) {
+                            e.preventDefault()
+                            onShot(i, f)
+                          }
+                        }}
+                        onPaste={(e) => {
+                          const f = [...(e.clipboardData?.items ?? [])]
+                            .find((x) => x.type.startsWith('image/'))
+                            ?.getAsFile()
+                          if (f && onShot) {
+                            e.preventDefault()
+                            onShot(i, f)
+                          }
+                        }}
+                      >
+                        {(m?.imgs ?? []).map((u) => (
+                          <span className="rm-shotw" key={u}>
+                            <button type="button" className="rm-shot" title="크게 보기" onClick={() => setBig(u)}>
+                              <img src={u} alt="" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rm-shotx"
+                              title="사진 떼기"
+                              onClick={() => onShotDel?.(i, u)}
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                        <span className="rm-shotdrop">＋ 사진 — Ctrl+V 로 붙여넣거나 끌어 놓기</span>
+                      </div>
                     </div>
                   </div>
                 </div>

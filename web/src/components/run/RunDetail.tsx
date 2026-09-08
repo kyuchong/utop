@@ -46,7 +46,7 @@ export interface RunFull {
   /** 절차마다의 판정 — 수동 시험에서 쓴다 */
   pchk?: Record<string, string[]>
   /** 스텝마다의 실측값·판정 시각·판정자 */
-  pmeta?: Record<string, Array<{ at?: string; by?: string; act?: string } | null>>
+  pmeta?: Record<string, Array<{ at?: string; by?: string; act?: string; imgs?: string[] } | null>>
   meta?: Record<string, string>
   /** 담긴 시험 항목 */
   items?: Array<{ tcid?: string }>
@@ -534,6 +534,32 @@ export default function RunDetail({
     !isAuto && !run?.started_at
       ? { started_at: new Date().toISOString(), runner: run?.runner || run?.owner || '' }
       : {}
+
+  /** 실측 사진 — 올려서 그 스텝의 기록에 담는다(결과서에 그대로 실린다) */
+  const setShot = async (cid: string, ix: number, file: File) => {
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const r = await apiFetch('/api/upload/image', { method: 'POST', body: fd })
+      const b = (await r.json().catch(() => ({}))) as { url?: string; name?: string; detail?: string }
+      if (!r.ok) throw new Error(b.detail || '사진을 올리지 못했습니다')
+      const url = String(b.url || b.name || '')
+      if (!url) throw new Error('사진 주소를 못 받았습니다')
+      const mArr = [...((run?.pmeta ?? {})[cid] ?? [])]
+      const cur2 = mArr[ix] ?? {}
+      mArr[ix] = { ...cur2, imgs: [...(cur2.imgs ?? []), url] }
+      await save({ pmeta: { ...(run?.pmeta ?? {}), [cid]: mArr } })
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    }
+  }
+  /** 사진 떼기 */
+  const delShot = async (cid: string, ix: number, url: string) => {
+    const mArr = [...((run?.pmeta ?? {})[cid] ?? [])]
+    const cur2 = mArr[ix] ?? {}
+    mArr[ix] = { ...cur2, imgs: (cur2.imgs ?? []).filter((u) => u !== url) }
+    await save({ pmeta: { ...(run?.pmeta ?? {}), [cid]: mArr } })
+  }
 
   const setProc = async (cid: string, ix: number, v: string) => {
     const arr = [...((run?.pchk ?? {})[cid] ?? [])]
@@ -1350,6 +1376,8 @@ export default function RunDetail({
           pmeta={(run.pmeta ?? {})[cur] ?? []}
           onStep={(ix, v) => void setProc(cur, ix, v)}
           onAct={(ix, t) => void setAct(cur, ix, t)}
+          onShot={(ix, f) => void setShot(cur, ix, f)}
+          onShotDel={(ix, u) => void delShot(cur, ix, u)}
           /* **없는 칸을 읽고 있었다**(지적: 채웠는데 빈칸으로 들어간다).
              TC 가 담는 이름은 이렇다 — 시험 목적은 object_md, 사전 준비
              조건은 precondition_md, 구성도는 topo_img(올린 그림 주소)다.
