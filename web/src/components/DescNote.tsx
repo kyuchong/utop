@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useCreateBlockNote } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import { ko } from '@blocknote/core/locales'
@@ -38,11 +38,19 @@ export default function DescNote({
   )
   const editor = useCreateBlockNote({ dictionary: ko, initialContent: initial }, [])
 
-  /* 블록 저장분이 없는 옛 자료 — 마크다운 글을 블록으로 들여온다 */
+  /* 블록 저장분이 없는 옛 자료 — 마크다운 글을 블록으로 들여온다.
+     이 씨앗 심기가 onChange 로 새면 손도 안 댔는데 초안이 선다 — 막는다 */
+  const seeding = useRef(false)
   useEffect(() => {
     if (initial || !text.trim()) return
     const bs = editor.tryParseMarkdownToBlocks(text)
-    if (bs.length) editor.replaceBlocks(editor.document, bs)
+    if (bs.length) {
+      seeding.current = true
+      editor.replaceBlocks(editor.document, bs)
+      window.setTimeout(() => {
+        seeding.current = false
+      }, 0)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -52,7 +60,7 @@ export default function DescNote({
       theme={THEME}
       editable={editable}
       onChange={() => {
-        if (!onChange) return
+        if (!onChange || seeding.current) return
         onChange(editor.document as unknown[], editor.blocksToMarkdownLossy(editor.document))
       }}
     />

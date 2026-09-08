@@ -11,8 +11,12 @@
 /* 구성 카드 3장 — 자동 / 수동 / 커버리지 */
 .cyb .statrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
 @media (max-width: 900px) { .cyb .statrow { grid-template-columns: 1fr; } }
-.cyb .statcard .sbody { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: 0 10px var(--sp-3); }
-.cyb .statcap { font-size: var(--fs-xs); color: var(--c-text-faint); text-align: center; max-width: 26ch; }
+/* 도넛 판도 판정 요약과 같은 꼴(지시) — 알약 색은 도넛 조각과 한 벌 */
+.cyb .statcard .ov-verd { max-width: none; }
+.cyb .statcard .sumrows { grid-template-columns: 1fr; }
+.cyb .vpill.pa { background: var(--c-primary); color: #fff; }
+.cyb .vpill.pm { background: var(--c-idle); color: #fff; }
+.cyb .vpill.pc { background: #a8d3dd; color: #0d3b46; }
 
 /* 반복 실패 알림 */
 .cyb .pl-note {

@@ -140,7 +140,6 @@ export default function CyclesBoard({
   const [draft, setDraft] = useState<Partial<PlanFull>>({})
   const [savingMeta, setSavingMeta] = useState(false)
   const [cidDone, setCidDone] = useState(false)
-  const [descEdit, setDescEdit] = useState(false)
   const dirty = Object.keys(draft).length > 0
 
   const openPlanId = (id: string) => {
@@ -161,7 +160,6 @@ export default function CyclesBoard({
   useEffect(() => {
     setDraft({})
     setCidDone(false)
-    setDescEdit(false)
   }, [open])
 
   /* ── 자료 ── */
@@ -291,7 +289,6 @@ export default function CyclesBoard({
   /** 실행 담당 고르개 — 요약의 세부 정보 담당 칸이 연다 */
   const [mailPlan, setMailPlan] = useState<CycleMeta | null>(null)
   const [repPlan, setRepPlan] = useState<CycleMeta | null>(null)
-  const [busyRun, setBusyRun] = useState('')
 
   /* 시험 항목 탭의 노션 표 — 열 정의는 코드가 정본, 폭·숨김·차례는 계정에.
      유형 선택지는 담긴 값에서 뽑아 색만 자동으로 입힌다. */
@@ -1056,48 +1053,6 @@ export default function CyclesBoard({
     void runsQ.refetch()
   }
 
-  /**
-   * 시험 실행을 뜬다 — **담긴 항목 전부**(자동·수동은 실행 안에서 골라
-   * 돌린다). 담는 차례는 화면에 보이는 그 차례(폴더 ▸ REQ ▸ ID)다.
-   */
-  async function makeRun(p: CycleMeta) {
-    const ids = orderTcIds(
-      (p.items ?? []).map((it) => String(it?.tcid ?? '')).filter(Boolean),
-      tcOf,
-      reqIndex,
-    )
-    if (!ids.length) {
-      window.alert('담긴 시험 항목이 없습니다 — 시험 항목 탭에서 먼저 담으세요.')
-      return
-    }
-    setBusyRun('1')
-    try {
-      const r = await apiFetch('/api/plan-runs', {
-        method: 'POST',
-        body: JSON.stringify({
-          plan_id: p.id,
-          model: p.model ?? '',
-          model_group: p.model_group ?? '',
-          version: p.version ?? p.name ?? '',
-          version_group: p.version_group ?? '',
-          owner: p.assignee ?? meName,
-          items: ids.map((tcid) => ({ tcid })),
-          results: Object.fromEntries(ids.map((tcid) => [tcid, ''])),
-        }),
-      })
-      if (!r.ok) throw new Error('실행을 만들지 못했습니다')
-      const j = (await r.json()) as { id?: string }
-      await runsQ.refetch()
-      if (j.id) {
-        openRun(j.id)
-        setTab('run')
-      }
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusyRun('')
-    }
-  }
 
   /** 실행기를 연다 — 그 방식의 항목만, 표에 보이는 차례로 */
   function openRunner(mode: 'A' | 'M', focus = '') {
@@ -1762,35 +1717,17 @@ export default function CyclesBoard({
           </div>
           </div>
           <div className="cu-card cyb-desccard">
-            <h2 className="flexh">
-              설명
-              <span className="cu-sp" />
-              <button type="button" className="btn small" onClick={() => setDescEdit((v) => !v)}>
-                {descEdit ? '편집 닫기' : '편집'}
-              </button>
-            </h2>
+            <h2>설명</h2>
             <div className="pad cyb-descbody">
-              {(() => {
-                /* 위키와 같은 블록 노트(지시) — 고친 것은 초안에 담기고
-                   머리의 저장 단추가 실어 보낸다 */
-                const dd = (draft.description_doc ?? full?.description_doc) as unknown
-                /* 비었는지는 **글자**로 본다 — 빈 문단만 남은 블록 저장분은 빈 것이다 */
-                if (!descEdit && !pv('description').trim())
-                  return <p className="cu-m">설명이 없습니다. 「편집」 을 눌러 넣으세요.</p>
-                return (
-                  <DescNote
-                    key={open}
-                    doc={dd}
-                    text={pv('description')}
-                    editable={descEdit}
-                    onChange={
-                      descEdit
-                        ? (d, md) => stage({ description_doc: d, description: md })
-                        : undefined
-                    }
-                  />
-                )
-              })()}
+              {/* 위키와 같은 블록 노트 — 편집 단추 없이 바로 친다(지시).
+                  고친 것은 초안에 담기고 머리의 저장 단추가 실어 보낸다 */}
+              <DescNote
+                key={open}
+                doc={(draft.description_doc ?? full?.description_doc) as unknown}
+                text={pv('description')}
+                editable
+                onChange={(d, md) => stage({ description_doc: d, description: md })}
+              />
             </div>
           </div>
         </div>
@@ -1922,26 +1859,65 @@ export default function CyclesBoard({
     return (
       <div className="cu-scroll">
         <div className="cu-sec statrow">
+          {/* 판정 요약과 같은 꼴(지시) — 왼쪽 도넛, 오른쪽 알약 줄 */}
           <div className="cu-card statcard">
             <h2>자동 시험</h2>
-            <div className="sbody">
-              <Donut parts={[{ v: nAuto, cls: 'a' }]} total={itemRows.length} label={String(nAuto)} sub={`${pctA}%`} />
-              <div className="statcap">{nAuto ? '장비에 접속해 스텝을 순서대로 돌립니다' : '자동 항목이 없습니다'}</div>
+            <div className="ov-verd">
+              <div className="sumdonut">
+                <Donut parts={[{ v: nAuto, cls: 'a' }]} total={itemRows.length} label={String(nAuto)} sub={`${pctA}%`} />
+                <div className="cu-m">전체 {itemRows.length}건 중</div>
+              </div>
+              <div className="sumrows">
+                <span className="sumrow">
+                  <span className="vpill pa">{pctA}%</span>
+                  <b>{nAuto}</b>
+                  <span className="cu-m">자동 항목</span>
+                </span>
+                <span className="sumrow">
+                  <span className="cu-m">{nAuto ? '장비에 접속해 스텝을 순서대로 돌립니다' : '자동 항목이 없습니다'}</span>
+                </span>
+              </div>
             </div>
           </div>
           <div className="cu-card statcard">
             <h2>수동 시험</h2>
-            <div className="sbody">
-              <Donut parts={[{ v: nMan, cls: 'm' }]} total={itemRows.length} label={String(nMan)} sub={`${pctM}%`} />
-              <div className="statcap">{nMan ? '사람이 확인하고 판정을 기록합니다' : '수동 항목이 없습니다'}</div>
+            <div className="ov-verd">
+              <div className="sumdonut">
+                <Donut parts={[{ v: nMan, cls: 'm' }]} total={itemRows.length} label={String(nMan)} sub={`${pctM}%`} />
+                <div className="cu-m">전체 {itemRows.length}건 중</div>
+              </div>
+              <div className="sumrows">
+                <span className="sumrow">
+                  <span className="vpill pm">{pctM}%</span>
+                  <b>{nMan}</b>
+                  <span className="cu-m">수동 항목</span>
+                </span>
+                <span className="sumrow">
+                  <span className="cu-m">{nMan ? '사람이 확인하고 판정을 기록합니다' : '수동 항목이 없습니다'}</span>
+                </span>
+              </div>
             </div>
           </div>
           <div className="cu-card statcard">
             <h2>커버리지</h2>
-            <div className="sbody">
-              <Donut parts={[{ v: itemRows.length, cls: 'c' }]} total={poolN} label={String(itemRows.length)} sub={`${cov}%`} />
-              <div className="statcap">
-                {String(plan.model ?? plan.model_group ?? '전체')} 시험 {poolN}건 중
+            <div className="ov-verd">
+              <div className="sumdonut">
+                <Donut parts={[{ v: itemRows.length, cls: 'c' }]} total={poolN} label={String(itemRows.length)} sub={`${cov}%`} />
+                <div className="cu-m">
+                  {String(plan.model ?? plan.model_group ?? '전체')} 시험 {poolN}건 중
+                </div>
+              </div>
+              <div className="sumrows">
+                <span className="sumrow">
+                  <span className="vpill pc">{cov}%</span>
+                  <b>{itemRows.length}</b>
+                  <span className="cu-m">담은 항목</span>
+                </span>
+                <span className="sumrow">
+                  <span className="vpill v-n">{poolN ? (100 - Number(cov)).toFixed(1) : '0.0'}%</span>
+                  <b>{Math.max(0, poolN - itemRows.length)}</b>
+                  <span className="cu-m">안 담김</span>
+                </span>
               </div>
             </div>
           </div>
@@ -1954,17 +1930,6 @@ export default function CyclesBoard({
             <span className="dim">
               {r ? `실행 ${r.id} · ${String(r.created_at ?? '').slice(0, 10)}` : '실행 없음'}
             </span>
-            <span className="cu-sp" />
-            <button
-              type="button"
-              className="cu-new small"
-              disabled={!itemRows.length || !!busyRun}
-              title="담긴 항목 전부로 새 실행을 만듭니다"
-              onClick={() => void makeRun(plan)}
-            >
-              <i aria-hidden="true">▶</i>
-              {busyRun ? '만드는 중…' : `실행 만들기 ${itemRows.length}건`}
-            </button>
           </h2>
           <div className="ov-verd">
             <div className="sumdonut">
@@ -1980,7 +1945,7 @@ export default function CyclesBoard({
                 sub={myRuns.length ? '완료' : '실행 없음'}
               />
               <div className="cu-m">
-                {myRuns.length ? `${t.total}개 중 ${t.done} 완료됨` : '위 실행 만들기로 첫 실행을 만드세요'}
+                {myRuns.length ? `${t.total}개 중 ${t.done} 완료됨` : '오른쪽 위 더보기의 「실행 하나 더」 로 첫 실행을 만드세요'}
               </div>
             </div>
             <div className="sumrows">
@@ -2184,7 +2149,7 @@ export default function CyclesBoard({
             Info
           </button>
           <button type="button" role="tab" aria-selected={tab === 'run'} className={tab === 'run' ? 'on' : ''} onClick={() => setTab('run')}>
-            실행 <span className="tabn">{myRuns.length}</span>
+            Test Result <span className="tabn">{myRuns.length}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'itm'} className={tab === 'itm' ? 'on' : ''} onClick={() => setTab('itm')}>
             Manual <span className="tabn">{nMan}</span>
