@@ -2795,6 +2795,16 @@ export default function ReqTc({ me }: Props) {
                 onPeek={(id) => setPop({ kind: 'req', id })}
                 exportTitle="REQ-Coverage · 요구사항"
                 exportScope={exportScope}
+                /* 화면이 **계산해 그리는 열**은 여기서 글자를 만들어 준다 —
+                   안 주면 엑셀에 빈칸으로 나간다(지적). Map 은 누르는 단추라
+                   적을 값이 없다. */
+                exportCell={(r, key) => {
+                  const ts = tcOf.get(String(r.__id ?? '')) ?? []
+                  if (key === 'cov') return ts.length ? `TC ${ts.length}` : '미커버'
+                  if (key === 'tcmap') return ts.map((t) => t.tcid).join(', ')
+                  if (key === 'mapb') return ''
+                  return undefined
+                }}
                 /* 시험 항목 표와 같은 자리에 「복제」 를 세운다(지시) */
                 bulk={[
                   { k: 'clone', label: '복제' },
@@ -2889,6 +2899,16 @@ export default function ReqTc({ me }: Props) {
                 onPeek={(id) => setPop({ kind: 'tc', id })}
                 exportTitle="REQ-Coverage · 시험 항목"
                 exportScope={exportScope}
+                /* REQ Map 은 요구사항 번호를 그려 주는 열이다 — 행 자료에는
+                   내부 키(req_id)만 있어 그냥 뽑으면 엉뚱한 값이 나간다 */
+                exportCell={(r, key) => {
+                  if (key === 'req') {
+                    const t = tcRows.find((x) => x.tcid === String(r.__id ?? ''))
+                    const rq = t ? reqById.get(String(t.req_id ?? '')) : undefined
+                    return rq ? reqLabel(rq) : ''
+                  }
+                  return undefined
+                }}
                 /* 「복제」 를 앞에 세운다(지시) — 나머지는 기본 그대로 */
                 bulk={[
                   { k: 'clone', label: '복제' },

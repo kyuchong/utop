@@ -44,6 +44,11 @@ export interface NTableProps {
   exportTitle?: string
   /** 엑셀 2행 꼬리말 앞머리 — 지금 보고 있는 자리(폴더·플랜 이름) */
   exportScope?: string
+  /** 엑셀에 적을 값 — **화면이 계산해 그리는 열**을 위한 자리.
+   *  Coverage(미커버·TC 6)나 TC Map 처럼 행 자료에 값이 없고 renderCell 이
+   *  만들어 내는 열은 그냥 뽑으면 **빈칸으로 나간다**(지적).
+   *  undefined 를 돌려주면 예전대로 row[key] 를 쓴다. */
+  exportCell?: (row: Record<string, unknown>, key: string) => string | undefined
   /** 선택 바에 세울 단추 — 안 주면 기본(담당 일괄·상태 바꾸기·CSV·삭제).
       표마다 하는 일이 달라, 기본 단추가 그 표에 없는 일을 말하면
       「아직 없습니다」 만 늘어난다(지적: ⋯ 의 일을 선택 바로). */
@@ -185,7 +190,14 @@ export default function NTable(p: NTableProps) {
         .filter(Boolean)
         .join(' · '),
       columns: vis.map((c) => ({ key: c.key, label: c.label ?? c.key })),
-      rows: pick.map((r) => Object.fromEntries(vis.map((c) => [c.key, r[c.key] ?? '']))),
+      rows: pick.map((r) =>
+        Object.fromEntries(
+          vis.map((c) => {
+            const made = p.exportCell?.(r, c.key)
+            return [c.key, made !== undefined ? made : (r[c.key] ?? '')]
+          }),
+        ),
+      ),
       colors,
     }
     const r = await apiFetch('/api/export/xlsx', {
