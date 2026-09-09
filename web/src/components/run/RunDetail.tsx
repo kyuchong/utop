@@ -136,6 +136,8 @@ function autoName(raw: Record<string, unknown>): string {
 function asStep(raw: Record<string, unknown>, i: number): {
   no: number; t: string; cmd: string; expected: string; action: string
   session: string; out: string; mark?: string; took?: string; waitSec?: number; at?: string
+  /** 이 스텝이 붙은 장비 — 세션 판이 이것으로 장비를 찾는다 */
+  devId?: string
   /** 비교 스텝이 통과·실패일 때 적어 둔 문구 */
   okMsg?: string; ngMsg?: string
   /** 이 스텝이 실제로 돌았나. 판정이 없는 스텝(대기·조회)과 **안 돌린 스텝**은 다르다 */
@@ -167,6 +169,7 @@ function asStep(raw: Record<string, unknown>, i: number): {
     expected: expected || '—',
     action: g('action') || (g('kind') === 'cli' || cli ? 'command' : g('kind')) || '—',
     session: raw?.session === undefined || raw?.session === null ? '—' : `s${String(raw.session)}`,
+    devId: g('devId') || g('dev_id') || undefined,
     out: g('output') || g('out'),
     mark: mark || undefined,
     took: Number.isFinite(ms) ? `${(ms / 1000).toFixed(2)}s` : g('took') || undefined,
@@ -900,6 +903,23 @@ export default function RunDetail({
   const pv = (run.pchk ?? {})[cur] ?? []
   /** 사이클 **전문** — 담을 때 복제된 시험서가 여기 있다(목록 API 는 줄여 준다) */
   const cycPid = String(plan?.id ?? run?.plan_id ?? '')
+  /** 장비 목록 — 세션 판이 세션에 붙은 장비(이름·IP·방식)를 여기서 찾는다.
+   *  `/api/devices` 는 옛 JSON 파일을 읽는 라우트다 — 화면이 쓰는 것은 devices2. */
+  const dev2Q = useQuery({
+    queryKey: ['devices2'],
+    enabled: isAuto,
+    queryFn: async () => {
+      const r = await apiFetch('/api/devices2')
+      if (!r.ok) return [] as Array<Record<string, unknown>>
+      const j = (await r.json()) as unknown
+      const arr = Array.isArray(j)
+        ? j
+        : ((j as Record<string, unknown>)?.items ?? (j as Record<string, unknown>)?.devices ?? [])
+      return (Array.isArray(arr) ? arr : []) as Array<Record<string, unknown>>
+    },
+    staleTime: 60_000,
+  })
+
   const cycQ = useQuery({
     queryKey: ['cycle-full', cycPid],
     enabled: !!cycPid,
@@ -1279,6 +1299,15 @@ export default function RunDetail({
             }
           })}
           cur={cur}
+          devices={(dev2Q.data ?? []).map((d) => ({
+            id: String(d.id ?? ''),
+            name: String(d.name ?? ''),
+            ip: String(d.ip ?? ''),
+            model: String(d.model ?? ''),
+            role: String(d.role ?? ''),
+            protocol: String(d.protocol ?? ''),
+            port: (d.port as number | string | undefined) ?? undefined,
+          }))}
           onPick={(id) => {
             setCur(id)
             setStepAt(0)
@@ -1349,6 +1378,7 @@ export default function RunDetail({
                     expected: l.expected !== '—' ? l.expected : d2.expected,
                     action: l.action !== '—' ? l.action : d2.action,
                     session: l.session !== '—' ? l.session : d2.session,
+                    devId: l.devId || d2.devId,
                     t: l.t || d2.t,
                     waitSec: l.waitSec ?? d2.waitSec,
                     out: '',
@@ -1363,6 +1393,7 @@ export default function RunDetail({
                   expected: l.expected !== '—' ? l.expected : d2.expected,
                   action: l.action !== '—' ? l.action : d2.action,
                   session: l.session !== '—' ? l.session : d2.session,
+                  devId: l.devId || d2.devId,
                   t: l.t || d2.t,
                   waitSec: l.waitSec ?? d2.waitSec,
                   okMsg: l.okMsg ?? d2.okMsg,
@@ -1385,6 +1416,7 @@ export default function RunDetail({
                 expected: l.expected !== '—' ? l.expected : d2.expected,
                 action: l.action !== '—' ? l.action : d2.action,
                 session: l.session !== '—' ? l.session : d2.session,
+                devId: l.devId || d2.devId,
                 t: l.t || d2.t,
                 mark: l.mark,
                 took: l.took ?? d2.took,

@@ -26,6 +26,8 @@ export interface AutoStep {
   mark?: string
   action?: string
   session?: string
+  /** 이 스텝이 붙은 장비 — 세션 판이 이것으로 장비를 찾는다 */
+  devId?: string
   expected?: string
   at?: string
   took?: string
@@ -51,13 +53,36 @@ export interface AutoItem {
 }
 
 type SlotId = 'LT' | 'LB' | 'RT' | 'RB'
-type PanelId = 'steps' | 'response' | 'events' | 'tc'
+type PanelId = 'steps' | 'response' | 'events' | 'tc' | 'sess'
 const DEFAULT: Record<SlotId, PanelId> = { LT: 'steps', LB: 'events', RT: 'response', RB: 'tc' }
+/** 판 다섯. 「Sessions」 는 Telnet·SSH·계측기가 지금 어떤지 보는 자리다(지시) */
+const ALL_PANELS: PanelId[] = ['steps', 'response', 'events', 'tc', 'sess']
 const TITLE: Record<PanelId, string> = {
   steps: '실행 Step',
   response: 'Response',
   events: '실행 이벤트',
   tc: 'Test Report',
+  sess: 'Sessions',
+}
+
+/** 장비 한 대 — 세션 판이 쓰는 것만 추린다 */
+export interface AutoDev {
+  id?: string
+  name?: string
+  ip?: string
+  model?: string
+  role?: string
+  protocol?: string
+  port?: number | string
+}
+/** 접속 방식 — 계측기는 role 이, 장비는 protocol 이 말한다 */
+function devKind(d?: AutoDev): string {
+  if (!d) return '—'
+  if (/계측|instrument|tester|spirent|n2x|ixia/i.test(`${d.role ?? ''} ${d.model ?? ''}`)) return '계측기'
+  const p = String(d.protocol ?? '').toUpperCase()
+  if (p === 'TELNET') return 'TELNET'
+  if (p === 'SSH') return 'SSH'
+  return p || '—'
 }
 /** 걸린 시간 — **분:초**(지시). 「20.01s」 보다 「00:20」 이 표에서 줄이 맞는다.
  *  1초가 안 걸린 스텝은 00:00 이다 — 그건 정말 순식간이라는 뜻이다. */
@@ -140,8 +165,10 @@ const FLT_N = (t: { total: number; p: number; f: number; n: number }) => ({
 
 export default function RunAuto({
   items, cur, onPick, steps, stepAt, onStep, dut, logAt,
-  runStep, runItem, waitAt,
+  runStep, runItem, waitAt, devices,
 }: {
+  /** 장비 목록 — 세션 판이 세션에 붙은 장비를 여기서 찾는다 */
+  devices?: AutoDev[]
   /** 지난 실행의 출력 — **이제 안 그린다**(지시).
    *  콘솔은 고른 스텝의 **지금 결과** 하나만 보여 준다. 위 판이 계속
    *  넘겨 주고 있어 자리만 남겨 둔다. */
@@ -168,24 +195,32 @@ export default function RunAuto({
      판 머리를 끌어 다른 판의 왼쪽·오른쪽(새 열)·위·아래(같은 열)·가운데
      (맞바꿈)에 떨어뜨려 마음대로 배치한다. ── */
   const [lay, setLayRaw] = useState<PanelId[][]>(() => {
-    const ALL: PanelId[] = ['steps', 'response', 'events', 'tc']
+    const ALL = ALL_PANELS
+    /** 판이 하나 늘었다고 **사람이 잡아 둔 배치를 지우지 않는다**.
+     *  아는 판만 남기고, 빠진 판은 마지막 열 끝에 붙인다. */
+    const fill = (cols: PanelId[][]): PanelId[][] => {
+      const c = cols.map((col) => col.filter((x) => ALL.includes(x))).filter((col) => col.length)
+      if (!c.length) return [[DEFAULT.LT, DEFAULT.LB], [DEFAULT.RT, DEFAULT.RB, 'sess']]
+      const flat = c.flat()
+      const miss = ALL.filter((x) => !flat.includes(x))
+      if (miss.length) c[c.length - 1]!.push(...miss)
+      return c
+    }
     try {
       const j = JSON.parse(prefGet('utop.run.lay') ?? '') as PanelId[][]
-      const flat = j.flat()
-      if (
-        Array.isArray(j) && j.every((c) => Array.isArray(c)) &&
-        flat.length === 4 && new Set(flat).size === 4 && ALL.every((x) => flat.includes(x))
-      )
-        return j.filter((c) => c.length)
+      if (Array.isArray(j) && j.every((c) => Array.isArray(c))) {
+        const known = j.flat().filter((x) => ALL.includes(x))
+        if (known.length && new Set(known).size === known.length) return fill(j)
+      }
     } catch {
       /* 처음이거나 옛 저장 — 아래에서 잇는다 */
     }
     try {
       const j = JSON.parse(prefGet('utop.run.dock') ?? '{}') as Partial<Record<SlotId, PanelId>>
       const d = { ...DEFAULT, ...j }
-      return [[d.LT, d.LB], [d.RT, d.RB]]
+      return fill([[d.LT, d.LB], [d.RT, d.RB]])
     } catch {
-      return [[DEFAULT.LT, DEFAULT.LB], [DEFAULT.RT, DEFAULT.RB]]
+      return [[DEFAULT.LT, DEFAULT.LB], [DEFAULT.RT, DEFAULT.RB, 'sess']]
     }
   })
   const setLay = (nx: PanelId[][]) => {
@@ -510,6 +545,27 @@ export default function RunAuto({
     return out
   }, [shownItems])
 
+  /** 세션 현황 — **스텝에서 뽑는다**(지어내지 않는다).
+   *  스텝마다 적힌 Session(s0·s1…)을 모아, 그 세션으로 돈 마지막 스텝과
+   *  지금 도는 스텝을 보고 상태를 정한다. 장비는 devId 로 찾는다. */
+  const sessRows = useMemo(() => {
+    const map = new Map<string, { name: string; devId?: string; last?: AutoStep; ran: boolean; running: boolean }>()
+    steps.forEach((s2, i) => {
+      const k = String(s2.session ?? '').trim()
+      if (!k || k === '—') return
+      const cur = map.get(k) ?? { name: k, ran: false, running: false }
+      if (s2.devId) cur.devId = s2.devId
+      if (s2.ran || s2.out) {
+        cur.ran = true
+        cur.last = s2
+      }
+      if (i === runStep) cur.running = true
+      map.set(k, cur)
+    })
+    return [...map.values()]
+  }, [steps, runStep])
+  const devOf = (id?: string) => (devices ?? []).find((d) => String(d.id ?? '') === String(id ?? ''))
+
   /* ── 판 그리기 ── */
   const body = (id: PanelId) => {
     if (id === 'steps')
@@ -662,6 +718,58 @@ export default function RunAuto({
         </div>
       )
 
+    if (id === 'sess')
+      return (
+        <div className="ra-scroll">
+          <div className="ra-scols">
+            <span>세션</span>
+            <span>방식</span>
+            <span>장비</span>
+            <span>상태</span>
+            <span>마지막 활동</span>
+          </div>
+          {!sessRows.length && (
+            <div className="ra-none">이 항목은 세션을 쓰지 않습니다 — 스텝에 Session 이 없습니다.</div>
+          )}
+          {sessRows.map((r) => {
+            const d = devOf(r.devId)
+            const st = r.running ? 'run' : r.ran ? 'ok' : 'idle'
+            return (
+              <div className={`ra-srow2 ${st}`} key={r.name}>
+                <b className="ra-sname">{r.name}</b>
+                <span className={`ra-skind ${devKind(d) === '계측기' ? 'inst' : devKind(d).toLowerCase()}`}>
+                  {devKind(d)}
+                </span>
+                <span className="ra-sdev">
+                  {d ? (
+                    <>
+                      {d.name || d.model || d.id}
+                      <i>{d.ip ? ` · ${d.ip}${d.port ? `:${d.port}` : ''}` : ''}</i>
+                    </>
+                  ) : (
+                    <i>장비 미지정</i>
+                  )}
+                </span>
+                <span className="ra-sst">
+                  <i className="d" aria-hidden="true" />
+                  {r.running ? '사용 중' : r.ran ? '연결됨' : '대기'}
+                </span>
+                <span className="ra-slast">
+                  {r.last ? (
+                    <>
+                      <em>{shortStamp(r.last.at).split(' ')[1] ?? shortStamp(r.last.at)}</em>
+                      {r.last.cmd || r.last.t || ''}
+                    </>
+                  ) : (
+                    <i>—</i>
+                  )}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )
+
     /* Test Report — iTest 의 Test Reports 를 닮은 한 줄이다(지시).
        판정 아이콘 · Timestamp · TC ID · Test Case · Execution ID. */
     return (
@@ -751,6 +859,11 @@ export default function RunAuto({
       return `Step ${stepAt + 1}${a && a !== '—' ? ` · ${a}` : ''}`
     }
     if (p === 'events') return events.length ? `${events.length}줄` : ''
+    if (p === 'sess') {
+      if (!sessRows.length) return '세션 없음'
+      const on = sessRows.filter((r) => r.running).length
+      return `${sessRows.length}개${on ? ` · 사용 중 ${on}` : ''}`
+    }
     return `Pass ${tal.p} · Fail ${tal.f} · 대기 ${tal.n}`
   }
 
@@ -890,7 +1003,7 @@ export default function RunAuto({
       </div>
       {hid.size > 0 && (
         <div className="ra-dockbar">
-          {(['steps', 'response', 'events', 'tc'] as PanelId[])
+          {ALL_PANELS
             .filter((x) => hid.has(x))
             .map((x) => (
               <button key={x} type="button" className="ra-dockchip" title="이 판을 다시 올립니다" onClick={() => paneUp(x)}>
