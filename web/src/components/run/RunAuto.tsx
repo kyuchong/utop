@@ -140,9 +140,11 @@ const FLT_N = (t: { total: number; p: number; f: number; n: number }) => ({
 
 export default function RunAuto({
   items, cur, onPick, steps, stepAt, onStep, dut, logAt,
-  runStep, runItem, past, waitAt,
+  runStep, runItem, waitAt,
 }: {
-  /** 지난 실행의 출력 — 콘솔이 이번 것 **위에** 이어 쌓는다 */
+  /** 지난 실행의 출력 — **이제 안 그린다**(지시).
+   *  콘솔은 고른 스텝의 **지금 결과** 하나만 보여 준다. 위 판이 계속
+   *  넘겨 주고 있어 자리만 남겨 둔다. */
   past?: Array<{ at: string; steps: AutoStep[] }>
   /** 실행기가 **지금 돌고 있는** 스텝 자리(0부터). 안 돌면 없다 */
   runStep?: number | null
@@ -422,7 +424,7 @@ export default function RunAuto({
   const lastRan = steps.reduce((acc, s2, i) => (s2.ran || s2.out ? i : acc), -1)
   /** 이번 실행에서 **한 줄도 안 돌았나.** 돌고 있지도 않고 돈 자취도 없으면
    *  콘솔에는 그릴 것이 없다 — 정의만 보고 명령을 미리 찍으면 안 된다. */
-  const noneRan = runStep == null && lastRan < 0 && !(past ?? []).length
+  const noneRan = runStep == null && lastRan < 0
   const seeUpTo = Math.min(
     /* 돌고 있으면 **도는 줄**, 아니면 **고른 줄**이다 */
     runStep != null ? runStep : stepAt,
@@ -575,25 +577,8 @@ export default function RunAuto({
           <div className="ra-con" ref={conRef} onScroll={onConScroll}>
             {/* 지난 실행 — 다시 돌릴 때마다 콘솔이 초기화되던 것을 고쳤다(지시).
                 흐리게 그리고 가름선에 시각을 적어, 지금 것과 안 섞이게 한다. */}
-            {(past ?? []).map((p2, pi) => {
-              /* 지난 실행도 **같은 자리의 스텝**만 — 지금 것과 나란히 놓고
-                 견주라고 있는 자리다(누적이 아니다) */
-              const s2 = p2.steps[seeUpTo]
-              if (!s2) return null
-              return (
-                <div className="ra-past" key={`p${pi}`}>
-                  <div className="ra-pastl">지난 실행{p2.at ? ` · ${p2.at}` : ''}</div>
-                  <div className="ra-blk">
-                    <div className="ra-cmd">
-                      <b className="ra-bno">Step {seeUpTo + 1}</b>
-                      <span className="ra-bcmd">{s2.cmd ? `${dut}# ${s2.cmd}` : '—'}</span>
-                    </div>
-                    <pre>{s2.out || '(출력 없음)'}</pre>
-                  </div>
-                </div>
-              )
-            })}
-            {!!(past ?? []).length && <div className="ra-pastl now">이번 실행</div>}
+            {/* 지난 실행 블록도 걷었다(지시) — 「이번 실행」 라벨 위로 지난 것이
+                쌓여 그것이 곧 누적이었다. 이 판은 **고른 스텝의 지금 결과** 하나다. */}
             {/* **이번 실행에서 아무것도 안 돌았으면 아무것도 안 그린다.**
                 예전엔 고른 스텝까지 무조건 그려서, 시작도 안 한 실행에
                 「DUT# show system · (출력 없음)」 이 떠 있었다 — 보낸 적

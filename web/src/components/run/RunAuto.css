@@ -39,24 +39,28 @@
 .ra-col { display: flex; flex-direction: column; min-width: 180px; min-height: 0; }
 .ra-slot { height: 100%; min-height: 0; }
 .ra-slot.over .ra-panel { outline: 2px solid rgba(63, 128, 229, 0.55); outline-offset: -4px; background: #f7fbff; }
+/* 판 테두리도 청록 쪽으로 한 걸음 — 머리와 한 벌로 읽힌다 */
 .ra-panel {
   height: 100%;
   background: #fff;
-  border: 1px solid var(--c-border, #e2e8eb);
+  border: 1px solid #bcd3d9;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(25, 43, 50, 0.025);
 }
+/* 판 머리 — **옅은 청록**(지시). 흰 머리에 흰 몸이라 판이 어디서
+   시작하는지 안 보였다. 앱 바탕(#cfe3e8)보다 한 급 옅게 깔아
+   창 넷이 또렷하게 갈린다. */
 .ra-panel > header {
   flex: none; height: 36px; display: flex; align-items: center; gap: 6px;
-  padding: 0 9px; border-bottom: 1px solid var(--c-border, #e2e8eb);
-  font-size: 12.5px; background: #fff; cursor: grab;
+  padding: 0 9px; border-bottom: 1px solid #c9dee3;
+  font-size: 12.5px; background: #e6f1f3; color: #17505c; cursor: grab;
 }
 .ra-panel > header:active { cursor: grabbing; }
 /* 꼬리말은 **먼저 줄어든다** — 판이 좁아지면 이것부터 접어 제목을 지킨다 */
-.ra-panel > header small { color: #8c9da3; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ra-panel > header small { color: #6f8c94; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 판 제목 굵기는 한 급 낮춘다(지시) — 800 은 줄 전체를 눌렀다.
    **안 접힌다**: 찾기 칸이 자리를 먹자 「Test / Report」 로 두 줄이 됐다(실측) */
 .ra-panel > header > b { font-weight: 600; flex: none; white-space: nowrap; }
@@ -314,7 +318,7 @@
 .ra-find {
   /* 자리가 모자라면 **저부터** 줄어든다 — 제목·거르개보다 나중이다 */
   flex: 0 1 210px; min-width: 60px; height: 22px;
-  border: 1px solid #dde5e8; border-radius: 999px; background: #fff;
+  border: 1px solid #c4d9de; border-radius: 999px; background: #fff;
   padding: 0 9px; font: inherit; font-size: 10.5px; color: #35505a;
 }
 .ra-find::placeholder { color: #a7b7bd; }
@@ -350,8 +354,9 @@
   font: inherit;
   font-size: 10.5px;
   color: #6d8189;
-  background: #fbfcfc;
-  border: 1px solid #e0e7ea;
+  /* 청록 머리 위에서는 흰 알약이 더 또렷하다 */
+  background: #fff;
+  border: 1px solid #c4d9de;
   border-radius: 999px;
   cursor: pointer;
   transition: border-color .12s ease, color .12s ease, background .12s ease;
