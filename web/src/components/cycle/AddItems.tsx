@@ -563,10 +563,8 @@ export default function AddItems({
   }
 
   /* ── 본체 ── */
-  const scope = [cycle.model_group, cycle.model]
-    .map((v) => String(v ?? '').trim())
-    .filter(Boolean)
-    .join(' · ')
+  /* 안내문을 걷으면서 scope(모델그룹 · 모델)도 함께 걷었다(지시) —
+     맞는 시험만 보이는 것은 목록이 이미 말한다. */
   const totalRow = (
     <div
       className={`af-row total${stateOf(cands) === 'on' ? ' on' : ''}`}
@@ -617,20 +615,9 @@ export default function AddItems({
           </button>
         </div>
         <div className="afd-bd">
-          <p className="afd-note">
-            {scope ? (
-              <>
-                <b>{scope}</b> 에 맞는 시험만 보입니다 — 담는 단위(폴더 · REQ · 시험 항목)를 골라 체크하세요.
-              </>
-            ) : (
-              <>이 사이클은 모델이 아직 안 정해져 모든 시험이 보입니다.</>
-            )}
-          </p>
-          <div className={`af-chosen${effPicked.size ? ' has' : ''}`}>
-            {effPicked.size
-              ? `담길 항목 ${effPicked.size}건${fullFolders ? ` · 폴더 ${fullFolders}개` : ''}`
-              : '고른 항목 없음'}
-          </div>
+          {/* 안내문을 걷었다(지시) — 세 칸(폴더·REQ·시험 항목)이 아래에
+              그대로 보이고, 맞는 시험만 보이는 것은 목록이 이미 말한다.
+              「고른 항목 없음」 은 **칩 줄 오른쪽**으로 옮겼다(지시). */}
           <div className="af-bar">
             <input
               className="inp"
@@ -677,6 +664,12 @@ export default function AddItems({
             >
               이미 담긴 항목 제외
             </button>
+            <span className="af-chipsp" />
+            <span className={`af-chosen${effPicked.size ? ' has' : ''}`}>
+              {effPicked.size
+                ? `담길 항목 ${effPicked.size}건${fullFolders ? ` · 폴더 ${fullFolders}개` : ''}`
+                : '고른 항목 없음'}
+            </span>
           </div>
           <div className={`af-tree b-${base}`}>
             {loading && !loadErr ? (
