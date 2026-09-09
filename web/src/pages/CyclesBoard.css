@@ -201,3 +201,9 @@
 .cyb .cyb-daychart .val { font-size: 11px; font-weight: 700; fill: var(--c-text-muted, #6b7680); }
 .cyb .cyb-daylegend { display: flex; gap: 14px; font-size: var(--fs-xs); color: var(--c-text-muted); }
 .cyb .cyb-daylegend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+/* 탭의 개수 배지 — 고른 탭에서 **초록**(지시) */
+.cyb .cu-tabs button.on .tabn { background: var(--c-pass, #18864b); color: #fff; }
+
+/* 판정 알약은 **한 줄에 하나**(지시) — 두 줄로 세우면 도넛이 눌려 작아진다 */
+.cyb .statcard .ov-verd .sumrows { grid-template-columns: minmax(0, 1fr); }
