@@ -379,6 +379,14 @@
   .rd-inline .rd-lb.grow2 i { display: none; }
 }
 
+/* 자동 머리줄에는 자리가 남는다 — 진행 막대는 좁게 살려 둔다.
+   도는 동안 사람이 눈으로 읽는 것은 숫자보다 이 막대다.
+   (수동은 머리줄이 좁아 그대로 숫자만 남긴다) */
+.rd:not(.rd-cards) .rd-inline .rd-bar2 { display: flex; flex: 0 0 70px; min-width: 70px; }
+@media (max-width: 1500px) {
+  .rd:not(.rd-cards) .rd-inline .rd-bar2 { display: none; }
+}
+
 /* 사이클 ID 칩 — 누르면 복사 */
 .rd-copy { cursor: pointer; font: inherit; }
 .rd-copy:hover { border-color: var(--c-primary, #1769d2); color: var(--c-primary, #1769d2); }

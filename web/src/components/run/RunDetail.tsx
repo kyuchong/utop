@@ -1045,23 +1045,12 @@ export default function RunDetail({
     await cycQ.refetch()
   }
   const log = (run.logs ?? {})[cur]
-  /** 지금 보고 있는 스텝 — 아직 판정 안 한 첫 스텝이다. 다 했으면 마지막 */
-  const stepNow = (() => {
-    /* 돌고 있으면 **실행기 자리**가 정본이다. 안 그러면 띠는 Step 1 인데
-       표에서는 3번 줄이 도는, 서로 다른 말을 하는 화면이 된다(지적). */
-    if (runStep != null && msteps.length) return Math.min(runStep, msteps.length - 1)
-    if (!msteps.length) return 0
-    /* 다 돈 자동 실행은 **마지막 스텝**에서 멎는다. 첫 스텝으로 되돌리면
-       「끝났습니다」 옆에 Step 1 이 서서 아직 시작 전처럼 보인다. */
-    if (jobId && !jobLive && job?.status) return msteps.length - 1
-    const at = pv.findIndex((v) => !v)
-    /* 하나도 판정 안 했으면 findIndex 가 -1 이 아니라 0 이어야 맞다.
-       빈 배열일 때만 -1 이 나오는데, 그때도 **첫 스텝**이지 마지막이 아니다. */
-    if (at >= 0) return Math.min(at, msteps.length - 1)
-    return pv.length ? msteps.length - 1 : 0
-  })()
+  /* 「지금 스텝」 칸을 걷으면서 stepNow 도 함께 걷었다(지시) —
+     지금 도는 스텝은 가운데 스텝 표가 굵은 줄로 이미 말한다. */
 
-  /** 경과·진행 띠 — 자동은 머리줄 **아래**, 수동은 머리줄 **안**에 선다(지시) */
+  /** 경과·진행 띠 — 자동·수동 모두 머리줄 **안**에 선다(지시).
+      자동만 있던 아래 한 줄은 걷었다 — 「지금 항목」·「지금 스텝」 은
+      오른쪽 목록의 굵은 줄과 가운데 스텝 표가 이미 같은 말을 한다. */
   const liveBand = (
     <div className="rd-live">
         <span className="rd-lb">
@@ -1097,7 +1086,7 @@ export default function RunDetail({
           </i>
         </span>
 
-        <span className="rd-lb grow2">
+        <span className="rd-lb grow2 last">
           <em>진행</em>
           <span className="rd-bar2">
             <i className="p" style={{ flexGrow: tally.p }} />
@@ -1112,31 +1101,7 @@ export default function RunDetail({
           </i>
         </span>
 
-        {isAuto && (
-        <span className="rd-lb grow3">
-          <em>지금 항목</em>
-          <b className="rd-ell">
-            {cur}
-            {meta?.name ? ` · ${meta.name}` : ''}
-          </b>
-          <i className="rd-ell">
-            (할당자 {String((meta as Record<string, unknown> | undefined)?.assignee ?? '–')} · 실행자{' '}
-            {run.runner || run.owner || '–'})
-          </i>
-        </span>
-        )}
-
-        {isAuto && (
-        <span className="rd-lb last">
-          <em>지금 스텝</em>
-          <b>
-            {msteps.length ? `Step ${Math.min(stepNow + 1, msteps.length)} / ${msteps.length}` : '스텝 없음'}
-          </b>
-          <i className="rd-ell" title={msteps[stepNow]?.t ?? ''}>
-            {msteps.length ? `(${msteps[stepNow]?.t || '—'})` : ''}
-          </i>
-        </span>
-        )}
+        {/* 「지금 항목」·「지금 스텝」 칸은 걷었다(지시) */}
         {/* 남는 자리는 여기가 먹는다 — 칸이 늘어나면 구분선만 밀려난다 */}
         <span className="rd-sp" />
       </div>
@@ -1258,8 +1223,10 @@ export default function RunDetail({
         {/* 「삭제」 는 뺐다(지시). 보고 있는 것을 그 자리에서 지우는 단추는
             누를 일보다 잘못 누를 일이 많다 — 지우기는 목록에서 골라서 한다
             (Runs 표의 여러 건 지우기. 결과가 있는 것은 거기서 미리 알린다). */}
-        {/* 경과·진행은 머리줄 **오른쪽 끝**에 선다(지시) */}
-        {!isAuto && <span className="rd-inline">{liveBand}</span>}
+        {/* 경과·진행은 머리줄 **오른쪽 끝**에 선다(지시) — 자동은
+            「이 항목만 실행」 바로 오른쪽이다 */}
+        {isAuto && <i className="rd-vsep" aria-hidden="true" />}
+        <span className="rd-inline">{liveBand}</span>
         {!!onClose && (
           <button type="button" className="rd-x" title="닫기" onClick={onClose}>
             ✕
@@ -1279,8 +1246,6 @@ export default function RunDetail({
           실행이 실패했습니다 — {job.error || '까닭을 못 받았습니다'}
         </div>
       )}
-
-      {isAuto && liveBand}
 
       {!ids.length ? (
         <div className="rd-empty">
