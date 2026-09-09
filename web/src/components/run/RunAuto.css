@@ -80,6 +80,18 @@
 }
 .ra-hsash:hover::before, .ra-hsash.on::before { height: 2px; top: 3.5px; background: #78aeea; }
 
+/* 분할바 **손잡이**(지시: 이동바가 없다) — 카드 사이 틈으로 바탕이 비치면서
+   실금을 걷었더니, 여기를 끌 수 있다는 표시가 통째로 사라졌다.
+   가운데에 짧은 획을 하나 놓아 손잡이라는 것을 보인다. */
+.ra-vsash::after, .ra-hsash::after {
+  content: ''; position: absolute; border-radius: 99px;
+  background: #9db9c2; opacity: 0.6; transition: 0.15s;
+}
+.ra-hsash::after { left: 50%; top: 3px; width: 36px; height: 3px; margin-left: -18px; }
+.ra-vsash::after { top: 50%; left: 3px; width: 3px; height: 36px; margin-top: -18px; }
+.ra-vsash:hover::after, .ra-vsash.on::after,
+.ra-hsash:hover::after, .ra-hsash.on::after { background: #3f80e5; opacity: 1; }
+
 /* 표 */
 .ra-scroll { flex: 1; overflow: auto; min-height: 0; }
 .ra-tbl { width: 100%; border-collapse: collapse; }

@@ -252,7 +252,17 @@ export default function RunAuto({
   /* 화면에 실제로 서는 열들 — 내린 판은 비운다. 판 → 몇 번째 열인지도 같이 */
   const visCols = lay.map((c) => c.filter((x) => !hid.has(x))).filter((c) => c.length)
   const colW = (i: number, n: number) => (ws.length === n ? ws[i]! : 100 / n)
-  const rowPct = (ci: number) => clamp(Number(rs[String(ci)] ?? 50) || 50, 20, 80)
+  /** 열 안 j 번째 판의 높이(%).
+   *  예전엔 열에 판이 **둘일 때만** 끌 수 있었다 — 오른쪽에 셋을 세우면
+   *  분할바가 죽은 칸(off)으로 서서 「이동바가 없다」 가 됐다(지적).
+   *  이제 칸마다 제 높이를 기억한다. 마지막 판은 남는 자리를 먹는다. */
+  const rowPct = (ci: number, j: number, n: number) => {
+    const v = rs[`${ci}:${j}`]
+    if (Number.isFinite(v)) return clamp(Number(v), 10, 90)
+    /* 옛 저장값(판 둘일 때 첫 판 높이)에서 잇는다 */
+    if (n === 2 && j === 0 && Number.isFinite(rs[String(ci)])) return clamp(Number(rs[String(ci)]), 10, 90)
+    return 100 / n
+  }
 
   /* 열 사이 세로 분할바 */
   const startColSash = (leftIdx: number, n: number) => (e: React.MouseEvent) => {
@@ -285,15 +295,18 @@ export default function RunAuto({
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
   }
-  /* 열 안(두 판) 가로 분할바 */
-  const startRowSash = (ci: number) => (e: React.MouseEvent) => {
+  /* 열 안 가로 분할바 — 판이 몇이든 칸마다 하나씩 선다 */
+  const startRowSash = (ci: number, j: number, n: number) => (e: React.MouseEvent) => {
     e.preventDefault()
-    setDrag(`r${ci}`)
+    setDrag(`r${ci}:${j}`)
     const colEl = (e.currentTarget as HTMLElement).parentElement
     const move = (ev: MouseEvent) => {
       const r = colEl?.getBoundingClientRect()
       if (!r) return
-      setRs((cur) => ({ ...cur, [String(ci)]: clamp(((ev.clientY - r.top) / r.height) * 100, 20, 80) }))
+      /* 위 칸들이 이미 먹은 자리를 빼야 손이 간 만큼만 움직인다 */
+      const before = Array.from({ length: j }, (_, k) => rowPct(ci, k, n)).reduce((a, b) => a + b, 0)
+      const want = clamp(((ev.clientY - r.top) / r.height) * 100 - before, 10, Math.max(10, 90 - before))
+      setRs((cur) => ({ ...cur, [`${ci}:${j}`]: want }))
     }
     const up = () => {
       window.removeEventListener('mousemove', move)
@@ -850,17 +863,18 @@ export default function RunAuto({
             >
               {col.map((pid, j) => (
                 <Fragment key={pid}>
-                  {j > 0 && col.length === 2 && (
-                    <div className={`ra-hsash${drag === `r${i}` ? ' on' : ''}`} onMouseDown={startRowSash(i)} />
+                  {j > 0 && (
+                    <div
+                      className={`ra-hsash${drag === `r${i}:${j - 1}` ? ' on' : ''}`}
+                      title="위아래로 끌어 판 높이를 바꿉니다"
+                      onMouseDown={startRowSash(i, j - 1, col.length)}
+                    />
                   )}
-                  {j > 0 && col.length !== 2 && <div className="ra-hsash off" aria-hidden="true" />}
                   <div
                     style={
-                      col.length === 2
-                        ? j === 0
-                          ? { height: `${rowPct(i)}%`, minHeight: 0 }
-                          : { flex: 1, minHeight: 0 }
-                        : { flex: 1, minHeight: 0 }
+                      j === col.length - 1
+                        ? { flex: 1, minHeight: 0 }
+                        : { height: `${rowPct(i, j, col.length)}%`, minHeight: 0 }
                     }
                   >
                     {panel(pid)}
