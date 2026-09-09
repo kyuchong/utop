@@ -1976,10 +1976,16 @@ export default function CyclesBoard({
     const cx = (i: number) => padL + 10 + i * slot + slot / 2
     return (
       <>
-        <svg className="cyb-daychart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="일자별 시험 현황">
+        <svg
+          className="cyb-daychart"
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label="일자별 시험 현황"
+        >
           {[0, 0.5, 1].map((t2) => (
             <g key={t2}>
-              <line x1={padL} x2={W - 4} y1={y(max * t2)} y2={y(max * t2)} stroke="var(--c-border-soft, #e8ecef)" />
+              <line x1={padL} x2={W - 4} y1={y(max * t2)} y2={y(max * t2)} stroke="var(--c-border-soft, #e8ecef)" vectorEffect="non-scaling-stroke" />
               <text x={padL - 6} y={y(max * t2) + 4} textAnchor="end" className="tick">
                 {Math.round(max * t2)}
               </text>
@@ -2007,9 +2013,9 @@ export default function CyclesBoard({
                 const pts = rows.map(([, v], i) => `${cx(i)},${y(v[s2.k])}`).join(' ')
                 return (
                   <g key={s2.k}>
-                    <polyline points={pts} fill="none" stroke={s2.color} strokeWidth={2} strokeLinejoin="round" />
+                    <polyline points={pts} fill="none" stroke={s2.color} strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                     {rows.map(([d, v], i) => (
-                      <circle key={d} cx={cx(i)} cy={y(v[s2.k])} r={3} fill="#fff" stroke={s2.color} strokeWidth={2} />
+                      <circle key={d} cx={cx(i)} cy={y(v[s2.k])} r={3} fill="#fff" stroke={s2.color} strokeWidth={2} vectorEffect="non-scaling-stroke" />
                     ))}
                   </g>
                 )
