@@ -549,11 +549,9 @@ export default function RunAuto({
    *  스텝마다 적힌 Session(s0·s1…)을 모아, 그 세션으로 돈 마지막 스텝과
    *  지금 도는 스텝을 보고 상태를 정한다. 장비는 devId 로 찾는다. */
   const sessRows = useMemo(() => {
-    const map = new Map<string, { name: string; devId?: string; last?: AutoStep; ran: boolean; running: boolean }>()
-    steps.forEach((s2, i) => {
-      const k = String(s2.session ?? '').trim()
-      if (!k || k === '—') return
-      const cur = map.get(k) ?? { name: k, ran: false, running: false }
+    type Row = { name: string; devId?: string; last?: AutoStep; ran: boolean; running: boolean }
+    const put = (map: Map<string, Row>, k: string, name: string, s2: AutoStep, i: number) => {
+      const cur = map.get(k) ?? { name, ran: false, running: false }
       if (s2.devId) cur.devId = s2.devId
       if (s2.ran || s2.out) {
         cur.ran = true
@@ -561,10 +559,32 @@ export default function RunAuto({
       }
       if (i === runStep) cur.running = true
       map.set(k, cur)
+    }
+    const bySess = new Map<string, Row>()
+    steps.forEach((s2, i) => {
+      const k = String(s2.session ?? '').trim()
+      if (!k || k === '—') return
+      put(bySess, k, k, s2, i)
     })
-    return [...map.values()]
+    if (bySess.size) return [...bySess.values()]
+    /* 스텝에 Session 이 없는 실행도 있다 — 그럴 땐 **장비로** 묶어
+       무엇에 붙어 도는지라도 보인다(빈 판보다 낫다) */
+    const byDev = new Map<string, Row>()
+    steps.forEach((s2, i) => {
+      const d = String(s2.devId ?? '').trim()
+      if (!d) return
+      put(byDev, d, '—', s2, i)
+    })
+    return [...byDev.values()]
   }, [steps, runStep])
-  const devOf = (id?: string) => (devices ?? []).find((d) => String(d.id ?? '') === String(id ?? ''))
+  /** 장비 찾기 — id 로, 안 되면 IP 로. 옛 실행 로그의 devId(dev-…)는 지금
+   *  장비 목록의 id(IP)와 체계가 달라 못 찾는다. **그럴 땐 지어내지 않는다.** */
+  const devOf = (id?: string) => {
+    const k = String(id ?? '').trim()
+    if (!k) return undefined
+    const list = devices ?? []
+    return list.find((d) => String(d.id ?? '') === k) ?? list.find((d) => String(d.ip ?? '') === k)
+  }
 
   /* ── 판 그리기 ── */
   const body = (id: PanelId) => {
