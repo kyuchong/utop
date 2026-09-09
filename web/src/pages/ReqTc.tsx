@@ -1065,6 +1065,73 @@ export default function ReqTc({ me }: Props) {
     }
   }
 
+  /** 고른 **요구사항**을 제자리에 복제한다(지시).
+   *
+   *  시험 복제와 같은 통복제(/api/copy-tree)를 쓰되 대상이 **폴더**다 —
+   *  요구사항의 자리는 그것이 놓인 폴더이기 때문이다. 새 REQ ID 를 발번하고
+   *  제목 뒤에 「(복제)」 를 붙인다.
+   *
+   *  **딸린 시험을 함께 복제할지 따로 묻는다.** 기계가 정할 수 없다:
+   *  틀만 하나 더 만들려는 것일 수도, 시험까지 통째로 가져가려는 것일 수도
+   *  있다. 딸린 시험이 없으면 묻지 않는다.
+   */
+  const cloneReqPicked = async (only?: string[]) => {
+    const ids = only ?? [...sel]
+    if (!ids.length) return
+    const rows = ids
+      .map((id) => reqs.find((r) => reqPk(r) === String(id)))
+      .filter((r): r is Requirement => !!r)
+    /* 폴더가 없는(미분류) 요구사항은 복제할 자리가 없다 */
+    const able = rows.filter((r) => catOf(r))
+    const skip = rows.length - able.length
+    if (!able.length) {
+      window.alert('폴더에 놓이지 않은 요구사항은 복제할 자리가 없습니다 — 먼저 폴더로 옮기세요.')
+      return
+    }
+    const nTc = able.reduce((n, r) => n + (tcOf.get(reqPk(r))?.length ?? 0), 0)
+    if (
+      !window.confirm(
+        `고른 요구사항 ${able.length}건을 복제합니다.` +
+          (skip ? `\n(폴더가 없는 ${skip}건은 건너뜁니다)` : '') +
+          '\n제목 뒤에 「(복제)」 가 붙고 새 REQ ID 가 매겨집니다.',
+      )
+    )
+      return
+    /* 딸린 시험까지 가져갈까 — 있을 때만 묻는다 */
+    const withTc =
+      nTc > 0 &&
+      window.confirm(
+        `딸린 시험 ${nTc}건도 함께 복제할까요?\n\n[확인] 시험까지 함께\n[취소] 요구사항만`,
+      )
+    setActBusy('clone')
+    try {
+      for (const r of able) {
+        const res = await apiFetch('/api/copy-tree', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: [{ kind: 'req', id: reqPk(r) }],
+            dst: { kind: 'cat', id: catOf(r) },
+            swap_model: false,
+            mode: withTc ? 'all' : 'req',
+            req_suffix: ' (복제)',
+          }),
+        })
+        if (!res.ok) {
+          const b = (await res.json().catch(() => ({}))) as { detail?: string }
+          throw new Error(b.detail || `복제 실패 (${res.status})`)
+        }
+      }
+      setSel(new Set())
+      await reqQ.refetch()
+      await tcQ.refetch()
+    } catch (e) {
+      window.alert(`복제하지 못했습니다 — ${String((e as Error).message)}`)
+    } finally {
+      setActBusy('')
+    }
+  }
+
   const catsOf = (r: Requirement) => [r.cat1, r.cat2, r.cat3, r.cat4].filter(Boolean).map(String)
   const catOf = (r: Requirement) => String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '')
 
@@ -2718,8 +2785,17 @@ export default function ReqTc({ me }: Props) {
                   setOpenTab('info')
                 }}
                 onPeek={(id) => setPop({ kind: 'req', id })}
+                /* 시험 항목 표와 같은 자리에 「복제」 를 세운다(지시) */
+                bulk={[
+                  { k: 'clone', label: '복제' },
+                  { k: 'assign', label: '담당 일괄' },
+                  { k: 'status', label: '상태 바꾸기' },
+                  { k: 'csv', label: 'CSV' },
+                  { k: 'del', label: '삭제', danger: true },
+                ]}
                 onBulk={(a, ids) => {
                   if (a === 'del') void deletePicked(ids)
+                  else if (a === 'clone') void cloneReqPicked(ids)
                   else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
                 }}
                 renderCell={(r, c) => {

@@ -5665,6 +5665,8 @@ async def copy_tree(body: dict, token: str = ""):
     # 같은 자리에 같은 이름이 둘이면 어느 것이 복제본인지 알 수 없다.
     # 통복제(다른 프로젝트로 옮기기)는 안 보내므로 예전 그대로다.
     tc_suffix = str(body.get("tc_suffix") or "")
+    # 요구사항 제목 뒤에 붙일 말 — 시험과 같은 까닭이다(제자리 복제).
+    req_suffix = str(body.get("req_suffix") or "")
     if not items or not dst_id:
         raise HTTPException(400, "무엇을 어디로 복사할지 골라 주세요")
 
@@ -5744,6 +5746,8 @@ async def copy_tree(body: dict, token: str = ""):
         d = dict(src.get("data") or src)
         d["id"] = nid
         d["reqid"] = await _next_req_id(c, cat_id)
+        if req_suffix:
+            d["title"] = f"{str(d.get('title') or '')}{req_suffix}"
         d["tc"] = []
         for i in range(4):
             d[f"cat{i + 1}"] = path[i] if i < len(path) else None
