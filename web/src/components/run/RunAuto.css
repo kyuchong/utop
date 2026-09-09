@@ -55,9 +55,11 @@
   font-size: 12.5px; background: #fff; cursor: grab;
 }
 .ra-panel > header:active { cursor: grabbing; }
-.ra-panel > header small { color: #8c9da3; }
-/* 판 제목 굵기는 한 급 낮춘다(지시) — 800 은 줄 전체를 눌렀다 */
-.ra-panel > header > b { font-weight: 600; }
+/* 꼬리말은 **먼저 줄어든다** — 판이 좁아지면 이것부터 접어 제목을 지킨다 */
+.ra-panel > header small { color: #8c9da3; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 판 제목 굵기는 한 급 낮춘다(지시) — 800 은 줄 전체를 눌렀다.
+   **안 접힌다**: 찾기 칸이 자리를 먹자 「Test / Report」 로 두 줄이 됐다(실측) */
+.ra-panel > header > b { font-weight: 600; flex: none; white-space: nowrap; }
 /* 「이동」 배지는 걷었다(지시) — 머리줄을 끌면 그대로 옮겨진다 */
 
 /* 분할바 — 셋이 따로 움직인다 */
@@ -290,7 +292,8 @@
 
 /* 찾기 칸 — 판 머리, 제목 오른쪽(지시). 좁아지면 저부터 줄어든다 */
 .ra-find {
-  flex: 0 1 210px; min-width: 92px; height: 22px;
+  /* 자리가 모자라면 **저부터** 줄어든다 — 제목·거르개보다 나중이다 */
+  flex: 0 1 210px; min-width: 60px; height: 22px;
   border: 1px solid #dde5e8; border-radius: 999px; background: #fff;
   padding: 0 9px; font: inherit; font-size: 10.5px; color: #35505a;
 }
