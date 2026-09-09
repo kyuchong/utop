@@ -282,6 +282,10 @@ export default function CyclesBoard({
   const [selRun, setSelRun] = useState(() => prefGet('utop.runs.open') ?? '')
   /** 3열 실행기 */
   const [runnerOn, setRunnerOn] = useState(false)
+  /** 일자별 그래프 꼴 — **선이 기본**(지시). 계정별로 남는다 */
+  const [dayKind, setDayKind] = useState<'line' | 'bar'>(
+    () => (prefGet('utop.cyc.daykind') === 'bar' ? 'bar' : 'line'),
+  )
   const [runMode, setRunMode] = useState<'A' | 'M'>('A')
   const [runFocus, setRunFocus] = useState('')
   const [wide, setWide] = useState(false)
@@ -801,7 +805,7 @@ export default function CyclesBoard({
   const failQs = useQueries({
     queries: myRuns.map((r) => ({
       queryKey: ['plan-run', r.id],
-      enabled: !!open && (tab === 'itm' || tab === 'ita' || tab === 'sum'),
+      enabled: !!open && (tab === 'run' || tab === 'itm' || tab === 'ita' || tab === 'sum'),
       queryFn: async () => {
         const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}`)
         if (!res.ok) throw new Error('실행을 불러오지 못했습니다')
@@ -809,6 +813,47 @@ export default function CyclesBoard({
       },
     })),
   })
+  /** 일자별 판정 셈 — **방식으로 갈라서**(지시). 판정한 날은 vat 가 정본이고,
+      없으면 그 실행을 뜬 날로 친다. 실행 전문은 이미 받고 있어 조회가 늘지 않는다 */
+  const dayStat = useMemo(() => {
+    const byMode = { auto: new Map<string, { p: number; f: number; b: number }>(), man: new Map<string, { p: number; f: number; b: number }>() }
+    failQs.forEach((qr, i) => {
+      const run = qr.data
+      if (!run) return
+      const made = String(myRuns[i]?.created_at ?? '').slice(0, 10)
+      const vat = (run.vat ?? {}) as Record<string, string>
+      for (const [tcid, v] of Object.entries(run.results ?? {})) {
+        const l = vLetter(verds, String(v ?? ''))
+        if (l === 'n') continue
+        const day = String(vat[tcid] ?? '').slice(0, 10) || made
+        if (!day) continue
+        const m = isManTc(tcid) ? byMode.man : byMode.auto
+        const cur = m.get(day) ?? { p: 0, f: 0, b: 0 }
+        cur[l] += 1
+        m.set(day, cur)
+      }
+    })
+    const pick = (m: Map<string, { p: number; f: number; b: number }>) =>
+      [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    return { auto: pick(byMode.auto), man: pick(byMode.man) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [failQs.map((q2) => q2.dataUpdatedAt).join(','), myRuns, verds, tcOf])
+
+  /** 커버리지 — 그날까지 **판정한 항목 누적**을 자동·수동으로 나눠 본다(지시) */
+  const covCum = useMemo(() => {
+    const days = [...new Set([...dayStat.auto.map(([d]) => d), ...dayStat.man.map(([d]) => d)])].sort()
+    const sum = (v: { p: number; f: number; b: number }) => v.p + v.f + v.b
+    const A = new Map(dayStat.auto)
+    const M = new Map(dayStat.man)
+    let a = 0
+    let m = 0
+    return days.map((d) => {
+      a += sum(A.get(d) ?? { p: 0, f: 0, b: 0 })
+      m += sum(M.get(d) ?? { p: 0, f: 0, b: 0 })
+      return [d, { p: a, f: m, b: 0 }] as [string, { p: number; f: number; b: number }]
+    })
+  }, [dayStat])
+
   const failStat = useMemo(() => {
     const m = new Map<string, { fail: number; ran: number }>()
     for (const qr of failQs) {
@@ -1032,30 +1077,52 @@ export default function CyclesBoard({
   }, [open, myRuns])
 
 
-  async function delRun(id: string) {
-    const r = runs.find((x) => x.id === id)
-    if (!r) return
-    const done = r.n_pass + r.n_fail + r.n_etc
-    if (
-      !window.confirm(
-        `시험 실행 「${r.name || r.id}」 을 지웁니다. 되돌릴 수 없습니다.` +
-          (done ? `\n\n이미 판정한 항목 ${done}건의 결과도 함께 사라집니다.` : ''),
-      )
+
+
+  /** 실행을 뜬다 — 담긴 항목 전부. 시험을 시작할 때 속에서만 부른다 */
+  async function makeRun(p: CycleMeta): Promise<string | null> {
+    const ids = orderTcIds(
+      (p.items ?? []).map((it) => String(it?.tcid ?? '')).filter(Boolean),
+      tcOf,
+      reqIndex,
     )
-      return
-    await apiFetch(`/api/plan-runs/${encodeURIComponent(id)}`, { method: 'DELETE' })
-    if (selRun === id) {
-      setSelRun('')
-      prefRemove('utop.runs.open')
-      setRunnerOn(false)
-      setWide(false)
+    if (!ids.length) {
+      window.alert('담긴 시험 항목이 없습니다 — 시험 항목 탭에서 먼저 담으세요.')
+      return null
     }
-    void runsQ.refetch()
+    try {
+      const r = await apiFetch('/api/plan-runs', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan_id: p.id,
+          model: p.model ?? '',
+          model_group: p.model_group ?? '',
+          version: p.version ?? p.name ?? '',
+          version_group: p.version_group ?? '',
+          owner: p.assignee ?? meName,
+          items: ids.map((tcid) => ({ tcid })),
+          results: Object.fromEntries(ids.map((tcid) => [tcid, ''])),
+        }),
+      })
+      if (!r.ok) throw new Error('실행을 만들지 못했습니다')
+      const j = (await r.json()) as { id?: string }
+      await runsQ.refetch()
+      if (j.id) openRun(j.id)
+      return j.id ?? null
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+      return null
+    }
   }
 
-
   /** 실행기를 연다 — 그 방식의 항목만, 표에 보이는 차례로 */
-  function openRunner(mode: 'A' | 'M', focus = '') {
+  async function openRunner(mode: 'A' | 'M', focus = '') {
+    /* 실행이 하나도 없으면 **여기서 뜬다**(지시: 만들기 단추를 걷었다) —
+       시험을 시작하는 순간이 곧 실행이 생기는 순간이다 */
+    if (!myRuns.length && plan) {
+      const made = await makeRun(plan)
+      if (!made) return
+    }
     setRunMode(mode)
     setRunFocus(focus)
     setRunnerOn(true)
@@ -1870,10 +1937,121 @@ export default function CyclesBoard({
 
   /* ── 상세: 실행 탭 — 자동/수동/커버리지 · 판정 요약 · 이 사이클의 실행 ·
      선택한 실행의 본문(옛 Runs)까지 실행 이야기는 전부 여기(지시: 탭 재편) ── */
+  /** 요일 한 글자 — 날짜 밑에 함께 적는다(지시: 「09-08 (화)」) */
+  const dow = (iso: string) => {
+    const d = new Date(`${iso}T00:00:00`)
+    return Number.isNaN(d.getTime()) ? '' : ['일', '월', '화', '수', '목', '금', '토'][d.getDay()]
+  }
+
+  /** 일자별 그림 — 선(기본)·막대 두 꼴. 세 갈래를 쌓거나 세 선으로 긋는다 */
+  function DayChart({
+    rows, series, unit,
+  }: {
+    rows: Array<[string, { p: number; f: number; b: number }]>
+    series: Array<{ k: 'p' | 'f' | 'b'; label: string; color: string }>
+    unit?: string
+  }) {
+    if (!rows.length)
+      return (
+        <div className="cu-empty">
+          <strong>아직 그릴 것이 없습니다</strong>
+          <span>판정을 남기면 날짜별로 쌓입니다.</span>
+        </div>
+      )
+    const W = 560
+    const H = 172
+    const padL = 34
+    const padB = 24
+    const padT = 14
+    const tot = (v: { p: number; f: number; b: number }) => series.reduce((n, s2) => n + v[s2.k], 0)
+    const max = Math.max(1, ...rows.map(([, v]) => (dayKind === 'bar' ? tot(v) : Math.max(...series.map((s2) => v[s2.k])))))
+    const y = (n: number) => padT + (H - padT - padB) * (1 - n / max)
+    const hOf = (n: number) => ((H - padT - padB) * n) / max
+    const slot = (W - padL - 10) / rows.length
+    const cx = (i: number) => padL + 10 + i * slot + slot / 2
+    return (
+      <>
+        <svg className="cyb-daychart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="일자별 시험 현황">
+          {[0, 0.5, 1].map((t2) => (
+            <g key={t2}>
+              <line x1={padL} x2={W - 4} y1={y(max * t2)} y2={y(max * t2)} stroke="var(--c-border-soft, #e8ecef)" />
+              <text x={padL - 6} y={y(max * t2) + 4} textAnchor="end" className="tick">
+                {Math.round(max * t2)}
+              </text>
+            </g>
+          ))}
+          {dayKind === 'bar'
+            ? rows.map(([d, v], i) => {
+                const bw = Math.max(10, Math.min(46, slot - 14))
+                let top = y(0)
+                return (
+                  <g key={d}>
+                    {series.map((s2) => {
+                      const n = v[s2.k]
+                      if (!n) return null
+                      top -= hOf(n)
+                      return <rect key={s2.k} x={cx(i) - bw / 2} y={top} width={bw} height={hOf(n)} fill={s2.color} rx={2} />
+                    })}
+                    {!!tot(v) && (
+                      <text x={cx(i)} y={top - 5} textAnchor="middle" className="val">{tot(v)}</text>
+                    )}
+                  </g>
+                )
+              })
+            : series.map((s2) => {
+                const pts = rows.map(([, v], i) => `${cx(i)},${y(v[s2.k])}`).join(' ')
+                return (
+                  <g key={s2.k}>
+                    <polyline points={pts} fill="none" stroke={s2.color} strokeWidth={2} strokeLinejoin="round" />
+                    {rows.map(([d, v], i) => (
+                      <circle key={d} cx={cx(i)} cy={y(v[s2.k])} r={3} fill="#fff" stroke={s2.color} strokeWidth={2} />
+                    ))}
+                  </g>
+                )
+              })}
+          {rows.map(([d], i) => (
+            <text key={d} x={cx(i)} y={H - 7} textAnchor="middle" className="tick">
+              {`${d.slice(5)} (${dow(d)})`}
+            </text>
+          ))}
+        </svg>
+        <div className="cyb-daylegend">
+          {series.map((s2) => (
+            <span key={s2.k}>
+              <i style={{ background: s2.color }} />
+              {s2.label}
+            </span>
+          ))}
+          {!!unit && <span className="cu-m">{unit}</span>}
+        </div>
+      </>
+    )
+  }
+
+  /** 그래프 꼴 고르개 — 선(기본)·막대 */
+  const kindPick = (
+    <select
+      className="cyb-kind"
+      value={dayKind}
+      title="그래프 꼴"
+      onChange={(e) => {
+        const v = e.target.value === 'bar' ? 'bar' : 'line'
+        setDayKind(v)
+        prefSet('utop.cyc.daykind', v)
+      }}
+    >
+      <option value="line">선</option>
+      <option value="bar">막대</option>
+    </select>
+  )
+
   function renderRunTab() {
     if (!plan) return null
     const cov = poolN ? ((itemRows.length / poolN) * 100).toFixed(1) : '0.0'
     const r = runLite && myRuns.some((x) => x.id === runLite.id) ? runLite : undefined
+    const cP = vDef(verds, 'Pass').color
+    const cF = vDef(verds, 'Fail').color
+    const cB = vDef(verds, 'Blocked').color
 
     /* 방식별 판정 셈 — 실행이 있으면 보는 실행의 항목, 없으면 담긴 항목 전부 미실행 */
     const modeStat = (man: boolean) => {
@@ -1897,21 +2075,22 @@ export default function CyclesBoard({
       return { total: vals.length, by, p, f, b, done: vals.length - none }
     }
 
-    /* 카드 한 장 — 판정 요약과 같은 꼴(지시): 왼쪽 도넛, 오른쪽 판정별 알약 */
-    const verdCard = (title: string, man: boolean) => {
+    /** 왼쪽 한 줄 — 도넛과 판정 알약 */
+    const verdCell = (title: string, man: boolean) => {
       const st = modeStat(man)
       return (
-        <div className="cu-card statcard">
-          <h2 className="flexh">
+        <>
+          <h3 className="cyb-rowh">
             {title} <span className="dim">{r ? `실행 ${r.id}` : '실행 없음'}</span>
-          </h2>
+          </h3>
           <div className="ov-verd">
             <div className="sumdonut">
               <Donut
+                big
                 parts={[
-                  { v: st.p, cls: 'p', color: vDef(verds, 'Pass').color },
-                  { v: st.f, cls: 'f', color: vDef(verds, 'Fail').color },
-                  { v: st.b, cls: 'b', color: vDef(verds, 'Blocked').color },
+                  { v: st.p, cls: 'p', color: cP },
+                  { v: st.f, cls: 'f', color: cF },
+                  { v: st.b, cls: 'b', color: cB },
                 ]}
                 total={st.total}
                 label={st.total ? `${Math.round((st.done / st.total) * 100)}%` : '0%'}
@@ -1944,129 +2123,74 @@ export default function CyclesBoard({
               })}
             </div>
           </div>
-        </div>
+        </>
       )
     }
 
-    /* 일자별 시험 현황 — 실행 생성일 기준으로 그날 실린 판정을 쌓는다 */
-    const days = (() => {
-      const m = new Map<string, { p: number; f: number; b: number }>()
-      for (const x of myRuns) {
-        const d = String(x.created_at ?? '').slice(0, 10)
-        if (!d) continue
-        const cur = m.get(d) ?? { p: 0, f: 0, b: 0 }
-        cur.p += x.n_pass
-        cur.f += x.n_fail
-        cur.b += x.n_etc
-        m.set(d, cur)
-      }
-      return [...m.entries()].sort((a, b2) => a[0].localeCompare(b2[0]))
-    })()
-    const cP = vDef(verds, 'Pass').color
-    const cF = vDef(verds, 'Fail').color
-    const cB = vDef(verds, 'Blocked').color
-    const dayChart = () => {
-      if (!days.length)
-        return (
-          <div className="cu-empty">
-            <strong>아직 실행이 없습니다</strong>
-            <span>실행이 생기면 일자별 판정 수가 여기 쌓입니다.</span>
-          </div>
-        )
-      const W = 640
-      const H = 320
-      const padL = 34
-      const padB = 26
-      const padT = 16
-      const max = Math.max(1, ...days.map(([, v]) => v.p + v.f + v.b))
-      const slot = (W - padL - 8) / days.length
-      const bw = Math.max(10, Math.min(48, slot - 12))
-      const x0 = (i: number) => padL + 8 + i * slot + (slot - bw) / 2
-      const y = (n: number) => padT + (H - padT - padB) * (1 - n / max)
-      const hOf = (n: number) => ((H - padT - padB) * n) / max
-      return (
-        <svg className="cyb-daychart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="일자별 시험 현황">
-          {[0, 0.5, 1].map((t2) => (
-            <g key={t2}>
-              <line x1={padL} x2={W - 4} y1={y(max * t2)} y2={y(max * t2)} stroke="var(--c-border-soft, #e8ecef)" />
-              <text x={padL - 6} y={y(max * t2) + 4} textAnchor="end" className="tick">
-                {Math.round(max * t2)}
-              </text>
-            </g>
-          ))}
-          {days.map(([d, v], i) => {
-            const total = v.p + v.f + v.b
-            let top = y(0)
-            const seg = (n: number, color: string, k: string) => {
-              if (!n) return null
-              top -= hOf(n)
-              return <rect key={k} x={x0(i)} y={top} width={bw} height={hOf(n)} fill={color} rx={2} />
-            }
-            return (
-              <g key={d}>
-                {seg(v.p, cP, 'p')}
-                {seg(v.f, cF, 'f')}
-                {seg(v.b, cB, 'b')}
-                {!!total && (
-                  <text x={x0(i) + bw / 2} y={top - 5} textAnchor="middle" className="val">
-                    {total}
-                  </text>
-                )}
-                <text x={x0(i) + bw / 2} y={H - 8} textAnchor="middle" className="tick">
-                  {d.slice(5)}
-                </text>
-              </g>
-            )
-          })}
-        </svg>
-      )
-    }
+    const VERD3 = [
+      { k: 'p' as const, label: 'Pass', color: cP },
+      { k: 'f' as const, label: 'Fail', color: cF },
+      { k: 'b' as const, label: '그 밖', color: cB },
+    ]
 
     return (
       <div className="cu-scroll">
-        {/* 총 2열 — 1열 3행은 차트, 2열은 일자별 시험 현황(지시) */}
-        <div className="cu-sec cyb-runrow">
-          <div className="cyb-runcol">
-            {verdCard('자동 시험', false)}
-            {verdCard('수동 시험', true)}
-            <div className="cu-card statcard">
-              <h2>커버리지</h2>
-              <div className="ov-verd">
-                <div className="sumdonut">
-                  <Donut parts={[{ v: itemRows.length, cls: 'c' }]} total={poolN} label={String(itemRows.length)} sub={`${cov}%`} />
-                  <div className="cu-m">
-                    {String(plan.model ?? plan.model_group ?? '전체')} 시험 {poolN}건 중
-                  </div>
+        {/* 2열 3행(지시) — 왼쪽은 도넛·판정, 오른쪽은 그 갈래의 일자별 그림.
+            행 사이는 두 열을 가로지르는 실금으로 나눈다 */}
+        <div className="cu-sec cu-card cyb-rt">
+          <div className="cyb-rtl">{verdCell('자동 시험', false)}</div>
+          <div className="cyb-rtr">
+            <h3 className="cyb-rowh">
+              일자별 <span className="dim">자동 · 판정 수</span>
+              <span className="cu-sp" />
+              {kindPick}
+            </h3>
+            <DayChart rows={dayStat.auto} series={VERD3} />
+          </div>
+
+          <div className="cyb-rtl">{verdCell('수동 시험', true)}</div>
+          <div className="cyb-rtr">
+            <h3 className="cyb-rowh">
+              일자별 <span className="dim">수동 · 판정 수</span>
+            </h3>
+            <DayChart rows={dayStat.man} series={VERD3} />
+          </div>
+
+          <div className="cyb-rtl">
+            <h3 className="cyb-rowh">커버리지</h3>
+            <div className="ov-verd">
+              <div className="sumdonut">
+                <Donut big parts={[{ v: itemRows.length, cls: 'c' }]} total={poolN} label={String(itemRows.length)} sub={`${cov}%`} />
+                <div className="cu-m">
+                  {String(plan.model ?? plan.model_group ?? '전체')} 시험 {poolN}건 중
                 </div>
-                <div className="sumrows">
-                  <span className="sumrow">
-                    <span className="vpill pc">{cov}%</span>
-                    <b>{itemRows.length}</b>
-                    <span className="cu-m">담은 항목</span>
-                  </span>
-                  <span className="sumrow">
-                    <span className="vpill v-n">{poolN ? (100 - Number(cov)).toFixed(1) : '0.0'}%</span>
-                    <b>{Math.max(0, poolN - itemRows.length)}</b>
-                    <span className="cu-m">안 담김</span>
-                  </span>
-                </div>
+              </div>
+              <div className="sumrows">
+                <span className="sumrow">
+                  <span className="vpill pc">{cov}%</span>
+                  <b>{itemRows.length}</b>
+                  <span className="cu-m">담은 항목</span>
+                </span>
+                <span className="sumrow">
+                  <span className="vpill v-n">{poolN ? (100 - Number(cov)).toFixed(1) : '0.0'}%</span>
+                  <b>{Math.max(0, poolN - itemRows.length)}</b>
+                  <span className="cu-m">안 담김</span>
+                </span>
               </div>
             </div>
           </div>
-          <div className="cu-card cyb-daycard">
-            <h2 className="flexh">
-              일자별 시험 현황 <span className="dim">실행 생성일 기준 · 판정 수</span>
-            </h2>
-            <div className="pad cyb-daybody">
-              {dayChart()}
-              {!!days.length && (
-                <div className="cyb-daylegend">
-                  <span><i style={{ background: cP }} /> Pass</span>
-                  <span><i style={{ background: cF }} /> Fail</span>
-                  <span><i style={{ background: cB }} /> 그 밖(중립 계열)</span>
-                </div>
-              )}
-            </div>
+          <div className="cyb-rtr">
+            <h3 className="cyb-rowh">
+              일자별 <span className="dim">누적 판정 — 자동 · 수동</span>
+            </h3>
+            <DayChart
+              rows={covCum}
+              series={[
+                { k: 'p', label: '자동(누적)', color: 'var(--c-primary)' },
+                { k: 'f', label: '수동(누적)', color: '#8a949e' },
+              ]}
+              unit={`담은 항목 ${itemRows.length}건 기준`}
+            />
           </div>
         </div>
       </div>
@@ -2597,33 +2721,6 @@ export default function CyclesBoard({
             >
               ▤ 고객사 결과서
             </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setRunMoreAt(null)
-                setNeedMake(true)
-                setMkRun(true)
-              }}
-            >
-              ＋ 실행 하나 더
-            </button>
-            {!!runLite && (
-              <>
-                <div className="qa-menusep" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="danger"
-                  onClick={() => {
-                    setRunMoreAt(null)
-                    void delRun(runLite.id)
-                  }}
-                >
-                  실행 지우기
-                </button>
-              </>
-            )}
           </div>
         </>
       )}
