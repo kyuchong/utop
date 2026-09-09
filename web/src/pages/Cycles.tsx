@@ -1162,6 +1162,64 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
 
 /** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) ⚙ 과 같은 목록 */
 
+/** 사이클 한 건의 담긴 항목을 **엑셀**로 내보낸다(지시: CSV → 엑셀).
+ *
+ *  담는 것은 예전 CSV 와 같다 — TC ID · 시험 · 결과 · 담당 · 실행.
+ *  파일만 진짜 .xlsx 가 되어 열 머리·틀 고정·색이 살아난다(서버가 만든다).
+ */
+export async function exportCycleXlsx(c: CycleMeta): Promise<void> {
+  const rows = c.items ?? []
+  if (!rows.length) return
+  const now = new Date()
+  const p2 = (n: number) => String(n).padStart(2, '0')
+  const day = `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())}`
+  const scope = [c.model, c.version].filter(Boolean).join(' · ')
+  const body = {
+    title: `사이클 · ${String(c.name ?? c.id ?? '')}`,
+    subtitle: [scope, `${rows.length}건`, `${day} ${p2(now.getHours())}:${p2(now.getMinutes())} 내보냄`]
+      .filter(Boolean)
+      .join(' · '),
+    columns: [
+      { key: 'tcid', label: 'TC ID' },
+      { key: 'name', label: '시험' },
+      { key: 'verd', label: '결과' },
+      { key: 'who', label: '담당' },
+      { key: 'at', label: '실행' },
+    ],
+    rows: rows.map((it) => ({
+      tcid: it.tcid,
+      name: it.name ?? '',
+      verd: verdictLabel(itemVerdict(it)),
+      who: it.assignee || it.executed_by || '',
+      at: it.executed_at ?? '',
+    })),
+    /* 결과만 색을 준다 — 표에서 눈이 먼저 가는 칸이다 */
+    colors: {
+      verd: {
+        Pass: '#0f7b6c', 합격: '#0f7b6c',
+        Fail: '#e03e3e', 불합격: '#e03e3e',
+        Blocked: '#a35200', 진행불가: '#a35200',
+      } as Record<string, string>,
+    },
+  }
+  const r = await apiFetch('/api/export/xlsx', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!r.ok) {
+    window.alert('엑셀을 만들지 못했습니다')
+    return
+  }
+  const blob = await r.blob()
+  const url = URL.createObjectURL(blob)
+  const a2 = document.createElement('a')
+  a2.href = url
+  a2.download = `플랜_${[c.model, c.version].filter(Boolean).join('_') || c.id}_${day}.xlsx`
+  a2.click()
+  URL.revokeObjectURL(url)
+}
+
 export function exportCycleCsv(c: CycleMeta): void {
   const rows = c.items ?? []
   if (!rows.length) return

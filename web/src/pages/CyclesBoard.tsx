@@ -19,7 +19,7 @@ import { goto, onGoto, reflectUrl } from '@/api/goto'
 import { prefGet, prefRemove, prefSet } from '@/lib/prefs'
 import { normMode } from '@/lib/runMode'
 import DescNote from '@/components/DescNote'
-import { exportCycleCsv, CloneDialog } from '@/pages/Cycles'
+import { exportCycleXlsx, CloneDialog } from '@/pages/Cycles'
 import type { CycleItemLite, CycleMeta } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
 import RunDetail from '@/components/run/RunDetail'
@@ -682,7 +682,7 @@ export default function CyclesBoard({
     }
   }
 
-  async function csvPlan(id: string) {
+  async function xlsxPlan(id: string) {
     const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`)
     if (!r.ok) {
       window.alert('사이클을 불러오지 못했습니다.')
@@ -695,7 +695,7 @@ export default function CyclesBoard({
       window.alert('담긴 시험 항목이 없어 내보낼 것이 없습니다.')
       return
     }
-    exportCycleCsv(c)
+    await exportCycleXlsx(c)
   }
 
   /* ── 상세 자료 ── */
@@ -1562,11 +1562,13 @@ export default function CyclesBoard({
             idKey="id"
             titleKey="title"
             onOpen={(id) => openPlanId(id)}
+            /* 「실행 만들기」 를 걷었다(지시) — 시험을 시작하는 순간이 곧
+               실행이 생기는 순간이라, 미리 만들어 두는 단추는 쓸 일이 없다.
+               「CSV」 는 이름과 함께 **파일도 엑셀**로 바꿨다. */
             bulk={[
-              { k: 'run', label: '실행 만들기' },
               { k: 'clone', label: '복제' },
               { k: 'edit', label: '고치기' },
-              { k: 'csv', label: 'CSV' },
+              { k: 'csv', label: '엑셀' },
               { k: 'del', label: '삭제', danger: true },
             ]}
             onBulk={(a, ids) => {
@@ -1579,15 +1581,11 @@ export default function CyclesBoard({
                 window.alert('이 일은 한 건씩 합니다 — 하나만 골라 주세요.')
                 return
               }
-              if (a === 'run') {
-                openPlanId(one)
-                setNeedMake(true)
-                setMkRun(true)
-              } else if (a === 'clone') setCloneId(one)
+              if (a === 'clone') setCloneId(one)
               else if (a === 'edit') {
                 openPlanId(one)
                 setEdit(true)
-              } else if (a === 'csv') void csvPlan(one)
+              } else if (a === 'csv') void xlsxPlan(one)
             }}
             renderCell={(row, col) => {
               if (col.key === 'stat') {
