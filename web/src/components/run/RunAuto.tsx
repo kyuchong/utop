@@ -46,6 +46,8 @@ export interface AutoItem {
   verdict: 'p' | 'f' | 'b' | 'n'
   /** 언제 판정했나 — `2026-09-03 18:04:42`. 목업이 이 자리에 적는 값이다 */
   at?: string
+  /** 이 항목이 돈 **실행 번호** — `E61xx-E0001`. 안 돌았으면 비운다 */
+  exec?: string
 }
 
 type SlotId = 'LT' | 'LB' | 'RT' | 'RB'
@@ -55,9 +57,8 @@ const TITLE: Record<PanelId, string> = {
   steps: '실행 Step',
   response: 'CLI Response',
   events: '실행 이벤트',
-  tc: '시험 항목',
+  tc: 'Test Report',
 }
-const RESN: Record<string, string> = { p: 'PASS', f: 'FAIL', b: '기타', n: 'WAIT' }
 /** 걸린 시간 — **분:초**(지시). 「20.01s」 보다 「00:20」 이 표에서 줄이 맞는다.
  *  1초가 안 걸린 스텝은 00:00 이다 — 그건 정말 순식간이라는 뜻이다. */
 function mmss(v?: string): string {
@@ -91,17 +92,26 @@ function Verdict({ v }: { v: string }) {
       <svg viewBox="0 0 16 16" aria-hidden="true">
         <circle cx="8" cy="8" r="8" />
         {v === 'p' ? (
-          <path d="M4.2 8.3l2.5 2.5 5.1-5.1" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4.2 8.3l2.5 2.5 5.1-5.1" fill="none" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
         ) : v === 'f' ? (
-          <path d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" fill="none" strokeWidth="2" strokeLinecap="round" />
+          <path d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" fill="none" strokeWidth="2.6" strokeLinecap="round" />
         ) : v === 'b' ? (
-          <path d="M8 4.2v4.6M8 11.2v.6" fill="none" strokeWidth="2" strokeLinecap="round" />
+          <path d="M8 4.2v4.6M8 11.2v.6" fill="none" strokeWidth="2.6" strokeLinecap="round" />
         ) : (
           <circle cx="8" cy="8" r="2.1" className="ra-dotc" />
         )}
       </svg>
     </span>
   )
+}
+
+/** 판정 시각 — `2026-09-08 08:18:33` 을 `26/09/08 08:18:33` 로 줄인다(지시).
+ *  칸이 좁아 연도 앞 두 자리는 접는다 — 같은 해 안에서 보는 목록이다. */
+function shortStamp(v?: string): string {
+  const raw = String(v ?? '').trim()
+  if (!raw) return '—'
+  const m = raw.match(/^\d{2}(\d{2})-(\d{2})-(\d{2})[ T](\d{2}:\d{2}:\d{2})/)
+  return m ? `${m[1]}/${m[2]}/${m[3]} ${m[4]}` : raw
 }
 
 /** 지금 도는 것을 알리는 표시 — 스텝 표와 항목 목록이 **같은 모양**을 쓴다 */
@@ -456,6 +466,8 @@ export default function RunAuto({
   /** 시험 항목 거르개 — 목업의 그 고르개(전체·PASS·FAIL·대기).
       항목이 수십 건이면 「실패한 것만」 보고 싶은데 그 자리가 없었다. */
   const [flt, setFlt] = useState<'all' | 'p' | 'f' | 'n'>('all')
+  /** 찾기 — 62 건에서 「T0055」 나 「PortReset」 로 한 줄을 집어낸다(지시) */
+  const [q, setQ] = useState('')
   /** 거르개 목록이 열린 자리. **직접 그린다** — 브라우저 기본 select 의
       목록은 OS 가 그려서 이 화면의 결과 전혀 안 맞는다(지적). */
   const [fltAt, setFltAt] = useState<{ x: number; y: number } | null>(null)
@@ -465,10 +477,14 @@ export default function RunAuto({
     window.addEventListener('keydown', esc)
     return () => window.removeEventListener('keydown', esc)
   }, [fltAt])
-  const shownItems = useMemo(
-    () => (flt === 'all' ? items : items.filter((it) => it.verdict === flt)),
-    [items, flt],
-  )
+  const shownItems = useMemo(() => {
+    const byV = flt === 'all' ? items : items.filter((it) => it.verdict === flt)
+    const k = q.trim().toLowerCase()
+    if (!k) return byV
+    /* TC ID·이름·실행 번호 어느 것으로 찾아도 걸린다 — 시험하는 사람은
+       「T0055」 로도 찾고 「PortReset」 로도 찾는다 */
+    return byV.filter((it) => `${it.id} ${it.name} ${it.exec ?? ''}`.toLowerCase().includes(k))
+  }, [items, flt, q])
   const groups = useMemo(() => {
     /* **받은 차례를 절대 안 바꾼다** — 이어지는 같은 묶음만 한 덩이로 접는다.
        Map 으로 묶었더니 이름이 같은 다른 REQ 의 항목을 위로 끌어 붙여,
@@ -645,15 +661,26 @@ export default function RunAuto({
         </div>
       )
 
-    /* 시험 항목 */
+    /* Test Report — iTest 의 Test Reports 를 닮은 한 줄이다(지시).
+       판정 아이콘 · Timestamp · TC ID · Test Case · Execution ID. */
     return (
       <>
         {/* 「고른 항목 판정」 줄을 뺐다(지시). 자동 시험의 결과는 실행기가
             내는 것이라, 사람이 여기서 덮어쓸 자리가 아니다. 손으로 고쳐야
             하면 그건 수동 시험이다. */}
         <div className="ra-scroll">
+          {/* 열 머리 — 스크롤해도 위에 붙어 있는다 */}
+          <div className="ra-cols">
+            <span />
+            <span>Timestamp</span>
+            <span>TC ID</span>
+            <span>Test Case</span>
+            <span>Execution ID</span>
+          </div>
           {!groups.length && (
-            <div className="ra-none">그 결과의 항목이 없습니다.</div>
+            <div className="ra-none">
+              {q.trim() ? `「${q.trim()}」 로 찾은 항목이 없습니다.` : '그 결과의 항목이 없습니다.'}
+            </div>
           )}
           {groups.map(([g, arr]) => (
             <div key={g}>
@@ -670,13 +697,13 @@ export default function RunAuto({
                   onClick={() => onPick(it.id)}
                 >
                   <Verdict v={it.verdict} />
-                  <span className="ra-tcid">{it.id}</span>
-                  <span className="ra-tcnm">{it.name}</span>
                   {/* 이 자리는 **판정 시각**이다(지적). 걸린 시간은 안 적는다 —
                       스텝 표의 Time 칸이 이미 그것을 말한다. */}
-                  {it.at ? <span className="ra-tct">{it.at}</span> : null}
+                  <span className="ra-tct">{shortStamp(it.at)}</span>
+                  <span className="ra-tcid">{it.id}</span>
+                  <span className="ra-tcnm">{it.name}</span>
                   {it.id === runItem ? <RunMark /> : (
-                    <span className={`ra-res ${it.verdict}`}>{RESN[it.verdict]}</span>
+                    <span className={`ra-eid${it.exec ? '' : ' none'}`}>{it.exec || '—'}</span>
                   )}
                 </button>
               ))}
@@ -765,6 +792,19 @@ export default function RunAuto({
             <b>{TITLE[id]}</b>
             {/* 목업처럼 판마다 「무엇을 보는 중인지」 를 제목 옆에 적는다 */}
             {!!subOf(id) && <small>· {subOf(id)}</small>}
+            {id === 'tc' && (
+              <input
+                className="ra-find"
+                type="search"
+                value={q}
+                placeholder="찾기 — TC ID · 이름 · 실행 번호"
+                title="TC ID·시험 항목 이름·실행 번호로 찾습니다"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            )}
             <span className="ra-sp" />
             {id === 'tc' && (
               <button
@@ -797,7 +837,6 @@ export default function RunAuto({
             >
               ⌄
             </button>
-            <span className="ra-grab">이동</span>
           </header>
           {body(id)}
         </section>

@@ -1048,6 +1048,16 @@ export default function RunDetail({
   /* 「지금 스텝」 칸을 걷으면서 stepNow 도 함께 걷었다(지시) —
      지금 도는 스텝은 가운데 스텝 표가 굵은 줄로 이미 말한다. */
 
+  /** 실행 번호 — 화면에는 **모델그룹** 기준으로 적는다(지시: `E61xx-E0001`).
+   *  저장된 id 는 모델명 기준(`E6100_E0002`)이라 앞자리만 갈아 끼워 읽는다.
+   *  저장값은 건드리지 않는다 — 이미 이 id 로 걸린 실행 기록이 있다. */
+  const execId = (() => {
+    const raw = String(run.id ?? '')
+    const tail = raw.split(/[_-]/).pop() ?? ''
+    const mg = String((plan as Record<string, unknown> | undefined)?.model_group ?? '').trim()
+    return mg && /^E\d{3,4}$/.test(tail) ? `${mg}-${tail}` : raw
+  })()
+
   /** 경과·진행 띠 — 자동·수동 모두 머리줄 **안**에 선다(지시).
       자동만 있던 아래 한 줄은 걷었다 — 「지금 항목」·「지금 스텝」 은
       오른쪽 목록의 굵은 줄과 가운데 스텝 표가 이미 같은 말을 한다. */
@@ -1263,6 +1273,9 @@ export default function RunDetail({
               group: reqName.get(String(t2?.req_id ?? '')) ?? (t2?.req_id ? '이름 없는 요구사항' : '요구사항 없음'),
               verdict: (results[id] ?? 'n') as Verdict,
               at: atOf(id),
+              /* 실행 번호는 **돈 항목에만** 붙인다 — 아직 안 돌린 줄에
+                 번호가 서면 이미 돌린 것처럼 읽힌다 */
+              exec: atOf(id) ? execId : '',
             }
           })}
           cur={cur}

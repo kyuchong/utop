@@ -56,10 +56,9 @@
 }
 .ra-panel > header:active { cursor: grabbing; }
 .ra-panel > header small { color: #8c9da3; }
-.ra-grab {
-  font-size: 9.5px; color: #80939a; border: 1px solid #e0e7ea;
-  border-radius: 999px; padding: 2px 7px; background: #fbfcfc;
-}
+/* 판 제목 굵기는 한 급 낮춘다(지시) — 800 은 줄 전체를 눌렀다 */
+.ra-panel > header > b { font-weight: 600; }
+/* 「이동」 배지는 걷었다(지시) — 머리줄을 끌면 그대로 옮겨진다 */
 
 /* 분할바 — 셋이 따로 움직인다 */
 .ra-vsash { width: 9px; flex: 0 0 9px; cursor: col-resize; position: relative; }
@@ -133,7 +132,7 @@
 .ra-v.n.on { background: #eef2f3; color: #5b7176; }
 .ra-grp {
   display: flex; justify-content: space-between; padding: 6px 8px;
-  background: #f8fafb; border-bottom: 1px solid #edf1f2; font-size: 10.5px; font-weight: 800; color: #61757c;
+  background: #f8fafb; border-bottom: 1px solid #edf1f2; font-size: 10.5px; font-weight: 700; color: #61757c;
 }
 .ra-tc {
   /* 걸린 시간 칸을 넣으면서 칸이 다섯이 됐는데 넷으로 두어, 결과 알약이
@@ -144,8 +143,9 @@
 }
 .ra-tc:hover { background: #fafcfc; }
 .ra-tc.on { background: #eef7ff; box-shadow: inset 3px 0 0 #3f80e5; }
-.ra-dot { width: 17px; height: 17px; display: grid; place-items: center; line-height: 0; }
-.ra-dot svg { width: 16px; height: 16px; display: block; }
+/* 판정 아이콘 — **10px**(지시). 글자보다 크면 눈이 거기부터 간다 */
+.ra-dot { width: 10px; height: 10px; display: grid; place-items: center; line-height: 0; }
+.ra-dot svg { width: 10px; height: 10px; display: block; }
 /* 동그라미는 fill, 표시는 stroke — 한 색으로 두면 체크가 안 보인다 */
 .ra-dot circle { fill: currentColor; }
 .ra-dot path { stroke: #fff; }
@@ -267,11 +267,37 @@
 /* 시험 항목 줄 — 칸을 좁혀 이름에 자리를 준다(지시) */
 /* 마지막 칸을 42px 로 못 박아 두어, 커진 RUN 배지가 잘렸다(RU 까지만 보였다).
    내용만큼 준다 — PASS·FAIL 은 짧고 RUN 만 넓다. */
-.ra-tc { grid-template-columns: 16px 78px minmax(0, 1fr) auto auto; gap: 6px; padding: 5px 8px; }
+/* Test Report 의 다섯 칸(지시) — 열 머리와 **같은 자를 쓴다**.
+   따로 두면 머리와 값이 어긋나 표로 안 읽힌다. */
+.ra-cols, .ra-tc { grid-template-columns: 12px 100px 88px minmax(0, 1fr) 92px; gap: 7px; padding: 5px 8px; }
 .ra-tcid { font-size: 10px; }
 .ra-tcnm { font-size: 11.5px; }
-.ra-res { font-size: 9px; }
 .ra-grp { font-variant-numeric: tabular-nums; }
+
+/* 열 머리 — 스크롤해도 위에 붙어 있는다. 굵기는 한 급 낮춘다(지시) */
+.ra-cols {
+  position: sticky; top: 0; z-index: 3;
+  display: grid; align-items: center;
+  background: #fafbfb; border-bottom: 1px solid var(--c-border, #e2e8eb);
+  font-size: 10px; font-weight: 600; color: #93a5ab; letter-spacing: 0.01em;
+}
+/* 실행 번호 — 값이 없으면 아직 안 돈 항목이다 */
+.ra-eid {
+  font-size: 10.5px; font-weight: 700; color: #4c6672;
+  font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right;
+}
+.ra-eid.none { color: #b3c1c6; font-weight: 500; }
+
+/* 찾기 칸 — 판 머리, 제목 오른쪽(지시). 좁아지면 저부터 줄어든다 */
+.ra-find {
+  flex: 0 1 210px; min-width: 92px; height: 22px;
+  border: 1px solid #dde5e8; border-radius: 999px; background: #fff;
+  padding: 0 9px; font: inherit; font-size: 10.5px; color: #35505a;
+}
+.ra-find::placeholder { color: #a7b7bd; }
+.ra-find:focus { outline: 0; border-color: #78aeea; box-shadow: 0 0 0 2px rgba(120, 174, 234, 0.18); }
+/* 검색칸의 기본 ✕ 는 OS 가 그려 이 화면과 결이 안 맞는다 — 걷는다 */
+.ra-find::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
 
 /* 지난 실행 — 흐리게, 가름선으로 갈라 지금 것과 안 섞이게 */
 .ra-past { opacity: 0.55; }
