@@ -50,17 +50,18 @@
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(25, 43, 50, 0.025);
 }
-/* 판 머리 — **옅은 청록**(지시). 흰 머리에 흰 몸이라 판이 어디서
-   시작하는지 안 보였다. 앱 바탕(#cfe3e8)보다 한 급 옅게 깔아
-   창 넷이 또렷하게 갈린다. */
+/* 판 머리 — **상단바 프로젝트 칸 색**(승인: C안. #12505e 에 흰색 12%).
+   상단바와 한 벌로 읽혀 제품이 한 덩이로 보이고, 짙어서 판 경계가 또렷하다.
+   시험 시작 초록은 안 쓴다 — 초록은 이 화면에서 **합격**을 뜻하는 색이라
+   판 머리에 쓰면 판정 색과 뜻이 겹친다(지적: 너무 센가). */
 .ra-panel > header {
   flex: none; height: 32px; display: flex; align-items: center; gap: 6px;
-  padding: 0 9px; border-bottom: 1px solid #9fc3ce;
-  font-size: 12px; background: #c6dee4; color: #12505e; cursor: grab;
+  padding: 0 9px; border-bottom: 1px solid #1b4f5b;
+  font-size: 12px; background: #2a626f; color: #eaf4f6; cursor: grab;
 }
 .ra-panel > header:active { cursor: grabbing; }
 /* 꼬리말은 **먼저 줄어든다** — 판이 좁아지면 이것부터 접어 제목을 지킨다 */
-.ra-panel > header small { color: #5b7a83; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ra-panel > header small { color: rgba(234, 244, 246, 0.72); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 판 제목 굵기는 한 급 낮춘다(지시) — 800 은 줄 전체를 눌렀다.
    **안 접힌다**: 찾기 칸이 자리를 먹자 「Test / Report」 로 두 줄이 됐다(실측) */
 .ra-panel > header > b { font-weight: 600; flex: none; white-space: nowrap; }
@@ -410,7 +411,7 @@
 .ra-find {
   /* 자리가 모자라면 **저부터** 줄어든다 — 제목·거르개보다 나중이다 */
   flex: 0 1 210px; min-width: 60px; height: 22px;
-  border: 1px solid #c4d9de; border-radius: 999px; background: #fff;
+  border: 1px solid #7ea6b2; border-radius: 999px; background: #fff;
   padding: 0 9px; font: inherit; font-size: 10.5px; color: #35505a;
 }
 .ra-find::placeholder { color: #a7b7bd; }
@@ -445,10 +446,10 @@
   padding: 0 8px 0 10px;
   font: inherit;
   font-size: 10.5px;
-  color: #6d8189;
+  color: #2c5b68;
   /* 청록 머리 위에서는 흰 알약이 더 또렷하다 */
   background: #fff;
-  border: 1px solid #c4d9de;
+  border: 1px solid #7ea6b2;
   border-radius: 999px;
   cursor: pointer;
   transition: border-color .12s ease, color .12s ease, background .12s ease;
@@ -515,11 +516,12 @@
 .ra-fmenu .d.all { background: linear-gradient(135deg, #12a67f 50%, #e04b52 50%); }
 
 /* 판 내리기 — 안 보는 판은 아래 띠로(지시). 올리면 제자리(슬롯)로 돌아온다 */
+/* 짙은 머리 위에서는 밝은 글자라야 보인다 */
 .ra-minb {
   border: 0; background: none; padding: 0 4px; font: inherit; font-size: 13px;
-  color: var(--c-text-faint, #8a99a3); cursor: pointer; line-height: 1;
+  color: rgba(234, 244, 246, 0.8); cursor: pointer; line-height: 1;
 }
-.ra-minb:hover { color: var(--c-primary); }
+.ra-minb:hover { color: #fff; }
 .ra-dockbar {
   flex: none; display: flex; gap: 6px; padding: 5px 8px 2px; align-items: center;
 }
