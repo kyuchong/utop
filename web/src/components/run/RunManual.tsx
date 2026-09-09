@@ -77,7 +77,7 @@ export interface MMeta {
 
 export default function RunManual({
   items, cur, onPick, steps, pchk, pmeta, onStep, onAct, onShot, onShotDel, info, planId, runId, onBug,
-  onVerdicts, keys, stale,
+  onVerdicts, onClearRuns, keys, stale,
 }: {
   items: MItem[]
   cur: string
@@ -107,6 +107,8 @@ export default function RunManual({
   /** 목록에서 항목을 통째로 판정할 때 — 절차가 없는 항목의 유일한 길 */
   /** 고른 줄 여럿에 한 판정을 한 번에 */
   onVerdicts?: (tcids: string[], value: string) => void
+  /** 고른 줄의 실행 이력을 지운다 — 판정·시각·실행자·스텝 기록 모두 */
+  onClearRuns?: (tcids: string[]) => void
   /** 머리의 네 번호 — 요구사항 / 항목 / 사이클 / 실행 */
   keys?: { cycle?: string; run?: string }
   /** 담을 때보다 시험 항목이 바뀌었나 — 「Update this test script」 띠 */
@@ -385,8 +387,16 @@ export default function RunManual({
                 return undefined
               }}
               /* 고른 줄에 판정을 한 번에 — 선택 바가 표에 이미 있다 */
-              bulk={verds.map((d) => ({ k: `v:${d.v}`, label: d.label }))}
+              bulk={[
+                ...verds.map((d) => ({ k: `v:${d.v}`, label: d.label })),
+                { k: 'clear', label: '실행 이력 제거', danger: true },
+              ]}
               onBulk={(action, ids) => {
+                if (action === 'clear') {
+                  onClearRuns?.(ids)
+                  setSelEpoch((n) => n + 1)
+                  return
+                }
                 if (!action.startsWith('v:')) return
                 onVerdicts?.(ids, action.slice(2))
                 setSelEpoch((n) => n + 1)

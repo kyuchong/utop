@@ -22,6 +22,31 @@ import './RunDetail.css'
 
 export type Verdict = 'p' | 'f' | 'b' | 'n'
 
+/** 글자 복사 — http 로 여는 화면에는 navigator.clipboard 가 없다.
+    그때는 옛 방식으로 — 복사가 안 되는데 아무 말 없는 것이 제일 나쁘다 */
+function copyText(t: string, ok: () => void) {
+  const legacy = () => {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = t
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      ok()
+    } catch {
+      window.prompt('복사하세요', t)
+    }
+  }
+  if (navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(t).then(ok, legacy)
+    return
+  }
+  legacy()
+}
+
 export interface RunFull {
   id: string
   plan_id?: string | null
@@ -930,6 +955,8 @@ export default function RunDetail({
     },
   })
   const meName = String(meQ.data?.user?.name || meQ.data?.user?.username || '')
+  /** 사이클 ID 를 복사했나 — 칩이 잠깐 「복사됨」 으로 바뀐다 */
+  const [cidDone, setCidDone] = useState(false)
 
   /** 요구사항 이름·폴더 — **분류(cat1~4) 이름을 이어 만든다.** 요구사항에
       folder 라는 칸은 없어, 그걸 읽던 동안 폴더가 늘 「미분류」 였다(지적) */
@@ -1146,7 +1173,21 @@ export default function RunDetail({
             <b className="crumbgo last">{String(plan?.name || run.version || '')}</b>
             <i className="csep">/</i>
             <b className="crumbgo last">{isAuto ? 'Automation Test' : 'Manual Test'}</b>
-            {!!plan?.cid && <span className="rd-key">{plan.cid}</span>}
+            {!!plan?.cid && (
+              <button
+                type="button"
+                className={`rd-key rd-copy${cidDone ? ' done' : ''}`}
+                title="누르면 사이클 ID 를 복사합니다"
+                onClick={() =>
+                  copyText(String(plan.cid), () => {
+                    setCidDone(true)
+                    window.setTimeout(() => setCidDone(false), 1400)
+                  })
+                }
+              >
+                {cidDone ? '복사됨 ✓' : plan.cid}
+              </button>
+            )}
           </span>
           </>
         ) : (
@@ -1497,6 +1538,29 @@ export default function RunDetail({
           onBug={() => void qc.invalidateQueries({ queryKey: ['plan-run', runId] })}
           /* 목록에서 항목을 통째로 판정한다 — 절차가 없는 항목의 유일한 길 */
           /* 고른 줄에 한 판정을 한 번에(지시: 체크한 줄만) */
+          /* 고른 줄의 **실행 이력**을 지운다 — 판정·시각·실행자·스텝 기록을
+             모두 걷어 미실행로 되돌린다(지시) */
+          onClearRuns={(tcids) => {
+            if (
+              !window.confirm(
+                `고른 ${tcids.length}건의 실행 이력을 지웁니다.\n` +
+                  '판정·판정 시각·실행자·스텝 기록(실측값·사진)이 모두 사라지고 미실행로 돌아갑니다.\n계속할까요?',
+              )
+            )
+              return
+            const gone = new Set(tcids)
+            const drop = <T,>(o: Record<string, T> | undefined) =>
+              Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => !gone.has(k)))
+            const results = { ...rawResults }
+            for (const t3 of tcids) results[t3] = ''
+            void save({
+              results,
+              vat: drop(run?.vat),
+              runners: drop(run?.runners),
+              pchk: drop(run?.pchk),
+              pmeta: drop(run?.pmeta),
+            })
+          }}
           onVerdicts={(tcids, value) => {
             const next = { ...rawResults }
             for (const t3 of tcids) next[t3] = value

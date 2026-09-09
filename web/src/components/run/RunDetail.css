@@ -378,3 +378,7 @@
 @media (max-width: 1280px) {
   .rd-inline .rd-lb.grow2 i { display: none; }
 }
+
+/* 사이클 ID 칩 — 누르면 복사 */
+.rd-copy { cursor: pointer; font: inherit; }
+.rd-copy:hover { border-color: var(--c-primary, #1769d2); color: var(--c-primary, #1769d2); }
