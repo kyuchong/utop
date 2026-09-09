@@ -55,7 +55,7 @@ type PanelId = 'steps' | 'response' | 'events' | 'tc'
 const DEFAULT: Record<SlotId, PanelId> = { LT: 'steps', LB: 'events', RT: 'response', RB: 'tc' }
 const TITLE: Record<PanelId, string> = {
   steps: '실행 Step',
-  response: 'CLI Response',
+  response: 'Response',
   events: '실행 이벤트',
   tc: 'Test Report',
 }
@@ -603,11 +603,15 @@ export default function RunAuto({
               ? <pre className="ra-idle">아직 돌리지 않았습니다.</pre>
               : steps.slice(0, Math.max(0, seeUpTo) + 1).map((s2, i2) => (
               <div className={`ra-blk${i2 === seeUpTo ? ' on' : ''}`} key={s2.no ?? i2} ref={i2 === seeUpTo ? conEndRef : undefined}>
-                {s2.cmd ? (
-                  <div className="ra-cmd">
-                    {dut}# {s2.cmd}
-                  </div>
-                ) : null}
+                <div className="ra-cmd">
+                  <b className="ra-bno">Step {s2.no}</b>
+                  <span className="ra-bcmd">{s2.cmd ? `${dut}# ${s2.cmd}` : s2.t || s2.action || '—'}</span>
+                  {s2.mark ? (
+                    <span className={`ra-st ${s2.mark === 'Pass' ? 'ok' : 'bad'}`}>
+                      {s2.mark === 'Pass' ? 'PASS' : 'FAIL'}
+                    </span>
+                  ) : null}
+                </div>
                 {isWait(s2) ? (
                   <pre className="ra-wait">{waitLine(s2, i2)}</pre>
                 ) : (
@@ -617,7 +621,7 @@ export default function RunAuto({
               ))}
             {!steps.length && <pre>아직 출력이 없습니다.</pre>}
           </div>
-          <div className="ra-confoot">
+          <div className={`ra-confoot${curStep?.mark ? (curStep.mark === 'Pass' ? ' ok' : ' bad') : ''}`}>
             {curStep?.mark
               ? curStep.mark === 'Pass'
                 ? '기준 맞음'

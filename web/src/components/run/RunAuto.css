@@ -102,16 +102,32 @@
 .ra-ev.info { color: #2f70d1; }
 
 /* 콘솔 */
+/* 응답 판 — **흰 종이에 블록**(지시: iTest 처럼).
+   검정 바탕은 한 판만 밤이라 화면에서 겉돌았고, 출력이 어디서 끊기는지도
+   안 보였다. 스텝마다 상자를 씌워 「명령 → 출력」 한 덩이가 눈에 잡힌다. */
 .ra-con {
-  flex: 1; overflow: auto; background: #15181d; color: #d9dee5; padding: 11px;
+  flex: 1; overflow: auto; background: #fff; color: #24343c; padding: 8px;
   font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; line-height: 1.6;
 }
-.ra-con pre { margin: 0; white-space: pre-wrap; word-break: break-all; }
-.ra-cmd { color: #8da7ff; margin-bottom: 6px; }
-.ra-confoot {
-  flex: none; padding: 7px 9px; background: #20242a; color: #d9dee5;
-  font-size: 10.5px; border-top: 1px solid #30343c;
+.ra-con pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+/* 블록 머리 — 스텝 번호 · 명령 · 판정 */
+.ra-cmd {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 8px; background: #f2f7f9; border-bottom: 1px solid #e3ebee;
+  color: #17607f; font-weight: 600;
 }
+.ra-bno {
+  flex: none; font-size: 9.5px; font-weight: 800; color: #6c828b;
+  background: #fff; border: 1px solid #dde6e9; border-radius: 4px; padding: 1px 5px;
+  font-family: -apple-system, "Malgun Gothic", sans-serif;
+}
+.ra-bcmd { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ra-confoot {
+  flex: none; padding: 7px 9px; background: #f7fafb; color: #5b7176;
+  font-size: 10.5px; border-top: 1px solid var(--c-border, #e2e8eb);
+}
+.ra-confoot.ok { background: #f1faf5; color: #12684b; border-top-color: #b6ded0; }
+.ra-confoot.bad { background: #fff2f5; color: #b52f4c; border-top-color: #f0c3ce; }
 
 /* 거르개 */
 .ra-chips { display: flex; gap: 5px; padding: 6px 8px; border-bottom: 1px solid var(--c-border, #e2e8eb); }
@@ -244,12 +260,16 @@
   .ra-st.run i { border-top-color: rgba(255, 255, 255, 0.9); }
 }
 
-/* CLI 콘솔 — 스텝마다 한 덩이로 **이어진다** */
-.ra-blk { padding-bottom: 8px; }
-.ra-blk + .ra-blk { border-top: 1px solid rgba(255, 255, 255, 0.07); padding-top: 8px; }
-.ra-blk.on .ra-cmd { color: #7fc4ff; }
-.ra-wait { color: #e0b352; }
-.ra-blk pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+/* 스텝 하나가 **상자 하나**다(지시) — 머리에 명령, 몸에 출력 */
+.ra-blk {
+  border: 1px solid #e3ebee; border-radius: 6px; overflow: hidden; background: #fff;
+}
+.ra-blk + .ra-blk { margin-top: 6px; }
+/* 지금 보는 스텝 — 왼쪽에 파란 획, 머리도 한 겹 진하게 */
+.ra-blk.on { border-color: #b9d5f4; box-shadow: inset 3px 0 0 #3f80e5; }
+.ra-blk.on .ra-cmd { background: #eaf3fd; color: #17548f; }
+.ra-wait { color: #96660f; }
+.ra-blk pre { margin: 0; padding: 6px 9px; white-space: pre-wrap; word-break: break-word; }
 
 /* 실행 이벤트 — 거르개를 뺀 대신 칸을 좁혔다 */
 .ra-evt td, .ra-evt th { padding-top: 5px; padding-bottom: 5px; }
@@ -309,12 +329,12 @@
   margin: 4px 0 8px; font-size: 10px; font-weight: 800; color: #8fa3b5;
   text-transform: uppercase; letter-spacing: 0.4px;
 }
-.ra-pastl::after { content: ''; flex: 1; height: 1px; background: rgba(255, 255, 255, 0.14); }
-.ra-pastl.now { color: #7fc4ff; margin-top: 10px; }
+.ra-pastl::after { content: ''; flex: 1; height: 1px; background: #dfe8eb; }
+.ra-pastl.now { color: #2f70d1; margin-top: 10px; }
 /* 이벤트 시각은 연월일까지 적는다 — 두 줄로 접히면 표가 들쭉날쭉해진다 */
 .ra-evt td.ra-num, .ra-evt th:first-child { white-space: nowrap; }
 /* 아직 안 돌린 실행의 콘솔 — 보낸 적 없는 명령을 찍지 않는다 */
-.ra-idle { color: #7f97a1; }
+.ra-idle { color: #7f97a1; padding: 6px 2px; }
 
 /* 시험 항목 거르개 — 판 머리 오른쪽, 「이동」 왼쪽.
    판 머리의 「이동」 배지와 **같은 결**로 맞춘다(둥근 알약·옅은 테두리·
