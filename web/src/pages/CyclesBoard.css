@@ -207,3 +207,16 @@
 
 /* 판정 알약은 **한 줄에 하나**(지시) — 두 줄로 세우면 도넛이 눌려 작아진다 */
 .cyb .statcard .ov-verd .sumrows { grid-template-columns: minmax(0, 1fr); }
+
+/* 자동·수동·커버리지는 **한 카드 안 세 줄**로 — 행 사이에 실금(지시).
+   카드 셋이 따로 서 있으면 셋이 딴 이야기처럼 보인다 */
+.cyb .cyb-runcol {
+  background: var(--c-surface, #fff);
+  border: 1px solid var(--c-border-soft, #dfe4ea);
+  border-radius: var(--r-card, 8px);
+  gap: 0;
+  overflow: hidden;
+  align-content: start;
+}
+.cyb .cyb-runcol > .cu-card { border: 0; border-radius: 0; background: none; }
+.cyb .cyb-runcol > .cu-card + .cu-card { border-top: 1px solid var(--c-border-soft, #dfe4ea); }

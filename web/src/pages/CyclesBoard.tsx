@@ -2245,7 +2245,7 @@ export default function CyclesBoard({
             Info
           </button>
           <button type="button" role="tab" aria-selected={tab === 'run'} className={tab === 'run' ? 'on' : ''} onClick={() => setTab('run')}>
-            Test Result <span className="tabn">{myRuns.length}</span>
+            Test Result
           </button>
           <button type="button" role="tab" aria-selected={tab === 'itm'} className={tab === 'itm' ? 'on' : ''} onClick={() => setTab('itm')}>
             Manual <span className="tabn">{nMan}</span>
