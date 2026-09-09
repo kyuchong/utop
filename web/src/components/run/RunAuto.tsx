@@ -549,9 +549,10 @@ export default function RunAuto({
    *  스텝마다 적힌 Session(s0·s1…)을 모아, 그 세션으로 돈 마지막 스텝과
    *  지금 도는 스텝을 보고 상태를 정한다. 장비는 devId 로 찾는다. */
   const sessRows = useMemo(() => {
-    type Row = { name: string; devId?: string; last?: AutoStep; ran: boolean; running: boolean }
+    type Row = { key: string; name: string; devId?: string; last?: AutoStep; ran: boolean; running: boolean; idx: number[] }
     const put = (map: Map<string, Row>, k: string, name: string, s2: AutoStep, i: number) => {
-      const cur = map.get(k) ?? { name, ran: false, running: false }
+      const cur = map.get(k) ?? { key: k, name, ran: false, running: false, idx: [] }
+      cur.idx.push(i)
       if (s2.devId) cur.devId = s2.devId
       if (s2.ran || s2.out) {
         cur.ran = true
@@ -579,6 +580,9 @@ export default function RunAuto({
   }, [steps, runStep])
   /** 장비 찾기 — id 로, 안 되면 IP 로. 옛 실행 로그의 devId(dev-…)는 지금
    *  장비 목록의 id(IP)와 체계가 달라 못 찾는다. **그럴 땐 지어내지 않는다.** */
+  /** 아래 「주고받은 명령」 이 어느 세션 것인가. 처음엔 첫 세션 */
+  const [sessPick, setSessPick] = useState('')
+  const sessNow = sessRows.find((r) => r.key === sessPick) ?? sessRows[0]
   const devOf = (id?: string) => {
     const k = String(id ?? '').trim()
     if (!k) return undefined
@@ -755,7 +759,13 @@ export default function RunAuto({
             const d = devOf(r.devId)
             const st = r.running ? 'run' : r.ran ? 'ok' : 'idle'
             return (
-              <div className={`ra-srow2 ${st}`} key={r.name}>
+              <button
+                type="button"
+                className={`ra-srow2 ${st}${sessNow?.key === r.key ? ' on' : ''}`}
+                key={r.key}
+                title="이 세션이 주고받은 명령을 아래에 폅니다"
+                onClick={() => setSessPick(r.key)}
+              >
                 <b className="ra-sname">{r.name}</b>
                 <span className={`ra-skind ${devKind(d) === '계측기' ? 'inst' : devKind(d).toLowerCase()}`}>
                   {devKind(d)}
@@ -784,9 +794,46 @@ export default function RunAuto({
                     <i>—</i>
                   )}
                 </span>
-              </div>
+              </button>
             )
           })}
+
+          {/* 이 세션으로 **주고받은 명령**(지시) — 목록만으로는 접속해서
+              무엇을 쳤는지 안 보였다. 누르면 그 스텝으로 간다. */}
+          {!!sessNow && (
+            <>
+              <div className="ra-sconvh">
+                주고받은 명령
+                <small>{sessNow.name !== '—' ? `· ${sessNow.name}` : ''}</small>
+              </div>
+              {(() => {
+                const lines = sessNow.idx.filter((i) => String(steps[i]?.cmd ?? '').trim())
+                if (!lines.length)
+                  return <div className="ra-none">이 세션으로 보낸 명령이 없습니다.</div>
+                return lines.map((i) => {
+                  const s2 = steps[i]!
+                  return (
+                    <button
+                      type="button"
+                      className={`ra-sline${i === stepAt ? ' on' : ''}${i === runStep ? ' run' : ''}`}
+                      key={s2.no ?? i}
+                      onClick={() => onStep(i)}
+                      title="누르면 그 스텝의 응답을 폅니다"
+                    >
+                      <em>{shortStamp(s2.at).split(' ')[1] ?? '—'}</em>
+                      <b>{dut}#</b>
+                      <span className="c">{s2.cmd}</span>
+                      {s2.mark ? (
+                        <i className={s2.mark === 'Pass' ? 'p' : 'f'}>{s2.mark === 'Pass' ? 'PASS' : 'FAIL'}</i>
+                      ) : (
+                        <i />
+                      )}
+                    </button>
+                  )
+                })
+              })()}
+            </>
+          )}
         </div>
       )
 
