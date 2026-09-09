@@ -827,7 +827,12 @@ export default function CyclesBoard({
         if (l === 'n') continue
         const day = String(vat[tcid] ?? '').slice(0, 10) || made
         if (!day) continue
-        const m = isManTc(tcid) ? byMode.man : byMode.auto
+        /* isManTc 는 아래에 선언돼 있어 여기서 못 부른다(실측: 화면이
+           통째로 죽었다 — Cannot access before initialization). 같은 규칙을
+           여기서 바로 본다 */
+        const t2 = tcOf.get(tcid)
+        const man = normMode(String(t2?.run_type ?? t2?.kind ?? '')) === '수동'
+        const m = man ? byMode.man : byMode.auto
         const cur = m.get(day) ?? { p: 0, f: 0, b: 0 }
         cur[l] += 1
         m.set(day, cur)
