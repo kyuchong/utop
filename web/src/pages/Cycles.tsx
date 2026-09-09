@@ -1682,16 +1682,19 @@ function CycleBoard({
             { k: 'csv', label: 'CSV' },
             { k: 'del', label: '삭제', danger: true },
           ]}
+          /* 이 화면은 **사이클 전용 CSV** 를 쓴다(진행률·항목까지 담는다).
+             표가 만드는 「보이는 그대로」 엑셀과는 쓰임이 달라 제 것을 넘긴다. */
+          onCsv={(ids) => {
+            for (const id of ids) {
+              const c2 = cycles.find((x) => x.id === id)
+              if (c2) exportCycleCsv(c2)
+            }
+          }}
           onBulk={(a, ids) => {
             /* 옛 도구줄을 걷어내며 그 단추들이 여기로 왔다(지시) */
             if (a === 'del') onDel(ids)
             else if (a === 'assign' || a === 'status') setBulkOpen(true)
-            else if (a === 'csv') {
-              for (const id of ids) {
-                const c2 = cycles.find((x) => x.id === id)
-                if (c2) exportCycleCsv(c2)
-              }
-            } else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
+            else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
           }}
         />
       </div>

@@ -5661,6 +5661,90 @@ async def _next_tc_id(c, mg: str = "") -> str:
     return await _next_id(c, mg, "T")
 
 
+@app.post("/api/export/xlsx")
+async def export_xlsx(payload: dict):
+    """화면의 표를 **보이는 그대로** 엑셀로 내보낸다(승인).
+
+    보이는 열·차례·값·색을 화면이 보내 준다 — 숨긴 열이 무엇인지, 어떤
+    차례로 옮겼는지는 **표만 안다**. 서버가 자료를 다시 뽑으면 화면과
+    다른 것이 나간다.
+
+    양식(승인): 1행 제목 · 2행 꼬리말 · 3행 빈 줄 · 4행 열 머리(틀 고정 ·
+    자동 필터) · 5행부터 값. 값의 색은 SETUP 코드의 색을 **글자색**으로
+    옮긴다 — 배경까지 칠하면 인쇄가 지저분하다.
+    """
+    import io as _io
+    try:
+        import xlsxwriter as _xw
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(500, f"엑셀 만들기를 못 씁니다 — {e}") from e
+
+    title = str(payload.get("title") or "").strip()
+    subtitle = str(payload.get("subtitle") or "").strip()
+    cols = [c for c in (payload.get("columns") or []) if isinstance(c, dict) and c.get("key")]
+    rows = [r for r in (payload.get("rows") or []) if isinstance(r, dict)]
+    colors = payload.get("colors") if isinstance(payload.get("colors"), dict) else {}
+    if not cols:
+        raise HTTPException(400, "내보낼 열이 없습니다")
+
+    buf = _io.BytesIO()
+    wb = _xw.Workbook(buf, {"in_memory": True, "default_date_format": "yyyy-mm-dd"})
+    ws = wb.add_worksheet("표")
+
+    f_title = wb.add_format({"bold": True, "font_size": 14, "font_color": "#12505E"})
+    f_sub = wb.add_format({"font_size": 10, "font_color": "#6B8189"})
+    f_head = wb.add_format({
+        "bold": True, "bg_color": "#C6DEE4", "font_color": "#12505E",
+        "border": 1, "border_color": "#9FC3CE", "align": "center", "valign": "vcenter",
+    })
+    f_cell = wb.add_format({"border": 1, "border_color": "#D6DBE0", "valign": "top"})
+    _cache: dict = {}
+
+    def cell_fmt(hexc: str):
+        """값 색은 **글자색**으로 — 서식 객체는 색마다 하나만 만든다"""
+        if not hexc:
+            return f_cell
+        if hexc not in _cache:
+            _cache[hexc] = wb.add_format({
+                "border": 1, "border_color": "#D6DBE0", "valign": "top",
+                "font_color": hexc, "bold": True,
+            })
+        return _cache[hexc]
+
+    head_at = 3 if (title or subtitle) else 0
+    if title:
+        ws.write(0, 0, title, f_title)
+    if subtitle:
+        ws.write(1, 0, subtitle, f_sub)
+
+    for j, c in enumerate(cols):
+        ws.write(head_at, j, str(c.get("label") or c.get("key")), f_head)
+
+    # 열 너비 — 머리와 값 가운데 긴 쪽에 맞추되 60자에서 멈춘다
+    wide = [len(str(c.get("label") or c.get("key"))) + 3 for c in cols]
+    for i, r in enumerate(rows):
+        for j, c in enumerate(cols):
+            k = str(c.get("key"))
+            v = r.get(k, "")
+            v = "" if v is None else (v if isinstance(v, (int, float)) else str(v))
+            hexc = str(((colors.get(k) or {}) if isinstance(colors.get(k), dict) else {}).get(str(v), ""))
+            ws.write(head_at + 1 + i, j, v, cell_fmt(hexc))
+            wide[j] = max(wide[j], min(60, len(str(v)) + 2))
+    for j, w in enumerate(wide):
+        ws.set_column(j, j, max(8, min(60, w)))
+
+    ws.freeze_panes(head_at + 1, 0)
+    if rows:
+        ws.autofilter(head_at, 0, head_at + len(rows), len(cols) - 1)
+
+    wb.close()
+    from fastapi.responses import Response as _Resp
+    return _Resp(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
 @app.post("/api/copy-tree")
 async def copy_tree(body: dict, token: str = ""):
     """Source 에서 고른 것들을 Destination 아래로 **복사**한다.

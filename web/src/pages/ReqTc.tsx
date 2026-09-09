@@ -1420,6 +1420,9 @@ export default function ReqTc({ me }: Props) {
     }
     return out
   }, [cat, cats])
+  /** 엑셀 꼬리말에 적을 **지금 보고 있는 자리** — 폴더 길을 ▸ 로 잇는다.
+   *  종이로 돌렸을 때 어느 폴더를 뽑은 것인지 알아야 한다(승인). */
+  const exportScope = crumb.map((c) => c.name).join(' ▸ ')
 
   /**
    * 열어 둔 시험의 **자리**.
@@ -2790,11 +2793,13 @@ export default function ReqTc({ me }: Props) {
                   setOpenTab('info')
                 }}
                 onPeek={(id) => setPop({ kind: 'req', id })}
+                exportTitle="REQ-Coverage · 요구사항"
+                exportScope={exportScope}
                 /* 시험 항목 표와 같은 자리에 「복제」 를 세운다(지시) */
                 bulk={[
                   { k: 'clone', label: '복제' },
                   { k: 'edit', label: '일괄 편집' },
-                  { k: 'csv', label: 'CSV' },
+                  { k: 'csv', label: '엑셀' },
                   { k: 'del', label: '삭제', danger: true },
                 ]}
                 onBulk={(a, ids) => {
@@ -2882,11 +2887,13 @@ export default function ReqTc({ me }: Props) {
                 titleKey="name"
                 onOpen={(id) => setOpenTc(id)}
                 onPeek={(id) => setPop({ kind: 'tc', id })}
+                exportTitle="REQ-Coverage · 시험 항목"
+                exportScope={exportScope}
                 /* 「복제」 를 앞에 세운다(지시) — 나머지는 기본 그대로 */
                 bulk={[
                   { k: 'clone', label: '복제' },
                   { k: 'edit', label: '일괄 편집' },
-                  { k: 'csv', label: 'CSV' },
+                  { k: 'csv', label: '엑셀' },
                   { k: 'del', label: '삭제', danger: true },
                 ]}
                 onBulk={(a, ids) => {

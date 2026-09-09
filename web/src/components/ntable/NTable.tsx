@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { autoColor } from './palette'
+import { autoColor, paintOfAny } from './palette'
+import { apiFetch } from '@/api/client'
 import { CALC_LABEL, multiVals, type NCalc, type NCol, type NPerson, type NRow, type NView } from './types'
 import {
   DateEditor, FieldMenu, PersonEditor, Pill, Pop, SelectEditor, TextEditor,
@@ -37,6 +38,12 @@ export interface NTableProps {
   onNew?: (seed?: { key: string; value: string }) => void
   /** 여러 줄 골라 한 번에 — 무엇을 할지는 쓰는 쪽이 정한다 */
   onBulk?: (action: string, ids: string[]) => void
+  /** 「엑셀」 을 부모가 제 방식으로 만들 때 — 안 주면 표가 스스로 만든다 */
+  onCsv?: (ids: string[]) => void
+  /** 엑셀 1행 제목 — 「REQ-Coverage · 시험 항목」 처럼 */
+  exportTitle?: string
+  /** 엑셀 2행 꼬리말 앞머리 — 지금 보고 있는 자리(폴더·플랜 이름) */
+  exportScope?: string
   /** 선택 바에 세울 단추 — 안 주면 기본(담당 일괄·상태 바꾸기·CSV·삭제).
       표마다 하는 일이 달라, 기본 단추가 그 표에 없는 일을 말하면
       「아직 없습니다」 만 늘어난다(지적: ⋯ 의 일을 선택 바로). */
@@ -82,7 +89,7 @@ export interface NTableProps {
        같은 일을 두 자리에서 하면 어느 것이 정본인지 알 수 없다.
    이 둘이 필요한 화면은 제 bulk 를 넘겨 세운다(Cycles 가 그렇게 한다). */
 const BULK = [
-  { k: 'csv', label: 'CSV' },
+  { k: 'csv', label: '엑셀' },
   { k: 'del', label: '삭제', danger: true },
 ]
 
@@ -144,6 +151,60 @@ export default function NTable(p: NTableProps) {
       return n.size === s.size ? s : n
     })
   }, [rows])
+
+  /** 고른 줄을 **보이는 그대로** 엑셀로 내보낸다(승인).
+   *
+   *  「보이는 열과 차례」 를 아는 것은 표뿐이다 — 숨긴 열이 무엇인지, 어떤
+   *  차례로 옮겼는지 바깥은 모른다. 그래서 여기서 모아 서버에 넘기고,
+   *  서버는 xlsxwriter 로 진짜 .xlsx 를 만든다(웹 번들은 안 커진다).
+   */
+  const exportXlsx = async (ids: string[]) => {
+    const pick = ids.length ? rows.filter((r) => ids.includes(String(r.__id))) : shown
+    /* 값 색은 **SETUP 코드에 저장된 색**이다 — 화면 칩과 같은 색을 쓴다 */
+    const colors: Record<string, Record<string, string>> = {}
+    for (const c of vis) {
+      if (!c.options?.length) continue
+      const m: Record<string, string> = {}
+      for (const o of c.options) m[String(o.value)] = paintOfAny(o.color).fg
+      colors[c.key] = m
+    }
+    const now = new Date()
+    const p2 = (n: number) => String(n).padStart(2, '0')
+    const day = `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())}`
+    const when = `${day} ${p2(now.getHours())}:${p2(now.getMinutes())}`
+    const scope = String(p.exportScope ?? '').trim()
+    /* 거른 조건도 적는다 — 종이로 돌렸을 때 무엇을 걸러 뽑은 것인지 알아야 한다 */
+    const flt = view.filters
+      .filter((f) => f.values.length)
+      .map((f) => `${colOf(f.key)?.label ?? f.key}=${f.values.join('·')}`)
+      .join(' · ')
+    const title = String(p.exportTitle ?? '표')
+    const body = {
+      title,
+      subtitle: [scope, `${pick.length}건`, `${when} 내보냄`, flt ? `거른 조건 ${flt}` : '거른 조건 없음']
+        .filter(Boolean)
+        .join(' · '),
+      columns: vis.map((c) => ({ key: c.key, label: c.label ?? c.key })),
+      rows: pick.map((r) => Object.fromEntries(vis.map((c) => [c.key, r[c.key] ?? '']))),
+      colors,
+    }
+    const r = await apiFetch('/api/export/xlsx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!r.ok) {
+      window.alert('엑셀을 만들지 못했습니다')
+      return
+    }
+    const blob = await r.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${[title.replace(/[\\/:*?"<>|]/g, ' '), scope].filter(Boolean).join('_')}_${day}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   /* ── 거르기 · 정렬 · 묶기 ── */
   const shown = useMemo(() => {
@@ -1252,7 +1313,19 @@ export default function NTable(p: NTableProps) {
               type="button"
               key={b.k}
               className={b.danger ? 'dg' : ''}
-              onClick={() => onBulk?.(b.k, [...checked])}
+              onClick={() => {
+                /* 「엑셀」 은 표가 스스로 만든다 — 보이는 열을 아는 것은
+                   표뿐이다. 부모가 제 방식(onCsv)을 주면 그것을 쓴다. */
+                if (b.k === 'csv' && !p.onCsv) {
+                  void exportXlsx([...checked])
+                  return
+                }
+                if (b.k === 'csv' && p.onCsv) {
+                  p.onCsv([...checked])
+                  return
+                }
+                onBulk?.(b.k, [...checked])
+              }}
             >
               {b.label}
             </button>
