@@ -1169,6 +1169,13 @@ export default function RunDetail({
         {/* 「중지」 는 **멈출 것이 있을 때만** 선다. 자동 실행이 끝난 뒤에도
             started_at 이 남아 있어 계속 중지가 서 있었고, 눌러도 멈출 것이
             없으니 아무 일도 안 일어났다(지적). 끝났으면 다시 돌릴 차례다. */}
+        {/* 경과·진행이 먼저 서고, 실행 단추 두 개는 **닫기 바로 왼쪽**에
+            모인다(지시) — 누르는 것끼리 한자리에 있어야 손이 덜 간다 */}
+        <span className="rd-inline">{liveBand}</span>
+        {isAuto && <i className="rd-vsep" aria-hidden="true" />}
+        {/* 「삭제」 는 뺐다(지시). 보고 있는 것을 그 자리에서 지우는 단추는
+            누를 일보다 잘못 누를 일이 많다 — 지우기는 목록에서 골라서 한다
+            (Runs 표의 여러 건 지우기. 결과가 있는 것은 거기서 미리 알린다). */}
         {canStop ? (
           <button
             type="button"
@@ -1220,13 +1227,6 @@ export default function RunDetail({
             ▶ 이 항목만 실행
           </button>
         )}
-        {/* 「삭제」 는 뺐다(지시). 보고 있는 것을 그 자리에서 지우는 단추는
-            누를 일보다 잘못 누를 일이 많다 — 지우기는 목록에서 골라서 한다
-            (Runs 표의 여러 건 지우기. 결과가 있는 것은 거기서 미리 알린다). */}
-        {/* 경과·진행은 머리줄 **오른쪽 끝**에 선다(지시) — 자동은
-            「이 항목만 실행」 바로 오른쪽이다 */}
-        {isAuto && <i className="rd-vsep" aria-hidden="true" />}
-        <span className="rd-inline">{liveBand}</span>
         {!!onClose && (
           <button type="button" className="rd-x" title="닫기" onClick={onClose}>
             ✕
