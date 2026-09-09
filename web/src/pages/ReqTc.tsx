@@ -1009,6 +1009,62 @@ export default function ReqTc({ me }: Props) {
   }
 
 
+  /** 고른 시험 항목을 **제자리에 복제**한다(지시).
+   *
+   *  서버의 통복제(/api/copy-tree)를 그대로 쓴다 — 새 TC ID 를 발번하고,
+   *  실행 흔적(결과·출력·시각)은 안 가져오며, 세션(장비 자리)은 그대로 둔다.
+   *  대상은 **그 시험이 붙어 있던 요구사항**이라 폴더 자리도 안 바뀐다.
+   *  모델은 갈아 끼우지 않는다(swap_model: false) — 제자리이기 때문이다.
+   */
+  const clonePicked = async (only?: string[]) => {
+    const ids = only ?? [...sel]
+    if (!ids.length) return
+    const rows = ids
+      .map((id) => tcRows.find((t) => String(t.tcid) === String(id)))
+      .filter((t): t is TestCaseMeta => !!t)
+    /* 요구사항에 안 붙은 시험은 복제할 자리가 없다 — 서버가 요구사항
+       아래로만 복사한다. 조용히 빠뜨리지 않고 몇 건인지 알린다. */
+    const able = rows.filter((t) => String(t.req_id ?? '').trim())
+    const skip = rows.length - able.length
+    if (!able.length) {
+      window.alert('요구사항에 붙지 않은 시험은 복제할 자리가 없습니다 — 먼저 요구사항에 붙이세요.')
+      return
+    }
+    if (
+      !window.confirm(
+        `고른 시험 ${able.length}건을 복제합니다.` +
+          (skip ? `\n(요구사항이 없는 ${skip}건은 건너뜁니다)` : '') +
+          '\n이름 뒤에 「(복제)」 가 붙고 새 TC ID 가 매겨집니다.',
+      )
+    )
+      return
+    setActBusy('clone')
+    try {
+      for (const t of able) {
+        const r = await apiFetch('/api/copy-tree', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: [{ kind: 'tc', id: String(t.tcid) }],
+            dst: { kind: 'req', id: String(t.req_id) },
+            swap_model: false,
+            tc_suffix: ' (복제)',
+          }),
+        })
+        if (!r.ok) {
+          const b = (await r.json().catch(() => ({}))) as { detail?: string }
+          throw new Error(b.detail || `복제 실패 (${r.status})`)
+        }
+      }
+      setSel(new Set())
+      await tcQ.refetch()
+    } catch (e) {
+      window.alert(`복제하지 못했습니다 — ${String((e as Error).message)}`)
+    } finally {
+      setActBusy('')
+    }
+  }
+
   const catsOf = (r: Requirement) => [r.cat1, r.cat2, r.cat3, r.cat4].filter(Boolean).map(String)
   const catOf = (r: Requirement) => String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '')
 
@@ -2743,11 +2799,20 @@ export default function ReqTc({ me }: Props) {
                 titleKey="name"
                 onOpen={(id) => setOpenTc(id)}
                 onPeek={(id) => setPop({ kind: 'tc', id })}
+                /* 「복제」 를 앞에 세운다(지시) — 나머지는 기본 그대로 */
+                bulk={[
+                  { k: 'clone', label: '복제' },
+                  { k: 'assign', label: '담당 일괄' },
+                  { k: 'status', label: '상태 바꾸기' },
+                  { k: 'csv', label: 'CSV' },
+                  { k: 'del', label: '삭제', danger: true },
+                ]}
                 onBulk={(a, ids) => {
                   /* 이 표는 제 선택을 스스로 들고 있다 — sel 에 옮겨 담으면
                      아래 일괄 바가 둘이 되어 서로를 덮었다(검증).
                      삭제는 ids 를 그대로 넘긴다(확인창은 deletePicked 몫). */
                   if (a === 'del') void deletePicked(ids)
+                  else if (a === 'clone') void clonePicked(ids)
                   else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
                 }}
                 renderCell={(r, c) => {

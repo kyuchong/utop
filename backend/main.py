@@ -5661,6 +5661,10 @@ async def copy_tree(body: dict, token: str = ""):
     mode = str(body.get("mode") or "all")
     # 폴더·요구사항을 통째로 고르되 **뺄 시험**은 따로 온다(체크 해제한 것)
     skip_tc = {str(x) for x in (body.get("skip_tcs") or [])}
+    # 복제본 이름 뒤에 붙일 말 — **제자리 복제**가 쓴다(지시).
+    # 같은 자리에 같은 이름이 둘이면 어느 것이 복제본인지 알 수 없다.
+    # 통복제(다른 프로젝트로 옮기기)는 안 보내므로 예전 그대로다.
+    tc_suffix = str(body.get("tc_suffix") or "")
     if not items or not dst_id:
         raise HTTPException(400, "무엇을 어디로 복사할지 골라 주세요")
 
@@ -5713,6 +5717,8 @@ async def copy_tree(body: dict, token: str = ""):
         d = dict(src)
         d["tcid"] = nid
         d["req_id"] = req_id
+        if tc_suffix:
+            d["name"] = f"{str(d.get('name') or '')}{tc_suffix}"
         if swap:
             if dst_mg:
                 d["model_group"] = dst_mg
