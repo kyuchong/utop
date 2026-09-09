@@ -1843,8 +1843,12 @@ export default function CyclesBoard({
   function renderItems(man: boolean) {
     if (!plan) return null
     /* 시험 단추(지시: 각 탭의 항목 담기 오른쪽) — **보는 실행**을 돌린다 */
+    /* 「실행이 있는가」 는 **시작을 막는 조건이 아니다**(지적: 복제한
+       사이클에서 시작 단추가 죽어 있다). 실행이 없으면 시작하는 순간
+       만들어진다(openRunner). 예전엔 여기서 막고 「실행 탭에서 실행을
+       만드세요」 라고 안내했는데, 그 탭도 그 단추도 이미 걷었다 —
+       안내대로 할 길이 없는 막다른 골목이었다. */
     const hasRun = !!(runLite && myRuns.some((x) => x.id === runLite.id))
-    const runN = runItems.filter((x) => x.man === man).length
     const mine = itemRows.filter((r) => r.man === man)
     const repeats = mine.filter((r) => {
       const s = failStat.get(r.tcid)
@@ -1920,15 +1924,17 @@ export default function CyclesBoard({
               <button
                 type="button"
                 className="cu-new small"
-                disabled={!hasRun || !runN}
+                /* 막는 것은 **담긴 항목이 없을 때** 하나뿐이다 — 돌릴 것이
+                   정말 없는 경우다. 실행은 시작하는 순간 만들어진다. */
+                disabled={!mine.length}
                 title={
-                  !hasRun
-                    ? '실행이 없습니다 — 실행 탭에서 실행을 만드세요'
-                    : !runN
-                      ? `보는 실행에 ${man ? '수동' : '자동'} 항목이 없습니다`
-                      : man
-                        ? '보는 실행의 수동 항목 — 사람이 확인하고 판정을 기록합니다'
-                        : '보는 실행의 자동 항목 — 장비에 접속해 스텝을 순서대로 돌립니다'
+                  !mine.length
+                    ? `이 사이클에 ${man ? '수동' : '자동'} 항목이 없습니다 — 「Add Coverage」 로 먼저 담으세요`
+                    : `${
+                        man
+                          ? '수동 항목 — 사람이 확인하고 판정을 기록합니다'
+                          : '자동 항목 — 장비에 접속해 스텝을 순서대로 돌립니다'
+                      }${hasRun ? '' : '\n(첫 시작에 실행이 하나 만들어집니다)'}`
                 }
                 onClick={() => openRunner(man ? 'M' : 'A')}
               >
