@@ -931,6 +931,23 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
             >
               편집 창 열기
             </button>
+            <button
+              type="button"
+              title="이 장비의 값을 그대로 담은 새 장비를 만듭니다 — IP 만 새로 적으면 됩니다"
+              onClick={() => {
+                const d = ctx.dev
+                setCtx(null)
+                /* **복제**(지시) — LAB·사업자·벤더·제품군·모델·계정·비밀번호·
+                   접속 방식·인터페이스까지 그대로 따라간다. 비우는 것은 셋뿐:
+                   id 와 IP(서버가 IP 를 키로 새 장비를 만든다), 그리고 접속
+                   확인 결과(status) — 남의 확인 결과를 물려받으면 안 된다.
+                   아래 「같은 모델로 하나 더」 는 모델·운영자만 담아, 계정과
+                   접속 방식을 다시 적어야 했다(지적: 복제가 없다). */
+                setForm({ ...d, id: '', ip: '', status: null })
+              }}
+            >
+              이 장비 복제
+            </button>
             {FILLABLE[ctx.col] && (
               <button
                 type="button"

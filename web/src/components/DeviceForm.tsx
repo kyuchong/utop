@@ -197,7 +197,10 @@ function Combo({
 
 export default function DeviceForm({ editing, onClose }: Props) {
   const qc = useQueryClient()
-  const isNew = editing === null
+  /* **복제**도 신규다(지시) — 복제는 남의 값이 담긴 채 열리지만, id 가
+     비어 있으면 서버가 IP 를 키로 새 장비를 만든다. 그래서 제목도
+     「장비 등록」 이고 삭제 단추도 안 선다. */
+  const isNew = editing === null || !String(editing.id ?? '').trim()
 
   const [f, setF] = useState<Device>({
     id: '',
