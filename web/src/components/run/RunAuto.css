@@ -307,7 +307,9 @@
    내용만큼 준다 — PASS·FAIL 은 짧고 RUN 만 넓다. */
 /* Test Report 의 다섯 칸(지시) — 열 머리와 **같은 자를 쓴다**.
    따로 두면 머리와 값이 어긋나 표로 안 읽힌다. */
-.ra-cols, .ra-tc { grid-template-columns: 12px 100px 88px minmax(0, 1fr) 92px; gap: 7px; padding: 5px 8px; }
+/* 줄 사이를 **조인다**(지시) — 한 화면에 더 많이 담기고, 눈이 위아래로
+   덜 움직인다. 여백보다 줄 수가 중요한 표다. */
+.ra-cols, .ra-tc { grid-template-columns: 12px 100px 88px minmax(0, 1fr) 92px; gap: 7px; padding: 3px 8px; line-height: 1.3; }
 .ra-tcid { font-size: 10px; }
 .ra-tcnm { font-size: 11.5px; }
 .ra-grp { font-variant-numeric: tabular-nums; }
