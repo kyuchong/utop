@@ -62,6 +62,8 @@ export interface RunFull {
     {
       steps: Array<{ no: number; t: string; cmd?: string; out?: string; mark?: string }>
       at?: string
+      /** 이 항목이 **이번에 돈** 회차의 번호 — `E61xx-E0007`. 서버가 찍는다 */
+      exec?: string
       /** 지난 실행의 출력 — 최근 두 번. 콘솔이 이번 것 위에 이어 쌓는다 */
       past?: Array<{ steps?: unknown[]; at?: string; by?: string }>
     }
@@ -1293,9 +1295,10 @@ export default function RunDetail({
               group: reqName.get(String(t2?.req_id ?? '')) ?? (t2?.req_id ? '이름 없는 요구사항' : '요구사항 없음'),
               verdict: (results[id] ?? 'n') as Verdict,
               at: atOf(id),
-              /* 실행 번호는 **돈 항목에만** 붙인다 — 아직 안 돌린 줄에
-                 번호가 서면 이미 돌린 것처럼 읽힌다 */
-              exec: atOf(id) ? execId : '',
+              /* 실행 번호는 **항목마다 다르다**(지시) — 서버가 항목이 한 번
+                 돌 때마다 찍어 둔 것을 그대로 읽는다. 옛 기록에 없으면
+                 실행 Key 로 떨어진다. 안 돌린 줄에는 안 붙인다. */
+              exec: String((run.logs ?? {})[id]?.exec ?? '') || (atOf(id) ? execId : ''),
             }
           })}
           cur={cur}

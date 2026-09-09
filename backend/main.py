@@ -13661,6 +13661,14 @@ async def _db_init():
     except Exception as e:
         print(f"[startup] plan_run verdicts failed: {e}", flush=True)
 
+    # 항목별 실행 번호(E61xx-E0001) 채우기 — 실행 하나에 번호 하나뿐이라
+    # 62 줄이 모두 같은 번호로 보였다(지적). 이미 돈 것에도 한 번 매겨 둔다.
+    try:
+        _en = await db.plan_run_exec_backfill()
+        if _en: print(f"[startup] 항목별 실행 번호 {_en}건 부여", flush=True)
+    except Exception as e:
+        print(f"[startup] plan_run exec backfill failed: {e}", flush=True)
+
     # 실행 타입 「혼합」 은 뺐다(합의) — 기동 때 지워 두면 253 도
     # update.sh 만으로 같아진다. 없으면 그냥 지나간다(멱등).
     try:

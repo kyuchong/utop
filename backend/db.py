@@ -2091,6 +2091,53 @@ async def run_create(run_id: str, cycle_id: str, cycle_name: str, picked: list, 
 
 
 # 항목 판정(글자) → 실행 기록의 한 글자. 화면과 같은 말을 써야 한다.
+async def exec_no_next(prefix: str) -> int:
+    """**항목별** 실행 번호의 다음 값 — 접두어(모델그룹)별로 센다.
+
+    실행(plan_run)의 Key 는 실행 하나에 하나뿐이라, 그것을 62 개 항목에
+    그대로 붙이면 62 줄이 모두 같은 번호가 된다(지적: 말이 안 된다).
+    항목이 **한 번 돌 때마다** 번호를 하나 매겨야 리포트에서 그 회차를
+    집어낼 수 있다. 번호는 `E61xx-E0001` 꼴이다.
+    """
+    pre = f"{(prefix or 'RUN').strip()}-E"
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT jsonb_path_query_array(data, '$.logs.*.exec') AS xs"
+            " FROM plan_run WHERE data ? 'logs'"
+        )
+    n = 0
+    for r in rows:
+        xs = r["xs"]
+        if isinstance(xs, (str, bytes)):
+            try:
+                xs = json.loads(xs)
+            except Exception:  # noqa: BLE001
+                xs = []
+        for x in (xs or []):
+            v = str(x or "")
+            if v.startswith(pre) and v[len(pre):].isdigit():
+                n = max(n, int(v[len(pre):]))
+    return n + 1
+
+
+def _exec_prefix(pr: dict, cyc: dict) -> str:
+    """실행 번호 앞머리 — **모델그룹**이 정본이다(지시: E61xx-E0001).
+
+    실행 Key 는 모델명(E6100_E0006)이지만, 항목 번호는 사이클 Key
+    (E61xx-C0001)와 같은 결로 읽혀야 리포트에서 짝이 맞는다."""
+    meta = pr.get("meta") if isinstance(pr.get("meta"), dict) else {}
+    for v in (
+        meta.get("model_group"),
+        cyc.get("model_group"),
+        meta.get("model"),
+        cyc.get("model"),
+    ):
+        s2 = str(v or "").strip()
+        if s2:
+            return s2
+    return "RUN"
+
+
 async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
     """플랜에 쌓인 결과를 **실행 기록으로 옮겨 적는다.**
 
@@ -2117,6 +2164,9 @@ async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
     results = dict(pr.get("results") or {})
     logs = dict(pr.get("logs") or {})
     touched = 0
+    # 실행 번호는 **필요할 때만** 센다 — 새로 돈 항목이 없으면 DB 를 안 뒤진다
+    exec_pre = _exec_prefix(pr, cyc)
+    exec_no: Optional[int] = None
     for it in (cyc.get("items") or []):
         if not isinstance(it, dict):
             continue
@@ -2164,6 +2214,19 @@ async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
                 past.append({"steps": prev["steps"], "at": prev.get("at", ""), "by": prev.get("by", "")})
         fresh["past"] = past[-2:]
 
+        # **항목이 새로 돌면 번호를 하나 매긴다**(지시). 같은 회차를 다시
+        # 옮겨 적을 때(진행 중 여러 번 부른다)는 앞서 매긴 번호를 그대로 쓴다
+        keep = prev.get("exec") if prev else ""
+        same_run = bool(prev and prev.get("steps") and prev.get("at") == fresh["at"]
+                        and len(prev["steps"]) == len(fresh["steps"]))
+        if keep and same_run:
+            fresh["exec"] = str(keep)
+        else:
+            if exec_no is None:
+                exec_no = await exec_no_next(exec_pre)
+            fresh["exec"] = f"{exec_pre}-E{exec_no:04d}"
+            exec_no += 1
+
         results[tcid] = v
         logs[tcid] = fresh
         touched += 1
@@ -2173,6 +2236,54 @@ async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
     merged = {**pr, "results": results, "logs": logs}
     await plan_run_upsert(plan_run_id, merged)
     return merged
+
+
+async def plan_run_exec_backfill() -> int:
+    """이미 돈 항목에 **실행 번호를 채운다** — 한 번 돌면 할 일이 없다(멱등).
+
+    번호를 매기기 전에 돈 것들은 `exec` 이 비어 있어 화면에 「—」 로 선다.
+    판정 시각(at) 차례로 훑어 접두어(모델그룹)별로 이어 붙인다.
+    """
+    async with pool().acquire() as c:
+        rows = await c.fetch("SELECT id, data FROM plan_run WHERE data ? 'logs'")
+    docs: dict[str, dict] = {}
+    todo: list[tuple[str, str, str, str]] = []  # (prefix, at, run_id, tcid)
+    have: dict[str, int] = {}
+    for r in rows:
+        d = r["data"]
+        if isinstance(d, (str, bytes)):
+            try:
+                d = json.loads(d)
+            except Exception:  # noqa: BLE001
+                continue
+        if not isinstance(d, dict):
+            continue
+        rid = str(r["id"])
+        docs[rid] = d
+        meta = d.get("meta") if isinstance(d.get("meta"), dict) else {}
+        pre = str(meta.get("model_group") or meta.get("model") or "RUN").strip() or "RUN"
+        for tcid, lg in (d.get("logs") or {}).items():
+            if not isinstance(lg, dict):
+                continue
+            cur = str(lg.get("exec") or "")
+            head = f"{pre}-E"
+            if cur:
+                if cur.startswith(head) and cur[len(head):].isdigit():
+                    have[pre] = max(have.get(pre, 0), int(cur[len(head):]))
+                continue
+            todo.append((pre, str(lg.get("at") or ""), rid, str(tcid)))
+    if not todo:
+        return 0
+    todo.sort(key=lambda t: (t[0], t[1], t[2], t[3]))
+    dirty: set[str] = set()
+    for pre, _at, rid, tcid in todo:
+        n = have.get(pre, 0) + 1
+        have[pre] = n
+        docs[rid]["logs"][tcid]["exec"] = f"{pre}-E{n:04d}"
+        dirty.add(rid)
+    for rid in dirty:
+        await plan_run_upsert(rid, docs[rid])
+    return len(todo)
 
 
 async def plan_run_verdicts_full() -> int:
