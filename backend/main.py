@@ -8001,6 +8001,33 @@ def _snmp_set_enum(oid, value):
     except Exception:
         return None
 
+_SNMP_ENG = None
+
+
+def _snmp_engine():
+    """SNMP 엔진은 **한 번만 만들어 돌려 쓴다**(지시: 지연을 제거).
+
+    `SnmpEngine()` 생성이 매번 **54~60ms** 다(실측). SNMP 스텝마다 그만큼이
+    그냥 나갔다 — 항목 62 개짜리 시험이면 초 단위로 쌓인다.
+
+    예전에 매 요청마다 닫은 까닭은 FD 누수였다(Windows select() 512 한계).
+    하나를 계속 쓰면 소켓도 하나뿐이라 그 문제가 애초에 안 생긴다.
+    망가지면 `_snmp_engine_reset()` 이 버리고 다음 호출이 새로 만든다.
+    """
+    global _SNMP_ENG
+    if _SNMP_ENG is None:
+        from pysnmp.hlapi.v3arch.asyncio import SnmpEngine as _SE
+        _SNMP_ENG = _SE()
+    return _SNMP_ENG
+
+
+def _snmp_engine_reset():
+    """엔진을 버린다 — 오류가 났을 때만. 다음 호출이 새로 만든다."""
+    global _SNMP_ENG
+    eng, _SNMP_ENG = _SNMP_ENG, None
+    _snmp_close(eng)
+
+
 def _snmp_close(eng):
     # SNMP 엔진/디스패처(UDP 소켓) 정리 — 안 닫으면 반복 시 FD 누적 → Windows select() 512 한계 초과로 크래시
     if eng is None:
@@ -8074,7 +8101,7 @@ async def _snmp_instances(host: str, comm: str, mp: int, col_oid: str, limit: in
             from pysnmp.hlapi.v3arch.asyncio import bulk_walk_cmd as _bw
         except Exception:
             _bw = None
-        eng = SnmpEngine()
+        eng = _snmp_engine()
         tr = await UdpTransportTarget.create((host, 161), timeout=1.2, retries=0)
         auth = CommunityData(comm, mpModel=mp)
         base = col_oid.strip().lstrip(".")
@@ -8090,9 +8117,8 @@ async def _snmp_instances(host: str, comm: str, mp: int, col_oid: str, limit: in
                     out.append(nm[len(base) + 1:])
             if len(out) >= limit:
                 break
-        _snmp_close(eng)
     except Exception:
-        pass
+        _snmp_engine_reset()
     return out[:limit]
 
 
@@ -8204,7 +8230,7 @@ async def snmp_get_api(payload: dict):
             from pysnmp.hlapi.v3arch.asyncio import bulk_walk_cmd as _bulk_walk_cmd
         except Exception:
             _bulk_walk_cmd = None
-        eng = SnmpEngine()
+        eng = _snmp_engine()
         # 첫 패킷이 늦으면 이 시간을 다 기다린다 — 가끔 3s 씩 튀던 까닭이다
         # (지적). 짧게 잡고 재시도 1 로 유실만 메꾼다.
         transport = await UdpTransportTarget.create((host, port), timeout=1.2, retries=1)
@@ -8278,9 +8304,8 @@ async def snmp_get_api(payload: dict):
         _msg = str(e)
         if "No module named" in _msg and ("pysnmp" in _msg or "pyasn1" in _msg):
             _msg = "pysnmp 미설치 — 백엔드에서 'python -m pip install pysnmp' 실행 후 서버 재시작"
+        _snmp_engine_reset()   # 망가졌을 수 있다 — 버리고 다음에 새로 만든다
         return {"ok": False, "error": _msg[:300], "output": "[SNMP 오류] " + _msg[:220]}
-    finally:
-        _snmp_close(eng)   # 소켓 정리(FD 누수 방지)
 
 @app.post("/api/snmp-set")
 async def snmp_set_api(payload: dict):
@@ -8336,7 +8361,7 @@ async def snmp_set_api(payload: dict):
         else:
             _digits = value.lstrip("-")
             cands = ["i", "u", "c", "g"] if (_digits.isdigit() and value not in ("", "-")) else ["s"]
-        eng = SnmpEngine()
+        eng = _snmp_engine()
         # 안 맞는 커뮤니티는 응답이 없어 타임아웃까지 매달린다 — 짧게(지적:
         # 시험 진행 중 갑자기 느려진다). 되는 커뮤니티는 캐시로 첫 시도에 맞는다.
         transport = await UdpTransportTarget.create((host, port), timeout=1.5, retries=0)
@@ -8476,9 +8501,8 @@ async def snmp_set_api(payload: dict):
         _msg = str(e)
         if "No module named" in _msg and ("pysnmp" in _msg or "pyasn1" in _msg):
             _msg = "pysnmp 미설치 — 'python -m pip install pysnmp' 후 서버 재시작"
+        _snmp_engine_reset()   # 망가졌을 수 있다 — 버리고 다음에 새로 만든다
         return {"ok": False, "error": _msg[:300], "output": "[SNMP SET 오류] " + _msg[:220]}
-    finally:
-        _snmp_close(eng)   # 소켓 정리(FD 누수 방지)
 
 # ── SNMP Trap 수신기 (장비가 보내는 Notification 수신·판정용) ──
 _TRAP_BUF = []           # [{ts, from, oid, varbinds:[{oid,value}]}]
