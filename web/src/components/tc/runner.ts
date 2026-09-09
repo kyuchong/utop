@@ -122,13 +122,23 @@ const sleep = (ms: number, signal: AbortSignal) =>
   })
 
 async function post(path: string, body: unknown, signal: AbortSignal) {
+  /* 걸린 시간을 **함께 돌려준다**(지시: 보이게 만들자).
+     `__ms` 는 브라우저가 잰 왕복 전체, `__srv` 는 서버가 스스로 잰 처리
+     시간(X-Server-Ms)이다. 둘의 차가 네트워크 + 장비 응답이다. */
+  const t0 = performance.now()
   const r = await apiFetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     signal,
   })
-  return (await r.json()) as Record<string, unknown>
+  const j = (await r.json()) as Record<string, unknown>
+  const srv = Number(r.headers.get('X-Server-Ms') ?? NaN)
+  return {
+    ...j,
+    __ms: Math.round(performance.now() - t0),
+    ...(Number.isFinite(srv) ? { __srv: Math.round(srv) } : {}),
+  } as Record<string, unknown>
 }
 
 /**
@@ -854,9 +864,18 @@ async function runOne(
       kind === 'snmp_get' || kind === 'snmp_set'
         ? `${snmp.oid}${sentVal ? ` = ${sentVal}` : ''}`
         : stepSummary(step)
+    /* 걸린 시간을 적는다(지시) — CLI 는 진작 적고 SNMP 만 없어서, 느린
+       까닭이 장비인지 서버인지 화면인지 가릴 수가 없었다.
+       서버가 제 처리 시간을 알려 주면 「총 250ms · 서버 8ms」 로 갈라 적는다. */
+    const rt = Number((r as Record<string, unknown>).__ms ?? NaN)
+    const rs = Number((r as Record<string, unknown>).__srv ?? NaN)
+    const tookText = Number.isFinite(rt)
+      ? ` (${rt}ms${Number.isFinite(rs) ? ` · 서버 ${rs}ms` : ''})`
+      : ''
+    ctx.onStep(i, { took_ms: Number.isFinite(rt) ? rt : undefined })
     ctx.onLog({
       i,
-      text: `${sentText}${j.reason ? ` — ${j.reason}` : ''}`,
+      text: `${sentText}${j.reason ? ` — ${j.reason}` : ''}${tookText}`,
       kind: j.verdict === 'Pass' ? 'pass' : j.verdict === 'Fail' ? 'fail' : 'info',
     })
     return j.verdict

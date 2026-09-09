@@ -1117,6 +1117,24 @@ async def _session_of(token: str):
 
 
 @app.middleware("http")
+async def _server_timing(request, call_next):
+    """서버가 이 요청에 쓴 시간을 헤더로 알린다 — `X-Server-Ms`.
+
+    화면에서 「250ms 걸렸다」 를 봐도 그것이 장비 응답인지, 서버 처리인지,
+    브라우저·화면 갱신인지 가를 길이 없었다(지시: 보이게 만들자).
+    총 시간에서 이 값을 빼면 나머지가 어디서 갔는지 좁혀진다.
+    """
+    import time as _tm
+    _t0 = _tm.perf_counter()
+    resp = await call_next(request)
+    try:
+        resp.headers["X-Server-Ms"] = f"{(_tm.perf_counter() - _t0) * 1000:.1f}"
+    except Exception:  # noqa: BLE001
+        pass
+    return resp
+
+
+@app.middleware("http")
 async def _require_login(request, call_next):
     path = request.url.path
     # 중계 전용 서버는 N2X 창구와 상태 확인만 연다. DB 가 없으니 다른
