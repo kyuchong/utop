@@ -1673,6 +1673,15 @@ function CycleBoard({
           onNew={() => onNew()}
           onOpen={(id) => onOpenPlan(id)}
           onPeek={(id) => onEdit(id)}
+          /* 이 화면은 「담당 일괄」·「상태 바꾸기」 가 **실제로 돈다** —
+             일괄 편집 창을 연다. 기본 목록에서 그 둘을 걷었으므로(죽은
+             화면이 더 많았다) 여기서는 제 손으로 세운다. */
+          bulk={[
+            { k: 'assign', label: '담당 일괄' },
+            { k: 'status', label: '상태 바꾸기' },
+            { k: 'csv', label: 'CSV' },
+            { k: 'del', label: '삭제', danger: true },
+          ]}
           onBulk={(a, ids) => {
             /* 옛 도구줄을 걷어내며 그 단추들이 여기로 왔다(지시) */
             if (a === 'del') onDel(ids)

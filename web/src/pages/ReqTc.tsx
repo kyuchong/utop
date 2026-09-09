@@ -312,6 +312,11 @@ export default function ReqTc({ me }: Props) {
      같은 일을 하는 창을 새로 만들면 두 화면이 서로 다르게 동작한다. */
   const [bulkNew, setBulkNew] = useState(false)
   const [bulkEdit, setBulkEdit] = useState(false)
+  /** 선택 바에서 「일괄 편집」 으로 넘어온 줄들.
+   *  시험 항목 표는 **제 선택을 스스로 들고 있어** sel 과 다르다(그래서
+   *  sel 에 옮겨 담으면 일괄 바가 둘이 되어 서로를 덮었다). 여기로 받아
+   *  창에 그대로 넘긴다 — 비어 있으면 예전처럼 sel 을 쓴다. */
+  const [bulkIds, setBulkIds] = useState<string[]>([])
   const [copyOpen, setCopyOpen] = useState(false)
   const [actBusy, setActBusy] = useState('')
 
@@ -2788,15 +2793,17 @@ export default function ReqTc({ me }: Props) {
                 /* 시험 항목 표와 같은 자리에 「복제」 를 세운다(지시) */
                 bulk={[
                   { k: 'clone', label: '복제' },
-                  { k: 'assign', label: '담당 일괄' },
-                  { k: 'status', label: '상태 바꾸기' },
+                  { k: 'edit', label: '일괄 편집' },
                   { k: 'csv', label: 'CSV' },
                   { k: 'del', label: '삭제', danger: true },
                 ]}
                 onBulk={(a, ids) => {
                   if (a === 'del') void deletePicked(ids)
                   else if (a === 'clone') void cloneReqPicked(ids)
-                  else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
+                  else if (a === 'edit') {
+                    setBulkIds(ids)
+                    setBulkEdit(true)
+                  } else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
                 }}
                 renderCell={(r, c) => {
                   if (c.key === 'mapb') {
@@ -2878,8 +2885,7 @@ export default function ReqTc({ me }: Props) {
                 /* 「복제」 를 앞에 세운다(지시) — 나머지는 기본 그대로 */
                 bulk={[
                   { k: 'clone', label: '복제' },
-                  { k: 'assign', label: '담당 일괄' },
-                  { k: 'status', label: '상태 바꾸기' },
+                  { k: 'edit', label: '일괄 편집' },
                   { k: 'csv', label: 'CSV' },
                   { k: 'del', label: '삭제', danger: true },
                 ]}
@@ -2889,7 +2895,10 @@ export default function ReqTc({ me }: Props) {
                      삭제는 ids 를 그대로 넘긴다(확인창은 deletePicked 몫). */
                   if (a === 'del') void deletePicked(ids)
                   else if (a === 'clone') void clonePicked(ids)
-                  else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
+                  else if (a === 'edit') {
+                    setBulkIds(ids)
+                    setBulkEdit(true)
+                  } else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
                 }}
                 renderCell={(r, c) => {
                   if (c.key === 'req') {
@@ -3109,20 +3118,28 @@ export default function ReqTc({ me }: Props) {
       {bulkEdit &&
         (mode === 'req' ? (
           <ReqBulkEdit
-            ids={[...sel]}
-            onClose={() => setBulkEdit(false)}
+            ids={bulkIds.length ? bulkIds : [...sel]}
+            onClose={() => {
+              setBulkEdit(false)
+              setBulkIds([])
+            }}
             onDone={() => {
               setBulkEdit(false)
+              setBulkIds([])
               setSel(new Set())
               void reqQ.refetch()
             }}
           />
         ) : (
           <TcBulkEdit
-            items={tcs.filter((t) => sel.has(t.tcid))}
-            onClose={() => setBulkEdit(false)}
+            items={tcs.filter((t) => (bulkIds.length ? bulkIds.includes(t.tcid) : sel.has(t.tcid)))}
+            onClose={() => {
+              setBulkEdit(false)
+              setBulkIds([])
+            }}
             onDone={() => {
               setBulkEdit(false)
+              setBulkIds([])
               setSel(new Set())
               void tcQ.refetch()
             }}
