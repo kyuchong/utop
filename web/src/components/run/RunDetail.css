@@ -332,9 +332,9 @@
 .rd-inline .rd-sp { display: none; }
 
 
-/* ── 수동 실행기 — 카드 세 장(지시) ──
-   흰 종이 한 장으로 화면을 다 덮던 것을 걷고, 머리·목록·시험서를 각각
-   카드로 세운다. 사이와 둘레로 **앱 바탕**이 비쳐 사이클 화면과 결이 같다. */
+/* ── 실행기는 카드다(지시) — 수동은 세 장, 자동은 머리 한 장 + 네 판 ──
+   흰 종이 한 장으로 화면을 다 덮던 것을 걷고 각각 카드로 세운다.
+   사이와 둘레로 **앱 바탕**이 비쳐 사이클 화면과 결이 같다. */
 /* `.qav .panel` 이 뒤에서 같은 무게로 덮는다 — 한 겹 더 무겁게 쓴다(실측) */
 .qav .rd.rd-cards,
 .rd.rd-cards {
@@ -382,10 +382,28 @@
 /* 자동 머리줄에는 자리가 남는다 — 진행 막대는 좁게 살려 둔다.
    도는 동안 사람이 눈으로 읽는 것은 숫자보다 이 막대다.
    (수동은 머리줄이 좁아 그대로 숫자만 남긴다) */
-.rd:not(.rd-cards) .rd-inline .rd-bar2 { display: flex; flex: 0 0 70px; min-width: 70px; }
+.rd.rd-auto .rd-inline .rd-bar2 { display: flex; flex: 0 0 70px; min-width: 70px; }
 @media (max-width: 1500px) {
-  .rd:not(.rd-cards) .rd-inline .rd-bar2 { display: none; }
+  .rd.rd-auto .rd-inline .rd-bar2 { display: none; }
 }
+
+/* ── 자동 실행기도 **카드**로(지시) ──
+   네 판은 이미 카드였는데 판 사이·둘레가 흰 회색(#f4f7f8)이라 앱 색이
+   한 점도 안 비쳤다. 그 바탕을 걷어 **왼쪽 메뉴바와 같은 색**이 틈으로
+   보이게 한다 — 수동 실행기·사이클 화면과 같은 결이 된다. */
+.rd.rd-auto .ra { background: transparent; }
+/* 둘레 여백은 .rd 가 이미 받는다(판 둘레 4px) — 여기서 또 주면 겹친다 */
+.rd.rd-auto .ra-desk { padding: 0; }
+/* 청록 바탕 위에서 흐린 선은 안 보인다 — 사이클 화면과 같은 선으로 */
+.rd.rd-auto .ra-panel { border-color: var(--c-border, #c3cbd4); }
+/* 분할바의 회색 실금은 걷는다 — 이제 **틈**으로 바탕이 비쳐 경계가 저절로
+   보인다. 파란 획은 끌 때와 온마우스일 때만 선다(손잡이라는 표시) */
+.rd.rd-auto .ra-vsash::before,
+.rd.rd-auto .ra-hsash::before { background: transparent; }
+.rd.rd-auto .ra-vsash:hover::before,
+.rd.rd-auto .ra-vsash.on::before { background: #78aeea; }
+.rd.rd-auto .ra-hsash:hover::before,
+.rd.rd-auto .ra-hsash.on::before { background: #78aeea; }
 
 /* 사이클 ID 칩 — 누르면 복사 */
 .rd-copy { cursor: pointer; font: inherit; }

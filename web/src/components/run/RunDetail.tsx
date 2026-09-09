@@ -1108,10 +1108,10 @@ export default function RunDetail({
   )
 
   return (
-    /* 수동은 **카드 세 장**이다(지시) — 1행 머리, 2행 왼쪽 목록·오른쪽 시험서.
-       카드 사이·둘레로 앱 바탕이 비쳐 사이클 화면과 결이 같아진다.
-       자동 실행기는 판 짜임이 달라 그대로 둔다. */
-    <div className={`panel rd${isAuto ? '' : ' rd-cards'}`}>
+    /* 자동·수동 **모두 카드**다(지시) — 수동은 머리·목록·시험서 세 장,
+       자동은 머리 한 장에 네 판 작업대. 카드 사이·둘레로 앱 바탕(왼쪽
+       메뉴바와 같은 색)이 비쳐 사이클 화면과 결이 같아진다. */
+    <div className={`panel rd rd-cards${isAuto ? ' rd-auto' : ''}`}>
       {/* ── 머리줄 ── */}
       <div className="rd-bar">
         {lead}
