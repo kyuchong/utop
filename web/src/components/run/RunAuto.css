@@ -55,12 +55,12 @@
    창 넷이 또렷하게 갈린다. */
 .ra-panel > header {
   flex: none; height: 36px; display: flex; align-items: center; gap: 6px;
-  padding: 0 9px; border-bottom: 1px solid #c9dee3;
-  font-size: 12.5px; background: #e6f1f3; color: #17505c; cursor: grab;
+  padding: 0 9px; border-bottom: 1px solid #9fc3ce;
+  font-size: 12.5px; background: #c6dee4; color: #12505e; cursor: grab;
 }
 .ra-panel > header:active { cursor: grabbing; }
 /* 꼬리말은 **먼저 줄어든다** — 판이 좁아지면 이것부터 접어 제목을 지킨다 */
-.ra-panel > header small { color: #6f8c94; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ra-panel > header small { color: #5b7a83; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 판 제목 굵기는 한 급 낮춘다(지시) — 800 은 줄 전체를 눌렀다.
    **안 접힌다**: 찾기 칸이 자리를 먹자 「Test / Report」 로 두 줄이 됐다(실측) */
 .ra-panel > header > b { font-weight: 600; flex: none; white-space: nowrap; }
@@ -122,7 +122,7 @@
    검정 바탕은 한 판만 밤이라 화면에서 겉돌았고, 출력이 어디서 끊기는지도
    안 보였다. 스텝마다 상자를 씌워 「명령 → 출력」 한 덩이가 눈에 잡힌다. */
 .ra-con {
-  flex: 1; overflow: auto; background: #fff; color: #24343c; padding: 8px;
+  flex: 1; overflow: auto; background: #fff; color: #24343c; padding: 0 8px 8px;
   font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; line-height: 1.6;
 }
 .ra-con pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
@@ -167,8 +167,9 @@
 .ra-v.f.on { background: #fff0f3; border-color: #f2c0ce; color: #d53f60; }
 .ra-v.b.on { background: #fdf3e3; border-color: #e6c987; color: #8a6111; }
 .ra-v.n.on { background: #eef2f3; color: #5b7176; }
+/* 묶음 머리도 줄과 같은 결로 조인다(지시) — 줄만 조였더니 머리가 도드라졌다 */
 .ra-grp {
-  display: flex; justify-content: space-between; padding: 6px 8px;
+  display: flex; justify-content: space-between; padding: 3px 8px;
   background: #f8fafb; border-bottom: 1px solid #edf1f2; font-size: 10.5px; font-weight: 700; color: #61757c;
 }
 .ra-tc {
@@ -380,7 +381,7 @@
    따로 두면 머리와 값이 어긋나 표로 안 읽힌다. */
 /* 줄 사이를 **조인다**(지시) — 한 화면에 더 많이 담기고, 눈이 위아래로
    덜 움직인다. 여백보다 줄 수가 중요한 표다. */
-.ra-cols, .ra-tc { grid-template-columns: 12px 100px 88px minmax(0, 1fr) 92px; gap: 7px; padding: 3px 8px; line-height: 1.3; }
+.ra-cols, .ra-tc { grid-template-columns: 12px 98px 72px minmax(0, 1fr) 84px; gap: 6px; padding: 3px 8px; line-height: 1.3; }
 .ra-tcid { font-size: 10px; }
 .ra-tcnm { font-size: 11.5px; }
 .ra-grp { font-variant-numeric: tabular-nums; }

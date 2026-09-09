@@ -395,7 +395,7 @@
 /* 둘레 여백은 .rd 가 이미 받는다(판 둘레 4px) — 여기서 또 주면 겹친다 */
 .rd.rd-auto .ra-desk { padding: 0; }
 /* 청록 바탕 위에서 흐린 선은 안 보인다 — 판 머리와 **한 벌**인 청록 선으로 */
-.rd.rd-auto .ra-panel { border-color: #bcd3d9; }
+.rd.rd-auto .ra-panel { border-color: #a6c8d2; }
 /* 분할바의 회색 실금은 걷는다 — 이제 **틈**으로 바탕이 비쳐 경계가 저절로
    보인다. 파란 획은 끌 때와 온마우스일 때만 선다(손잡이라는 표시) */
 .rd.rd-auto .ra-vsash::before,
