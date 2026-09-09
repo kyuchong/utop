@@ -5720,7 +5720,9 @@ async def export_xlsx(payload: dict):
     for j, c in enumerate(cols):
         ws.write(head_at, j, str(c.get("label") or c.get("key")), f_head)
 
-    # 열 너비 — 머리와 값 가운데 긴 쪽에 맞추되 60자에서 멈춘다
+    # 열 너비 — 머리와 값 가운데 긴 쪽에 맞추되 **28자에서 멈춘다**(지시).
+    # 60자로 두었더니 TC Map 한 칸이 화면 절반을 먹어 옆 칸이 밀려났다.
+    # 값은 그대로다 — 보이는 폭만 좁힌다(셀을 누르면 수식줄에 다 보인다).
     wide = [len(str(c.get("label") or c.get("key"))) + 3 for c in cols]
     for i, r in enumerate(rows):
         for j, c in enumerate(cols):
@@ -5729,9 +5731,9 @@ async def export_xlsx(payload: dict):
             v = "" if v is None else (v if isinstance(v, (int, float)) else str(v))
             hexc = str(((colors.get(k) or {}) if isinstance(colors.get(k), dict) else {}).get(str(v), ""))
             ws.write(head_at + 1 + i, j, v, cell_fmt(hexc))
-            wide[j] = max(wide[j], min(60, len(str(v)) + 2))
+            wide[j] = max(wide[j], min(28, len(str(v)) + 2))
     for j, w in enumerate(wide):
-        ws.set_column(j, j, max(8, min(60, w)))
+        ws.set_column(j, j, max(8, min(28, w)))
 
     ws.freeze_panes(head_at + 1, 0)
     if rows:

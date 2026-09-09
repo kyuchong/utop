@@ -2802,6 +2802,8 @@ export default function ReqTc({ me }: Props) {
                   const ts = tcOf.get(String(r.__id ?? '')) ?? []
                   if (key === 'cov') return ts.length ? `TC ${ts.length}` : '미커버'
                   if (key === 'tcmap') return ts.map((t) => t.tcid).join(', ')
+                  /* Map 은 누르는 단추라 적을 값이 없다 — 열은 **그대로 두고**
+                     칸만 비운다(지시). 화면의 열 구성과 엑셀이 어긋나지 않는다. */
                   if (key === 'mapb') return ''
                   return undefined
                 }}
