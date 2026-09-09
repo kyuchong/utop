@@ -1073,13 +1073,18 @@ export default function CyclesBoard({
   }, [open])
   useEffect(() => {
     if (!open) return
+    /* **목록이 아직 안 왔으면 아무것도 안 한다.**
+       예전엔 로딩 중(myRuns 가 빈 배열)에도 이 줄이 돌아, 계정에 남겨 둔
+       실행(utop.runs.open)을 지우고 목록이 온 뒤 맨 앞 것으로 바꿔 버렸다
+       — 보던 실행이 아닌 엉뚱한 실행이 열렸다(실측). */
+    if (!runsQ.isSuccess) return
     if (selRun && myRuns.some((r) => r.id === selRun)) return
     const first = myRuns[0]?.id ?? ''
     setSelRun(first)
     if (first) prefSet('utop.runs.open', first)
     else prefRemove('utop.runs.open')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, myRuns])
+  }, [open, myRuns, runsQ.isSuccess])
 
 
 
