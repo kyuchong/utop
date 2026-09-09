@@ -7072,13 +7072,21 @@ def run_cli(payload: dict):
             repeat = max(1, int(payload.get("repeat", 1) or 1))
             interval = float(payload.get("interval", 1) or 1)
             try:
-                cmd_delay = max(0.0, float(payload.get("cmd_delay", 100) or 0) / 1000.0)  # ms→s (iTest식 명령 간 딜레이)
+                # 명령 사이 지연 — **기본 0**(지시: 지연을 제거).
+                # netmiko 는 프롬프트가 돌아올 때까지 이미 기다린다. 그 위에
+                # 100ms 를 더 쉬는 것은 순수 대기였다 — 명령 10 개짜리 스텝이면
+                # 1 초, 62 개 항목이면 분 단위로 쌓였다. 필요한 장비만 payload 로 준다.
+                cmd_delay = max(0.0, float(payload.get("cmd_delay", 0) or 0) / 1000.0)
             except Exception:
-                cmd_delay = 0.1
+                cmd_delay = 0.0
             try:
-                _tail_max = max(0.0, float(payload.get("tail_wait", 2.0) or 0))  # SecureCRT식: 명령 직후 비동기 로그 수집 상한(초)
+                # 명령 뒤 **비동기 로그 수집** 상한 — 기본 0(지시: 지연을 제거).
+                # 0 이면 아래 수집 루프를 통째로 건너뛴다. 예전 기본 2.0 은 상한일
+                # 뿐이었지만, 출력이 없어도 0.12 초 × 2 회(0.24 초)는 늘 나갔다.
+                # reload 처럼 늦게 더 뱉는 명령은 스텝의 「명령 뒤 대기」 로 올린다.
+                _tail_max = max(0.0, float(payload.get("tail_wait", 0) or 0))
             except Exception:
-                _tail_max = 2.0
+                _tail_max = 0.0
             _live_key = payload.get("live_key") or ""   # 있으면 send_command 대신 _exec_streaming 사용 → WS 로 chunk push
             # Completion Wait (스텝 옵션): >0 이면 이 스텝의 모든 명령은 send_command(=프롬프트 대기)를
             # 쓰지 않고 write_channel 로 명령을 쓰고 지정 초 동안 응답만 수집한다. 세션은 [y/n] 등
@@ -7342,15 +7350,15 @@ async def run_cli_stream(payload: dict):
     ent = _get_conn_entry(params) if host_ok else None
     # 프롬프트가 온 뒤에도 얼마나 더 기다릴 것인가.
     #
-    # 프롬프트 뒤에 늦게 올라오는 syslog 를 놓치지 않으려는 대기다. 예전에는
-    # 2.0 이 코드에 박혀 있어서 **명령마다 2초**가 그냥 나갔다 — 명령 10개짜리
-    # 스텝이면 순수 대기만 20초다. 기본을 낮추고 부르는 쪽이 정하게 한다.
-    # 뭔가 오면 그때부터 다시 이 시간만큼 연장하므로, 실제로 늦게 오는
-    # 출력이 있으면 짧게 잡아도 놓치지 않는다.
+    # 프롬프트 뒤에 늦게 올라오는 syslog 를 놓치지 않으려는 대기다. 2.0 → 0.3 →
+    # **0**(지시: 지연을 제거). 프롬프트가 왔다는 것은 그 명령이 끝났다는 뜻이라,
+    # 조회 명령에는 이 대기가 통째로 낭비였다. syslog 를 받아야 하는 명령만
+    # 스텝의 「명령 뒤 대기」 를 올린다 — 뭔가 오면 거기서 다시 연장되므로
+    # 짧게 잡아도 놓치지 않는다.
     try:
-        _quiet_wait = min(30.0, max(0.0, float(payload.get("tail_wait", 0.3) or 0)))
+        _quiet_wait = min(30.0, max(0.0, float(payload.get("tail_wait", 0) or 0)))
     except Exception:
-        _quiet_wait = 0.3
+        _quiet_wait = 0.0
     def _sse(obj):
         return "data: " + _jstr.dumps(obj, ensure_ascii=False) + "\n\n"
     async def _gen():
