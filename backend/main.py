@@ -7186,13 +7186,16 @@ def run_cli(payload: dict):
             repeat = max(1, int(payload.get("repeat", 1) or 1))
             interval = float(payload.get("interval", 1) or 1)
             try:
-                # 명령 사이 지연 — **기본 0**(지시: 지연을 제거).
-                # netmiko 는 프롬프트가 돌아올 때까지 이미 기다린다. 그 위에
-                # 100ms 를 더 쉬는 것은 순수 대기였다 — 명령 10 개짜리 스텝이면
-                # 1 초, 62 개 항목이면 분 단위로 쌓였다. 필요한 장비만 payload 로 준다.
-                cmd_delay = max(0.0, float(payload.get("cmd_delay", 0) or 0) / 1000.0)
+                # 명령 사이 지연 — **100ms 로 되돌린다**(지적: 편차가 크다).
+                #
+                # 0 으로 걷었더니 반복 50 회에서 8~19 초짜리 튐이 섞였다.
+                # 그 시간대는 **장비 재접속**(conn 10 + banner 15 + auth 10)과
+                # 겹친다 — 쉼 없이 쏘면 장비가 못 따라와 세션을 끊는다.
+                # iTest 가 100ms 를 두는 까닭이 이것이다(지시).
+                # 조회 명령의 tail_wait 0 은 그대로라, 걷어서 얻은 속도는 지킨다.
+                cmd_delay = max(0.0, float(payload.get("cmd_delay", 100) or 0) / 1000.0)
             except Exception:
-                cmd_delay = 0.0
+                cmd_delay = 0.1
             try:
                 # 명령 뒤 **비동기 로그 수집** 상한 — 기본 0(지시: 지연을 제거).
                 # 0 이면 아래 수집 루프를 통째로 건너뛴다. 예전 기본 2.0 은 상한일

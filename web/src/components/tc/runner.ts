@@ -1840,8 +1840,16 @@ export async function runSteps(
          */
         const OUT_BUDGET = 2_000_000
         const rounds = Math.min(times, 1000)
+        /** 회차 사이 쉼 — **100ms**(지적: 편차가 크다 · PC 부하).
+         *
+         *  회차마다 요청이 따로 나가므로 서버의 「명령 사이 지연」 이 여기엔
+         *  안 걸린다. 쉼 없이 50 회를 쏘면 장비가 못 따라와 세션이 끊기고
+         *  재접속에 8~19 초가 간다. 브라우저도 그 사이 숨을 돌린다 —
+         *  화면 갱신이 밀리면 그것이 곧 다음 발사를 늦춘다. */
+        const ROUND_GAP = 100
         for (let n = 0; n < rounds; n++) {
           if (ctx.signal.aborted) break
+          if (n > 0) await sleep(ROUND_GAP, ctx.signal)
           round = n + 1
           if (s.loopVar) vars[s.loopVar] = list.length ? String(list[n]) : String(from0 + n * stepBy)
           for (let j = i + 1; j < body; j++) lastPatch.delete(j)
