@@ -846,12 +846,15 @@ export default function RunAuto({
             하면 그건 수동 시험이다. */}
         <div className="ra-scroll">
           {/* 열 머리 — 스크롤해도 위에 붙어 있는다 */}
+          {/* Execution ID 칸은 걷었다(지시) — 그 자리를 시험 항목 이름이
+              받는다. 번호는 서버에 그대로 찍히니 리포트에서 쓴다.
+              마지막 칸은 도는 동안 RUN 배지가 선다. */}
           <div className="ra-cols">
             <span />
             <span>Timestamp</span>
             <span>TC ID</span>
             <span>Test Case</span>
-            <span>Execution ID</span>
+            <span />
           </div>
           {!groups.length && (
             <div className="ra-none">
@@ -878,9 +881,7 @@ export default function RunAuto({
                   <span className="ra-tct">{shortStamp(it.at)}</span>
                   <span className="ra-tcid">{it.id}</span>
                   <span className="ra-tcnm">{it.name}</span>
-                  {it.id === runItem ? <RunMark /> : (
-                    <span className={`ra-eid${it.exec ? '' : ' none'}`}>{it.exec || '—'}</span>
-                  )}
+                  {it.id === runItem ? <RunMark /> : <span />}
                 </button>
               ))}
             </div>
@@ -978,7 +979,7 @@ export default function RunAuto({
                 className="ra-find"
                 type="search"
                 value={q}
-                placeholder="찾기 — TC ID · 이름 · 실행 번호"
+                placeholder="찾기 — TC ID · 이름"
                 title="TC ID·시험 항목 이름·실행 번호로 찾습니다"
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
