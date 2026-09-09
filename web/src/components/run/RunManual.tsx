@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
-import { goto } from '@/api/goto'
+import { TcPop } from '@/pages/ReqTc'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
 import Markdown from '@/components/Markdown'
@@ -127,6 +127,8 @@ export default function RunManual({
   /* 요구사항·시험항목은 **오른쪽 서랍**으로 뺐다(지시) — 스텝이 세로를 다 쓴다.
      서랍이 오른쪽인 것은 릴리즈의 Jira 서랍과 같은 규칙이다(한 방향으로 통일) */
   const [drw, setDrw] = useState<'' | 'req' | 'tc'>('')
+  /** TC ID 로 연 팝업 — 커버리지의 「제목 앞 아이콘」 과 같은 창이다(지시) */
+  const [peek, setPeek] = useState<{ id: string; name: string } | null>(null)
   /** 스텝의 톱니바퀴 메뉴 — 자주 안 쓰는 판정 */
   const [cogAt, setCogAt] = useState<{ x: number; y: number; ix: number } | null>(null)
   /** 일괄 판정을 마치면 이 숫자를 올려 표의 선택을 푼다 */
@@ -315,10 +317,13 @@ export default function RunManual({
                       <button
                         type="button"
                         className="ntb-id"
-                        title="시험 항목 상세 화면으로"
+                        title="시험 항목을 팝업으로 봅니다"
                         onClick={(e) => {
                           e.stopPropagation()
-                          goto('tc', String(r.__id))
+                          /* 화면을 **갈아 끼우지 않는다**(지시) — 시험하는
+                             도중에 자리를 옮기면 하던 일이 끊긴다. 커버리지의
+                             「제목 앞 아이콘」 이 여는 그 창을 그대로 띄운다. */
+                          setPeek({ id: String(r.__id), name: String(r.title ?? '') })
                         }}
                       >
                         {String(r.id ?? '')}
@@ -747,6 +752,17 @@ export default function RunManual({
         <div className="rm-lb" onMouseDown={() => setBig('')} role="dialog" aria-modal="true" aria-label="사진 크게 보기">
           <img className="rm-bigimg" src={big} alt="" onMouseDown={(e) => e.stopPropagation()} />
         </div>
+      )}
+
+      {/* TC ID 로 연 시험 항목 창 — **커버리지의 그 창 그대로**다(지시).
+          베껴 만들지 않는다: 한쪽만 고치는 날이 온다. */}
+      {peek && (
+        <TcPop
+          id={peek.id}
+          name={peek.name}
+          crumb={[]}
+          onClose={() => setPeek(null)}
+        />
       )}
     </div>
   )

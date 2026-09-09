@@ -3376,7 +3376,9 @@ function DetailPop({
  * 코드**라 두 자리가 갈릴 수 없다. 베껴 만들면 한쪽만 고치는 날이 온다 —
  * 실제로 옛 부품(TcDetail)을 얹었다가 스텝을 하나도 못 읽어 물렸다.
  */
-function TcPop({
+/** 다른 화면도 이 팝업을 쓴다(지시: 수동 시험 화면의 TC ID) — 「제목 앞
+ *  아이콘」 이 여는 그 창 그대로다. 베껴 만들면 한쪽만 고치는 날이 온다. */
+export function TcPop({
   id,
   name,
   crumb,
