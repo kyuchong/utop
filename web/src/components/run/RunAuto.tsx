@@ -413,23 +413,19 @@ export default function RunAuto({
     return sec > 0 ? `${sec}초 기다립니다` : '기다립니다'
   }
 
-  /** 콘솔에 그릴 마지막 스텝.
+  /** 콘솔에 그릴 **그 스텝 하나**.
    *
-   *  예전엔 **보던 스텝까지만** 쌓았다. 그래서 항목이 다음으로 넘어가면
-   *  뒤 스텝(SNMP·비교)의 출력이 통째로 안 보여, 그것들이 돌았는지 알 수
-   *  없었다(지적). **돈 스텝은 전부 보인다** — 지금 보는 자리와 실제로
-   *  돈 마지막 자리 중 더 뒤쪽까지 쌓는다.
+   *  쌓지 않는다(지시). 스텝 표에서 고른 줄의 CLI 결과만 보여 준다 —
+   *  누적으로 이어 붙이니 어느 출력이 어느 스텝 것인지 되짚어야 했다.
+   *  돌고 있는 동안에는 도는 줄을 따라간다.
    */
   const lastRan = steps.reduce((acc, s2, i) => (s2.ran || s2.out ? i : acc), -1)
   /** 이번 실행에서 **한 줄도 안 돌았나.** 돌고 있지도 않고 돈 자취도 없으면
    *  콘솔에는 그릴 것이 없다 — 정의만 보고 명령을 미리 찍으면 안 된다. */
   const noneRan = runStep == null && lastRan < 0 && !(past ?? []).length
   const seeUpTo = Math.min(
-    /* **돌고 있으면 거기서 끊는다.** 뒤 스텝에 남아 있는 것은 지난 실행의
-       출력이라, 그대로 이어 붙이면 지금 나온 것과 섞인다(지적: 대기 20 19
-       18 밑에 벌써 show memory usage 결과가 붙어 있었다).
-       다 돌았거나 안 돌 때만 마지막까지 펼친다. */
-    runStep != null ? runStep : Math.max(stepAt, lastRan),
+    /* 돌고 있으면 **도는 줄**, 아니면 **고른 줄**이다 */
+    runStep != null ? runStep : stepAt,
     Math.max(0, steps.length - 1),
   )
   const conRef = useRef<HTMLDivElement>(null)
@@ -579,21 +575,24 @@ export default function RunAuto({
           <div className="ra-con" ref={conRef} onScroll={onConScroll}>
             {/* 지난 실행 — 다시 돌릴 때마다 콘솔이 초기화되던 것을 고쳤다(지시).
                 흐리게 그리고 가름선에 시각을 적어, 지금 것과 안 섞이게 한다. */}
-            {(past ?? []).map((p2, pi) => (
-              <div className="ra-past" key={`p${pi}`}>
-                <div className="ra-pastl">지난 실행{p2.at ? ` · ${p2.at}` : ''}</div>
-                {p2.steps.map((s2, i2) => (
-                  <div className="ra-blk" key={`p${pi}s${i2}`}>
-                    {s2.cmd ? (
-                      <div className="ra-cmd">
-                        {dut}# {s2.cmd}
-                      </div>
-                    ) : null}
+            {(past ?? []).map((p2, pi) => {
+              /* 지난 실행도 **같은 자리의 스텝**만 — 지금 것과 나란히 놓고
+                 견주라고 있는 자리다(누적이 아니다) */
+              const s2 = p2.steps[seeUpTo]
+              if (!s2) return null
+              return (
+                <div className="ra-past" key={`p${pi}`}>
+                  <div className="ra-pastl">지난 실행{p2.at ? ` · ${p2.at}` : ''}</div>
+                  <div className="ra-blk">
+                    <div className="ra-cmd">
+                      <b className="ra-bno">Step {seeUpTo + 1}</b>
+                      <span className="ra-bcmd">{s2.cmd ? `${dut}# ${s2.cmd}` : '—'}</span>
+                    </div>
                     <pre>{s2.out || '(출력 없음)'}</pre>
                   </div>
-                ))}
-              </div>
-            ))}
+                </div>
+              )
+            })}
             {!!(past ?? []).length && <div className="ra-pastl now">이번 실행</div>}
             {/* **이번 실행에서 아무것도 안 돌았으면 아무것도 안 그린다.**
                 예전엔 고른 스텝까지 무조건 그려서, 시작도 안 한 실행에
@@ -601,8 +600,8 @@ export default function RunAuto({
                 없는 명령이다(지적). */}
             {noneRan
               ? <pre className="ra-idle">아직 돌리지 않았습니다.</pre>
-              : steps.slice(0, Math.max(0, seeUpTo) + 1).map((s2, i2) => (
-              <div className={`ra-blk${i2 === seeUpTo ? ' on' : ''}`} key={s2.no ?? i2} ref={i2 === seeUpTo ? conEndRef : undefined}>
+              : steps.slice(seeUpTo, seeUpTo + 1).map((s2) => (
+              <div className="ra-blk" key={s2.no ?? seeUpTo} ref={conEndRef}>
                 <div className="ra-cmd">
                   <b className="ra-bno">Step {s2.no}</b>
                   <span className="ra-bcmd">{s2.cmd ? `${dut}# ${s2.cmd}` : s2.t || s2.action || '—'}</span>
@@ -613,9 +612,9 @@ export default function RunAuto({
                   ) : null}
                 </div>
                 {isWait(s2) ? (
-                  <pre className="ra-wait">{waitLine(s2, i2)}</pre>
+                  <pre className="ra-wait">{waitLine(s2, seeUpTo)}</pre>
                 ) : (
-                  <pre>{s2.out || (i2 === runStep ? '…' : '(출력 없음)')}</pre>
+                  <pre>{s2.out || (seeUpTo === runStep ? '…' : '(출력 없음)')}</pre>
                 )}
               </div>
               ))}
