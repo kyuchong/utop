@@ -393,7 +393,7 @@
    카드 왼쪽 끝부터 전체 폭을 쓴다. */
 .rm-fl .l {
   display: inline-block; background: #e6ecf0; color: #3f4d55; border-radius: 4px;
-  font-size: 12.5px; line-height: 1.5; padding: 1px 7px; margin: 0 8px 2px 0;
+  font-size: 11.5px; line-height: 1.5; padding: 1px 7px; margin: 0 8px 2px 0;
   white-space: nowrap; vertical-align: 1px; font-weight: 600;
 }
 .rm-fl .v { font-size: 12.5px; min-width: 0; }

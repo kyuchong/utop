@@ -458,10 +458,8 @@ export default function RunManual({
                 <div className={`rm-sc${v ? ` v-${vLetter(verds, v)}` : ''}`} key={i}>
                   <div className="rm-sch">
                     <b>Step #{i + 1}</b>
-                    {/* 판정한 스텝은 **한눈에 보이게**(지시) — 글자로도 말한다 */}
-                    {!!v && (
-                      <span className={`rm-sv ${vLetter(verds, v)}`}>{vDef(verds, v).label}</span>
-                    )}
+                    {/* 판정 딱지는 걷었다(지시) — 카드 왼쪽 띠와 판정 단추가
+                        이미 같은 말을 한다 */}
                     {/* 제목은 안 낸다(지시) — 바로 아래 Test Step 과 같은 글자다 */}
                     <span className="rm-sp" />
                     {!!m?.at && (
