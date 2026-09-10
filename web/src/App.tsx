@@ -16,6 +16,7 @@ import Settings from '@/pages/Settings'
 import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
 import Defects from '@/pages/Defects'
+import JiraIssues from '@/pages/JiraIssues'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
 import RackView from '@/pages/RackView'
@@ -32,7 +33,7 @@ const PAGE_KEY = 'utop.page'
 const KNOWN_PAGES = new Set([
   'dashboard', 'wiki', 'reqtc', 'cycles', 'runs', 'executions',
   'devices', 'instruments', 'rackview',
-  'defects', 'releases', 'ai-tc', 'ai-kb', 'plans-old', 'settings',
+  'defects', 'jira', 'releases', 'ai-tc', 'ai-kb', 'plans-old', 'settings',
 ])
 
 export default function App() {
@@ -324,6 +325,8 @@ export default function App() {
       ) : page === 'executions' ? (
         /* 옛 Reports 자리 — 북마크로 들어오면 플랜 화면을 보여 준다 */
         <Cycles me={user} />
+      ) : page === 'jira' ? (
+        <JiraIssues />
       ) : page === 'defects' ? (
         <Defects />
       ) : page === 'devices' ? (

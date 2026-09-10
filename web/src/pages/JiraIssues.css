@@ -1,0 +1,259 @@
+/* Jira Issue — 목업 결(.jn-*) 을 우리 이름(.jri-*) 으로 옮긴다.
+   `.jt` 는 이슈 유형 네모라 목업 이름을 그대로 쓰되 `.jri` 아래로 한정한다. */
+.jri {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--c-surface-alt, #f5f7f9);
+  position: relative;
+}
+
+/* 받아 왔다는 말 — 잠깐 뜨고 사라진다 */
+.jri-toast {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  z-index: 40;
+  max-width: min(760px, 88%);
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--c-app-top, #12505e);
+  color: #eaf4f6;
+  font-size: 12px;
+  box-shadow: 0 8px 22px rgb(18 80 94 / 28%);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jri-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft, #dfe4ea);
+  border-radius: 10px;
+}
+.jri-tools .sp { flex: 1; }
+.jri-last { font-size: 11px; color: var(--c-text-faint); }
+
+/* 프로젝트 고르개 */
+.jri-prjwrap { position: relative; display: inline-flex; }
+.jri-veil { position: fixed; inset: 0; z-index: 40; }
+.jri-prjpop {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 41;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border, #c3cbd4);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgb(18 80 94 / 18%);
+}
+.jri-prjpop > input {
+  border: 1px solid var(--c-border-soft, #dfe4ea);
+  border-radius: 7px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+  margin-bottom: 4px;
+}
+.jri-prjpop > input:focus { border-color: var(--c-primary); }
+.jri-prjlist { display: flex; flex-direction: column; max-height: 46vh; overflow: auto; }
+.jri-prjlist > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--c-text);
+  cursor: pointer;
+}
+.jri-prjlist > button:hover { background: var(--c-surface-alt, #f2f7f8); }
+.jri-prjlist > button.on { color: var(--c-primary); font-weight: 600; }
+.jri-prjlist > button > i { font-style: normal; width: 12px; flex: none; }
+.jri-prjlist > button > b {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  min-width: 62px;
+  flex: none;
+  font-weight: 600;
+}
+.jri-prjlist > button > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--c-text-muted);
+}
+.jri-prjft { display: flex; justify-content: flex-end; border-top: 1px solid var(--c-border-soft); padding-top: 5px; margin-top: 4px; }
+.jri-prjft button { border: 0; background: none; font: inherit; font-size: 11.5px; color: var(--c-primary); cursor: pointer; }
+.jri-none { padding: 12px 8px; font-size: 12px; color: var(--c-text-faint); }
+
+/* 고른 프로젝트 칩 */
+.jri-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 10px;
+  border-radius: 999px;
+  background: var(--c-primary-bg, #e9f1ff);
+  color: var(--c-primary);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+.jri-chip > i { font-style: normal; cursor: pointer; opacity: 0.6; font-size: 10px; }
+.jri-chip > i:hover { opacity: 1; }
+
+.jri-table { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.jri-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--c-text-faint);
+  background: var(--c-surface);
+  border: 1px dashed var(--c-border, #c3cbd4);
+  border-radius: 12px;
+}
+.jri-empty b { font-size: 15px; color: var(--c-text-muted); }
+.jri-empty span { font-size: 12.5px; max-width: 460px; line-height: 1.7; }
+
+/* 상태 로젠지 — 지라 것과 같은 결(테두리만, 옅은 바탕) */
+.jri-st {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 3px;
+  padding: 1px 6px;
+  border: 1px solid #dfe1e6;
+  background: #fff;
+  color: #42526e;
+  white-space: nowrap;
+}
+.jri-st.new { border-color: #dfe1e6; color: #42526e; }
+.jri-st.run { border-color: #b3d4ff; color: #0747a6; }
+.jri-st.done { border-color: #abf5d1; color: #006644; }
+
+/* 이슈 유형 네모 */
+.jri-ty { display: inline-flex; align-items: center; gap: 6px; }
+.jri .jt {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  min-height: 0;
+  border-radius: 3px;
+  position: relative;
+  flex: none;
+  background: #4bade8;
+}
+.jri .jt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+}
+.jri .jt.defect { background: #e5493a; }
+.jri .jt.devdefect { background: #ff7452; }
+.jri .jt.cr { background: #2684ff; }
+.jri .jt.osrel { background: #6554c0; }
+.jri .jt.story { background: #36b37e; }
+.jri .jt.task { background: #4bade8; }
+.jri .jt.subtask { background: #8fb8f6; }
+.jri .jt.doc { background: #ffab00; }
+.jri .jt.review { background: #00a3bf; }
+.jri .jt.epic { background: #904ee2; }
+
+.jri-hw {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 1px 7px;
+  background: #eef1f4;
+  color: var(--c-text-muted);
+}
+.jri-hw.h { background: #fdf2e0; color: #a15a00; }
+.jri-hw.s { background: #eaf1fd; color: #2f6fc3; }
+.jri-lbl {
+  display: inline-block;
+  font-size: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 0 5px;
+  margin-right: 3px;
+  color: #475569;
+}
+
+/* 이슈 하나 — 오른쪽에서 덮는다 */
+.jri-back { position: fixed; inset: 0; z-index: 60; background: rgb(20 30 40 / 22%); display: flex; justify-content: flex-end; }
+.jri-side {
+  width: min(620px, 92vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  border-left: 1px solid var(--c-border, #c3cbd4);
+  box-shadow: -8px 0 30px rgb(13 68 81 / 18%);
+}
+.jri-side > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+  background: var(--c-surface-alt, #f5f7f9);
+}
+.jri-side > header .sp { flex: 1; }
+.jri-side > header > b { font-family: var(--font-mono); font-size: 13px; }
+.jri-side > header > button {
+  width: 26px; height: 26px; display: grid; place-items: center;
+  border: 0; background: none; border-radius: 6px; color: var(--c-text-muted); cursor: pointer;
+}
+.jri-side > header > button:hover { background: var(--c-border-soft, #dfe4ea); }
+.jri-sbody { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px; }
+.jri-sbody h3 { margin: 0 0 14px; font-size: 15px; line-height: 1.5; }
+.jri-sbody h4 { margin: 16px 0 6px; font-size: 12px; color: var(--c-text-muted); }
+.jri-kv { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.jri-kv td { padding: 5px 8px; border-bottom: 1px solid #eef1f4; vertical-align: top; }
+.jri-kv td:first-child { width: 130px; color: var(--c-text-faint); }
+.jri-desc {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--c-text);
+  background: var(--c-surface-alt, #f5f7f9);
+  border-radius: 8px;
+  padding: 10px 12px;
+}

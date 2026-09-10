@@ -75,6 +75,15 @@ export const IconDefect = (p: P) => (
   </Svg>
 )
 
+export const IconJira = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 2l3.5 3.5L12 9 8.5 5.5z" />
+    <path d="M5.5 8.5 9 12l-3.5 3.5L2 12z" />
+    <path d="M18.5 8.5 22 12l-3.5 3.5L15 12z" />
+    <path d="M12 15l3.5 3.5L12 22l-3.5-3.5z" />
+  </Svg>
+)
+
 export const IconRelease = (p: P) => (
   <Svg {...p}>
     <path d="M12 3 3 8v8l9 5 9-5V8z" />

@@ -75,6 +75,7 @@ export const PERM_GROUPS: Array<{ title: string; items: PermModule[] }> = [
     title: 'Integration',
     items: [
       { k: 'defects', label: 'Defects', rights: RW },
+      { k: 'jira', label: 'Jira Issue', rights: RW },
       { k: 'releases', label: 'Releases', rights: RW },
     ],
   },

@@ -758,3 +758,22 @@ CREATE TABLE IF NOT EXISTS plan_run (
 CREATE INDEX IF NOT EXISTS plan_run_plan_idx  ON plan_run (plan_id);
 CREATE INDEX IF NOT EXISTS plan_run_vg_idx    ON plan_run (version_group);
 CREATE INDEX IF NOT EXISTS plan_run_upd_idx   ON plan_run (updated_at DESC);
+
+-- ── Jira 이슈 ──────────────────────────────────────────────────
+--
+-- 지라에는 8만 건이 넘게 있다. 물을 때마다 지라에 가면 화면이 늘 느리고
+-- 지라도 못 견딘다. **한 번 가져온 것은 여기 둔다.** 다음 Sync 는 마지막
+-- 으로 받은 갱신 시각 뒤에 바뀐 것만 가져온다(증분).
+--
+-- data 는 화면이 그대로 그리는 **펼친 행**이다 — 지라 원본은 fields 안에
+-- 객체가 겹겹이라, 표가 그것을 풀면 열마다 꼴을 따지는 코드가 생긴다.
+CREATE TABLE IF NOT EXISTS jira_issue (
+  key         TEXT PRIMARY KEY,          -- P106-2317
+  project     TEXT NOT NULL DEFAULT '',  -- 프로젝트 키(P106)
+  -- 지라의 updated. 증분 동기화가 이 값을 기준으로 삼는다
+  updated     TIMESTAMPTZ,
+  data        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  synced_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS jira_issue_prj_idx ON jira_issue (project);
+CREATE INDEX IF NOT EXISTS jira_issue_upd_idx ON jira_issue (updated DESC);

@@ -17216,6 +17216,218 @@ async def jira_projects(expand: str = ""):
                      "description": (p.get("description") or "")})
     return {"ok": True, "projects": _out}
 
+# ── Jira Issue 화면 — 프로젝트를 골라 훑는다 ──────────────────────
+#
+# 지라에는 8만 건이 넘게 있다. 다 가져오는 것은 뜻이 없고 지라도 못 견딘다.
+# 화면에서 **프로젝트를 골라** 그것만 훑는다(지시).
+#
+# 열 이름은 화면(목업)이 쓰는 것에 맞춘다. 커스텀 필드 id 는 지라에 물어
+# 확인한 실제 값이다 — 목업이 지어낸 것이 아니라 이 지라의 필드다.
+JIRA_CF = {
+    "customer": "customfield_10301",     # 사업자
+    "stage": "customfield_10302",        # 이슈단계
+    "probtype": "customfield_10303",     # 문제유형
+    "freq": "customfield_10304",         # 발생빈도
+    "hwsw": "customfield_10305",         # 이슈분류(HW,SW)
+    "lab": "customfield_11301",          # 시험시설
+    "start": "customfield_10200",        # 시작일(WBSGantt)
+    "due": "customfield_10201",          # 완료일(WBSGantt)
+    "crkind": "customfield_10300",       # CR 구분
+    "bsptest": "customfield_10399",      # BSP 시험버전
+    "bspfix": "customfield_10311",       # BSP 해결버전
+    "fwver": "customfield_10394",        # F/W Version
+    "sysinfo": "customfield_11402",      # 시스템정보
+}
+
+
+def _jf_txt(v) -> str:
+    """지라 필드 하나를 **사람이 읽는 한 줄**로.
+
+    지라는 같은 뜻을 세 꼴로 준다 — 글자, {name|value} 객체, 그 배열.
+    화면마다 풀면 열 스무 개에 같은 코드가 스무 번 생긴다."""
+    if v is None:
+        return ""
+    if isinstance(v, str):
+        return v
+    if isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, dict):
+        for k in ("name", "value", "displayName", "key"):
+            if v.get(k):
+                return str(v[k])
+        return ""
+    if isinstance(v, list):
+        return ", ".join(x for x in (_jf_txt(i) for i in v) if x)
+    return str(v)
+
+
+def _jira_row(it: dict) -> dict:
+    """지라 이슈 하나 → **표가 그대로 그리는 한 줄**."""
+    f = it.get("fields") or {}
+    row = {
+        "issuekey": it.get("key") or "",
+        "summary": _jf_txt(f.get("summary")),
+        "status": _jf_txt(f.get("status")),
+        "issuetype": _jf_txt(f.get("issuetype")),
+        "priority": _jf_txt(f.get("priority")),
+        "reporter": _jf_txt(f.get("reporter")),
+        "assignee": _jf_txt(f.get("assignee")),
+        # 날짜는 앞 열 자만 — 표에 시분초까지 있으면 눈이 숫자를 센다
+        "created": str(f.get("created") or "")[:10],
+        "updated": str(f.get("updated") or "")[:10],
+        "labels": _jf_txt(f.get("labels")),
+        "project": _jf_txt(f.get("project")),
+        "description": str(_jf_txt(f.get("description")) or "")[:400],
+    }
+    for name, cf in JIRA_CF.items():
+        row[name] = _jf_txt(f.get(cf))
+    row["start"] = str(row.get("start") or "")[:10]
+    row["due"] = str(row.get("due") or "")[:10]
+    return row
+
+
+JIRA_FIELDS = ",".join([
+    "summary", "status", "issuetype", "priority", "reporter", "assignee",
+    "created", "updated", "labels", "project", "description", *JIRA_CF.values(),
+])
+
+
+@app.get("/api/jira/issues")
+async def jira_issues(projects: str = "", q: str = "", limit: int = 2000):
+    """**우리 DB 에서** 읽는다 — 지라에 가지 않는다.
+
+    화면을 열 때마다 지라를 부르면 여덟 만 건 앞에서 늘 기다린다.
+    가져오는 것은 Sync 가 하고, 화면은 저장된 것을 본다."""
+    keys = [x.strip() for x in str(projects or "").split(",") if x.strip()]
+    cap = max(1, min(int(limit or 2000), 20000))
+    where, args = [], []
+    if keys:
+        args.append(keys)
+        where.append(f"project = ANY(${len(args)}::text[])")
+    if q.strip():
+        args.append(f"%{q.strip()}%")
+        where.append(f"(key ILIKE ${len(args)} OR data->>'summary' ILIKE ${len(args)})")
+    sql = "SELECT key, project, data FROM jira_issue"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    args.append(cap)
+    sql += f" ORDER BY updated DESC NULLS LAST LIMIT ${len(args)}"
+    async with db.pool().acquire() as c:
+        rows = await c.fetch(sql, *args)
+        cnt = await c.fetchval(
+            "SELECT count(*) FROM jira_issue" + (" WHERE project = ANY($1::text[])" if keys else ""),
+            *([keys] if keys else []))
+    out = []
+    for r in rows:
+        d = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
+        out.append(d)
+    st = await db.kv_get("jira.issues.sync") or {}
+    return {"ok": True, "rows": out, "total": int(cnt or 0), "shown": len(out),
+            "sync": {k: st.get(k) for k in keys} if keys else st}
+
+
+@app.post("/api/jira/issues/sync")
+async def jira_issues_sync(payload: dict):
+    """고른 프로젝트를 지라에서 **증분으로** 가져와 저장한다.
+
+    마지막으로 받은 갱신 시각 뒤에 바뀐 것만 부른다 — 두 번째부터는 몇 건씩
+    이라 금방 끝난다. `full` 이면 처음부터 다시 받는다.
+
+    시각은 **5 분 앞에서부터** 부른다. 지라의 JQL 은 분 단위라, 같은 분 안에
+    바뀐 이슈가 마지막 한 건 뒤에 더 있으면 그것이 통째로 빠진다."""
+    from datetime import timezone as _tz, timedelta as _td
+    keys = [str(x).strip() for x in (payload.get("projects") or []) if str(x).strip()]
+    if not keys:
+        return {"ok": False, "error": "프로젝트를 고르세요"}
+    full = bool(payload.get("full"))
+    cap = max(1, min(int(payload.get("cap") or 5000), 20000))
+    st = await db.kv_get("jira.issues.sync") or {}
+    cfg = _jira_cfg()
+    res: dict = {"added": 0, "updated": 0, "same": 0, "got": 0, "projects": {}}
+    t0 = datetime.now(_tz.utc)
+
+    for pk in keys:
+        mark = "" if full else str((st.get(pk) or {}).get("last_updated") or "")
+        jql = f'project = "{pk}"'
+        if mark:
+            try:
+                m = datetime.fromisoformat(mark) - _td(minutes=5)
+                jql += f' AND updated >= "{m.strftime("%Y-%m-%d %H:%M")}"'
+            except Exception:
+                mark = ""
+        jql += " ORDER BY updated ASC"
+        issues: list[dict] = []
+        start = 0
+        total = None
+        for _ in range(200):
+            r, err = _jira_call("GET", "/rest/api/2/search", cfg=cfg,
+                                params={"jql": jql, "startAt": start, "maxResults": 100,
+                                        "fields": JIRA_FIELDS})
+            if err:
+                return err
+            if not r.is_success:
+                return {"ok": False, "error": f"{pk} — {r.status_code} · {str(r.text)[:200]}"}
+            j = r.json()
+            batch = j.get("issues") or []
+            issues.extend(batch)
+            total = j.get("total", len(issues))
+            start += len(batch)
+            if not batch or start >= (total or 0) or len(issues) >= cap:
+                break
+
+        added = upd = same = 0
+        newest = mark
+        async with db.pool().acquire() as c:
+            for it in issues[:cap]:
+                row = _jira_row(it)
+                key = row["issuekey"]
+                if not key:
+                    continue
+                raw_upd = str(((it.get("fields") or {}).get("updated")) or "")
+                if raw_upd > (newest or ""):
+                    newest = raw_upd
+                old = await c.fetchrow("SELECT updated, data FROM jira_issue WHERE key=$1", key)
+                if old is None:
+                    added += 1
+                else:
+                    od = old["data"] if isinstance(old["data"], dict) else json.loads(old["data"] or "{}")
+                    if od == row:
+                        same += 1
+                        continue
+                    upd += 1
+                await c.execute(
+                    """INSERT INTO jira_issue (key, project, updated, data, synced_at)
+                       VALUES ($1,$2,$3,$4::jsonb, now())
+                       ON CONFLICT (key) DO UPDATE
+                         SET project=EXCLUDED.project, updated=EXCLUDED.updated,
+                             data=EXCLUDED.data, synced_at=now()""",
+                    key, str(row.get("project") or pk),
+                    _iso_ts(raw_upd), json.dumps(row, ensure_ascii=False))
+        st[pk] = {"at": t0.isoformat(), "last_updated": newest,
+                  "n": len(issues), "total": total or len(issues)}
+        res["projects"][pk] = {"got": len(issues), "added": added, "updated": upd, "same": same}
+        res["added"] += added
+        res["updated"] += upd
+        res["same"] += same
+        res["got"] += len(issues)
+
+    await db.kv_set("jira.issues.sync", st)
+    res["ms"] = int((datetime.now(_tz.utc) - t0).total_seconds() * 1000)
+    res["ok"] = True
+    res["sync"] = {k: st.get(k) for k in keys}
+    return res
+
+
+def _iso_ts(v: str):
+    """지라가 준 시각 글자를 TIMESTAMPTZ 로. 못 읽으면 비운다."""
+    if not v:
+        return None
+    try:
+        return datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
 @app.get("/api/jira/issuetypes")
 async def jira_issuetypes(project: str):
     r, err = _jira_call("GET", f"/rest/api/2/issue/createmeta?projectKeys={project}&expand=projects.issuetypes")

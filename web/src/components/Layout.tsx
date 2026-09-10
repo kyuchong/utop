@@ -4,6 +4,7 @@ import {
   IconCycle,
   IconDashboard,
   IconDefect,
+  IconJira,
   IconKnowledge,
   IconPanelToggle,
   IconRelease,
@@ -89,6 +90,8 @@ export const NAV: NavGroup[] = [
     title: 'INTEGRATION',
     items: [
       { key: 'defects', label: 'Defects', Icon: IconDefect },
+      /* 지라에서 **가져다 보는** 자리다 — 붙이는 설정은 SETUP 에 있다 */
+      { key: 'jira', label: 'Jira Issue', Icon: IconJira },
       { key: 'releases', label: 'Releases', Icon: IconRelease },
       /* Jira 연동(붙이는 설정)은 설정 화면으로 옮겼다. 여기 있는 것은
          Jira 에서 가져다 **보는** 것이고, 붙이는 일은 한 번 하고 마는
