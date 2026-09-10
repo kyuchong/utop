@@ -17655,8 +17655,10 @@ async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = Non
             if not wid or wid in seen_w:
                 continue
             seen_w.add(wid)
+            # 앞 280 자를 그냥 자르지 않는다 — 조각이 길면 물어본 말이
+            # 한 글자도 안 든 발췌가 근거로 나간다(지적: 「동작 온도」).
             out.append({"kind": "wiki", "id": wid, "title": str(h.get("name") or "(이름 없음)"),
-                        "snippet": str(h.get("text") or "")[:280]})
+                        "snippet": _kai_snip(str(h.get("text") or ""), terms, 280)})
             if len(seen_w) >= cap:
                 break
     async with db.pool().acquire() as c:
