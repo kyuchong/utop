@@ -359,6 +359,22 @@ async function doRun(run: Run): Promise<void> {
       false,
     )
 
+    /* **회차가 정말 몇 번 돌았나**(진단). 절차는 from=1 to=20 으로 멀쩡한데
+       화면에는 1 회처럼 보인다 — 실제로 돈 횟수와 화면이 갈리는지 가른다.
+       runSteps 가 반복 안 스텝의 rounds 에 회차별 기록을 남긴다. */
+    try {
+      const _rd = steps
+        .map((st, ix) => {
+          const rs = (st as unknown as { rounds?: unknown[] })?.rounds
+          return Array.isArray(rs) && rs.length ? `#${ix + 1}:${rs.length}회` : ''
+        })
+        .filter(Boolean)
+        .join(' ')
+      log(_rd ? `회차 기록 — ${_rd}` : '회차 기록 없음 (반복 안 스텝에 rounds 가 안 남았다)')
+    } catch {
+      /* 진단이 실행을 막으면 안 된다 */
+    }
+
     it.steps = steps
     // 사람이 손으로 정한 옛 결과를 지운다. 안 지우면 항목 판정에서 그 값이
     // 스텝을 이겨서, 방금 세 스텝 다 Pass 인데도 목록엔 옛 Fail 이 남는다.
