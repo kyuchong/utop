@@ -6280,23 +6280,31 @@ async def save_tc(tc_id: str, data: dict):
                 "새로 읽어 확인한 뒤 다시 저장하세요."
                 + (f" (내 이름: {who})" if who else ""),
             )
-    # ★ 안전장치: payload 에 checks 필드가 없거나 배열이 아닌데 DB 에 기존 checks 가 있으면
-    #    lazy load 미로드 상태의 tc 를 그대로 저장 시도한 것 → checks 보존해서 스텝 유실 방지.
-    #    (프론트 lazy loading 제거했지만 캐시된 옛 코드/외부 API 호출 등에 대한 서버측 마지막 방어선)
+    # ★ **안 보낸 칸은 기존 값을 지킨다**(지적: 요구사항만 옮겼는데 값이 사라졌다).
+    #
+    #   예전엔 checks·sessions 두 칸만 지켰다. 그런데 「연결만 바꾸는」 창 셋
+    #   (TcLinkForm · ReqMapDialog · TcMapReqDialog)이 여섯 칸만 보내는 바람에
+    #   **model · model_group · run_type · origin · meterCfg 가 통째로 날아갔다**.
+    #   요구사항을 옮기는 일이 모델을 지울 까닭이 없다.
+    #
+    #   키가 **아예 없는** 것은 「지운 것」 이 아니라 「안 보낸 것」 이다.
+    #   빈 값(''·[]·null)을 보낸 것은 지우겠다는 뜻이라 그대로 둔다 — 그래서
+    #   `k not in data` 로만 되살린다(값이 있는 칸은 payload 가 이긴다).
     try:
-        _need_checks = not isinstance(data.get("checks"), list)
-        # ★ 세션도 같은 방어선(지적: 장비 세션 증발 재발) — 필드가 아예 없으면
-        #   지운 게 아니라 안 보낸 것이다. [] 는 의도적 삭제로 인정.
-        _need_sess = not isinstance(data.get("sessions"), list)
-        if _need_checks or _need_sess:
-            _prev_full = await db.tc_get(tc_id)
-            if isinstance(_prev_full, dict):
-                if _need_checks and isinstance(_prev_full.get("checks"), list) and _prev_full["checks"]:
-                    data["checks"] = _prev_full["checks"]
-                    print(f"[save_tc] checks 누락 감지 → 기존 값 {len(_prev_full['checks'])}건 보존 (tcid={tc_id})", flush=True)
-                if _need_sess and isinstance(_prev_full.get("sessions"), list) and _prev_full["sessions"]:
-                    data["sessions"] = _prev_full["sessions"]
-                    print(f"[save_tc] sessions 누락 감지 → 기존 값 {len(_prev_full['sessions'])}건 보존 (tcid={tc_id})", flush=True)
+        _prev_full = await db.tc_get(tc_id)
+        if isinstance(_prev_full, dict) and _prev_full:
+            _keep = {
+                k: v
+                for k, v in _prev_full.items()
+                # 밑줄로 시작하는 것은 서버가 붙이는 메타(_rev·_created_at)라 되살리지 않는다
+                if k not in data and not str(k).startswith("_")
+            }
+            if _keep:
+                data = {**_keep, **data}
+                print(
+                    f"[save_tc] 안 보낸 칸 {len(_keep)}개를 기존 값으로 지킴 (tcid={tc_id}) — {sorted(_keep)[:8]}",
+                    flush=True,
+                )
     except Exception:
         pass
     # 저장 직전 이전 값 스냅샷 — 스텝(checks) 이 있고 새 값과 스텝 수가 다르면 백업.
