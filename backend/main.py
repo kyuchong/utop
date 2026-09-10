@@ -3009,7 +3009,7 @@ LLM_PURPOSES: dict[str, dict] = {
         ),
     },
     # ── 화면에 안 세우는 것 ─────────────────────────────────────
-    # 「일곱 자리」 는 사람이 손보는 자리다(지시). 이것은 고를 것이 없는
+    # 위의 것들은 사람이 손보는 자리다(지시). 이것은 고를 것이 없는
     # 붙박이라 목록에서 감춘다 — 지우면 AI 「일반」 갈래가 시험을 못 고른다.
     "similar": {
         "hidden": True,
@@ -3100,7 +3100,7 @@ async def llm_purposes():
     out = []
     for k, v in LLM_PURPOSES.items():
         if v.get("hidden"):
-            continue          # 사람이 손볼 자리만 세운다(지시: 일곱 자리)
+            continue          # 사람이 손볼 자리만 세운다(지시)
         cur = _prompt_of(k)
         out.append({
             "id": k,
@@ -16851,9 +16851,13 @@ async def api_defect_classify(payload: dict):
         if cls is None:
             fails.append(k); continue
         if not cls.get("source"):
+            # 못 가른 것은 **센 수에 넣지 않는다** — 넣으면 「200건 갈랐고
+            # 200건 못 갈랐다」 처럼 두 숫자가 서로를 부정한다
             fails.append(k)
+        else:
+            done += 1
         cls["by"] = "llm"; cls["at"] = now
-        store[k] = cls; done += 1
+        store[k] = cls
     _save_defect_class(store)
     return {"ok": True, "classified": done, "failed": fails, "total": len(todo),
             "llm": llm.get("name") or llm.get("model") or ""}

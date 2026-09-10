@@ -169,11 +169,20 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   /** 표에서 체크한 줄 — 분류가 누구를 대상으로 도는지 정한다 */
   const [checked, setChecked] = useState<string[]>([])
   const [clsAsk, setClsAsk] = useState(false)
+  /** 이 숫자가 오르면 표가 고른 줄을 푼다 — 방금 한 일이 또 될 것 같아 멈칫한다 */
+  const [selEpoch, setSelEpoch] = useState(0)
   /* 열 한 벌 — 숨김·폭·차례. 보기 탭(NViews)에 담기는 것이 바로 이 셋이라
      따로 들고 있어야 탭을 골랐을 때 그대로 얹을 수 있다. 계정을 따라간다. */
-  const [hidden, setHidden] = useState<string[]>(() =>
-    prefJson<string[]>(COL_KEY, COLS.filter((c) => !c.def).map((c) => c.key)),
-  )
+  const [hidden, setHidden] = useState<string[]>(() => {
+    const dflt = COLS.filter((c) => !c.def).map((c) => c.key)
+    const saved = prefJson<string[] | null>(COL_KEY, null)
+    if (!saved) return dflt
+    /* 저장해 둔 뒤에 **열이 늘면** 그 계정에만 새 열이 다 펼쳐져 뜬다 —
+       저장분에 아예 없던 열은 기본값을 따른다(본 적 없는 열이라 「보이게
+       해 둔 것」 이 아니다). */
+    const known = new Set(saved)
+    return [...saved, ...dflt.filter((k) => !known.has(k))]
+  })
   const [widths, setWidths] = useState<Record<string, number>>(() => prefJson(W_KEY, {}))
   const [order, setOrder] = useState<string[]>(() => prefJson(ORD_KEY, []))
   const [nvId, setNvId] = useState('')
@@ -380,6 +389,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
           : `● ${j.classified ?? 0}건을 갈랐습니다${bad ? ` · 못 가른 것 ${bad}건` : ''}${j.llm ? ` (${j.llm})` : ''}`,
       )
       void qc.invalidateQueries({ queryKey: ['jira-defclass'] })
+      setSelEpoch((n) => n + 1)
       window.setTimeout(() => setFlash(''), 8000)
     } catch (e) {
       setFlash(`분류 실패 — ${e instanceof Error ? e.message : String(e)}`)
@@ -399,14 +409,34 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
       classes: { ...(old?.classes ?? {}), [key]: next },
     }))
     try {
-      await apiFetch('/api/jira/defect/class', {
+      const r = await apiFetch('/api/jira/defect/class', {
         method: 'POST',
         body: JSON.stringify({ key, class: next }),
       })
+      const j = (await r.json()) as { ok?: boolean; class?: DefClass }
+      /* 서버는 **발생상황에 안 맞는 값을 걸러 낸다** — 현장장애 줄에
+         상용망 값(신규기능·항목·유형)을 고르면 빈 값으로 돌아온다.
+         돌려받은 것을 그대로 쓰고, 떨어졌으면 왜 그런지 말해 준다.
+         안 그러면 골라 놓은 값이 소리 없이 사라진 것처럼 보인다. */
+      if (j.ok && j.class) {
+        const got = String(j.class[field] ?? '')
+        qc.setQueryData(
+          ['jira-defclass'],
+          (old: { classes?: Record<string, DefClass> } | undefined) => ({
+            ...(old ?? {}),
+            classes: { ...(old?.classes ?? {}), [key]: j.class as DefClass },
+          }),
+        )
+        if (value && got !== value) {
+          setFlash(
+            `「${value}」 는 ${next.source || '이 발생상황'} 에는 쓰지 않는 값이라 저장되지 않았습니다`,
+          )
+          window.setTimeout(() => setFlash(''), 6000)
+        }
+      }
     } catch {
       setFlash('분류를 저장하지 못했습니다')
     }
-    void qc.invalidateQueries({ queryKey: ['jira-defclass'] })
   }
 
   const syncMark = issQuery.data?.sync ?? {}
@@ -609,6 +639,10 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
               setOrder(cs.map((c) => c.key))
             }}
             onSelect={setChecked}
+            selEpoch={selEpoch}
+            /* 「삭제」 는 이 표에 없는 일이다 — 지라가 정본이라 여기서 지울 수
+               없다. 안 넘기면 NTable 기본 단추가 서서 눌러도 아무 일이 없다. */
+            bulk={[{ k: 'csv', label: '엑셀' }]}
             onCell={(id, key, v) => void saveCls(id, key, v)}
             onOpen={(id) => setSel(id)}
             onPeek={(id) => setSel(id)}
