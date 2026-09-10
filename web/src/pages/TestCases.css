@@ -3839,9 +3839,11 @@ html .tc-split > .tc-content {
 /* 주석·메시지는 **줄 전체를 쓴다**(지시). 장비로 아무것도 안 나가는 글이라
    절차 설명도 결과도 없다 — 그 칸들을 비워 두면 긴 글이 명령 칸 안에서만
    잘리고 오른쪽은 텅 빈다. ▶·⋯ 만 제자리에 남긴다. */
-.sq-row.note > .sq-sum { grid-column: 8 / -1; }
-.sq-row.note > .sq-dsc,
-.sq-row.note > .sq-res { display: none; }
+/* 주석·메시지는 줄 전체를 쓰되 **결과 칸은 남긴다**. 끝까지 먹으면 그 칸의
+   세로선이 주석 줄에서만 사라져 격자가 거기서 끊긴다(지적). 절차 설명만
+   합치고, 결과 칸은 빈 채로 서서 선을 잇는다. */
+.sq-row.note > .sq-sum { grid-column: 8 / -2; }
+.sq-row.note > .sq-dsc { display: none; }
 
 /* 좁은 칸들에도 세로선(지시). 끝 칸(결과)만 뺀다 — 표 테두리가 그 자리다 */
 .sq-row > .sq-judc,
