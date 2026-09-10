@@ -61,7 +61,6 @@ const COLS: Array<{ key: string; label: string; type?: NCol['type']; w?: number;
   { key: 'bsptest', label: 'BSP 시험버전', w: 126 },
   { key: 'bspfix', label: 'BSP 해결버전', w: 126 },
   { key: 'fwver', label: 'F/W Version', w: 118 },
-  { key: 'sysinfo', label: '시스템정보', w: 160 },
   { key: 'labels', label: '라벨', w: 150 },
   { key: 'description', label: '내용', w: 280 },
 ]
@@ -425,7 +424,6 @@ export default function JiraIssues() {
                     ['BSP 해결버전', 'bspfix'],
                     ['F/W Version', 'fwver'],
                     ['CR 구분', 'crkind'],
-                    ['시스템정보', 'sysinfo'],
                     ['라벨', 'labels'],
                   ].map(([lb, k]) => {
                     const v = String(cur[k as string] ?? '').trim()

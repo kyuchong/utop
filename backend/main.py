@@ -17236,7 +17236,6 @@ JIRA_CF = {
     "bsptest": "customfield_10399",      # BSP 시험버전
     "bspfix": "customfield_10311",       # BSP 해결버전
     "fwver": "customfield_10394",        # F/W Version
-    "sysinfo": "customfield_11402",      # 시스템정보
 }
 
 
@@ -17276,8 +17275,11 @@ def _jira_row(it: dict) -> dict:
         "created": str(f.get("created") or "")[:10],
         "updated": str(f.get("updated") or "")[:10],
         "labels": _jf_txt(f.get("labels")),
-        "project": _jf_txt(f.get("project")),
-        "description": str(_jf_txt(f.get("description")) or "")[:400],
+        # 프로젝트는 **key** 다 — _jf_txt 는 name 을 먼저 집는데, 지라 프로젝트
+        # 이름이 「@제품검증1팀」 처럼 팀 이름인 곳이 있어 key 로 못 찾게 된다
+        "project": str((f.get("project") or {}).get("key") or _jf_txt(f.get("project"))),
+        "projectname": _jf_txt(f.get("project")),
+        "description": str(_jf_txt(f.get("description")) or "")[:4000],
     }
     for name, cf in JIRA_CF.items():
         row[name] = _jf_txt(f.get(cf))
@@ -17315,8 +17317,8 @@ async def jira_issues(projects: str = "", q: str = "", limit: int = 2000):
     async with db.pool().acquire() as c:
         rows = await c.fetch(sql, *args)
         cnt = await c.fetchval(
-            "SELECT count(*) FROM jira_issue" + (" WHERE project = ANY($1::text[])" if keys else ""),
-            *([keys] if keys else []))
+            "SELECT count(*) FROM jira_issue" + (" WHERE " + " AND ".join(where) if where else ""),
+            *args[:-1])
     out = []
     for r in rows:
         d = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
