@@ -10,6 +10,7 @@ PostgreSQL 커넥션 풀 + 공통 CRUD 헬퍼.
 """
 from __future__ import annotations
 import os, json, re
+import datetime as _dt
 from typing import Any, Optional
 from pathlib import Path
 
@@ -2454,6 +2455,21 @@ async def run_stop_ask(run_id: str) -> bool:
         return r.endswith(" 1")
 
 
+def _log_ts(v):
+    """실행기가 잰 **줄이 생긴 시각**. 없으면 None 이라 DB 가 now() 를 넣는다.
+
+    이 값이 없으면 서버에 닿은 시각이 찍힌다 — 모아 보내므로 한 묶음이
+    통째로 같은 시각이 된다(지적: 20 회가 모두 같은 초).
+    """
+    raw = str(v or "").strip()
+    if not raw:
+        return None
+    try:
+        return _dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
 async def run_log_add(run_id: str, lines: list) -> int:
     """로그를 붙이고 마지막 seq 를 돌려준다."""
     if not lines:
@@ -2481,12 +2497,13 @@ async def run_log_add(run_id: str, lines: list) -> int:
                 str(x.get("kind") or ""), str(x.get("text") or ""),
                 # 반복 회차 — 없으면 NULL(반복 밖). 0 은 회차가 아니다.
                 (int(x["round"]) if str(x.get("round") or "").strip().isdigit() and int(x["round"]) > 0 else None),
+                _log_ts(x.get("ts")),
             )
             for n, x in enumerate(lines)
         ]
         await c.executemany(
-            "INSERT INTO cycle_run_log (run_id, seq, item_at, i, kind, text, round) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING",
+            "INSERT INTO cycle_run_log (run_id, seq, item_at, i, kind, text, round, at) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,coalesce($8, now())) ON CONFLICT DO NOTHING",
             rows,
         )
         return base + len(rows)

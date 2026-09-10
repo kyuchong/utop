@@ -20074,7 +20074,13 @@ async def run_progress(run_id: str, payload: dict):
     _runner_guard(payload.get("key"))
     logs = payload.get("logs") if isinstance(payload.get("logs"), list) else []
     if logs:
-        await db.run_log_add(run_id, logs)
+        # **seq 를 붙여서** 넘긴다 — 보고 있는 화면이 WebSocket 으로 받은 줄과
+        # 나중에 다시 읽은 줄을 seq 로 가른다. 없으면 같은 줄이 두 번 그려진다.
+        end = await db.run_log_add(run_id, logs)
+        base = end - len(logs)
+        for n, x in enumerate(logs):
+            if isinstance(x, dict):
+                x["seq"] = base + n + 1
     patch = {k: v for k, v in (payload.get("patch") or {}).items()}
     run = await db.run_progress(run_id, patch)
     if run is None:

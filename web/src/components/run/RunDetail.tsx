@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import { onWs } from '@/api/wsBus'
 import { isManual } from '@/lib/runMode'
 import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
 import type { CycleMeta, CycleStep } from '@/pages/Cycles'
@@ -391,9 +392,11 @@ export default function RunDetail({
     enabled: !!jobId,
     refetchInterval: (q) => {
       const st = String((q.state.data as { run?: { status?: string } } | undefined)?.run?.status ?? '')
-      /* 1초. 2초로 두었더니 0.37초짜리 스텝은 통째로 지나가 버려
-         「실시간이 아닌 것 같다」 는 말이 나왔다(지적). */
-      return st === 'queued' || st === 'running' ? 1000 : false
+      /* **WebSocket 이 주 경로**다(아래 onWs). 이 폴링은 그물일 뿐이다 —
+         연결이 끊겼거나 메시지를 놓쳤을 때만 메운다. 폴링으로 라이브를
+         만들려 하면 「한 번에 팍」 이 된다: 실행기가 모아 보낸 묶음이
+         폴링 주기에 한 번 더 뭉치기 때문이다(지적). */
+      return st === 'queued' || st === 'running' ? 2500 : false
     },
     queryFn: async () => {
       /* **이어받는다**. 서버는 한 번에 5,000 줄에서 끊으므로 매번 처음부터
@@ -424,6 +427,33 @@ export default function RunDetail({
       return { run: j.run, logs: buf.rows }
     },
   })
+  /* **실행기가 보낸 줄을 곧바로 받는다**(지시: 실시간 라이브처럼 보여야 한다).
+     서버는 진작부터 WebSocket 으로 밀고 있었는데 이 화면만 안 듣고 있었다 —
+     TC 화면이 라이브로 보이던 것은 제 손으로 돌려 바로 그렸기 때문이다. */
+  useEffect(() => {
+    if (!jobId) return
+    return onWs((m) => {
+      if (m.type !== 'run_progress') return
+      const r = m.run as { id?: string } | undefined
+      if (!r || String(r.id ?? '') !== jobId) return
+      const buf = logBuf.current
+      if (buf.id !== jobId) {
+        buf.id = jobId
+        buf.seq = 0
+        buf.rows = []
+      }
+      // 이미 본 줄은 버린다 — 폴링이 같은 줄을 또 실어 올 수 있다
+      const add = (((m.logs as LiveLog[] | undefined) ?? []) as LiveLog[]).filter(
+        (x) => Number(x.seq ?? 0) > buf.seq,
+      )
+      if (add.length) {
+        for (const x of add) buf.seq = Math.max(buf.seq, Number(x.seq ?? 0))
+        buf.rows = [...buf.rows, ...add].slice(-LOG_KEEP)
+      }
+      qc.setQueryData(['run-job', jobId], { run: r, logs: buf.rows })
+    })
+  }, [jobId, qc])
+
   const job = jobQ.data?.run
   /** 실행기가 보낸 줄 — 실행 이벤트가 이것을 그대로 그린다(리얼타임) */
   const jobLogs = jobQ.data?.logs

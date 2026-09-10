@@ -24,7 +24,10 @@ const NAME = process.env.RUNNER_NAME || 'runner'
 /** 일감이 없을 때 얼마나 있다가 다시 묻나 */
 const IDLE_MS = Number(process.env.RUNNER_IDLE_MS || 2000)
 /** 진행을 얼마나 자주 올리나. 너무 잦으면 DB 를 두들기고, 뜸하면 화면이 멎어 보인다 */
-const PUSH_MS = Number(process.env.RUNNER_PUSH_MS || 700)
+/* 모아 두는 시간. 700ms 는 **한 묶음이 통째로 튀어나오게** 했다 —
+   회차가 150ms 마다 도니 다섯 회차가 한꺼번에 올라온다(지적: 한 번에 팍).
+   200ms 면 회차마다 한 번꼴이라 한 줄씩 올라오는 것으로 보인다. */
+const PUSH_MS = Number(process.env.RUNNER_PUSH_MS || 200)
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
@@ -72,7 +75,7 @@ interface Item {
  * 않는다** — 보고 있는 사람은 지금 무엇이 도는지가 궁금하다.
  */
 class Pusher {
-  private logs: Array<RunLog & { at: number }> = []
+  private logs: Array<RunLog & { at: number; ts: string }> = []
   private patch: Record<string, unknown> = {}
   private last = 0
   /**
@@ -91,7 +94,10 @@ class Pusher {
     this.at = n
   }
   addLog(x: RunLog): void {
-    this.logs.push({ ...x, at: this.at })
+    /* **줄이 생긴 그때**를 함께 싣는다(지시: 실시간 라이브처럼 보여야 한다).
+       안 실으면 서버에 닿은 시각이 찍혀, 한 묶음이 통째로 같은 시각이 된다 —
+       20 회가 모두 같은 초로 보이던 것이 이것이다(지적). */
+    this.logs.push({ ...x, at: this.at, ts: new Date().toISOString() })
   }
   set(p: Record<string, unknown>): void {
     Object.assign(this.patch, p)
