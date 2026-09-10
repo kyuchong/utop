@@ -2990,6 +2990,24 @@ LLM_PURPOSES: dict[str, dict] = {
             "4) 수치·버전·판정은 근거에 적힌 그대로 옮긴다."
         ),
     },
+    "jira_defect": {
+        "label": "Jira-분류",
+        "hint": "Jira Issue › 「LLM 분류」 — 이슈를 발생상황·장비·카테고리로 가릅니다. "
+                "고를 수 있는 값 목록은 코드가 뒤에 붙입니다.",
+        "system": (
+            "너는 네트워크 장비 시험 이슈(Jira)를 defect 로 가르는 분류기다. "
+            "아래 스키마의 허용값 중에서만 골라 JSON 으로만 답한다. 설명·코드펜스 금지.\n"
+            "판단 기준:\n"
+            "1) 현장(운용망·고객사)에서 난 장애면 source=현장장애, "
+            "상용망 검증(BMT·사전검증)에서 났으면 source=상용망검증.\n"
+            "2) 장비군은 L2 · L3 · FTTH(OLT·광가입자) 중 하나.\n"
+            "3) 카테고리는 가장 맞는 하나만.\n"
+            "4) 상용망검증이면 item 과 type3 도 채운다.\n"
+            "5) **모르면 빈 문자열로 둔다** — 지어내지 않는다. 반쯤 맞는 값을 채우면 "
+            "집계가 통째로 어긋난다.\n"
+            '출력 형식: {"source":"","device":"","category":"","item":"","type3":""}'
+        ),
+    },
     # ── 화면에 안 세우는 것 ─────────────────────────────────────
     # 「일곱 자리」 는 사람이 손보는 자리다(지시). 이것은 고를 것이 없는
     # 붙박이라 목록에서 감춘다 — 지우면 AI 「일반」 갈래가 시험을 못 고른다.
@@ -16798,40 +16816,47 @@ async def api_defect_classify(payload: dict):
     todo = keys if overwrite else [k for k in keys if not (store.get(k) or {}).get("source")]
     if not todo:
         return {"ok": True, "classified": 0, "skipped": len(keys), "message": "이미 모두 분류됨(덮어쓰기 아님)"}
-    # LLM 선택 (llms.json active + endpoint)
-    llms = (load_json(LLMS_FILE).get("llms") or [])
-    active = [l for l in llms if l.get("status", "active") == "active" and l.get("endpoint")]
-    llm = next((l for l in active if str(l.get("type") or "").lower() not in ("claude", "anthropic") and "anthropic.com" not in str(l.get("endpoint", ""))), None) or (active[0] if active else None)
+    # 쓸 LLM 도 **설정이 정한다** — 용도에 붙여 둔 것이 있으면 그것(지시)
+    llm = _llm_pick("jira_defect")
     if not llm:
-        raise HTTPException(400, "사용 가능한 LLM이 없습니다 (시스템 → LLM 설정)")
-    texts = _jira_issue_texts(todo)
-    sys_p = (
-        "너는 네트워크 장비 시험 이슈(Jira)를 defect로 분류하는 분류기다. 아래 스키마의 허용값 중에서만 골라 JSON으로만 답한다. 설명·코드펜스 금지.\n"
-        + _defect_schema_text() +
-        "판단 기준: 현장(운용망/고객사)에서 발생한 장애면 source=현장장애, 상용망 검증(BMT/사전검증)에서 발생하면 source=상용망검증. "
-        "장비군은 L2/L3/FTTH(OLT/광가입자) 중 택1. 카테고리는 서비스/기능/운용/IPv6 등에서 가장 적합한 1개. "
-        "상용망검증이면 item(RFP/표준Config/CR_Defect/UTS(SNMP)/부팅/반복Aging)과 type3도 함께 채운다. 모르면 빈 문자열.\n"
-        '출력 형식: {"source":"","device":"","category":"","item":"","type3":""}'
-    )
-    import json as _json, datetime as _dt, re as _re
+        raise HTTPException(400, "쓸 수 있는 LLM 이 없습니다 (SETUP → LLM 설정)")
+    texts = await _jira_texts_for(todo)
+    # 프롬프트는 **SETUP 의 용도별 프롬프트**에서 온다(지시). 고를 수 있는 값
+    # 목록만 코드가 뒤에 붙인다 — 그것은 글이 아니라 스키마라, 사람이 프롬프트를
+    # 손보다 지우면 LLM 이 없는 값을 지어내기 시작한다.
+    sys_p = (_prompt_of("jira_defect").get("system") or "") + "\n" + _defect_schema_text()
+    import json as _json, datetime as _dt, re as _re, asyncio as _aio
     now = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-    done = 0; fails = []
-    for k in todo:
+    fails = []
+
+    # 한 건씩 줄 세우면 백 건에 몇 분이다. 다섯 갈래로 나란히 부른다 —
+    # 더 늘리면 로컬 LLM 이 큐에서 밀려 되레 느려진다.
+    gate = _aio.Semaphore(5)
+
+    async def one(k: str):
         txt = texts.get(k) or ""
         if not txt:
+            return k, None
+        async with gate:
+            try:
+                out = await _jira_llm_complete(
+                    llm, sys_p, "이슈:\n" + txt + "\n분류 JSON:", max_tokens=200, temp=0.0)
+                m = _re.search(r"\{[\s\S]*\}", str(out or ""))
+                return k, _defect_norm(_json.loads(m.group(0)) if m else {})
+            except Exception:
+                return k, _defect_norm({})
+
+    done = 0
+    for k, cls in await _aio.gather(*[one(k) for k in todo]):
+        if cls is None:
             fails.append(k); continue
-        try:
-            out = await _jira_llm_complete(llm, sys_p, "이슈:\n" + txt + "\n분류 JSON:", max_tokens=200, temp=0.0)
-            m = _re.search(r"\{[\s\S]*\}", str(out or ""))
-            cls = _defect_norm(_json.loads(m.group(0)) if m else {})
-        except Exception:
-            cls = _defect_norm({})
         if not cls.get("source"):
             fails.append(k)
         cls["by"] = "llm"; cls["at"] = now
         store[k] = cls; done += 1
     _save_defect_class(store)
-    return {"ok": True, "classified": done, "failed": fails, "total": len(todo), "llm": llm.get("name") or llm.get("model") or ""}
+    return {"ok": True, "classified": done, "failed": fails, "total": len(todo),
+            "llm": llm.get("name") or llm.get("model") or ""}
 
 @app.get("/api/jira/config")
 async def jira_get_config():
@@ -18710,6 +18735,45 @@ def _defect_norm(cls: dict) -> dict:
     else:
         out["item"] = ""; out["type3"] = ""
     return out
+
+async def _jira_texts_for(keys):
+    """이슈 본문 — **우리 DB 를 먼저 본다**.
+
+    _jira_issue_texts 는 키 하나에 지라 왕복 한 번이라 백 건이면 백 번이다.
+    Sync 로 받아 둔 것이 이미 표에 있으니 그것을 쓰고, **없는 것만** 지라에
+    묻는다. 표에는 댓글이 없는 대신 문제유형·이슈분류·시험시설·이슈단계가
+    있어 가르는 데에는 오히려 쓸 만하다.
+    """
+    have: dict = {}
+    try:
+        async with db.pool().acquire() as c:
+            rows = await c.fetch(
+                "SELECT key, data FROM jira_issue WHERE key = ANY($1::text[])", list(keys))
+        for r in rows:
+            d = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
+            have[str(r["key"])] = d or {}
+    except Exception:
+        have = {}
+    out, miss = {}, []
+    for k in keys:
+        d = have.get(k)
+        if not d:
+            miss.append(k)
+            continue
+        out[k] = (
+            f"[제목] {d.get('summary') or ''}\n"
+            f"[유형] {d.get('issuetype') or ''}\n"
+            f"[문제유형] {d.get('probtype') or ''}\n"
+            f"[이슈분류] {d.get('hwsw') or ''}\n"
+            f"[이슈단계] {d.get('stage') or ''}\n"
+            f"[시험시설] {d.get('lab') or ''}\n"
+            f"[라벨] {d.get('labels') or ''}\n"
+            f"[설명] {str(d.get('description') or '')[:1500]}"
+        ).strip()
+    if miss:
+        out.update(_jira_issue_texts(miss))
+    return out
+
 
 def _jira_issue_texts(keys):
     """이슈키 목록 → {key: '제목 + 설명 + 댓글요약'} (LLM 분류 입력용). Jira에서 fetch."""

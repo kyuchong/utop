@@ -26,6 +26,23 @@ interface JiraProject {
   key: string
   name: string
 }
+/** 분류 한 건 — 서버 _defect_norm 이 돌려주는 그대로 */
+interface DefClass {
+  source?: string
+  device?: string
+  category?: string
+  item?: string
+  type3?: string
+  by?: string
+  at?: string
+}
+interface DefSchema {
+  device?: string[]
+  category_field?: string[]
+  category_live?: string[]
+  item?: string[]
+  type3?: string[]
+}
 interface SyncMark {
   at?: string
   last_updated?: string
@@ -39,7 +56,15 @@ interface SyncMark {
  * 목업이 지어낸 「UMS-Key」 는 뺐다 — 이 지라에 그런 필드가 없다.
  * 있는 척하는 빈 열보다 없는 편이 낫다.
  */
-const COLS: Array<{ key: string; label: string; type?: NCol['type']; w?: number; def?: boolean }> = [
+const COLS: Array<{
+  key: string
+  label: string
+  type?: NCol['type']
+  w?: number
+  def?: boolean
+  /** 분류 열이면 분류 한 건의 어느 필드인지 */
+  cls?: keyof DefClass
+}> = [
   { key: 'created', label: '생성일', type: 'date', w: 104, def: true },
   { key: 'customer', label: '사업자', type: 'select', w: 92, def: true },
   { key: 'project', label: '프로젝트', w: 140, def: true },
@@ -64,7 +89,20 @@ const COLS: Array<{ key: string; label: string; type?: NCol['type']; w?: number;
   { key: 'fwver', label: 'F/W Version', w: 118 },
   { key: 'labels', label: '라벨', w: 150 },
   { key: 'description', label: '내용', w: 280 },
+  /* ── 분류(LLM) ── 지라에 없는 값이다. **우리가 매긴다**.
+     그래서 이 다섯만 표에서 고칠 수 있다 — 나머지는 지라가 정본이다. */
+  { key: 'cls_source', label: '발생상황', type: 'select', w: 100, def: true, cls: 'source' },
+  { key: 'cls_device', label: '분류 유형', type: 'select', w: 84, def: true, cls: 'device' },
+  { key: 'cls_category', label: '분류 카테고리', type: 'select', w: 108, def: true, cls: 'category' },
+  { key: 'cls_item', label: '상용망 항목', type: 'select', w: 112, cls: 'item' },
+  { key: 'cls_type3', label: '상용망 유형', type: 'select', w: 108, cls: 'type3' },
 ]
+/** 지라가 정본인 열 — 여기서 못 고친다 */
+const JIRA_KEYS = COLS.filter((c) => !c.cls).map((c) => c.key)
+/** 분류 열 → 분류 한 건의 어느 필드인가 */
+const CLS_OF: Record<string, keyof DefClass> = Object.fromEntries(
+  COLS.filter((c) => c.cls).map((c) => [c.key, c.cls as keyof DefClass]),
+)
 
 /** 지라 상태 로젠지 — 갈래(새것·진행·끝)로 색을 나눈다(목업) */
 function statusKind(name: string): 'new' | 'run' | 'done' {
@@ -87,6 +125,9 @@ function typeKind(name: string): string {
   if (/큰틀|epic/.test(n)) return 'epic'
   return 'task'
 }
+
+/** 한 번에 가를 수 있는 최대 — 로컬 LLM 이 한 건에 1~2초다. 이백이면 한 잔 마실 참 */
+const CLS_CAP = 200
 
 const PRJ_KEY = 'utop.jira.projects'
 const COL_KEY = 'utop.jira.cols'
@@ -125,6 +166,9 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   const [busy, setBusy] = useState(false)
   const [flash, setFlash] = useState('')
   const [sel, setSel] = useState<string>('')
+  /** 표에서 체크한 줄 — 분류가 누구를 대상으로 도는지 정한다 */
+  const [checked, setChecked] = useState<string[]>([])
+  const [clsAsk, setClsAsk] = useState(false)
   /* 열 한 벌 — 숨김·폭·차례. 보기 탭(NViews)에 담기는 것이 바로 이 셋이라
      따로 들고 있어야 탭을 골랐을 때 그대로 얹을 수 있다. 계정을 따라간다. */
   const [hidden, setHidden] = useState<string[]>(() =>
@@ -166,9 +210,41 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
       }
     },
   })
+  /** 고를 수 있는 분류 값 — 서버가 정본이라 화면에 박지 않는다 */
+  const schQuery = useQuery({
+    queryKey: ['jira-defschema'],
+    staleTime: 30 * 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/jira/defect/schema')
+      return (await r.json()) as DefSchema
+    },
+  })
+  /** 매겨 둔 분류 — 이슈와 따로 산다(지라 값이 아니라 우리 값이라) */
+  const clsQuery = useQuery({
+    queryKey: ['jira-defclass'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/jira/defect/class')
+      return (await r.json()) as { ok?: boolean; classes?: Record<string, DefClass> }
+    },
+  })
+  const classes = useMemo(() => clsQuery.data?.classes ?? {}, [clsQuery.data])
+
   const rows: NRow[] = useMemo(
-    () => (issQuery.data?.rows ?? []).map((r) => ({ ...r, __id: String(r.issuekey ?? '') })),
-    [issQuery.data],
+    () =>
+      (issQuery.data?.rows ?? []).map((r) => {
+        const k = String(r.issuekey ?? '')
+        const c = classes[k] ?? {}
+        return {
+          ...r,
+          __id: k,
+          cls_source: c.source ?? '',
+          cls_device: c.device ?? '',
+          cls_category: c.category ?? '',
+          cls_item: c.item ?? '',
+          cls_type3: c.type3 ?? '',
+        }
+      }),
+    [issQuery.data, classes],
   )
 
   /** 고른 값들로 선택지를 만든다 — 지라 값은 프로젝트마다 달라 박아 둘 수 없다 */
@@ -182,7 +258,26 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
         hidden: hidden.includes(c.key),
         fixed: c.key === 'issuekey' || c.key === 'summary',
       }
-      if (col.type === 'select') {
+      if (c.cls) {
+        /* 분류 값은 **서버 스키마가 정본**이다 — 있는 값만 모으면 아직 안 쓴
+           값을 영영 못 고른다. 현장장애·상용망검증은 카테고리가 갈리는데
+           열은 하나라 둘을 합쳐 준다(고르고 나면 서버가 걸러 낸다). */
+        const sch = schQuery.data ?? {}
+        const opt: string[] =
+          c.cls === 'source'
+            ? ['현장장애', '상용망검증']
+            : c.cls === 'device'
+              ? sch.device ?? []
+              : c.cls === 'category'
+                ? [...new Set([...(sch.category_field ?? []), ...(sch.category_live ?? [])])]
+                : c.cls === 'item'
+                  ? sch.item ?? []
+                  : sch.type3 ?? []
+        col.options = opt.map((v) => ({
+          value: v,
+          color: v === '현장장애' ? 'red' : v === '상용망검증' ? 'blue' : 'gray',
+        }))
+      } else if (col.type === 'select') {
         const vals = [...new Set(rows.map((r) => String(r[c.key] ?? '')).filter(Boolean))]
         col.options = vals.slice(0, 60).map((v) => ({ value: v, color: 'gray' }))
       }
@@ -194,7 +289,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     return [...made].sort(
       (a, b) => (at.get(a.key) ?? 900 + made.indexOf(a)) - (at.get(b.key) ?? 900 + made.indexOf(b)),
     )
-  }, [rows, hidden, widths, order])
+  }, [rows, hidden, widths, order, schQuery.data])
 
   /** 지금 화면 한 벌 — 새 탭·덮어쓰기가 이것을 담는다 */
   const nBody: ViewBody = useMemo(
@@ -245,6 +340,73 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  /** 무엇을 가를 것인가 — 체크한 줄이 있으면 그것만, 없으면 지금 목록 전부 */
+  const clsTargets = checked.length ? checked : rows.map((r) => String(r.__id))
+  const clsUndone = clsTargets.filter((k) => !(classes[k] ?? {}).source).length
+
+  /** LLM 분류 — 프롬프트는 SETUP 「용도별 프롬프트 › Jira-분류」 가 정한다 */
+  async function classify(overwrite: boolean) {
+    setClsAsk(false)
+    if (busy) return
+    const keys = clsTargets.slice(0, CLS_CAP)
+    if (!keys.length) return
+    setBusy(true)
+    setFlash(`● ${keys.length}건을 LLM 으로 가르는 중… 한 건에 1~2초 걸립니다`)
+    try {
+      const r = await apiFetch('/api/jira/defect/classify', {
+        method: 'POST',
+        body: JSON.stringify({ keys, overwrite }),
+      })
+      const j = (await r.json()) as {
+        ok?: boolean
+        error?: string
+        detail?: string
+        classified?: number
+        failed?: string[]
+        skipped?: number
+        llm?: string
+        message?: string
+      }
+      if (!j.ok) {
+        setFlash(`분류 실패 — ${j.error ?? j.detail ?? '알 수 없는 까닭'}`)
+        return
+      }
+      const bad = j.failed?.length ?? 0
+      setFlash(
+        j.message
+          ? `● ${j.message}`
+          : `● ${j.classified ?? 0}건을 갈랐습니다${bad ? ` · 못 가른 것 ${bad}건` : ''}${j.llm ? ` (${j.llm})` : ''}`,
+      )
+      void qc.invalidateQueries({ queryKey: ['jira-defclass'] })
+      window.setTimeout(() => setFlash(''), 8000)
+    } catch (e) {
+      setFlash(`분류 실패 — ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** 분류 한 칸을 손으로 고친다 — LLM 이 틀린 것을 사람이 바로잡는 자리 */
+  async function saveCls(key: string, colKey: string, value: string) {
+    const field = CLS_OF[colKey]
+    if (!field) return
+    const next: DefClass = { ...(classes[key] ?? {}), [field]: value }
+    /* 그리는 것을 먼저 바꾼다 — 서버를 기다리면 고른 값이 한 박자 늦게 뜬다 */
+    qc.setQueryData(['jira-defclass'], (old: { classes?: Record<string, DefClass> } | undefined) => ({
+      ...(old ?? {}),
+      classes: { ...(old?.classes ?? {}), [key]: next },
+    }))
+    try {
+      await apiFetch('/api/jira/defect/class', {
+        method: 'POST',
+        body: JSON.stringify({ key, class: next }),
+      })
+    } catch {
+      setFlash('분류를 저장하지 못했습니다')
+    }
+    void qc.invalidateQueries({ queryKey: ['jira-defclass'] })
   }
 
   const syncMark = issQuery.data?.sync ?? {}
@@ -333,6 +495,49 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
             {String(lastAt).slice(0, 16).replace('T', ' ')} 받음
           </span>
         )}
+        {/* 지라에 없는 값을 매기는 자리 — 프롬프트는 SETUP 이 정한다 */}
+        <span className="jri-clswrap">
+          <button
+            type="button"
+            className="btn small jri-cls"
+            disabled={!rows.length || busy}
+            title="이슈 내용을 읽어 발생상황·장비·카테고리로 가릅니다 (SETUP › 용도별 프롬프트 › Jira-분류)"
+            onClick={(e) => {
+              e.stopPropagation()
+              setClsAsk((v) => !v)
+            }}
+          >
+            🤖 LLM 분류
+          </button>
+          {clsAsk && (
+            <>
+              <span className="jri-veil" onClick={() => setClsAsk(false)} aria-hidden="true" />
+              <span className="jri-clspop" onClick={(e) => e.stopPropagation()}>
+                <b>
+                  {checked.length ? `고른 ${checked.length}건` : `이 목록 ${rows.length}건`}
+                  {clsTargets.length > CLS_CAP ? ` 가운데 앞 ${CLS_CAP}건` : ''}
+                </b>
+                <span>
+                  {clsUndone
+                    ? `아직 안 가른 것이 ${clsUndone}건 있습니다.`
+                    : '모두 한 번씩 갈라 두었습니다.'}
+                </span>
+                <span className="jri-clsbtns">
+                  <button type="button" className="btn small" onClick={() => void classify(false)}>
+                    안 가른 것만
+                  </button>
+                  <button
+                    type="button"
+                    className="btn small primary"
+                    onClick={() => void classify(true)}
+                  >
+                    전부 다시
+                  </button>
+                </span>
+              </span>
+            </>
+          )}
+        </span>
         <button
           type="button"
           className="btn small"
@@ -396,14 +601,15 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
             titleKey="summary"
             /* 지라 값은 여기서 못 고친다 — 고치는 자리는 지라다.
                고칠 수 있는 척하면 눌러 놓고 왜 안 되는지 찾게 된다. */
-            readOnlyKeys={COLS.map((c) => c.key)}
+            readOnlyKeys={JIRA_KEYS}
             lockDefs
             onColumns={(cs) => {
               setHidden(cs.filter((c) => c.hidden).map((c) => c.key))
               setWidths(Object.fromEntries(cs.filter((c) => c.width).map((c) => [c.key, c.width!])))
               setOrder(cs.map((c) => c.key))
             }}
-            onCell={() => {}}
+            onSelect={setChecked}
+            onCell={(id, key, v) => void saveCls(id, key, v)}
             onOpen={(id) => setSel(id)}
             onPeek={(id) => setSel(id)}
             renderCell={(row, col) => {
@@ -477,6 +683,11 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
                     ['F/W Version', 'fwver'],
                     ['CR 구분', 'crkind'],
                     ['라벨', 'labels'],
+                    ['발생상황', 'cls_source'],
+                    ['분류 유형', 'cls_device'],
+                    ['분류 카테고리', 'cls_category'],
+                    ['상용망 항목', 'cls_item'],
+                    ['상용망 유형', 'cls_type3'],
                   ].map(([lb, k]) => {
                     const v = String(cur[k as string] ?? '').trim()
                     return v ? (
