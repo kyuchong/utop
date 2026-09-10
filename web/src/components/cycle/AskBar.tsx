@@ -271,7 +271,6 @@ export default function AskBar({ devices }: Props) {
   /** 고치기 전 값 — 「취소」 는 이것으로 되돌린다 */
   const exBack = useRef<Array<{ q: string; d?: string }>>([])
   /** 모드 고르개(목업) — 입력칸 안에서 펼친다 */
-  const [modeOpen, setModeOpen] = useState(false)
 
   /**
    * 첫 화면 테마(지시) — 계절·명절 따라 오로라의 색이 바뀐다.
@@ -2372,105 +2371,31 @@ export default function AskBar({ devices }: Props) {
                   </>
                 )}
               </span>
-              {pins.map((k) => {
-                const t = TOOLDEF.find(([x]) => x === k)
-                if (!t) return null
-                const [key, emo, nm, d] = t
-                if (key === 'dev')
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`ask-chip${tDev ? ' on' : ''}`}
-                      title={d}
-                      onClick={() => setDevOpen((v) => !v)}
-                    >
-                      {emo} {tDev || nm}
-                      {tDev && (
-                        <i
-                          title="장비 빼기"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setTDev('')
-                          }}
-                        >
-                          ✕
-                        </i>
-                      )}
-                    </button>
-                  )
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`ask-chip${tOn.has(key) ? ' on' : ''}`}
-                    title={d}
-                    onClick={() => flipTool(key)}
-                  >
-                    {emo} {nm}
-                  </button>
-                )
-              })}
               <span className="ask-rsp" />
-              <span className="ask-modewrap">
-                <button
-                  className="ask-modebtn"
-                  type="button"
-                  aria-haspopup="true"
-                  aria-expanded={modeOpen}
-                  disabled={exEdit}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setModeOpen((v) => !v)
-                  }}
-                >
-                  {mode === 'basic' ? 'General' : 'Advanced'}
-                  <i className="car" aria-hidden="true">
-                    ▾
-                  </i>
-                </button>
-                {modeOpen && (
-                  <>
-                    <span className="ask-modeback" onClick={() => setModeOpen(false)} />
-                    <span className="ask-modemenu" role="menu">
-                      {(
-                        [
-                          [
-                            'basic',
-                            'General AI Assistant',
-                            '이미 만들어진 시험 항목을 찾아 그대로 실행합니다.',
-                            '명령을 몰라도 됩니다. 누구나.',
-                          ],
-                          [
-                            'adv',
-                            'Advanced AI Assistant',
-                            '없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다.',
-                            '장비를 아는 사람이.',
-                          ],
-                        ] as const
-                      ).map(([k, nm, desc, who]) => (
-                        <button
-                          key={k}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={mode === k}
-                          className={`ask-mi${mode === k ? ' on' : ''}`}
-                          onClick={() => {
-                            setMode(k)
-                            setModeOpen(false)
-                          }}
-                        >
-                          <span className="ask-mi-ck">✔</span>
-                          <span className="ask-mi-tx">
-                            <b>{nm}</b>
-                            <p>{desc}</p>
-                            <small>{who}</small>
-                          </span>
-                        </button>
-                      ))}
-                    </span>
-                  </>
-                )}
+              {/* 모드 — **세그먼트 토글**(지시: 목업). 드롭다운이던 것을 바꿨다:
+                  둘 중 하나뿐이라 목록을 열 것이 없고, 지금 어느 쪽인지가 한눈에
+                  보여야 한다. 알약이 미끄러져 옮겨가 바뀐 것을 알린다. */}
+              <span className="ta-modes" data-mode={mode === 'basic' ? 'General' : 'Advanced'}>
+                <span className="ta-thumb" aria-hidden="true" />
+                {(
+                  [
+                    ['basic', 'General', '\u25b6', 'General \u2014 이미 만들어진 시험 항목을 찾아 그대로 실행합니다 \u00b7 명령을 몰라도 됩니다'],
+                    ['adv', 'Advanced', '\u270e', 'Advanced \u2014 없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다 \u00b7 장비를 아는 사람이'],
+                  ] as const
+                ).map(([k, label, ico, tip]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={`ta-mode${mode === k ? ' on' : ''}`}
+                    disabled={exEdit}
+                    title={tip}
+                    aria-pressed={mode === k}
+                    onClick={() => setMode(k)}
+                  >
+                    <i className="sico" aria-hidden="true">{ico}</i>
+                    <span className="mlb">{label}</span>
+                  </button>
+                ))}
               </span>
               <button
                 className={`ask-tb mic${listening ? ' rec' : ''}`}
@@ -2492,6 +2417,70 @@ export default function AskBar({ devices }: Props) {
                   <path d="M5 12h13M13 6l6 6-6 6" />
                 </svg>
               </button>
+              </div>
+
+              {/* **도구 칩은 제 줄에**(지시: 목업). 입력줄에 같이 두면 핀을 두세 개만
+                  꽂아도 모드·마이크·보내기가 밀린다. 마우스를 올리면 ✕ 가 나와 그
+                  자리에서 뺀다 — 빼려고 ⚙ 을 다시 열지 않아도 된다. */}
+              <div className="ask-r3">
+                {pins.map((k) => {
+                  const t = TOOLDEF.find(([x]) => x === k)
+                  if (!t) return null
+                  const [key, emo, nm, d] = t
+                  const off = (
+                    <i
+                      className="chx"
+                      title="도구 빼기"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPins((prev) => prev.filter((x) => x !== key))
+                      }}
+                    >
+                      ✕
+                    </i>
+                  )
+                  if (key === 'dev')
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`ask-chip${tDev ? ' on' : ''}`}
+                        title={d}
+                        onClick={() => setDevOpen((v) => !v)}
+                      >
+                        {emo} {tDev || nm}
+                        {off}
+                      </button>
+                    )
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`ask-chip${tOn.has(key) ? ' on' : ''}`}
+                      title={d}
+                      onClick={() => flipTool(key)}
+                    >
+                      {emo} {nm}
+                      {off}
+                    </button>
+                  )
+                })}
+                {!pins.length && (
+                  <button
+                    type="button"
+                    className={`ask-more${toolsOpen ? ' on' : ''}`}
+                    title="쓸 도구를 골라 이 줄에 꽂습니다"
+                    onClick={() => setToolsOpen((v) => !v)}
+                  >
+                    ＋ 도구 추가
+                  </button>
+                )}
+              </div>
+
+              {/* 지금 어느 모드인지 · 그 모드가 무엇을 하는지 한 줄로 */}
+              <div className="ta-modehint">
+                <b>{mode === 'basic' ? 'General' : 'Advanced'}</b> ·{' '}
+                {mode === 'basic' ? '기존 시험을 찾아 바로 실행' : '없는 시험을 새로 만들고 스텝을 정함'}
               </div>
 
               {/* 장비 고르개 — 등록된 장비에서 대상을 하나 짚는다 */}
