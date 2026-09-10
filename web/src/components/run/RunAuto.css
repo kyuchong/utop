@@ -286,6 +286,10 @@
 /* 회차 칩 줄 — 반복 안 스텝은 회차마다 결과가 다르다(지시).
    20 회를 돌고도 마지막 하나만 보여 「1 회만 돌았다」 로 읽혔다. */
 .ra-rds {
+  /* 블록 머리 바로 아래에 **함께 붙박는다**(지적: 회차 칩이 안 보인다).
+     머리만 sticky 였더니 출력이 길 때 칩 줄이 위로 밀려 올라가 사라졌다.
+     머리 높이(약 25px)만큼 내려 붙인다. */
+  position: sticky; top: 25px; z-index: 2;
   display: flex; flex-wrap: wrap; align-items: center; gap: 3px;
   padding: 4px 8px; background: #f7fafb; border-bottom: 1px solid #e3ebee;
 }
