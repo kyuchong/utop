@@ -13691,10 +13691,10 @@ async def _db_init():
     try:
         async with db.pool().acquire() as _c:
             _f = await id_migrate.repair(_c)
-        if _f["req"] or _f["tc"] or _f["cycle"]:
+        if _f["req"] or _f["tc"] or _f["cycle"] or _f.get("plan_run"):
             print(
                 f"[id] 반쪽 옮김 손질 — 요구사항 {_f['req']} · 시험항목 {_f['tc']} · "
-                f"플랜 {_f['cycle']}건",
+                f"사이클 {_f['cycle']} · 실행 {_f.get('plan_run', 0)}건",
                 flush=True,
             )
     except Exception as e:
