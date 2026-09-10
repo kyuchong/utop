@@ -2192,7 +2192,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       className={`tc-rtab${rtab === 'det' ? ' on' : ''}`}
                       onClick={() => setRtab('det')}
                     >
-                      {termOpen ? '명령어 캡쳐' : '스텝 상세'}
+                      {/* **「판정 기준」**(지시·목업). 명령과 절차 설명이 줄로
+                          내려간 뒤로 이 판에 남는 일은 판정을 세우는 것이다 —
+                          이름이 하는 일을 말해야 어느 탭에 무엇이 있는지 왕복
+                          없이 안다. */}
+                      {termOpen ? '명령어 캡쳐' : '판정 기준'}
                     </button>
                     <button
                       type="button"

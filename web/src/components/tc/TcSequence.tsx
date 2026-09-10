@@ -129,11 +129,24 @@ export default function TcSequence({
     setEdit(v)
   }
   const canEdit = !!onPatch && !readOnly
-  /** 이 줄에서 그 칸을 고칠 수 있나 — 명령은 cli 에만 있다 */
+  /**
+   * 이 줄에서 그 칸을 고칠 수 있나.
+   *
+   * 명령은 cli 에만 있다. 그리고 **여러 줄 명령은 여기서 안 고친다** —
+   * 실제 자료에 `enable / log session / conf t / epon` 처럼 한 스텝에
+   * 명령이 여럿 든 것이 있는데, 한 줄짜리 input 에 넣으면 브라우저가
+   * 줄바꿈을 지워 네 명령이 한 줄로 붙는다. 그런 줄은 상세 판의
+   * textarea 로 보낸다.
+   */
   const editable = (s: TcStep, f: 'cmd' | 'desc') =>
-    canEdit && (f === 'desc' ? !isNoteKind(s.kind) : (s.kind || 'cli') === 'cli')
+    canEdit &&
+    (f === 'desc'
+      ? !isNoteKind(s.kind)
+      : (s.kind || 'cli') === 'cli' && !/[\r\n]/.test(String(s.cli ?? s.data ?? '')))
+  /** 옛 스텝은 명령이 `data` 에 들어 있다 — 상세 판과 같은 자리를 읽는다.
+      `s.cli` 만 보면 그런 줄을 열었다 닫는 것만으로 명령이 지워진다. */
   const valueOf = (s: TcStep, f: 'cmd' | 'desc') =>
-    String((f === 'cmd' ? s.cli : s.desc) ?? '')
+    String((f === 'cmd' ? (s.cli ?? s.data) : s.desc) ?? '')
   const startEdit = (i: number, f: 'cmd' | 'desc') => {
     const s = steps[i]
     if (!s || !editable(s, f)) return
