@@ -469,10 +469,15 @@
      줄마다 다른 자리에서 시작했다. 들여쓰기 16px × 4 단 + 캐럿 + 이름이
      164px 안에 든다 — 깊이가 어떻든 명령은 늘 같은 자리다. */
   /* 「뽑은 값」 열(목업) — 담는 변수가 있는 줄에만 칩이 선다. 내용만큼만
-     먹고 없으면 0 이라, 변수를 안 쓰는 시험에서는 빈 열이 안 생긴다. */
+     먹고 없으면 0 이라, 변수를 안 쓰는 시험에서는 빈 열이 안 생긴다.
+
+     **Action 을 148px 로 조였다.** 176px 이던 것이 명령 칸을 85px 까지
+     밀어붙여, 목록의 주인공인 `show interface gi0/$i` 가 통째로 잘렸다.
+     들여쓰기 16px × 4 단(64) + 캐럿·아이콘·이름(84) = 148 — 깊이가
+     어떻든 명령은 여전히 늘 같은 자리에서 시작한다. */
   grid-template-columns:
-    15px minmax(28px, max-content) minmax(24px, max-content) 176px 1fr
-    minmax(0, max-content) 54px 44px;
+    15px minmax(28px, max-content) minmax(24px, max-content) 148px 1fr
+    minmax(0, max-content) 48px 40px;
   position: relative;
   align-items: center;
   gap: var(--sp-2);
