@@ -35,6 +35,16 @@ interface KaiMsg {
   text: string
   sources?: KaiSource[]
   at?: string
+  /** 도움이 됐나 — 'up' · 'down' · 빈 값 */
+  vote?: string
+}
+interface KaiDoc {
+  id: string
+  title: string
+  kind: string
+  body: string
+  from?: string
+  at?: string
 }
 interface KaiThread {
   id: string
@@ -222,6 +232,16 @@ export default function AiKb() {
   const [instrDlg, setInstrDlg] = useState<{ f: KaiFolder; v: string } | null>(null)
   /** WIKI 문서 붙이기 창 */
   const [ctxDlg, setCtxDlg] = useState<{ f: KaiFolder; q: string } | null>(null)
+  /** 답을 문서로 저장하는 창 */
+  const [saveDlg, setSaveDlg] = useState<{ body: string; title: string; kind: string } | null>(null)
+  /** 방금 복사한 답 — 단추가 잠깐 ✓ 로 바뀐다 */
+  const [copied, setCopied] = useState(-1)
+  /** 라이브러리 — 종류 탭 · 찾기 · 정렬 · 보기 */
+  const [libKind, setLibKind] = useState('전체')
+  const [libQ, setLibQ] = useState('')
+  const [libSort, setLibSort] = useState<'date' | 'name' | 'kind'>('date')
+  const [libGrid, setLibGrid] = useState(false)
+  const [libOpen, setLibOpen] = useState<KaiDoc | null>(null)
   /** 3열 — 열림 여부와 지금 짚은 근거 번호(C 동작: [n] 을 눌러야 연다) */
   const [srcOpen, setSrcOpen] = useState(false)
   const [srcFocus, setSrcFocus] = useState(0)
@@ -249,6 +269,14 @@ export default function AiKb() {
     queryFn: async () => {
       const r = await apiFetch(`/api/kai/folder/${encodeURIComponent(curFold)}/memory`)
       return (await r.json()) as { items?: Array<{ kind: string; id: string; title: string; n: number }>; threads?: number }
+    },
+  })
+  const docQ = useQuery({
+    queryKey: ['kai-docs'],
+    enabled: view === 'library' || !!saveDlg,
+    queryFn: async () => {
+      const r = await apiFetch('/api/kai/docs')
+      return (await r.json()) as { docs?: KaiDoc[] }
     },
   })
   /** 컨텍스트에 붙일 문서 고르기 — 창을 열 때만 읽는다 */
@@ -514,6 +542,64 @@ export default function AiKb() {
     return `${d.getMonth() + 1}월 ${d.getDate()}일`
   }
   const openNewFold = () => setFoldDlg({ edit: null, name: '', desc: '' })
+  /** 「오후 3:14」 — 말한 사람 줄의 시각 */
+  const hhmm = (iso?: string) => {
+    const d = iso ? new Date(iso) : new Date()
+    if (Number.isNaN(d.getTime())) return ''
+    const h = d.getHours()
+    return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  /** 마크다운 그대로가 아니라 **사람이 읽는 글자**를 복사한다 */
+  const plainOf = (html: string) => {
+    const el = document.createElement('div')
+    el.innerHTML = html
+    return (el.textContent || '').trim()
+  }
+  async function vote(i: number, v: 'up' | 'down') {
+    if (!tid) return
+    /* 화면을 먼저 바꾼다 — 누른 것이 바로 보여야 한다 */
+    setMsgs((m) => {
+      const nx = [...m]
+      const cur = nx[i]
+      if (cur) nx[i] = { ...cur, vote: cur.vote === v ? '' : v }
+      return nx
+    })
+    await apiFetch('/api/kai/vote', { method: 'POST', body: JSON.stringify({ tid, i, v }) })
+  }
+  async function saveDoc() {
+    const d = saveDlg
+    if (!d || !d.title.trim()) return
+    setSaveDlg(null)
+    const cur = threads.find((t) => t.id === tid)
+    await apiFetch('/api/kai/docs', {
+      method: 'POST',
+      body: JSON.stringify({ title: d.title.trim(), kind: d.kind, body: d.body, from: cur?.title ?? '' }),
+    })
+    void qc.invalidateQueries({ queryKey: ['kai-docs'] })
+  }
+  async function delDoc(id: string) {
+    if (!window.confirm('이 문서를 지웁니다.')) return
+    await apiFetch(`/api/kai/doc/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    if (libOpen?.id === id) setLibOpen(null)
+    void qc.invalidateQueries({ queryKey: ['kai-docs'] })
+  }
+  /** 라이브러리 목록 — 종류 · 찾기 · 정렬을 거쳐 나온 것 */
+  const libDocs = useMemo(() => {
+    const all = docQ.data?.docs ?? []
+    const q = libQ.trim().toLowerCase()
+    return all
+      .filter((d) => (libKind === '전체' || (d.kind || '문서') === libKind))
+      .filter((d) => !q || `${d.title} ${d.from ?? ''} ${plainOf(d.body)}`.toLowerCase().includes(q))
+      .slice()
+      .sort((a, b) =>
+        libSort === 'name'
+          ? a.title.localeCompare(b.title, 'ko')
+          : libSort === 'kind'
+            ? (a.kind || '').localeCompare(b.kind || '', 'ko')
+            : String(b.at || '').localeCompare(String(a.at || '')),
+      )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docQ.data, libKind, libQ, libSort])
   /** 이 프로젝트의 대화 — 상세의 「최근 항목」 */
   const foldThreads = threads.filter((t) => t.folder === curFold)
   const wikiName = (id: string) =>
@@ -1264,17 +1350,118 @@ export default function AiKb() {
           </div>
         </section>
       ) : view === 'library' ? (
-        /* ── 라이브러리 — 담을 것이 아직 없다. 무엇을 담는 자리인지 말한다 ── */
+        /* ── 라이브러리 — 「문서로 저장」 한 답이 쌓이는 자리(목업) ── */
         <section className="kai-pj">
-          <div className="kai-pjhd">
-            <h1>라이브러리</h1>
-          </div>
-          <div className="kai-empty">
-            <b>담아 둔 것이 없습니다</b>
-            <span>
-              답을 문서로 저장하면 여기에 쌓입니다 — 저장 단추는 다음 판에 붙습니다.
-              지금은 답 속 [n] 을 눌러 근거를 열고 원본으로 갈 수 있습니다.
-            </span>
+          <div className="pj-wrap">
+            <div className="lib-hd">
+              <h1>라이브러리</h1>
+              <span className="sp" />
+              <button
+                type="button"
+                className="pj-ib"
+                title={`정렬 — ${libSort === 'name' ? '이름순' : libSort === 'kind' ? '종류순' : '최근순'}`}
+                onClick={() => setLibSort((v) => (v === 'date' ? 'name' : v === 'name' ? 'kind' : 'date'))}
+              >
+                ⇅
+              </button>
+              <button
+                type="button"
+                className="pj-ib"
+                title={libGrid ? '목록으로 보기' : '카드로 보기'}
+                onClick={() => setLibGrid((v) => !v)}
+              >
+                {libGrid ? '☰' : '▦'}
+              </button>
+              <label className="pj-find">
+                <i aria-hidden="true"><IcoSearch /></i>
+                <input
+                  value={libQ}
+                  placeholder="라이브러리 검색"
+                  onChange={(e) => setLibQ(e.target.value)}
+                />
+              </label>
+            </div>
+            {(() => {
+              const all = docQ.data?.docs ?? []
+              const kinds = ['전체', ...new Set(all.map((d) => d.kind || '문서'))]
+              return (
+                <div className="lib-tabs">
+                  {kinds.map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className={`lib-tab${libKind === k ? ' on' : ''}`}
+                      onClick={() => setLibKind(k)}
+                    >
+                      {k}
+                      {k === '전체'
+                        ? all.length
+                          ? ` ${all.length}`
+                          : ''
+                        : ` ${all.filter((d) => (d.kind || '문서') === k).length}`}
+                    </button>
+                  ))}
+                </div>
+              )
+            })()}
+            {libDocs.length ? (
+              libGrid ? (
+                <div className="lib-grid">
+                  {libDocs.map((d) => (
+                    <div key={d.id} className="lib-card" role="button" tabIndex={0} onClick={() => setLibOpen(d)}>
+                      <div className="lc-hd">
+                        <span className="lc-type">{d.kind || '문서'}</span>
+                        <span className="sp" />
+                        <span>{whenTxt(d.at)}</span>
+                      </div>
+                      <b className="lc-ttl">{d.title}</b>
+                      {!!d.from && <span className="lc-sub">{d.from}</span>}
+                      <p className="lc-txt">{plainOf(d.body).slice(0, 110)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="lib-tbl">
+                  <div className="lib-th">
+                    <span>이름</span>
+                    <span className="sp" />
+                    <span>최근</span>
+                  </div>
+                  {libDocs.map((d) => (
+                    <div key={d.id} className="lib-row" role="button" tabIndex={0} onClick={() => setLibOpen(d)}>
+                      <span className="lib-ico" aria-hidden="true">🗂</span>
+                      <span className="lib-nm">
+                        <b>{d.title}</b>
+                        <span>
+                          {d.kind || '문서'}
+                          {d.from ? ` · ${d.from}` : ''}
+                        </span>
+                      </span>
+                      <span className="lib-at">{whenTxt(d.at)}</span>
+                      <button
+                        type="button"
+                        className="x"
+                        title="지우기"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void delDoc(d.id)
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : (
+              <div className="kai-empty">
+                <b>{libQ ? `"${libQ}"에 맞는 문서가 없습니다` : '담아 둔 것이 없습니다'}</b>
+                <span>
+                  답 아래의 <b>🗂 문서로 저장</b> 을 누르면 여기에 쌓입니다 — 주간 보고 요약,
+                  실행 비교표처럼 다시 찾아볼 답을 담아 두는 자리입니다.
+                </span>
+              </div>
+            )}
           </div>
         </section>
       ) : home ? (
@@ -1341,15 +1528,124 @@ export default function AiKb() {
             >
               {msgs.map((m, i) =>
                 m.role === 'u' ? (
-                  <div key={i} className="kai-mu">{m.text}</div>
+                  <div key={i} className="kai-msg u">
+                    <div className="who">
+                      <b>나</b>
+                      <time>{hhmm(m.at)}</time>
+                      <span className="av me" aria-hidden="true">나</span>
+                    </div>
+                    <div className="kai-mu">{m.text}</div>
+                  </div>
                 ) : (
-                  <div
-                    key={i}
-                    className="kai-ma"
-                    // 소독(DOMPurify)한 마크다운 — [n] 은 누르는 근거 표가 된다
-                    // eslint-disable-next-line react/no-danger
-                    dangerouslySetInnerHTML={{ __html: mdWithCits(m.text) }}
-                  />
+                  <div key={i} className="kai-msg a">
+                    <div className="who">
+                      <span className="av ai" aria-hidden="true">✦</span>
+                      <b>Knowledge AI</b>
+                      <time>{hhmm(m.at)}</time>
+                    </div>
+                    <div
+                      className="kai-ma"
+                      // 소독(DOMPurify)한 마크다운 — [n] 은 누르는 근거 표가 된다
+                      // eslint-disable-next-line react/no-danger
+                      dangerouslySetInnerHTML={{ __html: mdWithCits(m.text) }}
+                    />
+                    {/* **출처 줄**(목업) — 답 속 [n] 을 못 보고 지나치는 사람을 위해
+                        무엇을 보고 답했는지 아래에 한 줄로 편다. */}
+                    {!!m.sources?.length && (
+                      <div className="src-box">
+                        <div className="src-hd">
+                          📑 출처 <span className="src-n">{m.sources.length}개</span>
+                        </div>
+                        <div className="src-chips">
+                          {m.sources.map((sx, k) => {
+                            const [lb, cls] = KIND_LABEL[sx.kind] ?? ['자료', 'g1']
+                            return (
+                              <button
+                                key={k}
+                                type="button"
+                                className="src-chip"
+                                title={`${lb} · ${sx.title}`}
+                                onClick={() => {
+                                  setSrcFocus(k + 1)
+                                  setSrcOpen(true)
+                                }}
+                              >
+                                <span className={`tag ${cls}`}>{lb}</span>
+                                <b>{sx.id}</b>
+                                <span>{sx.title}</span>
+                                <em>{k + 1}</em>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {/* 마지막에 흐르는 답에는 아직 안 붙인다 — 다 오고 나서 */}
+                    {!(busy && i === msgs.length - 1) && (
+                      <>
+                        <div className="ai-note">
+                          AI는 실수를 할 수 있습니다. 중요한 정보는 다시 한번 확인하세요.
+                        </div>
+                        <div className="msg-acts">
+                          <button
+                            type="button"
+                            className={`ma${copied === i ? ' done' : ''}`}
+                            title="복사"
+                            onClick={() => {
+                              const t0 = plainOf(mdWithCits(m.text))
+                              void navigator.clipboard?.writeText(t0)
+                              setCopied(i)
+                              window.setTimeout(() => setCopied(-1), 1200)
+                            }}
+                          >
+                            {copied === i ? '✓' : '⧉'}
+                          </button>
+                          <button
+                            type="button"
+                            className={`ma${m.vote === 'up' ? ' on' : ''}`}
+                            title="도움이 됐어요"
+                            disabled={!tid}
+                            onClick={() => void vote(i, 'up')}
+                          >
+                            👍
+                          </button>
+                          <button
+                            type="button"
+                            className={`ma${m.vote === 'down' ? ' on' : ''}`}
+                            title="아쉬워요"
+                            disabled={!tid}
+                            onClick={() => void vote(i, 'down')}
+                          >
+                            👎
+                          </button>
+                          <button
+                            type="button"
+                            className="ma"
+                            title="문서로 저장 — 라이브러리에 쌓입니다"
+                            onClick={() => {
+                              const q0 = msgs[i - 1]?.role === 'u' ? msgs[i - 1]!.text : ''
+                              setSaveDlg({
+                                body: mdWithCits(m.text),
+                                title: (q0 || plainOf(mdWithCits(m.text))).slice(0, 40),
+                                kind: '요약',
+                              })
+                            }}
+                          >
+                            🗂
+                          </button>
+                          <button
+                            type="button"
+                            className="ma"
+                            title="같은 질문을 다시 묻습니다"
+                            disabled={busy || msgs[i - 1]?.role !== 'u'}
+                            onClick={() => void ask(msgs[i - 1]?.text)}
+                          >
+                            ↻
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 ),
               )}
               {busy && !msgs[msgs.length - 1]?.text && (
@@ -1503,6 +1799,96 @@ export default function AiKb() {
                 }}
               >
                 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 답을 문서로 저장 ── */}
+      {!!saveDlg && (
+        <div className="modal-back" onMouseDown={() => setSaveDlg(null)}>
+          <div className="modal kai-fdlg" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <b>문서로 저장</b>
+              <span className="sp" />
+              <button type="button" className="modal-x" aria-label="닫기" onClick={() => setSaveDlg(null)}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <label className="kai-fld">
+                <span>제목</span>
+                <input
+                  autoFocus
+                  value={saveDlg.title}
+                  onChange={(e) => setSaveDlg((d) => (d ? { ...d, title: e.target.value } : d))}
+                  onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing) return
+                    if (e.key === 'Enter' && saveDlg.title.trim()) void saveDoc()
+                  }}
+                />
+              </label>
+              <label className="kai-fld">
+                <span>종류</span>
+                <select
+                  value={saveDlg.kind}
+                  onChange={(e) => setSaveDlg((d) => (d ? { ...d, kind: e.target.value } : d))}
+                >
+                  {['요약', '보고', '비교표', '시험 초안'].map((k) => (
+                    <option key={k} value={k}>{k}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="modal-foot">
+              <button type="button" className="btn small" onClick={() => setSaveDlg(null)}>
+                취소
+              </button>
+              <button
+                type="button"
+                className="btn small primary"
+                disabled={!saveDlg.title.trim()}
+                onClick={() => void saveDoc()}
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 담아 둔 문서 보기 ── */}
+      {!!libOpen && (
+        <div className="modal-back" onMouseDown={() => setLibOpen(null)}>
+          <div className="modal kai-docdlg" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <b>{libOpen.title}</b>
+              <span className="sp" />
+              <button type="button" className="modal-x" aria-label="닫기" onClick={() => setLibOpen(null)}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="kai-docmeta">
+                {libOpen.kind || '문서'}
+                {libOpen.from ? ` · ${libOpen.from}` : ''}
+                {libOpen.at ? ` · ${whenTxt(libOpen.at)}` : ''}
+              </div>
+              <div
+                className="kai-ma"
+                // 저장할 때 이미 소독한 글이다 — 다시 쓰지 않고 그대로 편다
+                // eslint-disable-next-line react/no-danger
+                dangerouslySetInnerHTML={{ __html: libOpen.body }}
+              />
+            </div>
+            <div className="modal-foot">
+              <button type="button" className="btn small danger" onClick={() => void delDoc(libOpen.id)}>
+                지우기
+              </button>
+              <span className="sp" />
+              <button type="button" className="btn small primary" onClick={() => setLibOpen(null)}>
+                닫기
               </button>
             </div>
           </div>

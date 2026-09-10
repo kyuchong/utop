@@ -748,3 +748,104 @@
   border: 0; background: none; border-radius: 6px; color: var(--c-text-muted); cursor: pointer;
 }
 .kai-fold .fcar:hover { background: #e6eaed; color: var(--c-text); }
+
+/* ══ 답 한 덩이 — 말한 사람 · 출처 · 주의줄 · 동작(목업) ══ */
+.kai-msg { display: flex; flex-direction: column; gap: 0; max-width: 100%; }
+.kai-msg.u { align-items: flex-end; }
+.kai-msg .who { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 13px; color: var(--c-text); }
+.kai-msg.u .who { justify-content: flex-end; }
+.kai-msg .who b { font-weight: 700; }
+.kai-msg .who time { font-size: 11px; color: var(--c-text-faint); }
+.kai-msg .av {
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 11px; font-weight: 700; flex: none;
+}
+.kai-msg .av.me { background: #dfe4ea; color: #3d4753; }
+.kai-msg .av.ai { background: linear-gradient(135deg, #7c5cff, #3f8dfd); color: #fff; font-size: 13px; }
+
+.src-box { margin-top: 12px; padding-top: 10px; border-top: 1px solid #e3eaec; }
+.src-hd { font-size: 11px; color: var(--c-text-muted); margin-bottom: 6px; }
+.src-hd .src-n { color: var(--c-text-faint); }
+.src-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.src-chip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 320px;
+  padding: 6px 10px; border: 1px solid #e3eaec; border-radius: 10px;
+  background: var(--c-surface); font: inherit; font-size: 12px; cursor: pointer;
+}
+.src-chip:hover { border-color: #c9bfff; box-shadow: 0 2px 8px rgb(60 50 120 / 10%); }
+.src-chip .tag { font-size: 10px; font-weight: 700; border-radius: 5px; padding: 1px 6px; flex: none; }
+.src-chip > b { font-weight: 600; color: var(--c-primary); white-space: nowrap; }
+.src-chip > span:last-of-type { color: var(--c-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src-chip > em {
+  font-style: normal; font-size: 10px; font-weight: 700; color: #5b3fd6;
+  background: #f0ecff; border-radius: 999px; padding: 1px 6px; flex: none;
+}
+
+.ai-note { margin-top: 8px; font-size: 11px; color: var(--c-text-faint); }
+.msg-acts { display: flex; align-items: center; gap: 2px; margin-top: 6px; }
+.msg-acts .ma {
+  width: 28px; height: 28px; display: grid; place-items: center; border: 0; background: none;
+  border-radius: 7px; color: var(--c-text-faint); cursor: pointer; font: inherit; font-size: 13px;
+}
+.msg-acts .ma:hover:not(:disabled) { background: var(--c-surface-alt, #f2f7f8); color: var(--c-text); }
+.msg-acts .ma.on { background: #efeafd; color: #5636c7; }
+.msg-acts .ma.done { color: #117f3a; }
+.msg-acts .ma:disabled { opacity: 0.35; cursor: default; }
+
+/* ══ 라이브러리 ══ */
+.kai-pj .lib-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.kai-pj .lib-hd h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+.kai-pj .lib-hd .sp { flex: 1; }
+.kai-pj .lib-tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+.kai-pj .lib-tab {
+  border: 0; background: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--c-text-muted); padding: 6px 14px; border-radius: 999px;
+}
+.kai-pj .lib-tab:hover { background: var(--c-surface); color: var(--c-text); }
+.kai-pj .lib-tab.on { background: var(--c-surface); color: var(--c-text); box-shadow: 0 1px 2px rgb(13 68 81 / 10%); }
+.kai-pj .lib-th { display: flex; align-items: center; gap: 12px; padding: 0 8px 8px; font-size: 12px; color: var(--c-text-faint); }
+.kai-pj .lib-th .sp { flex: 1; }
+.kai-pj .lib-row {
+  display: flex; align-items: center; gap: 14px; padding: 12px 8px;
+  border-top: 1px solid #e3eaec; cursor: pointer;
+}
+.kai-pj .lib-row:last-child { border-bottom: 1px solid #e3eaec; }
+.kai-pj .lib-row:hover { background: var(--c-surface); }
+.kai-pj .lib-ico {
+  width: 32px; height: 32px; display: grid; place-items: center; flex: none;
+  border: 1px solid #e3eaec; border-radius: 9px; background: var(--c-surface); font-size: 15px;
+}
+.kai-pj .lib-nm { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.kai-pj .lib-nm b { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kai-pj .lib-nm span { font-size: 11px; color: var(--c-text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kai-pj .lib-at { font-size: 12px; color: var(--c-text-faint); white-space: nowrap; flex: none; }
+.kai-pj .lib-row .x {
+  width: 24px; height: 24px; display: grid; place-items: center; flex: none; opacity: 0;
+  border: 0; background: none; border-radius: 6px; color: var(--c-text-faint); cursor: pointer; font-size: 11px;
+}
+.kai-pj .lib-row:hover .x { opacity: 1; }
+.kai-pj .lib-row .x:hover { background: #fdecec; color: #b3261e; }
+.kai-pj .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.kai-pj .lib-card {
+  display: flex; flex-direction: column; gap: 5px; padding: 14px 16px; cursor: pointer;
+  background: var(--c-surface); border: 1px solid #e3eaec; border-radius: 12px;
+  box-shadow: 0 1px 3px rgb(13 68 81 / 5%);
+}
+.kai-pj .lib-card:hover { border-color: #c9bfff; box-shadow: 0 4px 14px rgb(60 50 120 / 10%); }
+.kai-pj .lc-hd { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--c-text-faint); }
+.kai-pj .lc-hd .sp { flex: 1; }
+.kai-pj .lc-type { background: var(--c-surface-alt, #f2f7f8); border-radius: 5px; padding: 1px 7px; }
+.kai-pj .lc-ttl { font-size: 13px; line-height: 1.45; }
+.kai-pj .lc-sub { font-size: 11px; color: var(--c-text-muted); }
+.kai-pj .lc-txt { margin: 2px 0 0; font-size: 12px; color: var(--c-text-faint); line-height: 1.55; }
+
+/* 담아 둔 문서 보기 */
+.kai-docdlg { width: min(760px, 94vw); }
+.kai-docdlg .modal-body { max-height: 64vh; overflow: auto; }
+.kai-docdlg .modal-foot .sp { flex: 1; }
+.kai-docmeta { font-size: 11.5px; color: var(--c-text-faint); margin-bottom: 12px; }
+.kai-fld select {
+  width: 100%; padding: 9px 12px; font: inherit; font-size: 13px;
+  border: 1px solid #dfe6e8; border-radius: 8px; background: var(--c-surface); color: var(--c-text);
+}
+.kai-fld select option { color: var(--c-text); background: var(--c-surface); }

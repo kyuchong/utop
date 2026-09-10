@@ -17803,6 +17803,69 @@ async def kai_folder_del(fid: str, request: Request):
     return {"ok": True, "moved": moved}
 
 
+async def _kai_docs(u: str) -> list[dict]:
+    v = await db.kv_get(f"kai.docs.{u}")
+    return v if isinstance(v, list) else []
+
+
+@app.get("/api/kai/docs")
+async def kai_docs(request: Request):
+    """라이브러리 — 답을 **문서로 저장**한 것들. 계정별로 남는다."""
+    return {"ok": True, "docs": await _kai_docs(_kai_user(request))}
+
+
+@app.post("/api/kai/docs")
+async def kai_doc_new(payload: dict, request: Request):
+    from datetime import timezone as _tz
+    u = _kai_user(request)
+    title = str(payload.get("title") or "").strip()[:120]
+    body = str(payload.get("body") or "")
+    if not title or not body.strip():
+        return {"ok": False, "error": "제목과 내용이 있어야 합니다"}
+    docs = await _kai_docs(u)
+    d = {
+        "id": f"kd-{int(datetime.now(_tz.utc).timestamp()*1000)}",
+        "title": title,
+        # 종류는 화면이 정한 말 그대로 — 서버가 갈래를 알 필요는 없다
+        "kind": str(payload.get("kind") or "요약").strip()[:20],
+        "body": body[:120000],
+        "from": str(payload.get("from") or "").strip()[:120],
+        "at": datetime.now(_tz.utc).isoformat(),
+    }
+    docs.insert(0, d)
+    # 200 장까지 — 그보다 쌓이면 라이브러리가 아니라 쓰레기통이 된다
+    await db.kv_set(f"kai.docs.{u}", docs[:200])
+    return {"ok": True, "doc": d}
+
+
+@app.delete("/api/kai/doc/{did}")
+async def kai_doc_del(did: str, request: Request):
+    u = _kai_user(request)
+    docs = [x for x in await _kai_docs(u) if x.get("id") != did]
+    await db.kv_set(f"kai.docs.{u}", docs)
+    return {"ok": True}
+
+
+@app.post("/api/kai/vote")
+async def kai_vote(payload: dict, request: Request):
+    """답이 도움이 됐는지 — 👍 · 👎.
+
+    나중에 어떤 물음에서 답이 헛도는지 보려면 남겨야 한다. 같은 값을 다시
+    보내면 지운다(누른 것을 다시 눌러 끄는 것과 같다)."""
+    u = _kai_user(request)
+    tid = str(payload.get("tid") or "")
+    at = int(payload.get("i") or -1)
+    v = str(payload.get("v") or "")
+    ths = await _kai_load(u)
+    t = next((x for x in ths if x.get("id") == tid), None)
+    msgs = (t or {}).get("msgs") or []
+    if not t or at < 0 or at >= len(msgs):
+        return {"ok": False, "error": "없는 답입니다"}
+    msgs[at]["vote"] = "" if str(msgs[at].get("vote") or "") == v else v
+    await db.kv_set(f"kai.threads.{u}", ths)
+    return {"ok": True, "vote": msgs[at].get("vote") or ""}
+
+
 @app.get("/api/kai/folder/{fid}/memory")
 async def kai_folder_memory(fid: str, request: Request):
     """이 프로젝트 대화에서 **자주 참조한 근거**를 센다.
