@@ -1873,29 +1873,6 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     </div>
                   )}
                   <div className="tc-run">
-                    {/* 줄 고르기 — 여태 한 줄씩만 눌러야 했다(지적).
-                        모두 고르고 한 번에 건너뛰기·삭제하는 일이 흔하다. */}
-                    <input
-                      type="checkbox"
-                      className="tc-runall"
-                      title={
-                        picked.size === shownSteps.length && shownSteps.length > 0
-                          ? '모두 풀기'
-                          : '모두 고르기'
-                      }
-                      aria-label="모든 줄 고르기"
-                      checked={picked.size > 0 && picked.size === shownSteps.length}
-                      ref={(el) => {
-                        if (el) el.indeterminate = picked.size > 0 && picked.size < shownSteps.length
-                      }}
-                      onChange={() =>
-                        setPicked(
-                          picked.size === shownSteps.length
-                            ? new Set()
-                            : new Set(shownSteps.map((_, k) => k)),
-                        )
-                      }
-                    />
                     <button
                       className="btn small primary"
                       type="button"
@@ -2057,6 +2034,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       sessionName={sessionName}
                       runningAt={runAt}
                       picked={picked}
+                      /* 「모두 고르기」 는 표 머리에 있다 — 줄마다 체크가 있는데
+                         전체는 도구줄에만 있으면 눈이 위로 나갔다 와야 한다 */
+                      onPickAll={(on) =>
+                        setPicked(on ? new Set(shownSteps.map((_, k) => k)) : new Set())
+                      }
                       onPick={pickStep}
                       // 수동 스텝은 여기 안 나온다. 별개 탭이다.
                       hide={(s) => s.kind === 'manual'}

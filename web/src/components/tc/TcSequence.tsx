@@ -59,6 +59,8 @@ interface Props {
   onRemove?: (i: number) => void
   /** 세션 이름 목록 — `⋯` 메뉴의 세션 고르개에 쓴다 */
   sessions?: string[]
+  /** 머리줄의 「모두 고르기」 — 도구줄에 있던 것을 표 안으로 옮긴다 */
+  onPickAll?: (on: boolean) => void
   /** 열 제목 줄을 세울까 — 한 화면에 이 목록이 **여럿** 뜨는 자리(AI 다듬기)는
       끈다. 묶음마다 머리줄이 서고 전부 sticky 라 스크롤하면 겹친다. */
   head?: boolean
@@ -94,8 +96,12 @@ export default function TcSequence({
   onRemove,
   sessions = [],
   head = true,
+  onPickAll,
 }: Props) {
   const hidden = hide ? steps.filter(hide).length : 0
+  /** 보이는 줄을 모두 골랐나 — 머리줄 체크가 이것을 본다 */
+  const shownN = steps.length - hidden
+  const allPicked = shownN > 0 && picked.size >= shownN
 
   /**
    * 열어 둔 `⋯` 메뉴의 줄 번호와 자리. -1 이면 안 열렸다.
@@ -361,6 +367,24 @@ export default function TcSequence({
               남긴다 — 아이콘만으로는 처음 보는 사람이 못 읽는다. */}
           {steps.length - hidden > 0 && head && (
             <div className="sq-head">
+              {/* 첫 칸은 **모두 고르기**다(지시: 제거하든 표시하든 정하라).
+                  줄마다 체크가 있는데 머리에 없으면 전부 고를 길이 도구줄에만
+                  남아, 표를 보다 눈이 위로 나갔다 와야 한다. */}
+              <span className="sq-allc">
+                {!!onPickAll && (
+                  <input
+                    type="checkbox"
+                    className="sq-pick"
+                    aria-label="모든 줄 고르기"
+                    title={allPicked ? '모두 풀기' : '모두 고르기'}
+                    checked={allPicked}
+                    ref={(el) => {
+                      if (el) el.indeterminate = picked.size > 0 && !allPicked
+                    }}
+                    onChange={() => onPickAll(!allPicked)}
+                  />
+                )}
+              </span>
               <span title="메뉴 — 이 줄 설정">⋯</span>
               {/* PPTX 아이콘(지시) — 동그라미로는 무엇을 고르는 칸인지
                   알 수 없었다. 결과서 장표를 뜻하는 그림으로 세운다. */}
@@ -467,6 +491,23 @@ export default function TcSequence({
                   }
                 }}
               >
+                {/* 고른 줄 — **체크로 보여 준다**(지시). 바탕색만 옅게 바뀌면
+                    무엇이 골라졌는지 알 수 없다. */}
+                <span className="sq-allc">
+                  <input
+                    type="checkbox"
+                    className="sq-pick"
+                    aria-label={`${i + 1}번 줄 고르기`}
+                    checked={picked.has(i)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onPick(i, e.shiftKey)
+                    }}
+                    onChange={() => {
+                      /* onClick 에서 처리한다 — shift 를 알아야 해서 */
+                    }}
+                  />
+                </span>
                 {/* 그 줄에만 듣는 설정(목업 ③). 평소엔 옅고 줄에 손이
                     오면 진해진다 — 서른 줄에 ⋯ 이 또렷하면 그것부터 보인다. */}
                 <span className="sq-morec">

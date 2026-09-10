@@ -521,7 +521,7 @@
      끝의 ▶·⋯ 은 **각각 제 칸**이다: 한 칸에 둘을 넣으면 머리줄에 제목을
      하나밖에 못 달고, 좁으면 단추가 세로로 쌓여 줄 높이를 밀어 올린다. */
   --sq-cols:
-    30px 30px 30px 40px 60px 190px minmax(150px, 1fr) minmax(90px, 220px) 48px;
+    26px 30px 30px 30px 40px 60px 190px minmax(150px, 1fr) minmax(90px, 220px) 48px;
 }
 .sq-row,
 .sq-head { gap: 0; }
@@ -542,12 +542,15 @@
    좌우 12px 를 먹이면 안쪽이 3·28px 가 되어, 실제로 끝 칸의 단추 둘이
    **세로로 쌓여 줄 높이가 43px 로 뛰었다**(실측). 두 칸은 제 폭이 곧 내용이다. */
 /* ⋯·◍·▶ 칸은 좌우 여백을 얇게 — 30px 트랙에 12px 를 먹이면 단추가 안 든다 */
+.sq-row > .sq-allc,
 .sq-row > .sq-runc,
 .sq-row > .sq-morec,
 .sq-row > .sq-pptc,
 .sq-head > *:nth-child(1),
 .sq-head > *:nth-child(2),
-.sq-head > *:nth-child(3) { padding-left: 2px; padding-right: 2px; }
+.sq-head > *:nth-child(3),
+.sq-head > *:nth-child(4) { padding-left: 2px; padding-right: 2px; }
+.sq-allc { display: flex; align-items: center; justify-content: center; }
 /* 못 돌리는 줄의 하이픈 */
 .sq-dash { font-style: normal; color: var(--c-text-faint); opacity: 0.6; font-size: 12px; }
 .sq-runc,
@@ -688,10 +691,10 @@
  * 이 값이 어긋나면 안내선이 아이콘 옆구리를 지나간다 — 예전 값(124)은
  * 없어진 상태 열과 gap 8px 를 세고 있었다.
  */
-.sq-row[data-depth="1"] { --gx: 217px; }
-.sq-row[data-depth="2"] { --gx: 231px; }
-.sq-row[data-depth="3"] { --gx: 245px; }
-.sq-row[data-depth="4"] { --gx: 259px; }
+.sq-row[data-depth="1"] { --gx: 243px; }
+.sq-row[data-depth="2"] { --gx: 257px; }
+.sq-row[data-depth="3"] { --gx: 271px; }
+.sq-row[data-depth="4"] { --gx: 285px; }
 
 /* 세로 — 마지막 자식은 제 자리까지만 내려온다(└) */
 .sq-row[data-kid]::before {
@@ -3836,7 +3839,7 @@ html .tc-split > .tc-content {
 /* 주석·메시지는 **줄 전체를 쓴다**(지시). 장비로 아무것도 안 나가는 글이라
    절차 설명도 결과도 없다 — 그 칸들을 비워 두면 긴 글이 명령 칸 안에서만
    잘리고 오른쪽은 텅 빈다. ▶·⋯ 만 제자리에 남긴다. */
-.sq-row.note > .sq-sum { grid-column: 7 / -1; }
+.sq-row.note > .sq-sum { grid-column: 8 / -1; }
 .sq-row.note > .sq-dsc,
 .sq-row.note > .sq-res { display: none; }
 
@@ -3882,10 +3885,10 @@ html .tc-split > .tc-content {
 /* 제목이 칸 가운데 서 있는데 값은 왼쪽에서 시작하면, 선은 맞아도 **눈에는
    어긋나 보인다**(지적). 값이 왼쪽에서 시작하는 칸은 제목도 왼쪽에 붙인다:
    스텝(5) · 동작(6) · 명령(7) · 절차 설명(8). */
-.sq-head > *:nth-child(5),
 .sq-head > *:nth-child(6),
 .sq-head > *:nth-child(7),
-.sq-head > *:nth-child(8) { justify-content: flex-start; }
+.sq-head > *:nth-child(8),
+.sq-head > *:nth-child(9) { justify-content: flex-start; }
 
 /* 고른 줄(체크칸을 걷은 뒤 Ctrl·Shift 클릭으로 고른다) — 파란 실선 테두리로
    「고른 것」 임을 알린다. 지금 보고 있는 줄(.on)과는 무게가 다르다. */
