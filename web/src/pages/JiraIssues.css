@@ -260,3 +260,103 @@
 .jri-clspop > b { font-size: 12.5px; }
 .jri-clspop > span { font-size: 11.5px; color: var(--c-text-faint); }
 .jri-clsbtns { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+
+/* 지라 칸 더하기 — 덮는 판 하나. 「팝업은 조용하게」: 구역 셋, 실금만 */
+.jri-back { position: fixed; inset: 0; z-index: 60; background: rgb(20 30 40 / 22%); display: grid; place-items: center; }
+.jri-fld {
+  width: min(620px, 92vw);
+  max-height: min(76vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border, #c3cbd4);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgb(13 68 81 / 22%);
+}
+.jri-fld > header {
+  display: flex;
+  align-items: center;
+  flex: none;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+}
+.jri-fld > header .sp { flex: 1; }
+.jri-fld > header > button {
+  width: 26px; height: 26px; display: grid; place-items: center;
+  border: 0; background: none; border-radius: 6px; color: var(--c-text-muted); cursor: pointer;
+}
+.jri-fld > header > button:hover { background: var(--c-border-soft, #dfe4ea); }
+.jri-fld > input {
+  flex: none;
+  margin: 10px 14px 6px;
+  border: 1px solid var(--c-border-soft, #dfe4ea);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.jri-fld > input:focus { border-color: var(--c-primary); }
+.jri-fldon { display: flex; flex-wrap: wrap; gap: 5px; flex: none; padding: 10px 14px 0; }
+.jri-fldchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--c-primary-bg, #e9f1ff);
+  color: var(--c-primary);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.jri-fldchip > i { font-style: normal; cursor: pointer; opacity: 0.6; font-size: 10px; }
+.jri-fldchip > i:hover { opacity: 1; }
+.jri-fldlist { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 6px; }
+.jri-fldlist > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--c-text);
+  cursor: pointer;
+}
+.jri-fldlist > button:hover:not(:disabled) { background: var(--c-surface-alt, #f2f7f8); }
+.jri-fldlist > button:disabled { cursor: default; opacity: 0.75; }
+.jri-fldlist > button > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jri-fldlist > button > em {
+  font-style: normal;
+  flex: none;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #eef1f4;
+  color: var(--c-text-muted);
+}
+.jri-fldlist > button > b {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--c-text-faint);
+  min-width: 116px;
+  text-align: right;
+}
+.jri-fld > footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 10px 14px;
+  border-top: 1px solid var(--c-border-soft, #dfe4ea);
+  font-size: 11.5px;
+  color: var(--c-text-faint);
+}
+.jri-fld > footer > span { flex: 1; }
+.jri-fld > footer b { color: var(--c-text-muted); }

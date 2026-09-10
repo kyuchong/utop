@@ -78,6 +78,10 @@ export interface NTableProps {
   busy?: boolean
   /** 도구줄 왼쪽 끝에 화면이 끼워 넣는 것(표 전환 단추 같은) */
   toolbarLeft?: React.ReactNode
+  /** 「속성」 판 **꼬리**에 화면이 끼워 넣는 것.
+      열을 찾는 자리는 사람에게 그 판 하나다 — 옆에 단추를 또 세우면
+      열을 두 자리에서 찾게 된다(Jira 화면의 「지라 칸 더하기」 가 이것). */
+  propsFoot?: React.ReactNode
   /** 열마다 아래에서 세는 것 — 고르면 바로 저장된다 */
   calcs?: Record<string, NCalc>
   onCalcs?: (v: Record<string, NCalc>) => void
@@ -105,7 +109,7 @@ export default function NTable(p: NTableProps) {
     columns, rows, view, onView, onColumns, onCell,
     people = [], meName, onOpen, onPeek, onNew, onBulk,
     renderCell, readOnlyKeys = [], lockDefs,
-    idKey = 'id', titleKey = 'title', title, busy, toolbarLeft,
+    idKey = 'id', titleKey = 'title', title, busy, toolbarLeft, propsFoot,
     calcs = {}, onCalcs, perPage = 100, onPerPage,
   } = p
 
@@ -1322,6 +1326,7 @@ export default function NTable(p: NTableProps) {
           <button type="button" className="ntb-mi" onClick={() => onColumns(columns.map((c) => ({ ...c, hidden: false })))}>
             <span className="l">모두 보이기</span>
           </button>
+          {propsFoot}
         </Pop>
       )}
 

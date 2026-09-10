@@ -38,6 +38,21 @@ interface DefClass {
   by?: string
   at?: string
 }
+/** 지라의 칸 하나 — /api/jira/fields */
+interface JiraField {
+  id: string
+  name: string
+  custom?: boolean
+  type?: string
+  items?: string
+}
+/** 사람이 더한 칸 — 서버에 한 벌(공용) */
+interface ExtraCol {
+  id: string
+  label: string
+  type?: string
+  items?: string
+}
 interface DefSchema {
   device?: string[]
   category_field?: string[]
@@ -99,6 +114,17 @@ const COLS: Array<{
   { key: 'cls_item', label: '상용망 항목', type: 'select', w: 112, cls: 'item' },
   { key: 'cls_type3', label: '상용망 유형', type: 'select', w: 108, cls: 'type3' },
 ]
+/** 지라의 칸 타입 → 표의 칸 갈래 */
+function ntypeOf(f: { type?: string; items?: string }): NCol['type'] {
+  const t = String(f.type || '')
+  if (t === 'date' || t === 'datetime') return 'date'
+  if (t === 'number') return 'number'
+  /* 배열은 「A, B」 로 이어 붙인 글자라 select 로 두면 그 줄 통째가 한
+     선택지가 된다. option·user 처럼 하나짜리만 고르는 칸으로 세운다. */
+  if (t === 'option' || t === 'priority' || t === 'status') return 'select'
+  return 'text'
+}
+
 /** 서랍에 내는 분류 줄 */
 const CLS_ROWS: Array<[string, string]> = [
   ['발생상황', 'cls_source'],
@@ -180,6 +206,9 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   /** 표에서 체크한 줄 — 분류가 누구를 대상으로 도는지 정한다 */
   const [checked, setChecked] = useState<string[]>([])
   const [clsAsk, setClsAsk] = useState(false)
+  /** 지라 칸 더하기 판 */
+  const [fldOpen, setFldOpen] = useState(false)
+  const [fldQ, setFldQ] = useState('')
   /** 이 숫자가 오르면 표가 고른 줄을 푼다 — 방금 한 일이 또 될 것 같아 멈칫한다 */
   const [selEpoch, setSelEpoch] = useState(0)
   /* 열 한 벌 — 숨김·폭·차례. 보기 탭(NViews)에 담기는 것이 바로 이 셋이라
@@ -267,9 +296,36 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     [issQuery.data, classes],
   )
 
+  /** 사람이 더한 지라 칸 — **온 서버에 한 벌**이다(Sync 도 한 벌이라 그렇다) */
+  const extraQuery = useQuery({
+    queryKey: ['jira-extracols'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/jira/columns')
+      return (await r.json()) as { ok?: boolean; columns?: ExtraCol[] }
+    },
+  })
+  const extras = useMemo(() => extraQuery.data?.columns ?? [], [extraQuery.data])
+
+  /** 붙박이 + 더한 칸. 더한 칸은 **늘 기본 숨김**이다 —
+      마흔 개를 더하면 표가 터진다. 볼 사람이 속성 판에서 켠다. */
+  const allCols: typeof COLS = useMemo(
+    () => [
+      ...COLS,
+      ...extras.map((e) => ({
+        key: e.id,
+        label: e.label,
+        type: ntypeOf(e),
+        w: 130,
+        def: false,
+      })),
+    ],
+    [extras],
+  )
+
   /** 고른 값들로 선택지를 만든다 — 지라 값은 프로젝트마다 달라 박아 둘 수 없다 */
   const columns: NCol[] = useMemo(() => {
-    const made = COLS.map((c) => {
+    const made = allCols.map((c) => {
       const col: NCol = {
         key: c.key,
         label: c.label,
@@ -277,6 +333,12 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
         width: widths[c.key] || c.w,
         hidden: hidden.includes(c.key),
         fixed: c.key === 'issuekey' || c.key === 'summary',
+      }
+      if (col.hidden) {
+        /* 숨긴 열은 선택지를 안 모은다 — 열 쉰 개 × 줄 이천이면 십만 번을
+           숨김·폭이 바뀔 때마다 다시 훑는다. 안 보이는 열의 선택지는
+           아무도 안 본다. */
+        return col
       }
       if (c.cls) {
         /* 분류 값은 **서버 스키마가 정본**이다 — 있는 값만 모으면 아직 안 쓴
@@ -309,7 +371,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     return [...made].sort(
       (a, b) => (at.get(a.key) ?? 900 + made.indexOf(a)) - (at.get(b.key) ?? 900 + made.indexOf(b)),
     )
-  }, [rows, hidden, widths, order, schQuery.data])
+  }, [rows, hidden, widths, order, schQuery.data, allCols])
 
   /** 지금 화면 한 벌 — 새 탭·덮어쓰기가 이것을 담는다 */
   const nBody: ViewBody = useMemo(
@@ -323,7 +385,12 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   /** 탭을 고르면 **열 배치**를 얹는다 — 탭에 담기는 것은 그것뿐이다(보기 정책) */
   const applyView = (v: ViewDef | null) => {
     setNvId(v?.id ?? '')
-    setHidden(v?.body?.hidden ?? COLS.filter((c) => !c.def).map((c) => c.key))
+    /* 탭을 만든 **뒤에 생긴 열**은 그 탭의 숨김 목록에 없다 — 그대로 쓰면
+       탭을 고르는 순간 새 열이 통째로 펼쳐진다. 본 적 없는 열은 기본을 따른다. */
+    const dflt = allCols.filter((c) => !c.def).map((c) => c.key)
+    const saved = v?.body?.hidden
+    const known = new Set(saved ?? [])
+    setHidden(saved ? [...saved, ...dflt.filter((k) => !known.has(k))] : dflt)
     setWidths(v?.body?.widths ?? {})
     setOrder(v?.body?.order ?? [])
   }
@@ -447,6 +514,76 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
       }
     } catch {
       setFlash('분류를 저장하지 못했습니다')
+    }
+  }
+
+  /** 지라에 있는 칸 전부 — 열 때만 부른다(246 개, 서버가 30 분 담아 둔다) */
+  const fldQuery = useQuery({
+    queryKey: ['jira-fields'],
+    enabled: fldOpen,
+    staleTime: 30 * 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/jira/fields')
+      return (await r.json()) as { ok?: boolean; fields?: JiraField[]; error?: string }
+    },
+  })
+  /** 이미 열로 서 있는 것은 목록에서 뺀다 */
+  const fldList = useMemo(() => {
+    const have = new Set(allCols.map((c) => c.key))
+    const q = fldQ.trim().toLowerCase()
+    return (fldQuery.data?.fields ?? [])
+      .filter((f) => !have.has(f.id))
+      .filter((f) => !q || `${f.name} ${f.id}`.toLowerCase().includes(q))
+      .slice(0, 300)
+  }, [fldQuery.data, allCols, fldQ])
+
+  const isAdmin = me?.role === 'admin' || me?.role === '관리자'
+
+  /** 칸을 더하거나 뺀다 — **온 서버 공용**이라 관리자만 */
+  async function saveExtras(next: ExtraCol[]) {
+    try {
+      const r = await apiFetch('/api/jira/columns', {
+        method: 'POST',
+        body: JSON.stringify({ columns: next }),
+      })
+      const j = (await r.json()) as { ok?: boolean; detail?: string; columns?: ExtraCol[] }
+      if (!j.ok) {
+        setFlash(`칸을 저장하지 못했습니다 — ${j.detail ?? '권한을 확인하세요'}`)
+        return
+      }
+      await qc.invalidateQueries({ queryKey: ['jira-extracols'] })
+      setFlash(
+        '칸을 더했습니다 — **이미 받아 둔 이슈에는 값이 아직 없습니다**. 「값 채우기」 를 누르면 이 칸만 지라에서 받아옵니다.'.replace(/\*\*/g, ''),
+      )
+    } catch (e) {
+      setFlash(`칸을 저장하지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  /** 더한 칸의 값을 이미 받아 둔 이슈에 채운다 */
+  async function backfill() {
+    if (!picked.length || busy) return
+    setBusy(true)
+    setFlash('● 더한 칸의 값을 지라에서 받는 중… 건수에 따라 몇 분 걸립니다')
+    try {
+      const r = await apiFetch('/api/jira/issues/backfill', {
+        method: 'POST',
+        body: JSON.stringify({ projects: picked }),
+      })
+      const j = (await r.json()) as { ok?: boolean; error?: string; filled?: number; ms?: number; message?: string }
+      setFlash(
+        j.ok
+          ? j.message
+            ? `● ${j.message}`
+            : `● ${j.filled ?? 0}건에 값을 채웠습니다 (${j.ms ?? 0}ms)`
+          : `값 채우기 실패 — ${j.error ?? '알 수 없는 까닭'}`,
+      )
+      void qc.invalidateQueries({ queryKey: ['jira-issues'] })
+      window.setTimeout(() => setFlash(''), 8000)
+    } catch (e) {
+      setFlash(`값 채우기 실패 — ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -648,6 +785,18 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
               setWidths(Object.fromEntries(cs.filter((c) => c.width).map((c) => [c.key, c.width!])))
               setOrder(cs.map((c) => c.key))
             }}
+            propsFoot={
+              <button
+                type="button"
+                className="ntb-mi"
+                onClick={() => {
+                  setFldQ('')
+                  setFldOpen(true)
+                }}
+              >
+                <span className="l">＋ 지라 칸 더하기{extras.length ? ` (${extras.length})` : ''}</span>
+              </button>
+            }
             onSelect={setChecked}
             selEpoch={selEpoch}
             /* 「삭제」 는 이 표에 없는 일이다 — 지라가 정본이라 여기서 지울 수
@@ -684,6 +833,93 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
               return undefined
             }}
           />
+        </div>
+      )}
+
+      {/* 지라 칸 더하기 — 지라에 칸이 이백사십여 개다. 다 세우면 표가 터지니
+          **볼 것만 골라** 세운다. 고른 것은 온 서버에 한 벌이다: Sync 도 한 벌이고
+          받아 둔 자료도 한 벌이라, 계정마다 다르면 뒤에 Sync 한 사람이 앞사람
+          칸을 지운다. 그래서 더하는 것은 관리자만 한다. */}
+      {fldOpen && (
+        <div className="jri-back" onMouseDown={() => setFldOpen(false)}>
+          <div className="jri-fld" onMouseDown={(e) => e.stopPropagation()}>
+            <header>
+              <b>지라 칸 더하기</b>
+              <span className="sp" />
+              <button type="button" title="닫기" onClick={() => setFldOpen(false)}>
+                ✕
+              </button>
+            </header>
+
+            {!!extras.length && (
+              <div className="jri-fldon">
+                {extras.map((e) => (
+                  <span key={e.id} className="jri-fldchip">
+                    {e.label}
+                    {isAdmin && (
+                      <i
+                        title="빼기"
+                        onClick={() => void saveExtras(extras.filter((x) => x.id !== e.id))}
+                      >
+                        ✕
+                      </i>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <input
+              autoFocus
+              value={fldQ}
+              placeholder="칸 이름 찾기"
+              onChange={(e) => setFldQ(e.target.value)}
+            />
+            <div className="jri-fldlist">
+              {fldQuery.isLoading && <div className="jri-none">지라에서 칸 목록을 읽는 중…</div>}
+              {!fldQuery.isLoading && !fldList.length && (
+                <div className="jri-none">맞는 칸이 없습니다</div>
+              )}
+              {fldList.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  disabled={!isAdmin}
+                  title={isAdmin ? '이 칸을 열로 세웁니다' : '관리자만 더할 수 있습니다'}
+                  onClick={() =>
+                    void saveExtras([
+                      ...extras,
+                      { id: f.id, label: f.name || f.id, type: f.type, items: f.items },
+                    ])
+                  }
+                >
+                  <span>{f.name || f.id}</span>
+                  <em>{f.type || 'string'}</em>
+                  <b>{f.custom ? f.id : '붙박이'}</b>
+                </button>
+              ))}
+            </div>
+
+            <footer>
+              {isAdmin ? (
+                <span>
+                  더한 칸은 <b>모두에게</b> 보입니다 — 새 열은 숨김으로 서고, 볼 사람이 속성에서
+                  켭니다.
+                </span>
+              ) : (
+                <span>칸을 더하는 것은 관리자만 합니다 — 모두의 Sync 가 무거워지는 일입니다.</span>
+              )}
+              <button
+                type="button"
+                className="btn small"
+                disabled={!extras.length || !picked.length || busy}
+                title="더한 칸의 값을 이미 받아 둔 이슈에 채웁니다"
+                onClick={() => void backfill()}
+              >
+                값 채우기
+              </button>
+            </footer>
+          </div>
         </div>
       )}
 

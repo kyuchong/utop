@@ -17289,7 +17289,18 @@ def _jf_txt(v) -> str:
     return str(v)
 
 
-def _jira_row(it: dict) -> dict:
+def _jf_one(v, kind: str, items: str) -> str:
+    """더한 칸 하나를 글자로 편다 — **타입을 보고** 편다.
+
+    날짜를 그대로 두면 `2026-09-08T12:00:00.000+0900` 이 열에 박히고,
+    긴 글은 JSONB 를 붓게 한다."""
+    if kind in ("date", "datetime"):
+        return str(v or "")[:10]
+    txt = _jf_txt(v)
+    return txt[:4000] if kind == "string" and items == "" else txt
+
+
+def _jira_row(it: dict, extra: list[dict] | None = None) -> dict:
     """지라 이슈 하나 → **표가 그대로 그리는 한 줄**."""
     f = it.get("fields") or {}
     row = {
@@ -17314,13 +17325,31 @@ def _jira_row(it: dict) -> dict:
         row[name] = _jf_txt(f.get(cf))
     row["start"] = str(row.get("start") or "")[:10]
     row["due"] = str(row.get("due") or "")[:10]
+    # 사람이 더한 칸 — 열쇠는 지라의 칸 id 그대로다(customfield_12345).
+    # 이름으로 두면 지라에서 칸 이름을 바꾸는 날 열이 통째로 빈다.
+    for c in (extra or []):
+        fid = str(c.get("id") or "")
+        if not fid or fid in row:
+            continue
+        row[fid] = _jf_one(f.get(fid), str(c.get("type") or ""), str(c.get("items") or ""))
     return row
 
 
-JIRA_FIELDS = ",".join([
+JIRA_BASE_FIELDS = [
     "summary", "status", "issuetype", "priority", "reporter", "assignee",
     "created", "updated", "labels", "project", "description", *JIRA_CF.values(),
-])
+]
+JIRA_FIELDS = ",".join(JIRA_BASE_FIELDS)
+
+
+def _jira_fields_str(extra: list[dict] | None = None) -> str:
+    """지라에 달라고 할 칸 — 붙박이 + 사람이 더한 것."""
+    ids = list(JIRA_BASE_FIELDS)
+    for c in (extra or []):
+        fid = str(c.get("id") or "")
+        if fid and fid not in ids:
+            ids.append(fid)
+    return ",".join(ids)
 
 
 @app.get("/api/jira/issues")
@@ -17357,6 +17386,68 @@ async def jira_issues(projects: str = "", q: str = "", limit: int = 2000):
             "sync": {k: st.get(k) for k in keys} if keys else st}
 
 
+@app.post("/api/jira/issues/backfill")
+async def jira_issues_backfill(payload: dict):
+    """더한 칸의 값을 **이미 받아 둔 이슈에** 채운다.
+
+    Sync 는 증분이라 안 바뀐 이슈를 다시 주지 않는다. 그래서 칸을 새로
+    더하면 그 열이 통째로 빈 채로 남는다 — 사람은 그것을 고장으로 읽는다.
+    여기서는 **그 칸만** 달라고 해 기존 값에 **덧댄다**(통째 대체가 아니라
+    합치기다. 몇 칸만 받아 통째로 덮으면 나머지가 다 날아간다).
+
+    받은 시각 표시(jira.issues.sync)는 건드리지 않는다 — 건드리면 다음
+    증분의 기준이 흐트러져 그 사이에 바뀐 이슈가 통째로 빠진다."""
+    keys = [str(x).strip() for x in (payload.get("projects") or []) if str(x).strip()]
+    if not keys:
+        return {"ok": False, "error": "프로젝트를 고르세요"}
+    extra = await _jira_extra_cols()
+    if not extra:
+        return {"ok": True, "filled": 0, "message": "더한 칸이 없습니다"}
+    cap = max(1, min(int(payload.get("cap") or 20000), 50000))
+    cfg = _jira_cfg()
+    ids = [str(c.get("id") or "") for c in extra if c.get("id")]
+    fields = ",".join(ids)
+    t0 = datetime.now()
+    filled = 0
+    for pk in keys:
+        jql = f'project = "{pk}" ORDER BY key ASC'
+        start = 0
+        for _ in range(500):
+            r, err = _jira_call("GET", "/rest/api/2/search", cfg=cfg,
+                                params={"jql": jql, "startAt": start, "maxResults": 100,
+                                        "fields": fields})
+            if err:
+                return err
+            if not r.is_success:
+                return {"ok": False, "error": f"{pk} — {r.status_code} · {str(r.text)[:200]}"}
+            j = r.json()
+            batch = j.get("issues") or []
+            if not batch:
+                break
+            async with db.pool().acquire() as c:
+                for it in batch:
+                    k = str(it.get("key") or "")
+                    if not k:
+                        continue
+                    f = it.get("fields") or {}
+                    patch = {
+                        str(x.get("id")): _jf_one(
+                            f.get(str(x.get("id"))), str(x.get("type") or ""), str(x.get("items") or ""))
+                        for x in extra if x.get("id")
+                    }
+                    n = await c.execute(
+                        """UPDATE jira_issue SET data = data || $2::jsonb WHERE key = $1""",
+                        k, patch)
+                    if str(n).endswith("1"):
+                        filled += 1
+            start += len(batch)
+            total = j.get("total", start)
+            if start >= (total or 0) or start >= cap:
+                break
+    return {"ok": True, "filled": filled, "cols": len(extra),
+            "ms": int((datetime.now() - t0).total_seconds() * 1000)}
+
+
 @app.post("/api/jira/issues/sync")
 async def jira_issues_sync(payload: dict):
     """고른 프로젝트를 지라에서 **증분으로** 가져와 저장한다.
@@ -17374,6 +17465,8 @@ async def jira_issues_sync(payload: dict):
     cap = max(1, min(int(payload.get("cap") or 5000), 20000))
     st = await db.kv_get("jira.issues.sync") or {}
     cfg = _jira_cfg()
+    extra = await _jira_extra_cols()
+    fields = _jira_fields_str(extra)
     res: dict = {"added": 0, "updated": 0, "same": 0, "got": 0, "projects": {}}
     t0 = datetime.now(_tz.utc)
 
@@ -17393,7 +17486,7 @@ async def jira_issues_sync(payload: dict):
         for _ in range(200):
             r, err = _jira_call("GET", "/rest/api/2/search", cfg=cfg,
                                 params={"jql": jql, "startAt": start, "maxResults": 100,
-                                        "fields": JIRA_FIELDS})
+                                        "fields": fields})
             if err:
                 return err
             if not r.is_success:
@@ -17410,7 +17503,7 @@ async def jira_issues_sync(payload: dict):
         newest = mark
         async with db.pool().acquire() as c:
             for it in issues[:cap]:
-                row = _jira_row(it)
+                row = _jira_row(it, extra)
                 key = row["issuekey"]
                 if not key:
                     continue
@@ -19397,7 +19490,20 @@ async def issues_sync(payload: dict):
             "last_synced_at": now_iso, "issues": merged}
 
 @app.get("/api/jira/fields")
-async def jira_fields():
+async def jira_fields(refresh: int = 0):
+    """지라의 칸 목록 — **타입까지** 준다.
+
+    이름만으로는 날짜인지 사람인지 여럿인지 알 수 없어, 받아 와도 글자로
+    펴는 규칙을 정할 수 없다(2026-09-08T12:00:00.000+0900 이 그대로 열에
+    박히는 식). schema 를 함께 넘긴다.
+
+    246 개가 자주 바뀔 리 없어 30 분 담아 둔다 — 화면을 열 때마다 지라를
+    부를 까닭이 없다. `?refresh=1` 이면 새로 받는다."""
+    import time as _t
+    if not refresh:
+        c = await db.kv_get("jira.fields.cache", None) or {}
+        if c.get("fields") and (_t.time() - float(c.get("at") or 0)) < 1800:
+            return {"ok": True, "fields": c["fields"], "cached": True}
     r, err = _jira_call("GET", "/rest/api/2/field")
     if err:
         return err
@@ -19405,8 +19511,60 @@ async def jira_fields():
         return {"ok": False, "error": f"{r.status_code} · {r.text[:300]}"}
     out = []
     for f in (r.json() or []):
-        out.append({"id": f.get("id"), "name": f.get("name"), "custom": bool(f.get("custom"))})
+        sch = f.get("schema") or {}
+        out.append({
+            "id": f.get("id"),
+            "name": f.get("name"),
+            "custom": bool(f.get("custom")),
+            # string · number · date · datetime · user · array · option · …
+            "type": str(sch.get("type") or ""),
+            # 배열이면 무엇의 배열인가(option·user·string)
+            "items": str(sch.get("items") or ""),
+        })
+    await db.kv_set("jira.fields.cache", {"at": _t.time(), "fields": out})
     return {"ok": True, "fields": out}
+
+
+# ── 사람이 더한 지라 칸 ────────────────────────────────────────
+# **온 서버에 한 벌**이다. Sync 도 한 벌이고 jira_issue.data 도 한 벌이라,
+# 계정마다 다른 칸을 받으면 뒤에 Sync 한 사람이 앞사람 칸을 지운다.
+# 그래서 「무엇을 받아 오는가」 는 공용이고, 「그중 무엇을 보는가」 는
+# 계정별(prefSet · 보기 탭)이다. 더하는 것은 관리자만 — 칸을 더하는 일이
+# 곧 모두의 Sync 를 무겁게 하는 일이라 문턱이 있어야 한다.
+JIRA_COL_CAP = 40
+
+
+@app.get("/api/jira/columns")
+async def jira_columns_get():
+    d = await db.kv_get("jira.columns", None) or {}
+    return {"ok": True, "columns": list(d.get("columns") or [])}
+
+
+@app.post("/api/jira/columns")
+async def jira_columns_set(payload: dict, token: str = ""):
+    _require_admin(token)
+    cols = []
+    seen = set()
+    for c in (payload.get("columns") or []):
+        fid = str((c or {}).get("id") or "").strip()
+        if not fid or fid in seen or fid in JIRA_CF.values():
+            continue      # 이미 붙박이로 있는 칸을 또 세우지 않는다
+        seen.add(fid)
+        cols.append({
+            "id": fid,
+            "label": str((c or {}).get("label") or fid)[:40],
+            "type": str((c or {}).get("type") or ""),
+            "items": str((c or {}).get("items") or ""),
+        })
+        if len(cols) >= JIRA_COL_CAP:
+            break
+    await db.kv_set("jira.columns", {"columns": cols})
+    return {"ok": True, "columns": cols}
+
+
+async def _jira_extra_cols() -> list[dict]:
+    d = await db.kv_get("jira.columns", None) or {}
+    return list(d.get("columns") or [])
 
 @app.get("/api/jira/versions")
 async def jira_versions(project: str):

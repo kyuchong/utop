@@ -25,6 +25,9 @@ const SYNC = new Set([
   // 화면 배치·탭·모드
   'utop.dash.widgets2', 'utop.dev.layout', 'utop.dev.lab', 'utop.set.sec',
   'utop.jirapanel.tab', 'utop.jira.tab', 'utop.ai.mode', 'utop.ai.exhide', 'utop.ai.theme',
+  // Jira Issue — 고른 프로젝트와 열 배치(숨김·폭·차례). 계정을 따라가야
+  // 자리를 옮겨 앉아도 같은 표가 뜬다
+  'utop.jira.projects', 'utop.jira.cols', 'utop.jira.w', 'utop.jira.order',
   'utop.nav.dock', 'utop.drawer.side',
   // 담당 고르개 최근
   'utop.ass.recent',
