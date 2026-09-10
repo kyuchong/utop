@@ -266,6 +266,15 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
      스텝 목록 아래에 누워 높이를 나눠 가졌다. 기억해 둔다 */
   const [logW, setLogW] = useResizableWidth('tcLogW', 380, 240, 900)
   const logN = useRef(0)
+  /** 실행 중 스텝 결과를 **모아 두는 자리**(지적: PC 제어가 안 될 만큼 부하).
+   *
+   *  스텝 100 개짜리를 돌리면 예전엔 100 번 즉시 반영했다. 그때마다 TC 문서가
+   *  새 객체가 되어 **스텝 목록 100 줄·회차 칩 100 개·포트 48 줄짜리 출력 표**가
+   *  통째로 다시 그려졌다 — 그 사이 브라우저가 멎고, 멎은 만큼 다음 명령
+   *  발사가 늦어져 시간 편차로도 나타났다.
+   *  이제 0.2 초에 한 번만 모아 반영한다. 사람 눈에는 같고 일은 1/10 로 준다. */
+  const runPend = useRef<Map<number, Record<string, unknown>>>(new Map())
+  const runFlush = useRef<number | null>(null)
   /** 스텝 띠 색 — 설정 「실행 판정 기준」 이 정본(지시) */
   const resDefs = useResults()
 
@@ -1303,7 +1312,28 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
           devById,
           // 계측기 스텝이 볼 트래픽 설정 — Traffic 탭이 정한 것
           meterCfg: d.meterCfg,
-          onStep: (i, p) => patchStep(i, p, true),
+          onStep: (i, p) => {
+            /* 모았다가 0.2 초마다 한 번에 반영한다(위 runPend 설명) */
+            const m = runPend.current
+            m.set(i, { ...(m.get(i) ?? {}), ...(p as Record<string, unknown>) })
+            if (runFlush.current == null) {
+              runFlush.current = window.setTimeout(() => {
+                runFlush.current = null
+                const batch = new Map(runPend.current)
+                runPend.current.clear()
+                if (!batch.size) return
+                setD((c) => {
+                  const arr = (c.checks ?? []) as TcStep[]
+                  return {
+                    ...c,
+                    checks: arr.map((st, j) =>
+                      batch.has(j) ? ({ ...st, ...batch.get(j) } as TcStep) : st,
+                    ),
+                  }
+                })
+              }, 200)
+            }
+          },
           // 돌고 있는 줄을 따라간다. 3열이 그 줄의 응답이 자라는 것을
           // 보여주므로, 안 따라가면 스트리밍이 보이지 않는다.
           onAt: (i) => {
@@ -1385,6 +1415,22 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
     } finally {
+      /* 모아 둔 마지막 몫을 흘려보낸다 — 안 그러면 끝 스텝 결과가 사라진다 */
+      if (runFlush.current != null) {
+        window.clearTimeout(runFlush.current)
+        runFlush.current = null
+      }
+      if (runPend.current.size) {
+        const batch = new Map(runPend.current)
+        runPend.current.clear()
+        setD((c) => {
+          const arr = (c.checks ?? []) as TcStep[]
+          return {
+            ...c,
+            checks: arr.map((st, j) => (batch.has(j) ? ({ ...st, ...batch.get(j) } as TcStep) : st)),
+          }
+        })
+      }
       setRunning(false)
       setRunAt(-1)
       runAbort.current = null

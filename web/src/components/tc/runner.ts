@@ -161,13 +161,23 @@ async function readSse(
     done?: boolean
     alive?: boolean
   }) => void,
-): Promise<void> {
+): Promise<{ headMs: number; srvMs?: number }> {
+  /** **첫 응답이 오기까지** 걸린 시간을 함께 돌려준다(진단).
+   *
+   *  스트리밍은 헤더가 먼저 나가고 본문이 흐른다. 그래서 이 시간은
+   *  「서버가 장비에 붙고·락을 잡고·프롬프트를 찾기까지」 다 — 튐이 그
+   *  앞이면 여기 잡히고, 장비가 늦게 뱉는 것이면 안 잡힌다. 둘을 가르는
+   *  유일한 잣대다(지적: 2~7 초짜리 튐이 4 개마다 온다). */
+  const t0 = performance.now()
   const res = await apiFetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     signal,
   })
+  const headMs = Math.round(performance.now() - t0)
+  const srvRaw = Number(res.headers.get('X-Server-Ms') ?? NaN)
+  const srvMs = Number.isFinite(srvRaw) ? Math.round(srvRaw) : undefined
   if (!res.ok || !res.body) throw new Error(`스트리밍 실패 (${res.status})`)
   const reader = res.body.getReader()
   const dec = new TextDecoder()
@@ -188,6 +198,7 @@ async function readSse(
       }
     }
   }
+  return { headMs, srvMs }
 }
 
 /** 화면을 너무 자주 고치지 않게 짧게 모아 내보낸다 */
@@ -1364,8 +1375,10 @@ async function runOne(
      안 보였다(지적). 서버가 에코 첫 줄에서 떼어 보내 준다. */
   let livePr = ''
   let lastCmd = ''
+  /** 첫 응답까지 걸린 시간 — 튐이 접속·락·프롬프트 쪽인지 가르는 잣대 */
+  let headMs: number | undefined
   try {
-    await readSse('/api/run-cli-stream', body, ctx.signal, (e) => {
+    const sse = await readSse('/api/run-cli-stream', body, ctx.signal, (e) => {
       if (e.cmd != null) {
         lastCmd = String(e.cmd)
         // 명령이 여러 개면 어디까지 갔는지 보여야 한다
@@ -1406,6 +1419,7 @@ async function runOne(
       }
     })
     flush(acc, true)
+    headMs = sse.headMs
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e
     err = e instanceof Error ? e.message : String(e)
@@ -1463,7 +1477,11 @@ async function runOne(
     /* 걸린 시간을 함께 남긴다 — 열세 스텝이 한 초 안에 다 끝났다면 그건
        빠른 것이 아니라 아무 일도 안 일어난 것이다. 그 사실이 로그에
        보여야 사람이 알아차린다. */
-    text: `${commands[0]}${commands.length > 1 ? ` 외 ${commands.length - 1}` : ''}${reason ? ` — ${reason}` : ''} (${ms}ms)`,
+    /* 「접속까지 N ms」 를 함께 적는다 — 총 시간이 큰데 이 값이 작으면
+       장비가 늦게 뱉은 것이고, 이 값이 크면 붙는 데서 샌 것이다(진단) */
+    text: `${commands[0]}${commands.length > 1 ? ` 외 ${commands.length - 1}` : ''}${reason ? ` — ${reason}` : ''} (${ms}ms${
+      headMs != null && headMs > 300 ? ` · 접속까지 ${headMs}ms` : ''
+    })`,
     kind: verdict === 'Pass' ? 'pass' : verdict === 'Fail' ? 'fail' : 'info',
   })
   return verdict
