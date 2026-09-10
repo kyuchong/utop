@@ -28,6 +28,8 @@ const SYNC = new Set([
   // Jira Issue — 고른 프로젝트와 열 배치(숨김·폭·차례). 계정을 따라가야
   // 자리를 옮겨 앉아도 같은 표가 뜬다
   'utop.jira.projects', 'utop.jira.cols', 'utop.jira.w', 'utop.jira.order',
+  // 자동 스텝 표에서 사람이 끌어 정한 칸 폭
+  'utop.tc.sq.sumw', 'utop.tc.sq.dscw',
   'utop.nav.dock', 'utop.drawer.side',
   // 담당 고르개 최근
   'utop.ass.recent',

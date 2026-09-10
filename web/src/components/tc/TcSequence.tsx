@@ -1,10 +1,14 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
+  type PointerEvent as RPointerEvent,
   type KeyboardEvent as RKeyboardEvent,
 } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import StepIcon from './StepIcon'
 import { IconChevron } from '../icons'
 import { blockEnd } from './runner'
@@ -98,6 +102,55 @@ export default function TcSequence({
   head = true,
   onPickAll,
 }: Props) {
+  /* 명령·절차 설명 칸의 폭은 **사람이 끌어 정한다**(지시). 시험마다 명령이
+     길기도 짧기도 해서 한 폭으로는 안 맞는다. 안 만진 칸은 예전 규칙
+     그대로 남는다 — 처음 여는 사람에게는 지금과 같아 보인다. */
+  const [sumW, setSumW] = useState<number | null>(() => {
+    const v = Number(prefGet('utop.tc.sq.sumw') || 0)
+    return v > 0 ? v : null
+  })
+  const [dscW, setDscW] = useState<number | null>(() => {
+    const v = Number(prefGet('utop.tc.sq.dscw') || 0)
+    return v > 0 ? v : null
+  })
+  const wDrag = useRef<{ k: 'sum' | 'dsc'; x0: number; w0: number } | null>(null)
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const d = wDrag.current
+      if (!d) return
+      const w = Math.max(80, Math.round(d.w0 + e.clientX - d.x0))
+      if (d.k === 'sum') setSumW(w)
+      else setDscW(w)
+    }
+    const up = () => {
+      const d = wDrag.current
+      if (!d) return
+      wDrag.current = null
+      /* 끌기가 끝날 때 한 번만 적는다 — 움직일 때마다 적으면 서버로
+         초당 수십 번 나간다 */
+      document.body.classList.remove('sq-resizing')
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+  }, [])
+  useEffect(() => {
+    if (sumW) prefSet('utop.tc.sq.sumw', String(sumW))
+  }, [sumW])
+  useEffect(() => {
+    if (dscW) prefSet('utop.tc.sq.dscw', String(dscW))
+  }, [dscW])
+  const startW = useCallback((k: 'sum' | 'dsc', e: RPointerEvent<HTMLElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const cell = (e.currentTarget as HTMLElement).parentElement
+    wDrag.current = { k, x0: e.clientX, w0: cell ? cell.getBoundingClientRect().width : 150 }
+    document.body.classList.add('sq-resizing')
+  }, [])
+
   const hidden = hide ? steps.filter(hide).length : 0
   /** 보이는 줄을 모두 골랐나 — 머리줄 체크가 이것을 본다 */
   const shownN = steps.length - hidden
@@ -357,6 +410,16 @@ export default function TcSequence({
   return (
     <div
       className={`sq${readOnly ? ' sq-ro' : ''}`}
+      style={
+        {
+          '--sq-cols': [
+            '26px 30px 30px 30px 40px 60px 190px',
+            sumW ? `${sumW}px` : 'minmax(150px, 1fr)',
+            dscW ? `${dscW}px` : 'minmax(90px, 220px)',
+            '48px',
+          ].join(' '),
+        } as CSSProperties
+      }
     >
       <div className="sq-scroll">
         <div className="sq-list">
@@ -411,8 +474,22 @@ export default function TcSequence({
               <span title="세션 — 어느 장비로 나가나">⇄</span>
               <span title="스텝 번호">№</span>
               <span title="동작 — 이 줄이 하는 일">⚙</span>
-              <span title="명령 · 내용">&gt;_</span>
-              <span title="절차 설명 — 결과서와 실행 로그가 쓰는 말">✎</span>
+              <span title="명령 · 내용">
+                &gt;_
+                <i
+                  className="sq-rs"
+                  title="끌어서 폭을 바꿉니다"
+                  onPointerDown={(e) => startW('sum', e)}
+                />
+              </span>
+              <span title="절차 설명 — 결과서와 실행 로그가 쓰는 말">
+                ✎
+                <i
+                  className="sq-rs"
+                  title="끌어서 폭을 바꿉니다"
+                  onPointerDown={(e) => startW('dsc', e)}
+                />
+              </span>
               <span title="결과">✓</span>
             </div>
           )}

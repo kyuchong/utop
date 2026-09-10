@@ -3922,3 +3922,30 @@ html .tc-split > .tc-content {
 .sq-sum { display: flex; align-items: center; gap: 6px; }
 .sq-sumt,
 .sq-sumv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 명령·절차 설명 칸의 폭을 끄는 손잡이(지시). 머리줄 칸 오른쪽 끝에 숨어
+   있다가 손이 오면 실선으로 보인다 — 늘 보이면 격자에 선이 하나 더 는 꼴이다. */
+.sq-head > span { position: relative; }
+.sq-rs {
+  position: absolute;
+  right: -4px;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  cursor: col-resize;
+  z-index: 4;
+}
+.sq-rs::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+}
+.sq-rs:hover::after,
+body.sq-resizing .sq-rs::after { background: var(--c-primary); }
+/* 끄는 동안 글자가 잡히면 표가 통째로 파랗게 물든다 */
+body.sq-resizing { user-select: none; cursor: col-resize; }
