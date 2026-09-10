@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as RKeyboardEvent,
+} from 'react'
 import StepIcon from './StepIcon'
 import { IconChevron } from '../icons'
 import { blockEnd } from './runner'
@@ -283,10 +290,32 @@ export default function TcSequence({
     return { cls: 'idle', mark: '○', label: '미실행' }
   }
 
+  /* 「뽑은 값」 열은 쓰는 시험에서만 자리를 먹는다 — 변수를 안 쓰는 시험에서
+     빈 열이 서면 그만큼 명령 칸이 좁아진다. 폭을 한 곳에서 정해 **머리줄과
+     본문이 같은 값을 쓰게** 한다(줄마다 max-content 로 재면 서로 어긋난다). */
+  const anyVar = steps.some((s) => (s.queries?.length ?? 0) + (s.extracts?.length ?? 0) > 0)
+
   return (
-    <div className={`sq${readOnly ? ' sq-ro' : ''}`}>
+    <div
+      className={`sq${readOnly ? ' sq-ro' : ''}${anyVar ? '' : ' sq-novar'}`}
+      style={{ '--sq-varw': anyVar ? '116px' : '0px' } as CSSProperties}
+    >
       <div className="sq-scroll">
         <div className="sq-list">
+          {/* 열 제목(지시) — 어느 칸이 무엇인지 적어 둔다. 여덟 칸이 모두
+              같은 grid 를 쓰므로 머리줄과 본문 줄의 경계가 늘 맞는다. */}
+          {steps.length - hidden > 0 && (
+            <div className="sq-head" aria-hidden="true">
+              <span />
+              <span>세션</span>
+              <span>스텝</span>
+              <span>동작</span>
+              <span>명령 · 내용</span>
+              <span>뽑은 값</span>
+              <span>결과</span>
+              <span />
+            </div>
+          )}
         {steps.length - hidden === 0 ? (
           <div className="empty">
             아직 자동 스텝이 없습니다.

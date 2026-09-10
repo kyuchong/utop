@@ -476,8 +476,7 @@
      들여쓰기 16px × 4 단(64) + 캐럿·아이콘·이름(84) = 148 — 깊이가
      어떻든 명령은 여전히 늘 같은 자리에서 시작한다. */
   grid-template-columns:
-    15px minmax(28px, max-content) minmax(24px, max-content) 148px 1fr
-    minmax(0, max-content) 48px 40px;
+    15px 34px 56px 148px 1fr var(--sq-varw, 0px) 48px 40px;
   position: relative;
   align-items: center;
   gap: var(--sp-2);
@@ -492,10 +491,47 @@
   cursor: pointer;
 }
 
-/* 줄 사이 옅은 선. 스텝은 Action·요약·결과가 좌우로 멀어서 선이 없으면
-   눈이 옆줄로 샌다. 30줄에 진한 선을 그으면 내용보다 선이 먼저 읽히므로
-   테두리색보다 더 옅게 둔다. */
+/* **엑셀 표처럼 칸을 긋는다**(지시). 가로선만으로는 어느 칸이 어디까지인지
+   눈으로 못 잰다 — 명령이 길면 옆 칸을 침범한 것처럼 읽힌다.
+   선은 테두리색보다 옅게: 서른 줄에 진한 격자를 그으면 내용보다 선이 먼저
+   읽힌다. 칸 사이 gap 을 걷고 그 자리를 칸 안쪽 여백으로 돌려 **줄 높이는
+   그대로** 둔다(4px 이 한 화면에 두 줄을 더 넣는다). */
 .sq-row { box-shadow: inset 0 -1px 0 var(--tc-div); }
+.sq-row,
+.sq-head { gap: 0; }
+.sq-row > *,
+.sq-head > * {
+  min-width: 0;
+  padding-right: 7px;
+  padding-left: 7px;
+  border-right: 1px solid var(--tc-div);
+}
+.sq-row > *:last-child,
+.sq-head > *:last-child { border-right: 0; }
+/* 뽑은 값을 안 쓰는 시험에서는 그 열이 폭 0 이다 — 그대로 두면 여백과
+   선만 남아 군더더기 세로선이 하나 선다 */
+.sq-novar .sq-row > .sq-var,
+.sq-novar .sq-head > span:nth-child(6) { padding: 0; border-right: 0; }
+
+/* 열 제목 줄 — 줄과 **같은 grid** 를 써야 칸 경계가 맞는다.
+   스크롤해도 붙어 있어야 스무 줄 아래에서도 어느 칸인지 안다. */
+.sq-head {
+  display: grid;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  align-items: center;
+  width: 100%;
+  padding: 3px 8px;
+  background: var(--tc-bg, #fff);
+  border-bottom: 1px solid var(--c-border, #c3cbd4);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--c-text-faint);
+  white-space: nowrap;
+}
+.sq-head > span { overflow: hidden; text-overflow: ellipsis; }
 .sq-row:hover { background: var(--tc-hover); box-shadow: none; }
 .sq-row.on,
 .sq-row.on:hover { background: var(--tc-sel); box-shadow: none; }
