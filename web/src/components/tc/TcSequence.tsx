@@ -138,10 +138,10 @@ export default function TcSequence({
     }
   }, [])
   useEffect(() => {
-    if (sumW) prefSet('utop.tc.sq.sumw', String(sumW))
+    prefSet('utop.tc.sq.sumw', sumW ? String(sumW) : '')
   }, [sumW])
   useEffect(() => {
-    if (dscW) prefSet('utop.tc.sq.dscw', String(dscW))
+    prefSet('utop.tc.sq.dscw', dscW ? String(dscW) : '')
   }, [dscW])
   const startW = useCallback((k: 'sum' | 'dsc', e: RPointerEvent<HTMLElement>) => {
     e.preventDefault()
@@ -478,16 +478,24 @@ export default function TcSequence({
                 &gt;_
                 <i
                   className="sq-rs"
-                  title="끌어서 폭을 바꿉니다"
+                  title="끌어서 폭을 바꿉니다 — 두 번 누르면 처음으로"
                   onPointerDown={(e) => startW('sum', e)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation()
+                    setSumW(null)
+                  }}
                 />
               </span>
               <span title="절차 설명 — 결과서와 실행 로그가 쓰는 말">
                 ✎
                 <i
                   className="sq-rs"
-                  title="끌어서 폭을 바꿉니다"
+                  title="끌어서 폭을 바꿉니다 — 두 번 누르면 처음으로"
                   onPointerDown={(e) => startW('dsc', e)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation()
+                    setDscW(null)
+                  }}
                 />
               </span>
               <span title="결과">✓</span>
