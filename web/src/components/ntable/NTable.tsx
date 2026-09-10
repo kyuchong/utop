@@ -247,6 +247,16 @@ export default function NTable(p: NTableProps) {
     return out
   }, [rows, view, vis])
 
+  /** 열 머리의 정렬 — 누를 때마다 오름 → 내림 → 없음.
+      이 열을 **맨 앞**으로 올린다: 방금 누른 것이 첫째 기준이라야 눈이 맞는다. */
+  const cycleSort = (key: string) => {
+    const cur = view.sorts.find((x) => x.key === key)
+    const rest = view.sorts.filter((x) => x.key !== key)
+    if (!cur) return onView({ ...view, sorts: [{ key, dir: 'asc' }, ...rest] })
+    if (cur.dir === 'asc') return onView({ ...view, sorts: [{ key, dir: 'desc' }, ...rest] })
+    onView({ ...view, sorts: rest })
+  }
+
   /* 쪽 나누기 — 묶기를 켜면 나누지 않는다(묶음을 쪼개면 뜻이 깨진다) */
   const pageN = Math.max(1, Math.ceil(shown.length / per))
   useEffect(() => {
@@ -814,8 +824,23 @@ export default function NTable(p: NTableProps) {
                     >
                       <I />
                       {!c.headIcon && <span className="l">{c.label}</span>}
-                      {s && <span className="ntb-ar">{s.dir === 'asc' ? '↑' : '↓'}</span>}
                     </button>
+                    {/* 정렬은 **열 머리에서 바로**(지시). 메뉴를 열어 찾게 하면
+                        두 번 누를 일을 네 번 누르게 된다. 거르기는 도구줄의
+                        「필터」 가 이미 한다 — 두 자리에 두지 않는다(지시). */}
+                    <span className="ntb-hact">
+                      <button
+                        type="button"
+                        className={`ntb-hs${s ? ' on' : ''}`}
+                        title={s ? (s.dir === 'asc' ? '오름차순 — 눌러서 내림차순' : '내림차순 — 눌러서 정렬 해제') : '오름차순으로 정렬'}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          cycleSort(c.key)
+                        }}
+                      >
+                        {s ? (s.dir === 'asc' ? '▲' : '▼') : '⇅'}
+                      </button>
+                    </span>
                     <span
                       className="ntb-rs"
                       onPointerDown={(e) => {
