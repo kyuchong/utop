@@ -234,6 +234,39 @@ async def plan(c) -> dict:
     return {"moves": moves, "skipped": skipped}
 
 
+async def _fix_plan_run_tcids(c, tcmap: dict) -> int:
+    """실행(plan_run)에 **복사된** tcid 를 새 것으로 옮긴다.
+
+    실행은 사이클에서 항목을 복사해 담는다. 그래서 tcid 를 옮길 때 사이클만
+    고치면 **실행만 옛 ID 를 물고 남는다** — 그러면 실행 화면이
+    「1건이 사이클에서 빠져 있어 돌릴 수 없습니다」 로 막힌다(겪은 일).
+
+    tcid 는 `items[]` 안의 값일 뿐 아니라 `results`·`logs` 의 **열쇠**로도
+    들어가 있다. 셋 다 옮기지 않으면 항목은 살아나는데 그 결과와 로그가
+    통째로 사라져 「돌긴 했는데 아무것도 없다」 가 된다.
+    """
+    n = 0
+    for row in await c.fetch("SELECT id, data FROM plan_run"):
+        data = row["data"] if isinstance(row["data"], dict) else json.loads(row["data"] or "{}")
+        if not isinstance(data, dict):
+            continue
+        touched = False
+        for it in data.get("items") or []:
+            if isinstance(it, dict) and it.get("tcid") in tcmap:
+                it["tcid"] = tcmap[it["tcid"]]
+                touched = True
+        for key in ("results", "logs"):
+            src = data.get(key)
+            if isinstance(src, dict) and any(k in tcmap for k in src):
+                data[key] = {tcmap.get(k, k): v for k, v in src.items()}
+                touched = True
+        if touched:
+            # json.dumps 를 하지 않는다 — 풀에 jsonb 코덱이 걸려 있다(apply 주석 참조)
+            await c.execute("UPDATE plan_run SET data = $1 WHERE id = $2", data, row["id"])
+            n += 1
+    return n
+
+
 def only(p: dict, letters: str) -> dict:
     """계획에서 **고른 계열만** 남긴다(지시: R·T·C 각각 옮길 수 있게).
 
@@ -262,7 +295,7 @@ async def apply(c, p: dict) -> dict:
     """
     moves = p["moves"]
     n = {"req": 0, "tc": 0, "cycle": 0, "exec": 0, "defect": 0, "history": 0,
-         "release": 0}
+         "release": 0, "plan_run": 0}
 
     async with c.transaction():
         for m in moves:
@@ -332,6 +365,10 @@ async def apply(c, p: dict) -> dict:
                 await c.execute("UPDATE cycle SET data = $1 WHERE id = $2",
                                 data, row["id"])
 
+        # ── 실행(plan_run) — 사이클에서 **복사**해 담은 항목들.
+        #    여기를 빠뜨리면 사이클은 새 ID, 실행은 옛 ID 가 되어 못 돌린다.
+        n["plan_run"] = await _fix_plan_run_tcids(c, tcmap)
+
         # ── 릴리스 — **이슈에 붙여 둔 시험**도 따라 옮긴다(지시: Release 추가)
         #
         #    이것을 빠뜨리면 옮긴 뒤 Releases 화면에서 이슈에 붙여 둔 시험이
@@ -383,7 +420,7 @@ async def repair(c) -> dict:
     맞추는 방향은 **칸 → data** 다. 칸이 새 ID 를 들고 있는 쪽이 옮기기가
     실제로 정한 값이다.
     """
-    fixed = {"req": 0, "tc": 0, "cycle": 0}
+    fixed = {"req": 0, "tc": 0, "cycle": 0, "plan_run": 0}
     async with c.transaction():
         r = await c.execute(
             """UPDATE req
@@ -406,4 +443,22 @@ async def repair(c) -> dict:
                 WHERE jsonb_typeof(data) = 'string'"""
         )
         fixed["cycle"] = int(r.split()[-1]) if r.split()[-1].isdigit() else 0
+
+        # ── **실행만 뒤처진 설치처를 되살린다.**
+        #    옮기기가 plan_run 을 안 고치던 판이 있었다. 그때 옮긴 곳은
+        #    사이클은 새 ID, 실행은 옛 ID 라 「사이클에서 빠져 있다」 며 못 돈다.
+        #    id_alias 에 옛→새가 남아 있으니 그것으로 따라잡는다.
+        #
+        #    **멀쩡한 것을 건드리지 않도록** 매핑을 두 번 거른다 —
+        #    옛 ID 가 지금 tc 표에 없고(이미 옮겨졌고) 새 ID 는 있는 것만 쓴다.
+        live = {r["tcid"] for r in await c.fetch("SELECT tcid FROM tc")}
+        alias = {
+            r["old_id"]: r["new_id"]
+            for r in await c.fetch(
+                "SELECT old_id, new_id FROM id_alias WHERE kind = 'tc'"
+            )
+            if r["new_id"] in live and r["old_id"] not in live
+        }
+        if alias:
+            fixed["plan_run"] = await _fix_plan_run_tcids(c, alias)
     return fixed

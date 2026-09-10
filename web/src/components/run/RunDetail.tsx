@@ -852,15 +852,28 @@ export default function RunDetail({
     const planItems = (plan?.items ?? []) as Array<{ tcid?: string }>
     const inPlan = new Set(planItems.map((x) => String(x?.tcid ?? '')))
     const missing = planItems.length ? ids.filter((id) => !inPlan.has(id)) : []
+    const order = planItems.length ? ids.filter((id) => inPlan.has(id)) : ids
     if (missing.length) {
+      /* **하나도 안 남았으면 묻지 않는다.** 「나머지만 돌릴까요」 에 OK 를
+         눌러도 돌 것이 없는데, 그때 pick 이 빈 채로 걸려 서버가 「담은 것을
+         전부」 로 읽어 그대로 실패했다(겪은 일: 눌러도 실행이 안 돼).
+         왜 빠졌는지도 함께 말한다 — 대개 ID 가 바뀐 뒤 실행만 뒤처진 것이다. */
+      if (!order.length) {
+        window.alert(
+          `${missing.length}건 모두 사이클에서 빠져 있어 돌릴 것이 없습니다.\n` +
+            `${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ' 외' : ''}\n\n` +
+            '시험 항목의 ID 가 바뀌었을 수 있습니다.\n' +
+            'SETUP ▸ ID 옮기기를 열어 옮길 것이 남아 있는지 보세요.',
+        )
+        return
+      }
       const ok = window.confirm(
         `${missing.length}건이 사이클에서 빠져 있어 돌릴 수 없습니다.\n` +
           `${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ' 외' : ''}\n\n` +
-          '나머지만 돌릴까요?',
+          `나머지 ${order.length}건만 돌릴까요?`,
       )
       if (!ok) return
     }
-    const order = planItems.length ? ids.filter((id) => inPlan.has(id)) : ids
     setBusy(true)
     try {
       const r = await apiFetch('/api/runs', {
