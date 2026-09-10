@@ -1208,6 +1208,30 @@ export default function TcStepDetail({
                 )}
               </div>
             )}
+            {/* 회차 출력을 **어디까지 남길까**(지시: 10,000 회 시험).
+                10,000 회 × 4KB 면 40MB 라, 다 들고 있으면 저장도 화면도
+                못 버틴다. 무엇을 하려는 시험이냐에 따라 사람이 고른다. */}
+            <label className="sd-f">
+              <span className="sd-lab">회차 출력</span>
+              <span className="sd-wait">
+                <select
+                  className="inp"
+                  value={String(step.roundKeep ?? 'fail')}
+                  onChange={(e) =>
+                    onChange({ roundKeep: e.target.value as 'all' | 'fail' | 'none' })
+                  }
+                >
+                  <option value="fail">깨진 회차 + 마지막 20회 (기본)</option>
+                  <option value="none">판정만 — 출력 안 남김</option>
+                  <option value="all">전부 — 회차가 적을 때</option>
+                </select>
+                <span className="sd-hint">
+                  같은 명령을 <b>오래 때려 보는 시험</b>이면 <b>판정만</b> 이 맞습니다 — 10,000회를
+                  돌려도 가볍습니다. 회차마다 값이 달라져 <b>다 봐야 하면</b> 회차를 줄이거나,
+                  돌린 뒤 <b>엑셀로 내보내</b> 견주세요.
+                </span>
+              </span>
+            </label>
             <div className="sd-f">
               <span>반복 방식</span>
               <div className="seg sd-seg">

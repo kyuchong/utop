@@ -1836,6 +1836,10 @@ export async function runSteps(
             firstFailAt: number
             keep?: Partial<TcStep>
             rounds: StepRound[]
+            /** 여기까지 출력을 정리했다 — 매 회차 전체를 훑지 않으려고 */
+            trimAt?: number
+            /** 출력을 버린 회차 수 */
+            trimmedN?: number
           }
         >()
         /**
@@ -1857,7 +1861,21 @@ export async function runSteps(
          * 고칠 사람이 볼 것은 그쪽이다. 버렸으면 버렸다고 화면에 말한다.
          */
         const OUT_BUDGET = 2_000_000
-        const rounds = Math.min(times, 1000)
+        /** 회차 출력을 어디까지 남길까(지시) — 반복 스텝이 정한다 */
+        const keepMode = String((s as Record<string, unknown>).roundKeep ?? 'fail')
+        /** 「깨진 회차 + 마지막 N」 의 N */
+        const KEEP_TAIL = 20
+        /* 상한 1000 → **100,000**(지시: 10,000 회 시험).
+           브라우저에서 많이 돌리면 탭이 버텨야 하므로 미리 알린다 —
+           사이클에서 걸면 서버(실행기)가 돌아 탭을 닫아도 된다. */
+        const rounds = Math.min(times, 100_000)
+        if (rounds > 1000 && keepMode === 'all') {
+          ctx.onLog({
+            i,
+            kind: 'warn',
+            text: `${rounds}회 × 회차 출력을 모두 남기면 저장이 안 됩니다 — 반복 스텝의 「회차 출력」 을 「깨진 회차만」 이나 「판정만」 으로 두세요`,
+          })
+        }
         /** 회차 사이 쉼 — **100ms**(지적: 편차가 크다 · PC 부하).
          *
          *  회차마다 요청이 따로 나가므로 서버의 「명령 사이 지연」 이 여기엔
@@ -1890,8 +1908,25 @@ export async function runSteps(
               status: String(got.status ?? ''),
               reason: String(got.reason ?? ''),
               took_ms: typeof got.took_ms === 'number' ? got.took_ms : undefined,
-              output: String(got.output ?? ''),
+              /* 「판정만」 이면 출력을 아예 안 담는다 — 10,000 회에서 이것이
+                 메모리를 40MB 에서 0 으로 만든다 */
+              output: keepMode === 'none' ? '' : String(got.output ?? ''),
             })
+            /* **모으면서 바로 줄인다**(지시). 다 모으고 나서 버리면 그동안
+               메모리를 다 쓴다 — 10,000 회면 도는 내내 40MB 를 들고 있었다.
+               깨진 회차와 마지막 KEEP_TAIL 회는 건드리지 않는다. */
+            if (keepMode === 'fail') {
+              t.trimAt = t.trimAt ?? 0
+              while (t.trimAt < t.rounds.length - KEEP_TAIL) {
+                const r0 = t.rounds[t.trimAt]!
+                if (r0.output && String(r0.status ?? '').toUpperCase() !== 'FAIL') {
+                  r0.output = ''
+                  r0.trimmed = true
+                  t.trimmedN = (t.trimmedN ?? 0) + 1
+                }
+                t.trimAt++
+              }
+            }
             if (bad) {
               t.fails++
               // 처음 깨진 회차의 것만 붙든다. 뒤엣것으로 바꾸면 「몇 회차에
@@ -1911,6 +1946,16 @@ export async function runSteps(
          * 깨진 회차와 마지막 회차는 남긴다. 버렸으면 버렸다고 적어야
          * 「출력이 왜 없지」 를 안 헤맨다.
          */
+        /* 모으면서 줄인 몫을 한 번만 알린다 — 「출력이 왜 없지」 를 안 헤매게 */
+        for (const t of tally.values()) {
+          if (t.trimmedN) {
+            ctx.onLog({
+              i,
+              kind: 'info',
+              text: `통과한 ${t.trimmedN}회차의 출력은 안 남겼습니다 — 깨진 회차와 마지막 20회는 그대로 있습니다`,
+            })
+          }
+        }
         for (const t of tally.values()) {
           let size = t.rounds.reduce((a, r) => a + (r.output?.length ?? 0), 0)
           if (size <= OUT_BUDGET) continue
