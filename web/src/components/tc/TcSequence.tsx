@@ -349,6 +349,7 @@ export default function TcSequence({
               <span>스텝</span>
               <span>동작</span>
               <span>명령 · 내용</span>
+              <span>절차 설명</span>
               <span>뽑은 값</span>
               <span>결과</span>
               <span />
@@ -453,7 +454,7 @@ export default function TcSequence({
                   )
                 })()}
                 <span className="sq-n">{numbers[i]}</span>
-                <span className="sq-act" style={{ marginLeft: depth * 16 }}>
+                <span className="sq-act" style={{ marginLeft: depth * 14 }}>
                   {/* 블록만 접힌다. 아닌 줄에도 같은 폭을 비워 두어야
                       Action 글자가 들쭉날쭉하지 않다. */}
                   {body > 0 ? (
@@ -552,11 +553,27 @@ export default function TcSequence({
                       절차의 첫 줄로 읽는 값이라 목록에서도 보여야 한다 —
                       안 보이면 아무도 안 채우고, 그러면 결과서에 명령만 나가
                       무슨 시험인지 알 수 없다. 명령 뒤에 옅게 붙인다. */}
+                  {/* 반복인데 안에 든 줄이 없다.
+                      들여쓰기를 안 하면 빈 것을 N번 돌고 아래 줄은 한 번만
+                      돈다 — 그런데 화면에는 아무 표시가 없어서 N번 돈 줄
+                      알고 결과를 읽게 된다. */}
+                  {s.kind === 'loop' && blockEnd(steps, i) <= i + 1 && (
+                    <span className="sq-warn" title="아래 줄을 「→」 로 들여써야 반복 안에 들어갑니다">
+                      비어 있음
+                    </span>
+                  )}
+                </span>
+                {/* **절차 설명은 제 칸**이다(지시: 명령·내용을 분리).
+                    장비로 나가는 값(명령)과 결과서로 나가는 값(설명)은
+                    정본이 다르다 — 한 칸에 붙여 두면 명령이 길 때 설명이
+                    통째로 안 보이고, 결과서가 읽는 값이 비어 있어도 눈에
+                    안 띈다. */}
+                <span className="sq-dsc">
                   {edit?.i === i && edit.f === 'desc' ? (
                     <input
                       className="sq-in desc"
                       autoFocus
-                      placeholder="절차 설명 — 결과서와 실행 로그가 이 값을 씁니다"
+                      placeholder="결과서와 실행 로그가 이 값을 씁니다"
                       value={draft}
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => setDraft(e.target.value)}
@@ -566,6 +583,7 @@ export default function TcSequence({
                   ) : String(s.desc ?? '').trim() ? (
                     <i
                       className={`sq-desc${editable(s, 'desc') ? ' hit' : ''}`}
+                      title={String(s.desc).trim()}
                       onClick={
                         editable(s, 'desc')
                           ? (e) => {
@@ -594,15 +612,6 @@ export default function TcSequence({
                       ＋ 설명
                     </i>
                   ) : null}
-                  {/* 반복인데 안에 든 줄이 없다.
-                      들여쓰기를 안 하면 빈 것을 N번 돌고 아래 줄은 한 번만
-                      돈다 — 그런데 화면에는 아무 표시가 없어서 N번 돈 줄
-                      알고 결과를 읽게 된다. */}
-                  {s.kind === 'loop' && blockEnd(steps, i) <= i + 1 && (
-                    <span className="sq-warn" title="아래 줄을 「→」 로 들여써야 반복 안에 들어갑니다">
-                      비어 있음
-                    </span>
-                  )}
                 </span>
                 {/* **뽑은 값**(목업) — 이 스텝이 응답에서 담아 두는 변수.
                     뒷 줄이 ${'${'}이름{'}'} 으로 쓰는 값이라, 어느 줄이 무엇을

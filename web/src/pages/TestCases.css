@@ -507,7 +507,14 @@
   /* 명령 칸에 **최소 폭**을 준다 — 없으면 판이 좁을 때 1fr 이 25px 까지
      짜부라져 이 표의 주인공인 명령이 통째로 사라진다(실측). 모자라면
      가로로 민다(.sq-scroll 이 auto 다). */
-  --sq-cols: 15px 40px 60px 148px minmax(150px, 1fr) var(--sq-varw, 0px) 48px 40px;
+  /* 「동작」 을 190px 로 넓혔다(지시) — 148px 에서는 들여쓴 줄의
+     「SNMP Get」·「동시 실행」 이 잘렸다. 들여쓰기도 16→14px 로 좁힌다:
+     칸을 넓혀도 깊이 4 에서는 갈래 이름이 먼저 잘린다.
+     「절차 설명」 은 제 칸이다 — 장비로 나가는 값과 결과서로 나가는 값을
+     한 칸에 두면 명령이 길 때 설명이 통째로 안 보인다. */
+  --sq-cols:
+    15px 40px 60px 190px minmax(150px, 1fr) minmax(90px, 220px)
+    var(--sq-varw, 0px) 48px 40px;
 }
 .sq-row,
 .sq-head { gap: 0; }
@@ -534,7 +541,7 @@
 /* 뽑은 값을 안 쓰는 시험에서는 그 열이 폭 0 이다 — 그대로 두면 여백과
    선만 남아 군더더기 세로선이 하나 선다 */
 .sq-novar .sq-row > .sq-var,
-.sq-novar .sq-head > span:nth-child(6) { padding: 0; border-right: 0; }
+.sq-novar .sq-head > span:nth-child(7) { padding: 0; border-right: 0; }
 
 /* 열 제목 줄 — 줄과 **같은 grid** 를 써야 칸 경계가 맞는다.
    스크롤해도 붙어 있어야 스무 줄 아래에서도 어느 칸인지 안다. */
@@ -657,10 +664,10 @@
  * 이 값이 어긋나면 안내선이 아이콘 옆구리를 지나간다 — 예전 값(124)은
  * 없어진 상태 열과 gap 8px 를 세고 있었다.
  */
-.sq-row[data-depth="1"] { --gx: 152px; }
-.sq-row[data-depth="2"] { --gx: 168px; }
-.sq-row[data-depth="3"] { --gx: 184px; }
-.sq-row[data-depth="4"] { --gx: 200px; }
+.sq-row[data-depth="1"] { --gx: 150px; }
+.sq-row[data-depth="2"] { --gx: 164px; }
+.sq-row[data-depth="3"] { --gx: 178px; }
+.sq-row[data-depth="4"] { --gx: 192px; }
 
 /* 세로 — 마지막 자식은 제 자리까지만 내려온다(└) */
 .sq-row[data-kid]::before {
@@ -3791,3 +3798,20 @@ html .tc-split > .tc-content {
 /* 펼친 목록의 글자색을 **못박는다** — 안 적으면 브라우저·테마에 따라
    흰 바탕에 흰 글자가 된다(칩 안 select 에서 겪은 그것) */
 .sq-kind option { color: #1f2933; background: #fff; }
+
+/* 절차 설명 — 제 칸(지시: 명령·내용 분리). 결과서(PPTX)가 절차의 첫 줄로
+   읽는 값이라, 비어 있는 것이 **눈에 띄어야** 사람이 채운다. */
+.sq-dsc {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.sq-dsc > .sq-desc {
+  margin-left: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sq-dsc > .sq-in { width: 100%; }
