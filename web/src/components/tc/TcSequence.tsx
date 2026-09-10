@@ -396,7 +396,7 @@ export default function TcSequence({
              깨졌나」 를 볼 때 눈이 오른쪽 끝까지 갔다 오지 않아도 되고,
              화면이 좁아 가로로 밀려도 판정은 안 잘린다. */
           '--sq-cols': [
-            '26px 30px 30px 30px 10px 40px 60px 190px',
+            '26px 30px 30px 30px 40px 60px 190px',
             sumW ? `${sumW}px` : 'minmax(150px, 1fr)',
             dscW ? `${dscW}px` : 'minmax(90px, 220px)',
           ].join(' '),
@@ -453,7 +453,6 @@ export default function TcSequence({
                 </svg>
               </span>
               <span title="이 줄만 실행">▶</span>
-              <span title="결과 — 색으로만 알린다(초록 합격 · 붉은색 불합격)" />
               <span title="세션 — 어느 장비로 나가나">⇄</span>
               <span title="스텝 번호">№</span>
               <span title="동작 — 이 줄이 하는 일">⚙</span>
@@ -534,7 +533,10 @@ export default function TcSequence({
                 tabIndex={0}
                 // 주석·메시지는 장비로 아무것도 안 나간다. 줄 색을 달리해
                 // 훑을 때 '이건 설명' 이 한눈에 갈리게 한다.
-                className={`sq-row${i === selected ? ' on' : ''}${
+                /* 판정은 **줄이 지고 있다**(지시: 세로 바 말고 다른 방법).
+                   깨진 줄만 물들인다 — 통과까지 초록으로 칠하면 화면 절반이
+                   초록이 되어 정작 붉은 줄이 묻힌다. */
+                className={`sq-row v-${st.cls}${i === selected ? ' on' : ''}${
                   picked.has(i) ? ' picked' : ''
                 }${s.skip ? ' skip' : ''}${
                   i === runningAt ? ' now' : ''
@@ -624,22 +626,6 @@ export default function TcSequence({
                     </i>
                   )}
                 </span>
-                {/* **판정은 세로 색 막대**다(지시). 글자를 적으면 그 자리만큼
-                    칸이 넓어지는데, 서른 줄을 훑을 때 필요한 것은 「어디가
-                    빨간가」 뿐이다. 무엇인지는 온마우스와 오른쪽 판이 말한다.
-                    미실행은 색을 안 칠한다 — 안 돈 줄과 통과한 줄은 갈려야 한다. */}
-                {(() => {
-                  const rc =
-                    i === runningAt
-                      ? { c: 'run', t: '실행 중' }
-                      : s.kind === 'if' && st.cls === 'idle' && s.condResult
-                        ? {
-                            c: s.condResult === 'Y' ? 'cond-y' : 'cond-n',
-                            t: s.condResult === 'Y' ? '조건 참' : '조건 거짓',
-                          }
-                        : { c: st.cls, t: st.cls === 'idle' ? '아직 안 돌았습니다' : st.label }
-                  return <span className={`sq-res ${rc.c}`} title={rc.t} />
-                })()}
                 {/* 상태 기호(✔·✖·○)는 뺐다 — 줄 끝의 PASS·FAIL 글자와 같은
                     말을 두 번 하는 열이었다. 도는 줄은 줄 자체가 빛난다. */}
                 {/* 세션은 맨 앞 고정 열 — Action 뒤에 두면 들여쓰기에 밀려
@@ -767,6 +753,11 @@ export default function TcSequence({
                     <span className="sq-sumt">{summary(s) || <span className="muted">—</span>}</span>
                   )}
                   {isShut && body > 0 && <span className="sq-folded">＋{body}줄</span>}
+                  {s.kind === 'if' && !!s.condResult && (
+                    <span className={`sq-cond ${s.condResult === 'Y' ? 'y' : 'n'}`}>
+                      {s.condResult === 'Y' ? '참' : '거짓'}
+                    </span>
+                  )}
                   {/* **절차 설명을 되살렸다**(지시). 뺐던 까닭은 「고칠 자리가
                       없어서」 였는데, 이제 스텝 상세에 그 칸이 있다. 결과서가
                       절차의 첫 줄로 읽는 값이라 목록에서도 보여야 한다 —
