@@ -353,6 +353,26 @@ export default function AskBar({ devices }: Props) {
        것을 「눌러도 안 된다」 로 읽는다. 칩을 빼는 것은 칩의 ✕ 로만 한다. */
     if (!on) setPins((prev) => (prev.includes(k) ? prev : [...prev, k]))
   }
+  /**
+   * 도구를 **입력줄에 꽂거나 뺀다** — 「＋ 도구 추가」 메뉴가 하는 일의 전부다(지시).
+   *
+   * 꽂는 것과 쓰는 것을 갈랐다: 여기서는 자리를 정하고, 켜고 끄거나 장비를
+   * 고르는 것은 입력줄의 칩에서 한다.
+   */
+  const pinTool = (k: string) => {
+    const had = pins.includes(k)
+    setPins((prev) => (had ? prev.filter((x) => x !== k) : [...prev, k]))
+    /* 뺄 때는 켜 둔 것도 함께 끈다 — 안 보이는 채로 질문에 실리면
+       왜 그런 답이 왔는지 알 수 없다 */
+    if (had) {
+      setTOn((prev) => {
+        const nx = new Set(prev)
+        nx.delete(k)
+        return nx
+      })
+      if (k === 'dev') setTDev('')
+    }
+  }
 
   /* 음성(지시) — 브라우저 내장 음성 인식(ko-KR)으로 받아 적는다.
      서버는 안 거친다. https 가 아니면 브라우저가 마이크를 막을 수 있어
@@ -2358,36 +2378,31 @@ export default function AskBar({ devices }: Props) {
                         <i>📎</i>파일 업로드<em className="soon">CSV · 로그 · 캡처 · 나중</em>
                       </span>
                       <span className="tsep" aria-hidden="true" />
-                      {TOOLDEF.map(([k, emo, nm, d]) => (
-                        <span
-                          key={k}
-                          role="menuitemcheckbox"
-                          aria-checked={k === 'dev' ? !!tDev : tOn.has(k)}
-                          tabIndex={0}
-                          className="ask-tmi"
-                          title={d}
-                          onClick={() => {
-                            setToolsOpen(false)
-                            if (k === 'dev') setDevOpen(true)
-                            else flipTool(k)
-                          }}
-                          onKeyDown={(e) => e.key === 'Enter' && (k === 'dev' ? setDevOpen(true) : flipTool(k))}
-                        >
-                          <i>{emo}</i>
-                          {nm}
-                          {(k === 'dev' ? !!tDev : tOn.has(k)) && <em>켬</em>}
-                          <b
-                            className={`pin${pins.includes(k) ? ' on' : ''}`}
-                            title="핀 — 캡슐에 상주"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setPins((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]))
-                            }}
+                      {/* **메뉴는 꽂기만 한다**(지시). 전에는 항목을 누르면 그
+                          자리에서 켜지거나 장비 팝업이 떴고, 입력줄에 칩으로
+                          세우려면 📌 를 따로 눌러야 했다 — 한 줄에 누르는 자리가
+                          둘이라 어느 쪽이 무엇인지 알 수 없었다. 이제 여기서는
+                          꽂고 빼기만 하고, **쓰는 것은 입력줄의 칩**으로 한다.
+                          여러 개를 이어서 꽂을 수 있게 고른 뒤에도 닫지 않는다. */}
+                      {TOOLDEF.map(([k, emo, nm, d]) => {
+                        const on = pins.includes(k)
+                        return (
+                          <span
+                            key={k}
+                            role="menuitemcheckbox"
+                            aria-checked={on}
+                            tabIndex={0}
+                            className={`ask-tmi${on ? ' on' : ''}`}
+                            title={on ? `${d} \u00b7 다시 누르면 뺍니다` : `${d} \u00b7 누르면 입력줄에 꽂힙니다`}
+                            onClick={() => pinTool(k)}
+                            onKeyDown={(e) => e.key === 'Enter' && pinTool(k)}
                           >
-                            📌
-                          </b>
-                        </span>
-                      ))}
+                            <i>{emo}</i>
+                            {nm}
+                            {on && <em className="ck">✓</em>}
+                          </span>
+                        )
+                      })}
                     </span>
                   </>
                 )}

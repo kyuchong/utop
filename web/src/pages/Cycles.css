@@ -8020,8 +8020,10 @@ a.bc-cur:hover { text-decoration: underline; }
 .ask-tmi > i { font-style: normal; width: 20px; text-align: center; flex: none; }
 .ask-tmi > em { font-style: normal; font-size: 10.5px; color: #0f766e; font-weight: 700; margin-left: 4px; }
 .ask-tmi > em.soon { color: #93a5ad; font-weight: 400; }
-.ask-tmi .pin { margin-left: auto; font-size: 12px; opacity: 0.3; cursor: pointer; font-weight: 400; }
-.ask-tmi .pin.on { opacity: 1; }
+/* 꽂힌 것은 ✓ 로 말한다 — 📌 를 따로 누르게 하던 자리를 걷었다(지시) */
+.ask-tmi > em.ck { margin-left: auto; font-size: 12px; }
+.ask-tmi.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 600; }
+.ask-tmi.on:hover { background: var(--c-primary-bg); }
 /* 핀 칩 — 켜면 청록으로 찬다 */
 .ask-chip {
   display: inline-flex;
