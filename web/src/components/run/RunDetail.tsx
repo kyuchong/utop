@@ -931,50 +931,12 @@ export default function RunDetail({
   /* 「실패만 재시험」 은 뺐다(지시) — 그 길만 쓰던 rerun 도 함께 걷는다.
      안 쓰는 길을 남겨 두면 다음 사람이 살아 있는 줄로 읽는다. */
 
-  if (runQ.isLoading) return <div className="rd-empty">불러오는 중…</div>
-  if (!run)
-    /* 없어진 실행이다 — 남이 지웠거나, 내가 지운 뒤 이 화면이 낡은 목록을
-       들고 있었다. 「없다」 고만 하고 끝내면 나갈 길이 없어 보인다
-       (지적: 시험을 누르면 「실행을 찾을 수 없습니다」 만 뜬다). */
-    return (
-      <div className="panel rd">
-        <div className="rd-bar">
-          {lead}
-          <b className="rd-ver">{runQ.isLoading ? '' : '없어진 실행'}</b>
-          <span className="rd-sp" />
-          {!!onClose && (
-            <button type="button" className="rd-x" title="닫기" onClick={onClose}>
-              ✕
-            </button>
-          )}
-        </div>
-        <div className="rd-empty">
-          {runQ.isLoading ? (
-            '불러오는 중…'
-          ) : (
-            <>
-              이 시험 실행은 없습니다 — 지워졌거나 목록이 오래됐습니다.
-              <br />
-              <button
-                type="button"
-                className="rd-btn"
-                style={{ marginTop: 10 }}
-                onClick={() => {
-                  void qc.invalidateQueries({ queryKey: ['plan-runs'] })
-                  ;(onClose ?? onBack)()
-                }}
-              >
-                목록 새로 읽기
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    )
 
-  const binds = run.binds ?? {}
+  /* run 이 아직 없을 수 있다 — 없을 때의 값을 그대로 태우고, 나가는 것은
+     아래 early return 이 한다(훅을 다 부른 뒤여야 한다) */
+  const binds = run?.binds ?? {}
   const dut = binds.DUT ? devById.get(String(binds.DUT)) : undefined
-  const pv = (run.pchk ?? {})[cur] ?? []
+  const pv = (run?.pchk ?? {})[cur] ?? []
   /** 사이클 **전문** — 담을 때 복제된 시험서가 여기 있다(목록 API 는 줄여 준다) */
   const cycPid = String(plan?.id ?? run?.plan_id ?? '')
   /** 장비 목록 — 세션 판이 세션에 붙은 장비(이름·IP·방식)를 여기서 찾는다.
@@ -1103,6 +1065,53 @@ export default function RunDetail({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur, snapSteps, liveSteps])
+
+  /* ── 여기부터 **훅이 하나도 없다**. early return 은 반드시 이 아래다. ──
+     위로 올리면 React #310 (Rendered more hooks than during the previous
+     render) 이 난다: 불러오는 동안 한 번 나갔다가 자료가 오면 아래 훅
+     열한 개가 더 불려, 렌더마다 훅 개수가 달라진다. 갓 만든 사이클은
+     캐시가 없어 반드시 「불러오는 중」 렌더를 한 번 거치므로 그때 터졌다
+     (지적: 사이클 생성 후 자동화를 진행하면 가끔 멈춘다). */
+  if (runQ.isLoading) return <div className="rd-empty">불러오는 중…</div>
+  if (!run)
+    /* 없어진 실행이다 — 남이 지웠거나, 내가 지운 뒤 이 화면이 낡은 목록을
+       들고 있었다. 「없다」 고만 하고 끝내면 나갈 길이 없어 보인다
+       (지적: 시험을 누르면 「실행을 찾을 수 없습니다」 만 뜬다). */
+    return (
+      <div className="panel rd">
+        <div className="rd-bar">
+          {lead}
+          <b className="rd-ver">{runQ.isLoading ? '' : '없어진 실행'}</b>
+          <span className="rd-sp" />
+          {!!onClose && (
+            <button type="button" className="rd-x" title="닫기" onClick={onClose}>
+              ✕
+            </button>
+          )}
+        </div>
+        <div className="rd-empty">
+          {runQ.isLoading ? (
+            '불러오는 중…'
+          ) : (
+            <>
+              이 시험 실행은 없습니다 — 지워졌거나 목록이 오래됐습니다.
+              <br />
+              <button
+                type="button"
+                className="rd-btn"
+                style={{ marginTop: 10 }}
+                onClick={() => {
+                  void qc.invalidateQueries({ queryKey: ['plan-runs'] })
+                  ;(onClose ?? onBack)()
+                }}
+              >
+                목록 새로 읽기
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    )
 
   /** 사이클에 담긴 이 항목의 시험서를 **최신 TC 로 옮긴다** */
   async function refreshSnapshot() {

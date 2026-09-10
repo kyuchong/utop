@@ -76,6 +76,16 @@ export default function StepActions() {
         title="이 줄 전체 켜기 / 끄기"
         onClick={() => {
           const on = kinds.some(({ k }) => !at(k)[key])
+          /* **전부 끄기는 되묻는다.** 한 번 누르면 스텝 종류가 통째로 사라지는데
+             되돌리는 단추가 따로 없어, 무엇을 껐는지도 모른 채 「스텝 내용이
+             없어졌다」 가 된다(겪은 일). 켜는 쪽은 잃을 것이 없어 안 묻는다. */
+          if (
+            !on &&
+            !window.confirm(
+              `${label} 을 **전부 끕니다** — ${kinds.length}가지 스텝 종류가 모두 빠집니다.\n계속할까요?`,
+            )
+          )
+            return
           const next = { ...items }
           kinds.forEach(({ k }) => (next[k] = { ...at(k), [key]: on }))
           setItems(next)
