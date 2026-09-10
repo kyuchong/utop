@@ -468,7 +468,11 @@
      `minmax(90px, auto)` 였더니 들여쓴 줄일수록 칸이 넓어져 그 뒤 명령 칸이
      줄마다 다른 자리에서 시작했다. 들여쓰기 16px × 4 단 + 캐럿 + 이름이
      164px 안에 든다 — 깊이가 어떻든 명령은 늘 같은 자리다. */
-  grid-template-columns: 15px minmax(28px, max-content) minmax(24px, max-content) 176px 1fr 54px 24px;
+  /* 「뽑은 값」 열(목업) — 담는 변수가 있는 줄에만 칩이 선다. 내용만큼만
+     먹고 없으면 0 이라, 변수를 안 쓰는 시험에서는 빈 열이 안 생긴다. */
+  grid-template-columns:
+    15px minmax(28px, max-content) minmax(24px, max-content) 176px 1fr
+    minmax(0, max-content) 54px 44px;
   position: relative;
   align-items: center;
   gap: var(--sp-2);
@@ -3490,3 +3494,129 @@ html .tc-split > .tc-content {
 
 /* 선택 바 — 목록을 만지는 단추(왼쪽)와 고른 줄에 하는 일(오른쪽)을 가른다 */
 .sq-bsp { flex: 1; }
+
+/* 뽑은 값 — 이 스텝이 응답에서 담는 변수(목업 .vchip).
+   대부분의 줄은 비어 있으니 조용히 둔다 — 있는 줄에만 칩이 선다. */
+.sq-var {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  overflow: hidden;
+}
+.sq-var b {
+  font-size: 9.5px;
+  font-weight: 500;
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  background: #eef7f8;
+  color: #0a8795;
+  border: 1px solid #cfe6ea;
+  border-radius: 8px;
+  padding: 0 5px;
+  white-space: nowrap;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 줄 끝 ⋯ 메뉴(목업 ③) ────────────────────────────────────── */
+/* 평소엔 옅다 — 서른 줄에 ⋯ 이 또렷하면 그것부터 읽힌다 */
+.sq-more {
+  border: 0;
+  background: transparent;
+  color: var(--c-mut, #b6c4c9);
+  opacity: 0.45;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.sq-row:hover .sq-more { opacity: 1; }
+.sq-more:hover,
+.sq-more.on {
+  opacity: 1;
+  background: var(--tc-hover);
+  color: var(--c-text);
+}
+
+/* 메뉴는 화면 좌표로 뜬다 — 목록이 overflow:auto 라 줄에 붙이면 잘린다 */
+.sq-menu-veil { position: fixed; inset: 0; z-index: 60; }
+.sq-menu {
+  position: fixed;
+  z-index: 61;
+  transform: translateX(-100%);
+  min-width: 232px;
+  padding: 4px;
+  border: 1px solid var(--c-line, #dbe4e7);
+  border-radius: 10px;
+  background: var(--c-bg, #fff);
+  box-shadow: 0 10px 28px rgb(16 40 48 / 16%);
+  font-size: 12px;
+}
+.sq-menu-hd {
+  padding: 5px 8px 6px;
+  color: var(--c-mut);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sq-menu-f {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+}
+.sq-menu-f > span:first-child { color: var(--c-mut); }
+.sq-menu-f select,
+.sq-menu-wait input {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--c-line);
+  border-radius: 6px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-size: 12px;
+}
+/* 칩 안 select 는 option 색을 밝혀 둔다 — 밝힌 곳이 없으면 어떤 판에서
+   글자와 바탕이 같은 색이 되어 목록이 빈 것처럼 보인다 */
+.sq-menu-f select option { color: var(--c-text); background: var(--c-bg); }
+.sq-menu-wait { display: flex; align-items: center; gap: 4px; }
+.sq-menu-wait i { color: var(--c-mut); font-style: normal; }
+.sq-menu-sep { height: 1px; margin: 4px 0; background: var(--c-line); }
+.sq-menu-i {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text);
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sq-menu-i:hover { background: var(--tc-hover); }
+.sq-menu-i.danger { color: var(--c-bad, #c0392f); }
+.sq-menu-i.danger:hover { background: #fdeaef; }
+
+/* 접힘 안내 — 목록 아래에 조용히. 접은 것이 없으면 나오지 않는다 */
+.sq-foldnote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 2px;
+  color: var(--c-mut);
+  font-size: 11px;
+}
+.sq-foldnote button {
+  border: 0;
+  background: transparent;
+  color: var(--c-acc, #0a8795);
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}

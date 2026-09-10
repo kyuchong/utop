@@ -698,13 +698,18 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
   const steps = (d.checks ?? []) as TcStep[]
   /* 빈 시험을 열면 AI 판을 펴 둔다 — 그때는 그것이 주인공이다.
      시험을 **바꿔 열 때 한 번만** 정한다: 스텝을 다 지워 0 이 됐다고
-     판이 불쑥 펴지면 놀란다. */
+     판이 불쑥 펴지면 놀란다.
+
+     **읽어온 뒤에 정한다**(고침). 그전에는 openId 가 바뀌는 순간 판단해서,
+     스텝이 아직 안 온 상태(빈 배열)를 「스텝 0 개」로 읽고 도장을 찍었다 —
+     그래서 열두 줄짜리 시험에서도 AI 판이 늘 펴진 채 110px 을 먹었다.
+     queryKey 가 ['tc', openId] 라 fullQ.data 가 있으면 그건 이 시험 것이다. */
   const aiSeed = useRef('')
   useEffect(() => {
-    if (!openId || aiSeed.current === openId) return
+    if (!openId || !fullQ.data || aiSeed.current === openId) return
     aiSeed.current = openId
-    setAiOpen(steps.length === 0)
-  }, [openId, steps.length])
+    setAiOpen(((fullQ.data.checks ?? []) as TcStep[]).length === 0)
+  }, [openId, fullQ.data])
 
   /**
    * 어느 회차를 보고 있나. 0 이면 「전체」 — 합쳐진 결과.
@@ -2054,6 +2059,12 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       hide={(s) => s.kind === 'manual'}
                       onRun={running ? undefined : (i) => void doRun(i, true)}
                       addKinds={(k) => actOf(k).add}
+                      /* 줄 끝 `⋯` — 그 줄에만 듣는 설정(목업 ③). 세션·대기를
+                         고치러 상세 판까지 가지 않아도 된다. */
+                      onPatch={patchStep}
+                      onDuplicate={duplicateStep}
+                      onRemove={removeStep}
+                      sessions={sessionNames}
                     />
                   )}
                   {/* 고른 줄이 있을 때만 뜬다. 목록 **아래**에 둔다 — 위에 두면 띠가
