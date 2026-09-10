@@ -572,8 +572,11 @@
 .sq-head > span { overflow: hidden; text-overflow: ellipsis; }
 /* 표를 **닫는다** — 엑셀은 마지막 줄 아래와 오른쪽 끝에도 선이 있다.
    없으면 표가 아래로 흘러내리는 것처럼 보인다. */
+/* 바깥 테두리는 격자선보다 **한 단계 진하게** — 엑셀도 표의 가장자리가
+   안쪽 선보다 진하다. 옅게 두었더니 맨 왼쪽 ⋯ 칸의 세로선이 판 바탕에
+   묻혀 안 보였다(지적). */
 .sq-list {
-  border: 1px solid var(--sq-line, #dde3e9);
+  border: 1px solid var(--c-border, #c3cbd4);
   border-radius: 4px;
   overflow: hidden;
   background: var(--tc-bg, #fff);
