@@ -353,7 +353,7 @@ export default function TcSequence({
               {/* PPTX 아이콘(지시) — 동그라미로는 무엇을 고르는 칸인지
                   알 수 없었다. 결과서 장표를 뜻하는 그림으로 세운다. */}
               <span title="결과서(PPTX)에 실을 줄">
-                <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
                   <rect x="1.2" y="2.4" width="13.6" height="11.2" rx="1.6" fill="#c1502e" />
                   <text
                     x="8"

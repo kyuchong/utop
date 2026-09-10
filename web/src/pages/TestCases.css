@@ -483,9 +483,9 @@
   gap: var(--sp-2);
   width: 100%;
   text-align: left;
-  /* 줄 간격. 18줄짜리 시험이면 이 4px 이 한 화면에 두 줄을 더 넣는다.
+  /* 줄 간격. 2px 이었더니 줄이 서로 붙어 보였다(지적) — 4px 로 연다.
      좌우는 0 — 칸마다 제 여백이 있고, 여기 또 주면 표 가장자리가 빈다. */
-  padding: 2px 0;
+  padding: 4px 0;
   border: 0;
   border-radius: var(--tc-r);
   background: transparent;
@@ -560,10 +560,10 @@
   z-index: 2;
   align-items: center;
   width: 100%;
-  padding: 3px 8px;
+  padding: 6px 0;
   background: var(--tc-bg, #fff);
   border-bottom: 1px solid var(--c-border, #c3cbd4);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--c-text-faint);
@@ -583,15 +583,17 @@
 }
 .sq-row:last-child { box-shadow: none; }
 .sq-row:hover { background: var(--tc-hover); }
-/* 고른 줄 — 바탕색만으로는 안 보였다(지적: 행 선택이 인지가 안 된다).
-   왼쪽에 굵은 띠를 세우고 바탕을 한 단계 진하게, 글자도 또렷하게. */
+/* 고른 줄 — 바탕색만으로는 안 보였다(지적). 왼쪽에 굵은 띠를 세우고 바탕을
+   한 단계 진하게, 글자도 또렷하게.
+   색은 **청록**이다(지시) — 이 앱의 머리띠(#12505e)와 같은 계열이라
+   파랑보다 화면에 얹혔을 때 결이 맞는다. */
 .sq-row.on,
 .sq-row.on:hover {
-  background: #dceafc;
-  box-shadow: inset 3px 0 0 var(--c-primary), inset 0 -1px 0 var(--sq-line);
+  background: #d9eef1;
+  box-shadow: inset 3px 0 0 #0e7490, inset 0 -1px 0 var(--sq-line);
 }
 .sq-row.on > * { color: var(--c-text); }
-.sq-row.on .sq-n { color: var(--c-primary); font-weight: 700; }
+.sq-row.on .sq-n { color: #0b5f77; font-weight: 700; }
 
 /* 건너뛰는 스텝은 흐리게. 지우지 않고 잠시 빼두는 일이 잦다. */
 .sq-row.skip { opacity: 0.42; }
@@ -779,7 +781,7 @@ button.sq-caret svg { width: 11px; height: 11px; }
 }
 .sq-row:hover > .sq-sum { background: var(--tc-hover); }
 .sq-row.on > .sq-sum,
-.sq-row.on:hover > .sq-sum { background: #dceafc; }
+.sq-row.on:hover > .sq-sum { background: #d9eef1; }
 .sq-row.now > .sq-sum { background: transparent; }
 
 /* 아이콘만 갈래 색을 갖는다. 글자까지 물들이면 목록이 알록달록해진다. */
@@ -3865,7 +3867,7 @@ html .tc-split > .tc-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0;
 }
@@ -3880,19 +3882,19 @@ html .tc-split > .tc-content {
 
 /* 고른 줄(체크칸을 걷은 뒤 Ctrl·Shift 클릭으로 고른다) — 파란 실선 테두리로
    「고른 것」 임을 알린다. 지금 보고 있는 줄(.on)과는 무게가 다르다. */
-.sq-row.picked { background: #eef4fd; }
-.sq-row.picked > *:first-child { box-shadow: inset 2px 0 0 #7aa7e0; }
+.sq-row.picked { background: #eaf6f7; }
+.sq-row.picked > *:first-child { box-shadow: inset 2px 0 0 #7bb8c4; }
 
 /* 주석·메시지의 바탕을 걷었으니, 고른 줄 색이 그 위에도 그대로 온다(지시) */
 .sq-row.comment.on,
 .sq-row.message.on,
 .sq-row.comment.on:hover,
 .sq-row.message.on:hover {
-  background: #dceafc;
-  box-shadow: inset 3px 0 0 var(--c-primary), inset 0 -1px 0 var(--sq-line);
+  background: #d9eef1;
+  box-shadow: inset 3px 0 0 #0e7490, inset 0 -1px 0 var(--sq-line);
 }
 .sq-row.comment.on .sq-sum,
-.sq-row.message.on .sq-sum { background: #dceafc; }
+.sq-row.message.on .sq-sum { background: #d9eef1; }
 
 /* 판정은 **가운데**(지시). 왼쪽에 붙이면 PASS·FAIL 이 서로 다른 자리에서
    시작해 훑을 때 눈이 좌우로 흔들린다. */
