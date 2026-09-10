@@ -8975,3 +8975,10 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-dmlegend2 .lg.no { background: var(--c-fail); }
 /* 고르개가 열리면 입력 상자가 그 아래에 깔려야 한다 */
 .ask-devwrap { position: relative; }
+
+/* ＋ 하나로 모은 붙이기·도구 단추 (지시: 목업 구조) */
+.ask-tb.plus { font-size: 18px; font-weight: 600; color: var(--c-text-muted); }
+.ask-tb.plus.on { background: var(--c-primary-bg); color: var(--c-primary); }
+/* 파일과 도구 사이 실금 — 「붙일 것」 과 「켤 것」 은 다른 일이다 */
+.ask-toolmenu .tsep { display: block; height: 1px; background: var(--c-border-soft); margin: 5px 8px; }
+.ask-toolmenu .ask-tmi.file { font-weight: 600; color: var(--c-text); }

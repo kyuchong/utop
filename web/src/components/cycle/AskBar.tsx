@@ -2322,24 +2322,29 @@ export default function AskBar({ devices }: Props) {
               </div>
 
               <div className="ask-r2">
-              <button className="ask-tb" type="button" disabled title="파일 붙이기 — 나중 단계에서 붙습니다">
-                📎
-              </button>
+              {/* **＋ 하나**로 모은다(지시: 목업). 파일(📎)과 도구(⚙)를 따로 두면
+                  입력줄 앞이 단추 둘로 시작해 무엇을 눌러야 할지 묻게 된다.
+                  붙일 것도 켤 것도 다 이 안에 있다. */}
               <span className="ask-toolwrap">
                 <button
-                  className={`ask-tb${toolsOpen ? ' on' : ''}`}
+                  className={`ask-tb plus${toolsOpen ? ' on' : ''}`}
                   type="button"
                   aria-haspopup="true"
                   aria-expanded={toolsOpen}
-                  title="도구"
+                  title="파일 붙이기 · 도구 추가"
                   onClick={() => setToolsOpen((v) => !v)}
                 >
-                  ⚙
+                  ＋
                 </button>
                 {toolsOpen && (
                   <>
                     <span className="ask-modeback" onClick={() => setToolsOpen(false)} />
                     <span className="ask-toolmenu" role="menu">
+                      {/* 파일이 먼저다 — 「무엇을 붙일까」 가 「무엇을 켤까」 보다 앞선다 */}
+                      <span className="ask-tmi off file" aria-disabled="true">
+                        <i>📎</i>파일 업로드<em className="soon">CSV · 로그 · 캡처 · 나중</em>
+                      </span>
+                      <span className="tsep" aria-hidden="true" />
                       {TOOLDEF.map(([k, emo, nm, d]) => (
                         <span
                           key={k}
@@ -2370,9 +2375,6 @@ export default function AskBar({ devices }: Props) {
                           </b>
                         </span>
                       ))}
-                      <span className="ask-tmi off" aria-disabled="true">
-                        <i>＋</i>CSV·파일 붙이기<em className="soon">나중</em>
-                      </span>
                     </span>
                   </>
                 )}
@@ -2481,12 +2483,6 @@ export default function AskBar({ devices }: Props) {
                     ＋ 도구 추가
                   </button>
                 )}
-              </div>
-
-              {/* 지금 어느 모드인지 · 그 모드가 무엇을 하는지 한 줄로 */}
-              <div className="ta-modehint">
-                <b>{mode === 'basic' ? 'General' : 'Advanced'}</b> ·{' '}
-                {mode === 'basic' ? '기존 시험을 찾아 바로 실행' : '없는 시험을 새로 만들고 스텝을 정함'}
               </div>
 
               {/* 장비 고르개 — **표로 고른다**(지시: 목업).
@@ -2734,6 +2730,13 @@ export default function AskBar({ devices }: Props) {
                   </span>
                 </>
               )}
+            </div>
+
+            {/* 모드 안내 — 입력 상자 **밖** 오른쪽 아래(지시: 목업).
+                상자 안에 두면 흰 바탕 위 회색 글씨가 되어 입력칸의 일부로 읽힌다. */}
+            <div className="ta-modehint">
+              <b>{mode === 'basic' ? 'General' : 'Advanced'}</b> ·{' '}
+              {mode === 'basic' ? '기존 시험을 찾아 바로 실행' : '없는 시험을 새로 만들고 스텝을 정함'}
             </div>
 
             {/* 오프너 — 눌러서 무엇을 시킬 수 있는지 안다 */}
