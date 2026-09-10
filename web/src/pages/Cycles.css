@@ -8851,3 +8851,127 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   font-size: var(--fs-xs); color: var(--c-text-faint);
 }
 .ta-modehint b { color: var(--c-primary); }
+
+/* ══ Test AI — 장비 고르개를 **표로** (지시: 목업 반영) ══
+   이름만 늘어놓던 목록으로는 같은 모델이 열 대씩 있는 LAB 에서 어느 것을
+   고를지 알 수 없었다. LAB·사업자·벤더·모델그룹으로 거르고 연결 상태를 본다. */
+.ask-devpop { position: absolute; left: 0; bottom: calc(100% + 8px); width: 0; height: 0; }
+.ask-devmenu.big {
+  display: flex; flex-direction: column; position: absolute; left: 0; bottom: 0;
+  width: min(920px, 94vw); height: min(520px, 70vh); max-height: min(520px, 70vh);
+  overflow: hidden; padding: 0;
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 10px;
+  box-shadow: 0 10px 28px rgb(18 80 94 / 18%); z-index: 60;
+}
+.ask-devmenu.big .ask-dmhd {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; flex: none;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.ask-dmq {
+  flex: 1 1 auto; min-width: 120px; border: 1px solid var(--c-border); border-radius: var(--r-box);
+  padding: 5px 10px; font: inherit; font-size: var(--fs-sm); outline: 0;
+}
+.ask-dmq:focus { border-color: var(--c-primary); }
+.ask-dmcnt { font-size: var(--fs-xs); color: var(--c-text-faint); }
+.ask-devmenu.big .ask-dmbody { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; overflow: hidden; }
+.ask-dmlist {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1;
+  overflow-y: auto; overflow-x: visible; padding: 8px; background: var(--c-surface-alt);
+}
+/* 머리줄 — 각 칸이 그대로 거르개다 */
+.ask-dmhdr {
+  position: sticky; top: 0; z-index: 5; overflow: visible;
+  display: flex; align-items: center; gap: 10px; padding: 6px 13px; margin: -8px -8px 4px;
+  background: var(--c-surface-alt); border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-xs); color: var(--c-text-faint); font-weight: 600; white-space: nowrap;
+}
+.ask-devmenu.big .ask-dmi {
+  display: flex; align-items: center; gap: 10px; padding: 7px 12px;
+  border: 1px solid var(--c-border-soft); border-radius: 10px; background: var(--c-surface);
+  cursor: pointer; white-space: nowrap; font-size: var(--fs-sm); color: var(--c-text);
+}
+.ask-devmenu.big .ask-dmi:hover { border-color: var(--c-primary); box-shadow: 0 1px 6px rgb(23 105 210 / 12%); }
+.ask-devmenu.big .ask-dmi.on { border-color: var(--c-primary); background: var(--c-primary-bg); }
+.dv-lab { width: 62px; flex: none; font-size: 10px; font-weight: 700; color: #a15a00;
+  background: #fdf2e0; border-radius: var(--r-chip); padding: 2px 7px; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; }
+.dv-cu { width: 56px; flex: none; color: var(--c-text-muted); font-size: var(--fs-xs);
+  overflow: hidden; text-overflow: ellipsis; }
+.dv-vd { width: 70px; flex: none; color: var(--c-text-muted); font-size: var(--fs-xs);
+  overflow: hidden; text-overflow: ellipsis; }
+.dv-gp { width: 88px; flex: none; font-size: 10px; font-weight: 700; color: #6d4bd6;
+  background: #f0ecff; border-radius: var(--r-chip); padding: 2px 8px; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; }
+.dv-nm { flex: 1 1 auto; min-width: 132px; color: var(--c-text); font-size: var(--fs-md);
+  overflow: hidden; text-overflow: ellipsis; }
+.dv-ip { width: 132px; flex: none; font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-size: var(--fs-sm); color: var(--c-text); text-align: left; }
+.dv-ip.none { color: var(--c-text-faint); }
+/* 머리줄에서는 칩 색을 걷고 글자만 */
+.ask-dmhdr .dv-lab, .ask-dmhdr .dv-gp { background: none; color: var(--c-text-faint); font-weight: 600;
+  text-align: left; padding: 2px 0; }
+.ask-dmhdr .dv-nm, .ask-dmhdr .dv-ip { font-size: var(--fs-xs); color: var(--c-text-faint); font-weight: 600;
+  font-family: var(--font-ui, inherit); }
+
+/* 연결 상태 — T/S/C/N 을 묶은 판정. 올리면 넷을 편다 */
+.dv-ready { position: relative; width: 76px; flex: none; display: inline-flex; justify-content: center; }
+.rd-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700;
+  border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.rd-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.dv-ready.ok .rd-chip { background: #e9f6ee; color: #117f3a; }
+.dv-ready.part .rd-chip { background: #fdf2e0; color: #a15a00; }
+.dv-ready.no .rd-chip { background: #fdecec; color: var(--c-fail); }
+.rd-tip {
+  display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 70; min-width: 214px;
+  background: #2b3440; color: #fff; border-radius: 8px; padding: 8px 10px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 24%); text-align: left; font-weight: 400;
+}
+.dv-ready:hover .rd-tip { display: block; }
+.rd-tip > b { display: block; font-size: var(--fs-sm); margin-bottom: 3px; }
+.rd-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; margin-top: 2px; }
+.rd-r { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: #dbe3ec; white-space: nowrap; }
+.rd-r b { font-weight: 700; color: #fff; width: 9px; }
+.rd-r em { margin-left: auto; font-style: normal; color: #aab6c4; }
+.rd-l { width: 7px; height: 7px; border-radius: 50%; background: #5c6773; flex: none; }
+.rd-l.on { background: #3ecf72; box-shadow: 0 0 0 2px rgb(62 207 114 / 22%); }
+.rd-l.off { background: #ff6b6b; box-shadow: 0 0 0 2px rgb(255 107 107 / 20%); }
+.rd-l.idle { background: #c9a227; }
+.rd-tip em.why { display: block; margin-top: 3px; font-style: normal; color: #ffd9a8; }
+.dv-ready.hd { width: 76px; color: var(--c-text-faint); font-weight: 600; font-size: var(--fs-xs);
+  justify-content: flex-start; }
+
+/* 열 머리를 눌러 거른다 — 따로 거르개 줄을 두면 표가 밀린다 */
+.ask-dmhdr .hf { position: relative; }
+.hf-btn { display: inline-flex; align-items: center; gap: 3px; max-width: 100%;
+  font: inherit; font-size: var(--fs-xs); font-weight: 600; color: var(--c-text-faint);
+  padding: 0; border: 0; background: none; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hf-btn:hover { color: var(--c-text); }
+.hf-c { font-style: normal; font-size: 8px; opacity: 0.7; }
+.ask-dmhdr .hf.set .hf-btn { color: var(--c-primary); }
+.hf-pop {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 90; min-width: 132px; max-height: 240px;
+  overflow: auto; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 8px;
+  box-shadow: 0 8px 22px rgb(18 80 94 / 16%); padding: 4px; font-weight: 400;
+}
+.hf-opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  text-align: left; padding: 5px 9px; border: 0; background: none; cursor: pointer;
+  border-radius: 6px; font: inherit; font-size: var(--fs-sm); color: var(--c-text); white-space: nowrap; }
+.hf-opt:hover { background: var(--c-surface-alt); }
+.hf-opt.on { color: var(--c-primary); font-weight: 700; }
+.hf-opt i { font-style: normal; font-size: 11px; }
+
+.ask-dmnone { padding: 16px; color: var(--c-text-faint); font-size: var(--fs-sm); }
+.ask-dmlegend2 {
+  display: flex; align-items: center; gap: 6px; padding: 6px 14px; flex: none;
+  border-top: 1px solid var(--c-border-soft); background: var(--c-surface-alt);
+  font-size: var(--fs-xs); color: var(--c-text-faint);
+}
+.ask-dmlegend2 b { color: var(--c-text-muted); }
+.ask-dmlegend2 .sp { flex: 1; }
+.ask-dmlegend2 .lg { width: 7px; height: 7px; border-radius: 50%; margin-left: 8px; }
+.ask-dmlegend2 .lg.ok { background: #117f3a; }
+.ask-dmlegend2 .lg.part { background: #a15a00; }
+.ask-dmlegend2 .lg.no { background: var(--c-fail); }
+/* 고르개가 열리면 입력 상자가 그 아래에 깔려야 한다 */
+.ask-devwrap { position: relative; }

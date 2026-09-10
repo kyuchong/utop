@@ -326,6 +326,12 @@ export default function AskBar({ devices }: Props) {
   /** 고른 대상 장비(모델) */
   const [tDev, setTDev] = useState('')
   const [devOpen, setDevOpen] = useState(false)
+  /* 장비 고르개 — **표**로 고른다(지시: 목업). 이름만 늘어놓던 목록으로는
+     같은 모델이 열 대씩 있는 LAB 에서 어느 것을 고를지 알 수가 없었다.
+     LAB·사업자·벤더·모델그룹으로 거르고, 연결 상태를 보고 짚는다. */
+  const [devQ, setDevQ] = useState('')
+  const [devF, setDevF] = useState<Record<string, string>>({})
+  const [devHF, setDevHF] = useState('')
   const askInRef = useRef<HTMLInputElement>(null)
   const flipTool = (k: string) =>
     setTOn((prev) => {
@@ -2483,35 +2489,248 @@ export default function AskBar({ devices }: Props) {
                 {mode === 'basic' ? '기존 시험을 찾아 바로 실행' : '없는 시험을 새로 만들고 스텝을 정함'}
               </div>
 
-              {/* 장비 고르개 — 등록된 장비에서 대상을 하나 짚는다 */}
+              {/* 장비 고르개 — **표로 고른다**(지시: 목업).
+                  이름만 늘어놓으면 같은 모델이 열 대씩 있는 LAB 에서 어느 것을
+                  고를지 알 수 없다. 거르개(LAB·사업자·벤더·모델그룹)는 열 머리를
+                  눌러 쓰고, 오른쪽 끝의 연결 상태가 지금 붙을 수 있는지 말한다. */}
               {devOpen && (
                 <>
                   <span className="ask-modeback" onClick={() => setDevOpen(false)} />
-                  <span className="ask-devmenu" role="menu">
-                    {devices.length ? (
-                      devices.map((d) => {
-                        const nm = String(d.model || d.name || d.ip)
-                        return (
-                          <span
-                            key={d.id}
-                            role="menuitem"
-                            tabIndex={0}
-                            className="ask-dmi"
-                            onClick={() => {
-                              setTDev(nm)
-                              if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
-                              setDevOpen(false)
-                            }}
-                            onKeyDown={(e) => e.key === 'Enter' && (setTDev(nm), setDevOpen(false))}
-                          >
-                            📟 {nm}
-                            <small>{d.ip}</small>
+                  <span className="ask-devpop">
+                    <span className="ask-devmenu big" role="menu">
+                      {(() => {
+                        const COLS: Array<[string, string, string]> = [
+                          ['lab', 'LAB', 'dv-lab'],
+                          ['operator', '사업자', 'dv-cu'],
+                          ['vendor', '벤더', 'dv-vd'],
+                          ['model_group', '모델그룹', 'dv-gp'],
+                        ]
+                        const val = (d: Device, k: string) =>
+                          String((d as unknown as Record<string, unknown>)[k] ?? '').trim() || '—'
+                        /* 접속 방식별 상태 — 등록 안 함(na) · 미확인(idle) · 연결(on) · 실패(off) */
+                        const linkOf = (d: Device) => {
+                          const g = (proto: string) => {
+                            const a = (d.access ?? []).find(
+                              (x) => String(x.protocol ?? '').toLowerCase() === proto,
+                            )
+                            if (!a || a.enabled === false) return 'na'
+                            return a.last_status === 'ok' ? 'on' : a.last_status === 'fail' ? 'off' : 'idle'
+                          }
+                          return { T: g('telnet'), S: g('ssh'), C: g('console'), N: g('snmp') }
+                        }
+                        /* T/S/C/N 을 **하나로 묶은 판정** — 줄마다 넷을 읽게 하지 않는다 */
+                        const readyOf = (d: Device) => {
+                          const L = linkOf(d)
+                          const cli = [L.T, L.S, L.C].some((v) => v === 'on')
+                          const snmp = L.N === 'on'
+                          if (!String(d.ip ?? '').trim())
+                            return { k: 'no', label: '연결안됨', why: 'IP 미설정' }
+                          if (cli && snmp) return { k: 'ok', label: '연결됨', why: '' }
+                          if (!cli && !snmp) return { k: 'no', label: '연결안됨', why: '접속 불가' }
+                          return { k: 'part', label: '점검', why: !snmp ? 'SNMP 미연결' : 'CLI 접속 불가' }
+                        }
+                        const q = devQ.trim().toLowerCase()
+                        const pass = (d: Device, skip?: string) =>
+                          COLS.every(([k]) => k === skip || !devF[k] || val(d, k) === devF[k]) &&
+                          (!devF.ready || skip === 'ready' || readyOf(d).label === devF.ready) &&
+                          (!q ||
+                            [d.model, d.name, d.ip, d.lab, d.operator, d.vendor, d.model_group]
+                              .map((x) => String(x ?? ''))
+                              .join(' ')
+                              .toLowerCase()
+                              .includes(q))
+                        const ipKey = (ip: string) =>
+                          String(ip || '')
+                            .split('.')
+                            .map((n) => Number(n) || 0)
+                        const rows = devices.filter((d) => pass(d)).sort((a, b) => {
+                          const l = String(a.lab ?? '').localeCompare(String(b.lab ?? ''), 'ko')
+                          if (l) return l
+                          const o = String(a.operator ?? '').localeCompare(String(b.operator ?? ''), 'ko')
+                          if (o) return o
+                          const m = String(a.model ?? a.name ?? '').localeCompare(
+                            String(b.model ?? b.name ?? ''),
+                            'ko',
+                          )
+                          if (m) return m
+                          const x = ipKey(String(a.ip ?? '')),
+                            y = ipKey(String(b.ip ?? ''))
+                          for (let i = 0; i < 4; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0)
+                          return 0
+                        })
+                        const opts = (k: string) =>
+                          [...new Set(devices.filter((d) => pass(d, k)).map((d) => val(d, k)))].sort((a, b) =>
+                            a.localeCompare(b, 'ko'),
+                          )
+                        const hf = (k: string, label: string, cls: string, list: string[]) => (
+                          <span className={`${cls} hf${devF[k] ? ' set' : ''}`}>
+                            <button
+                              type="button"
+                              className="hf-btn"
+                              aria-expanded={devHF === k}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDevHF((v) => (v === k ? '' : k))
+                              }}
+                            >
+                              {devF[k] || label}
+                              <i className="hf-c" aria-hidden="true">▾</i>
+                            </button>
+                            {devHF === k && (
+                              <span className="hf-pop">
+                                {['', ...list].map((v) => (
+                                  <button
+                                    key={v || '__all'}
+                                    type="button"
+                                    className={`hf-opt${(devF[k] || '') === v ? ' on' : ''}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setDevF((prev) => ({ ...prev, [k]: v }))
+                                      setDevHF('')
+                                    }}
+                                  >
+                                    {v || '전체'}
+                                    {(devF[k] || '') === v && <i>✓</i>}
+                                  </button>
+                                ))}
+                              </span>
+                            )}
                           </span>
                         )
-                      })
-                    ) : (
-                      <span className="ask-dmi off">등록된 장비가 없습니다</span>
-                    )}
+                        const dirty = Object.values(devF).some(Boolean) || !!q
+                        return (
+                          <>
+                            <span className="ask-dmhd">
+                              <input
+                                className="ask-dmq"
+                                placeholder="이름 · IP · LAB · 사업자 · 벤더 · 모델그룹"
+                                value={devQ}
+                                onChange={(e) => setDevQ(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <span className="ask-dmcnt">{rows.length}대</span>
+                              {dirty && (
+                                <button
+                                  type="button"
+                                  className="btn small"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setDevF({})
+                                    setDevQ('')
+                                    setDevHF('')
+                                  }}
+                                >
+                                  필터 지우기
+                                </button>
+                              )}
+                              {tDev && (
+                                <button
+                                  type="button"
+                                  className="btn small"
+                                  onClick={() => {
+                                    setTDev('')
+                                    setDevOpen(false)
+                                  }}
+                                >
+                                  고르지 않음
+                                </button>
+                              )}
+                            </span>
+                            <span className="ask-dmbody">
+                              <span className="ask-dmlist">
+                                <span className="ask-dmhdr">
+                                  {COLS.map(([k, label, cls]) => hf(k, label, cls, opts(k)))}
+                                  <b className="dv-nm">모델명</b>
+                                  <span className="dv-ip">IP</span>
+                                  {hf('ready', '연결 상태', 'dv-ready hd', ['연결됨', '점검', '연결안됨'])}
+                                </span>
+                                {rows.length ? (
+                                  rows.map((d) => {
+                                    const nm = String(d.model || d.name || d.ip)
+                                    const L = linkOf(d)
+                                    const R = readyOf(d)
+                                    const noip = !String(d.ip ?? '').trim()
+                                    return (
+                                      <span
+                                        key={d.id}
+                                        role="menuitem"
+                                        tabIndex={0}
+                                        className={`ask-dmi${tDev === nm ? ' on' : ''}`}
+                                        onClick={() => {
+                                          setTDev(nm)
+                                          if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+                                          setDevOpen(false)
+                                        }}
+                                        onKeyDown={(e) =>
+                                          e.key === 'Enter' && (setTDev(nm), setDevOpen(false))
+                                        }
+                                      >
+                                        <span className="dv-lab">{d.lab || '—'}</span>
+                                        <span className="dv-cu">{d.operator || '—'}</span>
+                                        <span className="dv-vd">{d.vendor || '—'}</span>
+                                        <span className="dv-gp">{d.model_group || '—'}</span>
+                                        <b className="dv-nm" title={String(d.name || nm)}>
+                                          {nm}
+                                        </b>
+                                        <span className={`dv-ip${noip ? ' none' : ''}`}>
+                                          {noip ? 'IP 미설정' : d.ip}
+                                        </span>
+                                        <span className={`dv-ready ${R.k}`}>
+                                          <span className="rd-chip">
+                                            <i className="rd-dot" />
+                                            {R.label}
+                                          </span>
+                                          {/* 종합 판정만으로는 왜 안 되는지 모른다 — 올리면 넷을 편다 */}
+                                          <span className="rd-tip">
+                                            <b>{R.label}</b>
+                                            <span className="rd-rows">
+                                              {(
+                                                [
+                                                  ['T', 'Telnet', L.T],
+                                                  ['S', 'SSH', L.S],
+                                                  ['C', 'Console', L.C],
+                                                  ['N', 'SNMP', L.N],
+                                                ] as const
+                                              ).map(([k, label, v]) => (
+                                                <span className="rd-r" key={k}>
+                                                  <i className={`rd-l ${v}`} />
+                                                  <b>{k}</b> {label}
+                                                  <em>
+                                                    {v === 'on'
+                                                      ? '정상'
+                                                      : v === 'off'
+                                                        ? '실패'
+                                                        : v === 'idle'
+                                                          ? '미확인'
+                                                          : '등록 안 함'}
+                                                  </em>
+                                                </span>
+                                              ))}
+                                            </span>
+                                            {R.why && <em className="why">{R.why}</em>}
+                                          </span>
+                                        </span>
+                                      </span>
+                                    )
+                                  })
+                                ) : (
+                                  <span className="ask-dmnone">
+                                    {devices.length ? '맞는 장비가 없습니다' : '등록된 장비가 없습니다'}
+                                  </span>
+                                )}
+                              </span>
+                            </span>
+                            <span className="ask-dmlegend2">
+                              <b>연결 상태</b> = T/S/C/N 을 묶은 결과 (올리면 각각)
+                              <span className="sp" />
+                              <i className="lg ok" />연결됨
+                              <i className="lg part" />점검
+                              <i className="lg no" />연결안됨
+                            </span>
+                          </>
+                        )
+                      })()}
+                    </span>
                   </span>
                 </>
               )}
