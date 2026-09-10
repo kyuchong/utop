@@ -2976,6 +2976,20 @@ LLM_PURPOSES: dict[str, dict] = {
             "4) 결과에 없는 것은 쓰지 않는다 — 미실행은 미실행이라고 적는다."
         ),
     },
+    # ── 지식 ──────────────────────────────────────────────────
+    "kai_answer": {
+        "label": "Knowledge AI",
+        "hint": "Knowledge AI › 쌓인 자료(WIKI · 시험 · 사이클 · Jira)에서 찾아 답합니다.",
+        "system": (
+            "너는 네트워크 장비 시험 조직의 지식 도우미다. 아래 근거만으로 한국어로 "
+            "간결히 답하라.\n"
+            "규칙:\n"
+            "1) 근거를 쓸 때는 문장 끝에 [번호] 로 짚는다.\n"
+            "2) 근거에 없는 것은 없다고 말한다 — 지어내지 않는다.\n"
+            "3) 표가 어울리면 마크다운 표를 쓴다.\n"
+            "4) 수치·버전·판정은 근거에 적힌 그대로 옮긴다."
+        ),
+    },
     # ── 화면에 안 세우는 것 ─────────────────────────────────────
     # 「일곱 자리」 는 사람이 손보는 자리다(지시). 이것은 고를 것이 없는
     # 붙박이라 목록에서 감춘다 — 지우면 AI 「일반」 갈래가 시험을 못 고른다.
@@ -18148,14 +18162,19 @@ async def kai_ask_stream(payload: dict, request: Request):
         _narrow = ("" if len(scopes) >= 4 else
                    f"이 물음은 **{_scope_txt}** 안에서만 찾은 것이다. 근거에 없으면 "
                    f"「{_scope_txt} 에는 없습니다」 라고 분명히 말하고, 다른 저장소 이야기를 지어내지 마라.\n")
+        # **답하는 규칙은 설정에 있다**(지시: SETUP › 용도별 프롬프트 › Knowledge AI).
+        # 코드에 박아 두면 말투 한 줄 고치는 데도 배포를 해야 한다.
+        _cfg = _prompt_of("kai_answer")
+        _base = str(_cfg.get("system") or "").strip() or str(
+            (LLM_PURPOSES.get("kai_answer") or {}).get("system") or "")
+        # 프로젝트 지침과 「고른 범위」 는 그 앞에 얹는다 — 설정 글을 사람이
+        # 어떻게 고치든 이 둘은 늘 따라야 한다.
         sys_p = ((f"이 대화에는 다음 지침이 있다 — 반드시 따르라: {_instr}\n" if _instr else "")
-                 + _narrow
-                 + "너는 네트워크 장비 시험 조직의 지식 도우미다. 아래 근거만으로 한국어로 간결히 답하라. "
-                 "근거를 쓸 때는 문장 끝에 [번호] 로 짚어라. 근거에 없는 것은 없다고 말하라. "
-                 "표가 어울리면 마크다운 표를 써라.")
+                 + _narrow + _base)
         user_p = "질문: " + q + "\n\n근거:\n" + ("\n\n".join(blocks) if blocks else "(찾은 근거 없음)")
 
-        llm = _ai_llm() or {}
+        # 이 용도에 붙여 둔 LLM 이 있으면 그것을 쓴다
+        llm = _llm_pick("kai_answer") or _ai_llm() or {}
         parts: list[str] = []
         ep = str(llm.get("endpoint") or "")
         if llm and ep:
@@ -18252,11 +18271,12 @@ async def kai_ask(payload: dict, request: Request):
         blocks.append(f"[{i}] ({sx['kind']}) {sx['id']} — {sx['title']}\n"
                       + (f"상태 {ex.get('status')} · {ex.get('updated')}\n" if ex else "")
                       + (sx.get("snippet") or ""))
-    sys_p = ("너는 네트워크 장비 시험 조직의 지식 도우미다. 아래 근거만으로 한국어로 간결히 답하라. "
-             "근거를 쓸 때는 문장 끝에 [번호] 로 짚어라. 근거에 없는 것은 없다고 말하라. "
-             "표가 어울리면 마크다운 표를 써라.")
+    # 스트리밍 쪽과 **같은 프롬프트**를 쓴다(SETUP › 용도별 프롬프트 › Knowledge AI).
+    # 두 군데에 따로 적어 두면 한쪽만 고쳐져 답이 갈린다.
+    sys_p = str(_prompt_of("kai_answer").get("system") or "").strip() or str(
+        (LLM_PURPOSES.get("kai_answer") or {}).get("system") or "")
     user_p = "질문: " + q + "\n\n근거:\n" + ("\n\n".join(blocks) if blocks else "(찾은 근거 없음)")
-    llm = _ai_llm() or {}
+    llm = _llm_pick("kai_answer") or _ai_llm() or {}
     ans = await _jira_llm_complete(llm, sys_p, user_p, max_tokens=900)
     if not ans:
         ans = ("LLM 이 설정되지 않았거나 답을 만들지 못했습니다. 찾은 근거는 오른쪽에서 볼 수 있습니다."
