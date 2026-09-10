@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from 'react'
 import StepIcon from './StepIcon'
 import { IconChevron } from '../icons'
 import { blockEnd } from './runner'
@@ -107,6 +107,111 @@ export default function TcSequence({
     if (menuAt >= steps.length) setMenuAt(-1)
   }, [steps.length, menuAt])
   const canMenu = !!(onPatch || onDuplicate || onRemove) && !readOnly
+
+  /**
+   * **줄에서 바로 고치기**(목업 ②).
+   *
+   * 명령 한 글자를 고치려고 줄을 누르고 → 오른쪽 판으로 눈을 옮기고 →
+   * 칸을 찾아 누르고, 를 열다섯 줄 반복하면 시험 하나를 짜는 데 손이
+   * 백 번 간다. 목업이 「누르면 편집」 인 까닭이다.
+   *
+   * 고치는 칸은 둘 — 보낼 명령(cli 만)과 절차 설명(모든 종류).
+   * 나머지(판정 기준·조건·반복 범위)는 넓은 자리가 필요해 상세 판에 둔다.
+   *
+   * ↵ 다음 줄 · Tab 다음 칸 · Esc 취소.
+   */
+  const [edit, setEdit] = useState<{ i: number; f: 'cmd' | 'desc' } | null>(null)
+  const [draft, setDraft] = useState('')
+  /** blur 가 한 렌더 늦게 오므로, 지금 어느 칸인지는 ref 로도 들고 있는다 */
+  const editRef = useRef<{ i: number; f: 'cmd' | 'desc' } | null>(null)
+  const setEditAt = (v: { i: number; f: 'cmd' | 'desc' } | null) => {
+    editRef.current = v
+    setEdit(v)
+  }
+  const canEdit = !!onPatch && !readOnly
+  /** 이 줄에서 그 칸을 고칠 수 있나 — 명령은 cli 에만 있다 */
+  const editable = (s: TcStep, f: 'cmd' | 'desc') =>
+    canEdit && (f === 'desc' ? !isNoteKind(s.kind) : (s.kind || 'cli') === 'cli')
+  const valueOf = (s: TcStep, f: 'cmd' | 'desc') =>
+    String((f === 'cmd' ? s.cli : s.desc) ?? '')
+  const startEdit = (i: number, f: 'cmd' | 'desc') => {
+    const s = steps[i]
+    if (!s || !editable(s, f)) return
+    setDraft(valueOf(s, f))
+    setEditAt({ i, f })
+  }
+  /** 지금 칸을 저장한다. **안 바뀌었으면 안 쓴다** — 헛 저장이 「저장됨」 을 흔든다 */
+  const commit = (i: number, f: 'cmd' | 'desc', v: string) => {
+    const s = steps[i]
+    if (!s || !onPatch) return
+    const now = valueOf(s, f)
+    if (v === now) return
+    onPatch(i, f === 'cmd' ? { cli: v } : { desc: v || undefined })
+  }
+  /** 다음(또는 이전) 줄에서 이 칸을 고칠 수 있는 첫 줄. 없으면 -1 */
+  const nextRow = (from: number, dir: 1 | -1, f: 'cmd' | 'desc') => {
+    for (let j = from + dir; j >= 0 && j < steps.length; j += dir) {
+      const s = steps[j]
+      if (!s || hide?.(s) || folded.has(j)) continue
+      if (editable(s, f)) return j
+    }
+    return -1
+  }
+  const goEdit = (i: number, f: 'cmd' | 'desc') => {
+    setDraft(valueOf(steps[i]!, f))
+    setEditAt({ i, f })
+    onSelect(i)
+  }
+  /**
+   * 칸에서 손이 떠났다.
+   *
+   * 키로 이미 다른 칸으로 옮겼다면 그때 저장했으므로 여기서 또 쓰지 않는다 —
+   * 지금 편집 중인 칸이 **아직 나인지**를 ref 로 본다. state 만 보면 blur 가
+   * 한 렌더 늦게 와서 같은 값을 두 번 쓰고, 「저장됨」 이 두 번 흔들린다.
+   */
+  const endEdit = (i: number, f: 'cmd' | 'desc') => {
+    const cur = editRef.current
+    if (!cur || cur.i !== i || cur.f !== f) return
+    commit(i, f, draft)
+    setEditAt(null)
+  }
+  const editKey = (
+    e: RKeyboardEvent<HTMLInputElement>,
+    i: number,
+    f: 'cmd' | 'desc',
+    s: TcStep,
+  ) => {
+    /* 한글을 조합하는 중의 ↵ 는 「글자 확정」 이지 「다음 줄」 이 아니다 */
+    if (e.nativeEvent.isComposing) return
+    if (e.key === 'Escape') {
+      /* 되돌리기 — 쓰지 않고 닫는다 */
+      e.preventDefault()
+      setEditAt(null)
+      return
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commit(i, f, draft)
+      const nx = nextRow(i, e.shiftKey ? -1 : 1, f)
+      if (nx >= 0) goEdit(nx, f)
+      else setEditAt(null)
+      return
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      commit(i, f, draft)
+      /* 같은 줄의 다음 칸 — 명령 ↔ 설명. 그 칸이 없으면 다음 줄로 넘어간다 */
+      const other: 'cmd' | 'desc' = f === 'cmd' ? 'desc' : 'cmd'
+      if (!e.shiftKey && editable(s, other)) {
+        setDraft(valueOf(s, other))
+        setEditAt({ i, f: other })
+        return
+      }
+      const nx = nextRow(i, e.shiftKey ? -1 : 1, f)
+      if (nx >= 0) goEdit(nx, f)
+      else setEditAt(null)
+    }
+  }
 
   /**
    * 접어 둔 블록의 여는 줄 번호.
@@ -301,16 +406,83 @@ export default function TcSequence({
                   className={`sq-sum${s.kind === 'cli' ? ' mono' : ''}`}
                   title={[summary(s), s.desc, s.step].filter(Boolean).join('  —  ')}
                 >
-                  {summary(s) || <span className="muted">—</span>}
+                  {/* **누르면 그 자리에서 고친다**(목업 ②). cli 만 — 다른
+                      종류는 요약이 여러 칸을 합친 글이라 한 칸으로 못 되돌린다. */}
+                  {edit?.i === i && edit.f === 'cmd' ? (
+                    <input
+                      className="sq-in"
+                      autoFocus
+                      value={draft}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => editKey(e, i, 'cmd', s)}
+                      onBlur={() => endEdit(i, 'cmd')}
+                    />
+                  ) : editable(s, 'cmd') ? (
+                    <span
+                      className="sq-sumv"
+                      role="button"
+                      tabIndex={-1}
+                      title="눌러서 고칩니다 — ↵ 다음 줄 · Tab 다음 칸 · Esc 취소"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSelect(i)
+                        startEdit(i, 'cmd')
+                      }}
+                    >
+                      {summary(s) || <span className="muted">비어 있음 — 눌러서 명령을</span>}
+                    </span>
+                  ) : (
+                    summary(s) || <span className="muted">—</span>
+                  )}
                   {isShut && body > 0 && <span className="sq-folded">＋{body}줄</span>}
                   {/* **절차 설명을 되살렸다**(지시). 뺐던 까닭은 「고칠 자리가
                       없어서」 였는데, 이제 스텝 상세에 그 칸이 있다. 결과서가
                       절차의 첫 줄로 읽는 값이라 목록에서도 보여야 한다 —
                       안 보이면 아무도 안 채우고, 그러면 결과서에 명령만 나가
                       무슨 시험인지 알 수 없다. 명령 뒤에 옅게 붙인다. */}
-                  {!!String(s.desc ?? '').trim() && (
-                    <i className="sq-desc">{String(s.desc).trim()}</i>
-                  )}
+                  {edit?.i === i && edit.f === 'desc' ? (
+                    <input
+                      className="sq-in desc"
+                      autoFocus
+                      placeholder="절차 설명 — 결과서와 실행 로그가 이 값을 씁니다"
+                      value={draft}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => editKey(e, i, 'desc', s)}
+                      onBlur={() => endEdit(i, 'desc')}
+                    />
+                  ) : String(s.desc ?? '').trim() ? (
+                    <i
+                      className={`sq-desc${editable(s, 'desc') ? ' hit' : ''}`}
+                      onClick={
+                        editable(s, 'desc')
+                          ? (e) => {
+                              e.stopPropagation()
+                              onSelect(i)
+                              startEdit(i, 'desc')
+                            }
+                          : undefined
+                      }
+                    >
+                      {String(s.desc).trim()}
+                    </i>
+                  ) : editable(s, 'desc') ? (
+                    /* 빈 설명은 **줄에 손이 올 때만** 비친다. 늘 보이면 서른
+                       줄이 「＋ 설명」 으로 덮인다. 결과서가 읽는 값이라
+                       채울 길은 열어 둔다. */
+                    <i
+                      className="sq-desc empty"
+                      title="절차 설명 — 결과서(PPTX)가 절차의 첫 줄로 읽습니다"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSelect(i)
+                        startEdit(i, 'desc')
+                      }}
+                    >
+                      ＋ 설명
+                    </i>
+                  ) : null}
                   {/* 반복인데 안에 든 줄이 없다.
                       들여쓰기를 안 하면 빈 것을 N번 돌고 아래 줄은 한 번만
                       돈다 — 그런데 화면에는 아무 표시가 없어서 N번 돈 줄
@@ -326,7 +498,10 @@ export default function TcSequence({
                     내놓는지 목록에서 보여야 흐름이 읽힌다. 지금은 스텝을
                     하나씩 눌러 상세를 열어 봐야 알 수 있었다. */}
                 <span className="sq-var">
-                  {(s.extracts ?? []).map((e, k) =>
+                  {/* 담는 길이 둘이다 — `queries`(표에서 칸 집기)와
+                      `extracts`(정규식). 상세 판도 둘을 함께 세므로 여기서도
+                      함께 센다. 한쪽만 보면 「상세엔 있는데 목록엔 없다」 가 된다. */}
+                  {[...(s.queries ?? []), ...(s.extracts ?? [])].map((e, k) =>
                     e.var ? (
                       <b key={k} title={`이 스텝이 담습니다 — 뒤에서 \${${e.var}} 로 씁니다`}>
                         {'${' + e.var + '}'}
@@ -422,6 +597,14 @@ export default function TcSequence({
           </div>
         ) : null
       })()}
+
+      {/* 줄에서 고치는 동안만 손가락 길잡이를 낸다(목업 밑줄). 늘 붙여 두면
+          쓰지도 않을 때 자리만 먹는다. */}
+      {edit && (
+        <div className="sq-keys">
+          <b>↵</b> 다음 줄 · <b>Tab</b> 다음 칸 · <b>Esc</b> 취소
+        </div>
+      )}
 
       {!readOnly && (
       <details className="sq-add">
