@@ -21,7 +21,8 @@ import type { ReactNode } from 'react'
  * 온 값이 섞여 들어와도 한 꼴로 보이게 하는 자리다.
  */
 export function dashId(id: unknown): string {
-  return String(id ?? '').replace(/_([RTVP]\d+)$/i, '-$1')
+  // 계열은 R·T·C(·V). P 는 예전 잔재지만 남아 있을 수 있어 함께 알아본다
+  return String(id ?? '').replace(/_([RTVCP]\d+)$/i, '-$1')
 }
 
 export default function Crumb({

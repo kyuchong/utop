@@ -2,8 +2,8 @@
 
     LGU+_E61xx_R0001        요구사항   (req.reqid)
     LGU+_E61xx_T0001        시험항목   (tc.tcid — 이건 PK 다)
-    LGU+_E61xx_P0001        플랜     (cycle.data.cid)
-    LGU+_E61xx_P0001-E001   실행       (cycle.data.items[].ceid)
+    LGU+_E61xx_C0001        사이클    (cycle.data.cid)
+    LGU+_E61xx_C0001-E001   실행       (cycle.data.items[].ceid)
 
 앞머리는 **모델그룹 그대로**다. 사업자명(LGUPLUS·KT)은 딴 칸에 따로 있고,
 모델그룹은 그 사업자를 알아볼 만큼 줄여 담아 사람이 붙인 통칭이다(지시).
@@ -39,9 +39,15 @@ import re
 # **이음쇠를 「_」 에서 「-」 로 바꾼다**(지시). 옛 모양(E61xx_T0001)도 계속
 # 알아봐야 한다 — 이미 매겨 둔 것이 있고, 옮기기는 그것을 새 모양으로
 # 데려오는 일이다.
-NEW_RE = re.compile(r"^.+-[RTVP]\d{4}$")
-OLD_RE = re.compile(r"^(.+)[_-]([RTVP])(\d{4})$")
-NEW_EXEC_RE = re.compile(r"^.+-P\d{4}-E\d{3}$")
+# 쓰는 계열은 **R·T·C·E 넷**이다(지시). `P`(플랜)는 예전 잔재다 —
+# 발번(main._cycle_cid_prefix)도 db.cycle_rekey_p_to_c 도 이미 C 로 갔는데
+# 여기만 C→P 로 되돌리고 있었다. 둘이 서로 반대라 눌러도 제자리였다.
+#
+# 알아보기는 P 도 한다(OLD_RE) — 옛 것이 남아 있을 수 있다. 다만 **새로
+# 매기는 것은 C** 이고, P 는 「새 모양」 이 아니므로(NEW_RE) 옮김 대상이 된다.
+NEW_RE = re.compile(r"^.+-[RTVC]\d{4}$")
+OLD_RE = re.compile(r"^(.+)[_-]([RTVCP])(\d{4})$")
+NEW_EXEC_RE = re.compile(r"^.+-C\d{4}-E\d{3}$")
 
 #: 계열 — 요구사항 R · 요구사항을 덮는 시험 T · **Jira 이슈를 덮는 시험 V** ·
 #: 플랜 P. 셋을 따로 센다(지시: 「R/T/V 별도 관리」) — 한 통에 세면 릴리스
@@ -165,7 +171,8 @@ async def plan(c) -> dict:
     await seed("SELECT reqid FROM req WHERE reqid ~ '[_-]R[0-9]{4}$'", "R")
     await seed("SELECT tcid FROM tc WHERE tcid ~ '[_-]T[0-9]{4}$'", "T")
     await seed("SELECT tcid FROM tc WHERE tcid ~ '[_-]V[0-9]{4}$'", "V")
-    await seed("SELECT data->>'cid' FROM cycle WHERE data->>'cid' ~ '[_-]P[0-9]{4}$'", "P")
+    # 옛 P 번호도 함께 센다 — 안 세면 C 번호가 1 부터 다시 시작해 부딪친다
+    await seed("SELECT data->>'cid' FROM cycle WHERE data->>'cid' ~ '[_-][CP][0-9]{4}$'", "C")
 
     # ── 요구사항 ──────────────────────────────────────────────
     rg = await _req_group(c, m2g, known)
@@ -211,29 +218,29 @@ async def plan(c) -> dict:
         data = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
         old = data.get("cid") or ""
         mg = pick_group("", r["model"] or "", m2g, known)
-        if is_current(old, mg, "P"):
+        if is_current(old, mg, "C"):
             continue
         if not mg:
             skipped.append({"kind": "cycle", "pk": r["id"], "old": old,
                             "why": f"모델 '{r['model'] or ''}' 의 모델그룹을 못 찾습니다"})
             continue
-        new = keep(old, mg, "P") or take(mg, "P")
+        new = keep(old, mg, "C") or take(mg, "C")
         execs = []
         for i, it in enumerate(data.get("items") or [], start=1):
             execs.append({"old": it.get("ceid") or "", "new": f"{new}-E{i:03d}"})
         moves.append({"kind": "cycle", "pk": r["id"], "old": old, "new": new,
-                      "name": r["name"] or "", "execs": execs, "letter": "P"})
+                      "name": r["name"] or "", "execs": execs, "letter": "C"})
 
     return {"moves": moves, "skipped": skipped}
 
 
 def only(p: dict, letters: str) -> dict:
-    """계획에서 **고른 계열만** 남긴다(지시: R·T·P·V 각각 옮길 수 있게).
+    """계획에서 **고른 계열만** 남긴다(지시: R·T·C 각각 옮길 수 있게).
 
     한꺼번에 123건을 옮기는 것이 겁날 때가 있다 — 요구사항만 먼저 해 보고
     괜찮으면 나머지를 하는 식으로 쓴다. 빈 문자열이면 전부다.
 
-    플랜(P)을 고르면 그 안의 실행(ceid)도 따라간다 — 실행은 홀로 서는 것이
+    사이클(C)을 고르면 그 안의 실행(ceid)도 따라간다 — 실행은 홀로 서는 것이
     아니라 그 플랜의 몇 번째라, 갈라서 옮길 수가 없다.
     """
     want = {x.strip().upper() for x in (letters or "").split(",") if x.strip()}

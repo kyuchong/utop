@@ -6,7 +6,7 @@ import '@/theme.css'
 import '@/pages/Cycles.css'
 
 const CY = {
-  id: 'cy1', cid: 'E61xx_P0001', name: 'test', customer: 'LGPU', model: 'E6100',
+  id: 'cy1', cid: 'E61xx-C0001', name: 'test', customer: 'LGPU', model: 'E6100',
   model_group: 'E61xx', version: 'R100_2026_08_31', version_group: 'R100',
   items: [
     { tcid: 'E61xx_T0033', ceid: 'CETC-1', req_id: 'r1', name: 'ubiMemoryAlloc Get 동작 확인' },

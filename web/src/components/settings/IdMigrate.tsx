@@ -26,12 +26,14 @@ const LAB: Record<string, string> = { req: '요구사항', tc: '시험항목', c
  *  요구사항만 먼저 해 보고 괜찮으면 나머지를 하는 식으로 쓴다.
  *
  *  R 요구사항 · T 요구사항을 덮는 시험 · **V Jira 이슈를 덮는 시험** ·
- *  P 플랜(그 안의 실행이 따라간다). */
+ *  C 사이클(그 안의 실행이 따라간다).
+ *
+ *  쓰는 계열은 **R·T·C·E 넷**이다(지시). P 는 예전 잔재라 여기 없다. */
 const SERIES: Array<{ k: string; label: string; hint: string }> = [
   { k: 'R', label: '요구사항 R', hint: '요구사항 번호만 옮깁니다' },
   { k: 'T', label: '시험 T', hint: '요구사항을 덮는 시험만 옮깁니다' },
   { k: 'V', label: '릴리스 시험 V', hint: 'Jira 이슈를 덮는 시험만 옮깁니다' },
-  { k: 'P', label: '플랜 P', hint: '플랜과 그 안의 실행을 옮깁니다' },
+  { k: 'C', label: '사이클 C', hint: '사이클과 그 안의 실행을 옮깁니다' },
 ]
 
 export default function IdMigrate() {
@@ -75,7 +77,7 @@ export default function IdMigrate() {
         <b>ID 옮기기</b>
         <span className="muted small">
           옛 ID 를 모델그룹 기준으로 — <code>LGUP-E61xx_R0001</code> ·{' '}
-          <code>_T0001</code> · <code>_P0001</code> · <code>_P0001-E001</code>
+          <code>_T0001</code> · <code>_C0001</code> · <code>_C0001-E001</code>
         </span>
       </div>
 

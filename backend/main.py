@@ -12509,7 +12509,7 @@ async def pptx_render(payload: dict):
 
 
 async def _cycle_cid_prefix(data: dict) -> tuple[str, int]:
-    """cid 앞머리 — **모델그룹 기준**(E61xx_P0001), 요구사항·시험과 같은 규칙.
+    """cid 앞머리 — **모델그룹 기준**(E61xx-C0001), 요구사항·시험과 같은 규칙.
 
     모델그룹을 모르면(제목만 치고 만든 인라인 생성) 옛 주차 규칙으로
     떨어진다 — 앞머리를 지어내지 않는다. 나중에 모델그룹을 채우면
@@ -12527,7 +12527,7 @@ async def _cycle_cid_prefix(data: dict) -> tuple[str, int]:
                 pass
     if mg:
         # 이음쇠는 **하이픈**이다. ID 옮기기(SETUP)가 요구사항·시험·플랜을
-        # E61xx-R0001 · E61xx-T0001 · E61xx-P0001 로 바꿨는데 여기만 밑줄로
+        # E61xx-R0001 · E61xx-T0001 · E61xx-C0001 로 바꿨는데 여기만 밑줄로
         # 남아 있었다 — 그 탓에 아래 startswith 검사가 늘 어긋나, 결과가
         # 없는 플랜을 **저장할 때마다 부여 ID 가 새로 매겨졌다**(실사고:
         # E61xx-P0001 이 사업자 한 칸 고쳤다고 E61xx_P0003 이 됐다).
