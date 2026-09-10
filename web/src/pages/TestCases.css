@@ -479,13 +479,14 @@
      어떻든 명령은 여전히 늘 같은 자리에서 시작한다. */
   grid-template-columns: var(--sq-cols);
   position: relative;
-  align-items: center;
+  /* 칸을 줄 높이만큼 늘린다 — 세로선이 이어지려면 칸이 줄을 꽉 채워야 한다 */
+  align-items: stretch;
   gap: var(--sp-2);
   width: 100%;
   text-align: left;
-  /* 줄 간격. 2px 이었더니 줄이 서로 붙어 보였다(지적) — 4px 로 연다.
-     좌우는 0 — 칸마다 제 여백이 있고, 여기 또 주면 표 가장자리가 빈다. */
-  padding: 4px 0;
+  /* 세로 여백은 **칸 안쪽**에 준다. 줄에 주면 칸 높이가 내용만큼이라
+     세로선이 줄 사이에서 끊긴다(지적). 좌우는 0 — 칸마다 제 여백이 있다. */
+  padding: 0;
   border: 0;
   border-radius: var(--tc-r);
   background: transparent;
@@ -530,8 +531,9 @@
 .sq-row > *,
 .sq-head > * {
   min-width: 0;
-  padding-right: 6px;
-  padding-left: 6px;
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
   border-right: 1px solid var(--sq-line);
 }
 .sq-row > *:last-child,
@@ -546,6 +548,8 @@
 .sq-head > *:nth-child(1),
 .sq-head > *:nth-child(2),
 .sq-head > *:nth-child(3) { padding-left: 2px; padding-right: 2px; }
+/* 못 돌리는 줄의 하이픈 */
+.sq-dash { font-style: normal; color: var(--c-text-faint); opacity: 0.6; font-size: 12px; }
 .sq-runc,
 .sq-morec,
 .sq-pptc { display: flex; align-items: center; justify-content: center; }
@@ -3900,15 +3904,13 @@ html .tc-split > .tc-content {
    시작해 훑을 때 눈이 좌우로 흔들린다. */
 .sq-row > .sq-res { display: flex; align-items: center; justify-content: center; }
 
-/* 주석의 실행 칸에는 **－** 를 적는다(지시) — 빈 칸으로 두면 「아직 안 만든
-   자리」 처럼 보인다. 장비로 아무것도 안 나가는 줄이라 누를 것이 없다. */
-.sq-row.comment > .sq-runc::after {
-  content: '－';
-  color: var(--c-text-faint);
-  font-size: 11px;
-  opacity: 0.7;
-}
+
 
 /* 열 수 없는 ⋯ 은 흐리게 — 눌러 보고 나서야 아는 것보다 낫다 */
 .sq-more:disabled { opacity: 0.2; cursor: default; }
 .sq-row:hover .sq-more:disabled { opacity: 0.2; color: var(--c-text-muted); }
+
+/* 명령 칸은 flex 가 되었으므로 글자 자체가 줄임표를 갖는다 */
+.sq-sum { display: flex; align-items: center; gap: 6px; }
+.sq-sumt,
+.sq-sumv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

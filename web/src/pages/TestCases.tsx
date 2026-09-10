@@ -740,6 +740,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    * 반복 밖의 스텝은 회차가 없다 — 그대로 둔다. 한 번만 돌았으니 그것이
    * 그 회차의 결과다.
    */
+  /** 표가 매긴 번호 — 스텝 띠와 「스텝 N」 표시가 이것을 함께 쓴다 */
   const shownSteps =
     viewRound > 0 && roundMax > 0
       ? steps.map((x) => {
@@ -755,6 +756,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
           } as TcStep
         })
       : steps
+  /** 자동 스텝 표가 매긴 번호 — 띠와 제목이 그대로 쓴다(수동은 제 탭에 있다) */
+  const stripNos = stepNumbers(shownSteps, (x) => x.kind === 'manual')
   /** 탭에 숫자를 달아 두면 있는지 없는지 눌러보지 않아도 안다 */
   const manualCount = steps.filter((s) => s.kind === 'manual').length
   const wireCount = (d.wiring ?? []).length
@@ -2087,7 +2090,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                               <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
                             </>
                           ) : (
-                            <b>스텝 {stepIdx + 1}</b>
+                            <b>스텝 {stripNos[stepIdx] || '·'}</b>
                           )}
                           <button
                             className="btn small"
@@ -2243,7 +2246,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                   {!termOpen && shownSteps.length > 0 && (
                     <div className="sc-strip tc-strip">
                       <span className="sc-strip-lab">스텝</span>
+                      {/* 번호는 **표가 매긴 것**을 그대로 쓴다(지적). 여기서
+                          i+1 로 새로 세면 주석이 번호를 안 먹는 표와 어긋나,
+                          「스텝 5」 를 눌러 놓고 표에서는 1.1 을 찾게 된다. */}
                       {shownSteps.map((s2, i) => {
+                        const no = stripNos[i] || ''
                         /* 색은 **설정(실행 판정 기준)** 이 정본이다(지시).
                            여기서 초록·빨강을 따로 정하면 설정을 바꿔도 띠만
                            옛 색으로 남는다. */
@@ -2262,12 +2269,12 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                             type="button"
                             style={sty}
                             className={`sc-seg ${cls}${i === stepIdx ? ' on' : ''}`}
-                            title={`스텝 ${i + 1} · ${
+                            title={`스텝 ${no || '주석'} · ${
                               now ? '진행 중' : def?.label || v || (ran ? '실행함(판정 없음)' : '미실행')
                             }`}
                             onClick={() => setStepIdx(i)}
                           >
-                            {i + 1}
+                            {no || '·'}
                           </button>
                         )
                       })}
@@ -2335,7 +2342,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     /* 목록에 보이는 번호(2.1 · 2.1.1)를 그대로 쓴다 —
                        고르개만 1,2,3 이면 어느 줄인지 못 찾는다(지적) */
                     stepList={(() => {
-                      const nos = stepNumbers(shownSteps, (x) => x.kind === 'manual')
+                      const nos = stripNos
                       return shownSteps.map((x, k) => ({
                         i: k,
                         label: `${nos[k] || k + 1}  ${stepSummary(x) || String(x.kind ?? 'cli')}`.slice(0, 60),

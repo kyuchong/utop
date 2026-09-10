@@ -124,6 +124,18 @@ export default function TcSequence({
    * 없어서 「세션 – 없음」 만 떠 있었다. 복제·삭제는 줄을 골랐을 때 뜨는
    * 아래 선택 바가 이미 한다.
    */
+  /**
+   * 이 줄 하나만 돌릴 수 있나.
+   *
+   * 흐름(Loop·If·Else·동시·Switch)은 **안에 든 줄이 있어야** 뜻이 생긴다 —
+   * 반복 한 줄만 돌리면 아무 일도 안 일어난다. 주석·메시지는 장비로
+   * 아무것도 안 나간다. 그런 줄에 ▶ 가 서 있으면 눌러 보고 나서야 안다.
+   */
+  const runnable = (s: TcStep) =>
+    !['loop', 'if', 'else', 'parallel', 'switch', 'comment', 'message', 'model'].includes(
+      s.kind || 'cli',
+    )
+
   const menuOk = (s: TcStep) =>
     canMenu && ['cli', 'snmp_get', 'snmp_set', 'snmp_trap', 'ping'].includes(s.kind || 'cli')
 
@@ -353,19 +365,22 @@ export default function TcSequence({
               {/* PPTX 아이콘(지시) — 동그라미로는 무엇을 고르는 칸인지
                   알 수 없었다. 결과서 장표를 뜻하는 그림으로 세운다. */}
               <span title="결과서(PPTX)에 실을 줄">
-                <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-                  <rect x="1.2" y="2.4" width="13.6" height="11.2" rx="1.6" fill="#c1502e" />
-                  <text
-                    x="8"
-                    y="11.3"
-                    fontSize="8.5"
-                    fontWeight="700"
-                    fill="#fff"
-                    textAnchor="middle"
-                    fontFamily="Segoe UI, Arial, sans-serif"
-                  >
-                    P
-                  </text>
+                {/* 장표 한 장 — 화면과 받침, 안에 막대. 색을 칠한 네모에 글자를
+                    박으면 다른 제목들과 결이 안 맞는다(지적). 선으로만 그린다. */}
+                <svg
+                  viewBox="0 0 16 16"
+                  width="15"
+                  height="15"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="1.9" y="2.3" width="12.2" height="8.4" rx="1.3" />
+                  <path d="M8 10.7v2.3M5.7 13.3h4.6" />
+                  <path d="M5.6 8.3V6.5M8 8.3V4.9M10.4 8.3V7.1" />
                 </svg>
               </span>
               <span title="이 줄만 실행">▶</span>
@@ -505,7 +520,7 @@ export default function TcSequence({
                     한 칸에 둘을 넣으면 머리줄에 제목을 하나밖에 못 달고,
                     칸이 좁아 단추가 세로로 쌓이기도 했다. */}
                 <span className="sq-runc">
-                  {onRun && (
+                  {onRun && runnable(s) ? (
                     <button
                       type="button"
                       className="sq-run"
@@ -517,6 +532,12 @@ export default function TcSequence({
                     >
                       ▶
                     </button>
+                  ) : (
+                    /* 못 돌리는 줄은 **하이픈**(지시) — 빈 칸으로 두면
+                       「아직 안 만든 자리」 처럼 보인다 */
+                    <i className="sq-dash" title="이 줄만 따로 돌릴 수는 없습니다">
+                      –
+                    </i>
                   )}
                 </span>
                 {/* 상태 기호(✔·✖·○)는 뺐다 — 줄 끝의 PASS·FAIL 글자와 같은
@@ -539,7 +560,10 @@ export default function TcSequence({
                   )
                 })()}
                 <span className="sq-n">{numbers[i]}</span>
-                <span className="sq-act" style={{ marginLeft: depth * 14 }}>
+                {/* 들여쓰기는 **칸 안쪽 여백**으로 준다. margin 으로 주면
+                    grid 칸 자체가 밀려 그 칸의 세로선이 14px 씩 오른쪽으로
+                    나가 머리줄과 어긋났다(실측: 이 칸만 diff −14). */}
+                <span className="sq-act" style={{ paddingLeft: 6 + depth * 14 }}>
                   {/* 블록만 접힌다. 아닌 줄에도 같은 폭을 비워 두어야
                       Action 글자가 들쭉날쭉하지 않다. */}
                   {body > 0 ? (
@@ -630,7 +654,7 @@ export default function TcSequence({
                       {summary(s) || <span className="muted">비어 있음 — 눌러서 명령을</span>}
                     </span>
                   ) : (
-                    summary(s) || <span className="muted">—</span>
+                    <span className="sq-sumt">{summary(s) || <span className="muted">—</span>}</span>
                   )}
                   {isShut && body > 0 && <span className="sq-folded">＋{body}줄</span>}
                   {/* **절차 설명을 되살렸다**(지시). 뺐던 까닭은 「고칠 자리가
