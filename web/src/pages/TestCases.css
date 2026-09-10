@@ -454,7 +454,7 @@
 /* 「+ 스텝」이 목록 바로 아래 붙어야 한다. 바닥에 고정하면 스텝이 적을 때
    화면 끝까지 내려가 손이 멀다. */
 .sq-scroll { flex: 1; min-height: 0; overflow: auto; }
-.sq-list { padding: 2px 4px 0; }
+.sq-list { padding: 0; margin: 2px 4px 0; }
 
 /* 줄마다 선을 긋지 않는다. 스텝이 30개면 선이 30줄이 되어 내용보다
    선이 먼저 보인다. 간격과 hover 로 가른다. */
@@ -495,8 +495,15 @@
    선은 테두리색보다 옅게: 서른 줄에 진한 격자를 그으면 내용보다 선이 먼저
    읽힌다. 칸 사이 gap 을 걷고 그 자리를 칸 안쪽 여백으로 돌려 **줄 높이는
    그대로** 둔다(4px 이 한 화면에 두 줄을 더 넣는다). */
-.sq-row { box-shadow: inset 0 -1px 0 var(--tc-div); }
+.sq-row { box-shadow: inset 0 -1px 0 var(--sq-line); }
 .sq {
+  /* 격자선 색은 **이 표가 제 것으로 갖는다**.
+     `--tc-div` 를 썼다가 선이 하나도 안 그려졌다 — 그 변수는 `.tc-split`
+     안에서만 살고, 시험 상세는 덮개 창으로 떠서 그 밖이라 값이 안 풀렸다.
+     값이 없는 var() 는 규칙 통째를 무효로 만든다: 선이 없는 게 아니라
+     **border 선언 자체가 사라진다**(실측 0px none).
+     색도 올렸다 — #f0f3f6 은 「있는 줄 모르는」 선이라 엑셀 격자로는 안 보인다. */
+  --sq-line: #dde3e9;
   /* 명령 칸에 **최소 폭**을 준다 — 없으면 판이 좁을 때 1fr 이 25px 까지
      짜부라져 이 표의 주인공인 명령이 통째로 사라진다(실측). 모자라면
      가로로 민다(.sq-scroll 이 auto 다). */
@@ -512,7 +519,7 @@
   min-width: 0;
   padding-right: 6px;
   padding-left: 6px;
-  border-right: 1px solid var(--tc-div);
+  border-right: 1px solid var(--sq-line);
 }
 .sq-row > *:last-child,
 .sq-head > *:last-child { border-right: 0; }
@@ -548,9 +555,18 @@
   white-space: nowrap;
 }
 .sq-head > span { overflow: hidden; text-overflow: ellipsis; }
-.sq-row:hover { background: var(--tc-hover); box-shadow: none; }
+/* 표를 **닫는다** — 엑셀은 마지막 줄 아래와 오른쪽 끝에도 선이 있다.
+   없으면 표가 아래로 흘러내리는 것처럼 보인다. */
+.sq-list {
+  border: 1px solid var(--sq-line, #dde3e9);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--tc-bg, #fff);
+}
+.sq-row:last-child { box-shadow: none; }
+.sq-row:hover { background: var(--tc-hover); }
 .sq-row.on,
-.sq-row.on:hover { background: var(--tc-sel); box-shadow: none; }
+.sq-row.on:hover { background: var(--tc-sel); }
 
 /* 건너뛰는 스텝은 흐리게. 지우지 않고 잠시 빼두는 일이 잦다. */
 .sq-row.skip { opacity: 0.42; }
