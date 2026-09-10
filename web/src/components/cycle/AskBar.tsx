@@ -2996,6 +2996,10 @@ export default function AskBar({ devices }: Props) {
                       const ro = mode === 'basic'
                       const seq = (from: number, to: number, addable: boolean) => (
                         <TcSequence
+                          /* 이 판에는 목록이 시험마다 하나씩 여럿 뜬다 —
+                             머리줄을 켜면 묶음마다 서고 전부 sticky 라
+                             스크롤할 때 서로 겹친다 */
+                          head={false}
                           steps={seqSteps.slice(from, to)}
                           selected={stepAt >= from && stepAt < to ? stepAt - from : -1}
                           onSelect={(i) => setStepAt(from + i)}

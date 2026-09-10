@@ -496,7 +496,12 @@
    읽힌다. 칸 사이 gap 을 걷고 그 자리를 칸 안쪽 여백으로 돌려 **줄 높이는
    그대로** 둔다(4px 이 한 화면에 두 줄을 더 넣는다). */
 .sq-row { box-shadow: inset 0 -1px 0 var(--tc-div); }
-.sq { --sq-cols: 15px 34px 56px 148px 1fr var(--sq-varw, 0px) 48px 40px; }
+.sq {
+  /* 명령 칸에 **최소 폭**을 준다 — 없으면 판이 좁을 때 1fr 이 25px 까지
+     짜부라져 이 표의 주인공인 명령이 통째로 사라진다(실측). 모자라면
+     가로로 민다(.sq-scroll 이 auto 다). */
+  --sq-cols: 15px 40px 60px 148px minmax(150px, 1fr) var(--sq-varw, 0px) 48px 40px;
+}
 .sq-row,
 .sq-head { gap: 0; }
 /* 머리줄도 **같은 열 폭**을 쓴다 — 줄에만 주면 머리줄이 1열 grid 가 되어
@@ -505,12 +510,20 @@
 .sq-row > *,
 .sq-head > * {
   min-width: 0;
-  padding-right: 7px;
-  padding-left: 7px;
+  padding-right: 6px;
+  padding-left: 6px;
   border-right: 1px solid var(--tc-div);
 }
 .sq-row > *:last-child,
 .sq-head > *:last-child { border-right: 0; }
+/* 첫 칸(체크)과 끝 칸(▶·⋯)은 여백을 안 받는다 — 트랙이 15·40px 인데
+   좌우 12px 를 먹이면 안쪽이 3·28px 가 되어, 실제로 끝 칸의 단추 둘이
+   **세로로 쌓여 줄 높이가 43px 로 뛰었다**(실측). 두 칸은 제 폭이 곧 내용이다. */
+.sq-row > .sq-pick,
+.sq-row > .sq-tail,
+.sq-head > *:first-child,
+.sq-head > *:last-child { padding-left: 0; padding-right: 0; }
+.sq-tail { display: flex; align-items: center; justify-content: flex-end; }
 /* 뽑은 값을 안 쓰는 시험에서는 그 열이 폭 0 이다 — 그대로 두면 여백과
    선만 남아 군더더기 세로선이 하나 선다 */
 .sq-novar .sq-row > .sq-var,
@@ -620,14 +633,18 @@
  * 보인다. 딸린 관계는 Action 칸에서 생긴다 — 접기 단추(∨)가 거기 있고,
  * 들여쓰기도 그 칸에 준다. 어미 줄의 접기 단추 한가운데에서 내려온다.
  *
- * 자리 계산: 왼쪽 여백 8 + 체크 15 + 8 + 상태 18 + 8 + 번호 52 + 8 = 117
- * 이 Action 칸의 시작이고, 접기 단추(14px)의 한가운데가 +7 이다. 한 칸
- * 깊어질 때마다 16px(`.sq-act` 의 들여쓰기)씩 안으로.
+ * 자리 계산(격자로 바꾼 뒤 다시 쟀다): 왼쪽 여백 8 + 체크 15 + 세션 40 +
+ * 번호 60 = 123 이 「동작」 칸의 경계, 칸 안쪽 여백 6 을 더해 129 가 내용의
+ * 시작이다. 한 칸 깊어질 때마다 16px(`.sq-act` 의 들여쓰기)씩 안으로 가고,
+ * 접기 단추(14px)의 한가운데가 +7 이다.
+ *
+ * 이 값이 어긋나면 안내선이 아이콘 옆구리를 지나간다 — 예전 값(124)은
+ * 없어진 상태 열과 gap 8px 를 세고 있었다.
  */
-.sq-row[data-depth="1"] { --gx: 124px; }
-.sq-row[data-depth="2"] { --gx: 140px; }
-.sq-row[data-depth="3"] { --gx: 156px; }
-.sq-row[data-depth="4"] { --gx: 172px; }
+.sq-row[data-depth="1"] { --gx: 152px; }
+.sq-row[data-depth="2"] { --gx: 168px; }
+.sq-row[data-depth="3"] { --gx: 184px; }
+.sq-row[data-depth="4"] { --gx: 200px; }
 
 /* 세로 — 마지막 자식은 제 자리까지만 내려온다(└) */
 .sq-row[data-kid]::before {
@@ -3140,16 +3157,10 @@ table.tb tr.r-bad td:first-child {
 .sd-body.sd-ro .sd-chips { pointer-events: auto; }
 .sd-body.sd-ro .sd-chip button,
 .sd-body.sd-ro .bv-b { pointer-events: none; }
-/* 여러 줄 고르기 체크칸은 고칠 수 있을 때만(지시) */
-.sq-ro .sq-pick { display: none; }
-
-/* 체크칸을 감춘 목록(AI 「일반」)에서는 안내선 자리도 그만큼 당긴다.
-   `--gx` 는 왼쪽부터 잰 **고정 값**이라, 앞 칸이 하나 빠지면 선이 아이콘과
-   어긋난다(지적: 들여쓰기가 이상하다). 체크칸(13px)과 사이 여백(8px)만큼. */
-.sq-ro .sq-row[data-depth="1"] { --gx: 92px; }
-.sq-ro .sq-row[data-depth="2"] { --gx: 108px; }
-.sq-ro .sq-row[data-depth="3"] { --gx: 124px; }
-.sq-ro .sq-row[data-depth="4"] { --gx: 140px; }
+/* 여러 줄 고르기 체크칸은 고칠 수 있을 때만(지시).
+   **자리는 남긴다** — display:none 으로 지우면 grid 칸이 하나 사라져
+   뒤 칸이 통째로 한 칸씩 앞으로 밀리고, 머리줄과 어긋난다. */
+.sq-ro .sq-pick { visibility: hidden; }
 
 /* 스텝 띠 — 「스텝 상세」 머리 바로 아래(지시). 플랜 실행 화면과 같은 벌을
    쓰고(.sc-strip/.sc-seg), 이 칸의 여백만 맞춘다. */
@@ -3761,3 +3772,6 @@ html .tc-split > .tc-content {
   outline: none;
 }
 .sq-row.on .sq-kind { color: var(--c-text); }
+/* 펼친 목록의 글자색을 **못박는다** — 안 적으면 브라우저·테마에 따라
+   흰 바탕에 흰 글자가 된다(칩 안 select 에서 겪은 그것) */
+.sq-kind option { color: #1f2933; background: #fff; }

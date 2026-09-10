@@ -60,6 +60,9 @@ interface Props {
   onRemove?: (i: number) => void
   /** 세션 이름 목록 — `⋯` 메뉴의 세션 고르개에 쓴다 */
   sessions?: string[]
+  /** 열 제목 줄을 세울까 — 한 화면에 이 목록이 **여럿** 뜨는 자리(AI 다듬기)는
+      끈다. 묶음마다 머리줄이 서고 전부 sticky 라 스크롤하면 겹친다. */
+  head?: boolean
 }
 
 /**
@@ -91,6 +94,7 @@ export default function TcSequence({
   onDuplicate,
   onRemove,
   sessions = [],
+  head = true,
 }: Props) {
   const hidden = hide ? steps.filter(hide).length : 0
 
@@ -148,13 +152,26 @@ export default function TcSequence({
   const changeKind = (i: number, k: StepKind, body: number) => {
     const cur = (steps[i]?.kind || 'cli') as StepKind
     if (k === cur) return
-    if (
-      body > 0 &&
-      !window.confirm(
-        `이 줄은 아래 ${body}줄을 거느립니다.\n갈래를 바꾸면 그 줄들은 들여쓴 채로 남습니다. 바꿀까요?`,
-      )
-    )
-      return
+    const warn: string[] = []
+    if (body > 0) warn.push(`아래 ${body}줄을 거느립니다 — 그 줄들은 들여쓴 채로 남습니다.`)
+    if (cur === 'loop')
+      warn.push('반복이 사라져 몸통이 한 번만 돕니다. \${i} 같은 반복 변수도 안 풀립니다.')
+    if (cur === 'else') warn.push('「거짓일 때만」 이 「언제나」 가 됩니다.')
+    if (cur === 'if') {
+      /* Else 는 몸통이 아니라 **같은 깊이의 형제**라 body 로는 안 잡힌다.
+         짝을 잃은 Else 는 실행할 때 통째로 건너뛴다 — 돌려 보고서야
+         「왜 미실행이지」 하게 된다. */
+      const d = Math.max(Number(steps[i]?.indent) || 0, 0)
+      for (let n = i + 1; n < steps.length; n++) {
+        const nd = Math.max(Number(steps[n]?.indent) || 0, 0)
+        if (nd < d) break
+        if (nd === d) {
+          if (steps[n]?.kind === 'else') warn.push('아래 Else 가 짝을 잃어 통째로 건너뜁니다.')
+          break
+        }
+      }
+    }
+    if (warn.length && !window.confirm(`${warn.join('\n')}\n\n바꿀까요?`)) return
     onPatch?.(i, { kind: k })
   }
   /**
@@ -325,7 +342,7 @@ export default function TcSequence({
         <div className="sq-list">
           {/* 열 제목(지시) — 어느 칸이 무엇인지 적어 둔다. 여덟 칸이 모두
               같은 grid 를 쓰므로 머리줄과 본문 줄의 경계가 늘 맞는다. */}
-          {steps.length - hidden > 0 && (
+          {steps.length - hidden > 0 && head && (
             <div className="sq-head" aria-hidden="true">
               <span />
               <span>세션</span>
@@ -465,9 +482,15 @@ export default function TcSequence({
                       value={s.kind || 'cli'}
                       title={info.label}
                       onClick={(e) => e.stopPropagation()}
+                      /* 줄이 Enter·Space 를 가로채(preventDefault) 드롭다운이
+                         안 열렸다 — 키보드만 쓰는 사람은 갈래를 못 고쳤다 */
+                      onKeyDown={(e) => e.stopPropagation()}
                       onChange={(e) => changeKind(i, e.target.value as StepKind, body)}
                     >
-                      {ADD_KINDS.map((k) => (
+                      {/* SETUP 에서 끈 갈래는 여기에도 안 내놓는다 —
+                          「＋ 스텝」 에만 걸고 여기 안 걸면 끈 갈래가 서른 줄의
+                          드롭다운마다 그대로 뜬다 */}
+                      {ADD_KINDS.filter((k) => !addKinds || addKinds(String(k.k))).map((k) => (
                         <option key={k.k} value={k.k}>
                           {k.label}
                         </option>
