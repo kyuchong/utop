@@ -142,6 +142,9 @@ function asStep(raw: Record<string, unknown>, i: number): {
   devId?: string
   /** 비교 스텝이 통과·실패일 때 적어 둔 문구 */
   okMsg?: string; ngMsg?: string
+  /** **반복 회차별 기록**(지적: 20 회를 돌았는데 화면은 1 회로 보인다).
+   *  실행기는 회차마다 여기에 남기는데 화면이 통째로 버리고 있었다. */
+  rounds?: Array<{ n?: number; status?: string; reason?: string; took_ms?: number; output?: string; trimmed?: boolean }>
   /** 이 스텝이 실제로 돌았나. 판정이 없는 스텝(대기·조회)과 **안 돌린 스텝**은 다르다 */
   ran?: boolean
 } {
@@ -182,6 +185,17 @@ function asStep(raw: Record<string, unknown>, i: number): {
     /* 사람이 적어 둔 판정 문구. 실행 이벤트가 「기준 맞음」 대신 이걸 적는다(지시) */
     okMsg: g('msgYes') || g('trueMsg') || undefined,
     ngMsg: g('msgNo') || g('falseMsg') || undefined,
+    /* 회차 기록은 **있는 그대로** 나른다 — 여기서 버려서 20 회가 1 회로 보였다 */
+    rounds: Array.isArray(raw?.rounds)
+      ? (raw.rounds as Array<Record<string, unknown>>).map((r) => ({
+          n: Number(r?.n ?? 0) || undefined,
+          status: String(r?.status ?? '') || undefined,
+          reason: String(r?.reason ?? '') || undefined,
+          took_ms: typeof r?.took_ms === 'number' ? r.took_ms : undefined,
+          output: String(r?.output ?? ''),
+          trimmed: !!r?.trimmed,
+        }))
+      : undefined,
     /* 걸린 시간이나 출력이 있으면 돈 것이다. 실행기는 판정 기준이 없는
        스텝(대기·단순 조회)에는 status 를 안 남긴다 — 그걸 「미실행」 으로
        그려서 「건너뛴 것 같다」 는 말이 나왔다(지적). */
@@ -1401,6 +1415,7 @@ export default function RunDetail({
                   waitSec: l.waitSec ?? d2.waitSec,
                   okMsg: l.okMsg ?? d2.okMsg,
                   ngMsg: l.ngMsg ?? d2.ngMsg,
+                  rounds: l.rounds ?? d2.rounds,
                   /* 결과 쪽은 **이번에 돈 것만**.
                      지금 도는 스텝은 아직 안 끝났다 — 판정·시각·걸린 시간을
                      비운다. 안 그러면 실행기가 복사해 온 지난 값이 그대로
@@ -1428,6 +1443,7 @@ export default function RunDetail({
                 at: l.at ?? d2.at,
                 okMsg: l.okMsg ?? d2.okMsg,
                 ngMsg: l.ngMsg ?? d2.ngMsg,
+                rounds: l.rounds ?? d2.rounds,
               }
             })
           })()}

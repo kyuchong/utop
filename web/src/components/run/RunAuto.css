@@ -283,6 +283,28 @@
   .ra-st.run i { border-top-color: rgba(255, 255, 255, 0.9); }
 }
 
+/* 회차 칩 줄 — 반복 안 스텝은 회차마다 결과가 다르다(지시).
+   20 회를 돌고도 마지막 하나만 보여 「1 회만 돌았다」 로 읽혔다. */
+.ra-rds {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 3px;
+  padding: 4px 8px; background: #f7fafb; border-bottom: 1px solid #e3ebee;
+}
+.ra-rds .l { font-size: 10.5px; font-weight: 700; color: #5b7176; margin-right: 4px; }
+.ra-rd {
+  min-width: 20px; height: 18px; padding: 0 5px; border-radius: 4px;
+  border: 1px solid #d6e0e4; background: #fff; color: #5b7176;
+  font: inherit; font-size: 10.5px; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.ra-rd:hover { border-color: #78aeea; }
+.ra-rd.on { background: #2a626f; border-color: #2a626f; color: #eaf4f6; font-weight: 700; }
+.ra-rd.bad { color: #d53f60; border-color: #f0c3ce; }
+.ra-rd.bad.on { background: #d53f60; border-color: #d53f60; color: #fff; }
+/* 스텝 표의 회차 수 — 「몇 회 돌았나」 가 곧 결과다 */
+.ra-rn {
+  display: inline-block; margin-right: 5px; padding: 0 5px; border-radius: 4px;
+  background: #e6f1f3; color: #17505c; font-size: 10px; font-weight: 800;
+}
+
 /* 스텝 하나가 **상자 하나**다(지시) — 머리에 명령, 몸에 출력.
    테두리를 한 급 진하게: 흰 종이에 옅은 회색 선은 상자로 안 읽혔다(지적). */
 .ra-blk {

@@ -38,6 +38,9 @@ export interface AutoStep {
   /** 비교 스텝이 통과·실패일 때 적어 둔 문구 */
   okMsg?: string
   ngMsg?: string
+  /** **반복 회차별 기록**(지적: 20 회를 돌았는데 화면은 1 회로 보인다).
+   *  실행기는 회차마다 남기는데 이 화면이 통째로 버리고 있었다. */
+  rounds?: Array<{ n?: number; status?: string; reason?: string; took_ms?: number; output?: string; trimmed?: boolean }>
 }
 
 export interface AutoItem {
@@ -582,6 +585,9 @@ export default function RunAuto({
    *  장비 목록의 id(IP)와 체계가 달라 못 찾는다. **그럴 땐 지어내지 않는다.** */
   /** 아래 「주고받은 명령」 이 어느 세션 것인가. 처음엔 첫 세션 */
   const [sessPick, setSessPick] = useState('')
+  /** 반복 스텝에서 **몇 회차를 보고 있나**(지시) — 20 회를 돌고도 화면에는
+   *  마지막 회차 하나만 보여, 「1 회만 돌았다」 로 읽혔다. 기본은 마지막. */
+  const [roundAt, setRoundAt] = useState(-1)
   const sessNow = sessRows.find((r) => r.key === sessPick) ?? sessRows[0]
   const devOf = (id?: string) => {
     const k = String(id ?? '').trim()
@@ -650,7 +656,14 @@ export default function RunAuto({
                         </span>
                       )}
                     </td>
-                    <td className="ra-num">{mmss(s.took)}</td>
+                    <td className="ra-num">
+                      {/* **몇 회 돌았나**(지시) — 반복 안 스텝은 회차가 곧 결과다.
+                          이 숫자가 없어서 20 회를 돌고도 1 회로 보였다. */}
+                      {s.rounds && s.rounds.length > 1 ? (
+                        <b className="ra-rn">{s.rounds.length}회</b>
+                      ) : null}
+                      {mmss(s.took)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -678,24 +691,48 @@ export default function RunAuto({
                 없는 명령이다(지적). */}
             {noneRan
               ? <pre className="ra-idle">아직 돌리지 않았습니다.</pre>
-              : steps.slice(seeUpTo, seeUpTo + 1).map((s2) => (
-              <div className="ra-blk" key={s2.no ?? seeUpTo} ref={conEndRef}>
+              : steps.slice(seeUpTo, seeUpTo + 1).map((s2) => {
+                /* 반복 안 스텝이면 **회차를 고를 수 있다**(지시).
+                   기본은 마지막 회차 — 방금 돈 것이 궁금한 게 보통이다. */
+                const rds = s2.rounds ?? []
+                const at = rds.length ? (roundAt < 0 ? rds.length - 1 : Math.min(roundAt, rds.length - 1)) : -1
+                const rd = at >= 0 ? rds[at] : undefined
+                const body = rd ? (rd.trimmed ? '(이 회차 출력은 안 남겼습니다 — 반복 스텝의 「회차 출력」 설정)' : rd.output || '(출력 없음)') : s2.out || (seeUpTo === runStep ? '…' : '(출력 없음)')
+                const mk = rd ? String(rd.status ?? '') : String(s2.mark ?? '')
+                return (
+                <div className="ra-blk" key={s2.no ?? seeUpTo} ref={conEndRef}>
                 <div className="ra-cmd">
                   <b className="ra-bno">Step {s2.no}</b>
                   <span className="ra-bcmd">{s2.cmd ? `${dut}# ${s2.cmd}` : s2.t || s2.action || '—'}</span>
-                  {s2.mark ? (
-                    <span className={`ra-st ${s2.mark === 'Pass' ? 'ok' : 'bad'}`}>
-                      {s2.mark === 'Pass' ? 'PASS' : 'FAIL'}
+                  {mk ? (
+                    <span className={`ra-st ${/pass/i.test(mk) ? 'ok' : 'bad'}`}>
+                      {/pass/i.test(mk) ? 'PASS' : 'FAIL'}
                     </span>
                   ) : null}
                 </div>
+                {rds.length > 1 && (
+                  <div className="ra-rds">
+                    <span className="l">회차 {rds.length}회</span>
+                    {rds.map((r, k) => (
+                      <button
+                        key={r.n ?? k}
+                        type="button"
+                        className={`ra-rd${k === at ? ' on' : ''}${/fail/i.test(String(r.status ?? '')) ? ' bad' : ''}`}
+                        title={`${r.n ?? k + 1}회차${r.took_ms != null ? ` · ${r.took_ms}ms` : ''}`}
+                        onClick={() => setRoundAt(k)}
+                      >
+                        {r.n ?? k + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {isWait(s2) ? (
                   <pre className="ra-wait">{waitLine(s2, seeUpTo)}</pre>
                 ) : (
-                  <pre>{s2.out || (seeUpTo === runStep ? '…' : '(출력 없음)')}</pre>
+                  <pre>{body}</pre>
                 )}
               </div>
-              ))}
+              )})}
             {!steps.length && <pre>아직 출력이 없습니다.</pre>}
           </div>
           <div className={`ra-confoot${curStep?.mark ? (curStep.mark === 'Pass' ? ' ok' : ' bad') : ''}`}>
