@@ -96,9 +96,6 @@ export default function TcSequence({
   onRun,
   readOnly = false,
   onPatch,
-  onDuplicate,
-  onRemove,
-  sessions = [],
   head = true,
   onPickAll,
 }: Props) {
@@ -151,38 +148,10 @@ export default function TcSequence({
     document.body.classList.add('sq-resizing')
   }, [])
 
-  const hidden = hide ? steps.filter(hide).length : 0
-  /** 보이는 줄을 모두 골랐나 — 머리줄 체크가 이것을 본다 */
-  const shownN = steps.length - hidden
-  const allPicked = shownN > 0 && picked.size >= shownN
+  /** 이 줄에 걸린 판정 기준 수 — 새 칩(rules)이 정본, 옛 스텝은 criteria 한 줄 */
+  const ruleN = (s: TcStep) =>
+    (s.rules?.length ?? 0) || (String(s.criteria ?? '').trim() ? 1 : 0)
 
-  /**
-   * 열어 둔 `⋯` 메뉴의 줄 번호와 자리. -1 이면 안 열렸다.
-   *
-   * 자리를 기억해 **화면 좌표(fixed)로** 띄운다 — 목록은 `overflow:auto`
-   * 안이라, 줄에 붙여 두면 아래쪽 줄에서 메뉴가 잘렸다(장비 고르기 팝업이
-   * 같은 까닭으로 깨졌던 적이 있다).
-   */
-  const [menuAt, setMenuAt] = useState(-1)
-  const [menuXY, setMenuXY] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
-  useEffect(() => {
-    if (menuAt < 0) return
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setMenuAt(-1)
-    window.addEventListener('keydown', esc)
-    return () => window.removeEventListener('keydown', esc)
-  }, [menuAt])
-  /* 줄이 사라지거나 다른 시험으로 옮기면 메뉴도 닫는다 */
-  useEffect(() => {
-    if (menuAt >= steps.length) setMenuAt(-1)
-  }, [steps.length, menuAt])
-  const canMenu = !!(onPatch || onDuplicate || onRemove) && !readOnly
-  /**
-   * ⋯ 를 여는 갈래(지시) — 장비로 나가는 줄만.
-   *
-   * 그 판이 하는 일은 **세션 고르기와 대기**다. 주석·반복·조건에는 세션이
-   * 없어서 「세션 – 없음」 만 떠 있었다. 복제·삭제는 줄을 골랐을 때 뜨는
-   * 아래 선택 바가 이미 한다.
-   */
   /**
    * 이 줄 하나만 돌릴 수 있나.
    *
@@ -195,8 +164,19 @@ export default function TcSequence({
       s.kind || 'cli',
     )
 
-  const menuOk = (s: TcStep) =>
-    canMenu && ['cli', 'snmp_get', 'snmp_set', 'snmp_trap', 'ping'].includes(s.kind || 'cli')
+  const hidden = hide ? steps.filter(hide).length : 0
+  /** 보이는 줄을 모두 골랐나 — 머리줄 체크가 이것을 본다 */
+  const shownN = steps.length - hidden
+  const allPicked = shownN > 0 && picked.size >= shownN
+
+  /**
+   * 열어 둔 `⋯` 메뉴의 줄 번호와 자리. -1 이면 안 열렸다.
+   *
+   * 자리를 기억해 **화면 좌표(fixed)로** 띄운다 — 목록은 `overflow:auto`
+   * 안이라, 줄에 붙여 두면 아래쪽 줄에서 메뉴가 잘렸다(장비 고르기 팝업이
+   * 같은 까닭으로 깨졌던 적이 있다).
+   */
+  /* 줄이 사라지거나 다른 시험으로 옮기면 메뉴도 닫는다 */
 
   /**
    * **줄에서 바로 고치기**(목업 ②).
@@ -448,7 +428,7 @@ export default function TcSequence({
                   />
                 )}
               </span>
-              <span title="메뉴 — 이 줄 설정">⋯</span>
+              <span title="판정 기준이 걸린 줄">◎</span>
               {/* PPTX 아이콘(지시) — 동그라미로는 무엇을 고르는 칸인지
                   알 수 없었다. 결과서 장표를 뜻하는 그림으로 세운다. */}
               <span title="결과서(PPTX)에 실을 줄">
@@ -593,38 +573,14 @@ export default function TcSequence({
                     }}
                   />
                 </span>
-                {/* 그 줄에만 듣는 설정(목업 ③). 평소엔 옅고 줄에 손이
-                    오면 진해진다 — 서른 줄에 ⋯ 이 또렷하면 그것부터 보인다. */}
-                <span className="sq-morec">
-                  {canMenu && (
-                    <button
-                      type="button"
-                      disabled={!menuOk(s)}
-                      className={`sq-more${menuAt === i ? ' on' : ''}`}
-                      title={
-                        menuOk(s)
-                          ? '이 줄 설정 — 세션 · 대기 · 건너뛰기 · 복제 · 삭제'
-                          : '이 갈래에는 세션·대기가 없습니다 — 복제·삭제는 줄을 골라 아래 바에서'
-                      }
-                      aria-haspopup="menu"
-                      aria-expanded={menuAt === i}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (menuAt === i) {
-                          setMenuAt(-1)
-                          return
-                        }
-                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                        /* 단추 **왼쪽 끝**에서 오른쪽으로 편다. 예전엔 오른쪽
-                           끝에서 왼쪽으로 폈는데(⋯ 이 줄 끝에 있었다), 이제
-                           ⋯ 이 표 맨 앞이라 그러면 화면 밖으로 나간다(지적). */
-                        setMenuXY({ x: r.left, y: r.bottom + 2 })
-                        setMenuAt(i)
-                        onSelect(i)
-                      }}
-                    >
-                      ⋯
-                    </button>
+                {/* **판정 기준이 걸린 줄**(지시) — 이 칸은 본디 ⋯ 였는데,
+                    그 판이 하던 세션·대기는 오른쪽 판이 이미 한다.
+                    무엇이 판정을 내는 줄인지가 훨씬 자주 찾는 것이다. */}
+                <span className="sq-judc">
+                  {ruleN(s) > 0 && (
+                    <i className="sq-jud" title={`판정 기준 ${ruleN(s)}개`}>
+                      ◎
+                    </i>
                   )}
                 </span>
                 {/* 결과서에 실을 줄(지시) — **동그라미**로 둔다. 네모 체크는
@@ -944,73 +900,6 @@ export default function TcSequence({
         </div>
       </div>
 
-      {/* ── `⋯` 판 ────────────────────────────────────────────────────
-          그 줄에만 듣는 **세션과 대기**만 담는다. 건너뛰기·복제·삭제는
-          줄을 골랐을 때 뜨는 아래 바가 이미 한다(지시) — 같은 일을 두 자리에
-          두면 어느 것이 정본인지 알 수 없고, 판이 길어져 정작 세션이 뒤로
-          밀린다. 판정 기준처럼 넓은 자리가 필요한 것도 여기 안 넣는다. */}
-      {menuAt >= 0 && steps[menuAt] && (
-        <>
-          <div className="sq-menu-veil" onClick={() => setMenuAt(-1)} aria-hidden="true" />
-          <div
-            className="sq-menu"
-            role="menu"
-            style={{ left: menuXY.x, top: menuXY.y }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sq-menu-hd">
-              스텝 {numbers[menuAt]} · {stepKindInfo(steps[menuAt]!.kind).label}
-            </div>
-            {!!onPatch && (
-              <>
-                <label className="sq-menu-f">
-                  <span>세션</span>
-                  <select
-                    value={(() => {
-                      const k = sessionIndex(steps[menuAt]!.session)
-                      return k >= 0 ? String(k) : ''
-                    })()}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      onPatch(menuAt, { session: v === '' ? undefined : Number(v) })
-                    }}
-                  >
-                    <option value="">– 없음</option>
-                    {sessions.map((nm, k) => (
-                      <option key={k} value={String(k)}>
-                        S{String(k + 1).padStart(2, '0')} · {nm || `세션 ${k + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {/* 대기는 CLI 에만 있다 — 다른 종류에는 보낼 명령 자체가 없다 */}
-                {(steps[menuAt]!.kind || 'cli') === 'cli' && (
-                  <label className="sq-menu-f">
-                    <span>명령 뒤 대기</span>
-                    <span className="sq-menu-wait">
-                      <input
-                        type="number"
-                        min={0}
-                        max={30}
-                        step={0.1}
-                        value={steps[menuAt]!.tailWait ?? ''}
-                        placeholder="기본"
-                        onChange={(e) => {
-                          const v = e.target.value.trim()
-                          onPatch(menuAt, {
-                            tailWait: v === '' ? undefined : Math.max(0, Number(v) || 0),
-                          })
-                        }}
-                      />
-                      <i>초</i>
-                    </span>
-                  </label>
-                )}
-              </>
-            )}
-          </div>
-        </>
-      )}
     </div>
   )
 }

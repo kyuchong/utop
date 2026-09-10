@@ -544,7 +544,7 @@
 /* ⋯·◍·▶ 칸은 좌우 여백을 얇게 — 30px 트랙에 12px 를 먹이면 단추가 안 든다 */
 .sq-row > .sq-allc,
 .sq-row > .sq-runc,
-.sq-row > .sq-morec,
+.sq-row > .sq-judc,
 .sq-row > .sq-pptc,
 .sq-head > *:nth-child(1),
 .sq-head > *:nth-child(2),
@@ -554,7 +554,7 @@
 /* 못 돌리는 줄의 하이픈 */
 .sq-dash { font-style: normal; color: var(--c-text-faint); opacity: 0.6; font-size: 12px; }
 .sq-runc,
-.sq-morec,
+.sq-judc,
 .sq-pptc { display: flex; align-items: center; justify-content: center; }
 /* 뽑은 값을 안 쓰는 시험에서는 그 열이 폭 0 이다 — 그대로 두면 여백과
    선만 남아 군더더기 세로선이 하나 선다 */
@@ -3844,7 +3844,7 @@ html .tc-split > .tc-content {
 .sq-row.note > .sq-res { display: none; }
 
 /* 좁은 칸들에도 세로선(지시). 끝 칸(결과)만 뺀다 — 표 테두리가 그 자리다 */
-.sq-row > .sq-morec,
+.sq-row > .sq-judc,
 .sq-row > .sq-pptc,
 .sq-row > .sq-runc { border-right: 1px solid var(--sq-line); }
 .sq-row > .sq-res,
@@ -3949,3 +3949,14 @@ html .tc-split > .tc-content {
 body.sq-resizing .sq-rs::after { background: var(--c-primary); }
 /* 끄는 동안 글자가 잡히면 표가 통째로 파랗게 물든다 */
 body.sq-resizing { user-select: none; cursor: col-resize; }
+
+/* 판정 기준이 걸린 줄(지시) — 본디 ⋯ 자리였다. 무엇이 합격·불합격을 내는
+   줄인지가 훨씬 자주 찾는 것이라 그 자리를 내준다. */
+.sq-jud {
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1;
+  color: #0a7d8c;
+  opacity: 0.85;
+}
+.sq-row.on .sq-jud { opacity: 1; }
