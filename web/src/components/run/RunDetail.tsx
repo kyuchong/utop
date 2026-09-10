@@ -144,7 +144,7 @@ function asStep(raw: Record<string, unknown>, i: number): {
   okMsg?: string; ngMsg?: string
   /** **반복 회차별 기록**(지적: 20 회를 돌았는데 화면은 1 회로 보인다).
    *  실행기는 회차마다 여기에 남기는데 화면이 통째로 버리고 있었다. */
-  rounds?: Array<{ n?: number; status?: string; reason?: string; took_ms?: number; output?: string; trimmed?: boolean }>
+  rounds?: Array<{ n?: number; status?: string; reason?: string; took_ms?: number; output?: string; cmd?: string; trimmed?: boolean }>
   /** 이 스텝이 실제로 돌았나. 판정이 없는 스텝(대기·조회)과 **안 돌린 스텝**은 다르다 */
   ran?: boolean
 } {
@@ -193,6 +193,8 @@ function asStep(raw: Record<string, unknown>, i: number): {
           reason: String(r?.reason ?? '') || undefined,
           took_ms: typeof r?.took_ms === 'number' ? r.took_ms : undefined,
           output: String(r?.output ?? ''),
+          /* 그 회차에 **실제로 보낸 명령** — 변수를 푼 뒤의 것 */
+          cmd: String(r?.cmd ?? '') || undefined,
           trimmed: !!r?.trimmed,
         }))
       : undefined,

@@ -63,6 +63,10 @@ export interface StepRound {
   reason?: string
   took_ms?: number
   output?: string
+  /** **그 회차에 실제로 보낸 명령**(지시: TC 내용을 그대로 보여 달라).
+   *  변수가 든 명령은 회차마다 값이 달라진다(`show int te0/$i`) — 원본만
+   *  들고 있으면 몇 회차에 무엇을 보냈는지 알 길이 없다. */
+  cmd?: string
   /** 너무 커서 출력을 버렸다 — 「출력이 왜 없지」 를 안 헤매게 */
   trimmed?: boolean
 }
@@ -318,6 +322,8 @@ export interface TcStep {
    * 회차부터** 버린다 — 깨진 회차는 끝까지 들고 있는다.
    */
   rounds?: StepRound[]
+  /** **이번에 실제로 보낸 명령** — 변수를 푼 뒤의 것. 회차 기록이 이걸 담는다 */
+  sentCmd?: string
   /** 회차 출력을 **어디까지 남길까**(지시: 10,000 회 시험).
    *
    *  10,000 회 × 4KB 면 40MB 다 — 다 들고 있으면 저장도, 화면도 못 버틴다.

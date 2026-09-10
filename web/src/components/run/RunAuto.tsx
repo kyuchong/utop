@@ -40,7 +40,7 @@ export interface AutoStep {
   ngMsg?: string
   /** **반복 회차별 기록**(지적: 20 회를 돌았는데 화면은 1 회로 보인다).
    *  실행기는 회차마다 남기는데 이 화면이 통째로 버리고 있었다. */
-  rounds?: Array<{ n?: number; status?: string; reason?: string; took_ms?: number; output?: string; trimmed?: boolean }>
+  rounds?: Array<{ n?: number; status?: string; reason?: string; took_ms?: number; output?: string; cmd?: string; trimmed?: boolean }>
 }
 
 export interface AutoItem {
@@ -406,6 +406,19 @@ export default function RunAuto({
   /* 진행률은 위 띠(RunDetail)가 그린다 — 여기서 또 세지 않는다 */
 
   /** 이벤트 — 로그의 스텝에서 뽑는다(지어내지 않는다) */
+  /** 반복 회차를 이벤트·명령 목록에 **몇 개까지 펼칠까**.
+   *  깨진 회차는 다 편다 — 그것을 보려고 반복을 도는 것이다.
+   *  통과한 회차는 마지막 이만큼만. 10,000 회를 다 펴면 화면이 죽는다. */
+  const KEEP_OK = 30
+  /** 이 스텝에서 **펼칠 회차 자리**(0부터). 깨진 것 전부 + 통과 마지막 30 */
+  const keepRounds = (s: AutoStep): number[] => {
+    const rds = s.rounds ?? []
+    const bad: number[] = []
+    const ok: number[] = []
+    rds.forEach((r, k) => (/fail/i.test(String(r.status ?? '')) ? bad : ok).push(k))
+    return [...new Set([...bad, ...ok.slice(-KEEP_OK)])].sort((x, y) => x - y)
+  }
+
   const events = useMemo(() => {
     const out: Array<{ at: string; step: string; kind: string; text: string }> = []
     steps.forEach((s, i) => {
@@ -414,6 +427,45 @@ export default function RunAuto({
          나와 있었다(지적). 지금 도는 스텝은 「보냄」 까지는 맞다. */
       if (!s.ran && i !== runStep) return
       const at = s.at ?? logAt ?? ''
+      /* **반복 안 스텝은 회차마다 적는다**(지시) — 20 회를 돌았으면 20 번
+         보낸 것이다. 스텝당 한 줄로 접으면 「1 회만 돌았다」 로 읽힌다. */
+      const rds = s.rounds ?? []
+      if (rds.length > 1) {
+        const keep = keepRounds(s)
+        const hid = rds.length - keep.length
+        if (hid > 0)
+          out.push({
+            at,
+            step: `Step ${s.no}`,
+            kind: 'INFO',
+            text: `통과한 ${hid}회차는 접었습니다 — 깨진 회차와 마지막 ${KEEP_OK}회만 폅니다`,
+          })
+        for (const k of keep) {
+          const r = rds[k]!
+          const tag = `Step ${s.no} · ${r.n ?? k + 1}회`
+          const mk = String(r.status ?? '')
+          /* **그 회차에 보낸 명령 그대로**(지시) — 변수가 든 명령은 회차마다
+             달라진다. 없으면 스텝의 원본으로 떨어진다. */
+          const rcmd = r.cmd || s.cmd
+          if (rcmd)
+            out.push({
+              at,
+              step: tag,
+              kind: 'INFO',
+              text: `${rcmd} 보냄${r.took_ms != null ? ` (${r.took_ms}ms)` : ''}`,
+            })
+          if (mk)
+            out.push({
+              at,
+              step: tag,
+              kind: /pass/i.test(mk) ? 'PASS' : 'FAIL',
+              text:
+                r.reason ||
+                (/pass/i.test(mk) ? `${s.t} — 기준 맞음` : `${s.t} — 기준 어긋남`),
+            })
+        }
+        return
+      }
       if (s.cmd) out.push({ at, step: `Step ${s.no}`, kind: 'INFO', text: `${s.cmd} 보냄` })
       if (s.mark)
         out.push({
@@ -709,7 +761,13 @@ export default function RunAuto({
                 <div className="ra-blk" key={s2.no ?? seeUpTo} ref={conEndRef}>
                 <div className="ra-cmd">
                   <b className="ra-bno">Step {s2.no}</b>
-                  <span className="ra-bcmd">{s2.cmd ? `${dut}# ${s2.cmd}` : s2.t || s2.action || '—'}</span>
+                  <span className="ra-bcmd">
+                    {(() => {
+                      /* 회차를 골랐으면 **그 회차에 보낸 명령**을 적는다(지시) */
+                      const c2 = rd?.cmd || s2.cmd
+                      return c2 ? `${dut}# ${c2}` : s2.t || s2.action || '—'
+                    })()}
+                  </span>
                   {mk ? (
                     <span className={`ra-st ${/pass/i.test(mk) ? 'ok' : 'bad'}`}>
                       {/pass/i.test(mk) ? 'PASS' : 'FAIL'}
@@ -850,30 +908,67 @@ export default function RunAuto({
                 <small>{sessNow.name !== '—' ? `· ${sessNow.name}` : ''}</small>
               </div>
               {(() => {
-                const lines = sessNow.idx.filter((i) => String(steps[i]?.cmd ?? '').trim())
+                /* **회차마다 한 줄**(지시: 실제 명령어 입력되는 것을 그대로).
+                   20 회를 돌았으면 20 번 보낸 것이다 — 스텝당 한 줄로 접으면
+                   무엇을 몇 번 보냈는지 알 수 없다. 깨진 회차는 다 펴고
+                   통과한 회차는 마지막 30 회만 편다(10,000 회를 다 펴면 죽는다). */
+                type Line = { key: string; i: number; cmd: string; at?: string; mark?: string; nth?: number }
+                const lines: Line[] = []
+                let folded = 0
+                for (const i of sessNow.idx) {
+                  const s2 = steps[i]
+                  if (!s2) continue
+                  const rds = s2.rounds ?? []
+                  if (rds.length > 1) {
+                    const keep = new Set(keepRounds(s2))
+                    folded += rds.length - keep.size
+                    rds.forEach((r, k) => {
+                      if (!keep.has(k)) return
+                      const c2 = r.cmd || s2.cmd
+                      if (!String(c2 ?? '').trim()) return
+                      lines.push({
+                        key: `${i}-${k}`,
+                        i,
+                        cmd: String(c2),
+                        at: s2.at,
+                        mark: String(r.status ?? ''),
+                        nth: r.n ?? k + 1,
+                      })
+                    })
+                    continue
+                  }
+                  if (!String(s2.cmd ?? '').trim()) continue
+                  lines.push({ key: String(i), i, cmd: String(s2.cmd), at: s2.at, mark: s2.mark })
+                }
                 if (!lines.length)
                   return <div className="ra-none">이 세션으로 보낸 명령이 없습니다.</div>
-                return lines.map((i) => {
-                  const s2 = steps[i]!
-                  return (
-                    <button
-                      type="button"
-                      className={`ra-sline${i === stepAt ? ' on' : ''}${i === runStep ? ' run' : ''}`}
-                      key={s2.no ?? i}
-                      onClick={() => onStep(i)}
-                      title="누르면 그 스텝의 응답을 폅니다"
-                    >
-                      <em>{shortStamp(s2.at).split(' ')[1] ?? '—'}</em>
-                      <b>{dut}#</b>
-                      <span className="c">{s2.cmd}</span>
-                      {s2.mark ? (
-                        <i className={s2.mark === 'Pass' ? 'p' : 'f'}>{s2.mark === 'Pass' ? 'PASS' : 'FAIL'}</i>
-                      ) : (
-                        <i />
-                      )}
-                    </button>
-                  )
-                })
+                return (
+                  <>
+                    {folded > 0 && (
+                      <div className="ra-sfold">통과한 {folded}회차는 접었습니다 — 깨진 회차와 마지막 30회만 폅니다</div>
+                    )}
+                    {lines.map((ln) => (
+                      <button
+                        type="button"
+                        className={`ra-sline${ln.i === stepAt ? ' on' : ''}${ln.i === runStep ? ' run' : ''}`}
+                        key={ln.key}
+                        onClick={() => onStep(ln.i)}
+                        title="누르면 그 스텝의 응답을 폅니다"
+                      >
+                        <em>{ln.nth != null ? `${ln.nth}회` : (shortStamp(ln.at).split(' ')[1] ?? '—')}</em>
+                        <b>{dut}#</b>
+                        <span className="c">{ln.cmd}</span>
+                        {ln.mark ? (
+                          <i className={/pass/i.test(ln.mark) ? 'p' : 'f'}>
+                            {/pass/i.test(ln.mark) ? 'PASS' : 'FAIL'}
+                          </i>
+                        ) : (
+                          <i />
+                        )}
+                      </button>
+                    ))}
+                  </>
+                )
               })()}
             </>
           )}

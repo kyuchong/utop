@@ -354,6 +354,8 @@
   font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px;
 }
 .ra-sline:hover { background: #fafcfc; }
+/* 접은 회차 안내 — 「출력이 왜 없지」 를 안 헤매게 */
+.ra-sfold { padding: 3px 8px; font-size: 10.5px; color: #8c9da3; background: #fafbfb; border-bottom: 1px solid #f2f5f6; }
 .ra-sline.on { background: #eef7ff; box-shadow: inset 3px 0 0 #3f80e5; }
 .ra-sline.run { background: #f2f8ff; }
 .ra-sline em { font-style: normal; color: #93a5ab; font-variant-numeric: tabular-nums; }

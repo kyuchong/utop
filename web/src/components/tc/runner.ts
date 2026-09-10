@@ -1427,7 +1427,7 @@ async function runOne(
 
   const output = acc
   if (err && !output.trim()) {
-    ctx.onStep(i, { output: `[오류] ${err}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: err })
+    ctx.onStep(i, { output: `[오류] ${err}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: err, sentCmd: commands.join(' ; ') })
     ctx.onLog({ i, text: err, kind: 'fail' })
     return 'Fail'
   }
@@ -1471,6 +1471,9 @@ async function runOne(
     status: verdict ? verdict.toUpperCase() : '',
     repeatResult: verdict,
     reason,
+    /* **변수를 푼 뒤의 명령**을 남긴다(지시) — 회차마다 `te0/1 · te0/2 …`
+       로 달라지는데, 원본만 들고 있으면 몇 회차에 무엇을 보냈는지 모른다 */
+    sentCmd: commands.join(' ; '),
   })
   ctx.onLog({
     i,
@@ -1911,6 +1914,9 @@ export async function runSteps(
               /* 「판정만」 이면 출력을 아예 안 담는다 — 10,000 회에서 이것이
                  메모리를 40MB 에서 0 으로 만든다 */
               output: keepMode === 'none' ? '' : String(got.output ?? ''),
+              /* 그 회차에 **실제로 보낸 명령** — 「판정만」 이어도 이건 남긴다.
+                 무엇을 보냈는지는 판정만큼이나 봐야 하는 것이고 짧다. */
+              cmd: String(got.sentCmd ?? ''),
             })
             /* **모으면서 바로 줄인다**(지시). 다 모으고 나서 버리면 그동안
                메모리를 다 쓴다 — 10,000 회면 도는 내내 40MB 를 들고 있었다.
