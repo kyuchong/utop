@@ -2291,6 +2291,9 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     step={stepIdx >= 0 ? (shownSteps[stepIdx] ?? null) : null}
                     index={stepIdx}
                     total={steps.length}
+                    /* Action 은 왼쪽 표의 「동작」 칸에서 고른다(지시) —
+                       같은 값을 두 자리에서 고치게 두지 않는다 */
+                    hideAction
                     sessions={sessionNames}
                     params={stepParams}
                     takenVars={takenVars}

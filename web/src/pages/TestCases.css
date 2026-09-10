@@ -3733,3 +3733,28 @@ html .tc-split > .tc-content {
   color: var(--c-mut);
   font-family: var(--font-mono);
 }
+
+/* 「동작」 칸의 갈래 고르개(지시) — 무엇을 하는 줄인지 적힌 자리가
+   곧 그것을 바꾸는 자리다. 평소엔 글자처럼 두고 손이 오면 테를 보인다:
+   서른 줄에 네모가 서른 개 서 있으면 그것부터 보인다. */
+.sq-kind {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0 0 0 2px;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.sq-kind:hover,
+.sq-kind:focus {
+  border-color: var(--c-border, #c3cbd4);
+  background: var(--c-surface, #fff);
+  color: var(--c-text);
+  outline: none;
+}
+.sq-row.on .sq-kind { color: var(--c-text); }

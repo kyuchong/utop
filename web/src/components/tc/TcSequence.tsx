@@ -136,6 +136,27 @@ export default function TcSequence({
     setEdit(v)
   }
   const canEdit = !!onPatch && !readOnly
+
+  /**
+   * 갈래 바꾸기 — 안에 든 줄을 거느린 줄이면 먼저 묻는다.
+   *
+   * If·Loop 의 몸통은 **들여쓰기로만** 정해진다. 갈래를 바꿔도 아래 줄의
+   * 들여쓰기는 그대로 남아, 반복이던 것이 갑자기 CLI 가 되면 그 아래
+   * 줄들은 아무도 안 거느리는 채로 들여쓰기만 남는다. 눌러 놓고 나중에
+   * 발견하면 어디를 되돌려야 하는지 알기 어렵다.
+   */
+  const changeKind = (i: number, k: StepKind, body: number) => {
+    const cur = (steps[i]?.kind || 'cli') as StepKind
+    if (k === cur) return
+    if (
+      body > 0 &&
+      !window.confirm(
+        `이 줄은 아래 ${body}줄을 거느립니다.\n갈래를 바꾸면 그 줄들은 들여쓴 채로 남습니다. 바꿀까요?`,
+      )
+    )
+      return
+    onPatch?.(i, { kind: k })
+  }
   /**
    * 이 줄에서 그 칸을 고칠 수 있나.
    *
@@ -435,7 +456,32 @@ export default function TcSequence({
                     <span className="sq-caret" />
                   ) : null}
                   <StepIcon name={info.icon} className={`sq-ic g-${info.group}`} />
-                  {info.label}
+                  {/* **갈래를 여기서 고른다**(지시). 오른쪽 판을 열어 고르던
+                      것을 줄에서 바로 — 무엇을 하는 줄인지 적힌 자리가
+                      곧 그것을 바꾸는 자리다. */}
+                  {canEdit ? (
+                    <select
+                      className="sq-kind"
+                      value={s.kind || 'cli'}
+                      title={info.label}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => changeKind(i, e.target.value as StepKind, body)}
+                    >
+                      {ADD_KINDS.map((k) => (
+                        <option key={k.k} value={k.k}>
+                          {k.label}
+                        </option>
+                      ))}
+                      {/* 이미 저장된 옛 갈래(Connect·Model·Manual)는 목록에
+                          없다. 자리를 안 만들면 칸이 빈 채로 떠서, 다른 칸을
+                          고치는 순간 조용히 다른 갈래가 된다. */}
+                      {!ADD_KINDS.some((k) => k.k === (s.kind || 'cli')) && (
+                        <option value={s.kind || 'cli'}>{info.label} (옛 방식)</option>
+                      )}
+                    </select>
+                  ) : (
+                    info.label
+                  )}
                 </span>
                 {/* 어느 세션으로 나가는가. 같은 장비를 두 자리에 앉히는 일이
                     흔해서 장비 이름만으로는 안 갈린다 — iTest 도 Session 을

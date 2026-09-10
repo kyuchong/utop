@@ -77,6 +77,9 @@ interface Props {
    * 알맹이를 통째로 잠근다(`inert`).
    */
   readOnly?: boolean
+  /** Action 줄을 감춘다 — **목록에 그 칸이 있는 화면**은 거기서 고른다(지시).
+      목록이 없는 화면(AI 다듬기)은 이 판이 갈래를 고치는 유일한 자리라 그대로 둔다. */
+  hideAction?: boolean
   /**
    * 이 스텝을 감싸는 반복의 변수 이름 (있으면).
    *
@@ -122,6 +125,7 @@ export default function TcStepDetail({
   loopVar,
   stepList,
   readOnly = false,
+  hideAction = false,
 }: Props) {
   const [picked, setPicked] = useState('')
   /** 고른 값 **앞의 같은 줄 글자**(라벨) — 숫자만으로는 어느 숫자인지 못 집는다 */
@@ -545,23 +549,28 @@ export default function TcStepDetail({
           있다 — 한 줄씩 세부를 열어 켜는 것보다 그쪽이 빠르다.
           설명은 목록에 나오는 한 줄이라 목록에서 고치는 것이 맞다.
         */}
-        <label className="sd-f">
-          <span>Action</span>
-          {/* 새로 고를 수 있는 것만 내놓는다. 이미 저장된 옛 종류
-              (Connect·Disconnect·Model·Manual)는 자리를 만들어 살려 둔다 —
-              목록에 없는 값을 그냥 두면 칸이 빈 채로 뜨고, 다른 칸을 고치는
-              순간 조용히 다른 종류가 된다. 실제 자료에 31건이 있다. */}
-          <select value={kind} onChange={(e) => onChange({ kind: e.target.value as StepKind })}>
-            {ADD_KINDS.map((k) => (
-              <option key={k.k} value={k.k}>
-                {k.label}
-              </option>
-            ))}
-            {!ADD_KINDS.some((k) => k.k === kind) && (
-              <option value={kind}>{info.label} (옛 방식)</option>
-            )}
-          </select>
-        </label>
+        {/* Action 은 **목록의 그 칸**에서 고른다(지시) — 무엇을 하는 줄인지
+            적힌 자리가 곧 그것을 바꾸는 자리라, 여기 또 두면 같은 값을 두
+            자리에서 고치게 된다. 목록이 없는 화면(AI 다듬기)은 여기서 고른다. */}
+        {!hideAction && (
+          <label className="sd-f">
+            <span>Action</span>
+            {/* 새로 고를 수 있는 것만 내놓는다. 이미 저장된 옛 종류
+                (Connect·Disconnect·Model·Manual)는 자리를 만들어 살려 둔다 —
+                목록에 없는 값을 그냥 두면 칸이 빈 채로 뜨고, 다른 칸을 고치는
+                순간 조용히 다른 종류가 된다. 실제 자료에 31건이 있다. */}
+            <select value={kind} onChange={(e) => onChange({ kind: e.target.value as StepKind })}>
+              {ADD_KINDS.map((k) => (
+                <option key={k.k} value={k.k}>
+                  {k.label}
+                </option>
+              ))}
+              {!ADD_KINDS.some((k) => k.k === kind) && (
+                <option value={kind}>{info.label} (옛 방식)</option>
+              )}
+            </select>
+          </label>
+        )}
 
         {needsSession && (
           <label className="sd-f">
