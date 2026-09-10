@@ -1369,8 +1369,10 @@ export default function TcStepDetail({
         {isNoteKind(kind) && (
           <label className="sd-f">
             <span>{STEP_CONTENT[kind]?.label ?? '내용'}</span>
-            <textarea
-              rows={2}
+            {/* **한 줄이다**(지시). 주석도 메시지도 목록에 한 줄로 서는 글이라,
+                두 줄짜리 칸을 주면 줄바꿈을 넣게 되고 그러면 목록에서 뒤가
+                통째로 안 보인다. */}
+            <input
               value={step.text ?? step.desc ?? ''}
               placeholder={
                 kind === 'comment'
