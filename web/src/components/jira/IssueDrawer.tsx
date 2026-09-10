@@ -320,7 +320,12 @@ export function IssueDrawer({
    *  `expand=names` 가 준 「id → 이름」 을 뒤져 이름이 맞는 칸을 집는다. */
   const trace = useMemo(() => {
     const names = (q.data?.names ?? {}) as Record<string, string>
-    const id = Object.keys(names).find((k) => /traceab|추적/i.test(String(names[k] ?? '')))
+    /* 「추적」 만으로 찾으면 지라 붙박이 **「시간 추적」**(timetracking)이
+       먼저 걸린다 — 값이 객체라 「[object Object]」 가 떴다. 이름을
+       좁히고, 안 내기로 한 칸은 아예 안 본다. */
+    const id = Object.keys(names).find(
+      (k) => !DETAIL_SKIP.has(k) && /traceab|추적성/i.test(String(names[k] ?? '')),
+    )
     if (!id) return null
     const html = String((rf as Record<string, unknown>)[id] ?? '')
     const raw = (f as Record<string, unknown>)[id]
