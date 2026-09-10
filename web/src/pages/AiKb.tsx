@@ -320,9 +320,7 @@ export default function AiKb() {
   /* 열 폭 — 다른 화면과 같은 공용 이동바(지시). 계정을 따라간다. */
   const rootRef = useRef<HTMLDivElement>(null)
   const [w1, setW1] = useResizableWidth('utop.ntb.kai.w1', 215, 160, 420)
-  /* 미리보기는 **문서를 통째로 편다** — 330px 로는 표 한 줄도 안 들어간다.
-     옛 폭(w3)을 그대로 쓰면 좁은 값이 남아 있으므로 키를 새로 잡는다. */
-  const [w3, setW3] = useResizableWidth('utop.ntb.kai.prev', 560, 320, 900)
+
 
   const thQ = useQuery({
     queryKey: ['kai-threads'],
@@ -1835,16 +1833,7 @@ export default function AiKb() {
           </section>
 
           {srcOpen && (
-            <span className="kai-rz3">
-              <Resizer
-                label="근거 판 폭 조절"
-                onResize={(v) => setW3(-v)}
-                getOrigin={() => rootRef.current?.getBoundingClientRect().right ?? 0}
-              />
-            </span>
-          )}
-          {srcOpen && (
-            <aside className="kai-drawer open" style={{ width: w3 }}>
+            <aside className="kai-drawer open">
               <div className="dr-hd ev">
                 <b>미리보기</b>
                 <span className="ev-cnt">{lastSources.length}건</span>

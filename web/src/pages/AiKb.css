@@ -894,10 +894,16 @@
 .kai .card-ft .meta b { color: var(--c-text-muted); }
 
 /* ══ 미리보기 판 — 문서를 통째로 펴고 짚은 데를 칠한다(목업) ══ */
+/* **덮는 판**이다(목업) — 대화 옆에 끼우면 좁은 화면에서 대화가 0px 로
+   눌려 글자가 세로로 쌓인다. 오른쪽에 띄우고 대화는 그대로 둔다. */
 .kai-drawer {
-  flex: none; min-width: 0; display: flex; flex-direction: column;
-  background: #f6f7fb; border-left: 1px solid #e3eaec;
+  position: fixed; right: 10px; top: 56px; bottom: 10px; z-index: 35;
+  width: min(680px, 46vw); min-width: 540px; max-width: calc(100vw - 24px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: #f6f7fb; border: 1px solid #dfe6e8; border-radius: 12px;
+  box-shadow: -8px 0 30px rgb(13 68 81 / 16%);
 }
+@media (max-width: 900px) { .kai-drawer { min-width: 0; width: calc(100vw - 20px); } }
 .kai-drawer .dr-hd {
   display: flex; align-items: center; gap: 8px; flex: none;
   padding: 10px 12px; border-bottom: 1px solid #e3eaec; background: #f6f7fb;
