@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { TcPop } from '@/pages/ReqTc'
 import { prefGet, prefSet } from '@/lib/prefs'
+import { DrawerSideBtns, useDrawerSide } from '@/lib/drawerSide'
 import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
 import Markdown from '@/components/Markdown'
 import NTable, { seedOptions } from '@/components/ntable/NTable'
@@ -127,6 +128,8 @@ export default function RunManual({
   /* 요구사항·시험항목은 **오른쪽 서랍**으로 뺐다(지시) — 스텝이 세로를 다 쓴다.
      서랍이 오른쪽인 것은 릴리즈의 Jira 서랍과 같은 규칙이다(한 방향으로 통일) */
   const [drw, setDrw] = useState<'' | 'req' | 'tc'>('')
+  /** 서랍을 어느 쪽에 붙일지 — 담기 창과 **같은 열쇠**다(자리를 다시 안 찾게) */
+  const [drwSide, setDrwSide] = useDrawerSide()
   /** TC ID 로 연 팝업 — 커버리지의 「제목 앞 아이콘」 과 같은 창이다(지시) */
   const [peek, setPeek] = useState<{ id: string; name: string } | null>(null)
   /** 스텝의 톱니바퀴 메뉴 — 자주 안 쓰는 판정 */
@@ -697,11 +700,14 @@ export default function RunManual({
       {!!drw && (
         <>
           <span className="rm-dovl" role="presentation" onClick={() => setDrw('')} />
-          <aside className="rm-drw" role="dialog" aria-modal="true">
+          <aside className={`rm-drw${drwSide === 'left' ? ' left' : ''}`} role="dialog" aria-modal="true">
             <header>
               <b>{drw === 'req' ? '요구사항' : '시험항목'}</b>
               <span className="rm-dk">{drw === 'req' ? info.reqId || '–' : cur}</span>
               <span className="rm-sp" />
+              {/* 서랍을 **좌·우로 옮긴다**(지시) — 서랍이 가린 표를 보려면
+                  서랍이 비켜 줘야 한다. 담기 창과 같은 자리·같은 꼴이다. */}
+              <DrawerSideBtns side={drwSide} onSide={setDrwSide} cls="rm-dmv" />
               <button type="button" className="rm-dx" title="닫기 (Esc)" onClick={() => setDrw('')}>✕</button>
             </header>
             <div className="rm-dbody">

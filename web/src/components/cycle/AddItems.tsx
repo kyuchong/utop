@@ -23,16 +23,13 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
 import { normMode } from '@/lib/runMode'
-import { prefGet, prefSet } from '@/lib/prefs'
+import { DrawerSideBtns, useDrawerSide } from '@/lib/drawerSide'
 import { IconChevron } from '@/components/icons'
 import { buildCategoryTree, reqPk } from '@/types'
 import type { CategoryTreeNode, Requirement, TestCaseMeta } from '@/types'
 import type { CycleMeta } from '@/pages/Cycles'
 import { orderTcIds, useReqIndex } from '@/pages/qaBits'
 import './AddItems.css'
-
-/** 담기 창을 어느 쪽에 붙였나 — 계정을 따라다닌다(prefs SYNC 목록에 있다) */
-const SIDE_KEY = 'utop.additems.side'
 
 type Base = 'folder' | 'req' | 'tc'
 /** 요구사항이 안 붙은 시험을 모으는 자리 — 실존 id 와 안 겹치는 표식 */
@@ -62,11 +59,8 @@ export default function AddItems({
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [wideDr, setWideDr] = useState(false)
   /* 창을 **어느 쪽에 붙일지**(지시) — 뒤에 가린 목록을 보려고 창을 옮긴다.
-     매번 옮기게 두면 일이 되므로 계정을 따라다니게 적어 둔다(PC 가 아니라). */
-  const [side, setSide] = useState<'left' | 'right'>(() => (prefGet(SIDE_KEY) === 'left' ? 'left' : 'right'))
-  useEffect(() => {
-    prefSet(SIDE_KEY, side)
-  }, [side])
+     열쇠는 온 화면이 함께 쓴다: 창마다 따로 기억하면 자리를 다시 찾는다. */
+  const [side, setSide] = useDrawerSide()
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -627,26 +621,7 @@ export default function AddItems({
           <h3>시험 항목 담기</h3>
           {/* 창을 **좌·우로 옮긴다**(지시) — 창이 가린 쪽을 보려면 창이
               비켜 줘야 한다. 넓게 보기일 때는 옮길 자리가 없어 잠근다. */}
-          <button
-            type="button"
-            className="btn icon"
-            title="왼쪽에 붙이기"
-            aria-label="왼쪽에 붙이기"
-            onClick={() => setSide('left')}
-            disabled={wideDr || side === 'left'}
-          >
-            ◀
-          </button>
-          <button
-            type="button"
-            className="btn icon"
-            title="오른쪽에 붙이기"
-            aria-label="오른쪽에 붙이기"
-            onClick={() => setSide('right')}
-            disabled={wideDr || side === 'right'}
-          >
-            ▶
-          </button>
+          <DrawerSideBtns side={side} onSide={setSide} cls="btn icon" disabled={wideDr} />
           <button type="button" className="btn icon" title="닫기" onClick={onClose} disabled={busy}>
             ✕
           </button>
@@ -654,8 +629,37 @@ export default function AddItems({
         <div className="afd-bd">
           {/* 안내문을 걷었다(지시) — 세 칸(폴더·REQ·시험 항목)이 아래에
               그대로 보이고, 맞는 시험만 보이는 것은 목록이 이미 말한다.
-              「고른 항목 없음」 은 **칩 줄 오른쪽**으로 옮겼다(지시). */}
+              고르는 조건은 **찾기 줄 한 줄**에 모았다(지시): 담는 단위 ·
+              이미 담긴 항목 제외 · 고른 수 · 찾기 · 타입 · 더보기 · 담기. */}
           <div className="af-bar">
+            {/* **담는 단위·칩·고른 수를 찾기 왼쪽으로**(지시) — 줄이 둘이면
+                눈이 위아래로 오간다. 고르는 조건은 한 줄에 모여 있어야 한다. */}
+            <span className="af-seg" role="tablist" aria-label="담는 단위">
+              {(
+                [
+                  ['folder', '폴더'],
+                  ['req', 'REQ'],
+                  ['tc', '시험 항목'],
+                ] as Array<[Base, string]>
+              ).map(([b, label]) => (
+                <button key={b} type="button" className={base === b ? 'on' : ''} onClick={() => setBase(b)}>
+                  {label}
+                </button>
+              ))}
+            </span>
+            <button
+              type="button"
+              className={`af-chip${onlyNew ? ' on' : ''}`}
+              title="켜면 이미 담긴 항목을 숨기고, 끄면 「이미 담김」 으로 눕혀 보입니다"
+              onClick={() => setOnlyNew((v) => !v)}
+            >
+              이미 담긴 항목 제외
+            </button>
+            <span className={`af-chosen${effPicked.size ? ' has' : ''}`}>
+              {effPicked.size
+                ? `담길 항목 ${effPicked.size}건${fullFolders ? ` · 폴더 ${fullFolders}개` : ''}`
+                : '고른 항목 없음'}
+            </span>
             <input
               className="inp"
               placeholder="폴더 · REQ · 항목 찾기"
@@ -678,35 +682,16 @@ export default function AddItems({
             >
               ⋯
             </button>
-          </div>
-          <div className="af-chips">
-            <span className="af-seg" role="tablist" aria-label="담는 단위">
-              {(
-                [
-                  ['folder', '폴더'],
-                  ['req', 'REQ'],
-                  ['tc', '시험 항목'],
-                ] as Array<[Base, string]>
-              ).map(([b, label]) => (
-                <button key={b} type="button" className={base === b ? 'on' : ''} onClick={() => setBase(b)}>
-                  {label}
-                </button>
-              ))}
-            </span>
+            {/* **담기는 위**(지시) — 트리를 한참 굴려 고른 뒤 바닥까지 다시
+                내려가야 했다. 더보기 오른쪽이 그 손이 이미 있는 자리다. */}
             <button
               type="button"
-              className={`af-chip${onlyNew ? ' on' : ''}`}
-              title="켜면 이미 담긴 항목을 숨기고, 끄면 「이미 담김」 으로 눕혀 보입니다"
-              onClick={() => setOnlyNew((v) => !v)}
+              className="cu-new af-save"
+              onClick={() => void save()}
+              disabled={busy || !!loadErr || loading}
             >
-              이미 담긴 항목 제외
+              {busy ? '담는 중…' : `담기${effPicked.size ? ` ${effPicked.size}건` : ''}`}
             </button>
-            <span className="af-chipsp" />
-            <span className={`af-chosen${effPicked.size ? ' has' : ''}`}>
-              {effPicked.size
-                ? `담길 항목 ${effPicked.size}건${fullFolders ? ` · 폴더 ${fullFolders}개` : ''}`
-                : '고른 항목 없음'}
-            </span>
           </div>
           <div className={`af-tree b-${base}`}>
             {loading && !loadErr ? (
@@ -758,17 +743,12 @@ export default function AddItems({
                   : '시험 항목을 하나씩 고릅니다 · 폴더와 REQ 는 위 줄에만 적습니다'}
           </div>
         </div>
+        {/* 바닥에는 **요약만** 남는다(지시) — 닫기는 머리의 ✕ 가 이미 하고,
+            담기는 위로 올렸다. 단추 두 벌은 어느 쪽을 눌러야 할지 묻게 한다. */}
         <div className="afd-ft">
           <span className="af-sum" style={{ margin: 0 }}>
             자동 {cands.filter((t) => !isMan(t)).length} · 수동 {cands.filter(isMan).length}
           </span>
-          <span className="af-sp" />
-          <button type="button" className="cu-new" onClick={() => void save()} disabled={busy || !!loadErr || loading}>
-            {busy ? '담는 중…' : `담기${effPicked.size ? ` ${effPicked.size}건` : ''}`}
-          </button>
-          <button type="button" className="btn" onClick={onClose} disabled={busy}>
-            닫기
-          </button>
         </div>
       </aside>
       {!!menuAt && (

@@ -38,8 +38,6 @@
   right: auto;
   box-shadow: 2px 0 16px color-mix(in srgb, var(--c-topbar) 22%, transparent);
 }
-/* 칩 줄 — 「고른 항목 없음」 을 오른쪽 끝으로 밀어 준다(지시) */
-.afd .af-chipsp { flex: 1; }
 @media (max-width: 900px) { .afd .afd-panel { width: 100vw; } }
 .afd .afd-hd {
   display: flex;
@@ -61,8 +59,8 @@
   flex: none;
 }
 
-/* 고른 것 칩 — **칩 줄 오른쪽 끝**에 선다(지시). 위에 따로 한 줄을
-   차지하던 것을 옮겼다: 줄 하나가 통째로 없어져 목록이 그만큼 길어진다. */
+/* 고른 것 칩 — 담는 단위·칩과 함께 **찾기 왼쪽**에 선다(지시).
+   조건을 고르는 것들이 한 줄에 모여 눈이 위아래로 오가지 않는다. */
 .afd .af-chosen {
   display: inline-flex;
   align-items: center;
@@ -76,11 +74,15 @@
 }
 .afd .af-chosen.has { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 600; }
 
-/* 찾기 줄 · 칩 줄 */
+/* 찾기 줄 — 담는 단위·칩·고른 수·찾기·타입·더보기·담기가 **한 줄**이다(지시).
+   좁아지면 찾기 칸만 줄어든다: 나머지는 줄어들면 못 읽는 것들이다. */
 .afd .af-bar { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; flex: none; }
+.afd .af-bar .af-seg, .afd .af-bar .af-chip, .afd .af-bar .af-chosen { flex: none; }
 .afd .af-bar .inp { flex: 1 1 auto; min-width: 0; }
 .afd .af-bar .af-typef { flex: 0 0 104px; }
-.afd .af-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: var(--sp-2); align-items: center; flex: none; }
+/* 담기 — 찾기 줄 오른쪽 끝(지시). 줄어들지 않는다: 「담기 12건」 이
+   줄바꿈되면 눌러야 할 것이 무엇인지 흐려진다. */
+.afd .af-bar .af-save { flex: none; white-space: nowrap; }
 .afd .af-seg { display: inline-flex; border: 1px solid var(--c-border); border-radius: 12px; overflow: hidden; }
 .afd .af-seg button {
   height: 24px;
