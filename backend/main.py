@@ -17712,7 +17712,17 @@ async def kai_folders(request: Request):
         f = str(t.get("folder") or "")
         if f:
             cnt[f] = cnt.get(f, 0) + 1
-    return {"ok": True, "folders": [{**f, "n": cnt.get(str(f.get("id")), 0)} for f in folds]}
+    last: dict[str, str] = {}
+    for t in ths:
+        fx = str(t.get("folder") or "")
+        if fx:
+            at = str(t.get("at") or "")
+            if at > last.get(fx, ""):
+                last[fx] = at
+    return {"ok": True, "folders": [
+        {**f, "n": cnt.get(str(f.get("id")), 0),
+         "last": last.get(str(f.get("id")), "") or str(f.get("at") or "")}
+        for f in folds]}
 
 
 @app.post("/api/kai/folders")
@@ -17726,7 +17736,12 @@ async def kai_folder_new(payload: dict, request: Request):
     if len(folds) >= 60:
         return {"ok": False, "error": "프로젝트는 60개까지입니다"}
     fid = f"kf-{int(datetime.now(_tz.utc).timestamp()*1000)}"
-    f = {"id": fid, "name": nm, "instr": str(payload.get("instr") or "").strip()[:2000],
+    f = {"id": fid, "name": nm,
+         # 설명은 **사람이 읽는 목표**, 지침은 **AI 가 따르는 규칙**이다. 카드에는
+         # 둘을 이어 보여 주지만 쓰임이 달라 따로 담는다.
+         "desc": str(payload.get("desc") or "").strip()[:1000],
+         "instr": str(payload.get("instr") or "").strip()[:2000],
+         "pin": True, "archived": False,
          "at": datetime.now(_tz.utc).isoformat()}
     folds.insert(0, f)
     await db.kv_set(f"kai.folders.{u}", folds)
@@ -17744,8 +17759,14 @@ async def kai_folder_patch(fid: str, payload: dict, request: Request):
         nm = str(payload.get("name") or "").strip()[:60]
         if nm:
             f["name"] = nm
+    if "desc" in payload:
+        f["desc"] = str(payload.get("desc") or "").strip()[:1000]
     if "instr" in payload:
         f["instr"] = str(payload.get("instr") or "").strip()[:2000]
+    if "pin" in payload:
+        f["pin"] = bool(payload.get("pin"))
+    if "archived" in payload:
+        f["archived"] = bool(payload.get("archived"))
     await db.kv_set(f"kai.folders.{u}", folds)
     return {"ok": True, "folder": f}
 

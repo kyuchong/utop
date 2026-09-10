@@ -563,3 +563,87 @@
 .kai-find .hits > button > b { flex: 1; min-width: 0; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kai-find .hits > button > em { font-style: normal; font-size: 10.5px; color: #5b3fd6; background: #ede9fe; border-radius: 8px; padding: 1px 6px; }
 .kai-find .hits .n { font-size: 10.5px; color: var(--c-text-faint); }
+
+/* ══════════════════════════════════════════════════════════════════
+   프로젝트 목록 — 목업 구조(탭 · 찾기 · 정렬 · 카드 격자).
+   이름을 `.kai-pj` 아래로 한정한다 — `.pj-*` 는 짧아서 다른 화면과
+   부딪히기 쉽다(로그인 화면의 `.lg` 로 목록이 통째로 눌린 적이 있다).
+   ══════════════════════════════════════════════════════════════════ */
+.kai-pj { background: var(--c-surface-alt, #f5f7f9); padding: 0; }
+.kai-pj .pj-wrap { max-width: 1080px; margin: 0 auto; padding: 20px 28px 28px; }
+.kai-pj .pj-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.kai-pj .pj-hd h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+
+.kai-pj .pj-tabs { display: flex; align-items: center; gap: 6px; margin-bottom: 18px; }
+.kai-pj .pj-tabs .sp { flex: 1; }
+.kai-pj .pj-tab {
+  border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--c-text-muted);
+  padding: 6px 13px; border-radius: 8px;
+}
+.kai-pj .pj-tab:hover { background: var(--c-surface); color: var(--c-text); }
+.kai-pj .pj-tab.on { background: var(--c-surface); color: var(--c-text); box-shadow: 0 1px 2px rgb(13 68 81 / 10%); }
+.kai-pj .pj-ib {
+  width: 30px; height: 30px; display: grid; place-items: center; flex: none;
+  border: 0; background: none; border-radius: 8px; color: var(--c-text-muted); cursor: pointer; font: inherit;
+}
+.kai-pj .pj-ib:hover { background: var(--c-surface); color: var(--c-text); }
+.kai-pj .pj-find {
+  display: flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border: 1px solid #e3eaec; border-radius: 999px; background: var(--c-surface);
+}
+.kai-pj .pj-find i { display: inline-grid; place-items: center; color: var(--c-text-faint); flex: none; }
+.kai-pj .pj-find input { border: 0; outline: 0; background: none; font: inherit; font-size: 12.5px; width: 180px; }
+.kai-pj .pj-newbtn {
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  border: 1px solid #dfe6e8; border-radius: 9px; padding: 6px 14px;
+  background: var(--c-surface); color: var(--c-text);
+}
+.kai-pj .pj-newbtn:hover { background: var(--c-surface-alt, #f2f7f8); }
+
+.kai-pj .pj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+.kai-pj .pj-card {
+  display: flex; flex-direction: column; min-height: 150px; padding: 16px 18px;
+  background: var(--c-surface); border: 1px solid #e3eaec; border-radius: 14px;
+  cursor: pointer; box-shadow: 0 1px 3px rgb(13 68 81 / 5%);
+}
+.kai-pj .pj-card:hover { border-color: #c9bfff; box-shadow: 0 4px 14px rgb(60 50 120 / 10%); }
+.kai-pj .pj-cthd { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.kai-pj .pj-cthd .sp { flex: 1; }
+.kai-pj .pj-cthd > b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kai-pj .pjc-pin { display: inline-grid; place-items: center; color: var(--c-text-faint); flex: none; }
+.kai-pj .pj-card .arch {
+  font-size: 10px; font-weight: 700; color: #a15a00; background: #fdf2e0;
+  border-radius: 5px; padding: 1px 7px; flex: none;
+}
+.kai-pj .pjc-menuwrap { position: relative; display: inline-flex; flex: none; }
+.kai-pj .pjc-more {
+  width: 26px; height: 26px; display: grid; place-items: center; border: 0; background: none;
+  border-radius: 7px; color: var(--c-text-faint); cursor: pointer; font: inherit; opacity: 0;
+}
+.kai-pj .pj-card:hover .pjc-more,
+.kai-pj .pjc-more[aria-expanded='true'] { opacity: 1; }
+.kai-pj .pjc-more:hover { background: var(--c-surface-alt, #f2f7f8); color: var(--c-text); }
+.kai-pj .pj-ctxt {
+  margin: 9px 0 0; font-size: 13px; color: var(--c-text-muted); line-height: 1.62;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.kai-pj .pj-ctxt .dim { color: var(--c-text-faint); }
+.kai-pj .pj-cdt { margin-top: auto; padding-top: 18px; font-size: 12px; color: var(--c-text-faint); }
+/* 카드 안의 ⋮ 메뉴는 카드 오른쪽 아래로 */
+.kai-pj .pjc-menuwrap .kai-thmenu { right: 0; top: calc(100% + 4px); }
+
+/* 프로젝트 만들기 · 지침 창 */
+.kai-fdlg { width: min(560px, 94vw); }
+.kai-fdlg .modal-head .sp { flex: 1; }
+.kai-fld { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.kai-fld > span { font-size: 13px; font-weight: 600; color: var(--c-text); }
+.kai-fld input,
+.kai-fld textarea {
+  width: 100%; padding: 9px 12px; font: inherit; font-size: 13px;
+  border: 1px solid #dfe6e8; border-radius: 8px; background: var(--c-surface); color: var(--c-text);
+  outline: none; resize: vertical;
+}
+.kai-fld input:focus,
+.kai-fld textarea:focus { border-color: var(--c-primary); }
+.kai-fldhint { margin: 0 0 14px; font-size: 12.5px; color: var(--c-text-muted); line-height: 1.6; }

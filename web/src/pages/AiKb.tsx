@@ -47,8 +47,17 @@ interface KaiThread {
 interface KaiFolder {
   id: string
   name: string
+  /** 사람이 읽는 목표 — 카드에 보인다. 지침(instr)과는 쓰임이 다르다 */
+  desc?: string
+  /** AI 가 따르는 규칙 — 이 프로젝트에서 묻는 동안 프롬프트 맨 앞에 실린다 */
   instr?: string
+  /** 레일에 세울까(목업의 고정). false 면 프로젝트 화면에만 있다 */
+  pin?: boolean
+  /** 보관함으로 치웠나 */
+  archived?: boolean
   at?: string
+  /** 마지막으로 대화한 때 — 「최근 활동순」 정렬에 쓴다 */
+  last?: string
   n?: number
 }
 
@@ -142,6 +151,13 @@ const IcoSearch = () => (
   </svg>
 )
 
+/* 고정 핀 — 목업 것 그대로 */
+const IcoPin = () => (
+  <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
+    <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.134 3.134a5.5 5.5 0 0 1 .16 1.013c.046.702-.032 1.687-.72 2.375a.5.5 0 0 1-.707 0l-2.829-2.828-3.182 3.182c-.195.195-1.219.902-1.414.707s.512-1.22.707-1.414l3.182-3.182-2.828-2.829a.5.5 0 0 1 0-.707c.688-.688 1.673-.766 2.375-.72a5.5 5.5 0 0 1 1.013.16l3.134-3.133a3 3 0 0 1-.04-.461c0-.43.108-1.022.589-1.503a.5.5 0 0 1 .353-.146" />
+  </svg>
+)
+
 /** 답 속 [n] 을 누르는 것으로 바꾼다 — C 동작의 핵심 */
 function mdWithCits(text: string): string {
   const html = DOMPurify.sanitize(
@@ -181,6 +197,21 @@ export default function AiKb() {
   const [findQ, setFindQ] = useState('')
   /** 대화 ⋯ 메뉴가 열린 대화 */
   const [thMenu, setThMenu] = useState('')
+  /** 프로젝트 화면 — 탭 · 찾기 · 정렬 (목업) */
+  const [pjTab, setPjTab] = useState<'mine' | 'arch'>('mine')
+  const [pjQ, setPjQ] = useState('')
+  const [pjFind, setPjFind] = useState(false)
+  const [pjSort, setPjSort] = useState<'date' | 'name'>('date')
+  /**
+   * 프로젝트 만들기·고치기 창(목업).
+   *
+   * `window.prompt` 로는 이름과 설명을 한 번에 못 받는다 — 목업이 두 칸짜리
+   * 창인 까닭이다. 「무엇을 작업 중이신가요」 와 「어떤 목표를 …」 는 물음이라
+   * 좁은 프롬프트 창에 들어가지 않는다.
+   */
+  const [foldDlg, setFoldDlg] = useState<{ edit: KaiFolder | null; name: string; desc: string } | null>(null)
+  /** 지침 창 — 이건 한 칸이라 따로 둔다 */
+  const [instrDlg, setInstrDlg] = useState<{ f: KaiFolder; v: string } | null>(null)
   /** 3열 — 열림 여부와 지금 짚은 근거 번호(C 동작: [n] 을 눌러야 연다) */
   const [srcOpen, setSrcOpen] = useState(false)
   const [srcFocus, setSrcFocus] = useState(0)
@@ -274,23 +305,43 @@ export default function AiKb() {
     void qc.invalidateQueries({ queryKey: ['kai-folders'] })
   }
 
-  async function newFolder() {
-    const nm = window.prompt('새 프로젝트 이름')
-    if (!nm?.trim()) return
+  /** 창에서 「프로젝트 생성」·「저장」 을 눌렀을 때 */
+  async function saveFolder() {
+    const d = foldDlg
+    if (!d || !d.name.trim()) return
+    if (d.edit) {
+      await apiFetch(`/api/kai/folder/${encodeURIComponent(d.edit.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: d.name.trim(), desc: d.desc }),
+      })
+      setFoldDlg(null)
+      void qc.invalidateQueries({ queryKey: ['kai-folders'] })
+      return
+    }
     const r = await apiFetch('/api/kai/folders', {
       method: 'POST',
-      body: JSON.stringify({ name: nm.trim() }),
+      body: JSON.stringify({ name: d.name.trim(), desc: d.desc }),
     })
     const j = (await r.json()) as { ok?: boolean; error?: string; folder?: KaiFolder }
+    setFoldDlg(null)
     if (!j.ok) {
       window.alert(j.error || '프로젝트를 만들지 못했습니다')
       return
     }
     void qc.invalidateQueries({ queryKey: ['kai-folders'] })
+    /* 만들면 **그 프로젝트로 들어간다**(목업) — 만들자마자 쓰라는 뜻이다 */
     if (j.folder?.id) {
       setCurFold(j.folder.id)
       setView('chat')
+      newThread(j.folder.id)
     }
+  }
+  async function patchFolder(f: KaiFolder, p: Partial<KaiFolder>) {
+    await apiFetch(`/api/kai/folder/${encodeURIComponent(f.id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(p),
+    })
+    void qc.invalidateQueries({ queryKey: ['kai-folders'] })
   }
 
   async function delFolder(f: KaiFolder) {
@@ -301,28 +352,7 @@ export default function AiKb() {
     void qc.invalidateQueries({ queryKey: ['kai-threads'] })
   }
 
-  async function renameFolder(f: KaiFolder) {
-    const nm = window.prompt('프로젝트 이름', f.name)
-    if (!nm?.trim() || nm.trim() === f.name) return
-    await apiFetch(`/api/kai/folder/${encodeURIComponent(f.id)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ name: nm.trim() }),
-    })
-    void qc.invalidateQueries({ queryKey: ['kai-folders'] })
-  }
 
-  async function editInstr(f: KaiFolder) {
-    const v = window.prompt(
-      '이 프로젝트의 지침 — 이 안에서 묻는 동안 늘 따릅니다\n(예: 표로 정리해 줘 · E61xx 기준으로만)',
-      f.instr ?? '',
-    )
-    if (v === null) return
-    await apiFetch(`/api/kai/folder/${encodeURIComponent(f.id)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ instr: v }),
-    })
-    void qc.invalidateQueries({ queryKey: ['kai-folders'] })
-  }
 
   async function ask(q0?: string) {
     const q = (q0 ?? text).trim()
@@ -417,6 +447,92 @@ export default function AiKb() {
   const spaceDef = SPACES.find(([k]) => k === space)!
   const home = view === 'chat' && !msgs.length && !busy
   const foldNow = folders.find((f) => f.id === curFold) ?? null
+  /* 레일에는 **고정한 것만** 선다(목업). 보관한 것은 프로젝트 화면의 「보관됨」에만. */
+  const railFolders = folders.filter((f) => f.pin !== false && !f.archived)
+  const mineFolds = folders.filter((f) => !f.archived)
+  const archFolds = folders.filter((f) => !!f.archived)
+  const pjList = useMemo(() => {
+    const q = pjQ.trim().toLowerCase()
+    const base = (pjTab === 'arch' ? archFolds : mineFolds).filter(
+      (f) => !q || `${f.name} ${f.desc ?? ''} ${f.instr ?? ''}`.toLowerCase().includes(q),
+    )
+    return base
+      .slice()
+      .sort((a, b) =>
+        pjSort === 'name'
+          ? a.name.localeCompare(b.name, 'ko')
+          : String(b.last || b.at || '').localeCompare(String(a.last || a.at || '')),
+      )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folders, pjQ, pjTab, pjSort])
+  /** 「지금 · 3일 전 · 9월 5일」 — 카드 밑줄의 시각(목업) */
+  const whenTxt = (iso?: string) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const sec = (Date.now() - d.getTime()) / 1000
+    if (sec < 60) return '지금'
+    const day = Math.floor(sec / 86400)
+    if (day <= 0) return '오늘'
+    if (day === 1) return '어제'
+    if (day < 7) return `${day}일 전`
+    return `${d.getMonth() + 1}월 ${d.getDate()}일`
+  }
+  const openNewFold = () => setFoldDlg({ edit: null, name: '', desc: '' })
+  /** 프로젝트 ⋯ 메뉴 — 목업 넷(고정 · 세부사항 수정 · 보관 · 삭제) */
+  const foldMenu = (f: KaiFolder) => (
+    <div className="kai-thmenu" role="menu" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => {
+          setThMenu('')
+          void patchFolder(f, { pin: f.pin === false })
+        }}
+      >
+        {f.pin === false ? '고정' : '고정 해제'}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setThMenu('')
+          setFoldDlg({ edit: f, name: f.name, desc: f.desc ?? '' })
+        }}
+      >
+        세부사항 수정
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setThMenu('')
+          setInstrDlg({ f, v: f.instr ?? '' })
+        }}
+      >
+        지침 {f.instr ? '고치기' : '넣기'}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setThMenu('')
+          setPjTab(f.archived ? 'mine' : 'arch')
+          void patchFolder(f, { archived: !f.archived })
+          if (!f.archived && curFold === f.id) setCurFold('')
+        }}
+      >
+        {f.archived ? '보관 해제' : '보관'}
+      </button>
+      <span className="kai-thmenu-sep" />
+      <button
+        type="button"
+        className="danger"
+        onClick={() => {
+          setThMenu('')
+          void delFolder(f)
+        }}
+      >
+        삭제
+      </button>
+    </div>
+  )
   /** 레일의 「채팅 및 작업」 — 프로젝트에 안 든 대화만. 폴더 것은 폴더 아래에 선다 */
   const rootThreads = threads.filter((t) => !t.folder)
   const shownRoot = listAll ? rootThreads : rootThreads.slice(0, 12)
@@ -654,13 +770,13 @@ export default function AiKb() {
 
           <div className="kai-sec">
             <span>프로젝트</span>
-            <button type="button" className="kai-sec-add" title="새 프로젝트" onClick={() => void newFolder()}>
+            <button type="button" className="kai-sec-add" title="새 프로젝트" onClick={openNewFold}>
               ＋
             </button>
           </div>
           <div className="kai-folds">
-            {folders.length ? (
-              folders.map((f) => {
+            {railFolders.length ? (
+              railFolders.map((f) => {
                 const open = curFold === f.id
                 const kids = threads.filter((t) => t.folder === f.id)
                 return (
@@ -690,20 +806,7 @@ export default function AiKb() {
                     >
                       ⋯
                     </button>
-                    {thMenu === `f:${f.id}` && (
-                      <div className="kai-thmenu" role="menu" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" onClick={() => { setThMenu(''); void renameFolder(f) }}>
-                          이름 바꾸기
-                        </button>
-                        <button type="button" onClick={() => { setThMenu(''); void editInstr(f) }}>
-                          지침 {f.instr ? '고치기' : '넣기'}
-                        </button>
-                        <span className="kai-thmenu-sep" />
-                        <button type="button" className="danger" onClick={() => { setThMenu(''); void delFolder(f) }}>
-                          프로젝트 지우기
-                        </button>
-                      </div>
-                    )}
+                    {thMenu === `f:${f.id}` && foldMenu(f)}
                     {open && (
                       <div className="kai-foldths">
                         {kids.map((t) => thRow(t, true))}
@@ -717,8 +820,10 @@ export default function AiKb() {
               })
             ) : (
               <div className="kai-none pinhint">
-                <i aria-hidden="true">📁</i>
-                프로젝트를 만들면 여기에 섭니다 — 관련된 대화를 묶고 지침을 겁니다
+                <i aria-hidden="true">📌</i>
+                {folders.length
+                  ? '프로젝트를 고정하여 여기에 유지하기'
+                  : '프로젝트를 만들면 여기에 섭니다 — 관련된 대화를 묶고 지침을 겁니다'}
               </div>
             )}
           </div>
@@ -754,51 +859,133 @@ export default function AiKb() {
       )}
 
       {view === 'projects' ? (
-        /* ── 프로젝트 목록 ── */
+        /* ── 프로젝트 목록 — 목업 구조(탭 · 찾기 · 정렬 · 카드 격자) ── */
         <section className="kai-pj">
-          <div className="kai-pjhd">
-            <h1>프로젝트</h1>
-            <span className="sp" />
-            <button type="button" className="btn small primary" onClick={() => void newFolder()}>
-              새 프로젝트
-            </button>
-          </div>
-          <p className="kai-pjsub">
-            관련된 대화를 한 묶음으로 두고, 그 안에서 묻는 동안 늘 따를 <b>지침</b>을 겁니다.
-          </p>
-          {folders.length ? (
-            <div className="kai-pjgrid">
-              {folders.map((f) => (
-                <div key={f.id} className="kai-pjcard">
-                  <button
-                    type="button"
-                    className="hd"
-                    onClick={() => {
-                      setCurFold(f.id)
-                      setView('chat')
-                      newThread(f.id)
+          <div className="pj-wrap">
+            <div className="pj-hd">
+              <h1>프로젝트</h1>
+            </div>
+            <div className="pj-tabs">
+              <button
+                type="button"
+                className={`pj-tab${pjTab === 'mine' ? ' on' : ''}`}
+                onClick={() => setPjTab('mine')}
+              >
+                내 프로젝트{mineFolds.length ? ` ${mineFolds.length}` : ''}
+              </button>
+              <button
+                type="button"
+                className={`pj-tab${pjTab === 'arch' ? ' on' : ''}`}
+                onClick={() => setPjTab('arch')}
+              >
+                보관됨{archFolds.length ? ` ${archFolds.length}` : ''}
+              </button>
+              <span className="sp" />
+              {pjFind || pjQ ? (
+                <label className="pj-find">
+                  <i aria-hidden="true"><IcoSearch /></i>
+                  <input
+                    autoFocus
+                    value={pjQ}
+                    placeholder="프로젝트 찾기"
+                    onChange={(e) => setPjQ(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setPjQ('')
+                        setPjFind(false)
+                      }
                     }}
-                  >
-                    <i aria-hidden="true"><IcoFolder /></i>
-                    <b>{f.name}</b>
-                  </button>
-                  <p className={f.instr ? '' : 'dim'}>{f.instr || '지침 없음'}</p>
-                  <div className="ft">
-                    <span>대화 {f.n ?? 0}건</span>
-                    <span className="sp" />
-                    <button type="button" onClick={() => void editInstr(f)}>지침</button>
-                    <button type="button" onClick={() => void renameFolder(f)}>이름</button>
-                    <button type="button" className="danger" onClick={() => void delFolder(f)}>지우기</button>
-                  </div>
+                  />
+                </label>
+              ) : (
+                <button type="button" className="pj-ib" title="프로젝트 찾기" onClick={() => setPjFind(true)}>
+                  <IcoSearch />
+                </button>
+              )}
+              <button
+                type="button"
+                className="pj-ib"
+                title={`정렬 — ${pjSort === 'name' ? '이름순' : '최근 활동순'}`}
+                onClick={() => setPjSort((v) => (v === 'name' ? 'date' : 'name'))}
+              >
+                ⇅
+              </button>
+              <button type="button" className="pj-newbtn" onClick={openNewFold}>
+                새 프로젝트
+              </button>
+            </div>
+            <div className="pj-grid">
+              {pjList.length ? (
+                pjList.map((f) => {
+                  /* 카드 본문은 **설명 + 지침**을 이어 붙인다(목업) — 설명이 없어도
+                     지침이 있으면 무엇을 하는 자리인지 읽힌다. */
+                  const body = [f.desc || '', (f.instr || '').replace(/\n/g, ' ')].filter(Boolean).join(' ')
+                  return (
+                    <div
+                      key={f.id}
+                      className="pj-card"
+                      role="button"
+                      tabIndex={0}
+                      title={f.name}
+                      onClick={() => {
+                        setCurFold(f.id)
+                        setView('chat')
+                        newThread(f.id)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setCurFold(f.id)
+                          setView('chat')
+                          newThread(f.id)
+                        }
+                      }}
+                    >
+                      <div className="pj-cthd">
+                        <b>{f.name}</b>
+                        {f.pin !== false && (
+                          <i className="pjc-pin" title="고정됨" aria-hidden="true"><IcoPin /></i>
+                        )}
+                        {!!f.archived && <span className="arch">보관됨</span>}
+                        <span className="sp" />
+                        <span className="pjc-menuwrap">
+                          <button
+                            type="button"
+                            className="pjc-more"
+                            title="더보기"
+                            aria-haspopup="menu"
+                            aria-expanded={thMenu === `c:${f.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setThMenu((v) => (v === `c:${f.id}` ? '' : `c:${f.id}`))
+                            }}
+                          >
+                            ⋮
+                          </button>
+                          {thMenu === `c:${f.id}` && foldMenu(f)}
+                        </span>
+                      </div>
+                      <p className="pj-ctxt">
+                        {body || <span className="dim">설명이 없습니다</span>}
+                      </p>
+                      <div className="pj-cdt">
+                        {whenTxt(f.last || f.at)}
+                        {f.n ? ` · 대화 ${f.n}개` : ''}
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="kai-none">
+                  {pjQ
+                    ? `"${pjQ}"에 맞는 프로젝트가 없습니다`
+                    : pjTab === 'arch'
+                      ? '보관한 프로젝트가 없습니다'
+                      : '아직 프로젝트가 없습니다 — 새 프로젝트로 만들어 보세요'}
                 </div>
-              ))}
+              )}
             </div>
-          ) : (
-            <div className="kai-empty">
-              <b>아직 프로젝트가 없습니다</b>
-              <span>「새 프로젝트」 로 만들어 보세요. 대화를 ⋯ 에서 옮겨 담을 수 있습니다.</span>
-            </div>
-          )}
+          </div>
         </section>
       ) : view === 'library' ? (
         /* ── 라이브러리 — 담을 것이 아직 없다. 무엇을 담는 자리인지 말한다 ── */
@@ -945,6 +1132,105 @@ export default function AiKb() {
             </aside>
           )}
         </>
+      )}
+
+      {/* ── 프로젝트 만들기 · 세부사항 수정(목업) ── */}
+      {!!foldDlg && (
+        <div className="modal-back" onMouseDown={() => setFoldDlg(null)}>
+          <div className="modal kai-fdlg" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <b>{foldDlg.edit ? '프로젝트 이름 · 설명' : '프로젝트 생성'}</b>
+              <span className="sp" />
+              <button type="button" className="modal-x" aria-label="닫기" onClick={() => setFoldDlg(null)}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <label className="kai-fld">
+                <span>{foldDlg.edit ? '이름' : '무엇을 작업 중이신가요?'}</span>
+                <input
+                  autoFocus
+                  value={foldDlg.name}
+                  placeholder="프로젝트 이름 지정"
+                  onChange={(e) => setFoldDlg((d) => (d ? { ...d, name: e.target.value } : d))}
+                  onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing) return
+                    if (e.key === 'Enter' && foldDlg.name.trim()) void saveFolder()
+                  }}
+                />
+              </label>
+              <label className="kai-fld">
+                <span>{foldDlg.edit ? '설명' : '어떤 목표를 달성하려고 하시나요?'}</span>
+                <textarea
+                  rows={4}
+                  value={foldDlg.desc}
+                  placeholder="프로젝트, 목표, 주제 등을 설명해주세요."
+                  onChange={(e) => setFoldDlg((d) => (d ? { ...d, desc: e.target.value } : d))}
+                />
+              </label>
+            </div>
+            <div className="modal-foot">
+              <button type="button" className="btn small" onClick={() => setFoldDlg(null)}>
+                취소
+              </button>
+              <button
+                type="button"
+                className="btn small primary"
+                disabled={!foldDlg.name.trim()}
+                onClick={() => void saveFolder()}
+              >
+                {foldDlg.edit ? '저장' : '프로젝트 생성'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 지침 — 이 프로젝트에서 묻는 동안 늘 따른다 ── */}
+      {!!instrDlg && (
+        <div className="modal-back" onMouseDown={() => setInstrDlg(null)}>
+          <div className="modal kai-fdlg" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <b>프로젝트 지침 설정</b>
+              <span className="sp" />
+              <button type="button" className="modal-x" aria-label="닫기" onClick={() => setInstrDlg(null)}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="kai-fldhint">
+                <b>{instrDlg.f.name}</b> 의 모든 대화에 실립니다. 어떤 범위에서 · 어떤 꼴로 답해야
+                하는지 적어 주세요.
+              </p>
+              <label className="kai-fld">
+                <span>지침</span>
+                <textarea
+                  autoFocus
+                  rows={5}
+                  value={instrDlg.v}
+                  placeholder="예) E61xx 범위에서만 찾고, 결과는 표로 정리한다."
+                  onChange={(e) => setInstrDlg((d) => (d ? { ...d, v: e.target.value } : d))}
+                />
+              </label>
+            </div>
+            <div className="modal-foot">
+              <button type="button" className="btn small" onClick={() => setInstrDlg(null)}>
+                취소
+              </button>
+              <button
+                type="button"
+                className="btn small primary"
+                onClick={() => {
+                  const d = instrDlg
+                  setInstrDlg(null)
+                  void patchFolder(d.f, { instr: d.v })
+                }}
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── 대화 검색 — 제목으로 거른다 ── */}
