@@ -348,7 +348,10 @@ export default function AskBar({ devices }: Props) {
       else nx.add(k)
       return nx
     })
-    setPins((prev) => (on ? prev.filter((x) => x !== k) : prev.includes(k) ? prev : [...prev, k]))
+    /* **켤 때만 칩을 세운다**(지시: 도구 선택 시 고정). 끌 때도 칩을 빼고
+       있었더니, 껐다 켜려면 그때마다 ＋ 를 다시 열어야 했다 — 칩이 사라지는
+       것을 「눌러도 안 된다」 로 읽는다. 칩을 빼는 것은 칩의 ✕ 로만 한다. */
+    if (!on) setPins((prev) => (prev.includes(k) ? prev : [...prev, k]))
   }
 
   /* 음성(지시) — 브라우저 내장 음성 인식(ko-KR)으로 받아 적는다.
@@ -2337,7 +2340,7 @@ export default function AskBar({ devices }: Props) {
                   붙일 것도 켤 것도 다 이 안에 있다. */}
               <span className="ask-toolwrap">
                 <button
-                  className={`ask-tb plus${toolsOpen ? ' on' : ''}`}
+                  className={`ask-plus${toolsOpen ? ' on' : ''}`}
                   type="button"
                   aria-haspopup="true"
                   aria-expanded={toolsOpen}
@@ -2482,8 +2485,15 @@ export default function AskBar({ devices }: Props) {
                       key={key}
                       type="button"
                       className={`ask-chip${tOn.has(key) ? ' on' : ''}`}
-                      title={d}
-                      onClick={() => flipTool(key)}
+                      title={key === 'find' ? `${d} \u00b7 눌러서 항목을 고릅니다` : d}
+                      onClick={() => {
+                        flipTool(key)
+                        /* **칩을 누르면 그 도구가 하는 일이 열린다**(지시).
+                           「장비 고르기」 는 고르개가 뜨는데 「시험 항목 찾기」 는
+                           켜지기만 해서, 같은 줄의 두 칩이 서로 다르게 굴었다.
+                           끌 때는 열지 않는다 — 끄려고 누른 사람 앞에 창이 뜬다. */
+                        if (key === 'find' && !tOn.has(key)) setLikeAsk(true)
+                      }}
                     >
                       {emo} {nm}
                       {off}

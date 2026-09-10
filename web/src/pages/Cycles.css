@@ -8153,9 +8153,11 @@ a.bc-cur:hover { text-decoration: underline; }
 .ask-mi-tx b { display: block; font-size: 13px; font-weight: 700; color: var(--c-primary); }
 .ask-mi-tx p { margin: 2px 0 0; font-size: 11.5px; color: var(--c-text-muted); line-height: 1.5; }
 .ask-mi-tx small { display: block; margin-top: 3px; font-size: 11px; color: var(--c-text-faint); }
+/* 마이크(.ask-tb 36px)와 **같은 크기**로(지적: 혼자 사이즈가 다르다).
+   나란히 선 두 동그라미의 지름이 8px 다르면 한쪽이 튀어나와 보인다. */
 .ask-send2 {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -8167,7 +8169,7 @@ a.bc-cur:hover { text-decoration: underline; }
   cursor: pointer;
   transition: background 0.12s, box-shadow 0.12s;
 }
-.ask-send2 svg { width: 18px; height: 18px; }
+.ask-send2 svg { width: 16px; height: 16px; }
 .ask-send2.on {
   background: linear-gradient(135deg, #0f766e, #1769d2);
   box-shadow: 0 6px 18px rgb(15 118 110 / 35%);
@@ -8823,7 +8825,8 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ta-mode:disabled { cursor: not-allowed; opacity: 0.55; }
 
 /* 도구 칩 줄 — 입력줄에 같이 두면 핀 두세 개에 모드·보내기가 밀린다 */
-.ask-r3 { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: 10px; }
+/* 모드 줄 바로 아래 — 10px 은 두 줄이 남남으로 보일 만큼 떨어져 있었다(지시) */
+.ask-r3 { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: 4px; }
 /* ✕ 는 평소 숨는다. 칩이 늘 ✕ 를 달고 있으면 줄이 시끄럽다 */
 .ask-r3 .ask-chip { position: relative; padding-right: 14px; }
 .ask-r3 .ask-chip:hover { padding-right: 28px; }
@@ -8845,9 +8848,15 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   color: var(--c-primary); border-color: var(--c-primary); border-style: solid;
   background: var(--c-primary-bg);
 }
-/* 모드 안내 — 고른 모드가 무엇을 하는지 한 줄. 입력 상자 밖 오른쪽 아래 */
+/* 모드 안내 — 고른 모드가 무엇을 하는지 한 줄. 입력 상자 밖 오른쪽 아래.
+   **입력 상자와 같은 폭 안에** 둔다(지적: 화면 오른쪽 끝에 가 있다).
+   `align-self:flex-end` 만으로는 부모(화면 전체)의 오른쪽 끝으로 가서,
+   가운데 선 760px 상자와 아무 상관 없는 자리에 떨어져 있었다. */
 .ta-modehint {
-  position: relative; z-index: 1; align-self: flex-end; margin: 6px 2px 0;
+  position: relative; z-index: 1;
+  align-self: center; width: 100%; max-width: 760px;
+  margin: 5px auto 0; padding: 0 6px;
+  text-align: right;
   font-size: var(--fs-xs); color: var(--c-text-faint);
 }
 .ta-modehint b { color: var(--c-primary); }
@@ -8984,3 +8993,25 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* 파일과 도구 사이 실금 — 「붙일 것」 과 「켤 것」 은 다른 일이다 */
 .ask-toolmenu .tsep { display: block; height: 1px; background: var(--c-border-soft); margin: 5px 8px; }
 .ask-toolmenu .ask-tmi.file { font-weight: 600; color: var(--c-text); }
+
+/* ＋ — **동그란 회색 단추가 아니다**(지시: 동그라미 제거).
+   첨부·도구를 여는 자리라 글자 하나면 충분하다. 바탕을 깔아 두면
+   마이크·보내기와 같은 무게가 되어 셋이 나란히 다투었다. */
+.ask-plus {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--c-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  line-height: 1;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ask-plus:hover:not(:disabled) { color: var(--c-primary); background: var(--c-primary-bg); }
+.ask-plus.on { color: var(--c-primary); }
+.ask-plus:disabled { opacity: 0.45; cursor: default; }
