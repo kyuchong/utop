@@ -17557,27 +17557,59 @@ def _kai_tc_snip(txt: str, terms: list[str]) -> str:
         if len(lines) >= 5:
             break
     if not lines:
-        # 걸린 스텝이 없으면 앞 스텝 두 줄로 무엇을 하는 시험인지만 보인다
-        for st in (d.get("checks") or [])[:2]:
+        # 걸린 스텝이 없으면 **무엇을 하는 시험인지**만이라도 보인다.
+        # 앞 두 개를 그냥 집으면 model·loop 처럼 글자가 없는 스텝이라
+        # 이름만 남는다 — 내용이 있는 것을 골라 세 줄까지.
+        for st in (d.get("checks") or d.get("steps") or []):
             if not isinstance(st, dict):
                 continue
+            k = str(st.get("kind") or "")
             one = " · ".join(
-                x for x in (str(st.get("desc") or st.get("step") or "").strip(),
-                            str(st.get("cli") or st.get("data") or "").strip()) if x
+                x for x in (str(st.get("desc") or st.get("step") or st.get("text") or "").strip(),
+                            str(st.get("cli") or st.get("data") or "").strip(),
+                            str(st.get("criteria") or st.get("expected") or "").strip()) if x
             )
-            if one:
+            if not one:
+                # 글자가 없는 스텝은 무엇을 하는지로 대신 적는다
+                if k == "loop":
+                    one = f"반복 {st.get('forFrom', '')}~{st.get('forTo', '')}"
+                elif k == "model":
+                    one = f"모델 {st.get('modelName', '')}"
+                elif k:
+                    one = k
+            if one.strip():
                 lines.append(one[:140])
+            if len(lines) >= 3:
+                break
     tail = "\n".join(lines)
     return (head + ("\n" + tail if tail else "")).strip() or head
 
 
 def _kai_snip(text: str, terms: list[str], width: int = 260) -> str:
+    """찾은 낱말이 **가장 많이 모인** 자리를 판다.
+
+    앞서는 첫 낱말이 처음 나오는 데를 그대로 썼다. 「동작 온도」 로 물으면
+    긴 낱말인 「동작」 이 문서 맨 앞 엉뚱한 자리에 걸려, 온도 이야기는 한
+    글자도 없는 발췌가 근거로 나갔다."""
     low = text.lower()
-    at = -1
+    spots: list[tuple[int, str]] = []
     for t in terms:
-        at = low.find(t.lower())
-        if at >= 0:
-            break
+        tl = t.lower()
+        at0 = low.find(tl)
+        n = 0
+        while at0 >= 0 and n < 40:
+            spots.append((at0, tl))
+            at0 = low.find(tl, at0 + 1)
+            n += 1
+    at = -1
+    if spots:
+        spots.sort()
+        best = (-1, -1)
+        for i, (pos, _t) in enumerate(spots):
+            kinds = {tt for pp, tt in spots[i:] if pp < pos + width}
+            if len(kinds) > best[0]:
+                best = (len(kinds), pos)
+        at = best[1]
     if at < 0:
         at = 0
     s0 = max(0, at - width // 3)
