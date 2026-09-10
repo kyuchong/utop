@@ -17618,11 +17618,17 @@ def _kai_snip(text: str, terms: list[str], width: int = 260) -> str:
     at = -1
     if spots:
         spots.sort()
-        best = (-1, -1)
+        # **흔한 낱말은 가볍게.** 「E6100 동작 온도」 로 물으면 모델 이름은 그
+        # 문서에 수십 번 나오고 「온도」 는 한 곳에만 있다. 종류 수만 세면
+        # 모델 이름이 몰린 자리(무게·인터페이스 표)가 이겨서, 정작 온도 줄이
+        # 빠진 발췌가 근거로 나갔다 — 그러면 LLM 은 「근거에 없다」 고 답한다.
+        freq = {t: max(1, low.count(t)) for _p, t in spots}
+        best = (-1.0, -1)
         for i, (pos, _t) in enumerate(spots):
             kinds = {tt for pp, tt in spots[i:] if pp < pos + width}
-            if len(kinds) > best[0]:
-                best = (len(kinds), pos)
+            sc = sum(1.0 / freq.get(tt, 1) for tt in kinds)
+            if sc > best[0]:
+                best = (sc, pos)
         at = best[1]
     if at < 0:
         at = 0
