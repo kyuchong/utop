@@ -1702,8 +1702,11 @@ export default function AiKb() {
                           <div className="src-hd">
                             📑 출처 <span className="src-n">{m.sources.length}개</span>
                           </div>
+                          {/* **세 개까지만 세운다**(지시). 여덟 개가 늘어서면
+                              답보다 출처가 커 보인다 — 나머지는 「＋N개 더」 로
+                              미리보기 판을 열어 거기서 다 본다. */}
                           <div className="src-chips">
-                            {m.sources.map((sx, k) => (
+                            {m.sources.slice(0, 3).map((sx, k) => (
                               <button
                                 key={k}
                                 type="button"
@@ -1720,6 +1723,19 @@ export default function AiKb() {
                                 <em>{k + 1}</em>
                               </button>
                             ))}
+                            {m.sources.length > 3 && (
+                              <button
+                                type="button"
+                                className="src-more"
+                                title="나머지 출처를 미리보기에서 봅니다"
+                                onClick={() => {
+                                  setSrcFocus(4)
+                                  setSrcOpen(true)
+                                }}
+                              >
+                                ＋{m.sources.length - 3}개 더
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
