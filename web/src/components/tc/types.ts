@@ -770,6 +770,14 @@ export function stepNumbers(steps: TcStep[], hide?: (s: TcStep) => boolean): str
       out[i] = ''
       return
     }
+    /* **주석은 스텝이 아니다**(지시). 장비로 아무것도 안 나가고 결과서에도
+       안 실린다 — 번호를 먹으면 「스텝 12개」 가 실제 시험 수와 어긋나고,
+       주석 하나를 지울 때마다 아래 번호가 통째로 밀린다.
+       Message 는 뺀다: 실행 로그에 글을 찍는 **하는 일**이라 스텝이 맞다. */
+    if ((s.kind || 'cli') === 'comment') {
+      out[i] = ''
+      return
+    }
     const want = Math.min(Math.max(Number(s.indent) || 0, 0), 4)
     const d = Math.min(want, stack.length)
     stack.length = d + 1

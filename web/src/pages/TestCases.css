@@ -454,7 +454,9 @@
 /* 「+ 스텝」이 목록 바로 아래 붙어야 한다. 바닥에 고정하면 스텝이 적을 때
    화면 끝까지 내려가 손이 멀다. */
 .sq-scroll { flex: 1; min-height: 0; overflow: auto; }
-.sq-list { padding: 0; margin: 2px 4px 0; }
+/* 표 가장자리에 빈 띠가 남지 않게(지시) — 줄의 좌우 여백과 판의 여백이
+   겹쳐 15px 쯤 비어 있었다. 칸마다 제 여백이 있으므로 줄은 안 준다. */
+.sq-list { padding: 0; margin: 2px 0 0; }
 
 /* 줄마다 선을 긋지 않는다. 스텝이 30개면 선이 30줄이 되어 내용보다
    선이 먼저 보인다. 간격과 hover 로 가른다. */
@@ -481,8 +483,9 @@
   gap: var(--sp-2);
   width: 100%;
   text-align: left;
-  /* 줄 간격. 18줄짜리 시험이면 이 4px 이 한 화면에 두 줄을 더 넣는다. */
-  padding: 2px 8px;
+  /* 줄 간격. 18줄짜리 시험이면 이 4px 이 한 화면에 두 줄을 더 넣는다.
+     좌우는 0 — 칸마다 제 여백이 있고, 여기 또 주면 표 가장자리가 빈다. */
+  padding: 2px 0;
   border: 0;
   border-radius: var(--tc-r);
   background: transparent;
@@ -517,7 +520,7 @@
      끝의 ▶·⋯ 은 **각각 제 칸**이다: 한 칸에 둘을 넣으면 머리줄에 제목을
      하나밖에 못 달고, 좁으면 단추가 세로로 쌓여 줄 높이를 밀어 올린다. */
   --sq-cols:
-    15px 30px 30px 30px 40px 60px 190px minmax(150px, 1fr) minmax(90px, 220px) 48px;
+    30px 30px 30px 40px 60px 190px minmax(150px, 1fr) minmax(90px, 220px) 48px;
 }
 .sq-row,
 .sq-head { gap: 0; }
@@ -536,15 +539,13 @@
 /* 첫 칸(체크)과 끝 칸(▶·⋯)은 여백을 안 받는다 — 트랙이 15·40px 인데
    좌우 12px 를 먹이면 안쪽이 3·28px 가 되어, 실제로 끝 칸의 단추 둘이
    **세로로 쌓여 줄 높이가 43px 로 뛰었다**(실측). 두 칸은 제 폭이 곧 내용이다. */
-.sq-row > .sq-pick,
-.sq-head > *:first-child { padding-left: 0; padding-right: 0; }
-/* ▶·⋯ 칸은 좌우 여백을 얇게 — 30px 트랙에 12px 를 먹이면 단추가 안 든다 */
+/* ⋯·◍·▶ 칸은 좌우 여백을 얇게 — 30px 트랙에 12px 를 먹이면 단추가 안 든다 */
 .sq-row > .sq-runc,
 .sq-row > .sq-morec,
 .sq-row > .sq-pptc,
+.sq-head > *:nth-child(1),
 .sq-head > *:nth-child(2),
-.sq-head > *:nth-child(3),
-.sq-head > *:nth-child(4) { padding-left: 2px; padding-right: 2px; }
+.sq-head > *:nth-child(3) { padding-left: 2px; padding-right: 2px; }
 .sq-runc,
 .sq-morec,
 .sq-pptc { display: flex; align-items: center; justify-content: center; }
@@ -678,10 +679,10 @@
  * 이 값이 어긋나면 안내선이 아이콘 옆구리를 지나간다 — 예전 값(124)은
  * 없어진 상태 열과 gap 8px 를 세고 있었다.
  */
-.sq-row[data-depth="1"] { --gx: 240px; }
-.sq-row[data-depth="2"] { --gx: 254px; }
-.sq-row[data-depth="3"] { --gx: 268px; }
-.sq-row[data-depth="4"] { --gx: 282px; }
+.sq-row[data-depth="1"] { --gx: 217px; }
+.sq-row[data-depth="2"] { --gx: 231px; }
+.sq-row[data-depth="3"] { --gx: 245px; }
+.sq-row[data-depth="4"] { --gx: 259px; }
 
 /* 세로 — 마지막 자식은 제 자리까지만 내려온다(└) */
 .sq-row[data-kid]::before {
@@ -840,6 +841,11 @@ button.sq-caret svg { width: 11px; height: 11px; }
 /* 주석·메시지는 장비로 아무것도 안 나간다 — 누를 것이 없는 줄에
    삼각형이 서 있으면 눌러 보고 나서야 안다 */
 .sq-row.note .sq-run { display: none; }
+/* ⋯ 이 너무 옅어 안 보였다(지적) — 평소에도 읽히는 만큼은 진하게 */
+.sq-more { opacity: 0.75; color: var(--c-text-muted); font-size: 13px; }
+.sq-row:hover .sq-more,
+.sq-row.on .sq-more,
+.sq-more.on { opacity: 1; color: var(--c-primary); }
 .sq-run:hover { background: var(--c-surface); color: var(--c-primary); }
 
 /* 스텝 추가 — 종류를 여기서 고른다 */
@@ -1642,22 +1648,24 @@ button.sq-caret svg { width: 11px; height: 11px; }
 /* 왼쪽 띠는 안 쓴다. 그 자리는 「지금 도는 줄」 이 쓰는 자리라, 주석에도
    띠가 있으면 훑을 때 둘이 같은 무게로 보인다. 바탕색만으로 갈린다. */
 .sq-row.comment {
-  background: #f0faf4;
-  box-shadow: inset 0 -1px 0 #dcefe3;
+  /* 바탕은 **흰색**이다(지시) — 색을 깔면 정작 안 읽는 줄이 목록에서 제일
+     먼저 보인다. 갈래는 글자색으로 갈린다. 고른 줄만 청색으로 뜬다. */
+  background: var(--tc-bg, #fff);
+  box-shadow: inset 0 -1px 0 var(--sq-line);
 }
 
-.sq-row.comment:hover { background: #e7f6ed; }
+.sq-row.comment:hover { background: var(--tc-hover); }
 .sq-row.comment .sq-act,
 .sq-row.comment .sq-ic,
 .sq-row.comment .sq-sum { color: #2f7d4f; }
 
 /* 메시지 — 파랑. 로그에 실제로 찍히는 줄이라 주석과 갈라야 한다 */
 .sq-row.message {
-  background: #dbe8f8;
-  box-shadow: inset 4px 0 0 #2d6fd4, inset 0 -1px 0 #c5d8f0;
+  background: var(--tc-bg, #fff);
+  box-shadow: inset 0 -1px 0 var(--sq-line);
 }
 
-.sq-row.message:hover { background: #cfe0f5; }
+.sq-row.message:hover { background: var(--tc-hover); }
 .sq-row.message .sq-act,
 .sq-row.message .sq-ic,
 .sq-row.message .sq-sum { color: #1b529f; }
@@ -3620,7 +3628,6 @@ html .tc-split > .tc-content {
 .sq-menu {
   position: fixed;
   z-index: 61;
-  transform: translateX(-100%);
   min-width: 232px;
   padding: 4px;
   border: 1px solid var(--c-line, #dbe4e7);
@@ -3817,7 +3824,7 @@ html .tc-split > .tc-content {
 /* 주석·메시지는 **줄 전체를 쓴다**(지시). 장비로 아무것도 안 나가는 글이라
    절차 설명도 결과도 없다 — 그 칸들을 비워 두면 긴 글이 명령 칸 안에서만
    잘리고 오른쪽은 텅 빈다. ▶·⋯ 만 제자리에 남긴다. */
-.sq-row.note > .sq-sum { grid-column: 8 / -1; }
+.sq-row.note > .sq-sum { grid-column: 7 / -1; }
 .sq-row.note > .sq-dsc,
 .sq-row.note > .sq-res { display: none; }
 
@@ -3860,8 +3867,22 @@ html .tc-split > .tc-content {
   letter-spacing: 0;
 }
 /* 글이 드는 칸의 제목만 왼쪽에 붙인다 — 그 칸은 내용도 왼쪽에서 시작한다 */
-.sq-head > *:nth-child(5),
 .sq-head > *:nth-child(6),
 .sq-head > *:nth-child(7),
-.sq-head > *:nth-child(8),
-.sq-head > *:nth-child(9) { justify-content: flex-start; }
+.sq-head > *:nth-child(8) { justify-content: flex-start; }
+
+/* 고른 줄(체크칸을 걷은 뒤 Ctrl·Shift 클릭으로 고른다) — 파란 실선 테두리로
+   「고른 것」 임을 알린다. 지금 보고 있는 줄(.on)과는 무게가 다르다. */
+.sq-row.picked { background: #eef4fd; }
+.sq-row.picked > *:first-child { box-shadow: inset 2px 0 0 #7aa7e0; }
+
+/* 주석·메시지의 바탕을 걷었으니, 고른 줄 색이 그 위에도 그대로 온다(지시) */
+.sq-row.comment.on,
+.sq-row.message.on,
+.sq-row.comment.on:hover,
+.sq-row.message.on:hover {
+  background: #dceafc;
+  box-shadow: inset 3px 0 0 var(--c-primary), inset 0 -1px 0 var(--sq-line);
+}
+.sq-row.comment.on .sq-sum,
+.sq-row.message.on .sq-sum { background: #dceafc; }

@@ -340,7 +340,6 @@ export default function TcSequence({
               남긴다 — 아이콘만으로는 처음 보는 사람이 못 읽는다. */}
           {steps.length - hidden > 0 && head && (
             <div className="sq-head">
-              <span />
               <span title="메뉴 — 이 줄 설정">⋯</span>
               <span title="결과서(PPTX)에 실을 줄">◍</span>
               <span title="이 줄만 실행">▶</span>
@@ -403,12 +402,23 @@ export default function TcSequence({
                 tabIndex={0}
                 // 주석·메시지는 장비로 아무것도 안 나간다. 줄 색을 달리해
                 // 훑을 때 '이건 설명' 이 한눈에 갈리게 한다.
-                className={`sq-row${i === selected ? ' on' : ''}${s.skip ? ' skip' : ''}${
+                className={`sq-row${i === selected ? ' on' : ''}${
+                  picked.has(i) ? ' picked' : ''
+                }${s.skip ? ' skip' : ''}${
                   i === runningAt ? ' now' : ''
                 }${isNoteKind(s.kind) ? ` note ${s.kind}` : ''}${s.head ? ' head' : ''}`}
                 data-depth={depth || undefined}
                 data-kid={kid}
-                onClick={() => onSelect(i)}
+                /* 체크칸을 걷었으니(지시) 여러 줄은 여기서 고른다 —
+                   Ctrl(또는 ⌘)은 하나씩, Shift 는 여기까지 이어서. */
+                onClick={(e) => {
+                  if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                    e.preventDefault()
+                    onPick(i, e.shiftKey)
+                    return
+                  }
+                  onSelect(i)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
@@ -416,21 +426,6 @@ export default function TcSequence({
                   }
                 }}
               >
-                {/* 여러 줄 고르기. 평소엔 흐리게 두고 고를 때만 눈에 들어온다 —
-                    30줄에 체크박스가 진하게 서 있으면 그것부터 보인다. */}
-                <input
-                  type="checkbox"
-                  className="sq-pick"
-                  aria-label={`${i + 1}번 줄 고르기`}
-                  checked={picked.has(i)}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onPick(i, e.shiftKey)
-                  }}
-                  onChange={() => {
-                    /* onClick 에서 처리한다 — shift 를 알아야 해서 */
-                  }}
-                />
                 {/* 그 줄에만 듣는 설정(목업 ③). 평소엔 옅고 줄에 손이
                     오면 진해진다 — 서른 줄에 ⋯ 이 또렷하면 그것부터 보인다. */}
                 <span className="sq-morec">
@@ -448,7 +443,10 @@ export default function TcSequence({
                           return
                         }
                         const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                        setMenuXY({ x: r.right, y: r.bottom + 2 })
+                        /* 단추 **왼쪽 끝**에서 오른쪽으로 편다. 예전엔 오른쪽
+                           끝에서 왼쪽으로 폈는데(⋯ 이 줄 끝에 있었다), 이제
+                           ⋯ 이 표 맨 앞이라 그러면 화면 밖으로 나간다(지적). */
+                        setMenuXY({ x: r.left, y: r.bottom + 2 })
                         setMenuAt(i)
                         onSelect(i)
                       }}
