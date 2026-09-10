@@ -17550,10 +17550,15 @@ async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = Non
         return []
     like = [f"%{t}%" for t in terms]
     out: list[dict] = []
+    # **범위를 하나만 골랐으면 그만큼 깊게 본다**(지시).
+    # 넷을 다 켠 채 물을 때는 저장소마다 서너 건씩 골고루 가져와야 하지만,
+    # 「시험만」 으로 좁혀 놓고도 서너 건만 오면 좁힌 뜻이 없다.
+    solo = len(scopes) == 1
+    cap = 8 if solo else 3
     if "wiki" in scopes:
         hits = []
         try:
-            hits, _mode = await _hybrid_search(q, top_k=10, sources={"wiki"})
+            hits, _mode = await _hybrid_search(q, top_k=24 if solo else 10, sources={"wiki"})
         except Exception as e:  # noqa: BLE001
             print(f"[kai] wiki 하이브리드 실패 — ILIKE 로 폴백: {e}", flush=True)
             hits = []
@@ -17569,7 +17574,7 @@ async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = Non
             seen_w.add(wid)
             out.append({"kind": "wiki", "id": wid, "title": str(h.get("name") or "(이름 없음)"),
                         "snippet": str(h.get("text") or "")[:280]})
-            if len(seen_w) >= 3:
+            if len(seen_w) >= cap:
                 break
     async with db.pool().acquire() as c:
         if "wiki" in scopes and not any(x["kind"] == "wiki" for x in out):
@@ -17588,41 +17593,81 @@ async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = Non
             def _wscore(r):
                 tl, pl = (r["title"] or "").lower(), (r["plain"] or "").lower()
                 return sum((3 if t.lower() in tl else 0) + pl.count(t.lower()) for t in terms)
-            for r in sorted(rows, key=_wscore, reverse=True)[:3]:
+            for r in sorted(rows, key=_wscore, reverse=True)[:cap]:
                 out.append({"kind": "wiki", "id": r["id"], "title": r["title"] or "(이름 없음)",
                             "snippet": _kai_snip(r["plain"] or "", terms)})
         if "tc" in scopes:
             rows = await c.fetch(
                 """SELECT tcid, name, data::text AS txt FROM tc
                    WHERE tcid ILIKE ANY($1::text[]) OR name ILIKE ANY($1::text[])
-                      OR data::text ILIKE ANY($1::text[]) LIMIT 30""", like)
+                      OR data::text ILIKE ANY($1::text[]) LIMIT 60""", like)
             def _tscore(r):
                 nm = ((r["tcid"] or "") + " " + (r["name"] or "")).lower()
                 return sum((4 if t.lower() in nm else 0) + min(3, (r["txt"] or "").lower().count(t.lower())) for t in terms)
-            for r in sorted(rows, key=_tscore, reverse=True)[:3]:
+            for r in sorted(rows, key=_tscore, reverse=True)[:cap]:
                 out.append({"kind": "tc", "id": r["tcid"], "title": r["name"] or r["tcid"],
                             "snippet": _kai_snip(r["txt"] or "", terms, 200)})
             rows = await c.fetch(
                 """SELECT reqid, title FROM req
-                   WHERE reqid ILIKE ANY($1::text[]) OR title ILIKE ANY($1::text[]) LIMIT 6""", like)
-            for r in rows[:2]:
+                   WHERE reqid ILIKE ANY($1::text[]) OR title ILIKE ANY($1::text[]) LIMIT 12""", like)
+            for r in rows[:(4 if solo else 2)]:
                 out.append({"kind": "req", "id": r["reqid"], "title": r["title"] or r["reqid"], "snippet": ""})
         if "cycle" in scopes:
+            # 이름·버전만 보던 것을 **안의 내용**까지 본다(지시: 그 페이지의
+            # 데이터로 답해야 한다). data 에는 항목별 스텝·보낸 명령·장비
+            # 출력·판정과 그 이유가 다 들어 있다 — 「ubiPortMtu 실패했어?」
+            # 처럼 항목 이름으로 물어도 걸려야 한다.
             rows = await c.fetch(
-                """SELECT id, name, version, data FROM plan_run
+                """SELECT id, name, version, data, data::text AS txt FROM plan_run
                    WHERE id ILIKE ANY($1::text[]) OR name ILIKE ANY($1::text[])
-                      OR version ILIKE ANY($1::text[]) LIMIT 6""", like)
-            for r in rows[:3]:
+                      OR version ILIKE ANY($1::text[]) OR data::text ILIKE ANY($1::text[])
+                   LIMIT 40""", like)
+
+            def _rscore(r):
+                head = f"{r['id'] or ''} {r['name'] or ''} {r['version'] or ''}".lower()
+                body = (r["txt"] or "").lower()
+                return sum((5 if t.lower() in head else 0) + min(4, body.count(t.lower())) for t in terms)
+
+            for r in sorted(rows, key=_rscore, reverse=True)[:cap]:
                 try:
                     d = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
                 except Exception:
                     d = {}
-                res = d.get("results") or {}
-                vals = [str(v).lower() for v in res.values()] if isinstance(res, dict) else []
+                res = d.get("results") if isinstance(d.get("results"), dict) else {}
+                vals = [str(v).lower() for v in res.values()]
                 np = sum(1 for v in vals if v in ("p", "pass"))
                 nf = sum(1 for v in vals if v in ("f", "fail"))
-                out.append({"kind": "run", "id": r["id"], "title": f"{r['name'] or r['id']} · {r['version'] or ''}",
-                            "snippet": f"항목 {len(vals)} · 통과 {np} · 실패 {nf}"})
+                head = f"항목 {len(vals)} · 통과 {np} · 실패 {nf}"
+
+                # **질문에 걸린 항목**을 짚어 준다 — 집계만 주면 「그래서 무엇이
+                # 깨졌나」 를 다시 물어야 한다.
+                logs = d.get("logs") if isinstance(d.get("logs"), dict) else {}
+                lines: list[str] = []
+                for tcid in list(res.keys()) + [k for k in logs if k not in res]:
+                    low = str(tcid).lower()
+                    lg = logs.get(tcid) if isinstance(logs.get(tcid), dict) else {}
+                    steps = lg.get("steps") if isinstance(lg.get("steps"), list) else []
+                    blob = low + " " + " ".join(
+                        f"{st.get('cli') or st.get('data') or ''} {st.get('desc') or ''} {st.get('reason') or ''}"
+                        for st in steps if isinstance(st, dict)
+                    ).lower()
+                    if not any(t.lower() in blob for t in terms):
+                        continue
+                    vv = str(res.get(tcid, "")).lower()
+                    verd = ("통과" if vv in ("p", "pass") else "실패" if vv in ("f", "fail")
+                            else "보류" if vv in ("b", "blocked") else "미실행" if vv in ("n", "notrun") else "")
+                    why = ""
+                    for st in steps:
+                        if isinstance(st, dict) and str(st.get("status") or "").upper() == "FAIL":
+                            why = str(st.get("reason") or st.get("cli") or "")[:90]
+                            break
+                    lines.append(f"{tcid}{f' {verd}' if verd else ''}{f' — {why}' if why else ''}")
+                    if len(lines) >= 6:
+                        break
+                snip = head + ("\n" + "\n".join(lines) if lines else "")
+                out.append({"kind": "run", "id": r["id"],
+                            "title": f"{r['name'] or r['id']} · {r['version'] or ''}",
+                            "snippet": snip})
     if "jira" in scopes and _JIRA_CACHE_DIR.exists():
         # 저장소 파일을 훑는다 — 아침 동기화가 채워 둔 것이라 지라는 조용하다
         best: list[tuple[int, dict]] = []
@@ -17646,8 +17691,9 @@ async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = Non
                               "extra": {"status": (st or {}).get("name") if isinstance(st, dict) else "",
                                         "updated": str(fl.get("updated") or "")[:10]}}))
         best.sort(key=lambda x: -x[0])
-        out.extend(b for _, b in best[:4])
-    return out[:10]
+        out.extend(b for _, b in best[:(10 if solo else 4)])
+    # 좁혀 물었으면 근거도 그만큼 더 실어 보낸다
+    return out[:(16 if solo else 10)]
 
 
 def _kai_user(request) -> str:
@@ -18005,7 +18051,17 @@ async def kai_ask_stream(payload: dict, request: Request):
         if fold_in:
             _f = next((x for x in await _kai_folds(u) if x.get("id") == fold_in), None)
             _instr = str((_f or {}).get("instr") or "").strip()
+        # **고른 범위를 말해 준다**(지시) — 「시험만」 으로 좁혀 물었는데
+        # 답이 위키 이야기를 하면 좁힌 뜻이 없다. 근거가 없으면 그 범위에
+        # 없다고 분명히 말하게 한다.
+        _SCOPE_KO = {"wiki": "WIKI 문서", "tc": "요구사항 · 시험 항목",
+                     "cycle": "사이클 · 실행 결과", "jira": "Jira 이슈"}
+        _scope_txt = " · ".join(_SCOPE_KO.get(x, x) for x in sorted(scopes))
+        _narrow = ("" if len(scopes) >= 4 else
+                   f"이 물음은 **{_scope_txt}** 안에서만 찾은 것이다. 근거에 없으면 "
+                   f"「{_scope_txt} 에는 없습니다」 라고 분명히 말하고, 다른 저장소 이야기를 지어내지 마라.\n")
         sys_p = ((f"이 대화에는 다음 지침이 있다 — 반드시 따르라: {_instr}\n" if _instr else "")
+                 + _narrow
                  + "너는 네트워크 장비 시험 조직의 지식 도우미다. 아래 근거만으로 한국어로 간결히 답하라. "
                  "근거를 쓸 때는 문장 끝에 [번호] 로 짚어라. 근거에 없는 것은 없다고 말하라. "
                  "표가 어울리면 마크다운 표를 써라.")
