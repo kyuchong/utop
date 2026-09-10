@@ -350,7 +350,24 @@ export default function TcSequence({
           {steps.length - hidden > 0 && head && (
             <div className="sq-head">
               <span title="메뉴 — 이 줄 설정">⋯</span>
-              <span title="결과서(PPTX)에 실을 줄">◍</span>
+              {/* PPTX 아이콘(지시) — 동그라미로는 무엇을 고르는 칸인지
+                  알 수 없었다. 결과서 장표를 뜻하는 그림으로 세운다. */}
+              <span title="결과서(PPTX)에 실을 줄">
+                <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                  <rect x="1.2" y="2.4" width="13.6" height="11.2" rx="1.6" fill="#c1502e" />
+                  <text
+                    x="8"
+                    y="11.3"
+                    fontSize="8.5"
+                    fontWeight="700"
+                    fill="#fff"
+                    textAnchor="middle"
+                    fontFamily="Segoe UI, Arial, sans-serif"
+                  >
+                    P
+                  </text>
+                </svg>
+              </span>
               <span title="이 줄만 실행">▶</span>
               <span title="세션 — 어느 장비로 나가나">⇄</span>
               <span title="스텝 번호">№</span>
@@ -767,9 +784,11 @@ export default function TcSequence({
         </div>
       </div>
 
-      {/* ── 줄 끝 `⋯` 메뉴(목업 ③) ─────────────────────────────────────
-          그 줄에만 듣는 것만 담는다. 판정 기준처럼 넓은 자리가 필요한
-          것은 여기 안 넣는다 — 작은 메뉴에 큰 일을 넣으면 둘 다 못 쓴다. */}
+      {/* ── `⋯` 판 ────────────────────────────────────────────────────
+          그 줄에만 듣는 **세션과 대기**만 담는다. 건너뛰기·복제·삭제는
+          줄을 골랐을 때 뜨는 아래 바가 이미 한다(지시) — 같은 일을 두 자리에
+          두면 어느 것이 정본인지 알 수 없고, 판이 길어져 정작 세션이 뒤로
+          밀린다. 판정 기준처럼 넓은 자리가 필요한 것도 여기 안 넣는다. */}
       {menuAt >= 0 && steps[menuAt] && (
         <>
           <div className="sq-menu-veil" onClick={() => setMenuAt(-1)} aria-hidden="true" />
@@ -827,47 +846,7 @@ export default function TcSequence({
                     </span>
                   </label>
                 )}
-                <div className="sq-menu-sep" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="sq-menu-i"
-                  onClick={() => {
-                    onPatch(menuAt, { skip: !steps[menuAt]!.skip })
-                    setMenuAt(-1)
-                  }}
-                >
-                  {steps[menuAt]!.skip ? '건너뛰기 되돌리기' : '이 스텝 건너뛰기'}
-                </button>
               </>
-            )}
-            {!!onDuplicate && (
-              <button
-                type="button"
-                role="menuitem"
-                className="sq-menu-i"
-                onClick={() => {
-                  const at = menuAt
-                  setMenuAt(-1)
-                  onDuplicate(at)
-                }}
-              >
-                복제
-              </button>
-            )}
-            {!!onRemove && (
-              <button
-                type="button"
-                role="menuitem"
-                className="sq-menu-i danger"
-                onClick={() => {
-                  const at = menuAt
-                  setMenuAt(-1)
-                  onRemove(at)
-                }}
-              >
-                삭제
-              </button>
             )}
           </div>
         </>
