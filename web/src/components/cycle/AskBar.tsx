@@ -333,13 +333,23 @@ export default function AskBar({ devices }: Props) {
   const [devF, setDevF] = useState<Record<string, string>>({})
   const [devHF, setDevHF] = useState('')
   const askInRef = useRef<HTMLInputElement>(null)
-  const flipTool = (k: string) =>
+  /**
+   * 도구를 켜고 끈다 — **켜면 입력줄에 칩이 선다**(지적: 골라도 추가가 안 된다).
+   *
+   * 전에는 켜기(tOn)와 칩으로 세우기(pins)가 따로였다. 메뉴에서 고르면 켜지긴
+   * 하는데 화면에는 아무 일도 안 일어나, 눌린 줄 모르고 다시 눌러 껐다.
+   * 켠 것은 보여야 한다 — 안 보이면 켠 줄 모른다.
+   */
+  const flipTool = (k: string) => {
+    const on = tOn.has(k)
     setTOn((prev) => {
       const nx = new Set(prev)
-      if (nx.has(k)) nx.delete(k)
+      if (on) nx.delete(k)
       else nx.add(k)
       return nx
     })
+    setPins((prev) => (on ? prev.filter((x) => x !== k) : prev.includes(k) ? prev : [...prev, k]))
+  }
 
   /* 음성(지시) — 브라우저 내장 음성 인식(ko-KR)으로 받아 적는다.
      서버는 안 거친다. https 가 아니면 브라우저가 마이크를 막을 수 있어
@@ -2444,6 +2454,11 @@ export default function AskBar({ devices }: Props) {
                       onClick={(e) => {
                         e.stopPropagation()
                         setPins((prev) => prev.filter((x) => x !== key))
+                        setTOn((prev) => {
+                          const nx = new Set(prev)
+                          nx.delete(key)
+                          return nx
+                        })
                       }}
                     >
                       ✕
@@ -2494,8 +2509,7 @@ export default function AskBar({ devices }: Props) {
               {devOpen && (
                 <>
                   <span className="ask-modeback" onClick={() => setDevOpen(false)} />
-                  <span className="ask-devpop">
-                    <span className="ask-devmenu big" role="menu">
+                  <span className="ask-devmenu big" role="menu">
                       {(() => {
                         const COLS: Array<[string, string, string]> = [
                           ['lab', 'LAB', 'dv-lab'],
@@ -2728,7 +2742,6 @@ export default function AskBar({ devices }: Props) {
                           </>
                         )
                       })()}
-                    </span>
                   </span>
                 </>
               )}
