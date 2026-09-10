@@ -17653,7 +17653,8 @@ async def _kai_load(u: str) -> list[dict]:
 async def kai_threads(request: Request):
     ths = await _kai_load(_kai_user(request))
     return {"ok": True, "threads": [
-        {"id": t.get("id"), "title": t.get("title"), "at": t.get("at"), "n": len(t.get("msgs") or [])}
+        {"id": t.get("id"), "title": t.get("title"), "at": t.get("at"),
+         "n": len(t.get("msgs") or []), "folder": t.get("folder") or ""}
         for t in ths]}
 
 
@@ -17674,6 +17675,99 @@ async def kai_thread_del(tid: str, request: Request):
     return {"ok": True}
 
 
+@app.patch("/api/kai/thread/{tid}")
+async def kai_thread_patch(tid: str, payload: dict, request: Request):
+    """대화의 **이름을 바꾸거나 프로젝트로 옮긴다**.
+
+    제목은 첫 질문에서 잘라 만든 것이라 나중에 보면 무슨 대화인지 모른다.
+    프로젝트(folder)는 빈 글자로 보내면 밖으로 꺼낸다."""
+    u = _kai_user(request)
+    ths = await _kai_load(u)
+    t = next((x for x in ths if x.get("id") == tid), None)
+    if not t:
+        return {"ok": False, "error": "없는 대화입니다"}
+    if "title" in payload:
+        nm = str(payload.get("title") or "").strip()[:80]
+        if nm:
+            t["title"] = nm
+    if "folder" in payload:
+        t["folder"] = str(payload.get("folder") or "").strip()
+    await db.kv_set(f"kai.threads.{u}", ths)
+    return {"ok": True, "thread": {"id": t.get("id"), "title": t.get("title"), "folder": t.get("folder") or ""}}
+
+
+async def _kai_folds(u: str) -> list[dict]:
+    v = await db.kv_get(f"kai.folders.{u}")
+    return v if isinstance(v, list) else []
+
+
+@app.get("/api/kai/folders")
+async def kai_folders(request: Request):
+    """프로젝트 목록. 대화 수는 여기서 세어 준다 — 화면이 두 번 읽지 않게."""
+    u = _kai_user(request)
+    folds = await _kai_folds(u)
+    ths = await _kai_load(u)
+    cnt: dict[str, int] = {}
+    for t in ths:
+        f = str(t.get("folder") or "")
+        if f:
+            cnt[f] = cnt.get(f, 0) + 1
+    return {"ok": True, "folders": [{**f, "n": cnt.get(str(f.get("id")), 0)} for f in folds]}
+
+
+@app.post("/api/kai/folders")
+async def kai_folder_new(payload: dict, request: Request):
+    from datetime import timezone as _tz
+    u = _kai_user(request)
+    nm = str(payload.get("name") or "").strip()[:60]
+    if not nm:
+        return {"ok": False, "error": "이름이 비었습니다"}
+    folds = await _kai_folds(u)
+    if len(folds) >= 60:
+        return {"ok": False, "error": "프로젝트는 60개까지입니다"}
+    fid = f"kf-{int(datetime.now(_tz.utc).timestamp()*1000)}"
+    f = {"id": fid, "name": nm, "instr": str(payload.get("instr") or "").strip()[:2000],
+         "at": datetime.now(_tz.utc).isoformat()}
+    folds.insert(0, f)
+    await db.kv_set(f"kai.folders.{u}", folds)
+    return {"ok": True, "folder": {**f, "n": 0}}
+
+
+@app.patch("/api/kai/folder/{fid}")
+async def kai_folder_patch(fid: str, payload: dict, request: Request):
+    u = _kai_user(request)
+    folds = await _kai_folds(u)
+    f = next((x for x in folds if x.get("id") == fid), None)
+    if not f:
+        return {"ok": False, "error": "없는 프로젝트입니다"}
+    if "name" in payload:
+        nm = str(payload.get("name") or "").strip()[:60]
+        if nm:
+            f["name"] = nm
+    if "instr" in payload:
+        f["instr"] = str(payload.get("instr") or "").strip()[:2000]
+    await db.kv_set(f"kai.folders.{u}", folds)
+    return {"ok": True, "folder": f}
+
+
+@app.delete("/api/kai/folder/{fid}")
+async def kai_folder_del(fid: str, request: Request):
+    """프로젝트만 지운다 — **안의 대화는 밖으로 꺼낸다**.
+    지우기 한 번에 대화까지 사라지면 되돌릴 길이 없다."""
+    u = _kai_user(request)
+    folds = [x for x in await _kai_folds(u) if x.get("id") != fid]
+    await db.kv_set(f"kai.folders.{u}", folds)
+    ths = await _kai_load(u)
+    moved = 0
+    for t in ths:
+        if str(t.get("folder") or "") == fid:
+            t["folder"] = ""
+            moved += 1
+    if moved:
+        await db.kv_set(f"kai.threads.{u}", ths)
+    return {"ok": True, "moved": moved}
+
+
 @app.post("/api/kai/ask-stream")
 async def kai_ask_stream(payload: dict, request: Request):
     """**흘려보내는 답**(승인: 스트리밍). 근거를 먼저 내보내고(meta),
@@ -17687,6 +17781,7 @@ async def kai_ask_stream(payload: dict, request: Request):
     scopes = {str(x) for x in (payload.get("scopes") or [])} or {"wiki", "tc", "cycle", "jira"}
     projects = [str(x) for x in (payload.get("projects") or []) if str(x).strip()]
     tid_in = str(payload.get("tid") or "")
+    fold_in = str(payload.get("folder") or "").strip()
     u = _kai_user(request)
 
     async def gen():
@@ -17704,7 +17799,14 @@ async def kai_ask_stream(payload: dict, request: Request):
             blocks.append(f"[{i}] ({sx['kind']}) {sx['id']} — {sx['title']}\n"
                           + (f"상태 {ex.get('status')} · {ex.get('updated')}\n" if ex else "")
                           + (sx.get("snippet") or ""))
-        sys_p = ("너는 네트워크 장비 시험 조직의 지식 도우미다. 아래 근거만으로 한국어로 간결히 답하라. "
+        # **프로젝트 지침**을 맨 앞에 얹는다 — 그 프로젝트 안에서 묻는 동안은
+        # 늘 같은 규칙으로 답해야 한다(예: 「표로 정리해 줘」·「E61xx 기준으로」).
+        _instr = ""
+        if fold_in:
+            _f = next((x for x in await _kai_folds(u) if x.get("id") == fold_in), None)
+            _instr = str((_f or {}).get("instr") or "").strip()
+        sys_p = ((f"이 대화에는 다음 지침이 있다 — 반드시 따르라: {_instr}\n" if _instr else "")
+                 + "너는 네트워크 장비 시험 조직의 지식 도우미다. 아래 근거만으로 한국어로 간결히 답하라. "
                  "근거를 쓸 때는 문장 끝에 [번호] 로 짚어라. 근거에 없는 것은 없다고 말하라. "
                  "표가 어울리면 마크다운 표를 써라.")
         user_p = "질문: " + q + "\n\n근거:\n" + ("\n\n".join(blocks) if blocks else "(찾은 근거 없음)")
@@ -17758,7 +17860,7 @@ async def kai_ask_stream(payload: dict, request: Request):
         tid = tid_in
         if t is None:
             tid = f"kai-{int(datetime.now(_tz.utc).timestamp()*1000)}"
-            t = {"id": tid, "title": q[:40], "at": now, "msgs": []}
+            t = {"id": tid, "title": q[:40], "at": now, "msgs": [], "folder": fold_in}
             ths.insert(0, t)
         t["at"] = now
         t["msgs"] = (t.get("msgs") or []) + [

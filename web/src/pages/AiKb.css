@@ -332,3 +332,234 @@
 
 /* 흘러오는 동안 — 빈 그릇일 때만 잠깐 뜨는 안내와, 붓는 중 깜빡이 */
 .kai-wait2 { align-self: flex-start; color: var(--c-text-faint); font-size: 12.5px; padding: 2px 6px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   레일 — 목업 구조(검색 범위 · 네 갈래 · 프로젝트 · 대화).
+   위쪽에 이미 있던 `.kai-list` · `.kai-new` 규칙을 여기서 덮는다.
+   ══════════════════════════════════════════════════════════════════ */
+.kai-list {
+  background: var(--c-surface-alt, #f6f8f9);
+  padding: 10px 8px;
+  min-height: 0;
+  overflow: hidden auto;
+}
+.kai-sec {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 18px 8px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-muted);
+}
+.kai-sec.first { margin-top: 0; }
+.kai-sec-add {
+  width: 20px; height: 20px; border: 0; background: none; cursor: pointer;
+  border-radius: 5px; color: var(--c-text-muted); display: grid; place-items: center;
+  font: inherit; font-size: 13px;
+}
+.kai-sec-add:hover { background: var(--c-surface); color: var(--c-text); }
+.kai-sec-add.coll { width: 22px; height: 22px; }
+
+/* 검색 범위 — 고른 곳의 색을 알약이 그대로 입는다 */
+.kai-scopedd { position: relative; margin-bottom: 10px; }
+.sdd-btn {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px;
+  border: 1px solid var(--sdd-line, #ddd8ee); border-radius: 999px;
+  background: var(--sdd-bg, #f3f1fb); color: var(--sdd-ink, #3b2fb0);
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.sdd-btn:hover { filter: brightness(0.97); }
+.kai-scopedd.open .sdd-btn { box-shadow: 0 0 0 2px var(--sdd-ring, #e6e1ff); }
+.sdd-btn.sp-all { --sdd-bg: var(--c-surface); --sdd-line: #dfe6e8; --sdd-ink: var(--c-text); --sdd-ring: #e8eef0; }
+.sdd-btn.sp-wiki { --sdd-bg: #ede9fe; --sdd-line: #d9d0fb; --sdd-ink: #5b3fd6; --sdd-ring: #e6e1ff; }
+.sdd-btn.sp-test { --sdd-bg: #e3f6e9; --sdd-line: #bfe6cd; --sdd-ink: #117f3a; --sdd-ring: #d6f0e0; }
+.sdd-btn.sp-cycle { --sdd-bg: #e7effc; --sdd-line: #c8dbf7; --sdd-ink: #2f5fc3; --sdd-ring: #dbe7fb; }
+.sdd-btn.sp-jira { --sdd-bg: #fde6ea; --sdd-line: #f7c9d3; --sdd-ink: #b8236b; --sdd-ring: #fbdae2; }
+.sdd-dot { width: 8px; height: 8px; min-height: 0; border-radius: 50%; background: currentColor; flex: none; opacity: 0.75; }
+.sdd-nm { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sdd-car { font-style: normal; font-size: 10px; opacity: 0.7; }
+.sdd-list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30;
+  background: var(--c-surface); border: 1px solid #e3eaec; border-radius: 10px;
+  box-shadow: 0 10px 26px rgb(60 50 120 / 16%); padding: 4px;
+  display: flex; flex-direction: column;
+}
+.sdd-opt {
+  display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px;
+  border: 0; background: none; border-radius: 8px; font: inherit; font-size: 13px;
+  color: var(--c-text); text-align: left; cursor: pointer;
+}
+.sdd-opt:hover { background: var(--c-surface-alt, #f2f7f8); }
+.sdd-opt.on { background: var(--c-surface-alt, #f2f7f8); font-weight: 700; }
+.sdd-opt.on[data-space='wiki'] { background: #ede9fe; color: #5b3fd6; }
+.sdd-opt.on[data-space='test'] { background: #e3f6e9; color: #117f3a; }
+.sdd-opt.on[data-space='cycle'] { background: #e7effc; color: #2f5fc3; }
+.sdd-opt.on[data-space='jira'] { background: #fde6ea; color: #b8236b; }
+.sdd-opt .sico { font-style: normal; font-size: 14px; width: 18px; text-align: center; flex: none; }
+.sdd-opt > b { font-weight: inherit; }
+.sdd-cnt { font-style: normal; margin-left: auto; font-size: 10px; color: var(--c-text-faint); }
+.sdd-ck { font-style: normal; font-size: 12px; }
+
+/* 네 갈래 */
+.kai-nav { display: flex; flex-direction: column; gap: 2px; }
+.kai-new,
+.kai-navrow {
+  display: flex; align-items: center; justify-content: flex-start; gap: 10px;
+  padding: 7px 8px; border: 0; background: none; border-radius: 8px;
+  font: inherit; font-size: 13px; font-weight: 400; color: var(--c-text);
+  text-align: left; cursor: pointer; margin: 0;
+}
+.kai-new:hover,
+.kai-navrow:hover { background: var(--c-surface); }
+.kai-new.on,
+.kai-navrow.on { background: var(--c-surface); font-weight: 600; }
+.nico {
+  font-style: normal; display: grid; place-items: center; width: 23px; height: 23px;
+  font-size: 16px; line-height: 1; color: var(--c-text-muted); flex: none;
+}
+.nico.plus { border-radius: 50%; background: #e9e6f5; color: #3b2fb0; font-weight: 700; }
+
+/* 프로젝트 목록(레일) */
+.kai-folds { display: flex; flex-direction: column; gap: 2px; }
+.kai-fold { position: relative; display: flex; align-items: center; flex-wrap: wrap; border-radius: 8px; }
+.kai-fold .fd {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border: 0; background: none; font: inherit; font-size: 13px;
+  color: var(--c-text); text-align: left; cursor: pointer; border-radius: 8px;
+}
+.kai-fold:hover { background: var(--c-surface); }
+.kai-fold.open > .fd { font-weight: 600; }
+.kai-fold .fico { font-style: normal; display: grid; place-items: center; width: 19px; flex: none; color: var(--c-text-muted); }
+.kai-fold .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kai-fold .fd-i { font-style: normal; font-size: 9.5px; font-weight: 700; color: #5b3fd6; background: #ede9fe; border-radius: 8px; padding: 1px 5px; }
+.kai-fold .fd-n { font-style: normal; font-size: 10.5px; color: var(--c-text-faint); }
+.kai-foldths { width: 100%; display: flex; flex-direction: column; gap: 2px; padding-left: 14px; }
+.kai-foldnew {
+  border: 0; background: none; text-align: left; padding: 5px 8px; border-radius: 7px;
+  font: inherit; font-size: 11.5px; color: var(--c-text-faint); cursor: pointer;
+}
+.kai-foldnew:hover { background: var(--c-surface); color: var(--c-primary); }
+
+/* 대화 줄 — ⋯ 로 이름·프로젝트·지우기 */
+.kai-th { position: relative; }
+.kai-th.sub .nm { font-size: 12.5px; }
+.kai-th .mo {
+  visibility: hidden; border: 0; background: none; cursor: pointer;
+  color: var(--c-text-faint); font: inherit; font-size: 13px; padding: 2px 6px; border-radius: 5px;
+}
+.kai-th:hover .mo { visibility: visible; }
+.kai-th .mo:hover { background: #e6eaed; color: var(--c-text); }
+.kai-thmenu {
+  position: absolute; right: 4px; top: calc(100% + 2px); z-index: 40; min-width: 176px;
+  display: flex; flex-direction: column; padding: 4px;
+  background: var(--c-surface); border: 1px solid #e3eaec; border-radius: 10px;
+  box-shadow: 0 10px 26px rgb(60 50 120 / 16%);
+}
+.kai-thmenu button {
+  border: 0; background: none; text-align: left; padding: 6px 8px; border-radius: 6px;
+  font: inherit; font-size: 12.5px; color: var(--c-text); cursor: pointer;
+}
+.kai-thmenu button:hover { background: var(--c-surface-alt, #f2f7f8); }
+.kai-thmenu button.on { color: var(--c-primary); font-weight: 600; }
+.kai-thmenu button.danger { color: #b3261e; }
+.kai-thmenu button.danger:hover { background: #fdecec; }
+.kai-thmenu-lab { padding: 6px 8px 2px; font-size: 10.5px; color: var(--c-text-faint); }
+.kai-thmenu-none { padding: 6px 8px; font-size: 11.5px; color: var(--c-text-faint); }
+.kai-thmenu-sep { height: 1px; margin: 4px 2px; background: #e3eaec; }
+.kai-more {
+  border: 0; background: none; text-align: left; padding: 6px 8px; border-radius: 7px;
+  font: inherit; font-size: 11.5px; color: var(--c-primary); cursor: pointer;
+}
+.kai-none.pinhint { display: flex; gap: 7px; text-align: left; line-height: 1.5; padding: 10px 6px; }
+.kai-none.pinhint > i { font-style: normal; flex: none; }
+
+/* 접은 레일 — 아이콘만 */
+.kai-rail {
+  width: 54px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 0; background: var(--c-surface-alt, #f6f8f9); border-right: 1px solid #e3eaec;
+}
+.kai-railb {
+  width: 38px; height: 38px; display: grid; place-items: center; border: 0; background: none;
+  border-radius: 9px; color: var(--c-text-muted); cursor: pointer; font: inherit;
+}
+.kai-railb:hover { background: var(--c-surface); color: var(--c-text); }
+
+/* 입력 캡슐의 범위 알약 · 설명 */
+.cap-scope { position: relative; display: inline-flex; }
+.cap-pill {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 700;
+  color: #4a3fb5; background: #ede9fe; border-radius: 999px; padding: 6px 14px; white-space: nowrap;
+}
+.cap-pill.sp-all { color: var(--c-text-muted); background: var(--c-surface-alt, #f2f7f8); border: 1px solid #e3eaec; }
+.cap-pill.sp-test { color: #117f3a; background: #e3f6e9; }
+.cap-pill.sp-cycle { color: #2f5fc3; background: #e7effc; }
+.cap-pill.sp-jira { color: #b8236b; background: #fde6ea; }
+.cap-car { font-style: normal; font-size: 9px; opacity: 0.7; }
+.cap-desc { font-size: 12px; color: var(--c-text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kai-cap.chat .cap-desc { display: none; }
+.cap-pop {
+  position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 40; min-width: 250px;
+  display: flex; flex-direction: column; padding: 4px;
+  background: var(--c-surface); border: 1px solid #e3eaec; border-radius: 10px;
+  box-shadow: 0 10px 26px rgb(60 50 120 / 16%);
+}
+/* 대화 아래 입력 — 껍데기는 자리만 잡고, 생김새는 캡슐이 낸다 */
+.kai-inbar { background: none; border: 0; box-shadow: none; padding: 0; display: block; }
+.kai-inbar .kai-cap { width: 100%; }
+
+/* 프로젝트 안에서 묻는 중 */
+.kai-inproj {
+  display: inline-flex; align-items: center; gap: 7px; margin-bottom: 12px;
+  padding: 5px 12px; border-radius: 999px; background: #ede9fe; color: #4a3fb5; font-size: 12px;
+}
+.kai-inproj em { font-style: normal; font-size: 10px; background: #fff; border-radius: 8px; padding: 1px 6px; }
+.kai-inproj button { border: 0; background: none; color: inherit; cursor: pointer; font: inherit; opacity: 0.7; }
+
+/* 프로젝트 · 라이브러리 화면 */
+.kai-pj { flex: 1; min-width: 0; overflow: auto; padding: 26px 30px; }
+.kai-pjhd { display: flex; align-items: center; gap: 10px; }
+.kai-pjhd h1 { margin: 0; font-size: 22px; font-weight: 800; }
+.kai-pjhd .sp { flex: 1; }
+.kai-pjsub { margin: 6px 0 20px; font-size: 13px; color: var(--c-text-muted); }
+.kai-pjgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 12px; }
+.kai-pjcard {
+  display: flex; flex-direction: column; gap: 6px; padding: 12px 14px;
+  border: 1px solid #e3eaec; border-radius: 12px; background: var(--c-surface);
+}
+.kai-pjcard .hd {
+  display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0;
+  font: inherit; font-size: 14px; font-weight: 700; color: var(--c-text); cursor: pointer; text-align: left;
+}
+.kai-pjcard .hd > i { display: grid; place-items: center; color: var(--c-text-muted); }
+.kai-pjcard p { margin: 0; font-size: 12px; color: var(--c-text-muted); line-height: 1.5; }
+.kai-pjcard p.dim { color: var(--c-text-faint); }
+.kai-pjcard .ft { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--c-text-faint); }
+.kai-pjcard .ft .sp { flex: 1; }
+.kai-pjcard .ft button { border: 0; background: none; font: inherit; font-size: 11px; color: var(--c-primary); cursor: pointer; padding: 0; }
+.kai-pjcard .ft button.danger { color: #b3261e; }
+.kai-empty {
+  display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center;
+  padding: 60px 20px; color: var(--c-text-faint);
+}
+.kai-empty b { font-size: 15px; color: var(--c-text-muted); }
+.kai-empty span { font-size: 12.5px; max-width: 440px; line-height: 1.6; }
+
+/* 대화 검색 */
+.kai-findback { position: fixed; inset: 0; z-index: 80; background: rgb(20 30 40 / 22%); display: flex; justify-content: center; padding-top: 12vh; }
+.kai-find {
+  width: min(560px, 92vw); max-height: 62vh; display: flex; flex-direction: column;
+  background: var(--c-surface); border: 1px solid #e3eaec; border-radius: 14px;
+  box-shadow: 0 20px 60px rgb(20 30 40 / 26%); overflow: hidden;
+}
+.kai-find > input { border: 0; outline: 0; font: inherit; font-size: 15px; padding: 15px 18px; border-bottom: 1px solid #eef2f4; }
+.kai-find .hits { overflow: auto; padding: 6px; display: flex; flex-direction: column; }
+.kai-find .hits > button {
+  display: flex; align-items: center; gap: 8px; border: 0; background: none; text-align: left;
+  padding: 9px 11px; border-radius: 8px; font: inherit; font-size: 13px; color: var(--c-text); cursor: pointer;
+}
+.kai-find .hits > button:hover { background: var(--c-surface-alt, #f2f7f8); }
+.kai-find .hits > button > b { flex: 1; min-width: 0; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kai-find .hits > button > em { font-style: normal; font-size: 10.5px; color: #5b3fd6; background: #ede9fe; border-radius: 8px; padding: 1px 6px; }
+.kai-find .hits .n { font-size: 10.5px; color: var(--c-text-faint); }
