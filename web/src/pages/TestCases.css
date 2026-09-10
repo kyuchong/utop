@@ -517,7 +517,7 @@
      끝의 ▶·⋯ 은 **각각 제 칸**이다: 한 칸에 둘을 넣으면 머리줄에 제목을
      하나밖에 못 달고, 좁으면 단추가 세로로 쌓여 줄 높이를 밀어 올린다. */
   --sq-cols:
-    15px 40px 60px 190px minmax(150px, 1fr) minmax(90px, 220px) 48px 30px 30px;
+    15px 30px 30px 30px 40px 60px 190px minmax(150px, 1fr) minmax(90px, 220px) 48px;
 }
 .sq-row,
 .sq-head { gap: 0; }
@@ -541,9 +541,13 @@
 /* ▶·⋯ 칸은 좌우 여백을 얇게 — 30px 트랙에 12px 를 먹이면 단추가 안 든다 */
 .sq-row > .sq-runc,
 .sq-row > .sq-morec,
-.sq-head > *:nth-last-child(-n + 2) { padding-left: 2px; padding-right: 2px; }
+.sq-row > .sq-pptc,
+.sq-head > *:nth-child(2),
+.sq-head > *:nth-child(3),
+.sq-head > *:nth-child(4) { padding-left: 2px; padding-right: 2px; }
 .sq-runc,
-.sq-morec { display: flex; align-items: center; justify-content: center; }
+.sq-morec,
+.sq-pptc { display: flex; align-items: center; justify-content: center; }
 /* 뽑은 값을 안 쓰는 시험에서는 그 열이 폭 0 이다 — 그대로 두면 여백과
    선만 남아 군더더기 세로선이 하나 선다 */
 /* 열 제목 줄 — 줄과 **같은 grid** 를 써야 칸 경계가 맞는다.
@@ -575,8 +579,15 @@
 }
 .sq-row:last-child { box-shadow: none; }
 .sq-row:hover { background: var(--tc-hover); }
+/* 고른 줄 — 바탕색만으로는 안 보였다(지적: 행 선택이 인지가 안 된다).
+   왼쪽에 굵은 띠를 세우고 바탕을 한 단계 진하게, 글자도 또렷하게. */
 .sq-row.on,
-.sq-row.on:hover { background: var(--tc-sel); }
+.sq-row.on:hover {
+  background: #dceafc;
+  box-shadow: inset 3px 0 0 var(--c-primary), inset 0 -1px 0 var(--sq-line);
+}
+.sq-row.on > * { color: var(--c-text); }
+.sq-row.on .sq-n { color: var(--c-primary); font-weight: 700; }
 
 /* 건너뛰는 스텝은 흐리게. 지우지 않고 잠시 빼두는 일이 잦다. */
 .sq-row.skip { opacity: 0.42; }
@@ -667,10 +678,10 @@
  * 이 값이 어긋나면 안내선이 아이콘 옆구리를 지나간다 — 예전 값(124)은
  * 없어진 상태 열과 gap 8px 를 세고 있었다.
  */
-.sq-row[data-depth="1"] { --gx: 150px; }
-.sq-row[data-depth="2"] { --gx: 164px; }
-.sq-row[data-depth="3"] { --gx: 178px; }
-.sq-row[data-depth="4"] { --gx: 192px; }
+.sq-row[data-depth="1"] { --gx: 240px; }
+.sq-row[data-depth="2"] { --gx: 254px; }
+.sq-row[data-depth="3"] { --gx: 268px; }
+.sq-row[data-depth="4"] { --gx: 282px; }
 
 /* 세로 — 마지막 자식은 제 자리까지만 내려온다(└) */
 .sq-row[data-kid]::before {
@@ -764,7 +775,7 @@ button.sq-caret svg { width: 11px; height: 11px; }
 }
 .sq-row:hover > .sq-sum { background: var(--tc-hover); }
 .sq-row.on > .sq-sum,
-.sq-row.on:hover > .sq-sum { background: var(--tc-sel); }
+.sq-row.on:hover > .sq-sum { background: #dceafc; }
 .sq-row.now > .sq-sum { background: transparent; }
 
 /* 아이콘만 갈래 색을 갖는다. 글자까지 물들이면 목록이 알록달록해진다. */
@@ -819,11 +830,16 @@ button.sq-caret svg { width: 11px; height: 11px; }
   font-size: 10px;
   padding: 2px 4px;
   border-radius: var(--tc-r);
-  opacity: 0;
+  /* 늘 보인다(지시) — 줄에 손을 올려야 나타나면 「실행할 수 있는 줄인가」 를
+     서른 번 문질러 봐야 안다. 평소엔 옅게, 손이 오면 진하게. */
+  opacity: 0.45;
 }
 
 .sq-row:hover .sq-run,
 .sq-row.on .sq-run { opacity: 1; }
+/* 주석·메시지는 장비로 아무것도 안 나간다 — 누를 것이 없는 줄에
+   삼각형이 서 있으면 눌러 보고 나서야 안다 */
+.sq-row.note .sq-run { display: none; }
 .sq-run:hover { background: var(--c-surface); color: var(--c-primary); }
 
 /* 스텝 추가 — 종류를 여기서 고른다 */
@@ -3801,12 +3817,51 @@ html .tc-split > .tc-content {
 /* 주석·메시지는 **줄 전체를 쓴다**(지시). 장비로 아무것도 안 나가는 글이라
    절차 설명도 결과도 없다 — 그 칸들을 비워 두면 긴 글이 명령 칸 안에서만
    잘리고 오른쪽은 텅 빈다. ▶·⋯ 만 제자리에 남긴다. */
-.sq-row.note > .sq-sum { grid-column: 5 / -3; }
+.sq-row.note > .sq-sum { grid-column: 8 / -1; }
 .sq-row.note > .sq-dsc,
 .sq-row.note > .sq-res { display: none; }
 
-/* 결과·실행·메뉴 칸에도 세로선(지시). 끝 칸만 선을 뺀다 — 표 테두리가 그 자리다 */
+/* 좁은 칸들에도 세로선(지시). 끝 칸(결과)만 뺀다 — 표 테두리가 그 자리다 */
+.sq-row > .sq-morec,
+.sq-row > .sq-pptc,
+.sq-row > .sq-runc { border-right: 1px solid var(--sq-line); }
 .sq-row > .sq-res,
-.sq-row > .sq-runc,
-.sq-head > *:nth-last-child(3),
-.sq-head > *:nth-last-child(2) { border-right: 1px solid var(--sq-line); }
+.sq-head > *:last-child { border-right: 0; }
+
+/* 결과서에 실을 줄 — **동그라미**(지시). 네모 체크는 맨 앞 「여러 줄 고르기」 가
+   이미 쓰고 있어, 같은 모양이 나란히 서면 무엇을 고르는 것인지 갈리지 않는다. */
+.sq-ppt {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  border: 1.5px solid var(--c-border, #c3cbd4);
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  flex: none;
+}
+.sq-ppt:hover:not(:disabled) { border-color: var(--c-primary); }
+.sq-ppt:checked {
+  border-color: var(--c-primary);
+  /* 가운데를 채운다 — 테두리만 바뀌면 켜진 줄이 안 보인다 */
+  background: radial-gradient(circle, var(--c-primary) 0 45%, #fff 46%);
+}
+.sq-ppt:disabled { opacity: 0.35; cursor: default; }
+
+/* 머리줄 아이콘 — 글자 제목보다 작게, 가운데로 */
+.sq-head > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+/* 글이 드는 칸의 제목만 왼쪽에 붙인다 — 그 칸은 내용도 왼쪽에서 시작한다 */
+.sq-head > *:nth-child(5),
+.sq-head > *:nth-child(6),
+.sq-head > *:nth-child(7),
+.sq-head > *:nth-child(8),
+.sq-head > *:nth-child(9) { justify-content: flex-start; }

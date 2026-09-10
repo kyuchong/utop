@@ -333,19 +333,23 @@ export default function TcSequence({
     >
       <div className="sq-scroll">
         <div className="sq-list">
-          {/* 열 제목(지시) — 어느 칸이 무엇인지 적어 둔다. 여덟 칸이 모두
-              같은 grid 를 쓰므로 머리줄과 본문 줄의 경계가 늘 맞는다. */}
+          {/* 열 제목(지시) — 어느 칸이 무엇인지 적어 둔다. 모든 칸이 같은
+              grid 를 쓰므로 머리줄과 본문 줄의 경계가 늘 맞는다.
+              제목은 **아이콘**이다(지시): 글자로 두면 좁은 칸(30~60px)에서
+              「절차 설명」 이 두 줄로 접혀 머리줄만 높아졌다. 이름은 온마우스로
+              남긴다 — 아이콘만으로는 처음 보는 사람이 못 읽는다. */}
           {steps.length - hidden > 0 && head && (
-            <div className="sq-head" aria-hidden="true">
+            <div className="sq-head">
               <span />
-              <span>세션</span>
-              <span>스텝</span>
-              <span>동작</span>
-              <span>명령 · 내용</span>
-              <span>절차 설명</span>
-              <span>결과</span>
-              <span>실행</span>
-              <span>메뉴</span>
+              <span title="메뉴 — 이 줄 설정">⋯</span>
+              <span title="결과서(PPTX)에 실을 줄">◍</span>
+              <span title="이 줄만 실행">▶</span>
+              <span title="세션 — 어느 장비로 나가나">⇄</span>
+              <span title="스텝 번호">№</span>
+              <span title="동작 — 이 줄이 하는 일">⚙</span>
+              <span title="명령 · 내용">&gt;_</span>
+              <span title="절차 설명 — 결과서와 실행 로그가 쓰는 말">✎</span>
+              <span title="결과">✓</span>
             </div>
           )}
         {steps.length - hidden === 0 ? (
@@ -427,6 +431,65 @@ export default function TcSequence({
                     /* onClick 에서 처리한다 — shift 를 알아야 해서 */
                   }}
                 />
+                {/* 그 줄에만 듣는 설정(목업 ③). 평소엔 옅고 줄에 손이
+                    오면 진해진다 — 서른 줄에 ⋯ 이 또렷하면 그것부터 보인다. */}
+                <span className="sq-morec">
+                  {canMenu && (
+                    <button
+                      type="button"
+                      className={`sq-more${menuAt === i ? ' on' : ''}`}
+                      title="이 줄 설정 — 세션 · 대기 · 건너뛰기 · 복제 · 삭제"
+                      aria-haspopup="menu"
+                      aria-expanded={menuAt === i}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (menuAt === i) {
+                          setMenuAt(-1)
+                          return
+                        }
+                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setMenuXY({ x: r.right, y: r.bottom + 2 })
+                        setMenuAt(i)
+                        onSelect(i)
+                      }}
+                    >
+                      ⋯
+                    </button>
+                  )}
+                </span>
+                {/* 결과서에 실을 줄(지시) — **동그라미**로 둔다. 네모 체크는
+                    맨 앞 「여러 줄 고르기」 가 이미 쓰고 있어, 같은 모양이
+                    나란히 서면 무엇을 고르는 것인지 갈리지 않는다. */}
+                <span className="sq-pptc">
+                  <input
+                    type="checkbox"
+                    className="sq-ppt"
+                    aria-label={`${i + 1}번 줄을 결과서에 싣기`}
+                    title="결과서(PPTX)에 실을 줄"
+                    disabled={!canEdit}
+                    checked={!!s.ppt}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => onPatch?.(i, { ppt: !s.ppt })}
+                  />
+                </span>
+                {/* ▶ 와 ⋯ 은 **각각 제 칸**이다(지시: 제목이 없다).
+                    한 칸에 둘을 넣으면 머리줄에 제목을 하나밖에 못 달고,
+                    칸이 좁아 단추가 세로로 쌓이기도 했다. */}
+                <span className="sq-runc">
+                  {onRun && (
+                    <button
+                      type="button"
+                      className="sq-run"
+                      title="이 스텝만 실행"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRun(i)
+                      }}
+                    >
+                      ▶
+                    </button>
+                  )}
+                </span>
                 {/* 상태 기호(✔·✖·○)는 뺐다 — 줄 끝의 PASS·FAIL 글자와 같은
                     말을 두 번 하는 열이었다. 도는 줄은 줄 자체가 빛난다. */}
                 {/* 세션은 맨 앞 고정 열 — Action 뒤에 두면 들여쓰기에 밀려
@@ -626,50 +689,6 @@ export default function TcSequence({
                     {st.cls === 'idle' ? '' : st.label}
                   </span>
                 )}
-                {/* ▶ 와 ⋯ 은 **각각 제 칸**이다(지시: 제목이 없다).
-                    한 칸에 둘을 넣으면 머리줄에 제목을 하나밖에 못 달고,
-                    칸이 좁아 단추가 세로로 쌓이기도 했다. */}
-                <span className="sq-runc">
-                  {onRun && (
-                    <button
-                      type="button"
-                      className="sq-run"
-                      title="이 스텝만 실행"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onRun(i)
-                      }}
-                    >
-                      ▶
-                    </button>
-                  )}
-                </span>
-                {/* 그 줄에만 듣는 설정(목업 ③). 평소엔 옅고 줄에 손이
-                    오면 진해진다 — 서른 줄에 ⋯ 이 또렷하면 그것부터 보인다. */}
-                <span className="sq-morec">
-                  {canMenu && (
-                    <button
-                      type="button"
-                      className={`sq-more${menuAt === i ? ' on' : ''}`}
-                      title="이 줄 설정 — 세션 · 대기 · 건너뛰기 · 복제 · 삭제"
-                      aria-haspopup="menu"
-                      aria-expanded={menuAt === i}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (menuAt === i) {
-                          setMenuAt(-1)
-                          return
-                        }
-                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                        setMenuXY({ x: r.right, y: r.bottom + 2 })
-                        setMenuAt(i)
-                        onSelect(i)
-                      }}
-                    >
-                      ⋯
-                    </button>
-                  )}
-                </span>
               </div>
             )
             })
