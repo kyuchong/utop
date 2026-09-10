@@ -476,11 +476,17 @@ export default function RunAuto({
   /** 이번 실행에서 **한 줄도 안 돌았나.** 돌고 있지도 않고 돈 자취도 없으면
    *  콘솔에는 그릴 것이 없다 — 정의만 보고 명령을 미리 찍으면 안 된다. */
   const noneRan = runStep == null && lastRan < 0
-  const seeUpTo = Math.min(
+  const seeUpTo = (() => {
     /* 돌고 있으면 **도는 줄**, 아니면 **고른 줄**이다 */
-    runStep != null ? runStep : stepAt,
-    Math.max(0, steps.length - 1),
-  )
+    const at = Math.min(runStep != null ? runStep : stepAt, Math.max(0, steps.length - 1))
+    /* **몸통을 거느리는 줄은 제 출력이 없다**(지적: 회차 칩이 안 보인다).
+       loop·if 를 보고 있으면 바로 아래 들여쓴 줄을 대신 편다 — 회차도
+       출력도 거기에 있다. 처음 화면을 열면 늘 첫 줄(대개 loop)이라
+       「아무것도 없다」 로 보였다. */
+    const a0 = String(steps[at]?.action ?? '').toLowerCase()
+    if ((a0 === 'loop' || a0 === 'if' || a0 === 'else') && steps[at + 1]) return at + 1
+    return at
+  })()
   const conRef = useRef<HTMLDivElement>(null)
   const conEndRef = useRef<HTMLDivElement>(null)
   /* 콘솔은 **바닥을 따라간다.** 자리가 고정돼 있어 새 줄이 나올 때마다
