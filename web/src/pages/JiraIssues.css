@@ -124,7 +124,16 @@
 .jri-chip > i { font-style: normal; cursor: pointer; opacity: 0.6; font-size: 10px; }
 .jri-chip > i:hover { opacity: 1; }
 
-.jri-table { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.jri-table {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+}
 .jri-empty {
   flex: 1;
   display: flex;

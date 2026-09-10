@@ -15,9 +15,10 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '@/api/client'
+import { apiFetch, type MeUser } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import NTable from '@/components/ntable/NTable'
+import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
 import './JiraIssues.css'
 
@@ -89,8 +90,20 @@ function typeKind(name: string): string {
 
 const PRJ_KEY = 'utop.jira.projects'
 const COL_KEY = 'utop.jira.cols'
+const W_KEY = 'utop.jira.w'
+const ORD_KEY = 'utop.jira.order'
 
-export default function JiraIssues() {
+/** 저장해 둔 것을 꺼낸다 — 없으면 준 것을 그대로 */
+function prefJson<T>(key: string, dflt: T): T {
+  try {
+    const v = JSON.parse(prefGet(key) || 'null') as unknown
+    return v == null ? dflt : (v as T)
+  } catch {
+    return dflt
+  }
+}
+
+export default function JiraIssues({ me }: { me?: MeUser | null }) {
   const qc = useQueryClient()
   /** 고른 프로젝트 — 계정을 따라간다 */
   const [picked, setPicked] = useState<string[]>(() => {
@@ -112,18 +125,23 @@ export default function JiraIssues() {
   const [busy, setBusy] = useState(false)
   const [flash, setFlash] = useState('')
   const [sel, setSel] = useState<string>('')
-  /** 숨긴 열 — 계정을 따라간다 */
-  const [hidden, setHidden] = useState<string[]>(() => {
-    try {
-      const v = JSON.parse(prefGet(COL_KEY) || 'null') as unknown
-      return Array.isArray(v) ? (v as string[]) : COLS.filter((c) => !c.def).map((c) => c.key)
-    } catch {
-      return COLS.filter((c) => !c.def).map((c) => c.key)
-    }
-  })
+  /* 열 한 벌 — 숨김·폭·차례. 보기 탭(NViews)에 담기는 것이 바로 이 셋이라
+     따로 들고 있어야 탭을 골랐을 때 그대로 얹을 수 있다. 계정을 따라간다. */
+  const [hidden, setHidden] = useState<string[]>(() =>
+    prefJson<string[]>(COL_KEY, COLS.filter((c) => !c.def).map((c) => c.key)),
+  )
+  const [widths, setWidths] = useState<Record<string, number>>(() => prefJson(W_KEY, {}))
+  const [order, setOrder] = useState<string[]>(() => prefJson(ORD_KEY, []))
+  const [nvId, setNvId] = useState('')
   useEffect(() => {
     prefSet(COL_KEY, JSON.stringify(hidden))
   }, [hidden])
+  useEffect(() => {
+    prefSet(W_KEY, JSON.stringify(widths))
+  }, [widths])
+  useEffect(() => {
+    prefSet(ORD_KEY, JSON.stringify(order))
+  }, [order])
 
   const prjQuery = useQuery({
     queryKey: ['jira-projects'],
@@ -154,25 +172,46 @@ export default function JiraIssues() {
   )
 
   /** 고른 값들로 선택지를 만든다 — 지라 값은 프로젝트마다 달라 박아 둘 수 없다 */
-  const columns: NCol[] = useMemo(
-    () =>
-      COLS.map((c) => {
-        const col: NCol = {
-          key: c.key,
-          label: c.label,
-          type: c.type ?? 'text',
-          width: c.w,
-          hidden: hidden.includes(c.key),
-          fixed: c.key === 'issuekey' || c.key === 'summary',
-        }
-        if (col.type === 'select') {
-          const vals = [...new Set(rows.map((r) => String(r[c.key] ?? '')).filter(Boolean))]
-          col.options = vals.slice(0, 60).map((v) => ({ value: v, color: 'gray' }))
-        }
-        return col
-      }),
-    [rows, hidden],
+  const columns: NCol[] = useMemo(() => {
+    const made = COLS.map((c) => {
+      const col: NCol = {
+        key: c.key,
+        label: c.label,
+        type: c.type ?? 'text',
+        width: widths[c.key] || c.w,
+        hidden: hidden.includes(c.key),
+        fixed: c.key === 'issuekey' || c.key === 'summary',
+      }
+      if (col.type === 'select') {
+        const vals = [...new Set(rows.map((r) => String(r[c.key] ?? '')).filter(Boolean))]
+        col.options = vals.slice(0, 60).map((v) => ({ value: v, color: 'gray' }))
+      }
+      return col
+    })
+    if (!order.length) return made
+    /* 저장된 차례를 얹는다 — 거기 없는 열(나중에 는 것)은 뒤에 붙인다 */
+    const at = new Map(order.map((k, i) => [k, i]))
+    return [...made].sort(
+      (a, b) => (at.get(a.key) ?? 900 + made.indexOf(a)) - (at.get(b.key) ?? 900 + made.indexOf(b)),
+    )
+  }, [rows, hidden, widths, order])
+
+  /** 지금 화면 한 벌 — 새 탭·덮어쓰기가 이것을 담는다 */
+  const nBody: ViewBody = useMemo(
+    () => ({
+      hidden: columns.filter((c) => c.hidden).map((c) => c.key),
+      widths: Object.fromEntries(columns.filter((c) => c.width).map((c) => [c.key, c.width!])),
+      order: columns.map((c) => c.key),
+    }),
+    [columns],
   )
+  /** 탭을 고르면 **열 배치**를 얹는다 — 탭에 담기는 것은 그것뿐이다(보기 정책) */
+  const applyView = (v: ViewDef | null) => {
+    setNvId(v?.id ?? '')
+    setHidden(v?.body?.hidden ?? COLS.filter((c) => !c.def).map((c) => c.key))
+    setWidths(v?.body?.widths ?? {})
+    setOrder(v?.body?.order ?? [])
+  }
 
   async function sync(full = false) {
     if (!picked.length || busy) return
@@ -342,7 +381,16 @@ export default function JiraIssues() {
             onCalcs={setCalcs}
             perPage={per}
             onPerPage={setPer}
-            title={`Jira Issue · ${picked.join(', ')}`}
+            toolbarLeft={
+              <NViews
+                scope="jira.issues"
+                curId={nvId}
+                onPick={applyView}
+                current={nBody}
+                meName={me?.username || me?.name || ''}
+                isAdmin={me?.role === 'admin'}
+              />
+            }
             busy={issQuery.isLoading || busy}
             idKey="issuekey"
             titleKey="summary"
@@ -350,7 +398,11 @@ export default function JiraIssues() {
                고칠 수 있는 척하면 눌러 놓고 왜 안 되는지 찾게 된다. */
             readOnlyKeys={COLS.map((c) => c.key)}
             lockDefs
-            onColumns={(cs) => setHidden(cs.filter((c) => c.hidden).map((c) => c.key))}
+            onColumns={(cs) => {
+              setHidden(cs.filter((c) => c.hidden).map((c) => c.key))
+              setWidths(Object.fromEntries(cs.filter((c) => c.width).map((c) => [c.key, c.width!])))
+              setOrder(cs.map((c) => c.key))
+            }}
             onCell={() => {}}
             onOpen={(id) => setSel(id)}
             onPeek={(id) => setSel(id)}

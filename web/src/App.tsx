@@ -326,7 +326,7 @@ export default function App() {
         /* 옛 Reports 자리 — 북마크로 들어오면 플랜 화면을 보여 준다 */
         <Cycles me={user} />
       ) : page === 'jira' ? (
-        <JiraIssues />
+        <JiraIssues me={user} />
       ) : page === 'defects' ? (
         <Defects />
       ) : page === 'devices' ? (
