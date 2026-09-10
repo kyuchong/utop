@@ -264,7 +264,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
 
   /* 실행 로그 **폭** — 스텝 상세 오른쪽에 세로로 선다(지시). 전에는
      스텝 목록 아래에 누워 높이를 나눠 가졌다. 기억해 둔다 */
-  const [logW, setLogW] = useResizableWidth('tcLogW', 380, 240, 900)
+  /* 오른쪽 판은 **탭 둘**이다(지시) — 스텝 상세 ｜ 실행 로그.
+     둘을 나란히 세우면 셋 다 좁아지는데, 정작 **동시에 볼 일이 없다**:
+     스텝을 고칠 때는 로그가 필요 없고, 돌릴 때는 상세를 안 본다.
+     한 자리를 나눠 쓰고 **▶ 를 누르면 로그로, 스텝을 고르면 상세로** 간다. */
+  const [rtab, setRtab] = useState<'det' | 'log'>('det')
   const logN = useRef(0)
   /** 실행 중 스텝 결과를 **모아 두는 자리**(지적: PC 제어가 안 될 만큼 부하).
    *
@@ -1343,6 +1347,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
 
   const doRun = async (from: number, only: boolean, pick?: number[]) => {
     if (running) return
+    // 돌리면 **로그 탭**으로 — 지금 무엇이 나가는지가 그때의 관심사다
+    setRtab('log')
     /*
      * 장비가 정말 필요한 줄이 있을 때만 막는다.
      *
@@ -1979,7 +1985,12 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     <TcSequence
                       steps={shownSteps}
                       selected={stepIdx}
-                      onSelect={setStepIdx}
+                      /* 스텝을 고르면 **상세 탭**으로 — 로그를 보다가 줄을
+                         눌렀는데 아무 일도 안 일어나면 고장으로 읽힌다 */
+                      onSelect={(i) => {
+                        setStepIdx(i)
+                        setRtab('det')
+                      }}
                       onAdd={addStep}
                       sessionName={sessionName}
                       runningAt={runAt}
@@ -2046,8 +2057,21 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                 <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
                   {/* 3열도 제 머리를 단다. 1열(`Coverage`)·2열(실행 띠)과 같은
                       46px 라야 세 칸의 구분선이 한 줄에서 만난다. */}
-                  <div className="tc-colh">
-                    <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
+                  <div className="tc-colh tc-rtabs">
+                    <button
+                      type="button"
+                      className={`tc-rtab${rtab === 'det' ? ' on' : ''}`}
+                      onClick={() => setRtab('det')}
+                    >
+                      {termOpen ? '명령어 캡쳐' : '스텝 상세'}
+                    </button>
+                    <button
+                      type="button"
+                      className={`tc-rtab${rtab === 'log' ? ' on' : ''}`}
+                      onClick={() => setRtab('log')}
+                    >
+                      실행 로그{logs.length ? <em>{logs.length}</em> : null}
+                    </button>
                     <span className="sp" />
                     {/* 캡쳐는 **이 칸을 바꾸는 일**이라 이 칸 머리에 둔다.
                         2열 실행 줄에 있을 때는 왼쪽을 눌러 오른쪽이 바뀌는
@@ -2067,6 +2091,19 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       <IconCli />
                     </button>
                   </div>
+                  {rtab === 'log' ? (
+                    <RunLog
+                      lines={logs}
+                      only={logOnly}
+                      onOnly={setLogOnly}
+                      onClear={() => setLogs([])}
+                      onPick={(i) => {
+                        setStepIdx(i)
+                        setRtab('det')
+                      }}
+                    />
+                  ) : (
+                  <>
                   {/* 스텝 띠 — 머리 바로 아래(지시). 색 하나로 어디까지 갔는지
                       읽힌다: 진행 중 파랑 · 적합 초록 · 부적합 빨강 · 그 밖 노랑 ·
                       실행함 회색 · 미실행 빈 칸. 누르면 그 스텝을 편다. */}
@@ -2170,28 +2207,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     })()}
                   />
                   )}
-                </section>
-                {/* 실행 로그 — **스텝 상세 오른쪽**으로 옮겼다(지시).
-                    스텝 목록 아래에 있을 때는 목록과 높이를 나눠 가져서
-                    둘 다 짧았다. 창을 넓게 쓰게 되면서 오른쪽이 통째로
-                    비었으니, 거기 세로로 세우면 셋 다 넉넉해진다.
-                    높이를 안 주면 제 칸을 꽉 채운다. */}
-                <Resizer
-                  label="실행 로그 폭 조절"
-                  /* 오른쪽 판이라 폭이 거꾸로다. Resizer 는 `마우스x - 기준`
-                     을 주는데, 여기서는 `기준 - 마우스x` 가 폭이다 — 기준을
-                     오른쪽 끝으로 잡고 부호를 뒤집는다. */
-                  onResize={(w) => setLogW(-w)}
-                  getOrigin={() => splitRef.current?.getBoundingClientRect().right ?? 0}
-                />
-                <section className="panel tc-logcol" style={{ width: logW }}>
-                  <RunLog
-                    lines={logs}
-                    only={logOnly}
-                    onOnly={setLogOnly}
-                    onClear={() => setLogs([])}
-                    onPick={(i) => setStepIdx(i)}
-                  />
+                  </>
+                  )}
                 </section>
               </div>
     ),
