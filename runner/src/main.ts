@@ -282,6 +282,34 @@ async function doRun(run: Run): Promise<void> {
       }
     }
 
+    /* **읽은 절차를 있는 그대로 한 줄 남긴다**(진단: 사이클에서 돌리면
+       반복이 1 회만 돌았다. 같은 TC 를 TC 화면에서 돌리면 20 회가 정상이라,
+       실행기가 읽은 것과 화면이 보는 것이 갈린다는 뜻이다). */
+    try {
+      const lps = steps
+        .map((st, ix) => ({ st, ix }))
+        .filter((x) => String(x.st?.kind ?? '') === 'loop')
+      if (lps.length) {
+        for (const { st, ix } of lps) {
+          const body = steps.filter(
+            (x, j) => j > ix && Number(x?.indent ?? 0) > Number(st?.indent ?? 0),
+          ).length
+          push.addLog({
+            i: -1,
+            kind: 'info',
+            text:
+              `반복 스텝 #${ix + 1} — from=${String(st?.forFrom)} to=${String(st?.forTo)} ` +
+              `count=${String(st?.loopCount)} list=${String(st?.forList ?? '')} ` +
+              `indent=${String(st?.indent ?? 0)} · 몸통 ${body}줄`,
+          })
+        }
+      } else {
+        push.addLog({ i: -1, kind: 'info', text: `반복 스텝이 없습니다 — 스텝 ${steps.length}개` })
+      }
+    } catch {
+      /* 진단이 실행을 막으면 안 된다 */
+    }
+
     push.set({ step_count: steps.length, live_steps: steps })
 
     // 멈춤은 스텝 사이에서 듣는다. 명령 한복판에서 끊으면 장비 세션이
