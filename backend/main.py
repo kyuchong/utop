@@ -17433,7 +17433,11 @@ async def jira_issues_sync(payload: dict):
                          SET project=EXCLUDED.project, updated=EXCLUDED.updated,
                              data=EXCLUDED.data, synced_at=now()""",
                     key, str(row.get("project") or pk),
-                    _iso_ts(raw_upd), json.dumps(row, ensure_ascii=False))
+                    # dict 를 그대로 넘긴다 — 풀의 jsonb 코덱(db._init_conn)이
+                    # 스스로 json.dumps 한다. 여기서 또 dumps 하면 **문자열
+                    # 하나가 통째로** JSONB 에 들어가 data->>'summary' 같은
+                    # 질의가 영영 안 맞는다(검색·집계가 조용히 빈다).
+                    _iso_ts(raw_upd), row)
         st[pk] = {"at": t0.isoformat(), "last_updated": newest,
                   "n": len(issues), "total": total or len(issues)}
         res["projects"][pk] = {"got": len(issues), "added": added, "updated": upd, "same": same}

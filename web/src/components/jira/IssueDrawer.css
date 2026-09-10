@@ -1,0 +1,319 @@
+/* Jira 세부 서랍 — Releases 와 Jira Issue 가 같이 쓴다.
+   클래스 이름은 `rls-` 그대로다: 바꾸면 Releases 화면이 조용히 망가진다.
+   z-index 사슬: vlist 40 < scrim 60 < rls-ovl 70 < rls-lb 80. */
+
+/* ── Jira 세부 서랍 ──
+      이슈 키를 누르면 오른쪽에서 열린다. 설명·댓글을 보러 Jira 로
+      건너가면 돌아올 때 이 화면의 펼침이 다 풀린다 — 그래서 여기서 본다. */
+.rls-ovl { position: fixed; inset: 0; z-index: 70; background: rgba(20, 30, 40, 0.34); }
+.rls-drawer {
+  /* 넓혀 달라는 지시. Jira 설명은 표·코드블록·첨부 그림이 들어와 640px
+     로는 가로로 흘러 읽기 나빴다 — 화면의 절반을 넘게 준다. */
+  position: absolute; top: 0; right: 0; height: 100%; width: min(1040px, 82vw); max-width: 96vw;
+  background: #fff; box-shadow: -8px 0 28px rgba(0, 0, 0, 0.16);
+  display: flex; flex-direction: column;
+}
+.rls-drawer > header {
+  flex: none; height: 48px; display: flex; align-items: center; gap: 9px;
+  padding: 0 12px 0 15px; border-bottom: 1px solid #e2e8eb; background: #f7f8f9;
+}
+.rls-drawer > header b { font-size: 14px; color: #3b6aa5; }
+.rls-drawer > header .sp { flex: 1; }
+.rls-jlink { font-size: 11.5px; color: #3b6aa5; text-decoration: none; white-space: nowrap; }
+.rls-jlink:hover { text-decoration: underline; }
+.rls-dx {
+  flex: none; border: 0; background: none; color: #71848b;
+  font: inherit; font-size: 17px; line-height: 1; cursor: pointer; padding: 2px 4px;
+}
+.rls-dx:hover { color: #46555d; }
+.rls-dbody { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px 24px; }
+/* Jira 그림 — 칸을 넘지 않게. 눌러서 크게 본다(건너가지 않는다) */
+.rls-jira img { max-width: 100%; height: auto; border-radius: 4px; cursor: zoom-in; }
+
+/* 그림 크게 보기 — 가운데에, **확대·이동이 된다**.
+   왼쪽 구석에 붙던 것을 한 번 지적받았고, 작은 그림을 못 읽는다고 또
+   지적받았다. 그래서 처음부터 화면에 맞춰 키운다. */
+.rls-lb {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(12, 18, 24, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.rls-lb img {
+  /* 배율은 transform 이 정한다 — max-width 로 묶으면 확대가 안 먹는다 */
+  max-width: none;
+  max-height: none;
+  transform-origin: center center;
+  border-radius: 4px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+  user-select: none;
+  -webkit-user-drag: none;
+  position: relative;
+  z-index: 1;
+}
+/* 확대 단추 줄 — 위 가운데 */
+.rls-lbbar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #c3cbd4;
+  border-radius: 8px;
+  padding: 4px 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  z-index: 3;
+}
+.rls-lbbar button,
+.rls-lbbar a {
+  border: 0;
+  background: none;
+  border-radius: 5px;
+  padding: 4px 9px;
+  font: inherit;
+  font-size: 12.5px;
+  color: #46555d;
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.2;
+}
+.rls-lbbar button:hover, .rls-lbbar a:hover { background: #e9eef1; }
+.rls-lbbar .pct {
+  min-width: 52px;
+  text-align: center;
+  font-size: 12px;
+  color: #131920;
+  font-variant-numeric: tabular-nums;
+}
+.rls-lbhint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  padding: 3px 12px;
+  pointer-events: none;
+}
+
+/* 이슈연결 한 줄 */
+.rls-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 4px 2px;
+  border-bottom: 1px solid #f1f2f4;
+  font-size: 12.5px;
+  min-width: 0;
+}
+.rls-link .how { flex: none; color: #7c858c; font-size: 11.5px; min-width: 92px; }
+.rls-link .key { flex: none; font-weight: 700; color: #3b6aa5; text-decoration: none; min-width: 92px; }
+.rls-link .key:hover { text-decoration: underline; }
+.rls-link .sm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #424b50; }
+/* 못 받은 그림은 안내 그림으로 그려진다 — 눌러도 크게 뜨지 않는다 */
+.rls-jira img[data-fail] { cursor: default; }
+.rls-dtitle { font-size: 14.5px; font-weight: 700; line-height: 1.45; margin-bottom: 12px; }
+/* 자세히 — **지라가 가진 칸을 그대로** 낸다. 칸이 스무 개를 넘어가므로
+   두 줄기로 흘린다(지라도 왼쪽·오른쪽 두 덩이다). 이름 폭을 넉넉히 잡는다
+   — 「OS 해결버전」·「Postpone 사유」 같은 긴 이름이 접히면 줄이 어긋난다. */
+.rls-dmeta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 18px;
+  font-size: 11.5px;
+  border: 1px solid #e6eaec;
+  border-radius: 8px;
+  background: #fafbfb;
+  padding: 8px 12px;
+}
+.rls-dmeta .rls-fld {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 0;
+  min-width: 0;
+}
+.rls-dmeta span { color: #8a949a; overflow: hidden; text-overflow: ellipsis; }
+/* 값이 길어도 **세 줄까지**만 자리를 준다. 걸러내는 이름을 다 알 수 없어
+   (플러그인마다 다르다), 하나가 화면을 통째로 먹는 일은 이 규칙이 막는다.
+   전체는 마우스를 올리면 보인다. */
+.rls-dmeta b {
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+/* 지라가 렌더한 값(링크 따위) — 여백을 없애 한 줄로 앉힌다 */
+.rls-dmeta b.rls-jira { font-size: 11.5px; color: #131920; }
+.rls-dmeta b.rls-jira p { margin: 0; }
+@media (max-width: 900px) {
+  .rls-dmeta { grid-template-columns: 1fr; }
+}
+/* 칸 이름 — **지라에 보이는 그대로**(지시). 작은 대문자 라벨로 두었더니
+   Traceability 가 TRACEABILITY 로 나왔다. 지라 쪽은 보통 굵기의 검은 글자다. */
+.rls-dh {
+  margin: 20px 0 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #3d4a52;
+  letter-spacing: 0;
+}
+.rls-dtext { font-size: 12.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; color: #46555d; }
+/* Jira 가 렌더한 HTML — 그 쪽 표·코드·그림이 여기서도 같은 꼴로 서야 한다 */
+.rls-jira { font-size: 12.5px; line-height: 1.65; word-break: break-word; color: #2c3a41; }
+.rls-jira table { border-collapse: collapse; margin: 8px 0; display: block; overflow-x: auto; }
+.rls-jira th, .rls-jira td { border: 1px solid #dfe5e8; padding: 4px 8px; font-size: 12px; }
+.rls-jira th { background: #f4f6f7; }
+.rls-jira pre {
+  background: #f5f7f8; border: 1px solid #e4e9eb; border-radius: 6px;
+  padding: 9px 11px; overflow-x: auto; font-size: 11.5px;
+}
+.rls-jira code { font-size: 11.5px; }
+.rls-jira a { color: #3b6aa5; }
+.rls-jira p { margin: 0 0 8px; }
+.rls-jira ul, .rls-jira ol { margin: 0 0 8px; padding-left: 20px; }
+.rls-cmt { border-top: 1px solid #f0f2f3; padding: 10px 0 2px; }
+.rls-cmt:first-of-type { border-top: 0; }
+.rls-cmth { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; font-size: 11px; color: #8a949a; }
+.rls-cmth i {
+  flex: none; width: 20px; height: 20px; border-radius: 50%; background: #3b6aa5; color: #fff;
+  font-style: normal; font-size: 10px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.rls-cmth b { color: #46555d; font-weight: 700; }
+/* 활동 탭 — 지라와 같이 모두·댓글·이력 */
+.rls-acttab {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid #e6eaec;
+  margin: 0 0 10px;
+}
+.rls-acttab button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: #7c858c;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.rls-acttab button:hover { color: #46555d; background: #f6f8fa; }
+.rls-acttab button.on { color: #0a8795; border-bottom-color: #0a8795; font-weight: 700; }
+/* 「수정됨」 — 지라가 댓글 머리에 다는 그 표시 */
+.rls-fixed {
+  font-style: normal;
+  font-size: 10.5px;
+  color: #a06a2e;
+  background: #fdf4e7;
+  border-radius: 9px;
+  padding: 1px 7px;
+  margin-left: 6px;
+}
+/* 이력 한 줄 — 무슨 칸이 무엇에서 무엇으로 */
+.rls-hrow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  padding: 3px 0 3px 30px;
+  min-width: 0;
+}
+.rls-hrow .rls-fld { flex: none; min-width: 92px; color: #8a949a; }
+.rls-hrow .was { color: #98a2a8; text-decoration: line-through; }
+.rls-hrow .arw { flex: none; color: #b0b8bd; }
+.rls-hrow .now { color: #2c3a41; font-weight: 600; min-width: 0; }
+/* 첨부 한 줄 — 이름·크기·올린 사람. 링크가 아니라 **단추**다(표를 얹어
+   받아야 해서). 겉모습은 링크 그대로 둔다. */
+.rls-att {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  color: #3b6aa5;
+  padding: 5px 2px;
+  border-bottom: 1px solid #f2f4f5;
+  cursor: pointer;
+  min-width: 0;
+}
+.rls-att:hover { background: #f6f8fa; }
+.rls-att .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rls-att:hover .nm { text-decoration: underline; }
+.rls-att .sz { flex: none; color: #8a949a; font-variant-numeric: tabular-nums; }
+.rls-att .wh { flex: none; color: #98a2a8; font-size: 11px; white-space: nowrap; }
+.rls-cband {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #e9f5ef;
+  border: 1px solid #cfe8db;
+  color: #1c6b47;
+  font-size: 12px;
+}
+.rls-cband.bad { background: #fdf3e6; border-color: #f2dcbd; color: #8c5a10; }
+.rls-cband em { font-style: normal; color: inherit; opacity: 0.75; }
+.rls-cband button {
+  margin-left: auto;
+  border: 1px solid currentcolor;
+  background: none;
+  border-radius: 6px;
+  padding: 2px 9px;
+  font: inherit;
+  font-size: 11.5px;
+  color: inherit;
+  cursor: pointer;
+}
+.rls-cband button:hover { background: rgb(255 255 255 / 55%); }
+
+/* 목록과 함께 쓰던 규칙의 **서랍 안쪽 사본** — 원본은 Releases.css 에 그대로
+   둔다. 잘라 오면 이슈 목록의 상태 칸 폭과 화면 맨 위 오류 띠가 무너진다.
+   특정도가 한 겹 높아 차례에 안 기댄다. */
+.rls-ovl .rls-stat {
+  flex: none;
+  width: 80px;
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid #dfe1e6;
+  background: #fff;
+  color: #42526e;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rls-ovl .rls-stat.new { border-color: #dfe1e6; color: #42526e; }
+.rls-ovl .rls-stat.indeterminate { border-color: #b3d4ff; color: #0747a6; }
+.rls-ovl .rls-stat.done { border-color: #abf5d1; color: #006644; }
+.rls-ovl .rls-none { color: #98a2a8; font-size: 12px; }
+.rls-ovl .rls-err {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fdecea;
+  color: #a3271c;
+  font-size: 12.5px;
+}

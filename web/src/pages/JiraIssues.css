@@ -222,51 +222,6 @@
   color: #475569;
 }
 
-/* 이슈 하나 — 오른쪽에서 덮는다 */
-.jri-back { position: fixed; inset: 0; z-index: 60; background: rgb(20 30 40 / 22%); display: flex; justify-content: flex-end; }
-.jri-side {
-  width: min(620px, 92vw);
-  display: flex;
-  flex-direction: column;
-  background: var(--c-surface);
-  border-left: 1px solid var(--c-border, #c3cbd4);
-  box-shadow: -8px 0 30px rgb(13 68 81 / 18%);
-}
-.jri-side > header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: none;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
-  background: var(--c-surface-alt, #f5f7f9);
-}
-.jri-side > header .sp { flex: 1; }
-.jri-side > header > b { font-family: var(--font-mono); font-size: 13px; }
-.jri-side > header > button {
-  width: 26px; height: 26px; display: grid; place-items: center;
-  border: 0; background: none; border-radius: 6px; color: var(--c-text-muted); cursor: pointer;
-}
-.jri-side > header > button:hover { background: var(--c-border-soft, #dfe4ea); }
-.jri-sbody { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px; }
-.jri-sbody h3 { margin: 0 0 14px; font-size: 15px; line-height: 1.5; }
-.jri-sbody h4 { margin: 16px 0 6px; font-size: 12px; color: var(--c-text-muted); }
-.jri-kv { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.jri-kv td { padding: 5px 8px; border-bottom: 1px solid #eef1f4; vertical-align: top; }
-.jri-kv td:first-child { width: 130px; color: var(--c-text-faint); }
-.jri-desc {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font: inherit;
-  font-size: 12.5px;
-  line-height: 1.7;
-  color: var(--c-text);
-  background: var(--c-surface-alt, #f5f7f9);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-
 /* LLM 분류 — 지라에 없는 값을 우리가 매기는 자리 */
 .jri-clswrap { position: relative; display: inline-flex; }
 .jri .btn.jri-cls { border-color: #d9cdf5; color: #6b3fc4; }

@@ -19,6 +19,8 @@ import { apiFetch, type MeUser } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import NTable from '@/components/ntable/NTable'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
+import { IssueDrawer } from '@/components/jira/IssueDrawer'
+import { useJiraBase } from '@/components/jira/useJiraBase'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
 import './JiraIssues.css'
 
@@ -97,6 +99,14 @@ const COLS: Array<{
   { key: 'cls_item', label: '상용망 항목', type: 'select', w: 112, cls: 'item' },
   { key: 'cls_type3', label: '상용망 유형', type: 'select', w: 108, cls: 'type3' },
 ]
+/** 서랍에 내는 분류 줄 */
+const CLS_ROWS: Array<[string, string]> = [
+  ['발생상황', 'cls_source'],
+  ['분류 유형', 'cls_device'],
+  ['분류 카테고리', 'cls_category'],
+  ['상용망 항목', 'cls_item'],
+  ['상용망 유형', 'cls_type3'],
+]
 /** 지라가 정본인 열 — 여기서 못 고친다 */
 const JIRA_KEYS = COLS.filter((c) => !c.cls).map((c) => c.key)
 /** 분류 열 → 분류 한 건의 어느 필드인가 */
@@ -146,6 +156,7 @@ function prefJson<T>(key: string, dflt: T): T {
 
 export default function JiraIssues({ me }: { me?: MeUser | null }) {
   const qc = useQueryClient()
+  const jbase = useJiraBase()
   /** 고른 프로젝트 — 계정을 따라간다 */
   const [picked, setPicked] = useState<string[]>(() => {
     try {
@@ -445,7 +456,6 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     .filter(Boolean)
     .sort()
     .pop()
-  const cur = rows.find((r) => r.__id === sel) ?? null
 
   const prjList = projects.filter(
     (p) => !prjQ.trim() || `${p.key} ${p.name}`.toLowerCase().includes(prjQ.trim().toLowerCase()),
@@ -677,71 +687,30 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
         </div>
       )}
 
-      {/* 줄을 누르면 그 이슈 — 지라로 건너가지 않고 여기서 본다 */}
-      {!!cur && (
-        <div className="jri-back" onMouseDown={() => setSel('')}>
-          <aside className="jri-side" onMouseDown={(e) => e.stopPropagation()}>
-            <header>
-              <i className={`jt ${typeKind(String(cur.issuetype ?? ''))}`} aria-hidden="true" />
-              <b>{String(cur.issuekey ?? '')}</b>
-              <span className={`jri-st ${statusKind(String(cur.status ?? ''))}`}>
-                {String(cur.status ?? '')}
-              </span>
-              <span className="sp" />
-              <button type="button" title="닫기" onClick={() => setSel('')}>
-                ✕
-              </button>
-            </header>
-            <div className="jri-sbody">
-              <h3>{String(cur.summary ?? '')}</h3>
-              <table className="jri-kv">
-                <tbody>
-                  {[
-                    ['프로젝트', 'project'],
-                    ['사업자', 'customer'],
-                    ['이슈 유형', 'issuetype'],
-                    ['우선순위', 'priority'],
-                    ['문제유형', 'probtype'],
-                    ['이슈분류(HW,SW)', 'hwsw'],
-                    ['시험시설', 'lab'],
-                    ['이슈단계', 'stage'],
-                    ['발생빈도', 'freq'],
-                    ['등록자', 'reporter'],
-                    ['담당자', 'assignee'],
-                    ['생성일', 'created'],
-                    ['갱신일', 'updated'],
-                    ['시작일', 'start'],
-                    ['완료일', 'due'],
-                    ['BSP 시험버전', 'bsptest'],
-                    ['BSP 해결버전', 'bspfix'],
-                    ['F/W Version', 'fwver'],
-                    ['CR 구분', 'crkind'],
-                    ['라벨', 'labels'],
-                    ['발생상황', 'cls_source'],
-                    ['분류 유형', 'cls_device'],
-                    ['분류 카테고리', 'cls_category'],
-                    ['상용망 항목', 'cls_item'],
-                    ['상용망 유형', 'cls_type3'],
-                  ].map(([lb, k]) => {
-                    const v = String(cur[k as string] ?? '').trim()
-                    return v ? (
-                      <tr key={k}>
-                        <td>{lb}</td>
-                        <td>{v}</td>
-                      </tr>
-                    ) : null
-                  })}
-                </tbody>
-              </table>
-              {!!String(cur.description ?? '').trim() && (
-                <>
-                  <h4>내용</h4>
-                  <pre className="jri-desc">{String(cur.description)}</pre>
-                </>
-              )}
-            </div>
-          </aside>
-        </div>
+      {/* 줄을 누르면 그 이슈 — **Releases 와 같은 서랍**이다(지시).
+          지라가 렌더한 것을 그대로 낸다: 자세히·설명·첨부·이슈연결·활동.
+          지라에 없는 우리 값(분류 다섯)만 extra 로 끼워 넣는다. */}
+      {!!sel && (
+        <IssueDrawer
+          ikey={sel}
+          base={jbase}
+          onClose={() => setSel('')}
+          extra={
+            <>
+              <h4 className="rls-dh">분류</h4>
+              <div className="rls-dmeta">
+                {CLS_ROWS.map(([lb, k]) => (
+                  <div className="rls-fld" key={k}>
+                    <span>{lb}</span>
+                    <b>
+                      {String((classes[sel] ?? {})[CLS_OF[k] as keyof DefClass] ?? '') || '없음'}
+                    </b>
+                  </div>
+                ))}
+              </div>
+            </>
+          }
+        />
       )}
     </div>
   )

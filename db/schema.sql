@@ -777,3 +777,8 @@ CREATE TABLE IF NOT EXISTS jira_issue (
 );
 CREATE INDEX IF NOT EXISTS jira_issue_prj_idx ON jira_issue (project);
 CREATE INDEX IF NOT EXISTS jira_issue_upd_idx ON jira_issue (updated DESC);
+
+-- 이중 인코딩되어 들어간 옛 행을 편다: JSONB 안에 **객체가 아니라 문자열**이
+-- 통째로 들어 있으면 data->>'summary' 가 영영 안 맞아 검색이 조용히 빈다.
+-- 넣는 쪽은 고쳤고, 이미 들어간 것만 한 번 펴 준다(고쳐진 행은 안 걸린다).
+UPDATE jira_issue SET data = (data #>> '{}')::jsonb WHERE jsonb_typeof(data) = 'string';
