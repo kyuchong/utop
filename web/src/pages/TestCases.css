@@ -542,6 +542,8 @@
    좌우 12px 를 먹이면 안쪽이 3·28px 가 되어, 실제로 끝 칸의 단추 둘이
    **세로로 쌓여 줄 높이가 43px 로 뛰었다**(실측). 두 칸은 제 폭이 곧 내용이다. */
 /* ⋯·◍·▶ 칸은 좌우 여백을 얇게 — 30px 트랙에 12px 를 먹이면 단추가 안 든다 */
+.sq-row > .sq-res,
+.sq-head > *:nth-child(5) { padding: 0; }
 .sq-row > .sq-allc,
 .sq-row > .sq-runc,
 .sq-row > .sq-judc,
@@ -691,10 +693,10 @@
  * 이 값이 어긋나면 안내선이 아이콘 옆구리를 지나간다 — 예전 값(124)은
  * 없어진 상태 열과 gap 8px 를 세고 있었다.
  */
-.sq-row[data-depth="1"] { --gx: 291px; }
-.sq-row[data-depth="2"] { --gx: 305px; }
-.sq-row[data-depth="3"] { --gx: 319px; }
-.sq-row[data-depth="4"] { --gx: 333px; }
+.sq-row[data-depth="1"] { --gx: 253px; }
+.sq-row[data-depth="2"] { --gx: 267px; }
+.sq-row[data-depth="3"] { --gx: 281px; }
+.sq-row[data-depth="4"] { --gx: 295px; }
 
 /* 세로 — 마지막 자식은 제 자리까지만 내려온다(└) */
 .sq-row[data-kid]::before {
@@ -803,23 +805,19 @@ button.sq-caret svg { width: 11px; height: 11px; }
 
 /* 도는 동안의 결과 칸. PASS·FAIL 과 같은 자리라 같은 크기로 두되,
    색과 깜빡임으로 「아직 안 끝났다」 를 말한다. */
-.sq-res.run {
-  color: var(--c-primary);
-  font-weight: 700;
+.sq-row > .sq-res.run {
+  background: var(--c-primary);
   animation: sq-pulse 0.85s ease-in-out infinite;
 }
 
-.sq-res {
-  font-size: var(--fs-xs);
-  text-align: center;
-  color: var(--c-text-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* 판정 — **글자 없는 세로 색 막대**(지시). 줄마다 이어져 왼쪽에 띠가 하나
+   선 것처럼 보인다. 미실행은 안 칠한다: 안 돈 줄과 통과한 줄은 갈려야 한다.
+   무엇인지는 온마우스(title)와 오른쪽 판이 글자로 말한다 — 색을 못 가리는
+   사람이 색만으로 읽게 두지 않는다. */
+.sq-res { padding: 0; }
 
-.sq-res.pass { color: var(--c-pass); font-weight: 600; }
-.sq-res.fail { color: var(--c-fail); font-weight: 600; }
+.sq-row > .sq-res.pass { background: var(--c-pass, #2e7a53); }
+.sq-row > .sq-res.fail { background: var(--c-fail, #c0392b); }
 
 /* 요약은 기본 글꼴이다. 전부 고정폭으로 두었더니 'U9532H 접속' 같은
    한글까지 고정폭이 되어 다른 화면과 글자가 달라 보였다.
@@ -1989,8 +1987,8 @@ button.sq-caret svg { width: 11px; height: 11px; }
 
 /* If 의 참·거짓. 판정(PASS·FAIL)과는 다른 값이라 색도 갈라 쓴다 —
    If 는 갈래를 고를 뿐 합격·불합격을 내지 않는다. */
-.sq-res.cond-y { color: #1f7a45; font-weight: 600; }
-.sq-res.cond-n { color: #97620d; font-weight: 600; }
+.sq-row > .sq-res.cond-y { background: #7fc4a0; }
+.sq-row > .sq-res.cond-n { background: #e0b878; }
 
 /* 왼쪽·오른쪽 각각 넣기 — 한쪽에만 두면 반대쪽은 손으로 쳐야 한다 */
 /* 단추 **두 개**를 나란히.
@@ -3896,7 +3894,9 @@ html .tc-split > .tc-content {
    스텝(5) · 동작(6) · 명령(7) · 절차 설명(8). */
 /* 값이 왼쪽에서 시작하는 칸만 제목도 왼쪽에 — 번호(6) · 동작(8) · 명령(9) ·
    절차 설명(10). 판정(7)은 가운데다. */
-.sq-head > *:nth-child(6),
+/* 값이 왼쪽에서 시작하는 칸만 제목도 왼쪽에 — 번호(7) · 동작(8) · 명령(9) ·
+   절차 설명(10). 판정(5)은 글자가 없는 색 막대다. */
+.sq-head > *:nth-child(7),
 .sq-head > *:nth-child(8),
 .sq-head > *:nth-child(9),
 .sq-head > *:nth-child(10) { justify-content: flex-start; }
@@ -3960,6 +3960,17 @@ html .tc-split > .tc-content {
 body.sq-resizing .sq-rs::after { background: var(--c-primary); }
 /* 끄는 동안 글자가 잡히면 표가 통째로 파랗게 물든다 */
 body.sq-resizing { user-select: none; cursor: col-resize; }
+
+/* 판정 기준이 걸린 줄(지시) — 본디 ⋯ 자리였다. 무엇이 합격·불합격을 내는
+   줄인지가 훨씬 자주 찾는 것이라 그 자리를 내준다. */
+.sq-jud {
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1;
+  color: #0a7d8c;
+  opacity: 0.85;
+}
+.sq-row.on .sq-jud { opacity: 1; }
 
 /* 판정 기준이 걸린 줄(지시) — 본디 ⋯ 자리였다. 무엇이 합격·불합격을 내는
    줄인지가 훨씬 자주 찾는 것이라 그 자리를 내준다. */

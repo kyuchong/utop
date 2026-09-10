@@ -396,7 +396,7 @@ export default function TcSequence({
              깨졌나」 를 볼 때 눈이 오른쪽 끝까지 갔다 오지 않아도 되고,
              화면이 좁아 가로로 밀려도 판정은 안 잘린다. */
           '--sq-cols': [
-            '26px 30px 30px 30px 40px 60px 48px 190px',
+            '26px 30px 30px 30px 10px 40px 60px 190px',
             sumW ? `${sumW}px` : 'minmax(150px, 1fr)',
             dscW ? `${dscW}px` : 'minmax(90px, 220px)',
           ].join(' '),
@@ -453,9 +453,9 @@ export default function TcSequence({
                 </svg>
               </span>
               <span title="이 줄만 실행">▶</span>
+              <span title="결과 — 색으로만 알린다(초록 합격 · 붉은색 불합격)" />
               <span title="세션 — 어느 장비로 나가나">⇄</span>
               <span title="스텝 번호">№</span>
-              <span title="결과">✓</span>
               <span title="동작 — 이 줄이 하는 일">⚙</span>
               <span title="명령 · 내용">
                 &gt;_
@@ -624,6 +624,22 @@ export default function TcSequence({
                     </i>
                   )}
                 </span>
+                {/* **판정은 세로 색 막대**다(지시). 글자를 적으면 그 자리만큼
+                    칸이 넓어지는데, 서른 줄을 훑을 때 필요한 것은 「어디가
+                    빨간가」 뿐이다. 무엇인지는 온마우스와 오른쪽 판이 말한다.
+                    미실행은 색을 안 칠한다 — 안 돈 줄과 통과한 줄은 갈려야 한다. */}
+                {(() => {
+                  const rc =
+                    i === runningAt
+                      ? { c: 'run', t: '실행 중' }
+                      : s.kind === 'if' && st.cls === 'idle' && s.condResult
+                        ? {
+                            c: s.condResult === 'Y' ? 'cond-y' : 'cond-n',
+                            t: s.condResult === 'Y' ? '조건 참' : '조건 거짓',
+                          }
+                        : { c: st.cls, t: st.cls === 'idle' ? '아직 안 돌았습니다' : st.label }
+                  return <span className={`sq-res ${rc.c}`} title={rc.t} />
+                })()}
                 {/* 상태 기호(✔·✖·○)는 뺐다 — 줄 끝의 PASS·FAIL 글자와 같은
                     말을 두 번 하는 열이었다. 도는 줄은 줄 자체가 빛난다. */}
                 {/* 세션은 맨 앞 고정 열 — Action 뒤에 두면 들여쓰기에 밀려
@@ -654,26 +670,6 @@ export default function TcSequence({
                   )
                 })()}
                 <span className="sq-n">{numbers[i]}</span>
-                {/* 결과를 줄 끝에 적는다. 아이콘만으로는 PASS 와 미실행이
-                    잘 안 갈린다. */}
-                {/* 미실행은 글자를 안 적는다. 대부분의 줄이 미실행이라
-                    같은 말이 반복되어 PASS·FAIL 이 묻힌다. ○ 로 충분하다. */}
-                {/* If 는 판정을 안 낸다. 대신 참이었는지를 적는다 —
-                    안 적으면 돌리고 나서도 어느 갈래로 갔는지 모른다. */}
-                {i === runningAt ? (
-                  /* 도는 동안은 옛 결과가 아니라 지금을 적는다. 두 번째로
-                     돌릴 때 앞서 찍힌 PASS 가 그대로 남아 있으면, 방금
-                     통과한 것처럼 읽힌다. */
-                  <span className="sq-res run">실행 중</span>
-                ) : s.kind === 'if' && st.cls === 'idle' && s.condResult ? (
-                  <span className={`sq-res cond-${s.condResult === 'Y' ? 'y' : 'n'}`}>
-                    {s.condResult === 'Y' ? '참' : '거짓'}
-                  </span>
-                ) : (
-                  <span className={`sq-res ${st.cls}`}>
-                    {st.cls === 'idle' ? '' : st.label}
-                  </span>
-                )}
                 {/* 들여쓰기는 **칸 안쪽 여백**으로 준다. margin 으로 주면
                     grid 칸 자체가 밀려 그 칸의 세로선이 14px 씩 오른쪽으로
                     나가 머리줄과 어긋났다(실측: 이 칸만 diff −14). */}
