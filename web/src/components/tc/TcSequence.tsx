@@ -396,7 +396,7 @@ export default function TcSequence({
              깨졌나」 를 볼 때 눈이 오른쪽 끝까지 갔다 오지 않아도 되고,
              화면이 좁아 가로로 밀려도 판정은 안 잘린다. */
           '--sq-cols': [
-            '26px 30px 30px 30px 40px 60px 190px',
+            '30px 26px 30px 30px 40px 60px 190px',
             sumW ? `${sumW}px` : 'minmax(150px, 1fr)',
             dscW ? `${dscW}px` : 'minmax(90px, 220px)',
           ].join(' '),
@@ -415,6 +415,7 @@ export default function TcSequence({
               {/* 첫 칸은 **모두 고르기**다(지시: 제거하든 표시하든 정하라).
                   줄마다 체크가 있는데 머리에 없으면 전부 고를 길이 도구줄에만
                   남아, 표를 보다 눈이 위로 나갔다 와야 한다. */}
+              <span title="이 줄만 실행">▶</span>
               <span className="sq-allc">
                 {!!onPickAll && (
                   <input
@@ -452,7 +453,6 @@ export default function TcSequence({
                   <path d="M5.6 8.3V6.5M8 8.3V4.9M10.4 8.3V7.1" />
                 </svg>
               </span>
-              <span title="이 줄만 실행">▶</span>
               <span title="세션 — 어느 장비로 나가나">⇄</span>
               <span title="스텝 번호">№</span>
               <span title="동작 — 이 줄이 하는 일">⚙</span>
@@ -560,6 +560,29 @@ export default function TcSequence({
                   }
                 }}
               >
+                {/* 실행은 **줄 맨 앞**이다(지시) — 왼쪽 판정 띠 바로 옆.
+                    돌릴 수 있는 줄인지, 돌린 결과가 어떤지가 나란히 읽힌다. */}
+                <span className="sq-runc">
+                  {onRun && runnable(s) ? (
+                    <button
+                      type="button"
+                      className="sq-run"
+                      title="이 스텝만 실행"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRun(i)
+                      }}
+                    >
+                      ▶
+                    </button>
+                  ) : (
+                    /* 못 돌리는 줄은 **하이픈**(지시) — 빈 칸으로 두면
+                       「아직 안 만든 자리」 처럼 보인다 */
+                    <i className="sq-dash" title="이 줄만 따로 돌릴 수는 없습니다">
+                      –
+                    </i>
+                  )}
+                </span>
                 {/* 고른 줄 — **체크로 보여 준다**(지시). 바탕색만 옅게 바뀌면
                     무엇이 골라졌는지 알 수 없다. */}
                 <span className="sq-allc">
@@ -604,28 +627,6 @@ export default function TcSequence({
                 </span>
                 {/* ▶ 와 ⋯ 은 **각각 제 칸**이다(지시: 제목이 없다).
                     한 칸에 둘을 넣으면 머리줄에 제목을 하나밖에 못 달고,
-                    칸이 좁아 단추가 세로로 쌓이기도 했다. */}
-                <span className="sq-runc">
-                  {onRun && runnable(s) ? (
-                    <button
-                      type="button"
-                      className="sq-run"
-                      title="이 스텝만 실행"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onRun(i)
-                      }}
-                    >
-                      ▶
-                    </button>
-                  ) : (
-                    /* 못 돌리는 줄은 **하이픈**(지시) — 빈 칸으로 두면
-                       「아직 안 만든 자리」 처럼 보인다 */
-                    <i className="sq-dash" title="이 줄만 따로 돌릴 수는 없습니다">
-                      –
-                    </i>
-                  )}
-                </span>
                 {/* 상태 기호(✔·✖·○)는 뺐다 — 줄 끝의 PASS·FAIL 글자와 같은
                     말을 두 번 하는 열이었다. 도는 줄은 줄 자체가 빛난다. */}
                 {/* 세션은 맨 앞 고정 열 — Action 뒤에 두면 들여쓰기에 밀려

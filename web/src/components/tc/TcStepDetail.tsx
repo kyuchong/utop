@@ -625,30 +625,10 @@ export default function TcStepDetail({
           />
         )}
 
-        {/* **절차 설명** — 결과서(PPTX)가 이 값을 절차의 첫 줄로 읽는다.
-            전에 이 칸을 없애면서 「목록에서 고치는 것이 맞다」 고 했는데
-            목록에도 넣지 않아, **결과서에 나가는 값을 어디서도 못 고치는**
-            상태가 됐다(지적: CLI 만 있으면 무슨 시험인지 모른다).
-            비어 있으면 결과서는 명령에서 말을 지어낸다 —
-            `${Index_n} = ${i} - 24` 같은 줄이 그대로 절차가 된다. */}
-        {!isNoteKind(kind) && (
-          <label className="sd-f">
-            <span className="sd-lab">
-              절차 설명
-              <i className="sd-hint">결과서·실행 로그에 이 말이 쓰입니다</i>
-            </span>
-            <input
-              value={step.desc ?? ''}
-              placeholder="예) interface 상태를 조회한다"
-              onChange={(e) => onChange({ desc: e.target.value })}
-            />
-          </label>
-        )}
-
         {kind === 'cli' && (
           <label className="sd-f">
             <span className="sd-lab">
-              {STEP_CONTENT[kind]?.label ?? '보낼 명령'}
+              CLI
               {/* 전역 파라미터를 눌러 넣는다. 손으로 ${이름} 을 치면 오타가
                   나도 실행할 때 가서야 안다. */}
               {paramPick('cli', 'p-cli').btn}
@@ -670,6 +650,26 @@ export default function TcStepDetail({
             )}
           </label>
         )}
+        {/* **절차 설명** — 결과서(PPTX)가 이 값을 절차의 첫 줄로 읽는다.
+            전에 이 칸을 없애면서 「목록에서 고치는 것이 맞다」 고 했는데
+            목록에도 넣지 않아, **결과서에 나가는 값을 어디서도 못 고치는**
+            상태가 됐다(지적: CLI 만 있으면 무슨 시험인지 모른다).
+            비어 있으면 결과서는 명령에서 말을 지어낸다 —
+            `${Index_n} = ${i} - 24` 같은 줄이 그대로 절차가 된다. */}
+        {!isNoteKind(kind) && (
+          <label className="sd-f">
+            <span className="sd-lab">
+              Description
+              <i className="sd-hint">결과서·실행 로그에 이 말이 쓰입니다</i>
+            </span>
+            <input
+              value={step.desc ?? ''}
+              placeholder="예) interface 상태를 조회한다"
+              onChange={(e) => onChange({ desc: e.target.value })}
+            />
+          </label>
+        )}
+
         {/* 명령 뒤 **더 기다리는 시간**. 프롬프트가 돌아온 뒤에도 늦게 올라오는
             syslog 를 받으려는 대기다. 비워 두면 **안 기다린다**(지시: 지연을
             제거) — 프롬프트가 왔다는 것은 그 명령이 끝났다는 뜻이라, 조회
@@ -680,7 +680,7 @@ export default function TcStepDetail({
             입력칸은 하나뿐이라 label 로 감싸도 엉뚱한 칸이 안 잡힌다. */}
         {kind === 'cli' && (
           <label className="sd-f">
-            <span className="sd-lab">명령 뒤 대기</span>
+            <span className="sd-lab">Wait</span>
             <span className="sd-wait">
               <input
                 type="number"
@@ -1472,7 +1472,7 @@ export default function TcStepDetail({
         {isRun && !isMeterStep && (
           <div className="sd-f">
             <span className="sd-lab">
-              판정 기준
+              Criteria
               {/* 견줌은 **줄마다 「± 비교」** 로 붙인다(지시) — 여기 단추는
                   기준 넣기 하나뿐이라 다시 홑 단추로 둔다 */}
               <button
@@ -1637,17 +1637,16 @@ export default function TcStepDetail({
                 것은 이제 <b>Diff 스텝</b>을 쓰세요.
               </span>
             )}
-          </div>
-        )}
-
+            {/* 뽑아 둔 값은 **판정 기준과 한 자리**다(지시) — 그 값으로
+                판정을 만드는 것이라, 라벨을 따로 세우면 둘이 남남처럼 보인다. */}
         {/* 응답에서 뽑아둔 변수. 정규식이 그대로 보이면 무섭게 보이므로
             변수 이름을 앞에 세운다. */}
         {/* 뽑은 값.
             이름만 보이면 그 식이 무엇을 집고 있는지 돌려보기 전에는 알 수
             없다. 지금 응답에 대 보고 실제로 뽑히는 값을 함께 적는다. */}
         {(step.queries?.length || step.extracts?.length) ? (
-          <div className="sd-f">
-            <span>뽑은 값</span>
+          <div className="sd-sub">
+            <span className="sd-hint">Extracted values</span>
             <div className="sd-vlist">
               {[
                 ...(step.queries ?? []).map((x, i) => ({
@@ -1773,6 +1772,10 @@ export default function TcStepDetail({
             </div>
           </div>
         ) : null}
+          </div>
+        )}
+
+
 
         {/* 「세부」 접기는 없앴다(지적: 왜 있나 ×2). 판정 영역·제외 줄·
             tailWait·메모는 자료에 남아 있으면 그대로 동작하지만, 화면은
@@ -1784,7 +1787,7 @@ export default function TcStepDetail({
               {/* 시각은 「Result」 바로 옆이다(지시) — 오른쪽 끝에 떨어져 있으면
                   이 출력이 언제 것인지와 「Result」 가 따로 논다 */}
               <span>
-                Result
+                RCA
                 {step.executed_at
                   ? ` - ${step.executed_at.slice(0, 16).replace('T', ' ')}`
                   : ''}
