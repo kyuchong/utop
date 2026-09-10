@@ -181,7 +181,7 @@
   border: 0; border-bottom: 1px solid #edf1f2; background: none; font: inherit; cursor: pointer;
 }
 .ra-tc:hover { background: #fafcfc; }
-.ra-tc.on { background: #eef7ff; box-shadow: inset 3px 0 0 #3f80e5; }
+.ra-tc.on { background: #eef7ff; }
 /* 판정 아이콘 — **10px**(지시). 글자보다 크면 눈이 거기부터 간다 */
 .ra-dot { width: 10px; height: 10px; display: grid; place-items: center; line-height: 0; }
 .ra-dot svg { width: 10px; height: 10px; display: block; }
@@ -356,7 +356,7 @@
 .ra-sline:hover { background: #fafcfc; }
 /* 접은 회차 안내 — 「출력이 왜 없지」 를 안 헤매게 */
 .ra-sfold { padding: 3px 8px; font-size: 10.5px; color: #8c9da3; background: #fafbfb; border-bottom: 1px solid #f2f5f6; }
-.ra-sline.on { background: #eef7ff; box-shadow: inset 3px 0 0 #3f80e5; }
+.ra-sline.on { background: #eef7ff; }
 .ra-sline.run { background: #f2f8ff; }
 /* 시각 — Test Report 의 Timestamp 와 같은 꼴이다(지시) */
 .ra-sline time { color: #93a5ab; font-variant-numeric: tabular-nums; font-size: 11px; white-space: nowrap; }
@@ -393,6 +393,10 @@
 /* 실행 이벤트 — 거르개를 뺀 대신 칸을 좁혔다 */
 .ra-evt td, .ra-evt th { padding-top: 3px; padding-bottom: 3px; }
 .ra-evt .ra-num { font-variant-numeric: tabular-nums; color: #8c9da3; }
+/* Step 칸 — `Step 12 · 10000회` 까지 **한 줄**로 간다. 접히면 그 줄만
+   높이가 두 배가 되어 표가 계단처럼 어긋난다(지적). */
+.ra-evst { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
 .ra-ev {
   display: inline-block; min-width: 44px; text-align: center;
   border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 800;
@@ -416,8 +420,10 @@
    걷은 자리는 시험 항목 이름이 받는다(지시) */
 /* iTest 에 맞춘다(지시) — 표 안은 **12px 한 벌**이고 줄 높이는 19px 이다.
    위계는 크기가 아니라 색과 굵기가 만든다(TC ID 청록 · 시각 회색). */
-.ra-cols, .ra-tc { grid-template-columns: 12px 118px 82px minmax(0, 1fr) auto; gap: 6px; padding: 2px 8px; line-height: 1.2; }
-.ra-tcid { font-size: 12px; }
+/* TC ID 칸은 **한 줄로 들어가야** 한다 — 82px 에서는 `E59xxRL-T0003` 이
+   두 줄로 접혀 줄 높이가 들쭉날쭉했다(지적). */
+.ra-cols, .ra-tc { grid-template-columns: 12px 118px 118px minmax(0, 1fr) auto; gap: 6px; padding: 2px 8px; line-height: 1.2; }
+.ra-tcid { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ra-tcnm { font-size: 12px; }
 .ra-grp { font-variant-numeric: tabular-nums; }
 

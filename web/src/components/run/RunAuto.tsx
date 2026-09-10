@@ -851,7 +851,9 @@ export default function RunAuto({
               <thead>
                 <tr>
                   <th style={{ width: 118 }}>시각</th>
-                  <th style={{ width: 52 }}>Step</th>
+                  {/* `Step 2 · 1회` 가 한 줄로 들어가야 한다 — 52px 에서는
+                      회차가 아랫줄로 접혀 줄 높이가 들쭉날쭉했다(지적) */}
+                  <th style={{ width: 104 }}>Step</th>
                   <th style={{ width: 54 }}>결과</th>
                   <th>세부 내역</th>
                 </tr>
@@ -861,7 +863,7 @@ export default function RunAuto({
                   <tr key={i2}>
                     {/* Test Report 의 Timestamp 와 **같은 꼴**로(지시) */}
                     <td className="ra-num">{shortStamp(e.at)}</td>
-                    <td>{e.step}</td>
+                    <td className="ra-evst">{e.step}</td>
                     <td>
                       <span className={`ra-ev ${e.kind}`}>{e.kind.toUpperCase()}</span>
                     </td>
@@ -1071,7 +1073,7 @@ export default function RunAuto({
                   {/* 이 자리는 **판정 시각**이다(지적). 걸린 시간은 안 적는다 —
                       스텝 표의 Time 칸이 이미 그것을 말한다. */}
                   <span className="ra-tct">{shortStamp(it.at)}</span>
-                  <span className="ra-tcid">{it.id}</span>
+                  <span className="ra-tcid" title={it.id}>{it.id}</span>
                   <span className="ra-tcnm">{it.name}</span>
                   {it.id === runItem ? <RunMark /> : <span />}
                 </button>
