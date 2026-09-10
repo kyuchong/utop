@@ -1381,8 +1381,11 @@ async function runOne(
     const sse = await readSse('/api/run-cli-stream', body, ctx.signal, (e) => {
       if (e.cmd != null) {
         lastCmd = String(e.cmd)
-        // 명령이 여러 개면 어디까지 갔는지 보여야 한다
-        if (commands.length > 1) ctx.onLog({ i, text: `▸ ${e.cmd}`, kind: 'info' })
+        /* **보내는 그때** 한 줄 남긴다(지시: 리얼타임으로 하나씩 보여야 한다).
+           스텝이 끝난 뒤 요약만 남기면 20 회 반복이 끝나야 스무 줄이 한꺼번에
+           나온다 — 「한번에 팍 나온다」 던 것이 이것이다. 명령이 하나뿐인
+           스텝도 남긴다: 회차마다 무엇을 보냈는지가 그 줄이다. */
+        ctx.onLog({ i, text: `▸ ${e.cmd}`, kind: 'info' })
         if (acc && !acc.endsWith('\n')) acc += '\n'
         /*
          * 프롬프트는 장비 이름으로.

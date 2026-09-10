@@ -2479,12 +2479,14 @@ async def run_log_add(run_id: str, lines: list) -> int:
                 run_id, base + n + 1,
                 _idx(x.get("at")), _idx(x.get("i")),
                 str(x.get("kind") or ""), str(x.get("text") or ""),
+                # 반복 회차 — 없으면 NULL(반복 밖). 0 은 회차가 아니다.
+                (int(x["round"]) if str(x.get("round") or "").strip().isdigit() and int(x["round"]) > 0 else None),
             )
             for n, x in enumerate(lines)
         ]
         await c.executemany(
-            "INSERT INTO cycle_run_log (run_id, seq, item_at, i, kind, text) "
-            "VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
+            "INSERT INTO cycle_run_log (run_id, seq, item_at, i, kind, text, round) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING",
             rows,
         )
         return base + len(rows)
@@ -2493,9 +2495,20 @@ async def run_log_add(run_id: str, lines: list) -> int:
 async def run_log_get(run_id: str, after: int = 0, limit: int = 5000) -> list:
     async with pool().acquire() as c:
         return [
-            {"seq": r["seq"], "at": r["item_at"], "i": r["i"], "kind": r["kind"], "text": r["text"]}
+            {
+                "seq": r["seq"],
+                # `at` 은 예부터 **몇 번째 항목**이었다(이름이 헷갈린다).
+                # 진짜 시각은 ts 로 따로 준다 — 화면이 회차마다 시각을 적는다(지시).
+                "at": r["item_at"],
+                "ts": r["at"].isoformat() if r["at"] else "",
+                "round": r["round"],
+                "i": r["i"],
+                "kind": r["kind"],
+                "text": r["text"],
+            }
             for r in await c.fetch(
-                "SELECT seq, item_at, i, kind, text FROM cycle_run_log WHERE run_id=$1 AND seq>$2 "
+                "SELECT seq, item_at, i, kind, text, at, round FROM cycle_run_log "
+                "WHERE run_id=$1 AND seq>$2 "
                 "ORDER BY seq LIMIT $3",
                 run_id, int(after), int(limit),
             )

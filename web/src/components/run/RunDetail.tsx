@@ -240,6 +240,11 @@ function manualSteps(tc?: Record<string, unknown>): Array<{
   return man
 }
 
+/** 실행기가 보낸 한 줄 — 회차와 **진짜 시각**이 실려 온다 */
+type LiveLog = { seq?: number; ts?: string; round?: number | null; i?: number; kind?: string; text?: string }
+/** 화면이 들고 있을 줄 수 — 10,000 회 반복이면 줄이 이만큼을 훌쩍 넘는다 */
+const LOG_KEEP = 4000
+
 export default function RunDetail({
   runId, plan, onBack, lead, onClose, only, focus,
 }: {
@@ -379,6 +384,8 @@ export default function RunDetail({
   /** 실행기 일감 — 돌고 있으면 2초마다 다시 묻는다.
       다 돌면 서버가 결과를 이 실행으로 옮겨 적으므로, 그때 실행도 다시 읽는다. */
   const jobId = String(run?.job_id ?? '')
+  /** 받은 줄을 이어 쌓는 자리 — 일감이 바뀌면 비운다 */
+  const logBuf = useRef<{ id: string; seq: number; rows: LiveLog[] }>({ id: '', seq: 0, rows: [] })
   const jobQ = useQuery({
     queryKey: ['run-job', jobId],
     enabled: !!jobId,
@@ -389,18 +396,37 @@ export default function RunDetail({
       return st === 'queued' || st === 'running' ? 1000 : false
     },
     queryFn: async () => {
-      const r = await apiFetch(`/api/runs/${encodeURIComponent(jobId)}`)
+      /* **이어받는다**. 서버는 한 번에 5,000 줄에서 끊으므로 매번 처음부터
+         달라고 하면 10,000 회 반복에서 최신 줄이 영영 안 온다 — 화면이
+         멈춘 것처럼 보인다. 마지막으로 본 seq 다음부터만 받아 쌓는다. */
+      const buf = logBuf.current
+      if (buf.id !== jobId) {
+        buf.id = jobId
+        buf.seq = 0
+        buf.rows = []
+      }
+      const r = await apiFetch(`/api/runs/${encodeURIComponent(jobId)}?after=${buf.seq}`)
       if (!r.ok) throw new Error('일감을 불러오지 못했습니다')
-      return (await r.json()) as {
+      const j = (await r.json()) as {
         run?: { status?: string; done?: number; total?: number; item_name?: string
                 step_name?: string; step_at?: number; step_count?: number; error?: string
         item_at?: number; ended_at?: string | null
         /** 지금 도는 항목의 스텝들 — 결과가 차오르는 그대로다 */
         live_steps?: unknown[] | null }
+        logs?: LiveLog[]
       }
+      const add = j.logs ?? []
+      if (add.length) {
+        for (const x of add) buf.seq = Math.max(buf.seq, Number(x.seq ?? 0))
+        // 오래된 줄은 버린다 — 화면은 뒤쪽만 그리고, 다 들고 있으면 탭이 무거워진다
+        buf.rows = [...buf.rows, ...add].slice(-LOG_KEEP)
+      }
+      return { run: j.run, logs: buf.rows }
     },
   })
   const job = jobQ.data?.run
+  /** 실행기가 보낸 줄 — 실행 이벤트가 이것을 그대로 그린다(리얼타임) */
+  const jobLogs = jobQ.data?.logs
   const jobLive = job?.status === 'queued' || job?.status === 'running'
   /** 실행기가 지금 돌고 있는 항목·스텝. 안 돌면 없다 — 없는 것을 그리지 않는다 */
   const runItem = jobLive ? String(job?.item_name ?? '') : ''
@@ -1459,6 +1485,7 @@ export default function RunDetail({
             }))
           })()}
           stepAt={stepAt}
+          liveLogs={jobLogs}
           onStep={(i) => {
             setPinned(true)
             setStepAt(i)

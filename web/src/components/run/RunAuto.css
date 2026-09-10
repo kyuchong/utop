@@ -348,7 +348,7 @@
 }
 .ra-sconvh small { color: #7e97a0; font-weight: 500; }
 .ra-sline {
-  display: grid; grid-template-columns: 58px 44px minmax(0, 1fr) 34px; gap: 7px; align-items: center;
+  display: grid; grid-template-columns: 112px 38px 44px minmax(0, 1fr) 34px; gap: 7px; align-items: center;
   width: 100%; text-align: left; padding: 2px 8px; line-height: 1.2;
   border: 0; border-bottom: 1px solid #f2f5f6; background: none; cursor: pointer; color: inherit;
   font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px;
@@ -358,7 +358,9 @@
 .ra-sfold { padding: 3px 8px; font-size: 10.5px; color: #8c9da3; background: #fafbfb; border-bottom: 1px solid #f2f5f6; }
 .ra-sline.on { background: #eef7ff; box-shadow: inset 3px 0 0 #3f80e5; }
 .ra-sline.run { background: #f2f8ff; }
-.ra-sline em { font-style: normal; color: #93a5ab; font-variant-numeric: tabular-nums; }
+/* 시각 — Test Report 의 Timestamp 와 같은 꼴이다(지시) */
+.ra-sline time { color: #93a5ab; font-variant-numeric: tabular-nums; font-size: 11px; white-space: nowrap; }
+.ra-sline em { font-style: normal; color: #7f9299; font-variant-numeric: tabular-nums; text-align: right; }
 .ra-sline b { color: #17607f; font-weight: 700; }
 .ra-sline .c { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #24343c; }
 .ra-sline i { font-style: normal; font-size: 9px; font-weight: 800; text-align: right; }

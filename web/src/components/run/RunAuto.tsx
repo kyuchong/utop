@@ -135,11 +135,20 @@ function Verdict({ v }: { v: string }) {
 
 /** 판정 시각 — `2026-09-08 08:18:33` 을 `26/09/08 08:18:33` 로 줄인다(지시).
  *  칸이 좁아 연도 앞 두 자리는 접는다 — 같은 해 안에서 보는 목록이다. */
+/** 실시간 줄은 **뒤에서 이만큼**만 그린다 — 10,000 회를 다 그리면 죽는다 */
+const LIVE_MAX = 600
+
+/**
+ * Test Report 의 Timestamp — `26/09/10 10:37:17`.
+ *
+ * 화면에서 시각을 적는 자리는 **모두 이 꼴**이다(지시). 문자열을 자르지 않고
+ * `stamp` 를 거치는 까닭은 **시간대** 다: 서버는 `+09:00` 이 붙은 ISO 를
+ * 주는데 앞에서 잘라 쓰면 UTC 로 도는 서버에서 아홉 시간이 어긋난다.
+ */
 function shortStamp(v?: string): string {
-  const raw = String(v ?? '').trim()
-  if (!raw) return '—'
-  const m = raw.match(/^\d{2}(\d{2})-(\d{2})-(\d{2})[ T](\d{2}:\d{2}:\d{2})/)
-  return m ? `${m[1]}/${m[2]}/${m[3]} ${m[4]}` : raw
+  const full = stamp(v)
+  const m = full.match(/^\d{2}(\d{2})-(\d{2})-(\d{2}) (\d{2}:\d{2}:\d{2})/)
+  return m ? `${m[1]}/${m[2]}/${m[3]} ${m[4]}` : full
 }
 
 /** 지금 도는 것을 알리는 표시 — 스텝 표와 항목 목록이 **같은 모양**을 쓴다 */
@@ -168,10 +177,14 @@ const FLT_N = (t: { total: number; p: number; f: number; n: number }) => ({
 
 export default function RunAuto({
   items, cur, onPick, steps, stepAt, onStep, dut, logAt,
-  runStep, runItem, waitAt, devices,
+  runStep, runItem, waitAt, devices, liveLogs,
 }: {
   /** 장비 목록 — 세션 판이 세션에 붙은 장비를 여기서 찾는다 */
   devices?: AutoDev[]
+  /** **실행기가 보낸 줄** — 1 초마다 새로 온다(지시: 리얼타임으로).
+   *  있으면 실행 이벤트가 이것을 그대로 그린다: 회차마다 한 줄씩 올라와
+   *  TC 화면과 같은 결이 된다. 스텝에서 만들면 반복이 다 끝나야 나온다. */
+  liveLogs?: Array<{ seq?: number; ts?: string; round?: number | null; i?: number; kind?: string; text?: string }>
   /** 지난 실행의 출력 — **이제 안 그린다**(지시).
    *  콘솔은 고른 스텝의 **지금 결과** 하나만 보여 준다. 위 판이 계속
    *  넘겨 주고 있어 자리만 남겨 둔다. */
@@ -421,6 +434,25 @@ export default function RunAuto({
 
   const events = useMemo(() => {
     const out: Array<{ at: string; step: string; kind: string; text: string }> = []
+    /* **실행기가 보낸 줄이 있으면 그것을 그대로 그린다**(지시: 리얼타임으로).
+       1 초마다 새로 오므로 회차마다 한 줄씩 올라온다 — TC 화면과 같은 결이다.
+       스텝에서 만들면 회차 기록이 **반복이 다 끝나야** 오기 때문에 한꺼번에
+       팍 나오고, 시각도 스텝 것 하나로 다 같아진다(지적). */
+    if (liveLogs && liveLogs.length) {
+      /* 10,000 회를 다 그리면 화면이 죽는다 — **뒤에서 600 줄**만.
+         실행 중에 보고 싶은 것은 방금 무엇이 나갔는가다. */
+      for (const l of liveLogs.slice(-LIVE_MAX)) {
+        const i2 = Number(l.i ?? -1)
+        const rd = Number(l.round ?? 0)
+        out.push({
+          at: String(l.ts ?? ''),
+          step: i2 >= 0 ? `Step ${i2 + 1}${rd > 0 ? ` · ${rd}회` : ''}` : '',
+          kind: String(l.kind ?? 'info').toUpperCase(),
+          text: String(l.text ?? ''),
+        })
+      }
+      return out
+    }
     steps.forEach((s, i) => {
       /* **돈 스텝만** 적는다. 명령이 적혀 있다고 보낸 것은 아니다 —
          아직 안 온 스텝까지 「보냄」 으로 찍혀, 2번이 도는데 5번까지 다
@@ -818,7 +850,7 @@ export default function RunAuto({
             <table className="ra-tbl ra-evt">
               <thead>
                 <tr>
-                  <th style={{ width: 152 }}>시각</th>
+                  <th style={{ width: 118 }}>시각</th>
                   <th style={{ width: 52 }}>Step</th>
                   <th style={{ width: 54 }}>결과</th>
                   <th>세부 내역</th>
@@ -827,7 +859,8 @@ export default function RunAuto({
               <tbody>
                 {events.map((e, i2) => (
                   <tr key={i2}>
-                    <td className="ra-num">{stamp(e.at)}</td>
+                    {/* Test Report 의 Timestamp 와 **같은 꼴**로(지시) */}
+                    <td className="ra-num">{shortStamp(e.at)}</td>
                     <td>{e.step}</td>
                     <td>
                       <span className={`ra-ev ${e.kind}`}>{e.kind.toUpperCase()}</span>
@@ -915,7 +948,26 @@ export default function RunAuto({
                 type Line = { key: string; i: number; cmd: string; at?: string; mark?: string; nth?: number }
                 const lines: Line[] = []
                 let folded = 0
-                for (const i of sessNow.idx) {
+                /* **실행기가 보낸 줄이 있으면 그것을 먼저 쓴다**(리얼타임).
+                   스텝의 회차 기록은 반복이 다 끝나야 오므로, 도는 동안에는
+                   여기가 비어 보였다. `▸ ` 로 시작하는 줄이 곧 보낸 명령이다. */
+                const own = new Set(sessNow.idx)
+                const live = (liveLogs ?? []).filter(
+                  (l) => own.has(Number(l.i ?? -1)) && String(l.text ?? '').startsWith('▸ '),
+                )
+                if (live.length) {
+                  for (const l of live.slice(-LIVE_MAX)) {
+                    const rd = Number(l.round ?? 0)
+                    lines.push({
+                      key: `L${l.seq ?? lines.length}`,
+                      i: Number(l.i ?? -1),
+                      cmd: String(l.text ?? '').slice(2),
+                      at: String(l.ts ?? ''),
+                      nth: rd > 0 ? rd : undefined,
+                    })
+                  }
+                }
+                for (const i of live.length ? [] : sessNow.idx) {
                   const s2 = steps[i]
                   if (!s2) continue
                   const rds = s2.rounds ?? []
@@ -955,7 +1007,9 @@ export default function RunAuto({
                         onClick={() => onStep(ln.i)}
                         title="누르면 그 스텝의 응답을 폅니다"
                       >
-                        <em>{ln.nth != null ? `${ln.nth}회` : (shortStamp(ln.at).split(' ')[1] ?? '—')}</em>
+                        {/* 시각은 Test Report 와 같은 꼴, 그 뒤에 회차(지시) */}
+                        <time>{shortStamp(ln.at)}</time>
+                        <em>{ln.nth != null ? `${ln.nth}회` : ''}</em>
                         <b>{dut}#</b>
                         <span className="c">{ln.cmd}</span>
                         {ln.mark ? (

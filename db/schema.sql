@@ -558,6 +558,9 @@ CREATE TABLE IF NOT EXISTS cycle_run_log (
 -- 이미 만들어진 표에도 붙인다. schema.sql 은 기동할 때마다 도는데
 -- CREATE TABLE IF NOT EXISTS 는 이미 있는 표의 칸을 늘려 주지 않는다.
 ALTER TABLE cycle_run_log ADD COLUMN IF NOT EXISTS item_at INT DEFAULT -1;
+-- 반복 안에서 나온 줄이면 **몇 회차**인가(지시: 회차마다 보낸 명령이 보여야 한다).
+-- 0/NULL 이면 반복 밖이다.
+ALTER TABLE cycle_run_log ADD COLUMN IF NOT EXISTS round INT;
 
 -- 이 일감이 **어느 실행(plan_run)** 의 것인가.
 -- 실행기는 플랜(cycle)만 알고 돈다. 그 결과를 실행 기록으로 옮겨 적으려면
