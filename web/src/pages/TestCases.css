@@ -802,7 +802,7 @@ button.sq-caret svg { width: 11px; height: 11px; }
 
 .sq-res {
   font-size: var(--fs-xs);
-  text-align: right;
+  text-align: center;
   color: var(--c-text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -845,7 +845,7 @@ button.sq-caret svg { width: 11px; height: 11px; }
    삼각형이 서 있으면 눌러 보고 나서야 안다 */
 .sq-row.note .sq-run { display: none; }
 /* ⋯ 이 너무 옅어 안 보였다(지적) — 평소에도 읽히는 만큼은 진하게 */
-.sq-more { opacity: 0.75; color: var(--c-text-muted); font-size: 13px; }
+.sq-more { opacity: 1; color: var(--c-text-muted); font-size: 14px; font-weight: 700; }
 .sq-row:hover .sq-more,
 .sq-row.on .sq-more,
 .sq-more.on { opacity: 1; color: var(--c-primary); }
@@ -3870,6 +3870,10 @@ html .tc-split > .tc-content {
   letter-spacing: 0;
 }
 /* 글이 드는 칸의 제목만 왼쪽에 붙인다 — 그 칸은 내용도 왼쪽에서 시작한다 */
+/* 제목이 칸 가운데 서 있는데 값은 왼쪽에서 시작하면, 선은 맞아도 **눈에는
+   어긋나 보인다**(지적). 값이 왼쪽에서 시작하는 칸은 제목도 왼쪽에 붙인다:
+   스텝(5) · 동작(6) · 명령(7) · 절차 설명(8). */
+.sq-head > *:nth-child(5),
 .sq-head > *:nth-child(6),
 .sq-head > *:nth-child(7),
 .sq-head > *:nth-child(8) { justify-content: flex-start; }
@@ -3889,3 +3893,20 @@ html .tc-split > .tc-content {
 }
 .sq-row.comment.on .sq-sum,
 .sq-row.message.on .sq-sum { background: #dceafc; }
+
+/* 판정은 **가운데**(지시). 왼쪽에 붙이면 PASS·FAIL 이 서로 다른 자리에서
+   시작해 훑을 때 눈이 좌우로 흔들린다. */
+.sq-row > .sq-res { display: flex; align-items: center; justify-content: center; }
+
+/* 주석의 실행 칸에는 **－** 를 적는다(지시) — 빈 칸으로 두면 「아직 안 만든
+   자리」 처럼 보인다. 장비로 아무것도 안 나가는 줄이라 누를 것이 없다. */
+.sq-row.comment > .sq-runc::after {
+  content: '－';
+  color: var(--c-text-faint);
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* 열 수 없는 ⋯ 은 흐리게 — 눌러 보고 나서야 아는 것보다 낫다 */
+.sq-more:disabled { opacity: 0.2; cursor: default; }
+.sq-row:hover .sq-more:disabled { opacity: 0.2; color: var(--c-text-muted); }

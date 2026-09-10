@@ -117,6 +117,15 @@ export default function TcSequence({
     if (menuAt >= steps.length) setMenuAt(-1)
   }, [steps.length, menuAt])
   const canMenu = !!(onPatch || onDuplicate || onRemove) && !readOnly
+  /**
+   * ⋯ 를 여는 갈래(지시) — 장비로 나가는 줄만.
+   *
+   * 그 판이 하는 일은 **세션 고르기와 대기**다. 주석·반복·조건에는 세션이
+   * 없어서 「세션 – 없음」 만 떠 있었다. 복제·삭제는 줄을 골랐을 때 뜨는
+   * 아래 선택 바가 이미 한다.
+   */
+  const menuOk = (s: TcStep) =>
+    canMenu && ['cli', 'snmp_get', 'snmp_set', 'snmp_trap', 'ping'].includes(s.kind || 'cli')
 
   /**
    * **줄에서 바로 고치기**(목업 ②).
@@ -432,8 +441,13 @@ export default function TcSequence({
                   {canMenu && (
                     <button
                       type="button"
+                      disabled={!menuOk(s)}
                       className={`sq-more${menuAt === i ? ' on' : ''}`}
-                      title="이 줄 설정 — 세션 · 대기 · 건너뛰기 · 복제 · 삭제"
+                      title={
+                        menuOk(s)
+                          ? '이 줄 설정 — 세션 · 대기 · 건너뛰기 · 복제 · 삭제'
+                          : '이 갈래에는 세션·대기가 없습니다 — 복제·삭제는 줄을 골라 아래 바에서'
+                      }
                       aria-haspopup="menu"
                       aria-expanded={menuAt === i}
                       onClick={(e) => {
