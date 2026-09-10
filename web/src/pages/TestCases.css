@@ -427,7 +427,11 @@
      번호 열은 내용만큼만 — 52px 고정이면 „14" 뒤가 통째로 빈다.
      세션은 둘째 열 고정(지시: 체크박스-세션-스텝-명령어-내역-결과-실행) —
      Action 뒤에 두면 들여쓰기에 밀려 줄마다 자리가 달랐다. */
-  grid-template-columns: 15px minmax(28px, max-content) minmax(24px, max-content) minmax(90px, auto) 1fr 54px 24px;
+  /* Action 칸은 **고정**이다(지시: 각 필드를 고정해야 침범을 안 한다).
+     `minmax(90px, auto)` 였더니 들여쓴 줄일수록 칸이 넓어져 그 뒤 명령 칸이
+     줄마다 다른 자리에서 시작했다. 들여쓰기 16px × 4 단 + 캐럿 + 이름이
+     164px 안에 든다 — 깊이가 어떻든 명령은 늘 같은 자리다. */
+  grid-template-columns: 15px minmax(28px, max-content) minmax(24px, max-content) 164px 1fr 54px 24px;
   position: relative;
   align-items: center;
   gap: var(--sp-2);
@@ -614,6 +618,8 @@ button.sq-caret svg { width: 11px; height: 11px; }
   font-weight: 500;
   white-space: nowrap;
   color: var(--c-text-muted);
+  /* 칸을 넘치면 잘린다 — 넘쳐서 옆 칸을 밀어내지 않게 */
+  overflow: hidden;
 }
 
 /* 아이콘만 갈래 색을 갖는다. 글자까지 물들이면 목록이 알록달록해진다. */

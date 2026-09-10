@@ -915,15 +915,57 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
     lastPick.current = -1
   }
 
+  /**
+   * 줄을 위·아래로 옮긴다 — **몸통을 데리고 간다**(지시).
+   *
+   * 전에는 자리만 맞바꿨다. 그러니 Loop 를 내리면 몸통은 그대로 남아
+   * **남의 Loop 밑으로 들어가고**, 심하면 Loop 가 제 몸통 안으로 들어갔다.
+   * 계층은 indent 로만 정해지니 배열 자리가 곧 뜻이다.
+   *
+   * 오가는 상대는 **같은 깊이의 형제**다. 부모 밖으로 나가는 것은 옮기기가
+   * 아니라 내어쓰기(⇤)가 할 일이라, 형제가 없으면 그냥 안 움직인다.
+   */
   const moveStep = (i: number, dir: -1 | 1) => {
-    const j = i + dir
-    if (j < 0 || j >= steps.length) return
-    const next = [...steps]
-    const a = next[i]!
-    next[i] = next[j]!
-    next[j] = a
-    patch({ checks: next })
-    setStepIdx(j)
+    const d = Number(steps[i]?.indent ?? 0)
+    const end = blockEnd(steps, i)
+    const blk = steps.slice(i, end)
+    if (dir < 0) {
+      // 바로 위 형제의 머리를 찾는다 — 그 줄의 몸통은 건너뛴다
+      let p = i - 1
+      while (p >= 0 && Number(steps[p]?.indent ?? 0) > d) p--
+      if (p < 0 || Number(steps[p]?.indent ?? 0) !== d) return
+      patch({ checks: [...steps.slice(0, p), ...blk, ...steps.slice(p, i), ...steps.slice(end)] })
+      setStepIdx(p)
+    } else {
+      if (end >= steps.length || Number(steps[end]?.indent ?? 0) !== d) return
+      const nend = blockEnd(steps, end)
+      patch({
+        checks: [...steps.slice(0, i), ...steps.slice(end, nend), ...blk, ...steps.slice(nend)],
+      })
+      setStepIdx(i + (nend - end))
+    }
+    clearPicked()
+  }
+
+  /**
+   * 들여쓰기·내어쓰기 — 이것도 **몸통을 데리고 간다**.
+   *
+   * 들어갈 수 있는 깊이는 **바로 위 줄 +1 까지**다. 그보다 깊이 넣으면
+   * 부모가 없는 줄이 되는데, 실행기는 그런 줄을 그냥 돌려 버린다.
+   */
+  const indentStep = (i: number, dir: -1 | 1) => {
+    const d = Number(steps[i]?.indent ?? 0)
+    const max = i > 0 ? Math.min(4, Number(steps[i - 1]?.indent ?? 0) + 1) : 0
+    const nd = d + dir
+    if (nd < 0 || nd > max) return
+    const end = blockEnd(steps, i)
+    patch({
+      checks: steps.map((x, j) =>
+        j >= i && j < end
+          ? { ...x, indent: Math.max(0, Math.min(4, Number(x.indent ?? 0) + dir)) }
+          : x,
+      ),
+    })
     clearPicked()
   }
 
@@ -1024,13 +1066,32 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
   const removeSteps = (idx: number[]) => {
     if (idx.length === 0) return
     const gone = new Set(idx)
+    /* **몸통이 딸려 있으면 묻는다**(지시). 전에는 말없이 여는 줄만 지웠고,
+       남은 몸통은 부모 없는 줄이 되어 그대로 돌아갔다. 안의 줄을 남기려면
+       먼저 ⇤ 로 꺼내야 한다 — 지우기가 알아서 한 단 올리면 그것대로 놀란다. */
+    let kids = 0
+    for (const i of idx) {
+      const end = blockEnd(steps, i)
+      for (let j = i + 1; j < end; j++) if (!gone.has(j)) kids++
+    }
+    if (kids > 0) {
+      const ok = window.confirm(
+        `고른 스텝 안에 ${kids}줄이 더 있습니다.\n안의 줄도 **함께 지웁니다.**\n\n` +
+          '안의 줄을 남기려면 그만두고, 먼저 ⇤ 로 블록 밖으로 꺼내세요.',
+      )
+      if (!ok) return
+      for (const i of idx) {
+        const end = blockEnd(steps, i)
+        for (let j = i + 1; j < end; j++) gone.add(j)
+      }
+    }
     patch({ checks: steps.filter((_, j) => !gone.has(j)) })
     setStepIdx(-1)
     setPicked(new Set())
     lastPick.current = -1
     setMsg({
       kind: '',
-      text: `스텝 ${idx.length}개를 지웠습니다 — 저장 전까지는 되돌릴 수 있습니다`,
+      text: `스텝 ${gone.size}개를 지웠습니다 — 저장 전까지는 되돌릴 수 있습니다`,
     })
   }
 
@@ -2065,6 +2126,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     takenVars={takenVars}
                     onChange={(p) => stepIdx >= 0 && patchStep(stepIdx, p)}
                     onMove={(dir) => stepIdx >= 0 && moveStep(stepIdx, dir)}
+                    onIndent={(dir) => stepIdx >= 0 && indentStep(stepIdx, dir)}
+                    /* 들어갈 수 있는 깊이 — **위 줄 +1 까지**(부모 없는 줄 막기) */
+                    maxIndent={
+                      stepIdx > 0 ? Math.min(4, Number(shownSteps[stepIdx - 1]?.indent ?? 0) + 1) : 0
+                    }
                     onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}
                     onDuplicate={() => stepIdx >= 0 && duplicateStep(stepIdx)}
                     onRun={running || stepIdx < 0 ? undefined : () => void doRun(stepIdx, true)}

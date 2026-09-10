@@ -48,6 +48,10 @@ interface Props {
   takenVars: string[]
   onChange: (patch: Partial<TcStep>) => void
   onMove: (dir: -1 | 1) => void
+  /** 들여쓰기·내어쓰기 — **몸통을 데리고 간다**. 없으면 이 줄만 바꾼다(옛 길) */
+  onIndent?: (dir: -1 | 1) => void
+  /** 들어갈 수 있는 깊이 — 위 줄 +1 까지. 없으면 4 */
+  maxIndent?: number
   onRemove: () => void
   /** 바로 아래에 같은 스텝 하나 더 */
   onDuplicate: () => void
@@ -113,6 +117,8 @@ export default function TcStepDetail({
   takenVars,
   onChange,
   onMove,
+  onIndent,
+  maxIndent,
   onRemove,
   onDuplicate,
   onRun,
@@ -551,19 +557,24 @@ export default function TcStepDetail({
           className="btn small sd-ind"
           type="button"
           disabled={depth <= 0}
-          title="블록 밖으로 (내어쓰기)"
+          title="블록 밖으로 (내어쓰기) — 안의 줄도 함께 나옵니다"
           aria-label="블록 밖으로"
-          onClick={() => onChange({ indent: depth - 1 })}
+          onClick={() => (onIndent ? onIndent(-1) : onChange({ indent: depth - 1 }))}
         >
           <IconOutdent />
         </button>
         <button
           className="btn small sd-ind"
           type="button"
-          disabled={depth >= 4}
-          title="블록 안으로 (들여쓰기)"
+          /* **위 줄 +1 까지**만 들어간다 — 더 깊이 넣으면 부모 없는 줄이 된다 */
+          disabled={depth >= Math.min(4, maxIndent ?? 4)}
+          title={
+            depth >= Math.min(4, maxIndent ?? 4)
+              ? '더 들어갈 수 없습니다 — 위 줄보다 한 단까지만'
+              : '블록 안으로 (들여쓰기) — 안의 줄도 함께 들어갑니다'
+          }
           aria-label="블록 안으로"
-          onClick={() => onChange({ indent: depth + 1 })}
+          onClick={() => (onIndent ? onIndent(1) : onChange({ indent: depth + 1 }))}
         >
           <IconIndent />
         </button>
