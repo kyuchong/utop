@@ -17512,12 +17512,63 @@ async def _jira_cache_scheduler():
 # 대화는 계정별로 KV 에 담는다 — kai.threads.{username}. 화면 왼쪽 1열이
 # 이 목록이고, 다음 접속에 이어진다.
 
+# 어느 시험 자료에나 들어 있는 말 — 이것으로 고르면 아무 항목이나 1등이 된다
+_KAI_STOP = {
+    "시험", "항목", "테스트", "test", "알려", "알려줘", "찾아", "찾아줘", "보여", "보여줘",
+    "무엇", "뭐야", "어떻게", "어때", "해줘", "주세요", "있어", "있나", "있는지", "관련",
+    "내용", "정리", "요약", "전부", "전체", "목록", "데이터", "결과",
+}
+
+
 def _kai_terms(q: str) -> list[str]:
     import re as _re
-    out = [t for t in _re.split(r"[^0-9A-Za-z가-힣_.-]+", q) if len(t) >= 2]
+    raw = [t for t in _re.split(r"[^0-9A-Za-z가-힣_.-]+", q) if len(t) >= 2]
+    # 흔한 말을 먼저 걷는다 — 남는 것이 없을 때만 되돌린다
+    out = [t for t in raw if t.lower() not in _KAI_STOP] or raw
     # 조사 붙은 한글 낱말도 앞부분으로 걸리게 — 긴 것부터 다섯 개면 족하다
     out.sort(key=len, reverse=True)
     return out[:5] or ([q.strip()] if q.strip() else [])
+
+
+def _kai_tc_snip(txt: str, terms: list[str]) -> str:
+    """시험 항목 발췌 — **사람이 읽는 꼴**로.
+
+    `data::text` 를 그대로 자르면 `{"name": …, "checks": [{"id": "ck178…`
+    같은 JSON 이 근거로 나간다. 사람도 못 읽고 LLM 에게도 잡음이다.
+    이름과 **질문에 걸린 스텝**만 골라 한 줄씩 편다."""
+    try:
+        d = json.loads(txt or "{}")
+    except Exception:
+        return _kai_snip(txt or "", terms, 200)
+    head = str(d.get("name") or "")
+    lines: list[str] = []
+    for st in (d.get("checks") or d.get("steps") or []):
+        if not isinstance(st, dict):
+            continue
+        cmd = str(st.get("cli") or st.get("data") or "").strip()
+        desc = str(st.get("desc") or st.get("step") or "").strip()
+        crit = str(st.get("criteria") or st.get("expected") or "").strip()
+        blob = f"{cmd} {desc} {crit}".lower()
+        if terms and not any(t.lower() in blob for t in terms):
+            continue
+        one = " · ".join(x for x in (desc, cmd, (f"기대 {crit}" if crit else "")) if x)
+        if one:
+            lines.append(one[:140])
+        if len(lines) >= 5:
+            break
+    if not lines:
+        # 걸린 스텝이 없으면 앞 스텝 두 줄로 무엇을 하는 시험인지만 보인다
+        for st in (d.get("checks") or [])[:2]:
+            if not isinstance(st, dict):
+                continue
+            one = " · ".join(
+                x for x in (str(st.get("desc") or st.get("step") or "").strip(),
+                            str(st.get("cli") or st.get("data") or "").strip()) if x
+            )
+            if one:
+                lines.append(one[:140])
+    tail = "\n".join(lines)
+    return (head + ("\n" + tail if tail else "")).strip() or head
 
 
 def _kai_snip(text: str, terms: list[str], width: int = 260) -> str:
@@ -17602,11 +17653,14 @@ async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = Non
                    WHERE tcid ILIKE ANY($1::text[]) OR name ILIKE ANY($1::text[])
                       OR data::text ILIKE ANY($1::text[]) LIMIT 60""", like)
             def _tscore(r):
+                # **이름이 먼저다.** 본문(JSON)은 아무 항목에나 같은 낱말이
+                # 널려 있어, 세는 대로 두면 이름이 딱 맞는 항목이 뒤로 밀린다.
                 nm = ((r["tcid"] or "") + " " + (r["name"] or "")).lower()
-                return sum((4 if t.lower() in nm else 0) + min(3, (r["txt"] or "").lower().count(t.lower())) for t in terms)
+                return sum((10 if t.lower() in nm else 0)
+                           + min(2, (r["txt"] or "").lower().count(t.lower())) for t in terms)
             for r in sorted(rows, key=_tscore, reverse=True)[:cap]:
                 out.append({"kind": "tc", "id": r["tcid"], "title": r["name"] or r["tcid"],
-                            "snippet": _kai_snip(r["txt"] or "", terms, 200)})
+                            "snippet": _kai_tc_snip(r["txt"] or "", terms)})
             rows = await c.fetch(
                 """SELECT reqid, title FROM req
                    WHERE reqid ILIKE ANY($1::text[]) OR title ILIKE ANY($1::text[]) LIMIT 12""", like)
