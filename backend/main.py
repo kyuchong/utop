@@ -17534,13 +17534,17 @@ def _kai_snip(text: str, terms: list[str], width: int = 260) -> str:
     return ("…" if s0 > 0 else "") + out + ("…" if s0 + width < len(text) else "")
 
 
-async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = None) -> list[dict]:
+async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = None,
+                      docs: list[str] | None = None) -> list[dict]:
     """네 저장소를 훑어 근거 후보를 모은다 — 전부 우리 것만 읽는다.
 
     위키는 **하이브리드 검색**(BM25+임베딩+리랭크 — 매뉴얼 RAG 와 같은 관)
     을 먼저 탄다: 「동작 온도」 로 물어도 Operating Temperature 문서가
     걸린다(지시: 제품 스펙 조회). project 를 주면 그 프로젝트 것과 공용
-    (프로젝트 빈 값) 문서만 본다 — 상단 프로젝트 선택을 따라간다(질문)."""
+    (프로젝트 빈 값) 문서만 본다 — 상단 프로젝트 선택을 따라간다(질문).
+
+    `docs` 는 **프로젝트 컨텍스트**다 — 그 문서 안에서만 찾는다. 프로젝트에
+    스펙 문서 두 장을 붙여 두면 그 안에서 답하고, 밖의 문서는 안 본다."""
     terms = _kai_terms(q)
     if not terms:
         return []
@@ -17558,6 +17562,8 @@ async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = Non
             if projects and str(h.get("project") or "") not in ("", *projects):
                 continue
             wid = str(h.get("wiki_id") or "")
+            if docs and wid not in docs:
+                continue
             if not wid or wid in seen_w:
                 continue
             seen_w.add(wid)
@@ -17568,10 +17574,15 @@ async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = Non
     async with db.pool().acquire() as c:
         if "wiki" in scopes and not any(x["kind"] == "wiki" for x in out):
             # 폴백 — 색인이 아직 안 섰거나 하이브리드가 빈손일 때(글자 일치)
-            rows = await c.fetch(
-                """SELECT id, project, title, plain FROM wiki_page
-                   WHERE title ILIKE ANY($1::text[]) OR plain ILIKE ANY($1::text[])
-                   LIMIT 40""", like)
+            if docs:
+                rows = await c.fetch(
+                    """SELECT id, project, title, plain FROM wiki_page
+                       WHERE id = ANY($1::text[])""", docs)
+            else:
+                rows = await c.fetch(
+                    """SELECT id, project, title, plain FROM wiki_page
+                       WHERE title ILIKE ANY($1::text[]) OR plain ILIKE ANY($1::text[])
+                       LIMIT 40""", like)
             if projects:
                 rows = [r for r in rows if str(r["project"] or "") in ("", *projects)]
             def _wscore(r):
@@ -17741,7 +17752,7 @@ async def kai_folder_new(payload: dict, request: Request):
          # 둘을 이어 보여 주지만 쓰임이 달라 따로 담는다.
          "desc": str(payload.get("desc") or "").strip()[:1000],
          "instr": str(payload.get("instr") or "").strip()[:2000],
-         "pin": True, "archived": False,
+         "pin": True, "archived": False, "ctxDocs": [],
          "at": datetime.now(_tz.utc).isoformat()}
     folds.insert(0, f)
     await db.kv_set(f"kai.folders.{u}", folds)
@@ -17761,6 +17772,9 @@ async def kai_folder_patch(fid: str, payload: dict, request: Request):
             f["name"] = nm
     if "desc" in payload:
         f["desc"] = str(payload.get("desc") or "").strip()[:1000]
+    if "ctxDocs" in payload:
+        # 붙일 수 있는 문서는 20 장까지 — 그보다 많으면 「그 안에서만」이 뜻을 잃는다
+        f["ctxDocs"] = [str(x) for x in (payload.get("ctxDocs") or [])][:20]
     if "instr" in payload:
         f["instr"] = str(payload.get("instr") or "").strip()[:2000]
     if "pin" in payload:
@@ -17789,6 +17803,27 @@ async def kai_folder_del(fid: str, request: Request):
     return {"ok": True, "moved": moved}
 
 
+@app.get("/api/kai/folder/{fid}/memory")
+async def kai_folder_memory(fid: str, request: Request):
+    """이 프로젝트 대화에서 **자주 참조한 근거**를 센다.
+
+    목업의 「메모리」 — AI 가 따로 기억하는 것이 아니라, 여기서 묻고 답할 때
+    무엇을 되풀이해 짚었는지다. 그것이 곧 이 프로젝트가 무엇을 다루는지다."""
+    u = _kai_user(request)
+    ths = [t for t in await _kai_load(u) if str(t.get("folder") or "") == fid]
+    cnt: dict[str, dict] = {}
+    for t in ths:
+        for m in t.get("msgs") or []:
+            for sx in m.get("sources") or []:
+                k = f"{sx.get('kind')}:{sx.get('id')}"
+                if k not in cnt:
+                    cnt[k] = {"kind": sx.get("kind"), "id": sx.get("id"),
+                              "title": sx.get("title") or sx.get("id"), "n": 0}
+                cnt[k]["n"] += 1
+    items = sorted(cnt.values(), key=lambda x: -x["n"])[:8]
+    return {"ok": True, "items": items, "threads": len(ths)}
+
+
 @app.post("/api/kai/ask-stream")
 async def kai_ask_stream(payload: dict, request: Request):
     """**흘려보내는 답**(승인: 스트리밍). 근거를 먼저 내보내고(meta),
@@ -17811,7 +17846,16 @@ async def kai_ask_stream(payload: dict, request: Request):
         if not q:
             yield ev({"type": "done", "error": "질문이 비었습니다"})
             return
-        srcs = await _kai_search(q, scopes, projects)
+        # 프로젝트에 문서를 붙여 두었으면 **그 안에서 먼저** 찾는다.
+        # 거기서 아무것도 안 나오면 평소대로 전부에서 찾는다 — 붙였다고
+        # 답이 없어지면, 왜 못 찾는지 알 수 없다.
+        _ctx: list[str] = []
+        if fold_in:
+            _f = next((x for x in await _kai_folds(u) if x.get("id") == fold_in), None)
+            _ctx = [str(x) for x in ((_f or {}).get("ctxDocs") or [])]
+        srcs = await _kai_search(q, scopes, projects, _ctx or None) if _ctx else []
+        if not srcs:
+            srcs = await _kai_search(q, scopes, projects)
         yield ev({"type": "meta", "sources": srcs})
 
         blocks = []

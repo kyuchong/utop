@@ -647,3 +647,104 @@
 .kai-fld input:focus,
 .kai-fld textarea:focus { border-color: var(--c-primary); }
 .kai-fldhint { margin: 0 0 14px; font-size: 12.5px; color: var(--c-text-muted); line-height: 1.6; }
+
+/* ══ 프로젝트 상세 — 목업 구조(빵부스러기 · 제목줄 · 2열) ══ */
+.kai-pj .pj-topbar { padding: 16px 22px 0; max-width: 1180px; margin: 0 auto; }
+.kai-pj .pj-crumb { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--c-text-muted); }
+.kai-pj .pj-crumb .lnk { border: 0; background: none; font: inherit; color: var(--c-text-muted); cursor: pointer; padding: 0; }
+.kai-pj .pj-crumb .lnk:hover { color: var(--c-primary); }
+.kai-pj .pj-crumb .sep { color: var(--c-text-faint); }
+.kai-pj .pj-crumb b { font-weight: 600; color: var(--c-text); }
+.kai-pj .pj-wrap.detail { max-width: 1180px; padding: 12px 32px 32px; }
+.kai-pj .pj-title { display: flex; align-items: center; gap: 8px; margin: 0 0 3px; }
+.kai-pj .pj-title h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+.kai-pj .pj-title .sp { flex: 1; }
+.kai-pj .pj-ib.on { color: var(--c-primary); }
+.kai-pj .pj-desc { margin: 0 0 28px; font-size: 13px; color: var(--c-text-muted); line-height: 1.6; }
+.kai-pj .pj-desc.dim { color: var(--c-text-faint); }
+.kai-pj .pj-cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; }
+@media (max-width: 1080px) { .kai-pj .pj-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* 상세에서 바로 묻기 */
+.kai-pj .pj-ask {
+  background: var(--c-surface); border: 1px solid #e3eaec; border-radius: 16px;
+  padding: 16px 18px 12px; box-shadow: 0 2px 10px rgb(18 80 94 / 6%); margin-bottom: 18px;
+}
+.kai-pj .pj-ask > input { width: 100%; border: 0; outline: 0; font: inherit; font-size: 16px; background: none; padding-bottom: 12px; }
+.kai-pj .pj-ask-r { display: flex; align-items: center; gap: 8px; }
+.kai-pj .pj-ask-r .sp { flex: 1; }
+.kai-pj .pj-model { font-size: 12px; color: var(--c-text-faint); }
+/* 상세의 범위 알약은 위로 열린다 — 아래는 화면 끝이다 */
+.kai-pj .cap-pop.up { bottom: auto; top: calc(100% + 8px); }
+
+.kai-pj .pj-h { margin: 24px 0 2px; font-size: 12px; color: var(--c-text-faint); font-weight: 600; }
+.kai-pj .pj-row {
+  display: flex; align-items: center; gap: 14px; padding: 13px 6px;
+  border-bottom: 1px solid #e3eaec; cursor: pointer;
+}
+.kai-pj .pj-row:hover { background: var(--c-surface); }
+.kai-pj .pj-rt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.kai-pj .pj-rt b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kai-pj .pj-snip { font-size: 12px; color: var(--c-text-faint); }
+.kai-pj .pj-rd { font-size: 12px; color: var(--c-text-faint); white-space: nowrap; }
+.kai-pj .pj-empty { text-align: center; color: var(--c-text-faint); padding: 36px 0; }
+.kai-pj .pj-empty > i { font-style: normal; font-size: 26px; }
+.kai-pj .pj-empty p { margin: 8px 0 0; font-size: 12.5px; }
+
+/* 오른쪽 판 — 한 장의 카드에 구역을 실금으로 나눈다 */
+.kai-pj .pj-side.one {
+  background: var(--c-surface); border: 1px solid #e3eaec; border-radius: 14px; overflow: hidden;
+  align-self: start;
+}
+.kai-pj .pj-side.one section { padding: 16px 18px; border-bottom: 1px solid #e3eaec; }
+.kai-pj .pj-side.one section:last-child { border-bottom: 0; }
+.kai-pj .ps-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.kai-pj .ps-hd .sp { flex: 1; }
+.kai-pj .ps-hd b { font-size: 13px; }
+.kai-pj .ps-tag { font-size: 11px; color: var(--c-text-faint); background: var(--c-surface-alt, #f2f7f8); border-radius: 999px; padding: 2px 8px; }
+.kai-pj .ps-add {
+  width: 22px; height: 22px; display: grid; place-items: center; border: 0; background: none;
+  border-radius: 6px; color: var(--c-text-faint); cursor: pointer; font: inherit; font-size: 14px;
+}
+.kai-pj .ps-add:hover { background: var(--c-surface-alt, #f2f7f8); color: var(--c-text); }
+.kai-pj .pj-side p { margin: 0; font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; }
+.kai-pj .pj-side p.dim { color: var(--c-text-faint); }
+.kai-pj .pj-hint { margin: 0 0 10px; font-size: 11.5px; color: var(--c-text-faint); }
+.kai-pj .pj-mem { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.kai-pj .pj-mem li { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.kai-pj .pj-mem li b { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kai-pj .pj-mem li em { font-style: normal; color: var(--c-text-faint); font-size: 11px; }
+.kai-pj .pj-mem .tag { font-size: 10px; font-weight: 700; border-radius: 5px; padding: 1px 6px; flex: none; }
+
+/* 컨텍스트 타일 */
+.kai-pj .ctx-tiles { display: flex; flex-wrap: wrap; gap: 8px; }
+.kai-pj .ctx-tile {
+  position: relative; display: inline-flex; align-items: center; max-width: 100%;
+  border: 1px solid #e3eaec; border-radius: 9px; padding: 7px 10px;
+  background: var(--c-surface-alt, #f5f7f9); font-size: 12px;
+}
+.kai-pj .ctx-nm { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.kai-pj .ctx-x {
+  margin-left: 6px; width: 18px; height: 18px; display: grid; place-items: center; flex: none;
+  border: 0; background: none; border-radius: 50%; color: var(--c-text-faint); cursor: pointer; font-size: 10px;
+}
+.kai-pj .ctx-x:hover { background: #fdecec; color: #b3261e; }
+
+/* 문서 고르기 목록 */
+.ctx-pick { display: flex; flex-direction: column; max-height: 46vh; overflow: auto; margin-top: -6px; }
+.ctx-pick > button {
+  display: flex; align-items: center; gap: 8px; border: 0; background: none; text-align: left;
+  padding: 8px 10px; border-radius: 8px; font: inherit; font-size: 12.5px; color: var(--c-text); cursor: pointer;
+}
+.ctx-pick > button:hover { background: var(--c-surface-alt, #f2f7f8); }
+.ctx-pick > button.on { color: var(--c-primary); font-weight: 600; }
+.ctx-pick > button > i { font-style: normal; width: 14px; flex: none; }
+.ctx-pick > button > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-pick > button > em { font-style: normal; font-size: 10.5px; color: var(--c-text-faint); }
+
+/* 레일 폴더 — 캐럿(펼치기)과 이름(열기)을 가른다 */
+.kai-fold .fcar {
+  width: 26px; height: 28px; display: grid; place-items: center; flex: none;
+  border: 0; background: none; border-radius: 6px; color: var(--c-text-muted); cursor: pointer;
+}
+.kai-fold .fcar:hover { background: #e6eaed; color: var(--c-text); }

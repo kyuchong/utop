@@ -58,7 +58,15 @@ interface KaiFolder {
   at?: string
   /** 마지막으로 대화한 때 — 「최근 활동순」 정렬에 쓴다 */
   last?: string
+  /** 이 프로젝트에서 먼저 찾을 WIKI 문서 */
+  ctxDocs?: string[]
   n?: number
+}
+interface WikiPage {
+  id: string
+  title: string
+  project?: string
+  parent_id?: string
 }
 
 /**
@@ -184,7 +192,7 @@ export default function AiKb() {
   const [spaceOpen, setSpaceOpen] = useState(false)
   const [capOpen, setCapOpen] = useState(false)
   /** 오른쪽에 무엇을 세울까 — 대화 · 프로젝트 목록 · 라이브러리 */
-  const [view, setView] = useState<'chat' | 'projects' | 'library'>('chat')
+  const [view, setView] = useState<'chat' | 'projects' | 'project' | 'library'>('chat')
   /** 지금 들어가 있는 프로젝트. 빈 글자면 밖 */
   const [curFold, setCurFold] = useState('')
   /** 레일 접기 — 계정을 따라간다 */
@@ -212,6 +220,8 @@ export default function AiKb() {
   const [foldDlg, setFoldDlg] = useState<{ edit: KaiFolder | null; name: string; desc: string } | null>(null)
   /** 지침 창 — 이건 한 칸이라 따로 둔다 */
   const [instrDlg, setInstrDlg] = useState<{ f: KaiFolder; v: string } | null>(null)
+  /** WIKI 문서 붙이기 창 */
+  const [ctxDlg, setCtxDlg] = useState<{ f: KaiFolder; q: string } | null>(null)
   /** 3열 — 열림 여부와 지금 짚은 근거 번호(C 동작: [n] 을 눌러야 연다) */
   const [srcOpen, setSrcOpen] = useState(false)
   const [srcFocus, setSrcFocus] = useState(0)
@@ -231,6 +241,26 @@ export default function AiKb() {
     },
   })
   const threads = useMemo(() => thQ.data?.threads ?? [], [thQ.data])
+
+  /** 프로젝트가 자주 짚은 근거 — 목업의 「메모리」 */
+  const memQ = useQuery({
+    queryKey: ['kai-memory', curFold],
+    enabled: view === 'project' && !!curFold,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/kai/folder/${encodeURIComponent(curFold)}/memory`)
+      return (await r.json()) as { items?: Array<{ kind: string; id: string; title: string; n: number }>; threads?: number }
+    },
+  })
+  /** 컨텍스트에 붙일 문서 고르기 — 창을 열 때만 읽는다 */
+  const wikiQ = useQuery({
+    queryKey: ['kai-wiki'],
+    /* 상세에서도 필요하다 — 붙여 둔 문서의 **이름**을 보여야 하니 */
+    enabled: !!ctxDlg || view === 'project',
+    queryFn: async () => {
+      const r = await apiFetch('/api/wiki')
+      return (await r.json()) as { pages?: WikiPage[] }
+    },
+  })
 
   const foldQ = useQuery({
     queryKey: ['kai-folders'],
@@ -332,8 +362,7 @@ export default function AiKb() {
     /* 만들면 **그 프로젝트로 들어간다**(목업) — 만들자마자 쓰라는 뜻이다 */
     if (j.folder?.id) {
       setCurFold(j.folder.id)
-      setView('chat')
-      newThread(j.folder.id)
+      setView('project')
     }
   }
   async function patchFolder(f: KaiFolder, p: Partial<KaiFolder>) {
@@ -354,12 +383,18 @@ export default function AiKb() {
 
 
 
-  async function ask(q0?: string) {
+  async function ask(q0?: string, fresh = false) {
     const q = (q0 ?? text).trim()
     if (!q || busy) return
     setText('')
     setBusy(true)
     setView('chat')
+    /* 프로젝트 상세에서 물으면 **새 대화**다 — 그 화면에는 이어붙을 대화가
+       떠 있지 않은데, state 의 tid 는 아까 보던 대화를 가리키고 있다. */
+    if (fresh) {
+      setTid('')
+      setMsgs([])
+    }
     /* 질문과 **빈 답그릇**을 먼저 놓는다 — 글자가 오는 대로 그릇에 붓는다
        (승인: 스트리밍). 답을 다 만들 때까지 「찾는 중…」 만 보이던 3~6초
        침묵이 이걸로 사라진다. */
@@ -376,7 +411,7 @@ export default function AiKb() {
         method: 'POST',
         /* 상단에서 고른 프로젝트를 따라간다(질문) — 그 프로젝트 것과 공용 문서만 */
         body: JSON.stringify({
-          tid,
+          tid: fresh ? '' : tid,
           q,
           scopes: SPACE_SCOPES[space],
           projects: currentProjects(),
@@ -479,6 +514,18 @@ export default function AiKb() {
     return `${d.getMonth() + 1}월 ${d.getDate()}일`
   }
   const openNewFold = () => setFoldDlg({ edit: null, name: '', desc: '' })
+  /** 이 프로젝트의 대화 — 상세의 「최근 항목」 */
+  const foldThreads = threads.filter((t) => t.folder === curFold)
+  const wikiName = (id: string) =>
+    (wikiQ.data?.pages ?? []).find((p) => p.id === id)?.title || id
+  /* 프로젝트가 사라졌으면(지웠거나 보관) 목록으로 되돌린다 */
+  useEffect(() => {
+    if (view === 'project' && curFold && foldQ.isSuccess && !folders.some((f) => f.id === curFold)) {
+      setView('projects')
+      setCurFold('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, curFold, foldQ.isSuccess, folders.length])
   /** 프로젝트 ⋯ 메뉴 — 목업 넷(고정 · 세부사항 수정 · 보관 · 삭제) */
   const foldMenu = (f: KaiFolder) => (
     <div className="kai-thmenu" role="menu" onClick={(e) => e.stopPropagation()}>
@@ -783,14 +830,25 @@ export default function AiKb() {
                   <div key={f.id} className={`kai-fold${open ? ' open' : ''}`}>
                     <button
                       type="button"
-                      className="fd"
-                      title={f.instr ? `지침: ${f.instr}` : '지침 없음 — ⋯ 에서 넣을 수 있습니다'}
-                      onClick={() => {
+                      className="fcar"
+                      title={open ? '접기' : '펴기'}
+                      aria-expanded={open}
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setCurFold(open ? '' : f.id)
-                        setView('chat')
                       }}
                     >
                       <i className="fico" aria-hidden="true"><IcoFolder /></i>
+                    </button>
+                    <button
+                      type="button"
+                      className="fd"
+                      title={f.instr ? `지침: ${f.instr}` : '눌러서 이 프로젝트를 엽니다'}
+                      onClick={() => {
+                        setCurFold(f.id)
+                        setView('project')
+                      }}
+                    >
                       <span className="nm">{f.name}</span>
                       {!!f.instr && <em className="fd-i" title="지침이 있습니다">지침</em>}
                       <em className="fd-n">{f.n ?? kids.length}</em>
@@ -929,15 +987,13 @@ export default function AiKb() {
                       title={f.name}
                       onClick={() => {
                         setCurFold(f.id)
-                        setView('chat')
-                        newThread(f.id)
+                        setView('project')
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()
                           setCurFold(f.id)
-                          setView('chat')
-                          newThread(f.id)
+                          setView('project')
                         }
                       }}
                     >
@@ -984,6 +1040,226 @@ export default function AiKb() {
                       : '아직 프로젝트가 없습니다 — 새 프로젝트로 만들어 보세요'}
                 </div>
               )}
+            </div>
+          </div>
+        </section>
+      ) : view === 'project' && foldNow ? (
+        /* ── 프로젝트 상세 — 목업 구조(빵부스러기 · 제목줄 · 2열) ── */
+        <section className="kai-pj">
+          <div className="pj-topbar">
+            <div className="pj-crumb">
+              <button type="button" className="lnk" onClick={() => setView('projects')}>
+                프로젝트
+              </button>
+              <span className="sep">/</span>
+              <b>{foldNow.name}</b>
+            </div>
+          </div>
+          <div className="pj-wrap detail">
+            <div className="pj-title">
+              <h1>{foldNow.name}</h1>
+              <span className="sp" />
+              <button
+                type="button"
+                className={`pj-ib${foldNow.pin === false ? '' : ' on'}`}
+                title={foldNow.pin === false ? '왼쪽 목록에 고정' : '고정 해제'}
+                onClick={() => void patchFolder(foldNow, { pin: foldNow.pin === false })}
+              >
+                <IcoPin />
+              </button>
+              <button
+                type="button"
+                className={`pj-ib${foldNow.archived ? ' on' : ''}`}
+                title={foldNow.archived ? '보관 해제' : '보관하기'}
+                onClick={() => {
+                  void patchFolder(foldNow, { archived: !foldNow.archived })
+                  if (!foldNow.archived) {
+                    setPjTab('arch')
+                    setView('projects')
+                  }
+                }}
+              >
+                🗄
+              </button>
+              <button
+                type="button"
+                className="pj-ib"
+                title="이름 · 설명 고치기"
+                onClick={() => setFoldDlg({ edit: foldNow, name: foldNow.name, desc: foldNow.desc ?? '' })}
+              >
+                ⋮
+              </button>
+            </div>
+            {foldNow.desc ? (
+              <p className="pj-desc">{foldNow.desc}</p>
+            ) : (
+              <p className="pj-desc dim">설명이 없습니다 — ⋮ 에서 넣을 수 있습니다.</p>
+            )}
+
+            <div className="pj-cols">
+              <div className="pj-main">
+                {/* 여기서 물으면 이 프로젝트의 새 대화가 된다 */}
+                <div className="pj-ask">
+                  <input
+                    value={text}
+                    placeholder="오늘 어떤 도움을 드릴까요?"
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.nativeEvent.isComposing) return
+                      if (e.key === 'Enter' && text.trim() && !busy) void ask(undefined, true)
+                    }}
+                  />
+                  <div className="pj-ask-r">
+                    <span className="cap-scope">
+                      <button
+                        type="button"
+                        className={`cap-pill sp-${space}`}
+                        aria-haspopup="listbox"
+                        aria-expanded={capOpen}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setCapOpen((v) => !v)
+                        }}
+                      >
+                        {spaceDef[1]} {info.pill}
+                        <i className="cap-car" aria-hidden="true">▾</i>
+                      </button>
+                      {capOpen && spaceList('cap-pop up', () => setCapOpen(false))}
+                    </span>
+                    <span className="sp" />
+                    <span className="pj-model">Knowledge AI</span>
+                    <button
+                      type="button"
+                      className={`kai-send sm${text.trim() && !busy ? ' on' : ''}`}
+                      disabled={busy || !text.trim()}
+                      onClick={() => void ask(undefined, true)}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M5 12h13M13 6l6 6-6 6" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {foldThreads.length ? (
+                  <>
+                    <h4 className="pj-h">최근 항목</h4>
+                    {foldThreads.map((t) => (
+                      <div
+                        key={t.id}
+                        className="pj-row"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => void openThread(t.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            void openThread(t.id)
+                          }
+                        }}
+                      >
+                        <div className="pj-rt">
+                          <b>{t.title || '(제목 없음)'}</b>
+                          <span className="pj-snip">{t.n ?? 0}턴</span>
+                        </div>
+                        <span className="pj-rd">{whenTxt(t.at)}</span>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div className="pj-empty">
+                    <i aria-hidden="true">💬</i>
+                    <p>이 프로젝트에서 대화할 때마다 같은 지식을 참조합니다.</p>
+                  </div>
+                )}
+              </div>
+
+              <aside className="pj-side one">
+                <section>
+                  <div className="ps-hd">
+                    <b>지침</b>
+                    <span className="sp" />
+                    <button
+                      type="button"
+                      className="ps-add"
+                      title="프로젝트 지침 설정"
+                      onClick={() => setInstrDlg({ f: foldNow, v: foldNow.instr ?? '' })}
+                    >
+                      ＋
+                    </button>
+                  </div>
+                  {foldNow.instr ? <p>{foldNow.instr}</p> : <p className="dim">답변을 맞춤화하는 지침 추가</p>}
+                </section>
+
+                <section>
+                  <div className="ps-hd">
+                    <b>메모리</b>
+                    <span className="sp" />
+                    <span className="ps-tag">🔒 나만</span>
+                  </div>
+                  {memQ.data?.items?.length ? (
+                    <ul className="pj-mem">
+                      {memQ.data.items.map((m) => (
+                        <li key={`${m.kind}:${m.id}`}>
+                          <span className={`tag ${KIND_LABEL[m.kind as KaiSource['kind']]?.[1] ?? 'g1'}`}>
+                            {KIND_LABEL[m.kind as KaiSource['kind']]?.[0] ?? '자료'}
+                          </span>
+                          <b>{m.id}</b>
+                          <em>{m.n}회</em>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="dim">
+                      이 프로젝트에서 되풀이해 짚은 근거가 여기 쌓입니다 — 아직 없습니다.
+                    </p>
+                  )}
+                </section>
+
+                <section>
+                  <div className="ps-hd">
+                    <b>컨텍스트</b>
+                    <span className="sp" />
+                    <button
+                      type="button"
+                      className="ps-add"
+                      title="WIKI 문서 붙이기"
+                      onClick={() => setCtxDlg({ f: foldNow, q: '' })}
+                    >
+                      ＋
+                    </button>
+                  </div>
+                  {(foldNow.ctxDocs ?? []).length ? (
+                    <>
+                      <p className="pj-hint">
+                        여기 붙인 문서 <b>{(foldNow.ctxDocs ?? []).length}장</b> 안에서 먼저 찾습니다.
+                        거기서 안 나오면 평소대로 전부에서 찾습니다.
+                      </p>
+                      <div className="ctx-tiles">
+                        {(foldNow.ctxDocs ?? []).map((id) => (
+                          <span key={id} className="ctx-tile">
+                            <b className="ctx-nm">{wikiName(id)}</b>
+                            <button
+                              type="button"
+                              className="ctx-x"
+                              title="빼기"
+                              onClick={() =>
+                                void patchFolder(foldNow, {
+                                  ctxDocs: (foldNow.ctxDocs ?? []).filter((x) => x !== id),
+                                })
+                              }
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="dim">이 프로젝트에서 먼저 찾을 WIKI 문서를 붙이세요.</p>
+                  )}
+                </section>
+              </aside>
             </div>
           </div>
         </section>
@@ -1227,6 +1503,69 @@ export default function AiKb() {
                 }}
               >
                 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 컨텍스트에 붙일 WIKI 문서 고르기 ── */}
+      {!!ctxDlg && (
+        <div className="modal-back" onMouseDown={() => setCtxDlg(null)}>
+          <div className="modal kai-fdlg" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <b>WIKI 문서 붙이기</b>
+              <span className="sp" />
+              <button type="button" className="modal-x" aria-label="닫기" onClick={() => setCtxDlg(null)}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="kai-fldhint">
+                <b>{ctxDlg.f.name}</b> 에서 물으면 여기 붙인 문서 안에서 먼저 찾습니다.
+                거기서 안 나오면 평소대로 전부에서 찾습니다.
+              </p>
+              <label className="kai-fld">
+                <span>문서 찾기</span>
+                <input
+                  autoFocus
+                  value={ctxDlg.q}
+                  placeholder="문서 제목"
+                  onChange={(e) => setCtxDlg((d) => (d ? { ...d, q: e.target.value } : d))}
+                />
+              </label>
+              <div className="ctx-pick">
+                {(() => {
+                  const q = ctxDlg.q.trim().toLowerCase()
+                  const cur = folders.find((f) => f.id === ctxDlg.f.id) ?? ctxDlg.f
+                  const on = new Set(cur.ctxDocs ?? [])
+                  const rows = (wikiQ.data?.pages ?? [])
+                    .filter((p) => !q || (p.title || '').toLowerCase().includes(q))
+                    .slice(0, 60)
+                  if (!rows.length) return <div className="kai-none">맞는 문서가 없습니다</div>
+                  return rows.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={on.has(p.id) ? 'on' : ''}
+                      onClick={() => {
+                        const nx = on.has(p.id)
+                          ? (cur.ctxDocs ?? []).filter((x) => x !== p.id)
+                          : [...(cur.ctxDocs ?? []), p.id]
+                        void patchFolder(cur, { ctxDocs: nx })
+                      }}
+                    >
+                      <i aria-hidden="true">{on.has(p.id) ? '✓' : '＋'}</i>
+                      <span>{p.title || '(이름 없음)'}</span>
+                      {!!p.project && <em>{p.project}</em>}
+                    </button>
+                  ))
+                })()}
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button type="button" className="btn small primary" onClick={() => setCtxDlg(null)}>
+                닫기
               </button>
             </div>
           </div>
