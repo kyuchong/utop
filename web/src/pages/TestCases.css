@@ -475,8 +475,7 @@
      밀어붙여, 목록의 주인공인 `show interface gi0/$i` 가 통째로 잘렸다.
      들여쓰기 16px × 4 단(64) + 캐럿·아이콘·이름(84) = 148 — 깊이가
      어떻든 명령은 여전히 늘 같은 자리에서 시작한다. */
-  grid-template-columns:
-    15px 34px 56px 148px 1fr var(--sq-varw, 0px) 48px 40px;
+  grid-template-columns: var(--sq-cols);
   position: relative;
   align-items: center;
   gap: var(--sp-2);
@@ -497,8 +496,12 @@
    읽힌다. 칸 사이 gap 을 걷고 그 자리를 칸 안쪽 여백으로 돌려 **줄 높이는
    그대로** 둔다(4px 이 한 화면에 두 줄을 더 넣는다). */
 .sq-row { box-shadow: inset 0 -1px 0 var(--tc-div); }
+.sq { --sq-cols: 15px 34px 56px 148px 1fr var(--sq-varw, 0px) 48px 40px; }
 .sq-row,
 .sq-head { gap: 0; }
+/* 머리줄도 **같은 열 폭**을 쓴다 — 줄에만 주면 머리줄이 1열 grid 가 되어
+   제목이 세로로 쌓인다(화면에서 재현) */
+.sq-head { grid-template-columns: var(--sq-cols); }
 .sq-row > *,
 .sq-head > * {
   min-width: 0;
