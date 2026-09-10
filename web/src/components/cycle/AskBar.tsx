@@ -2379,7 +2379,6 @@ export default function AskBar({ devices }: Props) {
                   </>
                 )}
               </span>
-              <span className="ask-rsp" />
               {/* 모드 — **세그먼트 토글**(지시: 목업). 드롭다운이던 것을 바꿨다:
                   둘 중 하나뿐이라 목록을 열 것이 없고, 지금 어느 쪽인지가 한눈에
                   보여야 한다. 알약이 미끄러져 옮겨가 바뀐 것을 알린다. */}
@@ -2405,6 +2404,9 @@ export default function AskBar({ devices }: Props) {
                   </button>
                 ))}
               </span>
+              {/* 빈 공간은 **모드 뒤**다(지시: 모드는 ＋ 옆). 앞에 두면 모드가
+                  오른쪽 끝으로 밀려 마이크·보내기와 한 덩이로 읽힌다. */}
+              <span className="ask-rsp" />
               <button
                 className={`ask-tb mic${listening ? ' rec' : ''}`}
                 type="button"
