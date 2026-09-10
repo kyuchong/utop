@@ -678,6 +678,26 @@ export default function TcStepDetail({
           />
         )}
 
+        {/* **절차 설명** — 결과서(PPTX)가 이 값을 절차의 첫 줄로 읽는다.
+            전에 이 칸을 없애면서 「목록에서 고치는 것이 맞다」 고 했는데
+            목록에도 넣지 않아, **결과서에 나가는 값을 어디서도 못 고치는**
+            상태가 됐다(지적: CLI 만 있으면 무슨 시험인지 모른다).
+            비어 있으면 결과서는 명령에서 말을 지어낸다 —
+            `${Index_n} = ${i} - 24` 같은 줄이 그대로 절차가 된다. */}
+        {!isNoteKind(kind) && (
+          <label className="sd-f">
+            <span className="sd-lab">
+              절차 설명
+              <i className="sd-hint">결과서·실행 로그에 이 말이 쓰입니다</i>
+            </span>
+            <input
+              value={step.desc ?? ''}
+              placeholder="예) interface 상태를 조회한다"
+              onChange={(e) => onChange({ desc: e.target.value })}
+            />
+          </label>
+        )}
+
         {kind === 'cli' && (
           <label className="sd-f">
             <span className="sd-lab">

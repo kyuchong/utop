@@ -269,6 +269,10 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
      스텝을 고칠 때는 로그가 필요 없고, 돌릴 때는 상세를 안 본다.
      한 자리를 나눠 쓰고 **▶ 를 누르면 로그로, 스텝을 고르면 상세로** 간다. */
   const [rtab, setRtab] = useState<'det' | 'log'>('det')
+  /* AI 판(요구사항으로 만들기)은 **접어 둔다**(지시). 스텝이 있는 시험에서는
+     거의 안 쓰는데 늘 110px 을 먹었고, 대개 「아직 만들 수 없습니다」 인
+     채였다. 스텝이 하나도 없을 때만 처음부터 펴 둔다 — 그때는 주인공이다. */
+  const [aiOpen, setAiOpen] = useState(false)
   const logN = useRef(0)
   /** 실행 중 스텝 결과를 **모아 두는 자리**(지적: PC 제어가 안 될 만큼 부하).
    *
@@ -692,6 +696,15 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
   }, [fullQ.data, openId])
 
   const steps = (d.checks ?? []) as TcStep[]
+  /* 빈 시험을 열면 AI 판을 펴 둔다 — 그때는 그것이 주인공이다.
+     시험을 **바꿔 열 때 한 번만** 정한다: 스텝을 다 지워 0 이 됐다고
+     판이 불쑥 펴지면 놀란다. */
+  const aiSeed = useRef('')
+  useEffect(() => {
+    if (!openId || aiSeed.current === openId) return
+    aiSeed.current = openId
+    setAiOpen(steps.length === 0)
+  }, [openId, steps.length])
 
   /**
    * 어느 회차를 보고 있나. 0 이면 「전체」 — 합쳐진 결과.
@@ -957,6 +970,29 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    * 들어갈 수 있는 깊이는 **바로 위 줄 +1 까지**다. 그보다 깊이 넣으면
    * 부모가 없는 줄이 되는데, 실행기는 그런 줄을 그냥 돌려 버린다.
    */
+  /**
+   * 고른 줄을 한꺼번에 들여쓰기·내어쓰기.
+   *
+   * **앞에서부터** 훑는다 — 바로 위 줄이 이미 바뀐 값을 들고 있어야
+   * 「위 줄 +1」 이 맞는다. 뒤에서부터 하면 첫 줄이 안 들어간 채로 둘째
+   * 줄이 판단해 계단이 어긋난다.
+   */
+  const indentPicked = (dir: -1 | 1) => {
+    const next = [...steps]
+    let changed = false
+    for (let j = 0; j < next.length; j++) {
+      if (!picked.has(j)) continue
+      const d = Number(next[j]?.indent ?? 0)
+      const max = j > 0 ? Math.min(4, Number(next[j - 1]?.indent ?? 0) + 1) : 0
+      const nd = Math.max(0, Math.min(max, d + dir))
+      if (nd !== d) {
+        next[j] = { ...next[j]!, indent: nd }
+        changed = true
+      }
+    }
+    if (changed) patch({ checks: next })
+  }
+
   const indentStep = (i: number, dir: -1 | 1) => {
     const d = Number(steps[i]?.indent ?? 0)
     const max = i > 0 ? Math.min(4, Number(steps[i - 1]?.indent ?? 0) + 1) : 0
@@ -1899,6 +1935,21 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                         <b className="status fail">FAIL {runStat.fail}</b>
                       </span>
                     )}
+                    {/* AI 판 여닫기 — 판을 늘 펴 두면 못 쓰는 채로 110px 을
+                        먹는다(지적). 쓸 때만 편다. */}
+                    <button
+                      className={`btn small tc-aibtn${aiOpen ? ' on' : ''}`}
+                      type="button"
+                      aria-pressed={aiOpen}
+                      title={
+                        aiOpen
+                          ? '요구사항으로 만들기 닫기'
+                          : '요구사항으로 만들기 — 구현의도와 시험 목적을 읽고 스텝을 설계합니다'
+                      }
+                      onClick={() => setAiOpen((v) => !v)}
+                    >
+                      ✨ AI
+                    </button>
                   </div>
                   {/* 회차 고르기.
                       반복 시험에서 궁금한 것은 「7회차에 무슨 일이 있었나」 다.
@@ -1972,13 +2023,16 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     </div>
                   )}
                   {/* 요구사항 구현의도·시험 목적 → 스텝 설계.
-                      스텝 목록 위다 — 빈 시험을 열면 이것부터 보여야 한다. */}
-                  <TcSuggest
-                    tcid={openId}
-                    data={d}
-                    intent={String(reqByKey.get(String(d.req_id ?? ''))?.desc ?? '')}
-                    onChange={patch}
-                  />
+                      **접어 둔다**(지시) — 머리줄의 ✨ AI 단추로 편다.
+                      빈 시험을 열면 저절로 펴진다: 그때는 이것부터 보여야 한다. */}
+                  {aiOpen && (
+                    <TcSuggest
+                      tcid={openId}
+                      data={d}
+                      intent={String(reqByKey.get(String(d.req_id ?? ''))?.desc ?? '')}
+                      onChange={patch}
+                    />
+                  )}
                   {fullQ.isLoading ? (
                     <div className="empty">불러오는 중…</div>
                   ) : (
@@ -2017,6 +2071,25 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                         onClick={() => void doRun(0, false, [...picked])}
                       >
                         ▶ 고른 것만
+                      </button>
+                      {/* **여러 줄을 한꺼번에 들여쓴다**(지시). Loop 안에 넣을 때
+                          한 줄씩 누르던 것이 한 번이 된다. 규칙은 한 줄일 때와
+                          같다 — 위 줄보다 한 단까지. */}
+                      <button
+                        className="btn small"
+                        type="button"
+                        title="고른 줄을 블록 밖으로 (내어쓰기)"
+                        onClick={() => indentPicked(-1)}
+                      >
+                        ⇤
+                      </button>
+                      <button
+                        className="btn small"
+                        type="button"
+                        title="고른 줄을 블록 안으로 (들여쓰기)"
+                        onClick={() => indentPicked(1)}
+                      >
+                        ⇥
                       </button>
                       <button className="btn small" type="button" onClick={() => skipPicked(true)}>
                         건너뛰기

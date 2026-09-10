@@ -144,6 +144,26 @@
 .tc-seqcol { flex: 0 1 auto; min-width: 260px; }
 .tc-detcol { flex: 1 1 0; min-width: 320px; }
 
+/* AI 판 여닫기 단추 — 켜져 있을 때만 물든다. 늘 진하면 눈이 그리로 간다 */
+.tc-aibtn { border-color: #cbb9e8; background: #f6f1fd; color: #6b40b8; white-space: nowrap; }
+.tc-aibtn:hover { border-color: #b49ade; }
+.tc-aibtn.on { background: #6b40b8; border-color: #6b40b8; color: #fff; }
+
+/* 절차 설명 — 명령 뒤에 옅게. 결과서가 절차의 첫 줄로 읽는 값이다.
+   명령보다 흐리게 두어 훑을 때 명령이 먼저 읽히게 한다. */
+.sq-desc {
+  font-style: normal;
+  margin-left: 8px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  font-family: var(--font-sans, inherit);
+}
+/* 상세 칸의 도움말 — 라벨 옆에 작게 */
+.sd-lab .sd-hint {
+  font-style: normal; margin-left: 7px; font-weight: 400;
+  font-size: var(--fs-xs); color: var(--c-text-faint);
+}
+
 /* 오른쪽 판 머리의 **탭 둘** — 스텝 상세 ｜ 실행 로그(지시).
    둘을 나란히 세우면 셋 다 좁아지는데 동시에 볼 일이 없다. */
 .tc-rtabs { gap: 0; }
