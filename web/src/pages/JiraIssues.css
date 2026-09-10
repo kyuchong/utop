@@ -108,21 +108,36 @@
 .jri-prjft button { border: 0; background: none; font: inherit; font-size: 11.5px; color: var(--c-primary); cursor: pointer; }
 .jri-none { padding: 12px 8px; font-size: 12px; color: var(--c-text-faint); }
 
-/* 고른 프로젝트 칩 */
-.jri-chip {
+/* 고르개 — select 와 같은 결로. 고른 것은 **여기 안에** 적는다:
+   밖으로 칩이 늘면 도구줄이 고른 수만큼 길어지고 줄이 접힌다. */
+.jri .btn.jri-prjbtn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px 3px 10px;
-  border-radius: 999px;
-  background: var(--c-primary-bg, #e9f1ff);
-  color: var(--c-primary);
-  font-size: 11.5px;
-  font-weight: 600;
-  font-family: var(--font-mono);
+  gap: 6px;
+  min-width: 168px;
+  max-width: 300px;
+  padding-right: 8px;
+  text-align: left;
 }
-.jri-chip > i { font-style: normal; cursor: pointer; opacity: 0.6; font-size: 10px; }
-.jri-chip > i:hover { opacity: 1; }
+.jri-prjlbl {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* select 의 그 화살표 — 고르는 것임을 꼴로 알린다 */
+.jri .btn.jri-prjbtn::after {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: 2px;
+  border-right: 1.6px solid currentcolor;
+  border-bottom: 1.6px solid currentcolor;
+  transform: translateY(-2px) rotate(45deg);
+  opacity: 0.65;
+}
 
 .jri-table {
   flex: 1;

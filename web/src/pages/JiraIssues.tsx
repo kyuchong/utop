@@ -470,7 +470,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
         <span className="jri-prjwrap">
           <button
             type="button"
-            className={`btn small${picked.length ? ' primary' : ''}`}
+            className={`btn small jri-prjbtn${picked.length ? ' primary' : ''}`}
             aria-haspopup="listbox"
             aria-expanded={prjOpen}
             onClick={(e) => {
@@ -478,7 +478,13 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
               setPrjOpen((v) => !v)
             }}
           >
-            프로젝트 {picked.length ? `${picked.length}개` : '고르기'} ▾
+            <span className="jri-prjlbl">
+              {!picked.length
+                ? '프로젝트 고르기'
+                : picked.length === 1
+                  ? picked[0]
+                  : `${picked[0]} 외 ${picked.length - 1}`}
+            </span>
           </button>
           {prjOpen && (
             <>
@@ -523,12 +529,6 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
             </>
           )}
         </span>
-        {picked.map((k) => (
-          <span key={k} className="jri-chip">
-            {k}
-            <i onClick={() => setPicked((v) => v.filter((x) => x !== k))}>✕</i>
-          </span>
-        ))}
         <span className="sp" />
         {!!lastAt && (
           <span className="jri-last" title="마지막으로 지라에서 받아 온 때">
