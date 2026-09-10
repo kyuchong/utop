@@ -546,6 +546,16 @@ export default function TcSequence({
                     줄마다 자리가 달랐다(지적). 값이 없으면 – 로 칸을 고르게
                     채운다. 자릿수가 늘어도 안 밀리게 S01 두 자리로 적는다. */}
                 {(() => {
+                  /* **계측기는 세션이 아니다**(지시). 섀시 주소로 곧장 나가는데
+                     S01 로 적어 두면 장비 세션과 같은 것으로 읽힌다. T.G 로 적는다. */
+                  if ((s.kind || 'cli') === 'instrument')
+                    return (
+                      <span className="sq-s">
+                        <b className="tg" title="계측기 — 세션이 아니라 섀시로 곧장 나갑니다">
+                          T.G
+                        </b>
+                      </span>
+                    )
                   const k = sessionIndex(s.session)
                   return (
                     <span className="sq-s">
