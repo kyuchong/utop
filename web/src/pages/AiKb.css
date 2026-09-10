@@ -849,3 +849,114 @@
   border: 1px solid #dfe6e8; border-radius: 8px; background: var(--c-surface); color: var(--c-text);
 }
 .kai-fld select option { color: var(--c-text); background: var(--c-surface); }
+
+/* ══════════════════════════════════════════════════════════════════
+   답 한 덩이 — 목업 클래스 이름 그대로(.msg .who .bub .card .ans …).
+   전부 **`.kai` 아래로 한정**한다 — 이만큼 흔한 이름은 다른 화면과
+   부딪히면 조용히 망가진다(로그인 화면의 `.lg` 가 그랬다).
+   ══════════════════════════════════════════════════════════════════ */
+.kai .msg { display: flex; flex-direction: column; max-width: 100%; }
+.kai .msg.user { align-items: flex-end; }
+.kai .msg .who { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 13px; color: var(--c-text); }
+.kai .msg.user .who { justify-content: flex-end; }
+.kai .msg .who b { font-weight: 700; }
+.kai .msg .who time { font-size: 11px; color: var(--c-text-faint); }
+.kai .msg .av {
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 11px; font-weight: 700; flex: none;
+}
+.kai .msg .av.me { background: #dfe4ea; color: #3d4753; }
+.kai .msg .av.ai { background: linear-gradient(135deg, #7c5cff, #3f8dfd); color: #fff; font-size: 13px; }
+.kai .msg .bub {
+  background: #12505e; color: #fff; font-weight: 600; border-radius: 10px;
+  padding: 9px 16px; max-width: 70%; box-shadow: 0 1px 3px rgb(18 80 94 / 25%);
+  white-space: pre-wrap; word-break: break-word;
+}
+.kai .msg.ai .card { width: 100%; min-width: 0; }
+.kai .ans { font-size: 13.5px; line-height: 1.75; color: var(--c-text); overflow-x: auto; }
+.kai .ans > p { margin: 0 0 8px; }
+.kai .ans > p:last-child { margin: 0; }
+.kai .ans table { border-collapse: collapse; margin: 8px 0; font-size: 12.5px; }
+.kai .ans td, .kai .ans th { border: 1px solid #e3eaec; padding: 4px 9px; text-align: left; }
+.kai .ans th { background: #eef2f6; font-weight: 600; }
+.kai .ans ul, .kai .ans ol { margin: 0 0 8px; padding-left: 18px; }
+.kai .ans code { font-family: var(--font-mono); font-size: 12px; background: #f2f5f7; border-radius: 3px; padding: 1px 4px; }
+
+/* 이어 물을 것 · 무엇으로 답했나 */
+.kai .card-ft { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e3eaec; }
+.kai .fus { display: flex; flex-wrap: wrap; gap: 6px; }
+.kai .fu {
+  border: 0; cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 600;
+  padding: 3px 10px; border-radius: 999px; background: #e9f1ff; color: #1769d2;
+}
+.kai .fu:hover { background: #d9e8ff; }
+.kai .card-ft .meta { margin-top: 6px; font-size: 10.5px; color: var(--c-text-faint); }
+.kai .card-ft .meta b { color: var(--c-text-muted); }
+
+/* ══ 미리보기 판 — 문서를 통째로 펴고 짚은 데를 칠한다(목업) ══ */
+.kai-drawer {
+  flex: none; min-width: 0; display: flex; flex-direction: column;
+  background: #f6f7fb; border-left: 1px solid #e3eaec;
+}
+.kai-drawer .dr-hd {
+  display: flex; align-items: center; gap: 8px; flex: none;
+  padding: 10px 12px; border-bottom: 1px solid #e3eaec; background: #f6f7fb;
+}
+.kai-drawer .dr-hd .sp { flex: 1; }
+.kai-drawer .dr-hd > b { font-size: 13px; }
+.kai-drawer .ev-cnt {
+  font-size: 11px; font-weight: 700; background: #ede9fe; color: #5b3fd6;
+  border-radius: 999px; padding: 1px 8px;
+}
+.kai-drawer .dr-x {
+  width: 26px; height: 26px; display: grid; place-items: center; border: 0; background: none;
+  border-radius: 6px; color: var(--c-text-muted); cursor: pointer; font-size: 12px;
+}
+.kai-drawer .dr-x:hover { background: #e3eaec; }
+.kai-drawer .dr-bd { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 12px; }
+.kai-drawer .ev-card {
+  background: var(--c-surface); border: 1px solid #e3eaec; border-radius: 12px;
+  padding: 12px 14px; box-shadow: 0 1px 3px rgb(13 68 81 / 5%);
+}
+.kai-drawer .ev-card.on { border-color: #c9bfff; box-shadow: 0 3px 12px rgb(91 63 214 / 12%); }
+.kai-drawer .ev-hd { display: flex; align-items: center; gap: 8px; }
+.kai-drawer .ev-n {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+  background: #ede9fe; color: #5b3fd6; font-size: 11px; font-weight: 700; flex: none;
+}
+.kai-drawer .ev-tag { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 7px; flex: none; }
+.kai-drawer .ev-id {
+  border: 0; background: none; padding: 0; cursor: pointer;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--c-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kai-drawer .ev-id:hover { text-decoration: underline; }
+.kai-drawer .ev-date { font-size: 12px; color: var(--c-text-muted); margin: 4px 0 8px; line-height: 1.5; }
+.kai-drawer .ev-snip {
+  background: #f4f5f8; border-radius: 6px; padding: 8px 10px;
+  font-size: 12px; color: #4d5760; line-height: 1.6;
+}
+.kai-drawer .ev-snip.rich {
+  background: var(--c-surface); border: 1px solid #e3eaec; padding: 12px 14px;
+  color: var(--c-text); max-height: 52vh; overflow: auto;
+}
+.kai-drawer .ev-snip.dim { color: var(--c-text-faint); }
+.kai-drawer .ev-path { font-size: 11.5px; color: var(--c-text-muted); margin-bottom: 8px; }
+.kai-drawer .ev-doc p { margin: 0 0 4px; }
+.kai-drawer .ev-t { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.kai-drawer .ev-t th {
+  text-align: left; color: var(--c-text-faint); font-weight: 600;
+  padding: 4px 7px; border-bottom: 1px solid #e3eaec; background: var(--c-surface-alt, #f5f7f9);
+}
+.kai-drawer .ev-t td { padding: 4px 7px; border-bottom: 1px solid #eef1f4; vertical-align: top; word-break: break-word; }
+.kai-drawer mark { background: #ffe58a; padding: 0 1px; border-radius: 2px; }
+.kai-drawer .ev-foot {
+  margin-top: 8px; padding-top: 6px; border-top: 1px dashed #e3eaec;
+  font-size: 10.5px; color: var(--c-text-faint);
+}
+.kai-drawer .ev-ft { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.kai-drawer .ev-open {
+  border: 0; background: none; padding: 0; cursor: pointer;
+  color: #3b2fb0; font: inherit; font-weight: 700; font-size: 12px;
+}
+.kai-drawer .ev-open:hover { text-decoration: underline; }

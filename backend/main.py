@@ -17803,6 +17803,75 @@ async def kai_folder_del(fid: str, request: Request):
     return {"ok": True, "moved": moved}
 
 
+@app.get("/api/kai/source")
+async def kai_source(kind: str = "", id: str = ""):
+    """근거 **원문** — 미리보기 판이 조각이 아니라 문서를 통째로 펴게.
+
+    발췌 280 자만 보면 「그 앞뒤에 무엇이 있었나」 를 알 수 없다. 목업이
+    문서 전체를 펴고 짚은 데만 노랗게 칠하는 까닭이다."""
+    kind, id = str(kind or ""), str(id or "")
+    if not kind or not id:
+        return {"ok": False, "error": "무엇을 볼지 알려주세요"}
+    async with db.pool().acquire() as c:
+        if kind == "wiki":
+            r = await c.fetchrow(
+                "SELECT id, title, project, plain, updated_at, updated_by "
+                "FROM wiki_page WHERE id=$1", id)
+            if not r:
+                return {"ok": False, "error": "없는 문서입니다"}
+            return {"ok": True, "kind": "wiki", "id": r["id"], "title": r["title"] or "(이름 없음)",
+                    "sub": r["project"] or "공용", "text": r["plain"] or "",
+                    "at": r["updated_at"].isoformat() if r["updated_at"] else None,
+                    "by": r["updated_by"] or ""}
+        if kind == "tc":
+            r = await c.fetchrow("SELECT tcid, name, data FROM tc WHERE tcid=$1", id)
+            if not r:
+                return {"ok": False, "error": "없는 시험 항목입니다"}
+            d = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
+            steps = d.get("checks") or d.get("steps") or []
+            rows = []
+            for i, st in enumerate(steps, 1):
+                if not isinstance(st, dict):
+                    continue
+                cmd = str(st.get("cli") or st.get("data") or "")
+                rows.append({"n": i, "kind": str(st.get("kind") or "cli"),
+                             "cmd": cmd, "desc": str(st.get("desc") or ""),
+                             "expected": str(st.get("expected") or "")})
+            return {"ok": True, "kind": "tc", "id": r["tcid"], "title": r["name"] or r["tcid"],
+                    "sub": str(d.get("folder") or ""), "rows": rows}
+        if kind == "req":
+            r = await c.fetchrow("SELECT reqid, title, data FROM req WHERE reqid=$1", id)
+            if not r:
+                return {"ok": False, "error": "없는 요구사항입니다"}
+            d = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
+            return {"ok": True, "kind": "req", "id": r["reqid"], "title": r["title"] or r["reqid"],
+                    "sub": "요구사항", "text": str(d.get("intent") or d.get("desc") or "")}
+        if kind == "run":
+            r = await c.fetchrow(
+                "SELECT run_id, plan_id, status, created_at, data FROM plan_run WHERE run_id=$1", id)
+            if not r:
+                return {"ok": False, "error": "없는 실행입니다"}
+            d = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
+            res = d.get("results") or {}
+            rows = []
+            for k, v in list(res.items())[:200]:
+                vv = v if isinstance(v, dict) else {}
+                rows.append({"n": len(rows) + 1, "kind": k,
+                             "cmd": str(vv.get("verdict") or vv.get("v") or ""),
+                             "desc": str(vv.get("at") or ""), "expected": str(vv.get("defect") or "")})
+            return {"ok": True, "kind": "run", "id": r["run_id"],
+                    "title": f"{r['run_id']} · {r['status'] or ''}",
+                    "sub": str(r["plan_id"] or ""), "rows": rows,
+                    "at": r["created_at"].isoformat() if r["created_at"] else None}
+    if kind == "jira":
+        v = await db.kv_get(f"jira.issue.{id}")
+        if isinstance(v, dict):
+            return {"ok": True, "kind": "jira", "id": id,
+                    "title": str(v.get("summary") or id), "sub": str(v.get("status") or ""),
+                    "text": str(v.get("description") or v.get("desc") or "")}
+    return {"ok": False, "error": "원문을 찾지 못했습니다"}
+
+
 async def _kai_docs(u: str) -> list[dict]:
     v = await db.kv_get(f"kai.docs.{u}")
     return v if isinstance(v, list) else []
@@ -17903,6 +17972,9 @@ async def kai_ask_stream(payload: dict, request: Request):
     fold_in = str(payload.get("folder") or "").strip()
     u = _kai_user(request)
 
+    import time as _t
+    _t0 = _t.time()
+
     async def gen():
         def ev(obj):  # SSE 한 줄
             return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
@@ -17981,6 +18053,22 @@ async def kai_ask_stream(payload: dict, request: Request):
                    if srcs else "찾은 근거가 없습니다 — 범위를 넓히거나 말을 바꿔 보세요.")
             yield ev({"type": "delta", "t": ans})
 
+        # **이어 물을 것**(목업의 fus) — 찾은 근거에서 뽑는다. 답을 읽고 나면
+        # 다음에 무엇을 물어야 할지가 늘 막히는 자리다.
+        fol: list[str] = []
+        for sx in srcs:
+            k, sid = sx.get("kind"), sx.get("id")
+            cand = (f"{sid} 실행 이력" if k == "tc" else f"{sid} 실패 항목" if k == "run"
+                    else f"{sid} 상태" if k == "jira"
+                    else f"{sid} 시험 항목 전부" if k == "req" else "")
+            if cand and cand not in fol:
+                fol.append(cand)
+            if len(fol) >= 3:
+                break
+        meta = {"scopes": sorted(scopes), "projects": projects,
+                "kinds": sorted({str(x.get("kind")) for x in srcs}),
+                "ms": int((_t.time() - _t0) * 1000)}
+
         # 대화에 싣는다 — 비스트리밍 ask 와 같은 꼴
         ths = await _kai_load(u)
         now = datetime.now(_tz.utc).isoformat()
@@ -17993,12 +18081,12 @@ async def kai_ask_stream(payload: dict, request: Request):
         t["at"] = now
         t["msgs"] = (t.get("msgs") or []) + [
             {"role": "u", "text": q, "at": now},
-            {"role": "a", "text": ans, "sources": srcs, "at": now},
+            {"role": "a", "text": ans, "sources": srcs, "at": now, "follow": fol, "meta": meta},
         ]
         t["msgs"] = t["msgs"][-200:]
         ths.sort(key=lambda x: str(x.get("at") or ""), reverse=True)
         await db.kv_set(f"kai.threads.{u}", ths[:50])
-        yield ev({"type": "done", "tid": tid})
+        yield ev({"type": "done", "tid": tid, "follow": fol, "meta": meta})
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

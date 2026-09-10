@@ -37,6 +37,23 @@ interface KaiMsg {
   at?: string
   /** 도움이 됐나 — 'up' · 'down' · 빈 값 */
   vote?: string
+  /** 이어 물을 것(목업의 fus) */
+  follow?: string[]
+  /** 무엇으로 답했나 — 범위 · 프로젝트 · 근거 종류 · 걸린 시간 */
+  meta?: { scopes?: string[]; projects?: string[]; kinds?: string[]; ms?: number }
+}
+/** 근거 원문 — 미리보기 판이 쓴다 */
+interface KaiSrcDoc {
+  ok?: boolean
+  error?: string
+  kind?: string
+  id?: string
+  title?: string
+  sub?: string
+  text?: string
+  at?: string
+  by?: string
+  rows?: Array<{ n: number; kind: string; cmd: string; desc: string; expected: string }>
 }
 interface KaiDoc {
   id: string
@@ -169,6 +186,47 @@ const IcoSearch = () => (
   </svg>
 )
 
+/* 답 아래 동작 아이콘 — 목업 것 그대로(이모지는 기기마다 크기가 다르다) */
+const MA = {
+  copy: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </svg>
+  ),
+  done: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  ),
+  up: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 22V11l5-8a2 2 0 0 1 3 2l-1 5h4.5a2.5 2.5 0 0 1 2.4 3.1l-1.7 6.4A3 3 0 0 1 16.3 22z" />
+      <path d="M7 11H4v11h3" />
+    </svg>
+  ),
+  down: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 2v11l-5 8a2 2 0 0 1-3-2l1-5H5.5a2.5 2.5 0 0 1-2.4-3.1l1.7-6.4A3 3 0 0 1 7.7 2z" />
+      <path d="M17 13h3V2h-3" />
+    </svg>
+  ),
+  save: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <path d="M17 21v-8H7v8M7 3v5h8" />
+    </svg>
+  ),
+  again: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+      <path d="M21 3v6h-6" />
+    </svg>
+  ),
+}
+/** 저장소별 이모지 — 목업의 출처 칩·메타 줄이 쓴다 */
+const SICO: Record<string, string> = { wiki: '📖', tc: '🧪', req: '🧪', run: '🔄', cycle: '🔄', jira: '🐞' }
+
 /* 고정 핀 — 목업 것 그대로 */
 const IcoPin = () => (
   <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
@@ -242,6 +300,17 @@ export default function AiKb() {
   const [libSort, setLibSort] = useState<'date' | 'name' | 'kind'>('date')
   const [libGrid, setLibGrid] = useState(false)
   const [libOpen, setLibOpen] = useState<KaiDoc | null>(null)
+  /** 말한 사람 줄에 쓸 내 이름 — 「나」 가 아니라 **로그인한 사람**이다(목업) */
+  const meQ = useQuery({
+    queryKey: ['kai-me'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/me')
+      return (await r.json()) as { user?: { username?: string; name?: string } }
+    },
+  })
+  const meName = meQ.data?.user?.name || meQ.data?.user?.username || '나'
+  const meInitial = meName.trim().slice(0, 1) || '나'
   /** 3열 — 열림 여부와 지금 짚은 근거 번호(C 동작: [n] 을 눌러야 연다) */
   const [srcOpen, setSrcOpen] = useState(false)
   const [srcFocus, setSrcFocus] = useState(0)
@@ -251,7 +320,9 @@ export default function AiKb() {
   /* 열 폭 — 다른 화면과 같은 공용 이동바(지시). 계정을 따라간다. */
   const rootRef = useRef<HTMLDivElement>(null)
   const [w1, setW1] = useResizableWidth('utop.ntb.kai.w1', 215, 160, 420)
-  const [w3, setW3] = useResizableWidth('utop.ntb.kai.w3', 330, 240, 560)
+  /* 미리보기는 **문서를 통째로 편다** — 330px 로는 표 한 줄도 안 들어간다.
+     옛 폭(w3)을 그대로 쓰면 좁은 값이 남아 있으므로 키를 새로 잡는다. */
+  const [w3, setW3] = useResizableWidth('utop.ntb.kai.prev', 560, 320, 900)
 
   const thQ = useQuery({
     queryKey: ['kai-threads'],
@@ -461,7 +532,15 @@ export default function AiKb() {
           const line = buf.slice(0, cut)
           buf = buf.slice(cut + 2)
           if (!line.startsWith('data:')) continue
-          let evj: { type?: string; t?: string; tid?: string; error?: string; sources?: KaiSource[] }
+          let evj: {
+            type?: string
+            t?: string
+            tid?: string
+            error?: string
+            sources?: KaiSource[]
+            follow?: string[]
+            meta?: KaiMsg['meta']
+          }
           try {
             evj = JSON.parse(line.slice(5))
           } catch {
@@ -475,6 +554,8 @@ export default function AiKb() {
           } else if (evj.type === 'done') {
             if (evj.error) throw new Error(evj.error)
             if (evj.tid) setTid(evj.tid)
+            /* 이어 물을 것과 「무엇으로 답했나」 는 답이 다 온 뒤에 붙는다 */
+            pour((a) => ({ ...a, follow: evj.follow, meta: evj.meta }))
           }
         }
       }
@@ -497,6 +578,72 @@ export default function AiKb() {
     }
     return []
   }, [msgs])
+
+  /** 지금 짚은 근거 — 미리보기 판이 이것의 **원문**을 편다 */
+  const srcNow = lastSources[Math.max(0, srcFocus - 1)] ?? lastSources[0] ?? null
+  const srcDocQ = useQuery({
+    queryKey: ['kai-source', srcNow?.kind, srcNow?.id],
+    enabled: srcOpen && !!srcNow,
+    queryFn: async () => {
+      const r = await apiFetch(
+        `/api/kai/source?kind=${encodeURIComponent(srcNow!.kind)}&id=${encodeURIComponent(srcNow!.id)}`,
+      )
+      return (await r.json()) as KaiSrcDoc
+    },
+  })
+  /** 마지막 질문의 낱말 — 원문에서 그 자리를 노랗게 짚는다 */
+  const qWords = useMemo(() => {
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i]?.role === 'u') {
+        return (msgs[i]!.text || '')
+          .toLowerCase()
+          .split(/[^0-9a-z가-힣._]+/)
+          .filter((w) => w.length >= 2)
+          .slice(0, 12)
+      }
+    }
+    return []
+  }, [msgs])
+  /** 글자에 질문어를 표시해 넘긴다 — 원문은 우리가 만든 글이 아니라 escape 한다 */
+  const markHtml = (t: string) => {
+    const esc = t.replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] || c,
+    )
+    if (!qWords.length) return esc
+    const re = new RegExp(
+      `(${qWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+      'gi',
+    )
+    return esc.replace(re, '<mark>$1</mark>')
+  }
+  /** 미리보기를 파일로 — 회의에 붙이거나 메일로 보내려면 꺼낼 수 있어야 한다 */
+  const dlSource = (fmt: 'md' | 'html') => {
+    const d = srcDocQ.data
+    if (!d?.ok) return
+    const name = (d.title || d.id || '근거').replace(/[\\/:*?"<>|]/g, '_').slice(0, 60)
+    const body = d.rows?.length
+      ? d.rows.map((r) => `| ${r.n} | ${r.kind} | ${r.cmd} | ${r.desc} | ${r.expected} |`).join('\n')
+      : d.text || ''
+    const md =
+      `# ${d.title || d.id}\n\n> ${SICO[d.kind || ''] ?? ''} ${d.id || ''}${d.sub ? ` · ${d.sub}` : ''}\n\n` +
+      (d.rows?.length ? `| # | 종류 | 명령 | 설명 | 기대값 |\n| --- | --- | --- | --- | --- |\n${body}\n` : `${body}\n`)
+    const txt =
+      fmt === 'md'
+        ? md
+        : `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${d.title || d.id}</title>` +
+          `<style>body{font-family:system-ui,"Noto Sans KR",sans-serif;line-height:1.6;max-width:860px;margin:32px auto;padding:0 20px}` +
+          `table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid #dfe4ea;padding:4px 8px;text-align:left}</style>` +
+          `</head><body><h1>${d.title || d.id}</h1><pre style="white-space:pre-wrap">${body.replace(/[<>]/g, '')}</pre></body></html>`
+    const blob = new Blob([txt], { type: (fmt === 'md' ? 'text/markdown' : 'text/html') + ';charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${name}.${fmt}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
 
   function openSource(kind: KaiSource['kind'], id: string) {
     if (kind === 'wiki') goto('wiki', id)
@@ -1528,123 +1675,149 @@ export default function AiKb() {
             >
               {msgs.map((m, i) =>
                 m.role === 'u' ? (
-                  <div key={i} className="kai-msg u">
+                  <div key={i} className="msg user">
                     <div className="who">
-                      <b>나</b>
+                      <b>{meName}</b>
                       <time>{hhmm(m.at)}</time>
-                      <span className="av me" aria-hidden="true">나</span>
+                      <span className="av me" aria-hidden="true">{meInitial}</span>
                     </div>
-                    <div className="kai-mu">{m.text}</div>
+                    <div className="bub">{m.text}</div>
                   </div>
                 ) : (
-                  <div key={i} className="kai-msg a">
+                  <div key={i} className="msg ai">
                     <div className="who">
                       <span className="av ai" aria-hidden="true">✦</span>
                       <b>Knowledge AI</b>
                       <time>{hhmm(m.at)}</time>
                     </div>
-                    <div
-                      className="kai-ma"
-                      // 소독(DOMPurify)한 마크다운 — [n] 은 누르는 근거 표가 된다
-                      // eslint-disable-next-line react/no-danger
-                      dangerouslySetInnerHTML={{ __html: mdWithCits(m.text) }}
-                    />
-                    {/* **출처 줄**(목업) — 답 속 [n] 을 못 보고 지나치는 사람을 위해
-                        무엇을 보고 답했는지 아래에 한 줄로 편다. */}
-                    {!!m.sources?.length && (
-                      <div className="src-box">
-                        <div className="src-hd">
-                          📑 출처 <span className="src-n">{m.sources.length}개</span>
-                        </div>
-                        <div className="src-chips">
-                          {m.sources.map((sx, k) => {
-                            const [lb, cls] = KIND_LABEL[sx.kind] ?? ['자료', 'g1']
-                            return (
+                    <div className="card">
+                      <div
+                        className="ans"
+                        // 소독(DOMPurify)한 마크다운 — [n] 은 누르는 근거 표가 된다
+                        // eslint-disable-next-line react/no-danger
+                        dangerouslySetInnerHTML={{ __html: mdWithCits(m.text) }}
+                      />
+                      {/* **출처 줄**(목업) — 답 속 [n] 을 못 보고 지나치는 사람을 위해
+                          무엇을 보고 답했는지 아래에 한 줄로 편다. */}
+                      {!!m.sources?.length && (
+                        <div className="src-box">
+                          <div className="src-hd">
+                            📑 출처 <span className="src-n">{m.sources.length}개</span>
+                          </div>
+                          <div className="src-chips">
+                            {m.sources.map((sx, k) => (
                               <button
                                 key={k}
                                 type="button"
                                 className="src-chip"
-                                title={`${lb} · ${sx.title}`}
+                                title={`${sx.id} · ${sx.title}`}
                                 onClick={() => {
                                   setSrcFocus(k + 1)
                                   setSrcOpen(true)
                                 }}
                               >
-                                <span className={`tag ${cls}`}>{lb}</span>
+                                <i aria-hidden="true">{SICO[sx.kind] ?? '📄'}</i>
                                 <b>{sx.id}</b>
                                 <span>{sx.title}</span>
                                 <em>{k + 1}</em>
                               </button>
-                            )
-                          })}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {/* 마지막에 흐르는 답에는 아직 안 붙인다 — 다 오고 나서 */}
-                    {!(busy && i === msgs.length - 1) && (
-                      <>
-                        <div className="ai-note">
-                          AI는 실수를 할 수 있습니다. 중요한 정보는 다시 한번 확인하세요.
-                        </div>
-                        <div className="msg-acts">
-                          <button
-                            type="button"
-                            className={`ma${copied === i ? ' done' : ''}`}
-                            title="복사"
-                            onClick={() => {
-                              const t0 = plainOf(mdWithCits(m.text))
-                              void navigator.clipboard?.writeText(t0)
-                              setCopied(i)
-                              window.setTimeout(() => setCopied(-1), 1200)
-                            }}
-                          >
-                            {copied === i ? '✓' : '⧉'}
-                          </button>
-                          <button
-                            type="button"
-                            className={`ma${m.vote === 'up' ? ' on' : ''}`}
-                            title="도움이 됐어요"
-                            disabled={!tid}
-                            onClick={() => void vote(i, 'up')}
-                          >
-                            👍
-                          </button>
-                          <button
-                            type="button"
-                            className={`ma${m.vote === 'down' ? ' on' : ''}`}
-                            title="아쉬워요"
-                            disabled={!tid}
-                            onClick={() => void vote(i, 'down')}
-                          >
-                            👎
-                          </button>
-                          <button
-                            type="button"
-                            className="ma"
-                            title="문서로 저장 — 라이브러리에 쌓입니다"
-                            onClick={() => {
-                              const q0 = msgs[i - 1]?.role === 'u' ? msgs[i - 1]!.text : ''
-                              setSaveDlg({
-                                body: mdWithCits(m.text),
-                                title: (q0 || plainOf(mdWithCits(m.text))).slice(0, 40),
-                                kind: '요약',
-                              })
-                            }}
-                          >
-                            🗂
-                          </button>
-                          <button
-                            type="button"
-                            className="ma"
-                            title="같은 질문을 다시 묻습니다"
-                            disabled={busy || msgs[i - 1]?.role !== 'u'}
-                            onClick={() => void ask(msgs[i - 1]?.text)}
-                          >
-                            ↻
-                          </button>
-                        </div>
-                      </>
-                    )}
+                      )}
+                      {/* 마지막에 흐르는 답에는 아직 안 붙인다 — 다 오고 나서 */}
+                      {!(busy && i === msgs.length - 1) && (
+                        <>
+                          <div className="ai-note">
+                            AI는 실수를 할 수 있습니다. 중요한 정보는 다시 한번 확인하세요.
+                          </div>
+                          <div className="msg-acts">
+                            <button
+                              type="button"
+                              className={`ma${copied === i ? ' done' : ''}`}
+                              title="복사"
+                              aria-label="복사"
+                              onClick={() => {
+                                void navigator.clipboard?.writeText(plainOf(mdWithCits(m.text)))
+                                setCopied(i)
+                                window.setTimeout(() => setCopied(-1), 1200)
+                              }}
+                            >
+                              {copied === i ? MA.done : MA.copy}
+                            </button>
+                            <button
+                              type="button"
+                              className={`ma${m.vote === 'up' ? ' on' : ''}`}
+                              title="도움이 됐어요"
+                              aria-label="도움이 됐어요"
+                              disabled={!tid}
+                              onClick={() => void vote(i, 'up')}
+                            >
+                              {MA.up}
+                            </button>
+                            <button
+                              type="button"
+                              className={`ma${m.vote === 'down' ? ' on' : ''}`}
+                              title="아쉬워요"
+                              aria-label="아쉬워요"
+                              disabled={!tid}
+                              onClick={() => void vote(i, 'down')}
+                            >
+                              {MA.down}
+                            </button>
+                            <button
+                              type="button"
+                              className="ma"
+                              title="문서로 저장"
+                              aria-label="문서로 저장"
+                              onClick={() => {
+                                const q0 = msgs[i - 1]?.role === 'u' ? msgs[i - 1]!.text : ''
+                                setSaveDlg({
+                                  body: mdWithCits(m.text),
+                                  title: (q0 || plainOf(mdWithCits(m.text))).slice(0, 40),
+                                  kind: '요약',
+                                })
+                              }}
+                            >
+                              {MA.save}
+                            </button>
+                            <button
+                              type="button"
+                              className="ma"
+                              title="다시 답하기"
+                              aria-label="다시 답하기"
+                              disabled={busy || msgs[i - 1]?.role !== 'u'}
+                              onClick={() => void ask(msgs[i - 1]?.text)}
+                            >
+                              {MA.again}
+                            </button>
+                          </div>
+                          {(!!m.follow?.length || !!m.meta) && (
+                            <div className="card-ft">
+                              {!!m.follow?.length && (
+                                <div className="fus">
+                                  {m.follow.map((f) => (
+                                    <button key={f} type="button" className="fu" onClick={() => void ask(f)}>
+                                      {f} ›
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {!!m.meta && (
+                                <div className="meta">
+                                  범위 {(m.meta.scopes ?? []).map((x) => SICO[x] ?? x).join(' ') || '없음'}
+                                  {' · 프로젝트 '}
+                                  {m.meta.projects?.length ? <b>{m.meta.projects.join(', ')}</b> : '전체'}
+                                  {' · 근거 '}
+                                  {(m.meta.kinds ?? []).map((x) => SICO[x] ?? x).join(' ') || '—'}
+                                  {typeof m.meta.ms === 'number' ? ` · ${m.meta.ms}ms` : ''}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 ),
               )}
@@ -1671,31 +1844,127 @@ export default function AiKb() {
             </span>
           )}
           {srcOpen && (
-            <aside className="kai-src" style={{ width: w3 }}>
-              <header>
-                근거 <em>{lastSources.length}건</em>
+            <aside className="kai-drawer open" style={{ width: w3 }}>
+              <div className="dr-hd ev">
+                <b>미리보기</b>
+                <span className="ev-cnt">{lastSources.length}건</span>
                 <span className="sp" />
-                <button type="button" title="닫기" onClick={() => setSrcOpen(false)}>
+                <button
+                  type="button"
+                  className="btn small"
+                  title="이 근거를 Markdown 으로 내려받기"
+                  disabled={!srcDocQ.data?.ok}
+                  onClick={() => dlSource('md')}
+                >
+                  ⤓ MD
+                </button>
+                <button
+                  type="button"
+                  className="btn small"
+                  title="이 근거를 HTML 로 내려받기"
+                  disabled={!srcDocQ.data?.ok}
+                  onClick={() => dlSource('html')}
+                >
+                  ⤓ HTML
+                </button>
+                <button type="button" className="dr-x" title="닫기" onClick={() => setSrcOpen(false)}>
                   ✕
                 </button>
-              </header>
-              <div className="body">
+              </div>
+              <div className="dr-bd ev-bd">
                 {lastSources.map((sx, i) => {
                   const [lb, cls] = KIND_LABEL[sx.kind] ?? ['자료', 'g1']
+                  const on = i + 1 === srcFocus || (srcFocus <= 0 && i === 0)
+                  const d = on ? srcDocQ.data : null
                   return (
-                    <div key={i} className={`card${i + 1 === srcFocus ? ' on' : ''}`}>
-                      <div className="k">
-                        <span className={`tag ${cls}`}>{lb}</span>
-                        <b>{sx.id}</b>
+                    <div key={i} className={`ev-card${on ? ' on' : ''}`}>
+                      <div className="ev-hd">
+                        <span className="ev-n">{i + 1}</span>
+                        <span className={`ev-tag ${cls}`}>{lb}</span>
+                        <button
+                          type="button"
+                          className="ev-id"
+                          title={on ? '접기' : '이 근거의 원문 보기'}
+                          onClick={() => setSrcFocus(on ? -1 : i + 1)}
+                        >
+                          {sx.id}
+                        </button>
                       </div>
-                      <div className="bd">{sx.title}</div>
-                      {!!sx.extra?.status && (
-                        <div className="fld"><em>상태</em>{sx.extra.status} {sx.extra.updated ? `· ${sx.extra.updated}` : ''}</div>
+                      <div className="ev-date">
+                        {sx.title}
+                        {sx.extra?.status ? ` · ${sx.extra.status}` : ''}
+                        {sx.extra?.updated ? ` · ${sx.extra.updated}` : ''}
+                      </div>
+                      {on ? (
+                        srcDocQ.isLoading ? (
+                          <div className="ev-snip rich dim">원문을 가져오는 중…</div>
+                        ) : d?.ok ? (
+                          <div className="ev-snip rich">
+                            <div className="ev-path">
+                              {SICO[d.kind || ''] ?? '📄'} <b>{d.title}</b>
+                              {d.sub ? ` · ${d.sub}` : ''}
+                              {d.by ? ` · ${d.by}` : ''}
+                            </div>
+                            {d.rows?.length ? (
+                              <table className="ev-t">
+                                <thead>
+                                  <tr>
+                                    <th>#</th>
+                                    <th>종류</th>
+                                    <th>명령 · 값</th>
+                                    <th>설명 · 기대</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {d.rows.map((r) => (
+                                    <tr key={r.n}>
+                                      <td>{r.n}</td>
+                                      <td>{r.kind}</td>
+                                      <td
+                                        // 원문 글자 — escape 뒤 질문어만 표시한다
+                                        // eslint-disable-next-line react/no-danger
+                                        dangerouslySetInnerHTML={{ __html: markHtml(r.cmd) }}
+                                      />
+                                      <td
+                                        // eslint-disable-next-line react/no-danger
+                                        dangerouslySetInnerHTML={{ __html: markHtml([r.desc, r.expected].filter(Boolean).join(' → ')) }}
+                                      />
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <div
+                                className="ev-doc"
+                                // eslint-disable-next-line react/no-danger
+                                dangerouslySetInnerHTML={{
+                                  __html: (d.text || '(원문이 비어 있습니다)')
+                                    .split(/\n+/)
+                                    .slice(0, 400)
+                                    .map((ln) => `<p>${markHtml(ln)}</p>`)
+                                    .join(''),
+                                }}
+                              />
+                            )}
+                            <div className="ev-foot">
+                              {sx.kind} · {sx.id}
+                              {d.at ? ` · ${String(d.at).slice(0, 10)}` : ''} — 노란 자리가 질문과 맞은 곳입니다
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="ev-snip rich dim">
+                            {srcDocQ.data?.error || '원문을 찾지 못했습니다'}
+                            {!!sx.snippet && <p>{sx.snippet}</p>}
+                          </div>
+                        )
+                      ) : (
+                        !!sx.snippet && <div className="ev-snip">{sx.snippet}</div>
                       )}
-                      {!!sx.snippet && <div className="sn">{sx.snippet}</div>}
-                      <button type="button" className="go" onClick={() => openSource(sx.kind, sx.id)}>
-                        원본에서 열기 →
-                      </button>
+                      <div className="ev-ft">
+                        <button type="button" className="ev-open" onClick={() => openSource(sx.kind, sx.id)}>
+                          원본에서 열기 →
+                        </button>
+                      </div>
                     </div>
                   )
                 })}
