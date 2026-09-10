@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import { IconIndent, IconOutdent } from '../icons'
 import {
   applyMapRules,
   applySkips,
@@ -111,16 +110,10 @@ function mkCond(v: string, op: string, val: string): string {
 export default function TcStepDetail({
   step,
   index,
-  total,
   sessions,
   params: gp,
   takenVars,
   onChange,
-  onMove,
-  onIndent,
-  maxIndent,
-  onRemove,
-  onDuplicate,
   onRun,
   meterCfg,
   onGoTraffic,
@@ -307,7 +300,6 @@ export default function TcStepDetail({
   /** 계측기 응답이면 표로 읽는다. 아니면 null 이고 원문 그대로 나간다 */
   const meterOut = isMeterStep ? parseMeterOutput(result) : null
   const needsSession = (isCmd || isConn || isNet) && kind !== 'instrument'
-  const depth = Math.min(Math.max(Number(step.indent) || 0, 0), 4)
   /** 이 스텝이 뽑는 이름 */
   const mine = [
     ...(step.queries ?? []).map((x) => x.var),
@@ -536,63 +528,9 @@ export default function TcStepDetail({
         </b>
         <span className="sp" />
         {readOnly && <span className="muted small">가져온 시험 — 보기만 합니다</span>}
-        {!readOnly && (
-        <>
-        <button className="btn small" type="button" disabled={index <= 0} onClick={() => onMove(-1)} title="위로">
-          ▲
-        </button>
-        <button
-          className="btn small"
-          type="button"
-          disabled={index >= total - 1}
-          onClick={() => onMove(1)}
-          title="아래로"
-        >
-          ▼
-        </button>
-        {/* 들여쓰기가 곧 블록 중첩이다. If·Loop 의 몸통은 여는 줄보다 한 칸
-            깊은 줄들이라, 이 값을 못 고치면 블록에 넣고 뺄 수가 없다.
-            ⇤ ⇥ 문자는 글꼴에 따라 거의 안 보여서 도형으로 그린다. */}
-        <button
-          className="btn small sd-ind"
-          type="button"
-          disabled={depth <= 0}
-          title="블록 밖으로 (내어쓰기) — 안의 줄도 함께 나옵니다"
-          aria-label="블록 밖으로"
-          onClick={() => (onIndent ? onIndent(-1) : onChange({ indent: depth - 1 }))}
-        >
-          <IconOutdent />
-        </button>
-        <button
-          className="btn small sd-ind"
-          type="button"
-          /* **위 줄 +1 까지**만 들어간다 — 더 깊이 넣으면 부모 없는 줄이 된다 */
-          disabled={depth >= Math.min(4, maxIndent ?? 4)}
-          title={
-            depth >= Math.min(4, maxIndent ?? 4)
-              ? '더 들어갈 수 없습니다 — 위 줄보다 한 단까지만'
-              : '블록 안으로 (들여쓰기) — 안의 줄도 함께 들어갑니다'
-          }
-          aria-label="블록 안으로"
-          onClick={() => (onIndent ? onIndent(1) : onChange({ indent: depth + 1 }))}
-        >
-          <IconIndent />
-        </button>
-        {/* 비슷한 명령을 줄줄이 만드는 일이 잦다 — show interface 1 · 2 · 3.
-            결과는 안 따라온다. */}
-        <button
-          className="btn small"
-          type="button"
-          title="바로 아래에 같은 스텝 하나 더 (결과는 빼고)"
-          onClick={onDuplicate}
-        >
-          복제
-        </button>
-        <button className="btn small danger" type="button" onClick={onRemove}>
-          삭제
-        </button>
-        </>
-        )}
+        {/* 줄을 옮기고·들여쓰고·복제·삭제하는 단추는 **1 열 선택 바**로 옮겼다(지시).
+            목록을 만지는 일이라 목록 옆에 있어야 한다 — 여기 두면 고르고(1열) →
+            누르고(2열) → 결과를 보러 다시 1열로, 눈이 왕복했다. */}
       </div>
 
       {/* `inert` 는 참·거짓으로 준다 — 빈 글자로 주면 React 19 가 거짓으로

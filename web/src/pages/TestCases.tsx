@@ -1383,8 +1383,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
 
   const doRun = async (from: number, only: boolean, pick?: number[]) => {
     if (running) return
-    // 돌리면 **로그 탭**으로 — 지금 무엇이 나가는지가 그때의 관심사다
-    setRtab('log')
+    /* 돌린다고 탭을 옮기지 않는다(지시) — 스텝을 보다 돌렸으면 스텝을 계속
+       보고 싶다. 로그는 머리의 탭에 줄 수가 늘어나는 것으로 알린다. */
     /*
      * 장비가 정말 필요한 줄이 있을 때만 막는다.
      *
@@ -2059,56 +2059,101 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                   {/* 고른 줄이 있을 때만 뜬다. 목록 **아래**에 둔다 — 위에 두면 띠가
                       나타나는 순간 줄이 통째로 아래로 밀려서, 방금 누른 칸이
                       손 밑에서 달아난다. */}
-                  {picked.size > 0 && (
-                    <div className="sq-bulk">
-                      <b>{picked.size}개 골랐습니다</b>
-                      <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
-                      <button
-                        className="btn small primary"
-                        type="button"
-                        disabled={running}
-                        title="고른 줄만 번호순으로 돌립니다"
-                        onClick={() => void doRun(0, false, [...picked])}
-                      >
-                        ▶ 고른 것만
-                      </button>
-                      {/* **여러 줄을 한꺼번에 들여쓴다**(지시). Loop 안에 넣을 때
-                          한 줄씩 누르던 것이 한 번이 된다. 규칙은 한 줄일 때와
-                          같다 — 위 줄보다 한 단까지. */}
-                      <button
-                        className="btn small"
-                        type="button"
-                        title="고른 줄을 블록 밖으로 (내어쓰기)"
-                        onClick={() => indentPicked(-1)}
-                      >
-                        ⇤
-                      </button>
-                      <button
-                        className="btn small"
-                        type="button"
-                        title="고른 줄을 블록 안으로 (들여쓰기)"
-                        onClick={() => indentPicked(1)}
-                      >
-                        ⇥
-                      </button>
-                      <button className="btn small" type="button" onClick={() => skipPicked(true)}>
-                        건너뛰기
-                      </button>
-                      <button className="btn small" type="button" onClick={() => skipPicked(false)}>
-                        되돌리기
-                      </button>
-                      <button
-                        className="btn small danger"
-                        type="button"
-                        onClick={() => removeSteps([...picked])}
-                      >
-                        삭제
-                      </button>
-                      <button className="btn small" type="button" onClick={clearPicked}>
-                        해제
-                      </button>
-                    </div>
-                  )}
+                  {/* **목록을 만지는 단추는 여기 한 줄에**(지시: 1 열로 옮기기).
+                      스텝 상세에 있던 ▲▼⇤⇥·복제·삭제를 데려왔다 — 고르고(1열) →
+                      누르고(2열) → 결과를 보러 다시 1열로, 눈이 왕복했다.
+                      체크로 여럿 고르면 여럿에, 한 줄만 골라 두었으면 그 줄에 듣는다. */}
+                  {(picked.size > 0 || stepIdx >= 0) &&
+                    (() => {
+                      const multi = picked.size > 0
+                      /* 한 줄일 때만 되는 것(위·아래·복제)의 대상. 여럿이면 -1 */
+                      const one = multi ? (picked.size === 1 ? [...picked][0]! : -1) : stepIdx
+                      return (
+                        <div className="sq-bulk">
+                          {multi ? (
+                            <>
+                              <b>{picked.size}개 골랐습니다</b>
+                              <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
+                            </>
+                          ) : (
+                            <b>스텝 {stepIdx + 1}</b>
+                          )}
+                          <button
+                            className="btn small"
+                            type="button"
+                            disabled={one < 0 || one === 0}
+                            title={one < 0 ? '한 줄만 골랐을 때 옮길 수 있습니다' : '위로 — 안에 든 줄도 함께'}
+                            onClick={() => moveStep(one, -1)}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            className="btn small"
+                            type="button"
+                            disabled={one < 0 || one >= steps.length - 1}
+                            title={one < 0 ? '한 줄만 골랐을 때 옮길 수 있습니다' : '아래로 — 안에 든 줄도 함께'}
+                            onClick={() => moveStep(one, 1)}
+                          >
+                            ▼
+                          </button>
+                          <button
+                            className="btn small"
+                            type="button"
+                            title="블록 밖으로 (내어쓰기) — 안에 든 줄도 함께"
+                            onClick={() => (multi ? indentPicked(-1) : indentStep(one, -1))}
+                          >
+                            ⇤
+                          </button>
+                          <button
+                            className="btn small"
+                            type="button"
+                            title="블록 안으로 (들여쓰기) — 위 줄보다 한 단까지"
+                            onClick={() => (multi ? indentPicked(1) : indentStep(one, 1))}
+                          >
+                            ⇥
+                          </button>
+                          <button
+                            className="btn small"
+                            type="button"
+                            disabled={one < 0}
+                            title={one < 0 ? '한 줄만 골랐을 때 복제할 수 있습니다' : '바로 아래에 같은 스텝 하나 더 (결과는 빼고)'}
+                            onClick={() => duplicateStep(one)}
+                          >
+                            복제
+                          </button>
+                          <button
+                            className="btn small danger"
+                            type="button"
+                            onClick={() => (multi ? removeSteps([...picked]) : removeStep(one))}
+                          >
+                            삭제
+                          </button>
+                          <span className="sq-bsp" />
+                          {multi && (
+                            <>
+                              <button
+                                className="btn small primary"
+                                type="button"
+                                disabled={running}
+                                title="고른 줄만 번호순으로 돌립니다"
+                                onClick={() => void doRun(0, false, [...picked])}
+                              >
+                                ▶ 고른 것만
+                              </button>
+                              <button className="btn small" type="button" onClick={() => skipPicked(true)}>
+                                건너뛰기
+                              </button>
+                              <button className="btn small" type="button" onClick={() => skipPicked(false)}>
+                                되돌리기
+                              </button>
+                              <button className="btn small" type="button" onClick={clearPicked}>
+                                해제
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )
+                    })()}
                 </section>
                 <Resizer
                   label="스텝 목록 폭 조절"

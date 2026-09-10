@@ -3487,3 +3487,6 @@ html .tc-split > .tc-content {
 .sd-wait { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
 .sd-wait > input { width: 84px; flex: none; }
 .sd-wait > .sd-hint { flex: 1 1 260px; min-width: 0; margin: 0; }
+
+/* 선택 바 — 목록을 만지는 단추(왼쪽)와 고른 줄에 하는 일(오른쪽)을 가른다 */
+.sq-bsp { flex: 1; }
