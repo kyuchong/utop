@@ -3,7 +3,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type KeyboardEvent as RKeyboardEvent,
 } from 'react'
 import StepIcon from './StepIcon'
@@ -328,15 +327,9 @@ export default function TcSequence({
     return { cls: 'idle', mark: '○', label: '미실행' }
   }
 
-  /* 「뽑은 값」 열은 쓰는 시험에서만 자리를 먹는다 — 변수를 안 쓰는 시험에서
-     빈 열이 서면 그만큼 명령 칸이 좁아진다. 폭을 한 곳에서 정해 **머리줄과
-     본문이 같은 값을 쓰게** 한다(줄마다 max-content 로 재면 서로 어긋난다). */
-  const anyVar = steps.some((s) => (s.queries?.length ?? 0) + (s.extracts?.length ?? 0) > 0)
-
   return (
     <div
-      className={`sq${readOnly ? ' sq-ro' : ''}${anyVar ? '' : ' sq-novar'}`}
-      style={{ '--sq-varw': anyVar ? '116px' : '0px' } as CSSProperties}
+      className={`sq${readOnly ? ' sq-ro' : ''}`}
     >
       <div className="sq-scroll">
         <div className="sq-list">
@@ -350,9 +343,9 @@ export default function TcSequence({
               <span>동작</span>
               <span>명령 · 내용</span>
               <span>절차 설명</span>
-              <span>뽑은 값</span>
               <span>결과</span>
-              <span />
+              <span>실행</span>
+              <span>메뉴</span>
             </div>
           )}
         {steps.length - hidden === 0 ? (
@@ -613,22 +606,6 @@ export default function TcSequence({
                     </i>
                   ) : null}
                 </span>
-                {/* **뽑은 값**(목업) — 이 스텝이 응답에서 담아 두는 변수.
-                    뒷 줄이 ${'${'}이름{'}'} 으로 쓰는 값이라, 어느 줄이 무엇을
-                    내놓는지 목록에서 보여야 흐름이 읽힌다. 지금은 스텝을
-                    하나씩 눌러 상세를 열어 봐야 알 수 있었다. */}
-                <span className="sq-var">
-                  {/* 담는 길이 둘이다 — `queries`(표에서 칸 집기)와
-                      `extracts`(정규식). 상세 판도 둘을 함께 세므로 여기서도
-                      함께 센다. 한쪽만 보면 「상세엔 있는데 목록엔 없다」 가 된다. */}
-                  {[...(s.queries ?? []), ...(s.extracts ?? [])].map((e, k) =>
-                    e.var ? (
-                      <b key={k} title={`이 스텝이 담습니다 — 뒤에서 \${${e.var}} 로 씁니다`}>
-                        {'${' + e.var + '}'}
-                      </b>
-                    ) : null,
-                  )}
-                </span>
                 {/* 결과를 줄 끝에 적는다. 아이콘만으로는 PASS 와 미실행이
                     잘 안 갈린다. */}
                 {/* 미실행은 글자를 안 적는다. 대부분의 줄이 미실행이라
@@ -649,7 +626,10 @@ export default function TcSequence({
                     {st.cls === 'idle' ? '' : st.label}
                   </span>
                 )}
-                <span className="sq-tail">
+                {/* ▶ 와 ⋯ 은 **각각 제 칸**이다(지시: 제목이 없다).
+                    한 칸에 둘을 넣으면 머리줄에 제목을 하나밖에 못 달고,
+                    칸이 좁아 단추가 세로로 쌓이기도 했다. */}
+                <span className="sq-runc">
                   {onRun && (
                     <button
                       type="button"
@@ -663,8 +643,10 @@ export default function TcSequence({
                       ▶
                     </button>
                   )}
-                  {/* 그 줄에만 듣는 설정(목업 ③). 평소엔 옅고 줄에 손이
-                      오면 진해진다 — 서른 줄에 ⋯ 이 또렷하면 그것부터 보인다. */}
+                </span>
+                {/* 그 줄에만 듣는 설정(목업 ③). 평소엔 옅고 줄에 손이
+                    오면 진해진다 — 서른 줄에 ⋯ 이 또렷하면 그것부터 보인다. */}
+                <span className="sq-morec">
                   {canMenu && (
                     <button
                       type="button"

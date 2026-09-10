@@ -512,9 +512,12 @@
      칸을 넓혀도 깊이 4 에서는 갈래 이름이 먼저 잘린다.
      「절차 설명」 은 제 칸이다 — 장비로 나가는 값과 결과서로 나가는 값을
      한 칸에 두면 명령이 길 때 설명이 통째로 안 보인다. */
+  /* 「뽑은 값」 열은 걷었다(지시) — 변수를 담는 줄에만 값이 있어 대개
+     빈 열이었고, 그만큼 명령 칸이 좁았다. 그 값은 스텝 상세에 있다.
+     끝의 ▶·⋯ 은 **각각 제 칸**이다: 한 칸에 둘을 넣으면 머리줄에 제목을
+     하나밖에 못 달고, 좁으면 단추가 세로로 쌓여 줄 높이를 밀어 올린다. */
   --sq-cols:
-    15px 40px 60px 190px minmax(150px, 1fr) minmax(90px, 220px)
-    var(--sq-varw, 0px) 48px 40px;
+    15px 40px 60px 190px minmax(150px, 1fr) minmax(90px, 220px) 48px 30px 30px;
 }
 .sq-row,
 .sq-head { gap: 0; }
@@ -534,15 +537,15 @@
    좌우 12px 를 먹이면 안쪽이 3·28px 가 되어, 실제로 끝 칸의 단추 둘이
    **세로로 쌓여 줄 높이가 43px 로 뛰었다**(실측). 두 칸은 제 폭이 곧 내용이다. */
 .sq-row > .sq-pick,
-.sq-row > .sq-tail,
-.sq-head > *:first-child,
-.sq-head > *:last-child { padding-left: 0; padding-right: 0; }
-.sq-tail { display: flex; align-items: center; justify-content: flex-end; }
+.sq-head > *:first-child { padding-left: 0; padding-right: 0; }
+/* ▶·⋯ 칸은 좌우 여백을 얇게 — 30px 트랙에 12px 를 먹이면 단추가 안 든다 */
+.sq-row > .sq-runc,
+.sq-row > .sq-morec,
+.sq-head > *:nth-last-child(-n + 2) { padding-left: 2px; padding-right: 2px; }
+.sq-runc,
+.sq-morec { display: flex; align-items: center; justify-content: center; }
 /* 뽑은 값을 안 쓰는 시험에서는 그 열이 폭 0 이다 — 그대로 두면 여백과
    선만 남아 군더더기 세로선이 하나 선다 */
-.sq-novar .sq-row > .sq-var,
-.sq-novar .sq-head > span:nth-child(7) { padding: 0; border-right: 0; }
-
 /* 열 제목 줄 — 줄과 **같은 grid** 를 써야 칸 경계가 맞는다.
    스크롤해도 붙어 있어야 스무 줄 아래에서도 어느 칸인지 안다. */
 .sq-head {
@@ -3573,28 +3576,7 @@ html .tc-split > .tc-content {
 /* 선택 바 — 목록을 만지는 단추(왼쪽)와 고른 줄에 하는 일(오른쪽)을 가른다 */
 .sq-bsp { flex: 1; }
 
-/* 뽑은 값 — 이 스텝이 응답에서 담는 변수(목업 .vchip).
-   대부분의 줄은 비어 있으니 조용히 둔다 — 있는 줄에만 칩이 선다. */
-.sq-var {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-  overflow: hidden;
-}
-.sq-var b {
-  font-size: 9.5px;
-  font-weight: 500;
-  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
-  background: #eef7f8;
-  color: #0a8795;
-  border: 1px solid #cfe6ea;
-  border-radius: 8px;
-  padding: 0 5px;
-  white-space: nowrap;
-  max-width: 96px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* 「뽑은 값」 열은 걷었다(지시) — 그 값은 스텝 상세에서 본다 */
 
 /* ── 줄 끝 ⋯ 메뉴(목업 ③) ────────────────────────────────────── */
 /* 평소엔 옅다 — 서른 줄에 ⋯ 이 또렷하면 그것부터 읽힌다 */
@@ -3815,3 +3797,16 @@ html .tc-split > .tc-content {
   white-space: nowrap;
 }
 .sq-dsc > .sq-in { width: 100%; }
+
+/* 주석·메시지는 **줄 전체를 쓴다**(지시). 장비로 아무것도 안 나가는 글이라
+   절차 설명도 결과도 없다 — 그 칸들을 비워 두면 긴 글이 명령 칸 안에서만
+   잘리고 오른쪽은 텅 빈다. ▶·⋯ 만 제자리에 남긴다. */
+.sq-row.note > .sq-sum { grid-column: 5 / -3; }
+.sq-row.note > .sq-dsc,
+.sq-row.note > .sq-res { display: none; }
+
+/* 결과·실행·메뉴 칸에도 세로선(지시). 끝 칸만 선을 뺀다 — 표 테두리가 그 자리다 */
+.sq-row > .sq-res,
+.sq-row > .sq-runc,
+.sq-head > *:nth-last-child(3),
+.sq-head > *:nth-last-child(2) { border-right: 1px solid var(--sq-line); }
