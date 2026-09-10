@@ -23,12 +23,16 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
 import { normMode } from '@/lib/runMode'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { IconChevron } from '@/components/icons'
 import { buildCategoryTree, reqPk } from '@/types'
 import type { CategoryTreeNode, Requirement, TestCaseMeta } from '@/types'
 import type { CycleMeta } from '@/pages/Cycles'
 import { orderTcIds, useReqIndex } from '@/pages/qaBits'
 import './AddItems.css'
+
+/** 담기 창을 어느 쪽에 붙였나 — 계정을 따라다닌다(prefs SYNC 목록에 있다) */
+const SIDE_KEY = 'utop.additems.side'
 
 type Base = 'folder' | 'req' | 'tc'
 /** 요구사항이 안 붙은 시험을 모으는 자리 — 실존 id 와 안 겹치는 표식 */
@@ -57,6 +61,12 @@ export default function AddItems({
   /** 펼친 폴더(분류 id) — 기본은 최상위만 보이고 접혀 있다 */
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [wideDr, setWideDr] = useState(false)
+  /* 창을 **어느 쪽에 붙일지**(지시) — 뒤에 가린 목록을 보려고 창을 옮긴다.
+     매번 옮기게 두면 일이 되므로 계정을 따라다니게 적어 둔다(PC 가 아니라). */
+  const [side, setSide] = useState<'left' | 'right'>(() => (prefGet(SIDE_KEY) === 'left' ? 'left' : 'right'))
+  useEffect(() => {
+    prefSet(SIDE_KEY, side)
+  }, [side])
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -604,12 +614,39 @@ export default function AddItems({
   return (
     <div className="qav afd" role="presentation">
       <div className="afd-scrim" onClick={() => !busy && onClose()} />
-      <aside className={`afd-panel${wideDr ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label="시험 항목 담기">
+      <aside
+        className={`afd-panel${wideDr ? ' wide' : ''}${side === 'left' ? ' left' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="시험 항목 담기"
+      >
         <div className="afd-hd">
           <button type="button" className="btn icon" title={wideDr ? '원래 폭' : '넓게 보기'} onClick={() => setWideDr((v) => !v)}>
             ⛶
           </button>
           <h3>시험 항목 담기</h3>
+          {/* 창을 **좌·우로 옮긴다**(지시) — 창이 가린 쪽을 보려면 창이
+              비켜 줘야 한다. 넓게 보기일 때는 옮길 자리가 없어 잠근다. */}
+          <button
+            type="button"
+            className="btn icon"
+            title="왼쪽에 붙이기"
+            aria-label="왼쪽에 붙이기"
+            onClick={() => setSide('left')}
+            disabled={wideDr || side === 'left'}
+          >
+            ◀
+          </button>
+          <button
+            type="button"
+            className="btn icon"
+            title="오른쪽에 붙이기"
+            aria-label="오른쪽에 붙이기"
+            onClick={() => setSide('right')}
+            disabled={wideDr || side === 'right'}
+          >
+            ▶
+          </button>
           <button type="button" className="btn icon" title="닫기" onClick={onClose} disabled={busy}>
             ✕
           </button>

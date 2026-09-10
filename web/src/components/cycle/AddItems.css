@@ -31,6 +31,13 @@
   transition: width 0.12s ease;
 }
 .afd .afd-panel.wide { width: 100vw; }
+/* **왼쪽에 붙인 자리**(지시) — 창이 가린 쪽을 보려면 창이 비켜 줘야 한다.
+   그림자도 방향을 뒤집는다: 안 그러면 창이 어디서 나왔는지가 어긋난다. */
+.afd .afd-panel.left {
+  left: 0;
+  right: auto;
+  box-shadow: 2px 0 16px color-mix(in srgb, var(--c-topbar) 22%, transparent);
+}
 /* 칩 줄 — 「고른 항목 없음」 을 오른쪽 끝으로 밀어 준다(지시) */
 .afd .af-chipsp { flex: 1; }
 @media (max-width: 900px) { .afd .afd-panel { width: 100vw; } }
