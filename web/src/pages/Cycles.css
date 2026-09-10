@@ -8911,6 +8911,10 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   overflow: hidden; text-overflow: ellipsis; }
 .dv-vd { width: 70px; flex: none; color: var(--c-text-muted); font-size: var(--fs-xs);
   overflow: hidden; text-overflow: ellipsis; }
+/* 제품군 — 열은 있는데 폭이 없어 「엔터프라이즈 스위치」 가 다른 칸을 밀어냈다 */
+.dv-fm { width: 104px; flex: none; color: var(--c-text-muted); font-size: var(--fs-xs);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-dmhdr .dv-fm { font-weight: 600; }
 .dv-gp { width: 88px; flex: none; font-size: 10px; font-weight: 700; color: #6d4bd6;
   background: #f0ecff; border-radius: var(--r-chip); padding: 2px 8px; text-align: center;
   overflow: hidden; text-overflow: ellipsis; }
@@ -8981,10 +8985,14 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 }
 .ask-dmlegend2 b { color: var(--c-text-muted); }
 .ask-dmlegend2 .sp { flex: 1; }
-.ask-dmlegend2 .lg { width: 7px; height: 7px; flex: none; border-radius: 50%; margin-left: 8px; }
-.ask-dmlegend2 .lg.ok { background: #117f3a; }
-.ask-dmlegend2 .lg.part { background: #a15a00; }
-.ask-dmlegend2 .lg.no { background: var(--c-fail); }
+/* **`lg` 가 아니라 `dmlg`** — 로그인 화면의 `.lg { min-height: 100vh }` 와
+   이름이 겹쳤다. min-height 는 height 를 이겨서 이 7px 색 점이 화면 높이만큼
+   늘어났고, 범례가 934px 을 먹어 장비 목록이 0 px 로 눌렸다(지적: 팝업이 깨진다). */
+.ask-dmlegend2 .dmlg { width: 7px; height: 7px; min-height: 0; flex: none;
+  border-radius: 50%; margin-left: 8px; }
+.ask-dmlegend2 .dmlg.ok { background: #117f3a; }
+.ask-dmlegend2 .dmlg.part { background: #a15a00; }
+.ask-dmlegend2 .dmlg.no { background: var(--c-fail); }
 .ask-devwrap { position: relative; }
 
 /* ＋ 하나로 모은 붙이기·도구 단추 (지시: 목업 구조) */

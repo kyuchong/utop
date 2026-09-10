@@ -2745,9 +2745,12 @@ export default function AskBar({ devices }: Props) {
                             <span className="ask-dmlegend2">
                               <b>연결 상태</b> = T/S/C/N 을 묶은 결과 (올리면 각각)
                               <span className="sp" />
-                              <i className="lg ok" />연결됨
-                              <i className="lg part" />점검
-                              <i className="lg no" />연결안됨
+                              {/* `lg` 는 **로그인 화면이 쓰는 이름**이었다(Login.css 의
+                                  `.lg { min-height: 100vh }`). min-height 는 height 를 이겨서,
+                                  7px 짜리 색 점이 화면 높이만큼 늘어나 목록을 0 으로 눌렀다. */}
+                              <i className="dmlg ok" />연결됨
+                              <i className="dmlg part" />점검
+                              <i className="dmlg no" />연결안됨
                             </span>
                           </>
                         )
