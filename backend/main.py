@@ -17599,42 +17599,61 @@ def _kai_tc_snip(txt: str, terms: list[str]) -> str:
     return (head + ("\n" + tail if tail else "")).strip() or head
 
 
-def _kai_snip(text: str, terms: list[str], width: int = 260) -> str:
-    """찾은 낱말이 **가장 많이 모인** 자리를 판다.
+def _kai_snip(text: str, terms: list[str], width: int = 260, parts: int = 2) -> str:
+    """찾은 낱말이 모인 자리를 **두 군데까지** 판다.
 
-    앞서는 첫 낱말이 처음 나오는 데를 그대로 썼다. 「동작 온도」 로 물으면
-    긴 낱말인 「동작」 이 문서 맨 앞 엉뚱한 자리에 걸려, 온도 이야기는 한
-    글자도 없는 발췌가 근거로 나갔다."""
+    한 자리만 파면 낱말이 문서 안에서 흩어져 있을 때 절반이 빠진다.
+    「E6100 동작 온도」 로 물었을 때가 그랬다 — 모델 이름은 사양표에,
+    온도는 저 아래 다른 절에 있어서, 온도 줄만 담긴 발췌가 나갔고 LLM 은
+    「이 온도가 E6100 것인지 알 수 없다」 며 근거에 없다고 답했다.
+
+    흔한 낱말은 가볍게 센다. 모델 이름은 그 문서에 수십 번 나오고 「온도」 는
+    한 곳에만 있는데, 종류 수만 세면 모델 이름이 몰린 자리가 이긴다.
+    """
+    if not text:
+        return ""
     low = text.lower()
     spots: list[tuple[int, str]] = []
     for t in terms:
         tl = t.lower()
         at0 = low.find(tl)
         n = 0
-        while at0 >= 0 and n < 40:
+        while at0 >= 0 and n < 60:
             spots.append((at0, tl))
             at0 = low.find(tl, at0 + 1)
             n += 1
-    at = -1
-    if spots:
-        spots.sort()
-        # **흔한 낱말은 가볍게.** 「E6100 동작 온도」 로 물으면 모델 이름은 그
-        # 문서에 수십 번 나오고 「온도」 는 한 곳에만 있다. 종류 수만 세면
-        # 모델 이름이 몰린 자리(무게·인터페이스 표)가 이겨서, 정작 온도 줄이
-        # 빠진 발췌가 근거로 나갔다 — 그러면 LLM 은 「근거에 없다」 고 답한다.
-        freq = {t: max(1, low.count(t)) for _p, t in spots}
-        best = (-1.0, -1)
+    if not spots:
+        out = text[:width].strip()
+        return out + ("…" if len(text) > width else "")
+    spots.sort()
+    freq = {t: max(1, low.count(t)) for _p, t in spots}
+    w = max(90, width // max(1, parts))
+    taken: list[tuple[int, int]] = []
+    for _ in range(max(1, parts)):
+        best = (-1.0, -1, frozenset())
         for i, (pos, _t) in enumerate(spots):
-            kinds = {tt for pp, tt in spots[i:] if pp < pos + width}
+            s0 = max(0, pos - w // 3)
+            if any(not (s0 + w <= a or b <= s0) for a, b in taken):
+                continue          # 이미 판 자리와 겹치면 넘어간다
+            kinds = {tt for pp, tt in spots[i:] if pp < pos + w}
             sc = sum(1.0 / freq.get(tt, 1) for tt in kinds)
             if sc > best[0]:
-                best = (sc, pos)
-        at = best[1]
-    if at < 0:
-        at = 0
-    s0 = max(0, at - width // 3)
-    out = text[s0 : s0 + width].strip()
-    return ("…" if s0 > 0 else "") + out + ("…" if s0 + width < len(text) else "")
+                best = (sc, s0, frozenset(kinds))
+        if best[1] < 0:
+            break
+        taken.append((best[1], best[1] + w))
+        # 다음 자리는 **아직 안 보여 준 낱말**을 노린다
+        shown = best[2]
+        spots = [(p, t) for p, t in spots if t not in shown] or []
+        if not spots:
+            break
+    taken.sort()
+    outs = []
+    for a, b in taken:
+        seg = text[a:b].strip()
+        if seg:
+            outs.append(("…" if a > 0 else "") + seg + ("…" if b < len(text) else ""))
+    return " ".join(outs) if outs else text[:width].strip()
 
 
 async def _kai_search(q: str, scopes: set[str], projects: list[str] | None = None,
