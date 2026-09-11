@@ -512,6 +512,19 @@ export default function RunDetail({
     void qc.invalidateQueries({ queryKey: ['cycle-full'] })
   }, [doneN, qc])
 
+  /** 사이클 **전문** — 담을 때 복제된 시험서가 여기 있다(목록 API 는 줄여 준다) */
+  const cycPid = String(plan?.id ?? run?.plan_id ?? '')
+  const cycQ = useQuery({
+    queryKey: ['cycle-full', cycPid],
+    enabled: !!cycPid,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycPid)}`)
+      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      return (await r.json()) as Record<string, unknown>
+    },
+    staleTime: 30_000,
+  })
+
   /* 담긴 항목이 먼저다. 결과만 보면, 결과가 아직 안 깔린 실행이
      「항목이 없습니다」로 보인다 — 항목은 있는데. 둘을 합친다. */
   const ids = useMemo(() => {
@@ -532,9 +545,12 @@ export default function RunDetail({
      * 지금 사이클에 있는 것만 센다. 아직 사이클을 못 읽었으면(로딩) 거르지
      * 않는다 — 빈 목록으로 잠깐 깜빡이는 편이 더 나쁘다.
      */
-    const planIds = new Set(
-      ((plan?.items ?? []) as Array<{ tcid?: string }>).map((x) => String(x?.tcid ?? '')).filter(Boolean),
-    )
+    /* **사이클 전문**을 기준으로 센다. `plan` 은 팝업을 열 때 넘겨받은
+       요약이라(CycleItemLite) 그때 목록에서 멈춰 있다 — 65 건에서 3 건을
+       빼도 Test Report 는 65 건 그대로였다(지적). 전문을 아직 못 읽었으면
+       요약으로 버틴다. */
+    const cycItems = (cycQ.data?.items ?? plan?.items ?? []) as Array<{ tcid?: string }>
+    const planIds = new Set(cycItems.map((x) => String(x?.tcid ?? '')).filter(Boolean))
     const keep = (k: string) => !planIds.size || planIds.has(k)
     /* ① 실행이 담은 차례가 정본이다(배열이라 차례가 남는다) */
     for (const it of (run?.items ?? []) as Array<{ tcid?: string }>) {
@@ -550,7 +566,7 @@ export default function RunDetail({
     /* ③ 그래도 빠진 것이 있으면 뒤에 붙인다 — 사이클에 있는 것만 */
     for (const k of Object.keys(results)) if (keep(k)) add(k)
     return out
-  }, [run, plan, results, only])
+  }, [run, plan, results, only, cycQ.data])
   const tcById = useMemo(() => {
     const m = new Map<string, TestCaseMeta>()
     for (const t of tcQ.data?.tcs ?? []) m.set(t.tcid, t)
@@ -984,8 +1000,6 @@ export default function RunDetail({
   const binds = run?.binds ?? {}
   const dut = binds.DUT ? devById.get(String(binds.DUT)) : undefined
   const pv = (run?.pchk ?? {})[cur] ?? []
-  /** 사이클 **전문** — 담을 때 복제된 시험서가 여기 있다(목록 API 는 줄여 준다) */
-  const cycPid = String(plan?.id ?? run?.plan_id ?? '')
   /** 장비 목록 — 세션 판이 세션에 붙은 장비(이름·IP·방식)를 여기서 찾는다.
    *  `/api/devices` 는 옛 JSON 파일을 읽는 라우트다 — 화면이 쓰는 것은 devices2. */
   /*
@@ -1016,16 +1030,6 @@ export default function RunDetail({
     return (Array.isArray(arr) ? arr : []) as Array<Record<string, unknown>>
   }, [dev2Q.data])
 
-  const cycQ = useQuery({
-    queryKey: ['cycle-full', cycPid],
-    enabled: !!cycPid,
-    queryFn: async () => {
-      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycPid)}`)
-      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
-      return (await r.json()) as Record<string, unknown>
-    },
-    staleTime: 30_000,
-  })
 
   /** 이 사이클의 결함 — 목록의 「버그」 칸이 읽는다 */
   const defQ = useQuery({
@@ -1532,9 +1536,11 @@ export default function RunDetail({
              *
              * run.logs 가 있으면 그것도 쓴다(화면에서 돌린 실행).
              */
-            const fromPlan = ((((plan?.items ?? []) as unknown) as Array<Record<string, unknown>>).find(
-              (x) => String(x?.tcid ?? '') === cur,
-            )?.steps ?? []) as unknown[]
+            /* **전문**에서 읽는다 — 요약(CycleItemLite)에는 steps 가 없어
+               출력이 영영 안 왔다(지적: Response 결과만 못 가져온다) */
+            const fromPlan = ((((cycQ.data?.items ?? plan?.items ?? []) as unknown) as Array<
+              Record<string, unknown>
+            >).find((x) => String(x?.tcid ?? '') === cur)?.steps ?? []) as unknown[]
             const saved = (log?.steps?.length ? log.steps : fromPlan) as unknown[]
             const lg = ((live ?? (onAir ? [] : saved)) as unknown[]) as Array<Record<string, unknown>>
             if (!lg.length) return def

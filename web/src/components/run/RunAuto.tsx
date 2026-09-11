@@ -815,7 +815,19 @@ export default function RunAuto({
                 const rds = s2.rounds ?? []
                 const at = rds.length ? (roundAt < 0 ? rds.length - 1 : Math.min(roundAt, rds.length - 1)) : -1
                 const rd = at >= 0 ? rds[at] : undefined
-                const body = rd ? (rd.trimmed ? '(이 회차 출력은 안 남겼습니다 — 반복 스텝의 「회차 출력」 설정)' : rd.output || '(출력 없음)') : s2.out || (seeUpTo === runStep ? '…' : '(출력 없음)')
+                /* 장비로 안 나가는 줄은 「출력 없음」 이 아니라 **없는 것이 맞다**
+                   — 무엇이 잘못된 줄 알고 찾게 두지 않는다(지적) */
+                const quietKind = s2.kind === 'comment' || s2.kind === 'message'
+                const body = rd
+                  ? rd.trimmed
+                    ? '(이 회차 출력은 안 남겼습니다 — 반복 스텝의 「회차 출력」 설정)'
+                    : rd.output || '(출력 없음)'
+                  : s2.out ||
+                    (quietKind
+                      ? '이 줄은 장비로 나가지 않습니다 — 결과서·로그에 쓰이는 글입니다.'
+                      : seeUpTo === runStep
+                        ? '…'
+                        : '(출력 없음)')
                 const mk = rd ? String(rd.status ?? '') : String(s2.mark ?? '')
                 return (
                 <div className="ra-blk" key={s2.no ?? seeUpTo} ref={conEndRef}>
@@ -830,6 +842,11 @@ export default function RunAuto({
                          둘인 시험에서 어느 장비 앞인지 알 수 없다. */
                       const sd = devOf(s2.devId)
                       const pr = sd ? sd.name || sd.model || String(sd.id ?? '') : dut
+                      /* 장비로 **안 나가는 줄**에는 프롬프트를 안 붙인다 —
+                         주석·메시지에 `DUT# ` 가 붙어 마치 그 글을 명령으로
+                         보낸 것처럼 보였다(지적). 그런 줄은 출력도 없다. */
+                      const quiet = s2.kind === 'comment' || s2.kind === 'message'
+                      if (quiet) return c2 || s2.t || s2.action || '—'
                       return c2 ? `${pr}# ${c2}` : s2.t || s2.action || '—'
                     })()}
                   </span>
