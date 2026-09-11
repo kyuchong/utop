@@ -1,7 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/api/client'
+import { apiFetch, type MeUser } from '@/api/client'
+import { prefGet, prefSet } from '@/lib/prefs'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
+import NTable from '@/components/ntable/NTable'
+import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
+import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
 import './Defects.css'
 
 /** 상태 탭 */
@@ -30,7 +34,26 @@ function fmtDate(iso?: string | null): string {
  * 칸은 등록 양식과 같다 — 프로젝트 키·프로젝트명·이슈유형·우선순위·수정버전·
  * 구성요소·보고자·등록자·등록일.
  */
-export default function Defects() {
+/** 열 — 등록 양식과 같은 차례. `def` 는 처음에 보이는 열이다. */
+const COLS: Array<{ key: string; label: string; type?: NCol['type']; w?: number; def?: boolean }> = [
+  { key: 'id', label: 'ID', w: 124, def: true },
+  { key: 'jira_project', label: '프로젝트 키', w: 96, def: true },
+  { key: 'project_name', label: '프로젝트명', w: 104, def: true },
+  { key: 'issue_type', label: '이슈유형', type: 'select', w: 92, def: true },
+  { key: 'title', label: '제목', w: 420, def: true },
+  { key: 'status', label: '상태', type: 'select', w: 104, def: true },
+  { key: 'priority', label: '우선순위', type: 'select', w: 88, def: true },
+  { key: 'fix_version', label: '수정버전', w: 130, def: true },
+  { key: 'component', label: '구성요소', type: 'select', w: 104, def: true },
+  { key: 'reporter', label: '보고자', w: 96, def: true },
+  { key: 'created_by', label: '등록자', w: 104, def: true },
+  { key: 'created_at', label: '등록일', type: 'date', w: 132, def: true },
+  { key: 'tcid', label: '시험 항목', w: 130 },
+  { key: 'jira_key', label: 'Jira 키', w: 118 },
+]
+const COL_KEY = 'utop.defects.cols'
+
+export default function Defects({ me }: { me?: MeUser | null }) {
   const [tab, setTab] = useState('')
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<DefectRec | null>(null)
@@ -55,6 +78,81 @@ export default function Defects() {
         .some((v) => String(v).toLowerCase().includes(s)),
     )
   }, [data, q])
+
+  /** 노션 표가 읽는 줄 — 값은 글자로 굳혀 넘긴다(정렬·검색이 같은 것을 본다) */
+  const nrows: NRow[] = useMemo(
+    () =>
+      rows.map((d) => ({
+        __id: String(d.id ?? ''),
+        id: String(d.id ?? ''),
+        jira_project: d.jira_project ?? '',
+        project_name: d.project_name ?? '',
+        issue_type: d.issue_type ?? '',
+        title: d.title || d.tc_name || '',
+        status: d.status ?? '',
+        jira_key: d.jira_key ?? '',
+        priority: d.priority ?? '',
+        fix_version: d.fix_version ?? '',
+        component: d.component ?? '',
+        reporter: d.reporter ?? '',
+        created_by: d.created_by ?? '',
+        created_at: fmtDate(d.created_at),
+        tcid: d.tcid ?? '',
+      })),
+    [rows],
+  )
+  const [view, setView] = useState<NView>(EMPTY_VIEW)
+  const [calcs, setCalcs] = useState<Record<string, NCalc>>({})
+  const [per, setPer] = useState(50)
+  const [nvId, setNvId] = useState('')
+  const [hidden, setHidden] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(prefGet(COL_KEY) || 'null') as unknown
+      const dflt = COLS.filter((c) => !c.def).map((c) => c.key)
+      if (!Array.isArray(v)) return dflt
+      const known = new Set(v as string[])
+      return [...(v as string[]), ...dflt.filter((k) => !known.has(k))]
+    } catch {
+      return COLS.filter((c) => !c.def).map((c) => c.key)
+    }
+  })
+  useEffect(() => {
+    prefSet(COL_KEY, JSON.stringify(hidden))
+  }, [hidden])
+  const columns: NCol[] = useMemo(
+    () =>
+      COLS.map((c) => {
+        const col: NCol = {
+          key: c.key,
+          label: c.label,
+          type: c.type ?? 'text',
+          width: c.w,
+          hidden: hidden.includes(c.key),
+          fixed: c.key === 'id' || c.key === 'title',
+        }
+        if (col.type === 'select' && !col.hidden) {
+          const vals = [...new Set(nrows.map((r) => String(r[c.key] ?? '')).filter(Boolean))]
+          col.options = vals.slice(0, 40).map((v) => ({ value: v, color: 'gray' }))
+        }
+        return col
+      }),
+    [nrows, hidden],
+  )
+  const nBody: ViewBody = useMemo(
+    () => ({
+      hidden: columns.filter((c) => c.hidden).map((c) => c.key),
+      widths: Object.fromEntries(columns.filter((c) => c.width).map((c) => [c.key, c.width!])),
+      order: columns.map((c) => c.key),
+    }),
+    [columns],
+  )
+  const applyView = (v: ViewDef | null) => {
+    setNvId(v?.id ?? '')
+    const dflt = COLS.filter((c) => !c.def).map((c) => c.key)
+    const saved = v?.body?.hidden
+    const known = new Set(saved ?? [])
+    setHidden(saved ? [...saved, ...dflt.filter((k) => !known.has(k))] : dflt)
+  }
 
   const counts = useMemo(() => {
     const all = data ?? []
@@ -92,54 +190,50 @@ export default function Defects() {
             <span className="muted small">플랜 화면에서 부적합 항목의 스텝을 열고 「＋ 결함 등록」 을 누르면 여기에 쌓입니다.</span>
           </div>
         ) : (
-          <div className="dfl-tablewrap">
-            <table className="dfl-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>프로젝트 키</th>
-                  <th>프로젝트명</th>
-                  <th>이슈유형</th>
-                  <th>제목</th>
-                  <th>상태</th>
-                  <th>우선순위</th>
-                  <th>수정버전</th>
-                  <th>구성요소</th>
-                  <th>보고자</th>
-                  <th>등록자</th>
-                  <th>등록일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((d) => (
-                  <tr key={d.id} onClick={() => setOpen(d)} className="dfl-row">
-                    <td className="mono">{d.id}</td>
-                    <td>{d.jira_project || '–'}</td>
-                    <td>{d.project_name || '–'}</td>
-                    <td>{d.issue_type || '–'}</td>
-                    <td className="dfl-title" title={d.title || d.tc_name || ''}>
-                      {d.title || d.tc_name || '–'}
-                    </td>
-                    <td>
-                      {d.jira_key ? (
-                        <span className="dfl-jira" title="Jira 이슈 키">
-                          ● {d.jira_key}
-                        </span>
-                      ) : (
-                        <span className={`dfl-badge ${d.status}`}>{d.status === 'closed' ? '닫힘' : '미등록'}</span>
-                      )}
-                    </td>
-                    <td>{d.priority || '–'}</td>
-                    <td>{d.fix_version || '–'}</td>
-                    <td>{d.component || '–'}</td>
-                    <td>{d.reporter || '–'}</td>
-                    <td>{d.created_by || '–'}</td>
-                    <td className="muted small">{fmtDate(d.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <NTable
+            columns={columns}
+            rows={nrows}
+            view={view}
+            onView={setView}
+            calcs={calcs}
+            onCalcs={setCalcs}
+            perPage={per}
+            onPerPage={setPer}
+            toolbarLeft={
+              <NViews
+                scope="defects"
+                curId={nvId}
+                onPick={applyView}
+                current={nBody}
+                meName={me?.username || me?.name || ''}
+                isAdmin={me?.role === 'admin' || me?.role === '관리자'}
+              />
+            }
+            idKey="id"
+            titleKey="title"
+            /* 결함 값은 여기서 못 고친다 — 고치는 자리는 결함 창이다 */
+            readOnlyKeys={COLS.map((c) => c.key)}
+            lockDefs
+            bulk={[{ k: 'csv', label: '엑셀' }]}
+            onColumns={(cs) => setHidden(cs.filter((c) => c.hidden).map((c) => c.key))}
+            onCell={() => {}}
+            onOpen={(id) => setOpen((data ?? []).find((d) => d.id === id) ?? null)}
+            onPeek={(id) => setOpen((data ?? []).find((d) => d.id === id) ?? null)}
+            renderCell={(row, col) => {
+              const v = String(row[col.key] ?? '')
+              if (col.key === 'status') {
+                const jk = String(row.jira_key ?? '')
+                return jk ? (
+                  <span className="dfl-jira" title="Jira 이슈 키">
+                    ● {jk}
+                  </span>
+                ) : (
+                  <span className={`dfl-badge ${v}`}>{v === 'closed' ? '닫힘' : '미등록'}</span>
+                )
+              }
+              return undefined
+            }}
+          />
         )}
       </div>
 

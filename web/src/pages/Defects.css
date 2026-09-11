@@ -74,13 +74,8 @@
   border-radius: var(--r-box);
 }
 
-/* 장비·카탈로그 표와 같은 옷 — 바깥 테두리·둥근 모서리·줄무늬·34px */
-.dfl-tablewrap {
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  overflow-x: auto;
-}
+/* 표를 감싸던 안쪽 카드는 걷었다(지적: 카드가 두 겹). 이제 노션 표(NTable)가
+   들어오고, 바깥 .dfl-body 카드 하나만 남는다. */
 /* 남는 자리를 칸 사이로 흩뿌리지 않는다 — 글자끼리 멀어져 읽기 나쁘다.
    대신 **제목이 남는 자리를 다 가져간다**. 결함에서 제일 많이 읽는 것이
    제목이고, 나머지(프로젝트·유형·날짜)는 길이가 정해져 있다. */

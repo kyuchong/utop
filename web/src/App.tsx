@@ -328,7 +328,7 @@ export default function App() {
       ) : page === 'jira' ? (
         <JiraIssues me={user} />
       ) : page === 'defects' ? (
-        <Defects />
+        <Defects me={user} />
       ) : page === 'devices' ? (
         <Devices me={user} />
       ) : page === 'instruments' ? (
