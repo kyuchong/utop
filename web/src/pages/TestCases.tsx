@@ -92,6 +92,7 @@ import {
   stepSummary,
   stepVerdict,
   type StepKind,
+  isManualStep,
   stepLogOn,
   stepPptOn,
   type TcData,
@@ -1417,6 +1418,31 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
     if (sessionIds.length === 0 && about.some((x) => x && needsDevice(x))) {
       setMsg({ kind: 'err', text: '장비가 필요한 스텝이 있습니다 — 「+ 세션」 으로 장비를 넣으세요' })
       return
+    }
+    /*
+     * **지난 실행의 자취를 지우고 시작한다**(지적: 돌리면 E6100 인데 새로
+     * 고치면 두 달 전 E5010-24C 로 돌아간다).
+     *
+     * `output` 은 스텝마다 새로 쓰지만 **rounds · queries 는 그 스텝이 그
+     * 길로 가야만** 손댄다 — 반복을 안 도는 회차, 안 보낸 질의의 옛 기록이
+     * 그대로 살아남아 새 결과와 한 화면에 섞였다.
+     *
+     * 저장은 하지 않는다(fromRun 과 같은 뜻) — 돌렸다는 이유로 「저장 안 함」
+     * 이 뜨면 사람이 편집 중이던 것과 헷갈린다.
+     */
+    {
+      const aim = pick ?? (only ? [from] : steps.map((_, i) => i).filter((i) => i >= from))
+      const wipe = new Set(aim)
+      const DROP = ['output', 'out', 'rounds', 'queries', 'status', 'executed_at', 'took_ms', 'reason', 'sentCmd', 'repeatResult']
+      setD((c) => ({
+        ...c,
+        checks: ((c.checks ?? []) as TcStep[]).map((s2, j) => {
+          if (!wipe.has(j) || isManualStep(s2)) return s2
+          const o = { ...(s2 as unknown as Record<string, unknown>) }
+          for (const k of DROP) delete o[k]
+          return o as unknown as TcStep
+        }),
+      }))
     }
     const ac = new AbortController()
     runAbort.current = ac

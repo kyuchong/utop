@@ -255,6 +255,37 @@ async function doRun(run: Run): Promise<void> {
       if (!r.ok) throw new Error(String(r.status))
       const tc = (await r.json()) as { checks?: TcStep[]; sessions?: unknown; meterCfg?: MeterCfg }
       steps = (tc.checks ?? []).slice()
+      /*
+       * **지난 실행의 자취를 지우고 시작한다**(지적: Response 에 두 달 전
+       * 장비 응답이 나온다).
+       *
+       * TC 의 checks 에는 그때 결과가 그대로 남아 있다 — 8/8 에 돌린
+       * `show system` 출력(그 자리에 있던 E5010-24C)까지. 이번 실행이 그
+       * 전부를 덮지는 않는다: `output` 은 스텝마다 새로 쓰지만 **rounds ·
+       * queries 는 그 스텝이 그 길로 가야만** 손대므로, 안 도는 회차·질의는
+       * 옛것이 살아남아 화면에 섞였다.
+       *
+       * 수동 스텝은 건드리지 않는다 — 사람이 적은 기록이고, 아래에서 플랜의
+       * 손 기록을 다시 얹는다.
+       */
+      steps = steps.map((st) => {
+        if (isManualStep(st)) return st
+        const c = { ...(st as Record<string, unknown>) }
+        for (const k of [
+          'output',
+          'out',
+          'rounds',
+          'queries',
+          'status',
+          'executed_at',
+          'took_ms',
+          'reason',
+          'sentCmd',
+          'repeatResult',
+        ])
+          delete c[k]
+        return c as unknown as TcStep
+      })
       sessions = Array.isArray(tc.sessions) ? (tc.sessions as string[]) : []
       meterCfg = tc.meterCfg
     } catch (e) {

@@ -1226,8 +1226,17 @@ export default function RunDetail({
   const log = (() => {
     const raw = (run.logs ?? {})[cur]
     if (!raw) return raw
-    const st = Date.parse(String(run.started_at ?? ''))
-    const at = Date.parse(String((raw as { at?: string })?.at ?? ''))
+    /* 서버가 적는 시각은 **UTC 인데 표시가 없다**(`2026-09-11 07:50:04`).
+       그대로 읽으면 브라우저가 제 시간대로 쳐서 아홉 시간 **늦게** 잡히고,
+       그러면 옛 기록이 「이번 실행 뒤」 로 보여 이 거르개를 그냥 지난다. */
+    const ms = (v: unknown) => {
+      const t = String(v ?? '').trim()
+      if (!t) return NaN
+      const iso = t.includes('T') ? t : t.replace(' ', 'T')
+      return Date.parse(/[Zz]$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`)
+    }
+    const st = ms(run.started_at)
+    const at = ms((raw as { at?: string })?.at)
     return Number.isFinite(st) && Number.isFinite(at) && at < st ? undefined : raw
   })()
   /* 「지금 스텝」 칸을 걷으면서 stepNow 도 함께 걷었다(지시) —
@@ -1541,7 +1550,12 @@ export default function RunDetail({
             const fromPlan = ((((cycQ.data?.items ?? plan?.items ?? []) as unknown) as Array<
               Record<string, unknown>
             >).find((x) => String(x?.tcid ?? '') === cur)?.steps ?? []) as unknown[]
-            const saved = (log?.steps?.length ? log.steps : fromPlan) as unknown[]
+            /* **사이클 전문이 정본**이다(지적: Response 만 E5010-24C).
+               실행기는 결과를 사이클에 저장하므로 방금 돈 것은 늘 여기 있다.
+               run.logs 는 화면에서 직접 돌리던 시절의 자리라, 자동 실행에서는
+               갱신되지 않고 **옛 기록만** 남아 있다 — 그것을 먼저 쓰면 지난
+               장비의 응답이 이번 결과를 이긴다. 전문이 비었을 때만 쓴다. */
+            const saved = (fromPlan.length ? fromPlan : (log?.steps ?? [])) as unknown[]
             const lg = ((live ?? (onAir ? [] : saved)) as unknown[]) as Array<Record<string, unknown>>
             if (!lg.length) return def
             const run2 = lg.map(asStep)
