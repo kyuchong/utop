@@ -94,6 +94,17 @@ class Pusher {
     this.at = n
   }
   addLog(x: RunLog): void {
+    /* 같은 `tick` 을 단 줄은 **앞엣것을 갈아 끼운다** — 화면(RunLog)이 하는
+       것과 같다. 안 하면 「▸ show system」 과 그 결과가 두 줄로 남아,
+       시험 항목 로그는 한 줄인데 실행 이벤트만 두 줄이 된다(지적).
+       맨 끝 줄일 때만 바꾼다: 사이에 다른 줄이 끼었으면 딴 사건이다. */
+    if (x.tick) {
+      const last = this.logs[this.logs.length - 1]
+      if (last && last.tick === x.tick && last.i === x.i) {
+        this.logs[this.logs.length - 1] = { ...last, ...x, at: this.at, ts: new Date().toISOString() }
+        return
+      }
+    }
     /* **줄이 생긴 그때**를 함께 싣는다(지시: 실시간 라이브처럼 보여야 한다).
        안 실으면 서버에 닿은 시각이 찍혀, 한 묶음이 통째로 같은 시각이 된다 —
        20 회가 모두 같은 초로 보이던 것이 이것이다(지적). */
@@ -307,15 +318,16 @@ async function doRun(run: Run): Promise<void> {
           /* 화면의 「실행 이벤트」 는 **스텝에 붙은 줄만** 보여 준다(i>=0).
              진단은 스텝에 안 붙는 줄이라 거기서 걸린다 — 실행기 콘솔에도
              찍어 `docker logs` 로 반드시 보이게 한다. */
+          /* 화면에는 **안 보낸다**(지적: 실행 이벤트가 시험 항목 로그와
+             다르다). 이것은 실행기를 고칠 때 보는 말이지 시험을 돌리는
+             사람이 읽을 말이 아니다 — `docker logs` 에만 남긴다. */
           log(_diag)
-          push.addLog({ i: ix, kind: 'info', text: _diag })
         }
       } else {
         const _diag0 = `반복 스텝이 없습니다 — 스텝 ${steps.length}개 · kind 목록 ${steps
           .map((x) => String(x?.kind ?? ''))
           .join(',')}`
         log(_diag0)
-        push.addLog({ i: 0, kind: 'info', text: _diag0 })
       }
     } catch {
       /* 진단이 실행을 막으면 안 된다 */

@@ -20,6 +20,8 @@ import './RunAuto.css'
 
 export interface AutoStep {
   no: number
+  /** 스텝 갈래 — 주석을 이 표에서 빼고(지시) 번호를 시험 항목과 맞추는 데 쓴다 */
+  kind?: string
   t: string
   cmd?: string
   out?: string
@@ -31,6 +33,8 @@ export interface AutoStep {
   expected?: string
   at?: string
   took?: string
+  /** 그 스텝이 **걸린 시간**(ms). 「10회」 배지 자리에 이것을 적는다(지시) */
+  tookMs?: number
   /** 「대기」 스텝이 기다리기로 한 초. 카운트다운은 이 값에서 내려온다 */
   waitSec?: number
   /** 실제로 돌았나 — 판정이 없는 스텝과 안 돌린 스텝을 가른다 */
@@ -432,6 +436,21 @@ export default function RunAuto({
     return [...new Set([...bad, ...ok.slice(-KEEP_OK)])].sort((x, y) => x - y)
   }
 
+  /**
+   * 시험 항목 표와 **같은 번호**(지적: 실행 로그와 스텝이 안 맞는다).
+   *
+   * 주석은 스텝이 아니라 번호를 안 먹는다 — 자리 번호로 세면 주석 하나에
+   * 아래가 통째로 한 칸씩 밀린다.
+   */
+  const nos = useMemo(() => {
+    let n = 0
+    return steps.map((s2) => (s2.kind === 'comment' ? '' : String(++n)))
+  }, [steps])
+
+  /** 걸린 시간 — 1 초 아래는 ms 로 적는다. 스텝 하나는 대개 그 아래다 */
+  const tookText = (ms?: number) =>
+    ms == null ? '' : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}초`
+
   const events = useMemo(() => {
     const out: Array<{ at: string; step: string; kind: string; text: string }> = []
     /* **실행기가 보낸 줄이 있으면 그것을 그대로 그린다**(지시: 리얼타임으로).
@@ -446,7 +465,7 @@ export default function RunAuto({
         const rd = Number(l.round ?? 0)
         out.push({
           at: String(l.ts ?? ''),
-          step: i2 >= 0 ? `Step ${i2 + 1}${rd > 0 ? ` · ${rd}회` : ''}` : '',
+          step: i2 >= 0 ? `Step ${nos[i2] || i2 + 1}${rd > 0 ? ` · ${rd}회` : ''}` : '',
           kind: String(l.kind ?? 'info').toUpperCase(),
           text: String(l.text ?? ''),
         })
@@ -707,7 +726,11 @@ export default function RunAuto({
                 </tr>
               </thead>
               <tbody>
-                {steps.map((s, i) => (
+                {steps.map((s, i) =>
+                  /* 주석은 **사이클 표에 안 선다**(지시) — 장비로 아무것도
+                     안 나가고 판정도 없다. 자리(i)는 그대로 두어 runStep·
+                     onStep 이 어긋나지 않게 한다. */
+                  s.kind === 'comment' ? null : (
                   <tr
                     key={s.no ?? i}
                     ref={i === runStep ? runRowRef : undefined}
@@ -716,12 +739,13 @@ export default function RunAuto({
                     }
                     onClick={() => onStep(i)}
                   >
-                    <td>{s.no ?? i + 1}</td>
+                    <td>{nos[i] || s.no || i + 1}</td>
                     <td className="ra-act">
                       <b>{s.action ?? (s.cmd ? 'command' : '—')}</b>
                     </td>
                     <td>{s.session ?? '—'}</td>
-                    <td>{s.cmd || s.t || `스텝 ${i + 1}`}</td>
+                    {/* 시험 항목의 **「명령 내용」** 그대로(지시) */}
+                    <td>{s.cmd || s.t || '—'}</td>
                     <td>{s.expected ?? '—'}</td>
                     <td>
                       {i === runStep ? (
@@ -747,15 +771,13 @@ export default function RunAuto({
                       )}
                     </td>
                     <td className="ra-num">
-                      {/* **몇 회 돌았나**(지시) — 반복 안 스텝은 회차가 곧 결과다.
-                          이 숫자가 없어서 20 회를 돌고도 1 회로 보였다. */}
-                      {s.rounds && s.rounds.length > 1 ? (
-                        <b className="ra-rn">{s.rounds.length}회</b>
-                      ) : null}
-                      {mmss(s.took)}
+                      {/* **그 스텝이 걸린 시간**(지시). 여기 있던 「10회」 배지는
+                          걷었다 — 회차는 실행 이벤트가 회차마다 적는다. */}
+                      {tookText(s.tookMs) || mmss(s.took)}
                     </td>
                   </tr>
-                ))}
+                  ),
+                )}
               </tbody>
             </table>
           ) : (
@@ -954,8 +976,15 @@ export default function RunAuto({
                    스텝의 회차 기록은 반복이 다 끝나야 오므로, 도는 동안에는
                    여기가 비어 보였다. `▸ ` 로 시작하는 줄이 곧 보낸 명령이다. */
                 const own = new Set(sessNow.idx)
+                /* **로그가 실어 온 「보낸 것」** 을 쓴다(지적: SNMP 도 주고받은
+                   명령인데 CLI 만 나온다). 글자가 `▸ ` 로 시작하는지로 고르던
+                   때는, 그 줄이 결과로 갈아 끼워지면 사라지고 SNMP 는 애초에
+                   `▸ ` 줄이 없어 한 줄도 안 잡혔다. 옛 기록을 위해 `▸ ` 도 함께 본다. */
                 const live = (liveLogs ?? []).filter(
-                  (l) => own.has(Number(l.i ?? -1)) && String(l.text ?? '').startsWith('▸ '),
+                  (l) =>
+                    own.has(Number(l.i ?? -1)) &&
+                    (String((l as { sent?: string }).sent ?? '').trim() ||
+                      String(l.text ?? '').startsWith('▸ ')),
                 )
                 if (live.length) {
                   for (const l of live.slice(-LIVE_MAX)) {
@@ -963,7 +992,9 @@ export default function RunAuto({
                     lines.push({
                       key: `L${l.seq ?? lines.length}`,
                       i: Number(l.i ?? -1),
-                      cmd: String(l.text ?? '').slice(2),
+                      cmd:
+                        String((l as { sent?: string }).sent ?? '').trim() ||
+                        String(l.text ?? '').slice(2),
                       at: String(l.ts ?? ''),
                       nth: rd > 0 ? rd : undefined,
                     })

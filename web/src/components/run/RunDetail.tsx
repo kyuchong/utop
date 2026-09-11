@@ -8,6 +8,7 @@ import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
 import type { CycleMeta, CycleStep } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
 import { useReqIndex } from '@/pages/qaBits'
+import { stepSummary, type TcStep } from '@/components/tc/types'
 import RunAuto from './RunAuto'
 import RunManual from './RunManual'
 import './RunDetail.css'
@@ -137,8 +138,8 @@ function autoName(raw: Record<string, unknown>): string {
  * 맞춰 줘서, 다 돌고도 표가 전부 「—」 였다(지적).
  */
 function asStep(raw: Record<string, unknown>, i: number): {
-  no: number; t: string; cmd: string; expected: string; action: string
-  session: string; out: string; mark?: string; took?: string; waitSec?: number; at?: string
+  no: number; kind: string; t: string; cmd: string; expected: string; action: string
+  session: string; out: string; mark?: string; took?: string; tookMs?: number; waitSec?: number; at?: string
   /** 이 스텝이 붙은 장비 — 세션 판이 이것으로 장비를 찾는다 */
   devId?: string
   /** 비교 스텝이 통과·실패일 때 적어 둔 문구 */
@@ -170,8 +171,12 @@ function asStep(raw: Record<string, unknown>, i: number): {
     /* 「스텝 2」 같은 자리 채우개를 여기서 넣으면, 로그 쪽 채우개가 정의
        쪽 진짜 이름을 이겨 버린다(지적: Description 이 「스텝 2」). 비워
        두고, 그릴 때 채운다. */
+    kind: g('kind'),
     t: g('desc') || g('step') || g('t') || cli || autoName(raw),
-    cmd: cli,
+    /* Description 에는 시험 항목의 **「명령 내용」** 이 선다(지시) — 여태
+       cli 만 봐서 주석·메시지·OID·대기는 「스텝 N」 으로 비었다.
+       그 칸을 만드는 함수를 그대로 쓴다(한 곳). */
+    cmd: cli || stepSummary(raw as unknown as TcStep) || '',
     expected: expected || '—',
     action: g('action') || (g('kind') === 'cli' || cli ? 'command' : g('kind')) || '—',
     session: raw?.session === undefined || raw?.session === null ? '—' : `s${String(raw.session)}`,
@@ -179,6 +184,7 @@ function asStep(raw: Record<string, unknown>, i: number): {
     out: g('output') || g('out'),
     mark: mark || undefined,
     took: Number.isFinite(ms) ? `${(ms / 1000).toFixed(2)}s` : g('took') || undefined,
+    tookMs: Number.isFinite(ms) ? ms : undefined,
     waitSec: Number(raw?.waitSec ?? 0) || undefined,
     /* 스텝이 **언제** 돌았나. 안 실으면 이벤트 줄이 전부 항목 끝난 시각
        하나로 찍혀, 무엇이 먼저였는지 알 수 없다. */

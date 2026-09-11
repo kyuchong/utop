@@ -70,6 +70,14 @@ export interface RunLog {
    * 한다(지적). 라벨을 앞에 세우고 값은 오른쪽에 둔다.
    */
   label?: string
+  /**
+   * 이 줄이 **장비로 내보낸 것** — CLI 명령, SNMP OID.
+   *
+   * 세션 판의 「주고받은 명령」 이 이것을 모은다. 예전엔 글자가 `▸ ` 로
+   * 시작하는지로 골랐는데, 그 줄은 결과가 오면 같은 자리에서 갈아 끼워져
+   * 사라진다 — SNMP 는 애초에 `▸ ` 줄이 없어 세션 판에 CLI 만 떴다(지적).
+   */
+  sent?: string
 }
 
 export interface RunCtx {
@@ -943,6 +951,8 @@ async function runOne(
       i,
       text: `${sentText}${j.reason ? ` — ${j.reason}` : ''}${tookText}`,
       kind: j.verdict === 'Pass' ? 'pass' : j.verdict === 'Fail' ? 'fail' : 'info',
+      /* SNMP 도 **장비로 나간 것**이다(지적: 세션 판에 CLI 만 나온다) */
+      sent: String(snmp.oid ?? ''),
     })
     return j.verdict
   }
@@ -1447,7 +1457,7 @@ async function runOne(
            스텝이 끝난 뒤 요약만 남기면 20 회 반복이 끝나야 스무 줄이 한꺼번에
            나온다 — 「한번에 팍 나온다」 던 것이 이것이다. 명령이 하나뿐인
            스텝도 남긴다: 회차마다 무엇을 보냈는지가 그 줄이다. */
-        ctx.onLog({ i, text: `▸ ${e.cmd}`, kind: 'info', tick: cmdTick })
+        ctx.onLog({ i, text: `▸ ${e.cmd}`, kind: 'info', tick: cmdTick, sent: String(e.cmd) })
         if (acc && !acc.endsWith('\n')) acc += '\n'
         /*
          * 프롬프트는 장비 이름으로.
@@ -1525,7 +1535,13 @@ async function runOne(
   if (!gotOut) {
     const why = err || '장비가 아무것도 응답하지 않았습니다 — 세션이 끊겼거나 명령이 장비에 닿지 않았습니다'
     ctx.onStep(i, { output, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: why })
-    ctx.onLog({ i, text: `${commands[0]} — ${why} (${ms}ms)`, kind: 'fail', tick: cmdTick })
+    ctx.onLog({
+      i,
+      text: `${commands[0]} — ${why} (${ms}ms)`,
+      kind: 'fail',
+      tick: cmdTick,
+      sent: commands[0],
+    })
     return 'Fail'
   }
 
@@ -1553,6 +1569,7 @@ async function runOne(
     kind: verdict === 'Pass' ? 'pass' : verdict === 'Fail' ? 'fail' : 'info',
     /* 보낸 줄을 이 줄로 갈아 끼운다 — 위 cmdTick 주석 참고 */
     tick: cmdTick,
+    sent: commands.join(' ; '),
   })
   return verdict
 }
