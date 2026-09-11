@@ -399,10 +399,13 @@ export default function TcSequence({
              절차 설명이 안 보인다). 명령만 1fr 이던 때는 남는 폭을 혼자
              다 먹어(506px) 설명은 160px 에 갇혀 글이 잘렸다.
              끌어 정한 폭은 명령은 **최대**, 설명은 **최소**로 삼는다 —
-             그래야 명령을 좁혀도 오른쪽에 빈칸이 남지 않는다. */
+             그래야 명령을 좁혀도 오른쪽에 빈칸이 남지 않는다.
+             둘 다 1fr 로 **반반**이다. 1.4:1 처럼 기울여 두면 주석 줄이
+             두 칸을 걸쳐(grid-column: 8 / -1) fr 분배를 흔들어, 재 보면
+             오히려 뒤집힌 폭(269 : 397)이 나왔다. */
           '--sq-cols': [
             '26px 30px 30px 30px 40px 60px 190px',
-            sumW ? `minmax(150px, ${sumW}px)` : 'minmax(150px, 1.4fr)',
+            sumW ? `minmax(150px, ${sumW}px)` : 'minmax(150px, 1fr)',
             dscW ? `minmax(${dscW}px, 1fr)` : 'minmax(120px, 1fr)',
           ].join(' '),
         } as CSSProperties
