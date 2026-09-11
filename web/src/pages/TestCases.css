@@ -3752,21 +3752,24 @@ html .tc-split > .tc-content {
 /* ── 줄에서 바로 고치기(목업 ②) ──────────────────────────────── */
 /* 평소엔 아무 상자도 없다. 손이 오면 그제서야 「여기 눌러 고친다」 를 말한다 —
    서른 줄에 입력 상자가 늘어서 있으면 명령이 안 읽힌다. */
+/* 손을 올려도 **테두리를 두르지 않는다**(지시). 칸마다 상자가 뜨면 격자가
+   두 겹으로 보이고, 글자가 한 자리 밀린다. 고칠 수 있다는 것은 글자
+   커서(text)가 알린다. */
 .sq-sumv {
   display: inline-block;
   max-width: 100%;
-  padding: 1px 4px;
-  margin: -1px -4px;
-  border: 1px solid transparent;
-  border-radius: 5px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
   cursor: text;
 }
-.sq-row:hover .sq-sumv { border-color: var(--tc-div); background: var(--c-bg); }
-.sq-sumv:hover { border-color: var(--c-line); }
+/* 손이 온 칸만 아주 옅게 — 테두리 대신 바탕 한 겹 */
+.sq-sumv:hover { background: rgb(14 116 144 / 6%); border-radius: 3px; }
 
 /* 고치는 칸 — 줄 높이를 바꾸지 않는다. 늘었다 줄었다 하면 아래 줄이 튄다 */
 /* 고칠 때도 **칸 그대로**다(지시: 표 안에 상자가 보이지 않게).
@@ -3796,14 +3799,13 @@ html .tc-split > .tc-content {
 }
 
 /* 설명도 눌러서 고친다 */
-.sq-desc.hit { cursor: text; padding: 0 3px; border-radius: 4px; }
-.sq-row:hover .sq-desc.hit { background: var(--tc-hover); }
+.sq-desc.hit { cursor: text; border-radius: 3px; }
+.sq-desc.hit:hover { background: rgb(14 116 144 / 6%); }
 /* 빈 설명은 줄에 손이 올 때만 비친다 */
 .sq-desc.empty {
-  margin-left: 8px;
-  padding: 0 4px;
-  border: 1px dashed var(--tc-div);
-  border-radius: 4px;
+  margin-left: 0;
+  padding: 0;
+  border: 0;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   opacity: 0;
