@@ -469,11 +469,15 @@ export default function RunAuto({
       for (const l of liveLogs.slice(-LIVE_MAX)) {
         const i2 = Number(l.i ?? -1)
         const rd = Number(l.round ?? 0)
+        /* 시험 항목의 실행 로그와 **같은 줄**이어야 한다(지시). 거기서는
+           「비교 결과」 같은 앞말을 본문 앞에 세운다 — 그것을 버리면 무엇을
+           한 줄인지 다시 짚어야 한다. */
+        const lb = String((l as { label?: string }).label ?? '').trim()
         out.push({
           at: String(l.ts ?? ''),
           step: i2 >= 0 ? `Step ${nos[i2] || i2 + 1}${rd > 0 ? ` · ${rd}회` : ''}` : '',
           kind: String(l.kind ?? 'info').toUpperCase(),
-          text: String(l.text ?? ''),
+          text: `${lb ? `${lb} ` : ''}${String(l.text ?? '')}`,
         })
       }
       return out
