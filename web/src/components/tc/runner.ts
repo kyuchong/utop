@@ -445,17 +445,36 @@ export function judgeMeterStats(
  * 결과에 따라 문구를 남기려고 If 를 둘씩 만들 일이 아니다(지시) — 견준
  * 줄이 곧 그 결과를 말한다. 비워 두면 아무 말도 안 한다.
  */
-function sayDiff(
-  ctx: RunCtx,
-  i: number,
-  step: TcStep,
-  ok: boolean,
-  vars: Record<string, string>,
-) {
-  const raw = ok ? step.msgYes : step.msgNo
-  const say = String(raw ?? '').trim()
-  if (!say) return
-  ctx.onLog({ i, text: subVars(say, vars), kind: ok ? 'pass' : 'fail' })
+/** 견준 결과를 적는 말 — 안 적었으면 기본 문구를 쓴다(지시) */
+function diffSay(step: TcStep, ok: boolean, vars: Record<string, string>) {
+  const raw = String((ok ? step.msgYes : step.msgNo) ?? '').trim()
+  return subVars(
+    raw || (ok ? '비교 값이 동일 합니다.' : '비교 값이 동일 하지 않습니다. 점검을 해 주세요'),
+    vars,
+  )
+}
+
+/**
+ * `${이름}` 을 **담은 스텝의 절차 설명**.
+ *
+ * 로그가 `'E6100' == 'E6100'` 으로만 적히면 어느 쪽이 CLI 로 본 값이고
+ * 어느 쪽이 SNMP 로 본 값인지 알 수 없다(지시). 값을 담은 줄의 설명을
+ * 값 앞에 세워 한 줄로 읽히게 한다.
+ *
+ * 가까운 쪽부터 거슬러 찾는다 — 같은 이름에 여러 번 담았으면 **마지막에
+ * 담은 것**이 지금 그 변수의 값이다.
+ */
+function varFrom(ctx: RunCtx, expr: unknown, upto: number): string {
+  const m = /\$\{\s*([^}]+?)\s*\}/.exec(String(expr ?? ''))
+  if (!m) return ''
+  const name = m[1]
+  for (let j = Math.min(upto, ctx.steps.length) - 1; j >= 0; j--) {
+    const st = ctx.steps[j]
+    if (!st) continue
+    if ((st.extracts ?? []).some((x) => String(x?.var ?? '').trim() === name))
+      return String(st.desc ?? '').trim()
+  }
+  return ''
 }
 
 /** 스텝이 쓰는 장비. 자리가 비었거나 없는 장비면 이유를 돌려준다. */
@@ -664,8 +683,12 @@ async function runOne(
         status: ok ? 'PASS' : 'FAIL',
         repeatResult: ok ? 'Pass' : 'Fail',
       })
-      ctx.onLog({ i, text: head, kind: ok ? 'pass' : 'fail', label: '비교 결과' })
-      sayDiff(ctx, i, step, ok, vars)
+      ctx.onLog({
+        i,
+        text: `${head} ${diffSay(step, ok, vars)}`,
+        kind: ok ? 'pass' : 'fail',
+        label: '비교 결과',
+      })
       return ok ? 'Pass' : 'Fail'
     }
 
@@ -673,15 +696,20 @@ async function runOne(
       `${step.cmpLeft ?? ''} ${op} ${step.cmpRight ?? ''}`,
       vars,
     )
+    /* 견준 결과는 **한 줄**이다(지시). 값만 적으면 어느 쪽이 무엇으로 본
+       값인지 모르고, 맞으면·다르면 문구를 다음 줄로 빼면 같은 사건이 두
+       줄로 갈린다 — 값을 담은 줄의 설명을 앞에 세워 한 문장으로 적는다. */
+    const dl = varFrom(ctx, step.cmpLeft, i)
+    const dr = varFrom(ctx, step.cmpRight, i)
+    const line = `${dl ? `${dl} ` : ''}'${left}' ${op} ${dr ? `${dr} ` : ''}'${right}' ${diffSay(step, ok, vars)}`
     ctx.onStep(i, {
       output: why,
-      reason: why,
+      reason: line,
       executed_at: at,
       status: ok ? 'PASS' : 'FAIL',
       repeatResult: ok ? 'Pass' : 'Fail',
     })
-    ctx.onLog({ i, text: why, kind: ok ? 'pass' : 'fail', label: '비교 결과' })
-    sayDiff(ctx, i, step, ok, vars)
+    ctx.onLog({ i, text: line, kind: ok ? 'pass' : 'fail', label: '비교 결과' })
     return ok ? 'Pass' : 'Fail'
   }
 

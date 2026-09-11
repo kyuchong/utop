@@ -888,7 +888,7 @@ export default function TcStepDetail({
           <>
             <div className="sd-f wide">
               <span className="sd-lab">
-                견줄 두 값
+                비교 변수
                 {/* 단추는 **각 칸 바로 위**에 선다(지시) — 자리가 곧 어느
                     값을 채우는지 말한다. 라벨 줄에 몰아 두지 않는다. */}
               </span>
@@ -941,7 +941,7 @@ export default function TcStepDetail({
                   <input
                     className="sd-say yes"
                     value={step.msgYes ?? ''}
-                    placeholder="적합"
+                    placeholder="비교 값이 동일 합니다."
                     onChange={(e) => onChange({ msgYes: e.target.value })}
                   />
                 </label>
@@ -950,7 +950,7 @@ export default function TcStepDetail({
                   <input
                     className="sd-say no"
                     value={step.msgNo ?? ''}
-                    placeholder="부적합"
+                    placeholder="비교 값이 동일 하지 않습니다. 점검을 해 주세요"
                     onChange={(e) => onChange({ msgNo: e.target.value })}
                   />
                 </label>
@@ -960,7 +960,7 @@ export default function TcStepDetail({
             {/* running-config 를 견줄 때 uptime·카운터처럼 돌릴 때마다
                 달라지는 줄을 안 빼면 늘 다르다고 나온다. */}
             <label className="sd-f">
-              <span>견줄 때 뺄 줄</span>
+              <span>제외 라인</span>
               <textarea
                 className="mono"
                 rows={2}
