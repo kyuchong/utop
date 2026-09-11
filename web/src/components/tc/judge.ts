@@ -605,10 +605,10 @@ export function judgeTable(
   if (checked === 0)
     return { verdict: 'Fail', reason: '고른 행이 하나도 없습니다 — 행 조건을 확인하세요' }
   const what = checks.map((c) => `${c.col}${c.neq ? '≠' : '='}${c.val}`).join(' · ')
-  if (!fails.length) return { verdict: 'Pass', reason: `${checked}행 모두 ${what}` }
+  if (!fails.length) return { verdict: 'Pass', reason: `${checked}행 모두 ${what} — 정상입니다` }
   return {
     verdict: 'Fail',
-    reason: `${checked}행 중 ${fails.length}행 어긋남 — ${fails.slice(0, 6).join(' | ')}${
+    reason: `${checked}행 중 ${fails.length}행이 어긋났습니다 — ${fails.slice(0, 6).join(' | ')}${
       fails.length > 6 ? ` 외 ${fails.length - 6}행` : ''
     }`,
   }
@@ -728,6 +728,17 @@ export function stepRules(step: TcStep): JudgeRule[] {
   )
 }
 
+/**
+ * 「어디서 봤는지」 꼬리 — 찾은 줄이 값과 **같으면 안 붙인다**.
+ *
+ * `"E6100" 정상 조회되었습니다 — E6100` 처럼 같은 말이 두 번 서면 읽는
+ * 사람이 둘을 견주려 든다. 줄이 값보다 길 때만 쓸모가 있다.
+ */
+function saw(line: string | undefined, v: string): string {
+  const t = String(line ?? '').trim()
+  return t && t !== String(v ?? '').trim() ? ` — ${t}` : ''
+}
+
 export function judge(step: TcStep, output: string, vars: Record<string, string> = {}): {
   verdict: Verdict
   reason: string
@@ -735,7 +746,7 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
   const type = String(step.type ?? 'contains')
 
   const err = looksLikeError(output)
-  if (err) return { verdict: 'Fail', reason: `장비 오류 응답 — "${err}"` }
+  if (err) return { verdict: 'Fail', reason: `장비가 오류로 응답했습니다 — "${err}"` }
 
   /* 칩 기준 — rules 밭이 있으면 그것이 정본이다. **빈 배열도 정본**이다 —
      칩을 다 지운 것을 「규칙 없음」 으로 보면 옛 criteria 가 되살아난다
@@ -780,17 +791,21 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
         const why: string[] = []
         if (r.t === 'has') {
           ok = hasTok(v)
-          why.push(ok ? `"${v}" 있음 → ${lineOf2(v)}` : `"${v}" 없음`)
+          why.push(ok ? `"${v}" 정상 조회되었습니다${saw(lineOf2(v), v)}` : `"${v}" 조회되지 않았습니다`)
         } else {
           ok = !hasTok(v)
-          why.push(ok ? `"${v}" 없음(정상)` : `있으면 안 되는 "${v}" 있음 → ${lineOf2(v)}`)
+          why.push(
+            ok
+              ? `"${v}" 조회되지 않았습니다 — 정상입니다`
+              : `있으면 안 되는 "${v}" 가 발견되었습니다${saw(lineOf2(v), v)}`,
+          )
         }
         /* 견줌 꼬리 — 그 값이 전역 파라미터 따위와 맞는지까지. 비면 건너뛴다 */
         const rhs = String(r.rhs ?? '').trim()
         if (String(r.op ?? '').trim() && rhs) {
           const e = evalCondWhy(`${r.v} ${r.op} ${rhs}`, vars)
           ok = ok && e.ok
-          why.push(`비교 ${e.why}`)
+          why.push(`견준 결과 ${e.why}`)
         }
         res.push({ ok, why: why.join(' · ') })
       } else {
@@ -798,7 +813,7 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
         res.push({ ok: tr.verdict !== 'Fail', why: tr.reason })
       }
     }
-    if (!res.length) return { verdict: '', reason: '판정기준 없음' }
+    if (!res.length) return { verdict: '', reason: '판정 기준이 없습니다' }
 
     /* 기준을 어떻게 묶나 — 모두 맞아야(and·기본) · 하나만 맞아도(or) */
     const or = String((step as { ruleJoin?: string }).ruleJoin ?? '') === 'or'
@@ -809,15 +824,18 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
       if (good.length)
         return {
           verdict: 'Pass',
-          reason: `${res.length}개 중 ${good.length}개 맞음(OR) — ${good.map((x) => x.why).join(' · ')}`,
+          reason: `기준 ${res.length}개 중 ${good.length}개가 맞았습니다 — ${good.map((x) => x.why).join(' · ')}`,
         }
-      return { verdict: 'Fail', reason: `모두 어긋남(OR) — ${bad.map((x) => x.why).join(' · ')}` }
+      return {
+        verdict: 'Fail',
+        reason: `기준이 모두 어긋났습니다 — ${bad.map((x) => x.why).join(' · ')}`,
+      }
     }
     if (bad.length) return { verdict: 'Fail', reason: bad.map((x) => x.why).join(' · ') }
     return { verdict: 'Pass', reason: good.map((x) => x.why).join(' · ') }
   }
 
-  if (type === 'none') return { verdict: '', reason: '판정 안 함' }
+  if (type === 'none') return { verdict: '', reason: '판정하지 않는 스텝입니다' }
 
   /*
    * 오류만 없으면 합격.
@@ -839,7 +857,7 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
   }
 
   const rawCriteria = String(step.criteria ?? step.expected ?? '').trim()
-  if (!rawCriteria) return { verdict: '', reason: '판정기준 없음' }
+  if (!rawCriteria) return { verdict: '', reason: '판정 기준이 없습니다' }
 
   /**
    * 변수 식.
@@ -890,19 +908,21 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
     if (hit) {
       return {
         verdict: 'Fail',
-        reason: `있으면 안 되는 "${hit}" 가 있음 → ${lineOf(hit)}`,
+        reason: `있으면 안 되는 "${hit}" 가 발견되었습니다${saw(lineOf(hit), hit)}`,
       }
     }
     // 무엇을 찾아봤는지 남긴다. 「없음」 만 적으면 무엇을 안 찾았는지 모른다.
     return {
       verdict: 'Pass',
-      reason: `${toks.map((t) => `"${t}"`).join(' · ')} ${toks.length > 1 ? '모두 ' : ''}없음`,
+      reason: `${toks.map((t) => `"${t}"`).join(' · ')} ${
+        toks.length > 1 ? '모두 ' : ''
+      }조회되지 않았습니다 — 정상입니다`,
     }
   }
 
   if (type === 'contains_all') {
     const toks = criteria.split(/\r?\n|,/).map((s) => s.trim()).filter(Boolean)
-    if (toks.length === 0) return { verdict: '', reason: '판정기준 없음' }
+    if (toks.length === 0) return { verdict: '', reason: '판정 기준이 없습니다' }
     const miss = toks.filter((t) => !has(t))
     if (miss.length) {
       /*
@@ -915,8 +935,8 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
       return {
         verdict: 'Fail',
         reason:
-          `${toks.length}개 중 ${miss.length}개 없음 — ${miss.map((t) => `"${t}"`).join(' · ')}` +
-          (found.length ? ` (찾은 것: ${found.map((t) => `"${t}"`).join(' · ')})` : ''),
+          `${toks.length}개 중 ${miss.length}개가 조회되지 않았습니다 — ${miss.map((t) => `"${t}"`).join(' · ')}` +
+          (found.length ? ` (조회된 것: ${found.map((t) => `"${t}"`).join(' · ')})` : ''),
       }
     }
     // 무엇이 있어서 적합인지 — 찾은 줄까지 함께
@@ -924,8 +944,8 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
     return {
       verdict: 'Pass',
       reason: one
-        ? `"${toks[0]}" 있음 → ${lineOf(toks[0] as string)}`
-        : `${toks.length}개 모두 있음 — ${toks.map((t) => `"${t}"`).join(' · ')}`,
+        ? `"${toks[0]}" 정상 조회되었습니다${saw(lineOf(toks[0] as string), String(toks[0]))}`
+        : `${toks.length}개 모두 정상 조회되었습니다 — ${toks.map((t) => `"${t}"`).join(' · ')}`,
     }
   }
 
@@ -936,9 +956,9 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
     const find = (t: string) =>
       t.split(/\r?\n/).find((l) => l.toLowerCase().includes(key.toLowerCase()))
     const line = find(scoped) ?? find(raw)
-    if (!line) return { verdict: 'Fail', reason: `"${key}" 항목이 출력에 없음` }
+    if (!line) return { verdict: 'Fail', reason: `"${key}" 항목을 출력에서 찾지 못했습니다` }
     if (val && !line.toLowerCase().includes(val.toLowerCase()))
-      return { verdict: 'Fail', reason: `"${key}" 값이 다름 → ${line.trim()}` }
+      return { verdict: 'Fail', reason: `"${key}" 값이 기대와 다릅니다 — ${line.trim()}` }
     return { verdict: 'Pass', reason: line.trim() }
   }
 
@@ -953,14 +973,14 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
       verdict: 'Fail',
       reason:
         toks.length > 1
-          ? `${toks.map((t) => `"${t}"`).join(' · ')} 중 아무것도 없음`
-          : `"${criteria}" 가 출력에 없음`,
+          ? `${toks.map((t) => `"${t}"`).join(' · ')} 중 어느 것도 조회되지 않았습니다`
+          : `"${criteria}" 조회되지 않았습니다`,
     }
   }
   // 어느 줄에서 맞았는지 적는다. PASS 만 보고 '정말 맞게 본 건가' 를
   // 다시 확인하려면 응답을 눈으로 훑어야 했다.
   const where = lineOf(hit)
-  return { verdict: 'Pass', reason: where ? `"${hit}" 있음 → ${where}` : `"${hit}" 있음` }
+  return { verdict: 'Pass', reason: `"${hit}" 정상 조회되었습니다${saw(where, hit)}` }
 }
 
 /**

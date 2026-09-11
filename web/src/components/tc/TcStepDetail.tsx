@@ -1236,9 +1236,9 @@ export default function TcStepDetail({
                 <div className="sd-opts">
                   {(
                     [
-                      ['fail', '깨진 회차 + 마지막 20회', '기본'],
-                      ['none', '판정만 — 출력 안 남김', ''],
-                      ['all', '전부 — 회차가 적을 때', ''],
+                      ['fail', '깨진 회차 + 마지막 20회만 남기기', '기본'],
+                      ['none', '판정만 남기고 응답은 안 남기기', ''],
+                      ['all', '모든 회차의 응답 남기기', ''],
                     ] as Array<['fail' | 'none' | 'all', string, string]>
                   ).map(([v, t, tag]) => (
                     <label key={v} className={`sd-opt${(step.roundKeep ?? 'fail') === v ? ' on' : ''}`}>
@@ -1253,9 +1253,9 @@ export default function TcStepDetail({
                   ))}
                 </div>
                 <span className="sd-hint">
-                  같은 명령을 <b>오래 때려 보는 시험</b>이면 <b>판정만</b> 이 맞습니다 — 10,000회를
-                  돌려도 가볍습니다. 회차마다 값이 달라져 <b>다 봐야 하면</b> 회차를 줄이거나,
-                  돌린 뒤 <b>엑셀로 내보내</b> 견주세요.
+                  회차마다 <b>장비가 뱉은 응답</b>을 어디까지 남길지 고릅니다. 다 남기면
+                  10,000 회 시험에서 저장이 막힙니다 — 회차별 응답을 굳이 안 봐도 되면
+                  <b> 판정만</b>, 꼭 봐야 하면 회차를 줄이세요.
                 </span>
               </span>
             </div>
@@ -1863,7 +1863,9 @@ export default function TcStepDetail({
               {verdict && <b className={`status ${verdict.toLowerCase()}`}>{verdict}</b>}
               {/* 「판정기준 없음」 은 Result 가 아니라 **판정 기준** 쪽 말이다(지시).
                   결과 자리에 두면 무언가 결과가 난 것처럼 읽힌다 */}
-              {step.reason && !String(step.reason).startsWith('판정기준 없음') && (
+              {/* 문구를 존댓말로 고쳤다(지시) — 「판정기준 없음」 과 「판정 기준이
+                  없습니다」 를 함께 본다. 한쪽만 보면 옛 기록이 여기로 샌다. */}
+              {step.reason && !/^판정\s*기준(이)?\s*없/.test(String(step.reason)) && (
                 <span className="sd-why">{step.reason}</span>
               )}
               <span className="sp" />

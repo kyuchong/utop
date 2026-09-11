@@ -453,6 +453,20 @@ export function judgeMeterStats(
  */
 let CMD_SEQ = 0
 
+/**
+ * RCA 에 남길 말 — **무엇으로 본 결과인지**까지(지시).
+ *
+ * `"E6100" 정상 조회되었습니다` 만 남으면 어느 명령·OID 의 결과인지 알 수
+ * 없어, 회차를 뒤져 가며 짚어야 했다. 앞에 조회한 것을 세운다:
+ * 「show system 조회 시 "E6100" 정상 조회되었습니다」.
+ */
+function rcaText(sent: string, reason: string, more = 0): string {
+  const r = String(reason ?? '').trim()
+  const c = String(sent ?? '').trim()
+  if (!r || !c) return r
+  return `${c}${more > 0 ? ` 외 ${more}건` : ''} 조회 시 ${r}`
+}
+
 /** 견준 결과를 적는 말 — 안 적었으면 기본 문구를 쓴다(지시) */
 function diffSay(step: TcStep, ok: boolean, vars: Record<string, string>) {
   const raw = String((ok ? step.msgYes : step.msgNo) ?? '').trim()
@@ -893,7 +907,10 @@ async function runOne(
     const j = hasCriteria
       ? judge(step, output, vars)
       : okByItself
-        ? { verdict: '' as Verdict, reason: '판정기준 없음 — 판정하지 않습니다(조회만)' }
+        ? {
+            verdict: '' as Verdict,
+            reason: '판정 기준이 없어 판정하지 않았습니다 (조회만 했습니다)',
+          }
         : /* 못 부른 것은 판정이 아니라 **실패**다. CLI 가 장비 오류 응답을
              불합격으로 보는 것과 같은 자리다. */
           { verdict: 'Fail' as Verdict, reason: String(r.error ?? '응답 없음') }
@@ -903,7 +920,7 @@ async function runOne(
       executed_at: at,
       status: j.verdict ? j.verdict.toUpperCase() : '',
       repeatResult: j.verdict,
-      reason: j.reason,
+      reason: rcaText(String(snmp.oid ?? ''), j.reason),
     })
     // 로그는 **실제 보낸 OID**를 보여 준다 — 원본(step.oid)은 `.8.$i` 라
     // $i 가 풀렸는지 알 수 없다(지적). subVars 를 지난 snmp.oid 를 쓴다.
@@ -1518,7 +1535,7 @@ async function runOne(
     executed_at: at,
     status: verdict ? verdict.toUpperCase() : '',
     repeatResult: verdict,
-    reason,
+    reason: rcaText(commands[0] ?? '', reason, commands.length - 1),
     /* **변수를 푼 뒤의 명령**을 남긴다(지시) — 회차마다 `te0/1 · te0/2 …`
        로 달라지는데, 원본만 들고 있으면 몇 회차에 무엇을 보냈는지 모른다 */
     sentCmd: commands.join(' ; '),
