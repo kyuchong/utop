@@ -297,7 +297,6 @@ async function doRun(run: Run): Promise<void> {
           'output',
           'out',
           'rounds',
-          'queries',
           'status',
           'executed_at',
           'took_ms',

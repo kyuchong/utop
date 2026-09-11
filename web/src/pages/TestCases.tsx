@@ -1451,7 +1451,9 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
     {
       const aim = pick ?? (only ? [from] : steps.map((_, i) => i).filter((i) => i >= from))
       const wipe = new Set(aim)
-      const DROP = ['output', 'out', 'rounds', 'queries', 'status', 'executed_at', 'took_ms', 'reason', 'sentCmd', 'repeatResult']
+      /* **결과만** 지운다. `queries`(응답에서 값을 꺼내 변수에 담는 설정)를
+         한때 여기 넣었다가 돌릴 때마다 변수가 통째로 사라졌다(지적). */
+      const DROP = ['output', 'out', 'rounds', 'status', 'executed_at', 'took_ms', 'reason', 'sentCmd', 'repeatResult']
       setD((c) => ({
         ...c,
         checks: ((c.checks ?? []) as TcStep[]).map((s2, j) => {
