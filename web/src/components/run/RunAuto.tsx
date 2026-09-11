@@ -664,13 +664,26 @@ export default function RunAuto({
        「T0055」 로도 찾고 「PortReset」 로도 찾는다 */
     return byV.filter((it) => `${it.id} ${it.name} ${it.exec ?? ''}`.toLowerCase().includes(k))
   }, [items, flt, q])
+  /**
+   * **돈 것만, 최신이 위**(지시: iTest 처럼).
+   *
+   * 아직 안 돈 항목까지 미리 깔아 두면 목록이 길어 스크롤이 계속 내려가고,
+   * 방금 끝난 것을 보려면 눈이 아래로 따라가야 했다. 담긴 항목 수는 판
+   * 제목의 「전체 62」 가 이미 말한다.
+   */
+  const doneItems = useMemo(() => {
+    const ran = shownItems.filter((it) => String(it.at ?? '').trim() || it.verdict !== 'n')
+    return ran
+      .slice()
+      .sort((a, b) => String(b.at ?? '').localeCompare(String(a.at ?? '')))
+  }, [shownItems])
   const groups = useMemo(() => {
     /* **받은 차례를 절대 안 바꾼다** — 이어지는 같은 묶음만 한 덩이로 접는다.
        Map 으로 묶었더니 이름이 같은 다른 REQ 의 항목을 위로 끌어 붙여,
        실행기는 제 차례로 도는데 화면의 파란 강조가 목록을 건너뛰며
        오르내렸다(지적: 왔다갔다 실행한다 — 의 두 번째 얼굴). */
     const out: Array<[string, AutoItem[]]> = []
-    for (const it of shownItems) {
+    for (const it of doneItems) {
       const last = out[out.length - 1]
       if (last && last[0] === it.group) last[1].push(it)
       else out.push([it.group, [it]])
@@ -1144,16 +1157,24 @@ export default function RunAuto({
           </div>
           {!groups.length && (
             <div className="ra-none">
-              {q.trim() ? `「${q.trim()}」 로 찾은 항목이 없습니다.` : '그 결과의 항목이 없습니다.'}
+              {q.trim()
+                ? `「${q.trim()}」 로 찾은 항목이 없습니다.`
+                : flt !== 'all'
+                  ? '그 결과의 항목이 없습니다.'
+                  : '아직 돌린 항목이 없습니다 — 돌린 것부터 최신 차례로 쌓입니다.'}
             </div>
           )}
           {groups.map(([g, arr]) => (
             <div key={g}>
               {/* 묶음 옆 「1/2」 를 뺐다(지시) — 판 제목에 Pass·Fail·대기 가
                   이미 적혀 있어 같은 값을 두 번 세는 셈이다. */}
-              <div className="ra-grp">
-                <span>{g}</span>
-              </div>
+              {/* 최신순이라 같은 묶음이 연달아 오지 않는다 — 이름이 없는
+                  덩이(찾기·거르기 결과)에는 머리를 안 세운다 */}
+              {g ? (
+                <div className="ra-grp">
+                  <span>{g}</span>
+                </div>
+              ) : null}
               {arr.map((it) => (
                 <button
                   type="button"
