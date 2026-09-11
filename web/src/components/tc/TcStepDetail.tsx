@@ -831,160 +831,6 @@ export default function TcStepDetail({
           </div>
         )}
 
-        {/* 뽑은 값 — 판정 기준 **바로 다음**에 두되 제 라벨 열을 갖는다(지시:
-            Criteria 처럼 열 맞춰서). 판정 기준 안에 넣었더니 라벨이 값 영역
-            안으로 들어가 왼쪽 열과 어긋났다. */}
-        {/* 응답에서 뽑아둔 변수. 정규식이 그대로 보이면 무섭게 보이므로
-            변수 이름을 앞에 세운다. */}
-        {/* 뽑은 값.
-            이름만 보이면 그 식이 무엇을 집고 있는지 돌려보기 전에는 알 수
-            없다. 지금 응답에 대 보고 실제로 뽑히는 값을 함께 적는다. */}
-        {(step.queries?.length || step.extracts?.length) ? (
-          <div className="sd-f">
-            <span className="sd-lab">Extracted values</span>
-            <div className="sd-vlist">
-              {[
-                ...(step.queries ?? []).map((x, i) => ({
-                  key: `q${i}`,
-                  name: x.var,
-                  rule: x.q,
-                  rename: (v: string) =>
-                    onChange({
-                      queries: (step.queries ?? []).map((y, j) => (j === i ? { ...y, var: v } : y)),
-                    }),
-                  /* 표에서 뽑은 것은 식이 아니라 **말**로 보여 준다 —
-                     「Port=Te0/${i} 행의 Name 칸」. 정규식이 아니니 정규식처럼
-                     보일 이유가 없다 */
-                  tbl: x.col ? { col: x.col, where: x.where ?? '', row: x.row ?? '' } : null,
-                  drop: () =>
-                    onChange({ queries: (step.queries ?? []).filter((_, j) => j !== i) }),
-                })),
-                ...(step.extracts ?? []).map((x, i) => ({
-                  key: `x${i}`,
-                  name: x.var,
-                  rule: x.rule,
-                  rename: (v: string) =>
-                    onChange({
-                      extracts: (step.extracts ?? []).map((y, j) => (j === i ? { ...y, var: v } : y)),
-                    }),
-                  tbl: null as { col: string; where: string; row: string } | null,
-                  drop: () =>
-                    onChange({ extracts: (step.extracts ?? []).filter((_, j) => j !== i) }),
-                })),
-              ].map((v) => {
-                const got = v.tbl
-                  ? tableCapture(capSrc, v.tbl, pvars)
-                  : v.rule
-                    ? extractOne(subVars(v.rule, pvars), capSrc)
-                    : null
-                return (
-                  /* 판정 기준 줄과 **같은 꼴**로 세운다(지시: Criteria 처럼).
-                     왼쪽에 고정 폭 이름표, 그다음 넓은 칸, 꼬리에 단추 —
-                     같은 판 안에서 줄마다 생김새가 다르면 눈이 자리를 못 외운다. */
-                  <div className="sd-vrow sd-jr" key={v.key}>
-                    <span className="sd-jr-t fixed">변수</span>
-                    <input
-                      className="sd-jr-in mono"
-                      value={v.name ?? ''}
-                      placeholder="이름"
-                      disabled={readOnly}
-                      onChange={(e) => v.rename(e.target.value)}
-                    />
-                    {v.name && takenVars.includes(v.name) && (
-                      <b className="sd-vdup" title="다른 스텝도 이 이름을 뽑습니다 — 뒤엣것이 앞엣것을 덮습니다">
-                        겹침
-                      </b>
-                    )}
-                    <span
-                      className={`sd-vval${got == null ? ' none' : ''}`}
-                      title={
-                        result && got == null && v.tbl
-                          ? captureMiss(capSrc, { var: v.name, ...v.tbl }, pvars) ?? ''
-                          : ''
-                      }
-                    >
-                      {result
-                        ? got == null
-                          ? /* 표 뽑기면 **왜** 안 잡히는지 그대로 보여 준다(지적:
-                               설정도 했는데 없는 변수라고 나와) — 「안 잡힙니다」
-                               만으로는 어디가 틀렸는지 알 수 없다 */
-                            v.tbl
-                            ? captureMiss(capSrc, { var: v.name, ...v.tbl }, pvars)?.replace(
-                                `${v.name} ← `,
-                                '',
-                              ) ?? '안 잡힙니다'
-                            : v.rule && looksFrozen(v.rule)
-                              ? '값이 박혀 있어 안 맞습니다 → 「수는 아무 수나」'
-                              : loopVar
-                                ? `1회차(${'${' + loopVar + '}'}=1) 로는 안 잡힙니다`
-                                : '이 응답에서는 안 잡힙니다'
-                          : got || '(빈 값)'
-                        : '아직 실행 전'}
-                    </span>
-                    <code
-                      className="sd-vrule"
-                      title={
-                        v.tbl
-                          ? '표에서 뽑기 — 열 이름으로 찾으므로 칸 폭이 바뀌어도 안 깨집니다'
-                          : (v.rule ?? '')
-                      }
-                    >
-                      {v.tbl
-                        ? `${v.tbl.where || (v.tbl.row ? `${v.tbl.row}번째 줄` : '첫 줄')} 행의 ${v.tbl.col} 칸`
-                        : v.rule}
-                    </code>
-                    {/* 표 뽑기가 `열=${반복변수}` 로 잡혀 안 맞을 때 — i 는
-                        1,2,3… 인데 그 열 값은 113,1001… 이라 절대 안 맞는다
-                        (지적). 사람이 바란 건 「i번째 줄」이다. 한 번에
-                        「응답 순서로」(row) 로 바꾼다 */}
-                    {(() => {
-                      // 식 안의 ${변수} 를 직접 뽑는다 — 반복 탐지에 안 기댄다
-                      const m = v.tbl && v.tbl.where ? /\$\{(\w+)\}/.exec(v.tbl.where) : null
-                      const wv = m?.[1]
-                      if (!v.tbl || !wv || !v.key.startsWith('q')) return null
-                      const ref = '${' + wv + '}'
-                      return (
-                        <button
-                          type="button"
-                          className="btn small sd-loosen"
-                          title={`지금은 「${v.tbl!.col} 열 값이 ${ref} 와 같은 행」을 찾습니다.\n${wv} 는 1,2,3… 인데 그 열 값은 113,1001… 이라 안 맞을 수 있습니다.\n눌러서 「${ref}번째 줄」(응답 순서)로 바꿉니다.`}
-                          onClick={() => {
-                            const idx = Number(v.key.slice(1))
-                            const qs = (step.queries ?? []).slice()
-                            if (qs[idx]) qs[idx] = { ...qs[idx], where: '', row: ref }
-                            onChange({ queries: qs })
-                          }}
-                        >
-                          응답 순서로 ({ref}번째 줄)
-                        </button>
-                      )
-                    })()}
-                    {/* 고정 숫자가 박힌 식이면 한 번에 풀어 준다(지적: 값이 바뀌면
-                        옛 값이 남는다). `(15:54)` → `(\d+:\d+)` */}
-                    {!v.tbl && v.rule && looksFrozen(v.rule) && v.key.startsWith('q') && (
-                      <button
-                        type="button"
-                        className="btn small sd-loosen"
-                        title={`이 식은 숫자를 글자 그대로 찾습니다 — 값이 바뀌면 안 맞습니다.\n눌러서 「아무 수나」 로 바꿉니다: ${loosenRule(v.rule)}`}
-                        onClick={() => {
-                          const idx = Number(v.key.slice(1))
-                          const qs = (step.queries ?? []).slice()
-                          if (qs[idx]) qs[idx] = { ...qs[idx], q: loosenRule(v.rule!) }
-                          onChange({ queries: qs })
-                        }}
-                      >
-                        수는 아무 수나
-                      </button>
-                    )}
-                    <button type="button" className="if-x" aria-label="지우기" onClick={v.drop}>
-                      ×
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ) : null}
         {kind === 'snmp_trap' && (
           <label className="sd-f">
             <span>몇 초까지 기다리는가</span>
@@ -1812,6 +1658,160 @@ export default function TcStepDetail({
             )}
           </div>
         )}
+        {/* 뽑은 값 — **Criteria 아래**에 제 라벨 열로 선다(지시:
+            Criteria 처럼 열 맞춰서). 판정 기준 안에 넣었더니 라벨이 값 영역
+            안으로 들어가 왼쪽 열과 어긋났다. */}
+        {/* 응답에서 뽑아둔 변수. 정규식이 그대로 보이면 무섭게 보이므로
+            변수 이름을 앞에 세운다. */}
+        {/* 뽑은 값.
+            이름만 보이면 그 식이 무엇을 집고 있는지 돌려보기 전에는 알 수
+            없다. 지금 응답에 대 보고 실제로 뽑히는 값을 함께 적는다. */}
+        {(step.queries?.length || step.extracts?.length) ? (
+          <div className="sd-f">
+            <span className="sd-lab">Extracted values</span>
+            <div className="sd-vlist">
+              {[
+                ...(step.queries ?? []).map((x, i) => ({
+                  key: `q${i}`,
+                  name: x.var,
+                  rule: x.q,
+                  rename: (v: string) =>
+                    onChange({
+                      queries: (step.queries ?? []).map((y, j) => (j === i ? { ...y, var: v } : y)),
+                    }),
+                  /* 표에서 뽑은 것은 식이 아니라 **말**로 보여 준다 —
+                     「Port=Te0/${i} 행의 Name 칸」. 정규식이 아니니 정규식처럼
+                     보일 이유가 없다 */
+                  tbl: x.col ? { col: x.col, where: x.where ?? '', row: x.row ?? '' } : null,
+                  drop: () =>
+                    onChange({ queries: (step.queries ?? []).filter((_, j) => j !== i) }),
+                })),
+                ...(step.extracts ?? []).map((x, i) => ({
+                  key: `x${i}`,
+                  name: x.var,
+                  rule: x.rule,
+                  rename: (v: string) =>
+                    onChange({
+                      extracts: (step.extracts ?? []).map((y, j) => (j === i ? { ...y, var: v } : y)),
+                    }),
+                  tbl: null as { col: string; where: string; row: string } | null,
+                  drop: () =>
+                    onChange({ extracts: (step.extracts ?? []).filter((_, j) => j !== i) }),
+                })),
+              ].map((v) => {
+                const got = v.tbl
+                  ? tableCapture(capSrc, v.tbl, pvars)
+                  : v.rule
+                    ? extractOne(subVars(v.rule, pvars), capSrc)
+                    : null
+                return (
+                  /* 판정 기준 줄과 **같은 꼴**로 세운다(지시: Criteria 처럼).
+                     왼쪽에 고정 폭 이름표, 그다음 넓은 칸, 꼬리에 단추 —
+                     같은 판 안에서 줄마다 생김새가 다르면 눈이 자리를 못 외운다. */
+                  <div className="sd-vrow sd-jr" key={v.key}>
+                    <span className="sd-jr-t fixed">변수</span>
+                    <input
+                      className="sd-jr-in mono"
+                      value={v.name ?? ''}
+                      placeholder="이름"
+                      disabled={readOnly}
+                      onChange={(e) => v.rename(e.target.value)}
+                    />
+                    {v.name && takenVars.includes(v.name) && (
+                      <b className="sd-vdup" title="다른 스텝도 이 이름을 뽑습니다 — 뒤엣것이 앞엣것을 덮습니다">
+                        겹침
+                      </b>
+                    )}
+                    <span
+                      className={`sd-vval${got == null ? ' none' : ''}`}
+                      title={
+                        result && got == null && v.tbl
+                          ? captureMiss(capSrc, { var: v.name, ...v.tbl }, pvars) ?? ''
+                          : ''
+                      }
+                    >
+                      {result
+                        ? got == null
+                          ? /* 표 뽑기면 **왜** 안 잡히는지 그대로 보여 준다(지적:
+                               설정도 했는데 없는 변수라고 나와) — 「안 잡힙니다」
+                               만으로는 어디가 틀렸는지 알 수 없다 */
+                            v.tbl
+                            ? captureMiss(capSrc, { var: v.name, ...v.tbl }, pvars)?.replace(
+                                `${v.name} ← `,
+                                '',
+                              ) ?? '안 잡힙니다'
+                            : v.rule && looksFrozen(v.rule)
+                              ? '값이 박혀 있어 안 맞습니다 → 「수는 아무 수나」'
+                              : loopVar
+                                ? `1회차(${'${' + loopVar + '}'}=1) 로는 안 잡힙니다`
+                                : '이 응답에서는 안 잡힙니다'
+                          : got || '(빈 값)'
+                        : '아직 실행 전'}
+                    </span>
+                    <code
+                      className="sd-vrule"
+                      title={
+                        v.tbl
+                          ? '표에서 뽑기 — 열 이름으로 찾으므로 칸 폭이 바뀌어도 안 깨집니다'
+                          : (v.rule ?? '')
+                      }
+                    >
+                      {v.tbl
+                        ? `${v.tbl.where || (v.tbl.row ? `${v.tbl.row}번째 줄` : '첫 줄')} 행의 ${v.tbl.col} 칸`
+                        : v.rule}
+                    </code>
+                    {/* 표 뽑기가 `열=${반복변수}` 로 잡혀 안 맞을 때 — i 는
+                        1,2,3… 인데 그 열 값은 113,1001… 이라 절대 안 맞는다
+                        (지적). 사람이 바란 건 「i번째 줄」이다. 한 번에
+                        「응답 순서로」(row) 로 바꾼다 */}
+                    {(() => {
+                      // 식 안의 ${변수} 를 직접 뽑는다 — 반복 탐지에 안 기댄다
+                      const m = v.tbl && v.tbl.where ? /\$\{(\w+)\}/.exec(v.tbl.where) : null
+                      const wv = m?.[1]
+                      if (!v.tbl || !wv || !v.key.startsWith('q')) return null
+                      const ref = '${' + wv + '}'
+                      return (
+                        <button
+                          type="button"
+                          className="btn small sd-loosen"
+                          title={`지금은 「${v.tbl!.col} 열 값이 ${ref} 와 같은 행」을 찾습니다.\n${wv} 는 1,2,3… 인데 그 열 값은 113,1001… 이라 안 맞을 수 있습니다.\n눌러서 「${ref}번째 줄」(응답 순서)로 바꿉니다.`}
+                          onClick={() => {
+                            const idx = Number(v.key.slice(1))
+                            const qs = (step.queries ?? []).slice()
+                            if (qs[idx]) qs[idx] = { ...qs[idx], where: '', row: ref }
+                            onChange({ queries: qs })
+                          }}
+                        >
+                          응답 순서로 ({ref}번째 줄)
+                        </button>
+                      )
+                    })()}
+                    {/* 고정 숫자가 박힌 식이면 한 번에 풀어 준다(지적: 값이 바뀌면
+                        옛 값이 남는다). `(15:54)` → `(\d+:\d+)` */}
+                    {!v.tbl && v.rule && looksFrozen(v.rule) && v.key.startsWith('q') && (
+                      <button
+                        type="button"
+                        className="btn small sd-loosen"
+                        title={`이 식은 숫자를 글자 그대로 찾습니다 — 값이 바뀌면 안 맞습니다.\n눌러서 「아무 수나」 로 바꿉니다: ${loosenRule(v.rule)}`}
+                        onClick={() => {
+                          const idx = Number(v.key.slice(1))
+                          const qs = (step.queries ?? []).slice()
+                          if (qs[idx]) qs[idx] = { ...qs[idx], q: loosenRule(v.rule!) }
+                          onChange({ queries: qs })
+                        }}
+                      >
+                        수는 아무 수나
+                      </button>
+                    )}
+                    <button type="button" className="if-x" aria-label="지우기" onClick={v.drop}>
+                      ×
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
 
 
 
