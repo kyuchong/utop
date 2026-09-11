@@ -143,7 +143,10 @@
    자리를 두지 않아(잘 되는 REQ-Coverage 의 .rqtc-tbl 도 마찬가지다)
    감싼 쪽이 auto 를 주지 않으면 열이 스물을 넘는 순간 오른쪽이 잘린다. */
 .jri-table {
-  flex: 1;
+  /* 줄이 적으면 **카드도 작아진다**(지적: 카드 아래 바탕이 안 보인다).
+     flex:1 이면 여덟 줄짜리 표가 화면 끝까지 늘어나 바닥 색이 안 보였다.
+     넘칠 때만 줄어들며 스크롤이 선다. */
+  flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
   background: var(--c-surface);
