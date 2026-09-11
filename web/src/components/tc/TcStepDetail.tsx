@@ -625,6 +625,58 @@ export default function TcStepDetail({
           />
         )}
 
+        {/* OID 는 **세션 바로 아래**다(지시) — 어디로 보내는지 다음에
+            무엇을 묻는지가 붙어 읽힌다. CLI 와는 갈래가 갈려 한 번에
+            하나만 뜬다. */}
+        {(kind === 'snmp_get' || kind === 'snmp_set' || kind === 'snmp_trap') && (
+          <label className="sd-f">
+            <span className="sd-lab">
+              OID
+              {/* 단추가 둘이라 **묶어서** 오른쪽에 나란히 — `.sd-pickbtn` 은
+                  홑 단추를 칸 오른쪽 끝에 앉히려 absolute(right:0) 라, 그대로
+                  둘을 두면 같은 자리에 포개진다(지적: 버튼 2개 겹침).
+                  포개지면 위에 깔린 것만 눌려 「이름으로 찾기」 를 못 쓴다. */}
+              <span className="sd-two">
+                {/* 1.3.6.1.2.1.1.3.0 을 외우거나 문서를 뒤지게 두지 않는다.
+                    MIB 에서 뽑아 둔 이름표에서 골라 넣는다. */}
+                <button
+                  type="button"
+                  className="sd-pickbtn"
+                  title="MIB 이름으로 찾기"
+                  onClick={() => setPick(pick === 'oid' ? '' : 'oid')}
+                >
+                  🔎 이름으로 찾기
+                </button>
+                {paramPick('oid', 'p-oid').btn}
+              </span>
+            </span>
+            {paramPick('oid', 'p-oid').list}
+            {pick === 'oid' && (
+              <PickList
+                title="OID 찾기"
+                items={oidItems}
+                loading={oidQuery.isLoading}
+                empty={
+                  oidQuery.data?.hint ||
+                  (oidQ ? '찾는 이름이 없습니다.' : 'MIB 이름표가 비어 있습니다.')
+                }
+                onSearch={setOidQ}
+                onClose={() => setPick('')}
+                onPick={(x) => {
+                  onChange({ oid: x.value })
+                  setPick('')
+                }}
+              />
+            )}
+            <input
+              className="mono"
+              value={step.oid ?? ''}
+              placeholder={kind === 'snmp_trap' ? '비우면 아무 Trap' : '1.3.6.1.2.1.1.3.0'}
+              onChange={(e) => onChange({ oid: e.target.value })}
+            />
+            {preview(step.oid)}
+          </label>
+        )}
         {kind === 'cli' && (
           <label className="sd-f">
             <span className="sd-lab">
@@ -737,55 +789,6 @@ export default function TcStepDetail({
               「살아 있으면 합격」 을 보시려면 응답에서 <code>bytes from</code> 같은 글자를
               끌어 「있으면 합격」 칩을 만드세요. (못 부른 것은 기준과 상관없이 불합격입니다)
             </span>
-          </label>
-        )}
-        {(kind === 'snmp_get' || kind === 'snmp_set' || kind === 'snmp_trap') && (
-          <label className="sd-f">
-            <span className="sd-lab">
-              OID
-              {/* 단추가 둘이라 **묶어서** 오른쪽에 나란히 — `.sd-pickbtn` 은
-                  홑 단추를 칸 오른쪽 끝에 앉히려 absolute(right:0) 라, 그대로
-                  둘을 두면 같은 자리에 포개진다(지적: 버튼 2개 겹침).
-                  포개지면 위에 깔린 것만 눌려 「이름으로 찾기」 를 못 쓴다. */}
-              <span className="sd-two">
-                {/* 1.3.6.1.2.1.1.3.0 을 외우거나 문서를 뒤지게 두지 않는다.
-                    MIB 에서 뽑아 둔 이름표에서 골라 넣는다. */}
-                <button
-                  type="button"
-                  className="sd-pickbtn"
-                  title="MIB 이름으로 찾기"
-                  onClick={() => setPick(pick === 'oid' ? '' : 'oid')}
-                >
-                  🔎 이름으로 찾기
-                </button>
-                {paramPick('oid', 'p-oid').btn}
-              </span>
-            </span>
-            {paramPick('oid', 'p-oid').list}
-            {pick === 'oid' && (
-              <PickList
-                title="OID 찾기"
-                items={oidItems}
-                loading={oidQuery.isLoading}
-                empty={
-                  oidQuery.data?.hint ||
-                  (oidQ ? '찾는 이름이 없습니다.' : 'MIB 이름표가 비어 있습니다.')
-                }
-                onSearch={setOidQ}
-                onClose={() => setPick('')}
-                onPick={(x) => {
-                  onChange({ oid: x.value })
-                  setPick('')
-                }}
-              />
-            )}
-            <input
-              className="mono"
-              value={step.oid ?? ''}
-              placeholder={kind === 'snmp_trap' ? '비우면 아무 Trap' : '1.3.6.1.2.1.1.3.0'}
-              onChange={(e) => onChange({ oid: e.target.value })}
-            />
-            {preview(step.oid)}
           </label>
         )}
         {kind === 'snmp_set' && (

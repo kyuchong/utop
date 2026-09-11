@@ -1004,6 +1004,10 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .sd-f textarea { resize: vertical; line-height: 1.6; }
 
 /* 칸 아래 덧붙이는 안내. 라벨과 헷갈리지 않게 아래에 작게 둔다. */
+/* 안내는 **값 칸 아래**로 간다. sd-f 는 두 칸 격자(라벨 84px | 값)라,
+   그냥 두면 안내가 라벨 열에 떨어져 84px 안에서 한 글자씩 세로로 눌린다
+   (지적: 세로로 눌려 못 읽는다). */
+.sd-f > .sd-hint { grid-column: 2; }
 .sd-hint {
   display: block;
   margin-top: 4px;
