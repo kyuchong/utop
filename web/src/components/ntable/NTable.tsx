@@ -82,6 +82,8 @@ export interface NTableProps {
       열을 찾는 자리는 사람에게 그 판 하나다 — 옆에 단추를 또 세우면
       열을 두 자리에서 찾게 된다(Jira 화면의 「지라 칸 더하기」 가 이것). */
   propsFoot?: React.ReactNode
+  /** 거르고 세운 뒤의 줄 차례 — 부르는 쪽이 그 차례로 시험을 돌린다 */
+  onShown?: (ids: string[]) => void
   /** 열마다 아래에서 세는 것 — 고르면 바로 저장된다 */
   calcs?: Record<string, NCalc>
   onCalcs?: (v: Record<string, NCalc>) => void
@@ -109,7 +111,7 @@ export default function NTable(p: NTableProps) {
     columns, rows, view, onView, onColumns, onCell,
     people = [], meName, onOpen, onPeek, onNew, onBulk,
     renderCell, readOnlyKeys = [], lockDefs,
-    idKey = 'id', titleKey = 'title', title, busy, toolbarLeft, propsFoot,
+    idKey = 'id', titleKey = 'title', title, busy, toolbarLeft, propsFoot, onShown,
     calcs = {}, onCalcs, perPage = 100, onPerPage,
   } = p
 
@@ -267,6 +269,15 @@ export default function NTable(p: NTableProps) {
     if (page > pageN) setPage(pageN)
   }, [page, pageN])
   useEffect(() => setPage(1), [view.q, view.filters, view.sorts, per])
+  /* 거르고 세운 **뒤의 차례**를 부르는 쪽에 알린다(지시: 표에서 정렬한
+     차례대로 시험을 돌리고 싶다). 쪽 나누기 전 전체다 — 실행은 2쪽에 있는
+     항목도 돈다. */
+  useEffect(() => {
+    if (!onShown) return
+    onShown(shown.map((r) => String(r.__id)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown])
+
   const paged = useMemo(
     () => {
       /* 묶는 동안에도 쪽을 나눈다(지적: 25개로 해도 62줄이 다 나왔다).

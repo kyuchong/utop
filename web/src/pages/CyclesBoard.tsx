@@ -740,6 +740,8 @@ export default function CyclesBoard({
   )
 
   /** 항목 줄 — TC 메타·REQ 이름표를 입혀 폴더 ▸ REQ 로 묶는다 */
+  /** 표가 거르고 세운 차례 — 시험도 이 차례로 돈다(makeRun) */
+  const [shownOrder, setShownOrder] = useState<string[]>([])
   const itemRows = useMemo<ItemRow[]>(() => {
     const out: ItemRow[] = []
     for (const it of full?.items ?? []) {
@@ -1091,11 +1093,20 @@ export default function CyclesBoard({
 
   /** 실행을 뜬다 — 담긴 항목 전부. 시험을 시작할 때 속에서만 부른다 */
   async function makeRun(p: CycleMeta): Promise<string | null> {
-    const ids = orderTcIds(
-      (p.items ?? []).map((it) => String(it?.tcid ?? '')).filter(Boolean),
-      tcOf,
-      reqIndex,
-    )
+    /*
+     * **표에 보이는 차례 그대로 돈다**(지시: 시험 차례를 내가 정하고 싶다).
+     *
+     * 표의 「정렬」 로 무엇을 기준 삼든 — 만든 Key 칸이든 ID 든 — 그 차례가
+     * 곧 시험 차례다. 62 건을 손으로 옮길 일이 없고, 정렬은 보기에 남으므로
+     * 다음에 돌려도 같은 차례다.
+     *
+     * 표를 아직 안 그렸으면(바로 실행) 예전 규칙으로 세운다.
+     */
+    const all = (p.items ?? []).map((it) => String(it?.tcid ?? '')).filter(Boolean)
+    const rank = new Map(shownOrder.map((id, i) => [id, i]))
+    const ids = shownOrder.length
+      ? [...all].sort((a, b) => (rank.get(a) ?? 1e9) - (rank.get(b) ?? 1e9))
+      : orderTcIds(all, tcOf, reqIndex)
     if (!ids.length) {
       window.alert('담긴 시험 항목이 없습니다 — 시험 항목 탭에서 먼저 담으세요.')
       return null
@@ -1903,6 +1914,7 @@ export default function CyclesBoard({
           onBulk={(a, ids) => {
             if (a === 'del') void dropCycleItems(ids)
           }}
+          onShown={setShownOrder}
           renderCell={(row, col) => {
             if (col.key !== 'fail') return undefined
             const st = failStat.get(String(row.__id))
