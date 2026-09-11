@@ -563,6 +563,16 @@ export default function TcSequence({
                   onSelect(i)
                 }}
                 onKeyDown={(e) => {
+                  /* 칸 **안에서** 치는 글쇠는 줄의 것이 아니다(지적: 절차
+                     설명에 띄어쓰기가 안 된다). 설명을 적다 스페이스를
+                     누르면 여기까지 올라와 「줄 고르기」 로 먹히고,
+                     preventDefault 가 그 칸의 띄어쓰기를 삼켰다. */
+                  const t = e.target as HTMLElement
+                  if (t !== e.currentTarget) {
+                    const tag = t.tagName
+                    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable)
+                      return
+                  }
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
                     onSelect(i)

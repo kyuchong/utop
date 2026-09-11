@@ -97,27 +97,23 @@ export default function RunLog({
               title={l.i >= 0 ? `스텝 ${nos?.[l.i] || l.i + 1} 로 가기` : undefined}
             >
               <i className="rl-at">{l.at}</i>
+              {/* 판정은 **제 칸**이다(지시). 본문 바로 앞에 끼워 넣었더니
+                  딱지가 붙은 줄만 글이 그만큼 밀려, 같은 말이 줄마다 다른
+                  자리에서 시작했다. 판정이 없는 줄도 자리는 남긴다. */}
+              <b
+                className={`rl-v ${
+                  l.kind === 'pass' ? 'ok' : l.kind === 'fail' ? 'bad' : l.kind === 'warn' ? 'warn' : 'none'
+                }`}
+                title={
+                  l.kind === 'pass' ? '적합' : l.kind === 'fail' ? '부적합' : l.kind === 'warn' ? '주의' : undefined
+                }
+              >
+                {l.kind === 'pass' ? '✓' : l.kind === 'fail' ? '✕' : l.kind === 'warn' ? '!' : ''}
+              </b>
               {l.round ? <b className="rl-rd">{l.round}회</b> : null}
               {l.i >= 0 && <b className="rl-no">{nos?.[l.i] || l.i + 1}</b>}
-              {/* 색은 **판정 딱지**에만 준다(지시). 줄 전체를 물들이면 무엇이
-                  결과이고 무엇이 설명인지 구분이 안 된다 */}
-              {/* 무슨 말인지 먼저, 그다음 판정, 그다음 값(지시) */}
+              {/* 무슨 말인지 먼저, 그다음 값 */}
               {l.label && <b className="rl-lb">{l.label}</b>}
-              {l.kind === 'pass' && (
-                <b className="rl-v ok" title="적합">
-                  ✓
-                </b>
-              )}
-              {l.kind === 'fail' && (
-                <b className="rl-v bad" title="부적합">
-                  ✕
-                </b>
-              )}
-              {l.kind === 'warn' && (
-                <b className="rl-v warn" title="주의">
-                  !
-                </b>
-              )}
               <span className="rl-tx">{l.text}</span>
             </div>
           ))

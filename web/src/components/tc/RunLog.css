@@ -122,6 +122,8 @@
 .rl-v.ok { background: #e8f5ed; color: #12643a; }
 .rl-v.bad { background: #fdeaea; color: #a02323; }
 .rl-v.warn { background: #fff3e0; color: #8a5a00; }
+/* 판정이 없는 줄 — 빈 채로 **자리만** 지킨다(위 주석 참고) */
+.rl-v.none { background: none; }
 
 /* 적합 */
 .rl-line.pass {
