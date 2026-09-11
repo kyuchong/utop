@@ -445,6 +445,14 @@ export function judgeMeterStats(
  * 결과에 따라 문구를 남기려고 If 를 둘씩 만들 일이 아니다(지시) — 견준
  * 줄이 곧 그 결과를 말한다. 비워 두면 아무 말도 안 한다.
  */
+/**
+ * 보낸 명령 줄과 그 결과 줄을 **한 줄로 잇는** 표식.
+ *
+ * 스텝 한 번 실행마다 새 값이라 회차끼리 섞이지 않는다 — 같은 값을 쓰면
+ * 2 회차 명령이 1 회차 결과를 지운다.
+ */
+let CMD_SEQ = 0
+
 /** 견준 결과를 적는 말 — 안 적었으면 기본 문구를 쓴다(지시) */
 function diffSay(step: TcStep, ok: boolean, vars: Record<string, string>) {
   const raw = String((ok ? step.msgYes : step.msgNo) ?? '').trim()
@@ -1361,6 +1369,13 @@ async function runOne(
     ctx.onLog({ i, text: '보낼 명령이 없습니다', kind: 'skip' })
     return ''
   }
+  /* 명령이 하나면 **보낸 줄과 결과 줄이 한 줄**이다(지시: SNMP 처럼).
+     보내는 그 순간 「▸ show system」 을 남기는 것은 그대로 두고, 응답이
+     오면 같은 자리를 결과로 갈아 끼운다 — 도는 동안은 무엇을 보냈는지
+     보이고, 끝나면 한 줄만 남는다.
+     명령이 여럿인 스텝은 각각 남긴다. 갈아 끼우면 앞 명령이 지워져
+     「회차마다 무엇을 보냈나」 를 잃는다. */
+  const cmdTick = commands.length === 1 ? `cli-${i}-${++CMD_SEQ}` : undefined
 
   /**
    * 응답을 SSE 로 받아 오는 대로 그 줄에 쌓는다.
@@ -1413,7 +1428,7 @@ async function runOne(
            스텝이 끝난 뒤 요약만 남기면 20 회 반복이 끝나야 스무 줄이 한꺼번에
            나온다 — 「한번에 팍 나온다」 던 것이 이것이다. 명령이 하나뿐인
            스텝도 남긴다: 회차마다 무엇을 보냈는지가 그 줄이다. */
-        ctx.onLog({ i, text: `▸ ${e.cmd}`, kind: 'info' })
+        ctx.onLog({ i, text: `▸ ${e.cmd}`, kind: 'info', tick: cmdTick })
         if (acc && !acc.endsWith('\n')) acc += '\n'
         /*
          * 프롬프트는 장비 이름으로.
@@ -1491,7 +1506,7 @@ async function runOne(
   if (!gotOut) {
     const why = err || '장비가 아무것도 응답하지 않았습니다 — 세션이 끊겼거나 명령이 장비에 닿지 않았습니다'
     ctx.onStep(i, { output, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: why })
-    ctx.onLog({ i, text: `${commands[0]} — ${why} (${ms}ms)`, kind: 'fail' })
+    ctx.onLog({ i, text: `${commands[0]} — ${why} (${ms}ms)`, kind: 'fail', tick: cmdTick })
     return 'Fail'
   }
 
@@ -1517,6 +1532,8 @@ async function runOne(
       headMs != null && headMs > 300 ? ` · 접속까지 ${headMs}ms` : ''
     })`,
     kind: verdict === 'Pass' ? 'pass' : verdict === 'Fail' ? 'fail' : 'info',
+    /* 보낸 줄을 이 줄로 갈아 끼운다 — 위 cmdTick 주석 참고 */
+    tick: cmdTick,
   })
   return verdict
 }
