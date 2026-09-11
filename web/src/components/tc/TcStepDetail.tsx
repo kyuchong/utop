@@ -190,15 +190,26 @@ export default function TcStepDetail({
    * 칸마다 따로 짜면 어떤 칸에는 있고 어떤 칸에는 없게 된다 — 실제로
    * 명령과 Expected 에만 있었다. 한 군데서 만들어 필요한 칸에 건다.
    */
-  const paramPick = (field: keyof TcStep, key: string, what = '') => ({
+  const paramPick = (field: keyof TcStep, key: string) => ({
     btn: (
       <button
         type="button"
         className="sd-pickbtn"
-        title={what ? `${what}에 전역 파라미터 넣기` : '전역 파라미터 넣기'}
+        title="전역 파라미터 넣기"
         onClick={() => setPick(pick === key ? '' : key)}
       >
-        {what ? `\${ } ${what}` : '${ } 값 넣기'}
+        {'${ } 값 넣기'}
+      </button>
+    ),
+    /** 입력칸 **바로 옆**에 세우는 꼴 — 채울 칸이 둘 이상인 자리에 쓴다 */
+    inline: (
+      <button
+        type="button"
+        className="sd-pickin"
+        title="이 칸에 전역 파라미터 넣기"
+        onClick={() => setPick(pick === key ? '' : key)}
+      >
+        {'${ }'}
       </button>
     ),
     list:
@@ -876,16 +887,11 @@ export default function TcStepDetail({
             <div className="sd-f">
               <span className="sd-lab">
                 견줄 두 값
-                {/* 왼쪽·오른쪽 각각. 한쪽에만 두면 반대쪽은 손으로 쳐야 한다.
-                    **어느 쪽을 채우는지 적는다**(지적: 값 넣기가 둘인데
-                    무엇이 무엇인지 모른다). */}
-                <span className="sd-two">
-                  {paramPick('cmpLeft', 'p-cl', '왼쪽').btn}
-                  {paramPick('cmpRight', 'p-cr', '오른쪽').btn}
-                </span>
+                {/* 단추는 **각 칸 옆**에 선다(지적) — 라벨에 둘을 몰아 두면
+                    어느 것이 왼쪽인지 눌러 보기 전에는 모른다 */}
               </span>
-              {paramPick('cmpLeft', 'p-cl', '왼쪽').list}
-              {paramPick('cmpRight', 'p-cr', '오른쪽').list}
+              {paramPick('cmpLeft', 'p-cl').list}
+              {paramPick('cmpRight', 'p-cr').list}
               <div className="sd-row">
                 <input
                   className="mono"
@@ -893,6 +899,7 @@ export default function TcStepDetail({
                   placeholder="${var1}"
                   onChange={(e) => onChange({ cmpLeft: e.target.value })}
                 />
+                {paramPick('cmpLeft', 'p-cl').inline}
                 <select
                   className="sd-narrow2"
                   value={step.cmpOp || '=='}
@@ -912,6 +919,7 @@ export default function TcStepDetail({
                   placeholder="E5924RL"
                   onChange={(e) => onChange({ cmpRight: e.target.value })}
                 />
+                {paramPick('cmpRight', 'p-cr').inline}
               </div>
               <span className="sd-hint">
                 앞 스텝에서 뽑은 값은 <b>{'${이름}'}</b>, 그냥 글자는 그대로 적습니다.
