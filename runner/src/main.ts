@@ -487,7 +487,11 @@ async function doRun(run: Run): Promise<void> {
     // 스텝을 이겨서, 방금 세 스텝 다 Pass 인데도 목록엔 옛 Fail 이 남는다.
     // 방금 돈 것이 최신이다 — 자동 실행이 손 결과를 덮는다.
     it.result = ''
-    it.executed_at = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    /* **밀리초까지** 남긴다(지적: 1번보다 2번이 먼저 돈 것처럼 보인다).
+       초에서 자르면 한 초에 끝난 두 항목이 같은 값이 되어 차례를 가릴 수
+       없다 — 항목 사이에 쉬는 시간을 두는 것보다 이쪽이 공짜다.
+       화면은 초까지만 보여 준다(shortStamp 가 자른다). */
+    it.executed_at = new Date().toISOString().slice(0, 23).replace('T', ' ')
     it.executed_by = run.started_by || '실행 서버'
     it.executed_auto = true
     n++
