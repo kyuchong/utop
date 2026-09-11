@@ -1291,16 +1291,7 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .sd-res::selection,
 .sd-res *::selection { background: #cfe3ff; }
 
-/* 응답 블럭화 — 판정기와 같은 파서(tableLayout)가 그린다(일관성 합의).
-   테두리는 폭 0(box-shadow) — 글자 자리를 안 먹어 표 열이 안 밀린다(지적). */
-.bv-b {
-  box-shadow: 0 0 0 1px #b6c2cf;
-  border-radius: 3px;
-  background: #f6f9fc;
-}
-.bv-b:hover { background: #dcecfd; box-shadow: 0 0 0 1px #5b9bd5; }
-.bv-b { cursor: pointer; }
-.bv-hd { color: #5b6470; font-weight: 700; }
+/* 응답 블럭화(.bv-b)는 **부품 곁으로** 옮겼다 — components/tc/BlockText.css */
 
 /* 판정 기준 칩 — 종류 드롭다운을 대신한다(합의) */
 /* 판정 기준 — **입력칸 줄**(지시: 칩 말고 입력칸에). 한 줄이 기준 하나다.

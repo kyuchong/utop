@@ -426,7 +426,7 @@
    두 줄로 접혀 줄 높이가 들쭉날쭉했다(지적). */
 /* TC ID 칸은 **글자 폭만큼만**(지시: ID 와 제목 사이 여백이 너무 많다).
    118px 은 `E61xx-T0002` 보다 한참 넓어 제목이 멀찍이 밀려 있었다. */
-.ra-cols, .ra-tc { grid-template-columns: 12px 118px 92px minmax(0, 1fr) auto; gap: 6px; padding: 2px 8px; line-height: 1.2; }
+.ra-cols, .ra-tc { grid-template-columns: 12px 104px 84px minmax(0, 1fr) auto; gap: 4px; padding: 2px 8px; line-height: 1.2; }
 .ra-tcid { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ra-tcnm { font-size: 12px; }
 .ra-grp { font-variant-numeric: tabular-nums; }

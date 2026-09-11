@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
+import BlockText from '@/components/tc/BlockText'
 import { stepLogOn } from '@/components/tc/types'
 import './RunAuto.css'
 
@@ -898,7 +899,10 @@ export default function RunAuto({
                 {isWait(s2) ? (
                   <pre className="ra-wait">{waitLine(s2, seeUpTo)}</pre>
                 ) : (
-                  <pre>{body}</pre>
+                  /* 시험 항목 화면과 **같은 부품**으로 그린다(지시: 실행
+                     Response 에서는 블럭이 안 잡힌다). 여기서는 보기만 하므로
+                     누를 거리는 넘기지 않는다. */
+                  <pre><BlockText text={body} /></pre>
                 )}
               </div>
               )})}

@@ -1,0 +1,17 @@
+/*
+ * 응답 **블럭화** — 값 하나하나를 네모로 잡아 눈에 들어오게 한다.
+ *
+ * 여태 시험 항목 화면(TestCases.css)에만 있어, 같은 부품을 실행 화면에서
+ * 쓰면 네모가 안 잡혔다(지적: 실행 Response 에서는 블럭이 안 잡힌다).
+ * 부품 곁에 두어 어디서 쓰든 따라오게 한다.
+ *
+ * 테두리는 폭 0(box-shadow) — 글자 자리를 안 먹어 표 열이 안 밀린다.
+ */
+.bv-b {
+  box-shadow: 0 0 0 1px #b6c2cf;
+  border-radius: 3px;
+  background: #f6f9fc;
+  cursor: pointer;
+}
+.bv-b:hover { background: #dcecfd; box-shadow: 0 0 0 1px #5b9bd5; }
+.bv-hd { color: #5b6470; font-weight: 700; }

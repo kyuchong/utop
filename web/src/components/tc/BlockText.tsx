@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import './BlockText.css'
 import { tableLayout } from './judge'
 
 /**

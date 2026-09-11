@@ -510,7 +510,11 @@ export default function RunDetail({
   useEffect(() => {
     if (doneN < 0) return
     void qc.invalidateQueries({ queryKey: ['cycle-full'] })
-  }, [doneN, qc])
+    /* **실행 레코드도** 다시 읽는다(지적: 다음 항목으로 넘어갔는데 지난
+       시험 결과가 안 채워진다). Test Report 의 시각·판정은 run.logs 와
+       run.results 에서 오는데, 여태 일감이 다 끝나야 읽었다. */
+    void qc.invalidateQueries({ queryKey: ['plan-run', runId] })
+  }, [doneN, qc, runId])
 
   /** 사이클 **전문** — 담을 때 복제된 시험서가 여기 있다(목록 API 는 줄여 준다) */
   const cycPid = String(plan?.id ?? run?.plan_id ?? '')
