@@ -272,9 +272,18 @@ export default function NTable(p: NTableProps) {
   /* 거르고 세운 **뒤의 차례**를 부르는 쪽에 알린다(지시: 표에서 정렬한
      차례대로 시험을 돌리고 싶다). 쪽 나누기 전 전체다 — 실행은 2쪽에 있는
      항목도 돈다. */
+  /* **값이 진짜 바뀔 때만** 알린다. 그냥 부르면 부르는 쪽이 상태를 바꾸고,
+     그 탓에 다시 그려지며 `shown` 이 새 배열이 되어 또 부른다 — 끝없이
+     돈다(React #185: 속성 패널을 열면 화면이 멈췄다). 줄 차례를 글자로
+     굳혀 견주고, 같으면 아무것도 안 한다. */
+  const shownKey = useRef('')
   useEffect(() => {
     if (!onShown) return
-    onShown(shown.map((r) => String(r.__id)))
+    const ids = shown.map((r) => String(r.__id))
+    const k = ids.join('\u0001')
+    if (shownKey.current === k) return
+    shownKey.current = k
+    onShown(ids)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown])
 
