@@ -538,6 +538,8 @@ export default function NTable(p: NTableProps) {
   }, [foc, anch])
   const inBox = (r: number, c: number) =>
     !!box && r >= box.r0 && r <= box.r1 && c >= box.c0 && c <= box.c1
+  /** 끌기를 마친 뒤 「복사·증가」 를 고르는 작은 메뉴 */
+  const [fillPick, setFillPick] = useState<{ x: number; y: number; to: number } | null>(null)
   /** 끌어 채우는 동안 미리 보이는 자리 */
   const inFill = (r: number, c: number) =>
     fillTo !== null && !!box && c >= box.c0 && c <= box.c1 && r > box.r1 && r <= fillTo
@@ -605,17 +607,49 @@ export default function NTable(p: NTableProps) {
     if (!n) window.alert('붙여넣을 수 있는 칸이 없습니다 — 계산 칸·ID·제목은 못 고칩니다')
   }
 
-  /** 손잡이를 끌어 아래로 복사 — 네모 맨 윗줄 값을 아래에 깐다 */
-  const doFill = (to: number) => {
+  /**
+   * 끝이 숫자인 값을 **n 만큼 옮긴다** — `001` → `002`.
+   *
+   * 0 으로 채운 자릿수는 지킨다(001 이 2 가 되면 정렬이 깨진다). 숫자로
+   * 끝나지 않으면 그대로 둔다.
+   */
+  const stepVal = (v: string, n: number): string => {
+    if (!n) return v
+    const m = /^(.*?)(\d+)$/.exec(v)
+    if (!m) return v
+    const [, head, num] = m as unknown as [string, string, string]
+    const next = Math.max(0, Number(num) + n)
+    const t = String(next)
+    return head + (t.length < num.length ? t.padStart(num.length, '0') : t)
+  }
+
+  /**
+   * 손잡이를 끌어 아래로 — **한 줄이면 복사, 두 줄이면 그 차이만큼 늘린다**.
+   *
+   * 엑셀과 같은 규칙이다(지시: 아래로 복사는 되는데 증가가 안 된다).
+   * 한 줄만 골라 끌면 그대로 깔고, `001`·`002` 처럼 두 줄을 골라 끌면
+   * 003·004 로 이어 간다. 무턱대고 늘리면 「E6100」 같은 값이 E6101 로
+   * 바뀌어 버리므로, **사람이 두 줄로 뜻을 보여 줬을 때만** 늘린다.
+   */
+  const doFill = (to: number, mode: 'copy' | 'step' = 'copy') => {
     if (!box) return
+    const src = flat[box.r0]
+    const src2 = box.r1 > box.r0 ? flat[box.r0 + 1] : null
     for (let r = box.r1 + 1; r <= to; r++) {
       const row = flat[r]
       if (!row) continue
       for (let c = box.c0; c <= box.c1; c++) {
         const col = vis[c]
-        const src = flat[box.r0]
         if (!col || !src || !writable(col)) continue
-        const v = String(src[col.key] ?? '')
+        const a0 = String(src[col.key] ?? '')
+        /* 두 줄의 끝 숫자 차이가 걸음폭이다 — 둘 다 숫자로 끝나야 한다 */
+        let d = mode === 'step' ? 1 : 0
+        if (src2) {
+          const m1 = /(\d+)$/.exec(a0)
+          const m2 = /(\d+)$/.exec(String(src2[col.key] ?? ''))
+          if (m1 && m2) d = Number(m2[1]) - Number(m1[1])
+        }
+        const v = stepVal(a0, mode === 'copy' && !src2 ? 0 : d * (r - box.r0))
         if (String(row[col.key] ?? '') === v) continue
         onCell(row.__id, col.key, v)
       }
@@ -991,11 +1025,17 @@ export default function NTable(p: NTableProps) {
                                       to = Math.min(flatRef.current.length - 1, ri + d)
                                       setFillTo(to)
                                     }
-                                    const up = () => {
+                                    const up = (ev: MouseEvent) => {
                                       window.removeEventListener('mousemove', mv)
                                       window.removeEventListener('mouseup', up)
                                       setFillTo(null)
-                                      if (to > ri) doFill(to)
+                                      if (to > ri) {
+                                        /* 우선 **복사**해 두고, 곁에 「복사 · 증가」 를
+                                           띄운다(지시: 끌기하면 무엇을 할지 고르게).
+                                           엑셀의 자동 채우기 단추와 같은 자리다. */
+                                        doFill(to, 'copy')
+                                        setFillPick({ x: ev.clientX, y: ev.clientY, to })
+                                      }
                                     }
                                     window.addEventListener('mousemove', mv)
                                     window.addEventListener('mouseup', up)
@@ -1327,6 +1367,33 @@ export default function NTable(p: NTableProps) {
             <span className="l">모두 보이기</span>
           </button>
           {propsFoot}
+        </Pop>
+      )}
+
+      {/* 끌어 채운 **뒤에** 무엇을 할지 고른다(지시) — 엑셀의 자동 채우기
+          단추와 같은 자리. 이미 복사는 해 두었으므로 「증가」 만 다시 채운다. */}
+      {fillPick && (
+        <Pop at={fillPick} w={132} h={92} onClose={() => setFillPick(null)}>
+          <button
+            type="button"
+            className="ntb-mi"
+            onClick={() => {
+              doFill(fillPick.to, 'copy')
+              setFillPick(null)
+            }}
+          >
+            값 복사
+          </button>
+          <button
+            type="button"
+            className="ntb-mi"
+            onClick={() => {
+              doFill(fillPick.to, 'step')
+              setFillPick(null)
+            }}
+          >
+            1씩 증가
+          </button>
         </Pop>
       )}
 
