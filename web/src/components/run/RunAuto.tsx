@@ -705,7 +705,15 @@ export default function RunAuto({
       if (mine) done.push(it)
       else wait.push(it)
     }
-    done.sort((a, b) => String(b.at ?? '').localeCompare(String(a.at ?? '')))
+    /* 시각이 **같으면 나중에 돈 것이 위**다(지적: 1번이 아닌 2번이 먼저
+       실행된 것처럼 보인다). 시각은 초 단위라 한 초에 둘이 끝나면 값이
+       같아지는데, 그때 표 차례대로 두면 먼저 끝난 것이 위로 올라와 차례가
+       뒤집혀 보인다. 담긴 자리를 뒤에서부터 세워 가른다. */
+    const pos = new Map(shownItems.map((x, i) => [x.id, i]))
+    done.sort((a, b) => {
+      const c = String(b.at ?? '').localeCompare(String(a.at ?? ''))
+      return c || (pos.get(b.id) ?? 0) - (pos.get(a.id) ?? 0)
+    })
     return done
   }, [shownItems, runStartedAt])
   const groups = useMemo(() => {
