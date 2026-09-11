@@ -201,6 +201,18 @@ export default function TcStepDetail({
         {what ? `\${ } ${what}` : '${ } 값 넣기'}
       </button>
     ),
+    /** 입력칸 **안쪽 오른쪽 끝**에 앉는 꼴(지시) — 그 칸을 채우는 단추라
+        칸 밖에 두면 어느 칸 것인지 자리로는 알 수 없다 */
+    inside: (
+      <button
+        type="button"
+        className="sd-pickin"
+        title="이 칸에 전역 파라미터 넣기"
+        onClick={() => setPick(pick === key ? '' : key)}
+      >
+        {'${ }'}
+      </button>
+    ),
     list:
       pick === key ? (
         // 목록을 칸 옆에 띄우면 파일이 여럿이고 값이 수십 개일 때
@@ -882,15 +894,15 @@ export default function TcStepDetail({
               {paramPick('cmpLeft', 'p-cl').list}
               {paramPick('cmpRight', 'p-cr').list}
               <div className="sd-cmp">
-                {paramPick('cmpLeft', 'p-cl', '왼쪽').btn}
-                <span />
-                {paramPick('cmpRight', 'p-cr', '오른쪽').btn}
-                <input
-                  className="mono"
-                  value={step.cmpLeft ?? ''}
-                  placeholder="${var1}"
-                  onChange={(e) => onChange({ cmpLeft: e.target.value })}
-                />
+                <span className="sd-inwrap">
+                  <input
+                    className="mono"
+                    value={step.cmpLeft ?? ''}
+                    placeholder="${var1}"
+                    onChange={(e) => onChange({ cmpLeft: e.target.value })}
+                  />
+                  {paramPick('cmpLeft', 'p-cl').inside}
+                </span>
                 <select
                   className="sd-narrow2"
                   value={step.cmpOp || '=='}
@@ -904,12 +916,15 @@ export default function TcStepDetail({
                   <option value=">=">크거나 같다</option>
                   <option value="<=">작거나 같다</option>
                 </select>
-                <input
-                  className="mono"
-                  value={step.cmpRight ?? ''}
-                  placeholder="E5924RL"
-                  onChange={(e) => onChange({ cmpRight: e.target.value })}
-                />
+                <span className="sd-inwrap">
+                  <input
+                    className="mono"
+                    value={step.cmpRight ?? ''}
+                    placeholder="E5924RL"
+                    onChange={(e) => onChange({ cmpRight: e.target.value })}
+                  />
+                  {paramPick('cmpRight', 'p-cr').inside}
+                </span>
               </div>
               <span className="sd-hint">
                 앞 스텝에서 뽑은 값은 <b>{'${이름}'}</b>, 그냥 글자는 그대로 적습니다.
