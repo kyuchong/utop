@@ -190,15 +190,15 @@ export default function TcStepDetail({
    * 칸마다 따로 짜면 어떤 칸에는 있고 어떤 칸에는 없게 된다 — 실제로
    * 명령과 Expected 에만 있었다. 한 군데서 만들어 필요한 칸에 건다.
    */
-  const paramPick = (field: keyof TcStep, key: string) => ({
+  const paramPick = (field: keyof TcStep, key: string, what = '') => ({
     btn: (
       <button
         type="button"
         className="sd-pickbtn"
-        title="전역 파라미터 넣기"
+        title={what ? `${what}에 전역 파라미터 넣기` : '전역 파라미터 넣기'}
         onClick={() => setPick(pick === key ? '' : key)}
       >
-        {'${ } 값 넣기'}
+        {what ? `\${ } ${what}` : '${ } 값 넣기'}
       </button>
     ),
     list:
@@ -876,14 +876,16 @@ export default function TcStepDetail({
             <div className="sd-f">
               <span className="sd-lab">
                 견줄 두 값
-                {/* 왼쪽·오른쪽 각각. 한쪽에만 두면 반대쪽은 손으로 쳐야 한다 */}
+                {/* 왼쪽·오른쪽 각각. 한쪽에만 두면 반대쪽은 손으로 쳐야 한다.
+                    **어느 쪽을 채우는지 적는다**(지적: 값 넣기가 둘인데
+                    무엇이 무엇인지 모른다). */}
                 <span className="sd-two">
-                  {paramPick('cmpLeft', 'p-cl').btn}
-                  {paramPick('cmpRight', 'p-cr').btn}
+                  {paramPick('cmpLeft', 'p-cl', '왼쪽').btn}
+                  {paramPick('cmpRight', 'p-cr', '오른쪽').btn}
                 </span>
               </span>
-              {paramPick('cmpLeft', 'p-cl').list}
-              {paramPick('cmpRight', 'p-cr').list}
+              {paramPick('cmpLeft', 'p-cl', '왼쪽').list}
+              {paramPick('cmpRight', 'p-cr', '오른쪽').list}
               <div className="sd-row">
                 <input
                   className="mono"
