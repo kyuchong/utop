@@ -1468,7 +1468,9 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                 text: l.text,
                 round: l.round,
                 tick: l.tick,
-                at: `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}:${String(at.getSeconds()).padStart(2, '0')}`,
+                /* 날짜까지 적는다(지시: 26/09/10 01:01:01). 시·분·초만
+                   두면 어제 돌린 로그인지 방금 것인지 갈리지 않는다 */
+                at: `${String(at.getFullYear()).slice(2)}/${String(at.getMonth() + 1).padStart(2, '0')}/${String(at.getDate()).padStart(2, '0')} ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}:${String(at.getSeconds()).padStart(2, '0')}`,
               }
               /* 제자리에서 갱신되는 줄(Wait 의 남은 시간)은 **갈아 끼운다** —
                  새로 쌓으면 20초 대기에 스무 줄이 깔려 다른 말이 묻힌다(지시).
@@ -2212,6 +2214,9 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                   {rtab === 'log' ? (
                     <RunLog
                       lines={logs}
+                      /* 번호는 **표가 매긴 것**을 쓴다 — 로그가 1,2,3 으로
+                         새로 세면 표의 1.3.1 을 찾을 길이 없다(지적) */
+                      nos={stripNos}
                       only={logOnly}
                       onOnly={setLogOnly}
                       onClear={() => setLogs([])}

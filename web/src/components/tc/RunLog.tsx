@@ -34,6 +34,7 @@ export default function RunLog({
   only,
   onOnly,
   height,
+  nos,
 }: {
   lines: LogLine[]
   onClear: () => void
@@ -44,6 +45,8 @@ export default function RunLog({
   onOnly: (v: boolean) => void
   /** 손잡이로 잡은 높이(px). 안 주면 제 크기대로 */
   height?: number
+  /** 표가 매긴 스텝 번호 — 로그도 같은 번호를 적는다(지시) */
+  nos?: string[]
 }) {
   const box = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
@@ -91,18 +94,30 @@ export default function RunLog({
               key={l.n}
               className={`rl-line ${l.kind ?? ''}`}
               onClick={() => l.i >= 0 && onPick?.(l.i)}
-              title={l.i >= 0 ? `스텝 ${l.i + 1} 로 가기` : undefined}
+              title={l.i >= 0 ? `스텝 ${nos?.[l.i] || l.i + 1} 로 가기` : undefined}
             >
               <i className="rl-at">{l.at}</i>
               {l.round ? <b className="rl-rd">{l.round}회</b> : null}
-              {l.i >= 0 && <b className="rl-no">{l.i + 1}</b>}
+              {l.i >= 0 && <b className="rl-no">{nos?.[l.i] || l.i + 1}</b>}
               {/* 색은 **판정 딱지**에만 준다(지시). 줄 전체를 물들이면 무엇이
                   결과이고 무엇이 설명인지 구분이 안 된다 */}
               {/* 무슨 말인지 먼저, 그다음 판정, 그다음 값(지시) */}
               {l.label && <b className="rl-lb">{l.label}</b>}
-              {l.kind === 'pass' && <b className="rl-v ok">적합</b>}
-              {l.kind === 'fail' && <b className="rl-v bad">부적합</b>}
-              {l.kind === 'warn' && <b className="rl-v warn">주의</b>}
+              {l.kind === 'pass' && (
+                <b className="rl-v ok" title="적합">
+                  ✓
+                </b>
+              )}
+              {l.kind === 'fail' && (
+                <b className="rl-v bad" title="부적합">
+                  ✕
+                </b>
+              )}
+              {l.kind === 'warn' && (
+                <b className="rl-v warn" title="주의">
+                  !
+                </b>
+              )}
               <span className="rl-tx">{l.text}</span>
             </div>
           ))
