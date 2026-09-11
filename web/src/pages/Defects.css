@@ -1,24 +1,29 @@
 /* 이 화면도 **흰 카드**다(지시). 화면 바탕이 청록이 된 뒤로 이 판만 끝에서
    끝까지 흰색이라, 다른 화면과 달리 「판 위에 놓인 것」 으로 안 보였다.
    카드 모양은 한 곳(.panel)에서 오므로 같은 값을 쓴다. */
+/* 도구줄과 표를 **따로 선 카드 둘**로 나눈다(지시). 한 판에 붙여 두면
+   어디까지가 「고르는 곳」 이고 어디부터가 「자료」 인지 눈으로 안 갈린다.
+   Jira Issue 화면과 같은 결이다. */
 .dfl {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-box);
-  overflow: hidden;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--c-surface-alt, #f5f7f9);
 }
 
 .dfl-head {
   flex: none;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-5);
-  border-bottom: 1px solid var(--c-border);
+  padding: 10px 12px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft, #dfe4ea);
+  border-radius: 10px;
 }
 
 .dfl-tabs {
@@ -58,7 +63,10 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  padding: 10px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
 }
 
 /* 장비·카탈로그 표와 같은 옷 — 바깥 테두리·둥근 모서리·줄무늬·34px */
