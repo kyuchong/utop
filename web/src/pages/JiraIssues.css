@@ -7,7 +7,9 @@
   min-height: 0;
   gap: 10px;
   padding: 12px 14px;
-  background: var(--c-surface-alt, #f5f7f9);
+  /* 바탕은 **앱 바탕(청록)이 비치게** 둔다(지적: 카드 아래 메뉴바 색이
+     안 보인다). 여기에 연회색을 깔면 그 색이 가려져, 이 화면만 다른
+     앱처럼 보였다. 카드 둘은 그 위에 뜬다. */
   position: relative;
 }
 
