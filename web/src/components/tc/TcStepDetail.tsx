@@ -1671,6 +1671,10 @@ export default function TcStepDetail({
                   key: `q${i}`,
                   name: x.var,
                   rule: x.q,
+                  rename: (v: string) =>
+                    onChange({
+                      queries: (step.queries ?? []).map((y, j) => (j === i ? { ...y, var: v } : y)),
+                    }),
                   /* 표에서 뽑은 것은 식이 아니라 **말**로 보여 준다 —
                      「Port=Te0/${i} 행의 Name 칸」. 정규식이 아니니 정규식처럼
                      보일 이유가 없다 */
@@ -1682,6 +1686,10 @@ export default function TcStepDetail({
                   key: `x${i}`,
                   name: x.var,
                   rule: x.rule,
+                  rename: (v: string) =>
+                    onChange({
+                      extracts: (step.extracts ?? []).map((y, j) => (j === i ? { ...y, var: v } : y)),
+                    }),
                   tbl: null as { col: string; where: string; row: string } | null,
                   drop: () =>
                     onChange({ extracts: (step.extracts ?? []).filter((_, j) => j !== i) }),
@@ -1693,8 +1701,18 @@ export default function TcStepDetail({
                     ? extractOne(subVars(v.rule, pvars), capSrc)
                     : null
                 return (
-                  <div className="sd-vrow" key={v.key}>
-                    <span className="sd-var">${v.name || '?'}</span>
+                  /* 판정 기준 줄과 **같은 꼴**로 세운다(지시: Criteria 처럼).
+                     왼쪽에 고정 폭 이름표, 그다음 넓은 칸, 꼬리에 단추 —
+                     같은 판 안에서 줄마다 생김새가 다르면 눈이 자리를 못 외운다. */
+                  <div className="sd-vrow sd-jr" key={v.key}>
+                    <span className="sd-jr-t fixed">변수</span>
+                    <input
+                      className="sd-jr-in mono"
+                      value={v.name ?? ''}
+                      placeholder="이름"
+                      disabled={readOnly}
+                      onChange={(e) => v.rename(e.target.value)}
+                    />
                     {v.name && takenVars.includes(v.name) && (
                       <b className="sd-vdup" title="다른 스텝도 이 이름을 뽑습니다 — 뒤엣것이 앞엣것을 덮습니다">
                         겹침

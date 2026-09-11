@@ -4074,3 +4074,10 @@ body.sq-resizing { user-select: none; cursor: col-resize; }
   cursor: pointer;
 }
 .sd-pickin:hover { border-color: var(--c-primary); color: var(--c-primary); }
+
+/* 변수 줄도 판정 기준 줄과 같은 꼴(지시) — 이름표는 고정 폭, 이름 칸은
+   좁게(이름은 짧다), 값과 규칙이 남는 자리를 나눠 쓴다. */
+.sd-vrow.sd-jr { padding: 0; background: none; }
+.sd-vrow.sd-jr > .sd-jr-in { flex: none; width: 120px; }
+.sd-vrow.sd-jr > .sd-vval { flex: 1; min-width: 0; }
+.sd-vrow.sd-jr > .sd-vrule { flex: none; max-width: 40%; }
