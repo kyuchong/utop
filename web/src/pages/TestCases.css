@@ -3866,13 +3866,10 @@ html .tc-split > .tc-content {
 }
 .sq-dsc > .sq-in { width: 100%; }
 /* 고칠 때 칸 **전체**가 입력이 된다(지시) — 글자 폭만 한 작은 칸이 뜨면
-   긴 설명을 쓰다 끝이 안 보인다 */
-.sq-dsc { position: relative; }
-.sq-dsc > .sq-in.desc {
-  position: absolute;
-  inset: 2px 4px;
-  width: auto;
-}
+   긴 설명을 쓰다 끝이 안 보인다. 다만 **떠 있지 않고 칸 안에 자리를
+   차지한다**(지적: 별도로 뭐가 띄워진다) — absolute 로 얹으면 아래 글이
+   비쳐 두 겹으로 보인다. */
+.sq-dsc > .sq-in.desc { width: 100%; }
 
 /* 주석·메시지는 **줄 전체를 쓴다**(지시). 장비로 아무것도 안 나가는 글이라
    절차 설명도 결과도 없다 — 그 칸들을 비워 두면 긴 글이 명령 칸 안에서만

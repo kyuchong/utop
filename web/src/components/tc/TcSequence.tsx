@@ -855,13 +855,8 @@ export default function TcSequence({
         ) : null
       })()}
 
-      {/* 줄에서 고치는 동안만 손가락 길잡이를 낸다(목업 밑줄). 늘 붙여 두면
-          쓰지도 않을 때 자리만 먹는다. */}
-      {edit && (
-        <div className="sq-keys">
-          <b>↵</b> 다음 줄 · <b>Tab</b> 다음 칸 · <b>Esc</b> 취소
-        </div>
-      )}
+      {/* 고치는 동안 표 밖에 뜨던 길잡이는 걷었다(지적: 별도로 뭐가
+          띄워진다). ↵·Tab·Esc 는 칸의 온마우스에 적혀 있다. */}
 
       {!readOnly && (
       <details className="sq-add">

@@ -135,7 +135,7 @@ export default function TcStepDetail({
   const [pickCut, setPickCut] = useState(false)
   /** 뽑기에서 알려 줄 말 한 줄 — 조용히 다르게 담으면 왜 값이 다른지 모른다 */
   const [capNote, setCapNote] = useState('')
-  /** 눌린 블럭 — [변수로 · 있어야 · 없어야] 메뉴가 뜬 자리 */
+  /** 눌린 블럭 — [변수로 · 있으면 합격 · 없으면 합격] 메뉴가 뜬 자리 */
   const [blockAt, setBlockAt] = useState<{ v: string; x: number; y: number; kind?: 'col' } | null>(null)
   const [tblOpen, setTblOpen] = useState(false)
   /** 「표에서 값 뽑기」 판 — 판정이 아니라 변수를 만드는 자리(Response Map) */
@@ -786,8 +786,8 @@ export default function TcStepDetail({
             />
             <span className="sd-hint">
               <b>판정기준이 있어야 합격·불합격이 납니다.</b> 안 적으면 조회만 합니다 —
-              「살아 있어야」 을 보시려면 응답에서 <code>bytes from</code> 같은 글자를
-              끌어 「있어야」 칩을 만드세요. (못 부른 것은 기준과 상관없이 불합격입니다)
+              「살아 있으면 합격」 을 보시려면 응답에서 <code>bytes from</code> 같은 글자를
+              끌어 「있으면 합격」 칩을 만드세요. (못 부른 것은 기준과 상관없이 불합격입니다)
             </span>
           </label>
         )}
@@ -1481,7 +1481,7 @@ export default function TcStepDetail({
               <button
                 type="button"
                 className="sd-pickbtn"
-                title="전역 파라미터를 판정 기준으로 — 있어야 ${이름} 줄이 됩니다"
+                title="전역 파라미터를 판정 기준으로 — 「있으면 합격 ${이름}」 줄이 됩니다"
                 onClick={() => setPick(pick === 'p-crit' ? '' : 'p-crit')}
               >
                 {'${ } 기준 넣기'}
@@ -1538,7 +1538,7 @@ export default function TcStepDetail({
                 /* 열제외·표는 블럭에서 짜 온 **구조**라 종류를 못 바꾸게 둔다 */
                 const fixed = c.t === 'skipcol' || c.t === 'table'
                 const tlab =
-                  c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '비교' : '표'
+                  c.t === 'has' ? '있으면 합격' : c.t === 'not' ? '없으면 합격' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '비교' : '표'
                 /* 견줌 꼬리가 켜져 있나 — 견주는 법(op)이 있으면 켜진 것 */
                 const cmpOn = !!String(c.op ?? '').trim()
                 /* 견줌은 **글자 기준**에만 붙인다(줄제외·열제외·표는 뜻이 없다) */
@@ -1554,8 +1554,8 @@ export default function TcStepDetail({
                         title="이 기준을 어떻게 볼까"
                         onChange={(e) => set({ t: e.target.value as JudgeRule['t'] })}
                       >
-                        <option value="has">있어야</option>
-                        <option value="not">없어야</option>
+                        <option value="has">있으면 합격</option>
+                        <option value="not">없으면 합격</option>
                         <option value="skip">줄제외</option>
                       </select>
                     )}
@@ -2016,7 +2016,7 @@ export default function TcStepDetail({
                           setPicked('')
                         }}
                       >
-                        있어야
+                        있으면 합격
                       </button>
                       <button
                         className="btn small"
@@ -2026,7 +2026,7 @@ export default function TcStepDetail({
                           setPicked('')
                         }}
                       >
-                        없어야
+                        없으면 합격
                       </button>
                       <button
                         className="btn small"
@@ -2163,7 +2163,7 @@ export default function TcStepDetail({
                           setBlockAt(null)
                         }}
                       >
-                        있어야
+                        있으면 합격
                       </button>
                       <button
                         type="button"
@@ -2172,7 +2172,7 @@ export default function TcStepDetail({
                           setBlockAt(null)
                         }}
                       >
-                        없어야
+                        없으면 합격
                       </button>
                       <button
                         type="button"
