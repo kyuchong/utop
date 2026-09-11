@@ -2031,6 +2031,13 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       onSelect={(i) => {
                         setStepIdx(i)
                         setRtab('det')
+                        /* **줄을 누르는 것이 곧 고르는 것**이다(합의).
+                           여태 「보는 줄」 과 「체크한 줄」 이 따로 돌아,
+                           줄을 눌러도 아래 단추(고른 것만·건너뛰기·되돌리기)가
+                           안 떴다. 그 줄 하나만 고른 것으로 맞춘다 —
+                           여럿은 Ctrl(⌘)·Shift 클릭이 한다. */
+                        setPicked(new Set([i]))
+                        lastPick.current = i
                       }}
                       onAdd={addStep}
                       sessionName={sessionName}
@@ -2068,13 +2075,15 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       const one = multi ? (picked.size === 1 ? [...picked][0]! : -1) : stepIdx
                       return (
                         <div className="sq-bulk">
-                          {multi ? (
+                          {/* 한 줄이면 **그 줄 번호**를 적는다 — 줄을 누르는 것이
+                              곧 고르는 것이 되면서 늘 「1개 골랐습니다」 가 떴다. */}
+                          {picked.size > 1 ? (
                             <>
                               <b>{picked.size}개 골랐습니다</b>
                               <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
                             </>
                           ) : (
-                            <b>스텝 {stripNos[stepIdx] || '·'}</b>
+                            <b>스텝 {stripNos[one >= 0 ? one : stepIdx] || '·'}</b>
                           )}
                           <button
                             className="btn small"
