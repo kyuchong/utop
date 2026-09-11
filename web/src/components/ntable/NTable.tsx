@@ -1275,8 +1275,42 @@ export default function NTable(p: NTableProps) {
       {panel?.kind === 'sort' && (
         <Pop at={panel} w={228} h={320} onClose={() => setPanel(null)}>
           <div className="ntb-sec">정렬</div>
-          {view.sorts.map((s) => (
+          {view.sorts.map((s, si) => (
             <div className="ntb-mi" key={s.key}>
+              {/* **몇 번째 기준인지** 적고, ▲▼ 로 자리를 바꾼다(지적: 먼저
+                  등록한 것이 뒤로 밀리고 순위 조정도 안 된다). 앞엣것이
+                  먼저 가르고, 같은 값일 때 뒤엣것이 가른다. */}
+              <b className="ntb-sord">{si + 1}</b>
+              <button
+                type="button"
+                className="ntb-sub"
+                title="한 칸 위로 — 더 먼저 가른다"
+                disabled={si === 0}
+                onClick={() => {
+                  const n = [...view.sorts]
+                  const t = n[si - 1]!
+                  n[si - 1] = n[si]!
+                  n[si] = t
+                  onView({ ...view, sorts: n })
+                }}
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                className="ntb-sub"
+                title="한 칸 아래로"
+                disabled={si === view.sorts.length - 1}
+                onClick={() => {
+                  const n = [...view.sorts]
+                  const t = n[si + 1]!
+                  n[si + 1] = n[si]!
+                  n[si] = t
+                  onView({ ...view, sorts: n })
+                }}
+              >
+                ▼
+              </button>
               <span className="l">{colOf(s.key)?.label ?? s.key}</span>
               <button
                 type="button"

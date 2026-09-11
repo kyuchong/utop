@@ -340,3 +340,18 @@
 .ntb-hs:hover { background: var(--ntb-hov); opacity: 1; }
 /* 걸려 있으면 늘 보인다 — 무엇으로 줄 세웠는지가 표를 읽는 첫 단서다 */
 .ntb-hs.on { opacity: 1; color: var(--ntb-acc); }
+
+/* 정렬 기준의 **차례 번호** — 앞엣것이 먼저 가른다(지시) */
+.ntb-sord {
+  flex: none;
+  min-width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 4px;
+  background: #eef2f6;
+  color: #52606d;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.ntb-mi > .ntb-sub[disabled] { opacity: .3; cursor: default; }

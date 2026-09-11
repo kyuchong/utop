@@ -769,6 +769,41 @@ export default function CyclesBoard({
 
   /** 표가 거르고 세운 차례 — 시험도 이 차례로 돈다(makeRun) */
   const [shownOrder, setShownOrder] = useState<string[]>([])
+
+  /*
+   * 정렬·묶기는 **사이클에 남긴다**(지적: 정렬은 저장이 안 되는데).
+   *
+   * 차례가 곧 시험 차례라 사람마다·PC 마다 달라지면 안 된다 — 계정 설정이
+   * 아니라 사이클 문서에 둔다. 거르기·찾기는 그때그때 보는 것이라 안 남긴다.
+   */
+  const cycView = (full as unknown as { itView?: { sorts?: NView['sorts']; groupBy?: string } } | undefined)
+    ?.itView
+  const viewLoaded = useRef('')
+  useEffect(() => {
+    const id = String(full?.id ?? '')
+    if (!id || viewLoaded.current === id) return
+    viewLoaded.current = id
+    setItView((v) => ({
+      ...v,
+      sorts: cycView?.sorts ?? [],
+      groupBy: cycView?.groupBy ?? 'folder',
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [full?.id])
+  const viewSig = JSON.stringify({ s: itView.sorts, g: itView.groupBy })
+  const viewSaved = useRef<string | null>(null)
+  useEffect(() => {
+    if (!full) return
+    /* 처음 그릴 때는 저장하지 않는다 — 읽은 값을 도로 쓰는 셈이다 */
+    if (viewSaved.current === null) {
+      viewSaved.current = viewSig
+      return
+    }
+    if (viewSaved.current === viewSig) return
+    viewSaved.current = viewSig
+    void saveFull({ itView: { sorts: itView.sorts, groupBy: itView.groupBy } } as Partial<PlanFull>)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewSig])
   const itemRows = useMemo<ItemRow[]>(() => {
     const out: ItemRow[] = []
     for (const it of full?.items ?? []) {
