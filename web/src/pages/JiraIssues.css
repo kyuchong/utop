@@ -360,3 +360,17 @@
 }
 .jri-fld > footer > span { flex: 1; }
 .jri-fld > footer b { color: var(--c-text-muted); }
+
+/* 표 카드의 **위쪽은 도구 띠**다(지시: 상·하 2행 카드). 보기 탭·검색·필터가
+   표와 같은 흰 바닥에 붙어 있으면 어디까지가 「고르는 곳」 인지 안 갈린다.
+   Defects 화면이 도구를 위 카드에 모아 둔 것과 같은 결로 맞춘다. */
+.jri-table .ntb-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  background: var(--c-surface-alt, #f5f7f9);
+  border: 1px solid var(--c-border-soft, #dfe4ea);
+  border-radius: 10px;
+}
