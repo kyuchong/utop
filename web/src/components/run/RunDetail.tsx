@@ -511,16 +511,31 @@ export default function RunDetail({
       for (const k of only) add(String(k ?? ''))
       return out
     }
+    /*
+     * **사이클에서 뺀 항목은 여기에도 없다**(지적: 지웠는데 실행에 남아 있다).
+     *
+     * 실행 레코드(run.items)와 지난 결과(results)에는 그때 담겼던 tcid 가
+     * 그대로 남는다 — 사이클 목록은 62 건인데 실행 화면은 65 건이었다.
+     * 지금 사이클에 있는 것만 센다. 아직 사이클을 못 읽었으면(로딩) 거르지
+     * 않는다 — 빈 목록으로 잠깐 깜빡이는 편이 더 나쁘다.
+     */
+    const planIds = new Set(
+      ((plan?.items ?? []) as Array<{ tcid?: string }>).map((x) => String(x?.tcid ?? '')).filter(Boolean),
+    )
+    const keep = (k: string) => !planIds.size || planIds.has(k)
     /* ① 실행이 담은 차례가 정본이다(배열이라 차례가 남는다) */
-    for (const it of (run?.items ?? []) as Array<{ tcid?: string }>) add(String(it?.tcid ?? ''))
+    for (const it of (run?.items ?? []) as Array<{ tcid?: string }>) {
+      const k = String(it?.tcid ?? '')
+      if (keep(k)) add(k)
+    }
     /* ② 없으면 플랜의 항목 차례를 쓴다. results 키를 그냥 쓰면 안 된다 —
        JSONB 는 키를 **정렬해 버려서** 담은 차례가 사라진다. 실행기는 위에서
        아래로 도는데 화면만 뒤섞이면 순서대로 안 도는 것처럼 보인다(지적). */
     if (!out.length)
       for (const it of ((plan?.items ?? []) as Array<{ tcid?: string }>))
         if (results[String(it?.tcid ?? '')] !== undefined) add(String(it?.tcid ?? ''))
-    /* ③ 그래도 빠진 것이 있으면 뒤에 붙인다 */
-    for (const k of Object.keys(results)) add(k)
+    /* ③ 그래도 빠진 것이 있으면 뒤에 붙인다 — 사이클에 있는 것만 */
+    for (const k of Object.keys(results)) if (keep(k)) add(k)
     return out
   }, [run, plan, results, only])
   const tcById = useMemo(() => {
