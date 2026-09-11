@@ -157,6 +157,14 @@ const LIVE_MAX = 600
  * `stamp` 를 거치는 까닭은 **시간대** 다: 서버는 `+09:00` 이 붙은 ISO 를
  * 주는데 앞에서 잘라 쓰면 UTC 로 도는 서버에서 아홉 시간이 어긋난다.
  */
+/** 시각 하나를 밀리초로. 표시가 없으면 **UTC** 로 본다(서버가 Z 를 떼고 적는다) */
+function tms(v?: string): number {
+  const t = String(v ?? '').trim()
+  if (!t) return NaN
+  const iso = t.includes('T') ? t : t.replace(' ', 'T')
+  return Date.parse(/[Zz]$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`)
+}
+
 function shortStamp(v?: string): string {
   const full = stamp(v)
   /* **연도는 뺀다**(지적: 시각이 두 줄로 접힌다). 칸을 글자 폭에 맞춰
@@ -191,7 +199,7 @@ const FLT_N = (t: { total: number; p: number; f: number; n: number }) => ({
 })
 
 export default function RunAuto({
-  items, cur, onPick, steps, stepAt, onStep, dut, logAt,
+  items, cur, onPick, steps, stepAt, onStep, dut, logAt, runStartedAt,
   runStep, runItem, waitAt, devices, liveLogs,
 }: {
   /** 장비 목록 — 세션 판이 세션에 붙은 장비를 여기서 찾는다 */
@@ -219,6 +227,8 @@ export default function RunAuto({
   onStep: (i: number) => void
   /** 콘솔 프롬프트에 쓸 장비 이름 */
   dut: string
+  /** 이번 실행이 시작한 시각 — 그 뒤에 돈 항목만 Test Report 에 쌓는다 */
+  runStartedAt?: string
   /** 이 항목을 언제 돌렸나 */
   logAt?: string
 }) {
@@ -672,11 +682,20 @@ export default function RunAuto({
    * 제목의 「전체 62」 가 이미 말한다.
    */
   const doneItems = useMemo(() => {
-    const ran = shownItems.filter((it) => String(it.at ?? '').trim() || it.verdict !== 'n')
+    /* **이번 실행에서 돈 것만**(지적: 기존 것을 다시 돌리면 항목이 안 지워진다).
+       「다시 실행」 은 같은 실행 레코드를 다시 쓰므로 지난 회차 결과가 그대로
+       남는다 — 그것까지 「돈 것」 으로 세면 시작하자마자 62 건이 옛 결과로
+       가득 찬다. 시작 시각보다 이른 기록은 이번 것이 아니다. */
+    const st = tms(runStartedAt)
+    const ran = shownItems.filter((it) => {
+      const t = tms(it.at)
+      if (Number.isFinite(st) && Number.isFinite(t)) return t >= st - 1000
+      return String(it.at ?? '').trim() || it.verdict !== 'n'
+    })
     return ran
       .slice()
       .sort((a, b) => String(b.at ?? '').localeCompare(String(a.at ?? '')))
-  }, [shownItems])
+  }, [shownItems, runStartedAt])
   const groups = useMemo(() => {
     /* **받은 차례를 절대 안 바꾼다** — 이어지는 같은 묶음만 한 덩이로 접는다.
        Map 으로 묶었더니 이름이 같은 다른 REQ 의 항목을 위로 끌어 붙여,

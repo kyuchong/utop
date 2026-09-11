@@ -1684,6 +1684,7 @@ export default function RunDetail({
               : null
           }
           dut={dut?.name ?? 'DUT'}
+          runStartedAt={String(run.started_at ?? '')}
           logAt={log?.at}
         />
       ) : (
