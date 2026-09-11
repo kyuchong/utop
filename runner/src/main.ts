@@ -93,7 +93,12 @@ class Pusher {
   itemAt(n: number): void {
     this.at = n
   }
-  addLog(x: RunLog): void {
+  addLog(x0: RunLog): void {
+    /* 서버 로그 표에는 **앞말(label) 칸이 없다** — 붙여서 한 줄로 보낸다.
+       안 그러면 「비교 결과」 가 Cycles 쪽에서만 사라진다(지적: 시험 항목
+       로그와 다르다). */
+    const lb = String((x0 as { label?: string }).label ?? '').trim()
+    const x: RunLog = lb ? { ...x0, text: `${lb} ${String(x0.text ?? '')}`, label: undefined } : x0
     /* 같은 `tick` 을 단 줄은 **앞엣것을 갈아 끼운다** — 화면(RunLog)이 하는
        것과 같다. 안 하면 「▸ show system」 과 그 결과가 두 줄로 남아,
        시험 항목 로그는 한 줄인데 실행 이벤트만 두 줄이 된다(지적).
@@ -114,8 +119,25 @@ class Pusher {
     Object.assign(this.patch, p)
   }
 
-  /** 때가 됐으면 올린다. `force` 면 무조건 */
+  /** 올리는 중인 것 — 겹쳐 부르지 못하게 한 줄로 세운다 */
+  private flying: Promise<void> = Promise.resolve()
+
+  /**
+   * 때가 됐으면 올린다. `force` 면 무조건.
+   *
+   * **겹쳐 부르면 줄이 사라진다.** 서버는 seq 를 `max(seq) + n` 으로 매기고
+   * `ON CONFLICT DO NOTHING` 으로 넣는다 — 두 번이 동시에 들어오면 둘 다
+   * 같은 max 를 읽어 같은 번호를 만들고, 뒤엣것이 통째로 버려진다.
+   * `onLog` 마다 await 없이 부르고 있어 실제로 겹쳤다(지적: 실행 이벤트에
+   * 안 나오는 로그가 있다).
+   */
   async flush(force = false): Promise<void> {
+    const mine = this.flying.then(() => this.flush1(force)).catch(() => {})
+    this.flying = mine
+    await mine
+  }
+
+  private async flush1(force: boolean): Promise<void> {
     const now = Date.now()
     if (!force && now - this.last < PUSH_MS) return
     if (!force && this.logs.length === 0 && Object.keys(this.patch).length === 0) return

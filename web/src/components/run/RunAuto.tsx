@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
+import { stepLogOn } from '@/components/tc/types'
 import './RunAuto.css'
 
 /**
@@ -468,10 +469,16 @@ export default function RunAuto({
          실행 중에 보고 싶은 것은 방금 무엇이 나갔는가다. */
       for (const l of liveLogs.slice(-LIVE_MAX)) {
         const i2 = Number(l.i ?? -1)
+        /* **시험 항목에서 로그를 끈 갈래는 여기서도 안 나온다**(지적).
+           주석처럼 장비로 아무것도 안 나가는 줄이 Cycles 에만 떠 있었다. */
+        const own = i2 >= 0 ? steps[i2] : undefined
+        if (own && !stepLogOn(own)) continue
         const rd = Number(l.round ?? 0)
         /* 시험 항목의 실행 로그와 **같은 줄**이어야 한다(지시). 거기서는
            「비교 결과」 같은 앞말을 본문 앞에 세운다 — 그것을 버리면 무엇을
            한 줄인지 다시 짚어야 한다. */
+        /* 앞말은 실행기가 글에 붙여 보낸다(서버 표에 칸이 없다). 화면에서
+           직접 돌린 실행은 label 로 오므로 둘 다 본다. */
         const lb = String((l as { label?: string }).label ?? '').trim()
         out.push({
           at: String(l.ts ?? ''),
