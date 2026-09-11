@@ -790,13 +790,30 @@ export default function CyclesBoard({
         ),
       })
     }
-    /* 차례는 **공용 한 곳**(orderTcIds)이 정한다 — Runs 의 표·실행기와
-       같은 차례라야 「사이클에서 본 차례대로 돈다」 가 성립한다 */
-    const rank = new Map(orderTcIds(out.map((r) => r.tcid), tcOf, reqIndex).map((id, i) => [id, i]))
-    out.sort((a, b) => (rank.get(a.tcid) ?? 0) - (rank.get(b.tcid) ?? 0))
+    /* **담긴 차례가 곧 시험 차례**다(지시: 서버에 저장돼야 하고, 항목을
+       담으면서 순서가 정해져야 한다). 이름으로 다시 세우면 요구사항 이름을
+       고칠 때마다 차례가 바뀌고, 보기 설정은 사람마다 다르다.
+       담을 때 폴더 ▸ REQ ▸ ID 로 세워 넣으므로 처음 모습은 예전과 같다. */
     return out
   }, [full, tcOf, reqIndex])
   /* 유형 선택지는 자료에서 뽑는다 — 담긴 값이 곧 목록이고 색은 자동 */
+  /**
+   * 지금 표에 보이는 차례로 **사이클 항목을 다시 세워 저장**한다(지시).
+   *
+   * 차례가 사이클 문서에 남으므로 서버에 저장되고, 다른 사람이 열어도 같다.
+   * 거르기로 숨은 항목은 자리를 잃지 않게 **뒤에 그대로** 붙인다.
+   */
+  const saveOrder = async () => {
+    if (!full || !shownOrder.length) return
+    const rank = new Map(shownOrder.map((id, i) => [id, i]))
+    const items = [...(full.items ?? [])]
+    items.sort(
+      (a, b) =>
+        (rank.get(String(a?.tcid ?? '')) ?? 1e9) - (rank.get(String(b?.tcid ?? '')) ?? 1e9),
+    )
+    await saveFull({ items })
+  }
+
   const itCols = useMemo<NCol[]>(
     () =>
       [
@@ -1129,19 +1146,13 @@ export default function CyclesBoard({
   /** 실행을 뜬다 — 담긴 항목 전부. 시험을 시작할 때 속에서만 부른다 */
   async function makeRun(p: CycleMeta): Promise<string | null> {
     /*
-     * **표에 보이는 차례 그대로 돈다**(지시: 시험 차례를 내가 정하고 싶다).
+     * **사이클에 담긴 차례 그대로 돈다**(지시).
      *
-     * 표의 「정렬」 로 무엇을 기준 삼든 — 만든 Key 칸이든 ID 든 — 그 차례가
-     * 곧 시험 차례다. 62 건을 손으로 옮길 일이 없고, 정렬은 보기에 남으므로
-     * 다음에 돌려도 같은 차례다.
-     *
-     * 표를 아직 안 그렸으면(바로 실행) 예전 규칙으로 세운다.
+     * 차례는 사이클 문서에 있으므로 **서버에 남고 누가 열어도 같다**. 바꾸려면
+     * 표에서 정렬한 뒤 「이 차례로 저장」 을 누른다 — 그때 이 배열이 다시
+     * 세워진다.
      */
-    const all = (p.items ?? []).map((it) => String(it?.tcid ?? '')).filter(Boolean)
-    const rank = new Map(shownOrder.map((id, i) => [id, i]))
-    const ids = shownOrder.length
-      ? [...all].sort((a, b) => (rank.get(a) ?? 1e9) - (rank.get(b) ?? 1e9))
-      : orderTcIds(all, tcOf, reqIndex)
+    const ids = (p.items ?? []).map((it) => String(it?.tcid ?? '')).filter(Boolean)
     if (!ids.length) {
       window.alert('담긴 시험 항목이 없습니다 — 시험 항목 탭에서 먼저 담으세요.')
       return null
@@ -1986,6 +1997,17 @@ export default function CyclesBoard({
                 onClick={() => openRunner(man ? 'M' : 'A')}
               >
                 {man ? '✎ Manual Test Start' : '▶ Automation Test Start'}
+              </button>
+              {/* **이 차례로 저장**(지시) — 표에서 정렬한 차례를 사이클에
+                  못박는다. 차례가 사이클 문서에 남으므로 서버에 저장되고,
+                  다른 사람이 열어도·다시 돌려도 같은 차례다. */}
+              <button
+                type="button"
+                className="cu-new small"
+                title="지금 보이는 차례를 이 사이클의 시험 차례로 저장합니다"
+                onClick={() => void saveOrder()}
+              >
+                ↓ 이 차례로 저장
               </button>
             </>
           }
