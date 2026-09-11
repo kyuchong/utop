@@ -948,7 +948,10 @@ button.sq-caret svg { width: 11px; height: 11px; }
   display: grid;
   grid-template-columns: 84px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  /* 세로 간격은 **따로** 둔다. 8px 을 두 쪽에 다 주면 입력칸 아래 안내가
+     멀어져 「다음 칸의 제목」 처럼 보인다(지적, 세 번). */
+  column-gap: 8px;
+  row-gap: 2px;
   margin-bottom: 7px;
 }
 
@@ -1007,7 +1010,7 @@ button.sq-caret svg { width: 11px; height: 11px; }
 /* 안내는 **값 칸 아래**로 간다. sd-f 는 두 칸 격자(라벨 84px | 값)라,
    그냥 두면 안내가 라벨 열에 떨어져 84px 안에서 한 글자씩 세로로 눌린다
    (지적: 세로로 눌려 못 읽는다). */
-.sd-f > .sd-hint { grid-column: 2; margin-top: -2px; }
+.sd-f > .sd-hint { grid-column: 2; margin-top: 0; }
 .sd-hint {
   display: block;
   margin-top: 4px;
@@ -3869,7 +3872,19 @@ html .tc-split > .tc-content {
 /* 주석·메시지는 줄 전체를 쓰되 **결과 칸은 남긴다**. 끝까지 먹으면 그 칸의
    세로선이 주석 줄에서만 사라져 격자가 거기서 끊긴다(지적). 절차 설명만
    합치고, 결과 칸은 빈 채로 서서 선을 잇는다. */
-.sq-row.note > .sq-sum { grid-column: 8 / -1; }
+/* 주석·메시지는 명령 칸부터 끝까지 쓴다(지시). 그런데 칸을 합치면 그 안의
+   경계선도 함께 사라져, 주석 줄에서만 세로선이 끊긴다(지적).
+   **합친 칸 안에 그 선을 그려 둔다** — 격자는 이어지고 글은 끝까지 쓴다. */
+.sq-row.note > .sq-sum {
+  grid-column: 8 / -1;
+  background-image: linear-gradient(
+    to right,
+    transparent calc(100% - var(--sq-dscw)),
+    var(--sq-line) calc(100% - var(--sq-dscw)),
+    var(--sq-line) calc(100% - var(--sq-dscw) + 1px),
+    transparent calc(100% - var(--sq-dscw) + 1px)
+  );
+}
 .sq-row.note > .sq-dsc { display: none; }
 
 /* 좁은 칸들에도 세로선(지시). 끝 칸(결과)만 뺀다 — 표 테두리가 그 자리다 */

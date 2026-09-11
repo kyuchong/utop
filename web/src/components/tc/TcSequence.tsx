@@ -395,10 +395,11 @@ export default function TcSequence({
           /* 판정을 **번호 옆**에 둔다(지시·합의). 서른 줄에서 「어디서
              깨졌나」 를 볼 때 눈이 오른쪽 끝까지 갔다 오지 않아도 되고,
              화면이 좁아 가로로 밀려도 판정은 안 잘린다. */
+          '--sq-dscw': dscW ? `${dscW}px` : '160px',
           '--sq-cols': [
             '30px 26px 30px 30px 40px 60px 190px',
             sumW ? `${sumW}px` : 'minmax(150px, 1fr)',
-            dscW ? `${dscW}px` : 'minmax(90px, 220px)',
+            dscW ? `${dscW}px` : '160px',
           ].join(' '),
         } as CSSProperties
       }
