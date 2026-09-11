@@ -19,9 +19,6 @@ const SYNC = new Set([
   // 열 보이기·정렬·묶기
   'utop.reqtc.infocols', 'utop.reqtc.listsort', 'utop.reqtc.fsort', 'utop.reqtc.treereqs',
   'utop.req.foldersort',
-  /* 사이클 시험 항목 표의 보기 — **정렬이 곧 시험 차례**라(makeRun) 계정에
-     남아야 한다. 안 남기면 새로 고칠 때마다 차례가 처음으로 돌아간다. */
-  'utop.cyc.itview',
   'utop.tc.infocols', 'utop.tc.listsort', 'utop.tc.listOpen',
   'utop.cycle.infocols', 'utop.cycle.itcols', 'utop.cycle.colorder', 'utop.cycle.grp',
   'utop.cycle.listsort', 'utop.cycle.execHide',
