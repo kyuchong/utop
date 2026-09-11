@@ -682,19 +682,32 @@ export default function RunAuto({
    * 제목의 「전체 62」 가 이미 말한다.
    */
   const doneItems = useMemo(() => {
-    /* **이번 실행에서 돈 것만**(지적: 기존 것을 다시 돌리면 항목이 안 지워진다).
-       「다시 실행」 은 같은 실행 레코드를 다시 쓰므로 지난 회차 결과가 그대로
-       남는다 — 그것까지 「돈 것」 으로 세면 시작하자마자 62 건이 옛 결과로
-       가득 찬다. 시작 시각보다 이른 기록은 이번 것이 아니다. */
+    /*
+     * **끝난 것은 최신순으로 위, 아직 안 돈 것은 아래**(지시).
+     *
+     * 안 돈 것까지 미리 깔면 목록이 길어 방금 끝난 것을 눈으로 따라가야
+     * 했고(스크롤이 계속 내려간다), 통째로 숨겼더니 이번에는 무엇이 남았고
+     * 어디까지 왔는지 알 수 없었다. 둘로 나눠 쌓는다.
+     *
+     * 「다시 실행」 은 같은 실행 레코드를 다시 쓰므로 지난 회차 결과가 남아
+     * 있다 — **시작 시각보다 이른 기록은 이번 것이 아니다.** 그런 항목은
+     * 판정·시각을 지워 「아직 안 돈 것」 으로 세운다. 안 그러면 지난 판정이
+     * 이번 결과처럼 보인다.
+     */
     const st = tms(runStartedAt)
-    const ran = shownItems.filter((it) => {
+    const done: AutoItem[] = []
+    const wait: AutoItem[] = []
+    for (const it of shownItems) {
       const t = tms(it.at)
-      if (Number.isFinite(st) && Number.isFinite(t)) return t >= st - 1000
-      return String(it.at ?? '').trim() || it.verdict !== 'n'
-    })
-    return ran
-      .slice()
-      .sort((a, b) => String(b.at ?? '').localeCompare(String(a.at ?? '')))
+      const mine =
+        Number.isFinite(st) && Number.isFinite(t)
+          ? t >= st - 1000
+          : !!String(it.at ?? '').trim() || it.verdict !== 'n'
+      if (mine) done.push(it)
+      else wait.push({ ...it, verdict: 'n' as AutoItem['verdict'], at: '' })
+    }
+    done.sort((a, b) => String(b.at ?? '').localeCompare(String(a.at ?? '')))
+    return [...done, ...wait]
   }, [shownItems, runStartedAt])
   const groups = useMemo(() => {
     /* **받은 차례를 절대 안 바꾼다** — 이어지는 같은 묶음만 한 덩이로 접는다.
@@ -1178,9 +1191,7 @@ export default function RunAuto({
             <div className="ra-none">
               {q.trim()
                 ? `「${q.trim()}」 로 찾은 항목이 없습니다.`
-                : flt !== 'all'
-                  ? '그 결과의 항목이 없습니다.'
-                  : '아직 돌린 항목이 없습니다 — 돌린 것부터 최신 차례로 쌓입니다.'}
+                : '그 결과의 항목이 없습니다.'}
             </div>
           )}
           {groups.map(([g, arr]) => (
