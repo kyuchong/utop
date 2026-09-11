@@ -1208,7 +1208,7 @@ export default function TcStepDetail({
             {/* 회차 출력을 **어디까지 남길까**(지시: 10,000 회 시험).
                 10,000 회 × 4KB 면 40MB 라, 다 들고 있으면 저장도 화면도
                 못 버틴다. 무엇을 하려는 시험이냐에 따라 사람이 고른다. */}
-            <label className="sd-f">
+            <label className="sd-f wide">
               <span className="sd-lab">회차 출력</span>
               <span className="sd-wait">
                 <select
@@ -1229,8 +1229,8 @@ export default function TcStepDetail({
                 </span>
               </span>
             </label>
-            <div className="sd-f">
-              <span>반복 방식</span>
+            <div className="sd-f wide">
+              <span className="sd-lab">반복 방식</span>
               <div className="seg sd-seg">
                 <button
                   type="button"
@@ -1281,8 +1281,8 @@ export default function TcStepDetail({
             </div>
 
             {loopByList ? (
-              <div className="sd-f">
-                <span>값 목록 · 담을 변수</span>
+              <div className="sd-f wide">
+                <span className="sd-lab">값 목록 · 담을 변수</span>
                 <div className="sd-row">
                   <input
                     className="mono"
@@ -1309,8 +1309,8 @@ export default function TcStepDetail({
                 </span>
               </div>
             ) : loopByRange ? (
-              <div className="sd-f">
-                <span>범위 · 증가 · 담을 변수</span>
+              <div className="sd-f wide">
+                <span className="sd-lab">범위 · 증가 · 담을 변수</span>
                 <div className="sd-row">
                   <input
                     type="number"
