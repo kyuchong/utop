@@ -4035,16 +4035,7 @@ body.sq-resizing { user-select: none; cursor: col-resize; }
 .sq-row.on > .sq-res.pass { background: #d9efe1; }
 .sq-row.on > .sq-res.fail { background: #f8dedb; }
 
-/* 판정 기준 안에 딸린 작은 묶음(뽑은 값) — 라벨 격자를 안 쓰고 값 쪽에
-   그대로 붙는다. 둘은 한 일이라 라벨을 따로 세우면 남남처럼 보인다. */
-.sd-sub {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--tc-line, #d2dae1);
-}
+
 
 
 
@@ -4081,3 +4072,7 @@ body.sq-resizing { user-select: none; cursor: col-resize; }
 .sd-vrow.sd-jr > .sd-jr-in { flex: none; width: 120px; }
 .sd-vrow.sd-jr > .sd-vval { flex: 1; min-width: 0; }
 .sd-vrow.sd-jr > .sd-vrule { flex: none; max-width: 40%; }
+
+/* 뽑은 값 목록 — Criteria 줄들과 **같은 왼쪽 열**에서 시작한다(지시).
+   라벨이 값 영역 안에 있으면 위아래 줄과 어긋나 계단처럼 보인다. */
+.sd-f > .sd-vlist { display: flex; flex-direction: column; gap: 4px; }
