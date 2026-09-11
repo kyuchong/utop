@@ -1194,7 +1194,25 @@ export default function RunDetail({
     await qc.invalidateQueries({ queryKey: ['cycle-full', pid] })
     await cycQ.refetch()
   }
-  const log = (run.logs ?? {})[cur]
+  /*
+   * **이번 회차 결과만 그린다**(지적: 스텝·로그는 맞는데 Response 만 딴 값).
+   *
+   * 「다시 실행」 은 같은 실행 레코드를 다시 쓴다 — run.logs 에는 지난 회차
+   * 결과가 그대로 남아 있고, 항목이 다시 돌아야 덮인다. 그래서 진행 2% 인
+   * 실행에서 아직 안 돈 항목을 누르면 **아침에 돈 결과**가 Response 에
+   * 떴다(회차 10개·그때 장비 응답까지). 로그·스텝은 이번 것이라 한 화면에
+   * 두 실행이 섞였다.
+   *
+   * 실행을 시작할 때 started_at 을 새로 찍으므로, 그보다 **이른 기록은 이번
+   * 것이 아니다.** 시각을 못 읽으면 건드리지 않는다 — 지우는 쪽이 위험하다.
+   */
+  const log = (() => {
+    const raw = (run.logs ?? {})[cur]
+    if (!raw) return raw
+    const st = Date.parse(String(run.started_at ?? ''))
+    const at = Date.parse(String((raw as { at?: string })?.at ?? ''))
+    return Number.isFinite(st) && Number.isFinite(at) && at < st ? undefined : raw
+  })()
   /* 「지금 스텝」 칸을 걷으면서 stepNow 도 함께 걷었다(지시) —
      지금 도는 스텝은 가운데 스텝 표가 굵은 줄로 이미 말한다. */
 
