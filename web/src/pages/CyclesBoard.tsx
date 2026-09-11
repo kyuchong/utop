@@ -740,6 +740,27 @@ export default function CyclesBoard({
   )
 
   /** 항목 줄 — TC 메타·REQ 이름표를 입혀 폴더 ▸ REQ 로 묶는다 */
+  /*
+   * 사람이 만든 칸(SETUP ▸ 필드) — 시험 항목에 붙는 것만 가져온다.
+   *
+   * REQ-Coverage 에서 만든 「Key」 같은 칸이 여기 표에는 없어서, 그것으로
+   * 세우고 싶어도 열이 안 보였다(지적). 정의는 서버 한 곳(custom_field)에
+   * 있으니 같은 것을 읽어 쓴다.
+   */
+  const cfQ = useQuery({
+    queryKey: ['custom-fields'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/custom-fields')
+      if (!r.ok) throw new Error('필드를 불러오지 못했습니다')
+      return (await r.json()) as { items?: Array<Record<string, unknown>> }
+    },
+  })
+  const cfTc = useMemo(
+    () => (cfQ.data?.items ?? []).filter((x) => String(x.target ?? '') === 'tc'),
+    [cfQ.data],
+  )
+
   /** 표가 거르고 세운 차례 — 시험도 이 차례로 돈다(makeRun) */
   const [shownOrder, setShownOrder] = useState<string[]>([])
   const itemRows = useMemo<ItemRow[]>(() => {
@@ -761,6 +782,12 @@ export default function CyclesBoard({
         reqLabel: rq?.label ?? (it?.req_id ? String(it.req_id) : ''),
         reqTitle: rq?.title ?? '',
         folder: rq?.folder ?? '미분류',
+        /* 만든 칸의 값 — TC 의 custom 에 산다(colVal 과 같은 규칙) */
+        ...Object.fromEntries(
+          Object.entries((meta as unknown as { custom?: Record<string, unknown> })?.custom ?? {}).map(
+            ([k, v]) => [`cf_${k}`, String(v ?? '')],
+          ),
+        ),
       })
     }
     /* 차례는 **공용 한 곳**(orderTcIds)이 정한다 — Runs 의 표·실행기와
@@ -772,7 +799,15 @@ export default function CyclesBoard({
   /* 유형 선택지는 자료에서 뽑는다 — 담긴 값이 곧 목록이고 색은 자동 */
   const itCols = useMemo<NCol[]>(
     () =>
-      itColsRaw.map((c) =>
+      [
+        ...itColsRaw,
+        ...cfTc.map((cf) => ({
+          key: `cf_${String(cf.key ?? '')}`,
+          label: String(cf.label ?? ''),
+          type: (String(cf.type ?? '') === 'number' ? 'number' : 'text') as NCol['type'],
+          width: 96,
+        })),
+      ].map((c) =>
         c.key === 'type'
           ? {
               ...c,
@@ -784,7 +819,7 @@ export default function CyclesBoard({
           : c,
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [itColsRaw, itemRows],
+    [itColsRaw, itemRows, cfTc],
   )
   const nAuto = itemRows.filter((r) => !r.man).length
   const nMan = itemRows.length - nAuto
