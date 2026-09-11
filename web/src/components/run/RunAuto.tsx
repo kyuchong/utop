@@ -820,7 +820,19 @@ export default function RunAuto({
                 없는 명령이다(지적). */}
             {noneRan
               ? <pre className="ra-idle">아직 돌리지 않았습니다.</pre>
-              : steps.slice(seeUpTo, seeUpTo + 1).map((s2) => {
+              : /* **고른 줄까지 쌓아** 보여 준다(지시) — 한 줄만 그리면 앞 명령의
+                   출력이 사라져 무엇 다음에 무엇이 나왔는지 못 읽는다.
+                   장비로 아무것도 안 나가는 줄(주석·메시지)은 건너뛴다.
+                   다만 **지금 고른 줄은 그것이라도 보여 준다** — 눌렀는데
+                   아무것도 안 나오면 고장으로 읽힌다. */
+                steps
+                  .slice(0, seeUpTo + 1)
+                  .map((s2, k) => ({ s2, k }))
+                  .filter(
+                    ({ s2, k }) =>
+                      k === seeUpTo || !(s2.kind === 'comment' || s2.kind === 'message'),
+                  )
+                  .map(({ s2, k: seeUpTo }) => {
                 /* 반복 안 스텝이면 **회차를 고를 수 있다**(지시).
                    기본은 마지막 회차 — 방금 돈 것이 궁금한 게 보통이다. */
                 const rds = s2.rounds ?? []

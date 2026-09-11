@@ -195,7 +195,9 @@
 .ra-dot.n { color: #c3ced2; }
 /* 굵기를 낮춘다(지시) — 62 줄이 전부 굵으면 어디를 봐야 할지 모른다.
    판정 아이콘과 색만으로 충분하다. */
-.ra-tcid { color: #0a8795; font-weight: 700; font-size: 10.5px; }
+/* 제목(Test Case)과 **같은 굵기·크기**다(지시) — 굵고 작은 글씨가 오히려
+   눈에 먼저 박혀 정작 무슨 시험인지가 뒤로 밀렸다. 색만 남겨 ID 임을 알린다. */
+.ra-tcid { color: #0a8795; font-weight: 400; font-size: 12px; }
 .ra-tcnm { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .ra-res { font-size: 9.5px; font-weight: 800; text-align: right; }
 .ra-res.p { color: #16a05b; }
@@ -422,7 +424,9 @@
    위계는 크기가 아니라 색과 굵기가 만든다(TC ID 청록 · 시각 회색). */
 /* TC ID 칸은 **한 줄로 들어가야** 한다 — 82px 에서는 `E59xxRL-T0003` 이
    두 줄로 접혀 줄 높이가 들쭉날쭉했다(지적). */
-.ra-cols, .ra-tc { grid-template-columns: 12px 118px 118px minmax(0, 1fr) auto; gap: 6px; padding: 2px 8px; line-height: 1.2; }
+/* TC ID 칸은 **글자 폭만큼만**(지시: ID 와 제목 사이 여백이 너무 많다).
+   118px 은 `E61xx-T0002` 보다 한참 넓어 제목이 멀찍이 밀려 있었다. */
+.ra-cols, .ra-tc { grid-template-columns: 12px 118px 92px minmax(0, 1fr) auto; gap: 6px; padding: 2px 8px; line-height: 1.2; }
 .ra-tcid { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ra-tcnm { font-size: 12px; }
 .ra-grp { font-variant-numeric: tabular-nums; }

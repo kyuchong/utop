@@ -262,7 +262,10 @@ async function doRun(run: Run): Promise<void> {
 
     push.itemAt(at)
     push.set({ item_at: at, item_name: it.name || it.tcid, step_at: -1, step_count: 0, step_name: '' })
-    push.addLog({ i: -1, kind: 'info', text: `▶ ${it.name || it.tcid}` })
+    /* 항목 이름은 **안 찍는다**(지시: 왜 제목이 항상 먼저 나오나).
+       무엇을 돌고 있는지는 머리줄과 Test Report 가 이미 말한다 — 로그
+       첫 줄을 제목이 먹으면 시험 항목 화면의 로그와도 어긋난다. */
+    log(`▶ ${it.name || it.tcid}`)
 
     // 절차는 TC 가 갖고 있다. 사이클 항목에 박아 둔 옛 스텝을 쓰면
     // 그동안 TC 를 고친 것이 반영되지 않는다.
