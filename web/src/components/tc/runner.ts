@@ -1531,8 +1531,14 @@ async function runOne(
    *
    * 명령을 보냈는데 침묵인 것만 잡는다. 보낼 명령이 없던 스텝은 위에서
    * 이미 걸러졌다.
+   *
+   * **다만 「출력이 없다」 가 곧 실패는 아니다**(지적: clear logging 인데 왜
+   * FAIL 이냐). `clear logging` · `configure terminal` · `write memory` 처럼
+   * 잘 돌아도 아무것도 안 뱉는 명령이 있다. 가르는 것은 **명령이 닿았나**다:
+   * 서버가 「이 명령을 보냈다」(e.cmd → lastCmd)고 알려 준 적이 있고 오류도
+   * 없었다면, 장비는 받아서 조용히 끝낸 것이다.
    */
-  if (!gotOut) {
+  if (!gotOut && (err || !lastCmd)) {
     const why = err || '장비가 아무것도 응답하지 않았습니다 — 세션이 끊겼거나 명령이 장비에 닿지 않았습니다'
     ctx.onStep(i, { output, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: why })
     ctx.onLog({
