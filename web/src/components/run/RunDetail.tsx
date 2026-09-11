@@ -1508,7 +1508,22 @@ export default function RunDetail({
             /* 도는 항목이면 저장본으로 **안 떨어진다.** 실행기는 항목을 다
                마쳐야 저장하므로 저장본은 지난 실행의 값이다 — 그게 남아서
                Time 이 계속 똑같아 보였다(지적). 아직 안 온 것은 빈 채로 둔다. */
-            const lg = ((live ?? (onAir ? [] : (log?.steps ?? []))) as unknown[]) as Array<Record<string, unknown>>
+            /*
+             * **실행 결과는 사이클 항목에 있다**(지적: 이 항목만 실행했는데
+             * Response 가 비고 Report 시각도 안 바뀐다).
+             *
+             * 실행기는 항목을 마치면 `it.steps = steps` 로 **사이클**에 저장한다
+             * (runner/src/main.ts). run.logs 는 화면에서 직접 돌리던 시절의
+             * 자리라 실행기가 채우지 않는다 — 거기만 보고 있었으니 새 결과가
+             * 영영 안 왔고, 남아 있던 옛 기록이 대신 그려졌다.
+             *
+             * run.logs 가 있으면 그것도 쓴다(화면에서 돌린 실행).
+             */
+            const fromPlan = ((((plan?.items ?? []) as unknown) as Array<Record<string, unknown>>).find(
+              (x) => String(x?.tcid ?? '') === cur,
+            )?.steps ?? []) as unknown[]
+            const saved = (log?.steps?.length ? log.steps : fromPlan) as unknown[]
+            const lg = ((live ?? (onAir ? [] : saved)) as unknown[]) as Array<Record<string, unknown>>
             if (!lg.length) return def
             const run2 = lg.map(asStep)
             if (!def.length) return run2
