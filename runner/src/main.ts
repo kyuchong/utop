@@ -1,6 +1,6 @@
 import { apiFetch, setToken } from './api'
 import { runSteps, type RunLog } from '@/components/tc/runner'
-import { isManualStep, type MeterCfg, type TcStep } from '@/components/tc/types'
+import { isManualStep, sessionIndex, type MeterCfg, type TcStep } from '@/components/tc/types'
 import type { Device } from '@/pages/Devices'
 
 /**
@@ -332,6 +332,38 @@ async function doRun(run: Run): Promise<void> {
     } catch {
       /* 진단이 실행을 막으면 안 된다 */
     }
+
+    /*
+     * **어느 장비로 나가는지 먼저 적는다**(지적: 시험 항목에 설정된 세션과
+     * 다른 장비로 나갔다).
+     *
+     * 여태 화면에 있는 단서는 세션 판의 「장비 미지정」 과 프롬프트 `DUT#`
+     * 뿐이었다 — 엉뚱한 곳에 붙어도 알 길이 없고, 나중에 따질 기록도 안
+     * 남는다. 배정을 항목 첫 줄에 남기면 실행 이벤트만 보고 가린다.
+     */
+    {
+      const sessLine = sessions.length
+        ? sessions
+            .map((id, k) => {
+              const d = devById.get(id)
+              return `S${k + 1} = ${
+                d
+                  ? `${d.name || d.model || id}${d.ip ? ` (${d.ip}${d.port ? `:${d.port}` : ''})` : ''}`
+                  : `${id} — 장비 목록에 없습니다`
+              }`
+            })
+            .join(' · ')
+        : '세션이 없습니다 — 이 항목은 장비로 나가지 않습니다'
+      push.addLog({ i: -1, kind: 'info', text: `세션 배정 · ${sessLine}` })
+    }
+
+    /* 스텝마다 **제 장비**를 심는다 — 세션 판이 이것으로 장비를 찾는다.
+       안 심어서 「장비 미지정」 으로만 떴다(지적). */
+    steps = steps.map((st) => {
+      const k = sessionIndex(st.session)
+      const id = k >= 0 ? sessions[k] : ''
+      return id ? ({ ...st, devId: id } as TcStep) : st
+    })
 
     push.set({ step_count: steps.length, live_steps: steps })
 

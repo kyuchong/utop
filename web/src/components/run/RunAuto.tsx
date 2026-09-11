@@ -1149,7 +1149,8 @@ export default function RunAuto({
       if (!steps.length) return ''
       /* action 이 「—」 인 스텝이 있다 — 그대로 붙이면 「Step 1 · —」 가 된다 */
       const a = String(curStep?.action ?? '').trim()
-      return `Step ${stepAt + 1}${a && a !== '—' ? ` · ${a}` : ''}`
+      /* 표·이벤트와 **같은 번호**(주석은 번호를 안 먹는다) */
+      return `Step ${nos[stepAt] || stepAt + 1}${a && a !== '—' ? ` · ${a}` : ''}`
     }
     if (p === 'events') return events.length ? `${events.length}줄` : ''
     if (p === 'sess') {
