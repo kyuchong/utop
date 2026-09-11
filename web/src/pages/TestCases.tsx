@@ -864,6 +864,21 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
     [gp.values, gp.items, gp.loading, gp.empty, stepVars],
   )
 
+  /*
+   * 돌린 결과를 저장한다(지시).
+   *
+   * 여태는 실행 결과를 상태에만 담고 서버에 안 보냈다 — 그래서 새로 고치면
+   * 서버에 남아 있던 **지난 실행**(이 시험은 두 달 전 것)이 돌아왔다.
+   * 실행이 끝나고 마지막 배치까지 화면에 들어온 다음에 보낸다.
+   */
+  useEffect(() => {
+    if (running || !justRan.current) return
+    justRan.current = false
+    if (!openId || saveM.isPending) return
+    saveM.mutate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, openId])
+
   const patch = (p: Partial<TcData>) => {
     setD((c) => ({ ...c, ...p }))
     setDirty(true)
@@ -1164,6 +1179,9 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
     patch({ checks: steps.map((s, j) => (picked.has(j) ? { ...s, skip: on } : s)) })
     setMsg({ kind: '', text: `스텝 ${picked.size}개를 ${on ? '건너뜁니다' : '다시 돌립니다'}` })
   }
+
+  /** 방금 돌렸나 — 실행이 끝나고 화면이 다시 그려진 뒤에 저장하려고 */
+  const justRan = useRef(false)
 
   const saveM = useMutation({
     mutationFn: async () => {
@@ -1587,6 +1605,10 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
       setRunning(false)
       setRunAt(-1)
       runAbort.current = null
+      /* 돌린 결과를 **남긴다**(지시: 새로 고치면 이전에 실행한 Response 가
+         보여야 한다). 여기서 바로 저장하면 방금 넣은 마지막 배치가 아직
+         상태에 안 들어가 옛 값을 보낸다 — 다시 그려진 뒤에 저장한다. */
+      justRan.current = true
       if (openId) sendWs({ type: 'tc_running', tcid: openId, user: meName, on: false })
     }
   }
