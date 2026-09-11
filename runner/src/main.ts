@@ -244,7 +244,13 @@ async function doRun(run: Run): Promise<void> {
     }
   }
 
+  /** 항목과 항목 사이 쉬는 시간(지시) — 장비가 숨 돌릴 틈을 준다 */
+  const GAP_MS = 500
+  let first = true
   for (const raw of run.picked) {
+    /* 첫 항목 앞에서는 쉬지 않는다 — 누른 뒤 곧바로 돌기 시작해야 한다 */
+    if (!first) await sleep(GAP_MS)
+    first = false
     await push.flush(true)
     if (push.stop) {
       stopped = true
