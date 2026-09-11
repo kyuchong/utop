@@ -658,15 +658,15 @@ export default function TcStepDetail({
             `${Index_n} = ${i} - 24` 같은 줄이 그대로 절차가 된다. */}
         {!isNoteKind(kind) && (
           <label className="sd-f">
-            <span className="sd-lab">
-              Description
-              <i className="sd-hint">결과서·실행 로그에 이 말이 쓰입니다</i>
-            </span>
+            <span className="sd-lab">Description</span>
             <input
               value={step.desc ?? ''}
               placeholder="예) interface 상태를 조회한다"
               onChange={(e) => onChange({ desc: e.target.value })}
             />
+            {/* 안내는 **입력칸 아래**다(지시). 라벨 칸에 두었더니 그 칸이
+                좁아 글자가 세로로 한 자씩 눌려 읽을 수가 없었다. */}
+            <span className="sd-hint">결과서·실행 로그에 이 말이 쓰입니다</span>
           </label>
         )}
 
