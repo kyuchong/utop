@@ -641,7 +641,7 @@ export default function TcStepDetail({
             무엇을 묻는지가 붙어 읽힌다. CLI 와는 갈래가 갈려 한 번에
             하나만 뜬다. */}
         {(kind === 'snmp_get' || kind === 'snmp_set' || kind === 'snmp_trap') && (
-          <label className="sd-f">
+          <label className="sd-f wide">
             <span className="sd-lab">
               OID
               {/* 단추가 둘이라 **묶어서** 오른쪽에 나란히 — `.sd-pickbtn` 은
@@ -690,7 +690,7 @@ export default function TcStepDetail({
           </label>
         )}
         {kind === 'cli' && (
-          <label className="sd-f">
+          <label className="sd-f wide">
             <span className="sd-lab">
               CLI
               {/* 전역 파라미터를 눌러 넣는다. 손으로 ${이름} 을 치면 오타가
@@ -721,7 +721,7 @@ export default function TcStepDetail({
             비어 있으면 결과서는 명령에서 말을 지어낸다 —
             `${Index_n} = ${i} - 24` 같은 줄이 그대로 절차가 된다. */}
         {!isNoteKind(kind) && (
-          <label className="sd-f">
+          <label className="sd-f wide">
             <span className="sd-lab">Description</span>
             <input
               value={step.desc ?? ''}
@@ -886,7 +886,7 @@ export default function TcStepDetail({
         )}
         {kind === 'diff' && (
           <>
-            <div className="sd-f">
+            <div className="sd-f wide">
               <span className="sd-lab">
                 견줄 두 값
                 {/* 단추는 **각 칸 바로 위**에 선다(지시) — 자리가 곧 어느
@@ -1386,7 +1386,7 @@ export default function TcStepDetail({
             Comment 는 실행할 때 아무 일도 안 하고, Message 는 로그에 찍힌다.
             같은 라벨을 달아 두면 무엇을 쓰는 칸인지 알 수 없다. */}
         {isNoteKind(kind) && (
-          <label className="sd-f">
+          <label className="sd-f wide">
             <span>{STEP_CONTENT[kind]?.label ?? '내용'}</span>
             {/* **한 줄이다**(지시). 주석도 메시지도 목록에 한 줄로 서는 글이라,
                 두 줄짜리 칸을 주면 줄바꿈을 넣게 되고 그러면 목록에서 뒤가
@@ -1489,7 +1489,7 @@ export default function TcStepDetail({
         {/* 판정 기준 — 종류 드롭다운 없음(합의). 칩을 쌓으면 판정이 정해진다:
             모든 칩 만족 = 합격 · 하나라도 어긋남 = 불합격 · 칩 없음 = 조회만 */}
         {isRun && !isMeterStep && (
-          <div className="sd-f">
+          <div className="sd-f wide">
             <span className="sd-lab">
               Criteria
               {/* 견줌은 **줄마다 「± 비교」** 로 붙인다(지시) — 여기 단추는
@@ -1667,7 +1667,7 @@ export default function TcStepDetail({
             이름만 보이면 그 식이 무엇을 집고 있는지 돌려보기 전에는 알 수
             없다. 지금 응답에 대 보고 실제로 뽑히는 값을 함께 적는다. */}
         {(step.queries?.length || step.extracts?.length) ? (
-          <div className="sd-f">
+          <div className="sd-f wide">
             <span className="sd-lab">Extracted values</span>
             <div className="sd-vlist">
               {[
