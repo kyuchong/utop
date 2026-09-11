@@ -414,6 +414,15 @@ export interface TcStep {
   /** 반복 값 **목록** — `12,22,42,52`. 등차가 아닌 자리(띄엄띄엄한 포트 번호)용 */
   forList?: string
   /** kind=diff — 견줄 두 값과 견주는 법 */
+  /**
+   * 변수 **앞에 세우는 말**(지시) — 「제품 모델명 CLI 조회」.
+   *
+   * 로그가 `'E6100' == 'E6100'` 으로만 적히면 어느 쪽이 무엇으로 본 값인지
+   * 알 수 없다. 견주는 줄이 스스로 말하게 여기에 적는다.
+   */
+  cmpLeftLabel?: string
+  /** 두 번째 값 앞에 세우는 말 */
+  cmpRightLabel?: string
   cmpLeft?: string
   cmpOp?: string
   cmpRight?: string

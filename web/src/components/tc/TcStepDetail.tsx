@@ -886,15 +886,18 @@ export default function TcStepDetail({
         )}
         {kind === 'diff' && (
           <>
+            {/* 견주는 줄은 **세 줄**이다(지시): 첫번째 비교 · 조건 · 두번째 비교.
+                값 하나가 「앞에 세우는 말 + 변수」 두 칸이라, 한 줄에 다 밀어
+                넣으면 다섯 칸이 늘어서 무엇이 무엇인지 안 갈린다. */}
             <div className="sd-f wide">
-              <span className="sd-lab">
-                비교 변수
-                {/* 단추는 **각 칸 바로 위**에 선다(지시) — 자리가 곧 어느
-                    값을 채우는지 말한다. 라벨 줄에 몰아 두지 않는다. */}
-              </span>
+              <span className="sd-lab">첫번째 비교</span>
               {paramPick('cmpLeft', 'p-cl').list}
-              {paramPick('cmpRight', 'p-cr').list}
-              <div className="sd-cmp">
+              <div className="sd-cmp2">
+                <input
+                  value={step.cmpLeftLabel ?? ''}
+                  placeholder="제품 모델명 CLI 조회"
+                  onChange={(e) => onChange({ cmpLeftLabel: e.target.value })}
+                />
                 <span className="sd-inwrap">
                   <input
                     className="mono"
@@ -904,24 +907,39 @@ export default function TcStepDetail({
                   />
                   {paramPick('cmpLeft', 'p-cl').inside}
                 </span>
-                <select
-                  className="sd-narrow2"
-                  value={step.cmpOp || '=='}
-                  onChange={(e) => onChange({ cmpOp: e.target.value })}
-                >
-                  <option value="==">같다</option>
-                  <option value="!=">다르다</option>
-                  <option value="포함">포함한다</option>
-                  <option value=">">크다</option>
-                  <option value="<">작다</option>
-                  <option value=">=">크거나 같다</option>
-                  <option value="<=">작거나 같다</option>
-                </select>
+              </div>
+            </div>
+
+            <div className="sd-f wide sd-condrow">
+              <span className="sd-lab">조건</span>
+              <select
+                value={step.cmpOp || '=='}
+                onChange={(e) => onChange({ cmpOp: e.target.value })}
+              >
+                <option value="==">같다</option>
+                <option value="!=">다르다</option>
+                <option value="포함">포함한다</option>
+                <option value=">">크다</option>
+                <option value="<">작다</option>
+                <option value=">=">크거나 같다</option>
+                <option value="<=">작거나 같다</option>
+              </select>
+            </div>
+
+            <div className="sd-f wide">
+              <span className="sd-lab">두번째 비교</span>
+              {paramPick('cmpRight', 'p-cr').list}
+              <div className="sd-cmp2">
+                <input
+                  value={step.cmpRightLabel ?? ''}
+                  placeholder="제품 모델명 SNMP 조회"
+                  onChange={(e) => onChange({ cmpRightLabel: e.target.value })}
+                />
                 <span className="sd-inwrap">
                   <input
                     className="mono"
                     value={step.cmpRight ?? ''}
-                    placeholder="E5924RL"
+                    placeholder="${var2}"
                     onChange={(e) => onChange({ cmpRight: e.target.value })}
                   />
                   {paramPick('cmpRight', 'p-cr').inside}

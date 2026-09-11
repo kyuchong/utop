@@ -991,6 +991,17 @@ button.sq-caret svg { width: 11px; height: 11px; }
 /* 세 갈래를 **펼쳐 놓고** 고르는 줄 — 회차 출력(지시). 라디오를 쓰되
    줄 전체가 과녁이라, 글자 어디를 눌러도 골라진다. */
 .sd-opts { display: grid; gap: 2px; }
+
+/* 견주는 값 한 쪽 — **앞에 세우는 말 + 변수**(지시). 반반으로 나눠 어느
+   칸이 무엇인지 자리로 말한다. */
+.sd-cmp2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+/* 조건은 **고르는 것 하나**다 — 칸 규칙(width:100%)대로 두면 「같다」 한
+   낱말이 줄 끝까지 늘어져 값 칸들과 무게가 안 맞는다 */
+.sd-f.sd-condrow select { max-width: 180px; }
 .sd-opt {
   display: flex;
   align-items: center;

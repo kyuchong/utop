@@ -707,8 +707,10 @@ async function runOne(
     /* 견준 결과는 **한 줄**이다(지시). 값만 적으면 어느 쪽이 무엇으로 본
        값인지 모르고, 맞으면·다르면 문구를 다음 줄로 빼면 같은 사건이 두
        줄로 갈린다 — 값을 담은 줄의 설명을 앞에 세워 한 문장으로 적는다. */
-    const dl = varFrom(ctx, step.cmpLeft, i)
-    const dr = varFrom(ctx, step.cmpRight, i)
+    /* 줄에 적어 둔 말이 먼저다(지시). 안 적은 옛 시험만 변수를 담은
+       스텝의 절차 설명으로 메운다 — 그 편이 아무 말 없는 것보다 낫다. */
+    const dl = String(step.cmpLeftLabel ?? '').trim() || varFrom(ctx, step.cmpLeft, i)
+    const dr = String(step.cmpRightLabel ?? '').trim() || varFrom(ctx, step.cmpRight, i)
     const line = `${dl ? `${dl} ` : ''}'${left}' ${op} ${dr ? `${dr} ` : ''}'${right}' ${diffSay(step, ok, vars)}`
     ctx.onStep(i, {
       output: why,
