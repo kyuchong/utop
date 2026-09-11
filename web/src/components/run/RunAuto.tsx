@@ -62,16 +62,16 @@ export interface AutoItem {
 }
 
 type SlotId = 'LT' | 'LB' | 'RT' | 'RB'
-type PanelId = 'steps' | 'response' | 'events' | 'tc' | 'sess'
+type PanelId = 'steps' | 'response' | 'events' | 'tc'
 const DEFAULT: Record<SlotId, PanelId> = { LT: 'steps', LB: 'events', RT: 'response', RB: 'tc' }
-/** 판 다섯. 「Sessions」 는 Telnet·SSH·계측기가 지금 어떤지 보는 자리다(지시) */
-const ALL_PANELS: PanelId[] = ['steps', 'response', 'events', 'tc', 'sess']
+/* 판 넷. 「Sessions」 는 걷었다(지시) — 세션 현황은 스텝의 Session 칸과
+   실행 이벤트가 이미 말한다. */
+const ALL_PANELS: PanelId[] = ['steps', 'response', 'events', 'tc']
 const TITLE: Record<PanelId, string> = {
   steps: '실행 Step',
   response: 'Response',
   events: '실행 이벤트',
   tc: 'Test Report',
-  sess: 'Sessions',
 }
 
 /** 장비 한 대 — 세션 판이 쓰는 것만 추린다 */
@@ -83,15 +83,6 @@ export interface AutoDev {
   role?: string
   protocol?: string
   port?: number | string
-}
-/** 접속 방식 — 계측기는 role 이, 장비는 protocol 이 말한다 */
-function devKind(d?: AutoDev): string {
-  if (!d) return '—'
-  if (/계측|instrument|tester|spirent|n2x|ixia/i.test(`${d.role ?? ''} ${d.model ?? ''}`)) return '계측기'
-  const p = String(d.protocol ?? '').toUpperCase()
-  if (p === 'TELNET') return 'TELNET'
-  if (p === 'SSH') return 'SSH'
-  return p || '—'
 }
 /** 걸린 시간 — **분:초**(지시). 「20.01s」 보다 「00:20」 이 표에서 줄이 맞는다.
  *  1초가 안 걸린 스텝은 00:00 이다 — 그건 정말 순식간이라는 뜻이다. */
@@ -241,7 +232,7 @@ export default function RunAuto({
      *  아는 판만 남기고, 빠진 판은 마지막 열 끝에 붙인다. */
     const fill = (cols: PanelId[][]): PanelId[][] => {
       const c = cols.map((col) => col.filter((x) => ALL.includes(x))).filter((col) => col.length)
-      if (!c.length) return [[DEFAULT.LT, DEFAULT.LB], [DEFAULT.RT, DEFAULT.RB, 'sess']]
+      if (!c.length) return [[DEFAULT.LT, DEFAULT.LB], [DEFAULT.RT, DEFAULT.RB]]
       const flat = c.flat()
       const miss = ALL.filter((x) => !flat.includes(x))
       if (miss.length) c[c.length - 1]!.push(...miss)
@@ -261,9 +252,10 @@ export default function RunAuto({
       const d = { ...DEFAULT, ...j }
       return fill([[d.LT, d.LB], [d.RT, d.RB]])
     } catch {
-      return [[DEFAULT.LT, DEFAULT.LB], [DEFAULT.RT, DEFAULT.RB, 'sess']]
+      return [[DEFAULT.LT, DEFAULT.LB], [DEFAULT.RT, DEFAULT.RB]]
     }
   })
+  /* 걷어낸 판이 저장본에 남아 있으면 빈 자리가 선다 — 읽을 때 걸러 낸다 */
   const setLay = (nx: PanelId[][]) => {
     const c = nx.filter((col) => col.length)
     setLayRaw(c)
@@ -471,6 +463,9 @@ export default function RunAuto({
   /** 걸린 시간 — 1 초 아래는 ms 로 적는다. 스텝 하나는 대개 그 아래다 */
   const tookText = (ms?: number) =>
     ms == null ? '' : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}초`
+
+  /** 반복 스텝에서 **몇 회차를 보고 있나**(지시) — -1 이면 마지막 회차 */
+  const [roundAt, setRoundAt] = useState(-1)
 
   const events = useMemo(() => {
     const out: Array<{ at: string; step: string; kind: string; text: string }> = []
@@ -733,44 +728,6 @@ export default function RunAuto({
   /** 세션 현황 — **스텝에서 뽑는다**(지어내지 않는다).
    *  스텝마다 적힌 Session(s0·s1…)을 모아, 그 세션으로 돈 마지막 스텝과
    *  지금 도는 스텝을 보고 상태를 정한다. 장비는 devId 로 찾는다. */
-  const sessRows = useMemo(() => {
-    type Row = { key: string; name: string; devId?: string; last?: AutoStep; ran: boolean; running: boolean; idx: number[] }
-    const put = (map: Map<string, Row>, k: string, name: string, s2: AutoStep, i: number) => {
-      const cur = map.get(k) ?? { key: k, name, ran: false, running: false, idx: [] }
-      cur.idx.push(i)
-      if (s2.devId) cur.devId = s2.devId
-      if (s2.ran || s2.out) {
-        cur.ran = true
-        cur.last = s2
-      }
-      if (i === runStep) cur.running = true
-      map.set(k, cur)
-    }
-    const bySess = new Map<string, Row>()
-    steps.forEach((s2, i) => {
-      const k = String(s2.session ?? '').trim()
-      if (!k || k === '—') return
-      put(bySess, k, k, s2, i)
-    })
-    if (bySess.size) return [...bySess.values()]
-    /* 스텝에 Session 이 없는 실행도 있다 — 그럴 땐 **장비로** 묶어
-       무엇에 붙어 도는지라도 보인다(빈 판보다 낫다) */
-    const byDev = new Map<string, Row>()
-    steps.forEach((s2, i) => {
-      const d = String(s2.devId ?? '').trim()
-      if (!d) return
-      put(byDev, d, '—', s2, i)
-    })
-    return [...byDev.values()]
-  }, [steps, runStep])
-  /** 장비 찾기 — id 로, 안 되면 IP 로. 옛 실행 로그의 devId(dev-…)는 지금
-   *  장비 목록의 id(IP)와 체계가 달라 못 찾는다. **그럴 땐 지어내지 않는다.** */
-  /** 아래 「주고받은 명령」 이 어느 세션 것인가. 처음엔 첫 세션 */
-  const [sessPick, setSessPick] = useState('')
-  /** 반복 스텝에서 **몇 회차를 보고 있나**(지시) — 20 회를 돌고도 화면에는
-   *  마지막 회차 하나만 보여, 「1 회만 돌았다」 로 읽혔다. 기본은 마지막. */
-  const [roundAt, setRoundAt] = useState(-1)
-  const sessNow = sessRows.find((r) => r.key === sessPick) ?? sessRows[0]
   const devOf = (id?: string) => {
     const k = String(id ?? '').trim()
     if (!k) return undefined
@@ -1010,171 +967,6 @@ export default function RunAuto({
         </div>
       )
 
-    if (id === 'sess')
-      return (
-        <div className="ra-scroll">
-          <div className="ra-scols">
-            <span>세션</span>
-            <span>방식</span>
-            <span>장비</span>
-            <span>상태</span>
-            <span>마지막 활동</span>
-          </div>
-          {!sessRows.length && (
-            <div className="ra-none">이 항목은 세션을 쓰지 않습니다 — 스텝에 Session 이 없습니다.</div>
-          )}
-          {sessRows.map((r) => {
-            const d = devOf(r.devId)
-            const st = r.running ? 'run' : r.ran ? 'ok' : 'idle'
-            return (
-              <button
-                type="button"
-                className={`ra-srow2 ${st}${sessNow?.key === r.key ? ' on' : ''}`}
-                key={r.key}
-                title="이 세션이 주고받은 명령을 아래에 폅니다"
-                onClick={() => setSessPick(r.key)}
-              >
-                <b className="ra-sname">{r.name}</b>
-                <span className={`ra-skind ${devKind(d) === '계측기' ? 'inst' : devKind(d).toLowerCase()}`}>
-                  {devKind(d)}
-                </span>
-                <span className="ra-sdev">
-                  {d ? (
-                    <>
-                      {d.name || d.model || d.id}
-                      <i>{d.ip ? ` · ${d.ip}${d.port ? `:${d.port}` : ''}` : ''}</i>
-                    </>
-                  ) : (
-                    <i>장비 미지정</i>
-                  )}
-                </span>
-                <span className="ra-sst">
-                  <i className="d" aria-hidden="true" />
-                  {r.running ? '사용 중' : r.ran ? '연결됨' : '대기'}
-                </span>
-                <span className="ra-slast">
-                  {r.last ? (
-                    <>
-                      <em>{shortStamp(r.last.at).split(' ')[1] ?? shortStamp(r.last.at)}</em>
-                      {r.last.cmd || r.last.t || ''}
-                    </>
-                  ) : (
-                    <i>—</i>
-                  )}
-                </span>
-              </button>
-            )
-          })}
-
-          {/* 이 세션으로 **주고받은 명령**(지시) — 목록만으로는 접속해서
-              무엇을 쳤는지 안 보였다. 누르면 그 스텝으로 간다. */}
-          {!!sessNow && (
-            <>
-              <div className="ra-sconvh">
-                주고받은 명령
-                <small>{sessNow.name !== '—' ? `· ${sessNow.name}` : ''}</small>
-              </div>
-              {(() => {
-                /* **회차마다 한 줄**(지시: 실제 명령어 입력되는 것을 그대로).
-                   20 회를 돌았으면 20 번 보낸 것이다 — 스텝당 한 줄로 접으면
-                   무엇을 몇 번 보냈는지 알 수 없다. 깨진 회차는 다 펴고
-                   통과한 회차는 마지막 30 회만 편다(10,000 회를 다 펴면 죽는다). */
-                type Line = { key: string; i: number; cmd: string; at?: string; mark?: string; nth?: number }
-                const lines: Line[] = []
-                let folded = 0
-                /* **실행기가 보낸 줄이 있으면 그것을 먼저 쓴다**(리얼타임).
-                   스텝의 회차 기록은 반복이 다 끝나야 오므로, 도는 동안에는
-                   여기가 비어 보였다. `▸ ` 로 시작하는 줄이 곧 보낸 명령이다. */
-                const own = new Set(sessNow.idx)
-                /* **로그가 실어 온 「보낸 것」** 을 쓴다(지적: SNMP 도 주고받은
-                   명령인데 CLI 만 나온다). 글자가 `▸ ` 로 시작하는지로 고르던
-                   때는, 그 줄이 결과로 갈아 끼워지면 사라지고 SNMP 는 애초에
-                   `▸ ` 줄이 없어 한 줄도 안 잡혔다. 옛 기록을 위해 `▸ ` 도 함께 본다. */
-                const live = (liveLogs ?? []).filter(
-                  (l) =>
-                    own.has(Number(l.i ?? -1)) &&
-                    (String((l as { sent?: string }).sent ?? '').trim() ||
-                      String(l.text ?? '').startsWith('▸ ')),
-                )
-                if (live.length) {
-                  for (const l of live.slice(-LIVE_MAX)) {
-                    const rd = Number(l.round ?? 0)
-                    lines.push({
-                      key: `L${l.seq ?? lines.length}`,
-                      i: Number(l.i ?? -1),
-                      cmd:
-                        String((l as { sent?: string }).sent ?? '').trim() ||
-                        String(l.text ?? '').slice(2),
-                      at: String(l.ts ?? ''),
-                      nth: rd > 0 ? rd : undefined,
-                    })
-                  }
-                }
-                for (const i of live.length ? [] : sessNow.idx) {
-                  const s2 = steps[i]
-                  if (!s2) continue
-                  const rds = s2.rounds ?? []
-                  if (rds.length > 1) {
-                    const keep = new Set(keepRounds(s2))
-                    folded += rds.length - keep.size
-                    rds.forEach((r, k) => {
-                      if (!keep.has(k)) return
-                      const c2 = r.cmd || s2.cmd
-                      if (!String(c2 ?? '').trim()) return
-                      lines.push({
-                        key: `${i}-${k}`,
-                        i,
-                        cmd: String(c2),
-                        at: s2.at,
-                        mark: String(r.status ?? ''),
-                        nth: r.n ?? k + 1,
-                      })
-                    })
-                    continue
-                  }
-                  if (!String(s2.cmd ?? '').trim()) continue
-                  lines.push({ key: String(i), i, cmd: String(s2.cmd), at: s2.at, mark: s2.mark })
-                }
-                if (!lines.length)
-                  return <div className="ra-none">이 세션으로 보낸 명령이 없습니다.</div>
-                return (
-                  <>
-                    {folded > 0 && (
-                      <div className="ra-sfold">통과한 {folded}회차는 접었습니다 — 깨진 회차와 마지막 30회만 폅니다</div>
-                    )}
-                    {lines.map((ln) => (
-                      <button
-                        type="button"
-                        className={`ra-sline${ln.i === stepAt ? ' on' : ''}${ln.i === runStep ? ' run' : ''}`}
-                        key={ln.key}
-                        onClick={() => onStep(ln.i)}
-                        title="누르면 그 스텝의 응답을 폅니다"
-                      >
-                        {/* 시각은 Test Report 와 같은 꼴, 그 뒤에 회차(지시) */}
-                        <time>{shortStamp(ln.at)}</time>
-                        <em>{ln.nth != null ? `${ln.nth}회` : ''}</em>
-                        <b>{(() => {
-                          const sd2 = devOf(sessNow?.devId)
-                          return sd2 ? sd2.name || sd2.model || String(sd2.id ?? '') : dut
-                        })()}#</b>
-                        <span className="c">{ln.cmd}</span>
-                        {ln.mark ? (
-                          <i className={/pass/i.test(ln.mark) ? 'p' : 'f'}>
-                            {/pass/i.test(ln.mark) ? 'PASS' : 'FAIL'}
-                          </i>
-                        ) : (
-                          <i />
-                        )}
-                      </button>
-                    ))}
-                  </>
-                )
-              })()}
-            </>
-          )}
-        </div>
-      )
-
     /* Test Report — iTest 의 Test Reports 를 닮은 한 줄이다(지시).
        판정 아이콘 · Timestamp · TC ID · Test Case · Execution ID. */
     return (
@@ -1279,11 +1071,6 @@ export default function RunAuto({
       return `Step ${nos[stepAt] || stepAt + 1}${a && a !== '—' ? ` · ${a}` : ''}${stail}`
     }
     if (p === 'events') return events.length ? `${events.length}줄` : ''
-    if (p === 'sess') {
-      if (!sessRows.length) return '세션 없음'
-      const on = sessRows.filter((r) => r.running).length
-      return `${sessRows.length}개${on ? ` · 사용 중 ${on}` : ''}`
-    }
     /* **어디까지 왔나**를 먼저 적는다(지시: 총 몇 항목 중 몇 항목 진행).
        목록에는 끝난 것만 쌓이므로, 남은 수는 여기서만 알 수 있다. */
     const ranN = doneItems.length
