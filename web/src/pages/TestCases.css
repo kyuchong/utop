@@ -4046,17 +4046,4 @@ body.sq-resizing { user-select: none; cursor: col-resize; }
   border-top: 1px dashed var(--tc-line, #d2dae1);
 }
 
-/* 입력칸 바로 옆에 서는 파라미터 단추 — 채울 칸이 둘 이상인 자리(Diff 의
-   견줄 두 값)에 쓴다. 라벨에 몰아 두면 어느 칸을 채우는지 모른다(지적). */
-.sd-pickin {
-  flex: none;
-  border: 1px solid var(--tc-line, #d2dae1);
-  border-radius: var(--tc-r, 6px);
-  background: var(--c-surface, #fff);
-  padding: 5px 8px;
-  font: inherit;
-  font-size: var(--fs-xs);
-  color: var(--c-text-muted);
-  cursor: pointer;
-}
-.sd-pickin:hover { border-color: var(--c-primary); color: var(--c-primary); }
+
