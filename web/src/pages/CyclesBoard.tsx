@@ -816,15 +816,25 @@ export default function CyclesBoard({
 
   const itCols = useMemo<NCol[]>(
     () =>
-      [
-        ...itColsRaw,
-        ...cfTc.map((cf) => ({
-          key: `cf_${String(cf.key ?? '')}`,
-          label: String(cf.label ?? ''),
-          type: (String(cf.type ?? '') === 'number' ? 'number' : 'text') as NCol['type'],
-          width: 96,
-        })),
-      ].map((c) =>
+      /* **한 번만 붙인다.** 열 차례·폭은 저장되는데(useNCols) 거기에 들어간
+         만든 칸을 다시 붙여, 열을 한 번 옮길 때마다 같은 칸이 하나씩
+         늘어났다(지적: Key 가 엄청나게 많이 생긴다). 열쇠로 걸러 낸다. */
+      (() => {
+        const seen = new Set<string>()
+        return [
+          ...itColsRaw,
+          ...cfTc.map((cf) => ({
+            key: `cf_${String(cf.key ?? '')}`,
+            label: String(cf.label ?? ''),
+            type: (String(cf.type ?? '') === 'number' ? 'number' : 'text') as NCol['type'],
+            width: 96,
+          })),
+        ].filter((c) => {
+          if (!c.key || seen.has(c.key)) return false
+          seen.add(c.key)
+          return true
+        })
+      })().map((c) =>
         c.key === 'type'
           ? {
               ...c,
