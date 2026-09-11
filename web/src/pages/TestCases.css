@@ -720,6 +720,37 @@
 }
 .sq-row[data-kid='last']::before { bottom: 50%; }
 
+/*
+ * 깊은 줄에서도 **위 단계 선이 이어진다**(지적: 가이드라인이 끊어졌다).
+ *
+ * `::before` 는 줄마다 하나뿐이라 제 단계 선만 긋는다 — 1.6.1.1 줄에는
+ * 제 선(301px)만 서고 그 위 단계(273·287)가 비어, 트리가 계단마다
+ * 끊겨 보였다. 조상 선은 **칸의 배경**으로 그린다.
+ *
+ * 배경이라 마지막 자식(제 선은 bottom:50%)이어도 **끝까지** 내려간다 —
+ * 조상 가지는 그 줄에서 끝나는 것이 아니라 지나갈 뿐이다.
+ *
+ * 원점은 칸의 **왼쪽 끝**이다(border-box). padding-box 로 두면 들여쓴
+ * 만큼(6 + 깊이×14) 원점이 밀려 선이 깊이마다 어긋난다.
+ */
+.sq-row[data-depth='2'] > .sq-act,
+.sq-row[data-depth='3'] > .sq-act,
+.sq-row[data-depth='4'] > .sq-act {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--c-border) 0 1px,
+    transparent 1px 14px
+  );
+  background-repeat: no-repeat;
+  background-origin: border-box;
+  /* 27 = 칸 안쪽 여백 6 + 들여쓰기 14 + 접기 단추 한가운데 7 (--gx 와 같은 셈) */
+  background-position: 27px 0;
+}
+/* 그을 폭 = 위 단계 수 × 14 */
+.sq-row[data-depth='2'] > .sq-act { background-size: 14px 100%; }
+.sq-row[data-depth='3'] > .sq-act { background-size: 28px 100%; }
+.sq-row[data-depth='4'] > .sq-act { background-size: 42px 100%; }
+
 /* 가로 — 그 줄로 들어가는 갈래.
    9px 로 그으면 그 줄이 **블록일 때** 자기 접기 단추의 왼쪽 끝(gx+9)과
    딱 붙어 선이 단추를 뚫고 지나가는 것처럼 보였다(지적). 두 칸 물린다. */
