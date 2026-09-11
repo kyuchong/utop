@@ -954,20 +954,33 @@ export default function RunDetail({
   const cycPid = String(plan?.id ?? run?.plan_id ?? '')
   /** 장비 목록 — 세션 판이 세션에 붙은 장비(이름·IP·방식)를 여기서 찾는다.
    *  `/api/devices` 는 옛 JSON 파일을 읽는 라우트다 — 화면이 쓰는 것은 devices2. */
+  /*
+   * `['devices2']` 는 **일곱 화면이 나눠 쓰는 한 칸**이다(시험 항목·계측기·
+   * 트래픽·일괄 편집·전역 파라미터·AI·여기). react-query 는 키가 같으면
+   * 캐시도 하나라, **먼저 마운트된 쪽의 queryFn 이 그 칸을 채운다**.
+   *
+   * 여기만 홀로 「배열」 을 담고 나머지 여섯은 `{devices: […]}` 를 담았다.
+   * 그래서 시험 항목을 먼저 연 뒤 실행 팝업을 열면 이 칸에 객체가 들어 있고
+   * `.map` 이 터졌다(253 에서 화면이 통째로 죽음).
+   *
+   * 담는 모양을 **여섯 쪽에 맞추고**, 꺼낼 때 어느 모양이든 배열로 본다.
+   */
   const dev2Q = useQuery({
     queryKey: ['devices2'],
     enabled: isAuto,
     queryFn: async () => {
       const r = await apiFetch('/api/devices2')
-      if (!r.ok) return [] as Array<Record<string, unknown>>
-      const j = (await r.json()) as unknown
-      const arr = Array.isArray(j)
-        ? j
-        : ((j as Record<string, unknown>)?.items ?? (j as Record<string, unknown>)?.devices ?? [])
-      return (Array.isArray(arr) ? arr : []) as Array<Record<string, unknown>>
+      if (!r.ok) throw new Error('장비를 불러오지 못했습니다')
+      return (await r.json()) as { devices?: Array<Record<string, unknown>> }
     },
     staleTime: 60_000,
   })
+  /** 캐시에 배열이 들었든 `{devices}` 가 들었든 **배열로** 꺼낸다(위 주석) */
+  const dev2List = useMemo(() => {
+    const j = dev2Q.data as unknown
+    const arr = Array.isArray(j) ? j : ((j as { devices?: unknown } | undefined)?.devices ?? [])
+    return (Array.isArray(arr) ? arr : []) as Array<Record<string, unknown>>
+  }, [dev2Q.data])
 
   const cycQ = useQuery({
     queryKey: ['cycle-full', cycPid],
@@ -1396,7 +1409,7 @@ export default function RunDetail({
             }
           })}
           cur={cur}
-          devices={(dev2Q.data ?? []).map((d) => ({
+          devices={dev2List.map((d) => ({
             id: String(d.id ?? ''),
             name: String(d.name ?? ''),
             ip: String(d.ip ?? ''),
