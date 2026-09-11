@@ -1471,6 +1471,12 @@ export default function RunDetail({
               took: undefined,
               at: undefined,
               ran: false,
+              /* **회차 기록도 지운다**(지적: Response 에 엉뚱한 장비 출력).
+                 출력·판정은 지우면서 rounds 만 남겨 두었는데, Response 판은
+                 회차가 있으면 `rounds[n].output` 을 **먼저** 그린다 — 그래서
+                 이번 실행이 막 시작했는데도 지난 실행의 회차 출력이(그때
+                 쓰던 다른 장비의 응답까지) 그대로 떠 있었다. */
+              rounds: undefined,
             }))
             /* 도는 중에는 **실행기가 보내는 실시간 스텝**을 쓴다.
                실행기는 항목을 다 마쳐야 저장하므로, 그 전까지 저장본은
@@ -1495,7 +1501,10 @@ export default function RunDetail({
                나오던 까닭이다(지적). 이름·기대값만 정의에서 쓴다. */
             return def.map((d2, i2) => {
               const l = run2[i2]
-              if (!l) return onAir ? { ...d2, mark: undefined, at: undefined, took: undefined, out: '', ran: false } : d2
+              if (!l)
+                return onAir
+                  ? { ...d2, mark: undefined, at: undefined, took: undefined, out: '', ran: false, rounds: undefined }
+                  : d2
               if (onAir) {
                 /* **아직 안 온 스텝은 결과를 비운다.** 실행기가 보내는
                    live_steps 는 TC 정의를 통째로 복사해 만들어서, 지난 실행의
@@ -1517,6 +1526,8 @@ export default function RunDetail({
                     took: undefined,
                     at: undefined,
                     ran: false,
+                    /* 아직 안 온 스텝은 회차 기록도 없다(위 주석) */
+                    rounds: undefined,
                   }
                 return {
                   ...d2,
