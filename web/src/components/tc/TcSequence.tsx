@@ -730,7 +730,7 @@ export default function TcSequence({
                   {edit?.i === i && edit.f === 'cmd' ? (
                     <input
                       className="sq-in"
-                      autoFocus
+                      ref={(el) => el?.focus({ preventScroll: true })}
                       value={draft}
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => setDraft(e.target.value)}
@@ -784,7 +784,7 @@ export default function TcSequence({
                   {edit?.i === i && edit.f === 'desc' ? (
                     <input
                       className="sq-in desc"
-                      autoFocus
+                      ref={(el) => el?.focus({ preventScroll: true })}
                       placeholder="결과서와 실행 로그가 이 값을 씁니다"
                       value={draft}
                       onClick={(e) => e.stopPropagation()}
