@@ -398,8 +398,11 @@ export default function TcSequence({
           '--sq-dscw': dscW ? `${dscW}px` : '160px',
           '--sq-cols': [
             '26px 30px 30px 30px 40px 60px 190px',
-            sumW ? `${sumW}px` : 'minmax(150px, 1fr)',
-            dscW ? `${dscW}px` : '160px',
+            /* 끌어 정한 폭은 **최대**로 삼는다(지적: 명령 칸이 너무 넓어
+               절차 설명이 안 보인다). 고정으로 두면 좁은 화면에서 그 폭을
+               고집해 뒤 칸들이 통째로 가로 스크롤 밖으로 나갔다. */
+            sumW ? `minmax(150px, ${sumW}px)` : 'minmax(150px, 1fr)',
+            dscW ? `minmax(90px, ${dscW}px)` : '160px',
           ].join(' '),
         } as CSSProperties
       }
