@@ -135,7 +135,7 @@ export default function TcStepDetail({
   const [pickCut, setPickCut] = useState(false)
   /** 뽑기에서 알려 줄 말 한 줄 — 조용히 다르게 담으면 왜 값이 다른지 모른다 */
   const [capNote, setCapNote] = useState('')
-  /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
+  /** 눌린 블럭 — [변수로 · 있어야 · 없어야] 메뉴가 뜬 자리 */
   const [blockAt, setBlockAt] = useState<{ v: string; x: number; y: number; kind?: 'col' } | null>(null)
   const [tblOpen, setTblOpen] = useState(false)
   /** 「표에서 값 뽑기」 판 — 판정이 아니라 변수를 만드는 자리(Response Map) */
@@ -786,8 +786,8 @@ export default function TcStepDetail({
             />
             <span className="sd-hint">
               <b>판정기준이 있어야 합격·불합격이 납니다.</b> 안 적으면 조회만 합니다 —
-              「살아 있으면 합격」 을 보시려면 응답에서 <code>bytes from</code> 같은 글자를
-              끌어 「있으면 합격」 칩을 만드세요. (못 부른 것은 기준과 상관없이 불합격입니다)
+              「살아 있어야」 을 보시려면 응답에서 <code>bytes from</code> 같은 글자를
+              끌어 「있어야」 칩을 만드세요. (못 부른 것은 기준과 상관없이 불합격입니다)
             </span>
           </label>
         )}
@@ -2016,7 +2016,7 @@ export default function TcStepDetail({
                           setPicked('')
                         }}
                       >
-                        있으면 합격
+                        있어야
                       </button>
                       <button
                         className="btn small"
@@ -2026,7 +2026,7 @@ export default function TcStepDetail({
                           setPicked('')
                         }}
                       >
-                        있으면 불합격
+                        없어야
                       </button>
                       <button
                         className="btn small"
@@ -2163,7 +2163,7 @@ export default function TcStepDetail({
                           setBlockAt(null)
                         }}
                       >
-                        있으면 합격
+                        있어야
                       </button>
                       <button
                         type="button"
@@ -2172,7 +2172,7 @@ export default function TcStepDetail({
                           setBlockAt(null)
                         }}
                       >
-                        있으면 불합격
+                        없어야
                       </button>
                       <button
                         type="button"

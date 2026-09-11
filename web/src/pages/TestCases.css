@@ -3865,6 +3865,14 @@ html .tc-split > .tc-content {
   white-space: nowrap;
 }
 .sq-dsc > .sq-in { width: 100%; }
+/* 고칠 때 칸 **전체**가 입력이 된다(지시) — 글자 폭만 한 작은 칸이 뜨면
+   긴 설명을 쓰다 끝이 안 보인다 */
+.sq-dsc { position: relative; }
+.sq-dsc > .sq-in.desc {
+  position: absolute;
+  inset: 2px 4px;
+  width: auto;
+}
 
 /* 주석·메시지는 **줄 전체를 쓴다**(지시). 장비로 아무것도 안 나가는 글이라
    절차 설명도 결과도 없다 — 그 칸들을 비워 두면 긴 글이 명령 칸 안에서만
@@ -3872,19 +3880,14 @@ html .tc-split > .tc-content {
 /* 주석·메시지는 줄 전체를 쓰되 **결과 칸은 남긴다**. 끝까지 먹으면 그 칸의
    세로선이 주석 줄에서만 사라져 격자가 거기서 끊긴다(지적). 절차 설명만
    합치고, 결과 칸은 빈 채로 서서 선을 잇는다. */
-/* 주석·메시지는 명령 칸부터 끝까지 쓴다(지시). 그런데 칸을 합치면 그 안의
-   경계선도 함께 사라져, 주석 줄에서만 세로선이 끊긴다(지적).
-   **합친 칸 안에 그 선을 그려 둔다** — 격자는 이어지고 글은 끝까지 쓴다. */
-.sq-row.note > .sq-sum {
-  grid-column: 8 / -1;
-  background-image: linear-gradient(
-    to right,
-    transparent calc(100% - var(--sq-dscw)),
-    var(--sq-line) calc(100% - var(--sq-dscw)),
-    var(--sq-line) calc(100% - var(--sq-dscw) + 1px),
-    transparent calc(100% - var(--sq-dscw) + 1px)
-  );
-}
+/* 주석·메시지는 **선 없이 한 줄**이다(지시). 장비로 아무것도 안 나가는 글이라
+   칸을 나눌 것이 없다 — 격자를 그으면 빈 칸만 늘어서 절차가 끊겨 보인다.
+   앞의 단추 칸들은 그대로 두고, 글이 서는 자리만 통짜로 쓴다. */
+.sq-row.note > .sq-sum { grid-column: 8 / -1; }
+.sq-row.note > .sq-s,
+.sq-row.note > .sq-n,
+.sq-row.note > .sq-act,
+.sq-row.note > .sq-sum { border-right: 0; }
 .sq-row.note > .sq-dsc { display: none; }
 
 /* 좁은 칸들에도 세로선(지시). 끝 칸(결과)만 뺀다 — 표 테두리가 그 자리다 */

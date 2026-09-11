@@ -397,7 +397,7 @@ export default function TcSequence({
              화면이 좁아 가로로 밀려도 판정은 안 잘린다. */
           '--sq-dscw': dscW ? `${dscW}px` : '160px',
           '--sq-cols': [
-            '30px 26px 30px 30px 40px 60px 190px',
+            '26px 30px 30px 30px 40px 60px 190px',
             sumW ? `${sumW}px` : 'minmax(150px, 1fr)',
             dscW ? `${dscW}px` : '160px',
           ].join(' '),
@@ -416,7 +416,6 @@ export default function TcSequence({
               {/* 첫 칸은 **모두 고르기**다(지시: 제거하든 표시하든 정하라).
                   줄마다 체크가 있는데 머리에 없으면 전부 고를 길이 도구줄에만
                   남아, 표를 보다 눈이 위로 나갔다 와야 한다. */}
-              <span title="이 줄만 실행">▶</span>
               <span className="sq-allc">
                 {!!onPickAll && (
                   <input
@@ -432,6 +431,7 @@ export default function TcSequence({
                   />
                 )}
               </span>
+              <span title="이 줄만 실행">▶</span>
               <span title="판정 기준이 걸린 줄">◎</span>
               {/* PPTX 아이콘(지시) — 동그라미로는 무엇을 고르는 칸인지
                   알 수 없었다. 결과서 장표를 뜻하는 그림으로 세운다. */}
@@ -561,6 +561,23 @@ export default function TcSequence({
                   }
                 }}
               >
+                {/* 고른 줄 — **체크로 보여 준다**(지시). 바탕색만 옅게 바뀌면
+                    무엇이 골라졌는지 알 수 없다. */}
+                <span className="sq-allc">
+                  <input
+                    type="checkbox"
+                    className="sq-pick"
+                    aria-label={`${i + 1}번 줄 고르기`}
+                    checked={picked.has(i)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onPick(i, e.shiftKey)
+                    }}
+                    onChange={() => {
+                      /* onClick 에서 처리한다 — shift 를 알아야 해서 */
+                    }}
+                  />
+                </span>
                 {/* 실행은 **줄 맨 앞**이다(지시) — 왼쪽 판정 띠 바로 옆.
                     돌릴 수 있는 줄인지, 돌린 결과가 어떤지가 나란히 읽힌다. */}
                 <span className="sq-runc">
@@ -583,23 +600,6 @@ export default function TcSequence({
                       –
                     </i>
                   )}
-                </span>
-                {/* 고른 줄 — **체크로 보여 준다**(지시). 바탕색만 옅게 바뀌면
-                    무엇이 골라졌는지 알 수 없다. */}
-                <span className="sq-allc">
-                  <input
-                    type="checkbox"
-                    className="sq-pick"
-                    aria-label={`${i + 1}번 줄 고르기`}
-                    checked={picked.has(i)}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onPick(i, e.shiftKey)
-                    }}
-                    onChange={() => {
-                      /* onClick 에서 처리한다 — shift 를 알아야 해서 */
-                    }}
-                  />
                 </span>
                 {/* **판정 기준이 걸린 줄**(지시) — 이 칸은 본디 ⋯ 였는데,
                     그 판이 하던 세션·대기는 오른쪽 판이 이미 한다.
