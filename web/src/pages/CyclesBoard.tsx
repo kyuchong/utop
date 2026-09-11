@@ -756,8 +756,14 @@ export default function CyclesBoard({
       return (await r.json()) as { items?: Array<Record<string, unknown>> }
     },
   })
+  /* 시험 항목에 붙는 칸과 **요구사항에 붙는 칸**을 함께 쓴다 — 요구사항에
+     만든 Key 는 그 요구사항의 시험 항목이 물려받는다(지적: Key 값이 비었다) */
   const cfTc = useMemo(
-    () => (cfQ.data?.items ?? []).filter((x) => String(x.target ?? '') === 'tc'),
+    () =>
+      (cfQ.data?.items ?? []).filter((x) => {
+        const t = String(x.target ?? '')
+        return t === 'tc' || t === 'req'
+      }),
     [cfQ.data],
   )
 
@@ -782,7 +788,12 @@ export default function CyclesBoard({
         reqLabel: rq?.label ?? (it?.req_id ? String(it.req_id) : ''),
         reqTitle: rq?.title ?? '',
         folder: rq?.folder ?? '미분류',
-        /* 만든 칸의 값 — TC 의 custom 에 산다(colVal 과 같은 규칙) */
+        /* 만든 칸의 값 — **요구사항 것을 먼저 깔고 시험 항목 것으로 덮는다**.
+           요구사항에 만든 칸(Key 등)은 그 아래 시험 항목이 물려받고, 같은
+           이름이 양쪽에 있으면 더 가까운 시험 항목 것이 이긴다. */
+        ...Object.fromEntries(
+          Object.entries(rq?.custom ?? {}).map(([k, v]) => [`cf_${k}`, String(v ?? '')]),
+        ),
         ...Object.fromEntries(
           Object.entries((meta as unknown as { custom?: Record<string, unknown> })?.custom ?? {}).map(
             ([k, v]) => [`cf_${k}`, String(v ?? '')],

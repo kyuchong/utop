@@ -267,7 +267,10 @@ export function useReqIndex() {
       }
     }
     walk(buildCategoryTree(catQ.data?.categories ?? []))
-    const byPk = new Map<string, { label: string; title: string; folder: string }>()
+    const byPk = new Map<
+      string,
+      { label: string; title: string; folder: string; custom: Record<string, unknown> }
+    >()
     for (const r of reqsQ.data?.reqs ?? []) {
       const pk = reqPk(r)
       if (!pk) continue
@@ -279,6 +282,9 @@ export function useReqIndex() {
         label: String(r.reqid ?? r.id ?? ''),
         title: String(r.title ?? ''),
         folder: folder || '미분류',
+        /* 사람이 만든 칸(cf_) — 사이클 표가 열로 세워 그 값으로 차례를 정한다.
+           요구사항에 만든 칸은 그 요구사항의 시험 항목이 함께 물려받는다. */
+        custom: ((r as unknown as { custom?: Record<string, unknown> }).custom ?? {}),
       })
     }
     return byPk

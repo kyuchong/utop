@@ -258,8 +258,15 @@ export default function NTable(p: NTableProps) {
   const cycleSort = (key: string) => {
     const cur = view.sorts.find((x) => x.key === key)
     const rest = view.sorts.filter((x) => x.key !== key)
-    if (!cur) return onView({ ...view, sorts: [{ key, dir: 'asc' }, ...rest] })
-    if (cur.dir === 'asc') return onView({ ...view, sorts: [{ key, dir: 'desc' }, ...rest] })
+    /* 새 기준은 **뒤에** 붙인다(지적) — 나중에 고른 것이 1차가 되면
+       「먼저 REQ, 그다음 Key」 처럼 차례로 고를 수가 없다. */
+    if (!cur) return onView({ ...view, sorts: [...rest, { key, dir: 'asc' }] })
+    if (cur.dir === 'asc')
+      return onView({
+        ...view,
+        /* 방향만 바꾸는 것이므로 **자리는 그대로** 둔다 */
+        sorts: view.sorts.map((x) => (x.key === key ? { ...x, dir: 'desc' as const } : x)),
+      })
     onView({ ...view, sorts: rest })
   }
 
@@ -821,9 +828,12 @@ export default function NTable(p: NTableProps) {
               </button>
             </span>
           ))}
-          {view.sorts.map((s) => (
+          {view.sorts.map((s, si) => (
             <span className="ntb-chip" key={s.key}>
-              정렬: <b>{colOf(s.key)?.label ?? s.key} {s.dir === 'asc' ? '↑' : '↓'}</b>
+              {/* **몇 번째 기준**인지 적는다(지적: 정렬 우선순위가 없다).
+                  앞엣것이 먼저고, 같은 값일 때 뒤엣것이 가른다. */}
+              {view.sorts.length > 1 ? `${si + 1}차 ` : '정렬: '}
+              <b>{colOf(s.key)?.label ?? s.key} {s.dir === 'asc' ? '↑' : '↓'}</b>
               <button
                 type="button"
                 onClick={() => onView({ ...view, sorts: view.sorts.filter((x) => x.key !== s.key) })}
