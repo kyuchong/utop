@@ -497,7 +497,20 @@ export default function RunDetail({
     doneSeen.current = key
     void qc.invalidateQueries({ queryKey: ['plan-run', runId] })
     void qc.invalidateQueries({ queryKey: ['plan-runs'] })
+    /* **사이클도 다시 읽는다**(지적: Response 결과만 못 가져온다).
+       실행 결과(스텝 출력)는 실행기가 사이클에 저장한다(it.steps) — 이것을
+       안 읽으면 화면이 든 사이클은 실행 전 그대로라 출력이 영영 안 온다.
+       스텝 표에 PASS·시간이 보인 것은 실시간으로 올라온 live_steps 였다. */
+    void qc.invalidateQueries({ queryKey: ['cycle-full'] })
   }, [job?.status, jobId, qc, runId])
+
+  /* 항목 하나가 끝날 때마다도 다시 읽는다 — 62 건짜리 실행에서 끝까지
+     기다리면 그동안 앞 항목 결과를 한 건도 못 본다. */
+  const doneN = Number((job as { done?: number } | undefined)?.done ?? -1)
+  useEffect(() => {
+    if (doneN < 0) return
+    void qc.invalidateQueries({ queryKey: ['cycle-full'] })
+  }, [doneN, qc])
 
   /* 담긴 항목이 먼저다. 결과만 보면, 결과가 아직 안 깔린 실행이
      「항목이 없습니다」로 보인다 — 항목은 있는데. 둘을 합친다. */

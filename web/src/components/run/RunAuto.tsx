@@ -108,7 +108,13 @@ function mmss(v?: string): string {
 function stamp(v?: string): string {
   const raw = String(v ?? '').trim()
   if (!raw) return '—'
-  const d = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T'))
+  /* 서버가 적는 시각은 **UTC 인데 표시가 없다**(`2026-09-11 07:50:04`) —
+     실행기가 `toISOString().slice(0,19)` 로 Z 를 잘라 저장한다. 그대로 읽으면
+     브라우저가 제 시간대로 쳐서 아홉 시간 이르게 찍혔다(지적: 16:50 에
+     돌렸는데 Report 는 07:50). 표시가 없으면 UTC 로 본다. */
+  const iso = raw.includes('T') ? raw : raw.replace(' ', 'T')
+  const hasTz = /[Zz]$|[+-]\d{2}:?\d{2}$/.test(iso)
+  const d = new Date(hasTz ? iso : `${iso}Z`)
   if (Number.isNaN(d.getTime())) return raw.slice(0, 19) || '—'
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
