@@ -1273,14 +1273,21 @@ export default function NTable(p: NTableProps) {
         </Pop>
       )}
       {panel?.kind === 'sort' && (
-        <Pop at={panel} w={228} h={320} onClose={() => setPanel(null)}>
+        <Pop at={panel} w={262} h={340} onClose={() => setPanel(null)}>
           <div className="ntb-sec">정렬</div>
+          {/* **무엇이 먼저인지** 말로 적는다(지적: 누가 우선순위인지 알 수
+              없다). 번호만 두면 그것이 차례인지 이름인지 안 갈린다. */}
+          {view.sorts.length > 1 && (
+            <div className="ntb-hint">
+              <b>1차</b> 가 먼저 가르고, 값이 같을 때 <b>2차</b> 가 가릅니다 — ▲▼ 로 바꿉니다.
+            </div>
+          )}
           {view.sorts.map((s, si) => (
             <div className="ntb-mi" key={s.key}>
               {/* **몇 번째 기준인지** 적고, ▲▼ 로 자리를 바꾼다(지적: 먼저
                   등록한 것이 뒤로 밀리고 순위 조정도 안 된다). 앞엣것이
                   먼저 가르고, 같은 값일 때 뒤엣것이 가른다. */}
-              <b className="ntb-sord">{si + 1}</b>
+              <b className="ntb-sord">{si + 1}차</b>
               <button
                 type="button"
                 className="ntb-sub"
