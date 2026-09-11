@@ -1538,7 +1538,7 @@ export default function TcStepDetail({
                 /* 열제외·표는 블럭에서 짜 온 **구조**라 종류를 못 바꾸게 둔다 */
                 const fixed = c.t === 'skipcol' || c.t === 'table'
                 const tlab =
-                  c.t === 'has' ? '있으면 합격' : c.t === 'not' ? '없으면 합격' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '비교' : '표'
+                  c.t === 'has' ? '있으면' : c.t === 'not' ? '없으면' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '비교' : '표'
                 /* 견줌 꼬리가 켜져 있나 — 견주는 법(op)이 있으면 켜진 것 */
                 const cmpOn = !!String(c.op ?? '').trim()
                 /* 견줌은 **글자 기준**에만 붙인다(줄제외·열제외·표는 뜻이 없다) */
@@ -1554,8 +1554,8 @@ export default function TcStepDetail({
                         title="이 기준을 어떻게 볼까"
                         onChange={(e) => set({ t: e.target.value as JudgeRule['t'] })}
                       >
-                        <option value="has">있으면 합격</option>
-                        <option value="not">없으면 합격</option>
+                        <option value="has">있으면</option>
+                        <option value="not">없으면</option>
                         <option value="skip">줄제외</option>
                       </select>
                     )}
