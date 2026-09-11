@@ -876,16 +876,15 @@ export default function TcStepDetail({
             <div className="sd-f">
               <span className="sd-lab">
                 견줄 두 값
-                {/* 단추는 다른 칸과 같이 **라벨 줄 위**에 선다(지시).
-                    둘이 나란히 서므로 어느 쪽을 채우는지 이름에 적는다. */}
-                <span className="sd-two">
-                  {paramPick('cmpLeft', 'p-cl', '왼쪽').btn}
-                  {paramPick('cmpRight', 'p-cr', '오른쪽').btn}
-                </span>
+                {/* 단추는 **각 칸 바로 위**에 선다(지시) — 자리가 곧 어느
+                    값을 채우는지 말한다. 라벨 줄에 몰아 두지 않는다. */}
               </span>
               {paramPick('cmpLeft', 'p-cl').list}
               {paramPick('cmpRight', 'p-cr').list}
-              <div className="sd-row">
+              <div className="sd-cmp">
+                {paramPick('cmpLeft', 'p-cl', '왼쪽').btn}
+                <span />
+                {paramPick('cmpRight', 'p-cr', '오른쪽').btn}
                 <input
                   className="mono"
                   value={step.cmpLeft ?? ''}
