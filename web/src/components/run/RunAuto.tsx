@@ -814,12 +814,17 @@ export default function RunAuto({
                 return (
                 <div className="ra-blk" key={s2.no ?? seeUpTo} ref={conEndRef}>
                 <div className="ra-cmd">
-                  <b className="ra-bno">Step {s2.no}</b>
+                  <b className="ra-bno">Step {nos[seeUpTo] || s2.no}</b>
                   <span className="ra-bcmd">
                     {(() => {
                       /* 회차를 골랐으면 **그 회차에 보낸 명령**을 적는다(지시) */
                       const c2 = rd?.cmd || s2.cmd
-                      return c2 ? `${dut}# ${c2}` : s2.t || s2.action || '—'
+                      /* 프롬프트는 **그 스텝이 붙은 장비** 것이다(지시: Response 도
+                         해당 Session 의 결과). 판 하나에 DUT# 를 박아 두면 세션이
+                         둘인 시험에서 어느 장비 앞인지 알 수 없다. */
+                      const sd = devOf(s2.devId)
+                      const pr = sd ? sd.name || sd.model || String(sd.id ?? '') : dut
+                      return c2 ? `${pr}# ${c2}` : s2.t || s2.action || '—'
                     })()}
                   </span>
                   {mk ? (
@@ -1043,7 +1048,10 @@ export default function RunAuto({
                         {/* 시각은 Test Report 와 같은 꼴, 그 뒤에 회차(지시) */}
                         <time>{shortStamp(ln.at)}</time>
                         <em>{ln.nth != null ? `${ln.nth}회` : ''}</em>
-                        <b>{dut}#</b>
+                        <b>{(() => {
+                          const sd2 = devOf(sessNow?.devId)
+                          return sd2 ? sd2.name || sd2.model || String(sd2.id ?? '') : dut
+                        })()}#</b>
                         <span className="c">{ln.cmd}</span>
                         {ln.mark ? (
                           <i className={/pass/i.test(ln.mark) ? 'p' : 'f'}>
@@ -1150,7 +1158,12 @@ export default function RunAuto({
       /* action 이 「—」 인 스텝이 있다 — 그대로 붙이면 「Step 1 · —」 가 된다 */
       const a = String(curStep?.action ?? '').trim()
       /* 표·이벤트와 **같은 번호**(주석은 번호를 안 먹는다) */
-      return `Step ${nos[stepAt] || stepAt + 1}${a && a !== '—' ? ` · ${a}` : ''}`
+      /* 어느 **세션**의 결과인지 함께 적는다(지시) — 세션이 둘 이상인
+         시험에서 이 판이 어느 장비 앞인지가 제목에 없었다. */
+      const sn = steps[stepAt]?.session
+      const sdev = devOf(steps[stepAt]?.devId)
+      const stail = sn && sn !== '—' ? ` · ${sn}${sdev ? ` (${sdev.name || sdev.ip || ''})` : ''}` : ''
+      return `Step ${nos[stepAt] || stepAt + 1}${a && a !== '—' ? ` · ${a}` : ''}${stail}`
     }
     if (p === 'events') return events.length ? `${events.length}줄` : ''
     if (p === 'sess') {

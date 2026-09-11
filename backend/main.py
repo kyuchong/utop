@@ -6889,6 +6889,11 @@ def _netmiko_params(p: dict) -> dict:
         "password": p.get("password") or "",
         "secret": p.get("secret") or "",
         "timeout": int(p.get("timeout") or 12),
+        # 세션 자리 — **접속 열쇠에만** 쓴다(_conn_key). 여태 여기 안 실어서
+        # 열쇠의 sess 가 늘 None 이었고, 같은 장비의 세션 열 개가 접속 하나를
+        # 나눠 쓰며 차례로 줄을 섰다(지시: 시험 항목의 Session 으로만 접속).
+        # netmiko 에는 넘기지 않는다 — _nm_only 가 뺀다.
+        "sess": p.get("sess"),
         "fast_cli": True,            # netmiko 내부 지연 최소화 (명령당 ~1초 → ~0.1초)
         "global_delay_factor": 0.5,  # 출력 안정성 (0.1은 출력 잘림 발생)
     }
@@ -6934,7 +6939,7 @@ def lab_test(payload: dict):
         return {"ok": False, "status": "실패", "error": "IP가 없습니다"}
     try:
         from netmiko import ConnectHandler
-        conn = ConnectHandler(**params)
+        conn = ConnectHandler(**_nm_only(params))
         enabled = False
         try:
             if params.get("secret"):
@@ -6968,6 +6973,14 @@ def _conn_key(p):
     return "{}|{}|{}|{}|{}".format(
         p.get("host"), p.get("port"), p.get("device_type"), p.get("username"), p.get("sess"),
     )
+
+def _nm_only(p: dict) -> dict:
+    """netmiko 가 아는 것만 — `sess` 처럼 우리끼리 쓰는 열쇠는 뺀다.
+
+    `ConnectHandler(**params)` 에 모르는 키가 섞이면 그 자리에서 터진다.
+    """
+    return {k: v for k, v in p.items() if k != "sess"}
+
 
 def _get_conn_entry(params):
     key = _conn_key(params)
@@ -7138,7 +7151,7 @@ def _ensure_conn(ent, params):
             pass
         ent["conn"] = None
         ent["paging_off"] = False   # 재접속 → 새 세션은 paging 다시 꺼야 함
-    conn = ConnectHandler(**params)
+    conn = ConnectHandler(**_nm_only(params))
     ent["paging_off"] = False   # 새 커넥션도 초기화
     ent["cfg_ctx"] = []         # 새 세션은 설정 문맥도 없다
     _force_enable(conn, params, ent)
@@ -7763,7 +7776,7 @@ def session_open(payload: dict):
                 _ts0 = _t.time()
                 buf = _iof.BytesIO()
                 from netmiko import ConnectHandler as _CH
-                p2 = dict(params); p2["session_log"] = buf; p2["session_log_record_writes"] = True
+                p2 = _nm_only(params); p2["session_log"] = buf; p2["session_log_record_writes"] = True
                 p2["global_delay_factor"] = 0.1   # 텔넷 로그인 루프의 sleep(0.5s×~20)이 최초 접속 지연의 주범 → 낮춰 단축 (장비 응답은 그대로)
                 p2["conn_timeout"] = 8            # TCP 접속 타임아웃 단축
                 conn = _CH(**p2)                # 빠른 읽기 + 로그인 전문 캡처
