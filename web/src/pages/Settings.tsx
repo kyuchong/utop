@@ -8,7 +8,6 @@ import CustomFieldSettings from '@/components/settings/CustomFieldSettings'
 import JiraSettings from '@/components/settings/JiraSettings'
 import Accounts from '@/components/settings/Accounts'
 import PermSettings from '@/components/settings/PermSettings'
-import StepActions from '@/components/settings/StepActions'
 import JiraPanels from '@/components/settings/JiraPanels'
 import MailSettings from '@/components/settings/MailSettings'
 import LoginBranding from '@/components/settings/LoginBranding'
@@ -65,7 +64,6 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
     title: 'Quality',
     items: [
       { key: 'verdicts', label: '실행 판정 기준', icon: IconCodeList, ready: true },
-      { key: 'stepacts', label: 'TC Step Action', icon: IconCodeList, ready: true },
       /* 커스텀 필드 화면은 내렸다(지시) — 이제 **표에서 바로** 만들고
          고치고 지운다. 고칠 자리가 네 군데로 흩어져 한쪽만 고치던 사고가
          이 화면에서 났다. 정의는 서버 한 곳(custom_field)에 그대로 있다. */
@@ -161,8 +159,6 @@ export default function Settings() {
           <VerdictSettings />
         ) : sec === 'fields' ? (
           <CustomFieldSettings />
-        ) : sec === 'stepacts' ? (
-          <StepActions />
         ) : sec === 'accounts' ? (
           <Accounts />
         ) : sec === 'perms' ? (

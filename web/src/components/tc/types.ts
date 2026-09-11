@@ -255,6 +255,13 @@ export interface TcStep {
    * 것은 몇 줄뿐이라, 어느 줄을 실을지 **여기서 표시**해 둔다.
    */
   ppt?: boolean
+  /**
+   * 실행 로그에 남길 줄인가(지시).
+   *
+   * 값이 없으면 **갈래 기본값**을 따른다 — SETUP 의 「TC Step Action」 표가
+   * 하던 일을 stepLogOn 이 대신한다.
+   */
+  log?: boolean
 
   /** Test Step — 무엇을 하는가 (사람이 읽는 절차) */
   step?: string
@@ -1220,3 +1227,33 @@ export function nextSlotKey(slots: TcSlot[]): string {
   }
   return `s${slots.length + 1}`
 }
+
+/*
+ * 로그·결과서에 **기본으로** 실을 갈래.
+ *
+ * SETUP 의 「TC Step Action」 표를 걷어내고(승인) 그 표가 쥐고 있던 답을
+ * 여기 한 곳에 둔다. 표에서 두 열(실행 로그·PPTX)의 켜짐이 글자 하나
+ * 안 틀리고 같았다 — 갈래로는 답이 하나뿐이라는 뜻이라, 사람이 관리할
+ * 설정이 아니라 기본값이다.
+ *
+ * 여기 적힌 갈래는 장비로 아무것도 안 내보내거나(주석·치환) 절차를 엮는
+ * 뼈대일 뿐이라(If·Else·반복·동시 실행·Switch) 로그에도 결과서에도 제
+ * 줄로 설 것이 없다.
+ *
+ * 줄에 값이 있으면 그것이 이긴다 — 표에서 줄마다 켜고 끈다.
+ */
+const QUIET_KINDS = new Set(['map', 'if', 'else', 'loop', 'parallel', 'switch', 'comment'])
+
+/** 갈래와 줄 표시를 함께 보는 최소한의 모양 — 결과서 쪽 스텝도 이걸 만족한다 */
+export interface StepFlags {
+  /* 결과서 쪽 스텝은 kind 가 null 일 수 있다 — 같은 함수로 보려면 받아야 한다 */
+  kind?: string | null
+  ppt?: boolean
+  log?: boolean
+}
+/** 이 줄을 실행 로그에 남기나 */
+export const stepLogOn = (s: StepFlags): boolean =>
+  s.log ?? !QUIET_KINDS.has(String(s.kind ?? 'cli'))
+/** 이 줄을 결과서(PPTX)에 싣나 */
+export const stepPptOn = (s: StepFlags): boolean =>
+  s.ppt ?? !QUIET_KINDS.has(String(s.kind ?? 'cli'))

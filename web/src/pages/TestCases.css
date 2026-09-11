@@ -524,7 +524,7 @@
      그 전 한 틀만 버티는 안전망이다. **칸 수가 실제와 같아야** 한다:
      지금은 9칸이고, 끝의 48px 짜리 ⋯ 칸은 오래전에 걷혔다. */
   --sq-cols:
-    26px 30px 30px 30px 40px 60px 190px minmax(0, 1fr) minmax(0, 1fr);
+    26px 30px 30px 30px 30px 40px 60px 190px minmax(0, 1fr) minmax(0, 1fr);
 }
 .sq-row,
 .sq-head { gap: 0; }
@@ -549,16 +549,22 @@
 .sq-row > .sq-runc,
 .sq-row > .sq-judc,
 .sq-row > .sq-pptc,
+.sq-row > .sq-logc,
 .sq-head > *:nth-child(1),
 .sq-head > *:nth-child(2),
 .sq-head > *:nth-child(3),
-.sq-head > *:nth-child(4) { padding-left: 2px; padding-right: 2px; }
+.sq-head > *:nth-child(4),
+.sq-head > *:nth-child(5) { padding-left: 2px; padding-right: 2px; }
 .sq-allc { display: flex; align-items: center; justify-content: center; }
 /* 못 돌리는 줄의 하이픈 */
 .sq-dash { font-style: normal; color: var(--c-text-faint); opacity: 0.6; font-size: 12px; }
 .sq-runc,
 .sq-judc,
-.sq-pptc { display: flex; align-items: center; justify-content: center; }
+.sq-pptc,
+.sq-logc { display: flex; align-items: center; justify-content: center; }
+/* 머리에서 **전부 켜고 끄는** 칸 — 누를 수 있음을 손 모양으로 알린다 */
+.sq-hcl { cursor: pointer; }
+.sq-hcl:hover { color: var(--c-primary); }
 /* 뽑은 값을 안 쓰는 시험에서는 그 열이 폭 0 이다 — 그대로 두면 여백과
    선만 남아 군더더기 세로선이 하나 선다 */
 /* 열 제목 줄 — 줄과 **같은 grid** 를 써야 칸 경계가 맞는다.
@@ -696,10 +702,11 @@
  * 이 값이 어긋나면 안내선이 아이콘 옆구리를 지나간다 — 예전 값(124)은
  * 없어진 상태 열과 gap 8px 를 세고 있었다.
  */
-.sq-row[data-depth="1"] { --gx: 243px; }
-.sq-row[data-depth="2"] { --gx: 257px; }
-.sq-row[data-depth="3"] { --gx: 271px; }
-.sq-row[data-depth="4"] { --gx: 285px; }
+/* 실행 로그 칸(30px)이 늘어 트리 선도 그만큼 오른쪽이다(승인) */
+.sq-row[data-depth="1"] { --gx: 273px; }
+.sq-row[data-depth="2"] { --gx: 287px; }
+.sq-row[data-depth="3"] { --gx: 301px; }
+.sq-row[data-depth="4"] { --gx: 315px; }
 
 /* 세로 — 마지막 자식은 제 자리까지만 내려온다(└) */
 .sq-row[data-kid]::before {
@@ -3937,7 +3944,8 @@ html .tc-split > .tc-content {
 /* **「동작」 칸까지는 표**다(지시). 어느 세션인지·몇 번째인지·무슨 갈래인지는
    주석에도 자리가 있어야 다른 줄과 눈이 맞는다.
    글이 서는 자리(명령·내용 ~ 절차 설명)부터 통짜 한 줄로 쓴다. */
-.sq-row.note > .sq-sum { grid-column: 8 / -1; border-right: 0; }
+/* 실행 로그 칸이 하나 늘어 글 자리는 9열부터다(승인) */
+.sq-row.note > .sq-sum { grid-column: 9 / -1; border-right: 0; }
 .sq-row.note > .sq-dsc { display: none; }
 
 /* 좁은 칸들에도 세로선(지시). 끝 칸(결과)만 뺀다 — 표 테두리가 그 자리다 */

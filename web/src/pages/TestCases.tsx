@@ -32,7 +32,6 @@ import { useMultiSelect } from '@/components/useMultiSelect'
 import TcSequence from '@/components/tc/TcSequence'
 import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import CopyDialog from '@/components/CopyDialog'
-import { STEP_ACT_ON, type StepAct } from '@/components/settings/StepActions'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
 import FolderSortBtn from '@/components/FolderSortBtn'
@@ -93,6 +92,8 @@ import {
   stepSummary,
   stepVerdict,
   type StepKind,
+  stepLogOn,
+  stepPptOn,
   type TcData,
   type TcStep,
 } from '@/components/tc/types'
@@ -242,17 +243,6 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
   const [runAt, setRunAt] = useState(-1)
   /* 실행 로그 — 여태 버리고 있었다(onLog 가 빈 함수였다). 24회를 도는
      동안 화면이 조용하면 「지금 뭘 하고 있나」 를 알 수 없다(지적). */
-  /* 종류마다 「로그에 찍을까 · ＋스텝에 내놓을까」 — SETUP 의 TC Step Action */
-  const stepActs = useQuery({
-    queryKey: ['step-actions'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/step-actions')
-      if (!r.ok) return {} as Record<string, StepAct>
-      return ((await r.json()) as { items?: Record<string, StepAct> }).items ?? {}
-    },
-    staleTime: 60_000,
-  })
-  const actOf = (k?: string): StepAct => stepActs.data?.[String(k ?? 'cli')] ?? STEP_ACT_ON
 
   /* 「+ Copy」 창 — 폴더·요구사항·시험을 골라 다른 자리에 붙인다(승인) */
   const [copyOpen, setCopyOpen] = useState(false)
@@ -896,6 +886,29 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    * 저장을 누르거나 나갈 때 물음창을 받아야 했다. 새로고침하면 사라지는
    * 것이 맞다.
    */
+  /**
+   * 여러 줄을 **한 번에** 고친다(승인).
+   *
+   * 머리 아이콘으로 전부 켜고 끌 때, 그리고 고른 줄만 한꺼번에 바꿀 때.
+   * patchStep 을 줄 수만큼 부르면 그만큼 되돌리기 단계가 쌓인다.
+   */
+  const patchMany = (idxs: number[], p: Partial<TcStep>) => {
+    const set = new Set(idxs)
+    setD((c) => {
+      const arr = (c.checks ?? []) as TcStep[]
+      return { ...c, checks: arr.map((s, j) => (set.has(j) ? { ...s, ...p } : s)) }
+    })
+    setDirty(true)
+  }
+  /** 고른 줄의 결과서·로그 표시를 뒤집는다 — 하나라도 꺼져 있으면 전부 켠다 */
+  const flagPicked = (f: 'ppt' | 'log') => {
+    const idxs = [...picked]
+    if (!idxs.length) return
+    const arr = (d.checks ?? []) as TcStep[]
+    const on = f === 'ppt' ? stepPptOn : stepLogOn
+    const next = !idxs.every((i) => arr[i] && on(arr[i]))
+    patchMany(idxs, f === 'ppt' ? { ppt: next } : { log: next })
+  }
   const patchStep = (i: number, p: Partial<TcStep>, fromRun = false) => {
     setD((c) => {
       const arr = (c.checks ?? []) as TcStep[]
@@ -1454,10 +1467,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
           // 실행 판을 없앴다. 무슨 일이 있었나는 스텝 줄과 그 줄의
           // Result 에 남는다 — 로그를 따로 쌓아 둘 자리가 없다.
           onLog: (l) => {
-            /* 끈 종류는 로그에 안 찍는다(SETUP → TC Step Action).
-               설정을 아직 못 읽었으면 **무엇도 버리지 않는다** — 읽는 사이에
-               나온 줄이 사라지면 「로그가 통째로 없어졌다」 로 보인다. */
-            if (stepActs.data && l.i >= 0 && !actOf(steps[l.i]?.kind).log) return
+            /* 로그에 안 남길 줄은 버린다 — 이제 **줄마다** 정한다(승인).
+               값이 없는 줄은 갈래 기본값을 따르므로, 옛 시험은 설정 페이지가
+               있던 때와 똑같이 찍힌다. */
+            const lst = l.i >= 0 ? steps[l.i] : undefined
+            if (lst && !stepLogOn(lst)) return
             const at = new Date()
             setLogs((prev) => {
               const line: LogLine = {
@@ -2052,10 +2066,10 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       // 수동 스텝은 여기 안 나온다. 별개 탭이다.
                       hide={(s) => s.kind === 'manual'}
                       onRun={running ? undefined : (i) => void doRun(i, true)}
-                      addKinds={(k) => actOf(k).add}
                       /* 줄 끝 `⋯` — 그 줄에만 듣는 설정(목업 ③). 세션·대기를
                          고치러 상세 판까지 가지 않아도 된다. */
                       onPatch={patchStep}
+                      onPatchMany={patchMany}
                       onDuplicate={duplicateStep}
                       onRemove={removeStep}
                       sessions={sessionNames}
@@ -2152,6 +2166,24 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                               </button>
                               <button className="btn small" type="button" onClick={() => skipPicked(false)}>
                                 되돌리기
+                              </button>
+                              {/* 고른 줄을 한꺼번에 결과서·로그에 넣고 뺀다(승인) —
+                                  주석 열 줄을 하나씩 누르게 두지 않는다 */}
+                              <button
+                                className="btn small"
+                                type="button"
+                                title="고른 줄을 결과서(PPTX)에 싣기 / 빼기"
+                                onClick={() => flagPicked('ppt')}
+                              >
+                                결과서
+                              </button>
+                              <button
+                                className="btn small"
+                                type="button"
+                                title="고른 줄을 실행 로그에 남기기 / 빼기"
+                                onClick={() => flagPicked('log')}
+                              >
+                                로그
                               </button>
                               <button className="btn small" type="button" onClick={clearPicked}>
                                 해제

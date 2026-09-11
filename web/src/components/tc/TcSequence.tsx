@@ -19,6 +19,8 @@ import {
   stepKindInfo,
   stepNumbers,
   stepStatus,
+  stepLogOn,
+  stepPptOn,
   stepSummary,
   type StepKind,
   type TcStep,
@@ -59,6 +61,8 @@ interface Props {
    * 바꾸는 것이 짧다. 셋 다 없으면 `⋯` 을 아예 안 낸다.
    */
   onPatch?: (i: number, p: Partial<TcStep>) => void
+  /** 여러 줄을 **한 번에** — 머리 아이콘으로 전부 켜고 끌 때(승인) */
+  onPatchMany?: (idxs: number[], p: Partial<TcStep>) => void
   onDuplicate?: (i: number) => void
   onRemove?: (i: number) => void
   /** 세션 이름 목록 — `⋯` 메뉴의 세션 고르개에 쓴다 */
@@ -96,6 +100,7 @@ export default function TcSequence({
   onRun,
   readOnly = false,
   onPatch,
+  onPatchMany,
   head = true,
   onPickAll,
 }: Props) {
@@ -110,6 +115,22 @@ export default function TcSequence({
     const v = Number(prefGet('utop.tc.sq.dscw') || 0)
     return v > 0 ? v : null
   })
+  /** 머리 아이콘 — **보이는 줄 전부**를 켜고 끈다(승인) */
+  const flagAll = (f: 'ppt' | 'log') => {
+    const on = f === 'ppt' ? stepPptOn : stepLogOn
+    const idxs = steps
+      .map((_, i) => i)
+      .filter((i) => {
+        const st = steps[i]
+        return !!st && !hide?.(st)
+      })
+    if (!idxs.length) return
+    const next = !idxs.every((i) => {
+      const st = steps[i]
+      return !!st && on(st)
+    })
+    onPatchMany?.(idxs, f === 'ppt' ? { ppt: next } : { log: next })
+  }
   const wDrag = useRef<{ k: 'sum' | 'dsc'; x0: number; w0: number } | null>(null)
   useEffect(() => {
     const move = (e: PointerEvent) => {
@@ -405,7 +426,7 @@ export default function TcSequence({
              그 최소폭을 밀어올려 명령 칸만 커진다 — 재 보니 194 : 134 로
              벌어졌다. 0 으로 두면 걸침이 열 폭에 끼어들지 못한다. */
           '--sq-cols': [
-            '26px 30px 30px 30px 40px 60px 190px',
+            '26px 30px 30px 30px 30px 40px 60px 190px',
             sumW ? `minmax(0, ${sumW}px)` : 'minmax(0, 1fr)',
             dscW ? `minmax(${dscW}px, 1fr)` : 'minmax(0, 1fr)',
           ].join(' '),
@@ -443,7 +464,14 @@ export default function TcSequence({
               <span title="판정 기준이 걸린 줄">◎</span>
               {/* PPTX 아이콘(지시) — 동그라미로는 무엇을 고르는 칸인지
                   알 수 없었다. 결과서 장표를 뜻하는 그림으로 세운다. */}
-              <span title="결과서(PPTX)에 실을 줄">
+              {/* 머리를 누르면 **전부** 켜고 끈다(제안·승인) — 주석 열 줄을
+                  결과서에서 빼려고 하나씩 누르게 두지 않는다. 하나라도
+                  꺼져 있으면 전부 켜고, 다 켜져 있으면 전부 끈다. */}
+              <span
+                title="결과서(PPTX)에 실을 줄 — 눌러서 전부 켜고 끄기"
+                className={onPatchMany ? 'sq-hcl' : undefined}
+                onClick={onPatchMany ? () => flagAll('ppt') : undefined}
+              >
                 {/* 장표 한 장 — 화면과 받침, 안에 막대. 색을 칠한 네모에 글자를
                     박으면 다른 제목들과 결이 안 맞는다(지적). 선으로만 그린다. */}
                 <svg
@@ -460,6 +488,27 @@ export default function TcSequence({
                   <rect x="1.9" y="2.3" width="12.2" height="8.4" rx="1.3" />
                   <path d="M8 10.7v2.3M5.7 13.3h4.6" />
                   <path d="M5.6 8.3V6.5M8 8.3V4.9M10.4 8.3V7.1" />
+                </svg>
+              </span>
+              {/* 실행 로그에 남길 줄(승인) — PPTX 칸 바로 옆이다.
+                  「어디에 실리나」 를 묻는 칸 둘이 나란히 서야 한눈에 읽힌다. */}
+              <span
+                title="실행 로그에 남길 줄 — 눌러서 전부 켜고 끄기"
+                className={onPatchMany ? 'sq-hcl' : undefined}
+                onClick={onPatchMany ? () => flagAll('log') : undefined}
+              >
+                {/* 줄글 몇 줄 — PPTX 장표와 결이 맞게 선으로만 그린다 */}
+                <svg
+                  viewBox="0 0 16 16"
+                  width="15"
+                  height="15"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M2.6 4.2h10.8M2.6 7.3h10.8M2.6 10.4h7.2M2.6 13.5h4.8" />
                 </svg>
               </span>
               <span title="세션 — 어느 장비로 나가나">⇄</span>
@@ -639,9 +688,23 @@ export default function TcSequence({
                     aria-label={`${i + 1}번 줄을 결과서에 싣기`}
                     title="결과서(PPTX)에 실을 줄"
                     disabled={!canEdit}
-                    checked={!!s.ppt}
+                    checked={stepPptOn(s)}
                     onClick={(e) => e.stopPropagation()}
-                    onChange={() => onPatch?.(i, { ppt: !s.ppt })}
+                    onChange={() => onPatch?.(i, { ppt: !stepPptOn(s) })}
+                  />
+                </span>
+                {/* 실행 로그에 남길 줄(승인). 값이 없으면 갈래 기본값이라
+                    손대지 않은 옛 시험은 지금까지와 똑같이 찍힌다. */}
+                <span className="sq-logc">
+                  <input
+                    type="checkbox"
+                    className="sq-ppt"
+                    aria-label={`${i + 1}번 줄을 실행 로그에 남기기`}
+                    title="실행 로그에 남길 줄"
+                    disabled={!canEdit}
+                    checked={stepLogOn(s)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => onPatch?.(i, { log: !stepLogOn(s) })}
                   />
                 </span>
                 {/* ▶ 와 ⋯ 은 **각각 제 칸**이다(지시: 제목이 없다).
