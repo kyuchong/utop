@@ -3997,8 +3997,9 @@ html .tc-split > .tc-content {
   border-radius: 2px;
   background: transparent;
 }
-.sq-rs:hover::after,
-body.sq-resizing .sq-rs::after { background: var(--c-primary); }
+/* 끄는 동안에는 **잡은 것만** 보여야 한다. 모든 손잡이를 물들였더니
+   옆 칸 손잡이까지 파랗게 서서 선이 하나 더 생긴 것처럼 보였다(지적). */
+.sq-rs:hover::after { background: var(--c-primary); }
 /* 끄는 동안 글자가 잡히면 표가 통째로 파랗게 물든다 */
 body.sq-resizing { user-select: none; cursor: col-resize; }
 
