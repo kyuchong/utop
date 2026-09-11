@@ -2091,20 +2091,24 @@ export default function ReqTc({ me }: Props) {
                   {own.map((r) => (
                         <div
                           key={reqPk(r)}
-                          className={`rqtc-fold rqtc-treq${openReq === reqPk(r) ? ' on' : ''}`}
+                          className={`rqtc-fold rqtc-treq${
+                            reqOnly === reqPk(r) && !openReq && !openTc ? ' on' : ''
+                          }`}
                           style={{ paddingLeft: 6 + (depth + 1) * 14 }}
                           onClick={() => {
-                            /* 트리에서 요구사항을 누르면 **그 요구사항을 연다**
-                               (지시) — 목록을 좁히는 것이 아니다. 좁히기는
-                               폴더가 하는 일이고, 요구사항은 끝단이라 더 좁힐
-                               것이 없다. */
+                            /* 트리에서 요구사항을 누르면 **그 요구사항의 시험
+                               항목**을 오른쪽에 편다(지시).
+                               전에는 요구사항 상세를 열었는데, 트리는 「무엇을
+                               볼까」 를 고르는 자리지 「무엇을 고칠까」 가
+                               아니다 — 상세는 목록에서 연다.
+                               폴더를 누르면 그 폴더 아래 전부, 요구사항을
+                               누르면 그 하나로 좁혀진다. */
+                            setOpenReq('')
                             setOpenTc('')
-                            setOpenReq(reqPk(r))
-                            /* **그 요구사항이 든 폴더**를 고른 것으로 둔다.
-                               그래야 「← 목록」 으로 돌아왔을 때 그 폴더가
-                               서 있다(지적: 색이 유지돼야 하나 옮겨가야 하나
-                               — 돌아갈 자리는 그 요구사항이 있던 폴더다). */
+                            setGpOpen(false)
+                            /* 「← 목록」 으로 돌아갈 자리는 그 요구사항이 든 폴더다 */
                             setCat(c.id)
+                            goTcOf(reqPk(r))
                           }}
                           title={`${reqLabel(r)} ${r.title ?? ''}`}
                         >
