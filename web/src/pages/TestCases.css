@@ -3883,11 +3883,10 @@ html .tc-split > .tc-content {
 /* 주석·메시지는 **선 없이 한 줄**이다(지시). 장비로 아무것도 안 나가는 글이라
    칸을 나눌 것이 없다 — 격자를 그으면 빈 칸만 늘어서 절차가 끊겨 보인다.
    앞의 단추 칸들은 그대로 두고, 글이 서는 자리만 통짜로 쓴다. */
-.sq-row.note > .sq-sum { grid-column: 8 / -1; }
-.sq-row.note > .sq-s,
-.sq-row.note > .sq-n,
-.sq-row.note > .sq-act,
-.sq-row.note > .sq-sum { border-right: 0; }
+/* **「동작」 칸까지는 표**다(지시). 어느 세션인지·몇 번째인지·무슨 갈래인지는
+   주석에도 자리가 있어야 다른 줄과 눈이 맞는다.
+   글이 서는 자리(명령·내용 ~ 절차 설명)부터 통짜 한 줄로 쓴다. */
+.sq-row.note > .sq-sum { grid-column: 8 / -1; border-right: 0; }
 .sq-row.note > .sq-dsc { display: none; }
 
 /* 좁은 칸들에도 세로선(지시). 끝 칸(결과)만 뺀다 — 표 테두리가 그 자리다 */
