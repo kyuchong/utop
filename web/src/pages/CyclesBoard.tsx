@@ -296,7 +296,27 @@ export default function CyclesBoard({
 
   /* 시험 항목 탭의 노션 표 — 열 정의는 코드가 정본, 폭·숨김·차례는 계정에.
      유형 선택지는 담긴 값에서 뽑아 색만 자동으로 입힌다. */
-  const [itView, setItView] = useState<NView>({ ...EMPTY_VIEW, groupBy: 'folder' })
+  /*
+   * 시험 항목 표의 보기 — **정렬이 곧 시험 차례**다(makeRun).
+   *
+   * 여태 화면 상태로만 들고 있어 새로 고치면 처음으로 돌아갔다. 그러면
+   * 「매번 같은 차례로」 가 성립하지 않는다(지적) — 계정에 남긴다.
+   */
+  const [itView, setItView] = useState<NView>(() => {
+    try {
+      const j = JSON.parse(prefGet('utop.cyc.itview') ?? '') as Partial<NView>
+      return { ...EMPTY_VIEW, groupBy: 'folder', ...j }
+    } catch {
+      return { ...EMPTY_VIEW, groupBy: 'folder' }
+    }
+  })
+  useEffect(() => {
+    try {
+      prefSet('utop.cyc.itview', JSON.stringify(itView))
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }, [itView])
   const IT_DEFS: NCol[] = [
     { key: 'id', label: 'ID', type: 'text', width: 124, fixed: true },
     { key: 'title', label: '제목', type: 'text', width: 340, fixed: true },
