@@ -1224,7 +1224,9 @@ export default function RunAuto({
             asChips ? (
               /* 열두 개 안쪽이면 **칩**이 낫다 — 날짜와 Fail 수가 그대로 읽힌다 */
               <div className="ra-rnds">
-                <span className="k">회차</span>
+                <span className="k" title="「다시 실행」 을 누를 때마다 하나씩 늡니다">
+                  돌린 횟수
+                </span>
                 {(rounds ?? []).map((r) => {
                   const on = (runRound ?? lastRound) === r.round
                   const bad = Number(r.fail ?? 0)
@@ -1253,8 +1255,16 @@ export default function RunAuto({
                  목록 10,000 줄로는 절대 안 보이는 것이다. ── */
               <div className="ra-band">
                 <div className="h">
-                  <span className="t">회차</span>
-                  <span className="n">{nfmt(totalRounds ?? 0)}회</span>
+                  {/* 「회차」 라고만 적으면 **반복 설정과 같은 축**으로 읽힌다
+                      (지적: 반복 1 회로 했는데 17 회차가 된다). 회차는 돌린
+                      횟수다 — 「다시 실행」 을 누를 때마다 하나씩 는다. */}
+                  <span className="t">돌린 횟수</span>
+                  <span
+                    className="n"
+                    title="「다시 실행」 을 누를 때마다 하나씩 늡니다. 반복 시험이면 한 바퀴마다 하나씩."
+                  >
+                    {nfmt(totalRounds ?? 0)}번
+                  </span>
                   <span className="sp" />
                   <span className={`rate${badRounds ? ' bad' : ''}`}>
                     {rateTxt}
@@ -1285,7 +1295,9 @@ export default function RunAuto({
                   <span>1 회차</span>
                   <i />
                   <span className="mid">
-                    {(roundSize ?? 1) > 1 ? `막대 하나 = ${nfmt(roundSize ?? 1)} 회차` : '막대 하나 = 한 회차'}
+                    {(roundSize ?? 1) > 1
+                      ? `막대 하나 = ${nfmt(roundSize ?? 1)} 번`
+                      : '막대 하나 = 한 번 돌린 것'}
                   </span>
                   <i />
                   <span>{nfmt(totalRounds ?? 0)} 회차</span>
