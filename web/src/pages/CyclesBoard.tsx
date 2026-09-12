@@ -1721,7 +1721,6 @@ export default function CyclesBoard({
               if (col.key === 'last' && !row.last) return <span className="cu-m">—</span>
               return undefined
             }}
-            onSelect={setPicked}
           perPage={100}
           />
         </div>
@@ -2107,6 +2106,8 @@ export default function CyclesBoard({
               )}
             </>
           }
+          /* 체크한 항목을 받는다 — 도구 줄의 단추 둘이 이걸 본다(승인) */
+          onSelect={setPicked}
           perPage={100}
         />
         </div>
