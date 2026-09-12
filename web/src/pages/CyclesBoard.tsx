@@ -1831,8 +1831,12 @@ export default function CyclesBoard({
         items: String(p._item_count ?? p.items?.length ?? 0),
         /* 결함 — 항목에 달린 결함 수의 합(레거시 플랜 표와 같은 셈) */
         iss: String((p.items ?? []).reduce((n2, it) => n2 + (it.issues?.length ?? 0), 0)),
-        /* 실행 **건수**다 — 「회」 는 반복 회차에만 쓴다(트리 잎과 같은 결) */
-        runs: rs.length ? `${rs.length}건${openRunN ? ` (진행 ${openRunN})` : ''}` : '',
+        /* 실행 **건수**다 — 「회」 는 반복 회차에만 쓴다(트리 잎과 같은 결).
+           「1회 (진행 1)」 은 두 숫자가 무엇을 세는지 알 수 없었다(지적).
+           앞은 몇 건 돌렸나, 뒤는 지금 돌고 있나 — 말로 적는다. */
+        runs: rs.length
+          ? `${rs.length}건${openRunN ? ` · 진행 중${openRunN > 1 ? ` ${openRunN}` : ''}` : ''}`
+          : '',
         last: last ? `${String(last.name || last.id)} · ${ago(last.created_at)}` : '',
         stat: t.total ? `통과 ${t.pass} · 실패 ${t.fail} · 미실행 ${t.none}` : '',
         assignee: String(p.assignee ?? ''),

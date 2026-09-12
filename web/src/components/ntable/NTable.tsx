@@ -159,6 +159,12 @@ export default function NTable(p: NTableProps) {
     !!p.onReorder &&
     (!view.sorts?.length ||
       (view.sorts.length === 1 && view.sorts[0]!.key === (p.reorderKey ?? '')))
+  /** 차례 열 이름과 **지금 걸린 정렬** 이름 — 죽은 손잡이가 이유를 말한다 */
+  const reorderLabel =
+    columns.find((c) => c.key === (p.reorderKey ?? ''))?.label || (p.reorderKey ?? '')
+  const sortNames = (view.sorts ?? [])
+    .map((s) => columns.find((c) => c.key === s.key)?.label || s.key)
+    .join('·')
 
   /** 지금 끌고 있는 행 · 지나가는 행 */
   const [dragRow, setDragRow] = useState<string | null>(null)
@@ -1085,7 +1091,25 @@ export default function NTable(p: NTableProps) {
                                 title={
                                   canDrag
                                     ? '끌어서 시험 차례를 바꿉니다'
-                                    : '「#」 차례로 정렬해야 끌 수 있습니다 — 지금은 다른 열로 정렬돼 있어 화면 차례와 실제 차례가 다릅니다'
+                                    : `눌러서 「${reorderLabel}」 차례로 세우면 끌 수 있습니다${
+                                        sortNames ? ` — 지금 정렬(${sortNames})은 풀립니다` : ''
+                                      }`
+                                }
+                                /* **막다른 골목을 없앤다**(지적: 끌기가 없어졌다).
+                                   다른 열로 정렬돼 있으면 끌 수 없는 게 맞다 —
+                                   화면 차례와 실제 차례가 다르니까. 그런데 손잡이가
+                                   죽은 채 아무 말도 안 하면 기능이 사라진 것으로
+                                   보인다. 눌러서 차례 열로 세울 수 있게 한다:
+                                   코드가 제멋대로 정렬을 지우는 게 아니라 **사람이
+                                   눌러서** 바꾸는 것이다. */
+                                onClick={
+                                  canDrag
+                                    ? undefined
+                                    : () =>
+                                        onView({
+                                          ...view,
+                                          sorts: [{ key: p.reorderKey ?? '', dir: 'asc' }],
+                                        })
                                 }
                                 onDragStart={(e) => {
                                   if (!canDrag) {
