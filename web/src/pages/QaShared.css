@@ -424,6 +424,10 @@
 .cu-new.small.cu-done { border-color: #16a34a; background: #16a34a; color: #fff; }
 .cu-new.small:disabled { opacity: 0.5; cursor: default; }
 .cu-new.small.cu-done:disabled { opacity: 1; }
-/* 빼는 단추 — 되돌리기 어려운 일이라 색으로 한 번 멈칫하게 한다 */
-.cu-new.small.cu-dgr { border-color: #f0b7bd; color: #c0344b; }
-.cu-new.small.cu-dgr:hover { background: #fff2f5; border-color: #e08d99; }
+/* 빼는 단추 — 되돌리기 어려운 일이라 색으로 한 번 멈칫하게 한다.
+   **바탕까지 바꾼다**(지적: 녹색에 붉은 글씨는 잘 안 보인다) — cu-new 는
+   초록 단추라 글자 색만 얹으면 초록 위 빨강이 되어 제일 안 읽히는 짝이 된다. */
+.cu-new.small.cu-dgr {
+  background: #fff; border-color: #f0b7bd; color: #c0344b;
+}
+.cu-new.small.cu-dgr:hover { background: #fff2f5; border-color: #e08d99; color: #a52a3d; }
