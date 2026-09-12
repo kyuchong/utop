@@ -2300,7 +2300,7 @@ export default function CyclesBoard({
                 title="반복 횟수 · 회차 간격 · 실패 조건 · 합격 기준을 정합니다 — 예상 소요 시간도 같이 보여 줍니다"
                 onClick={() => setRepPop(true)}
               >
-                ⚙ 조건
+                ⚙ Test Condition
                 {repCfg && repCfg.repeat > 1 ? ` · ${repCfg.repeat}회` : ''}
               </button>
               {picked.length > 0 && (
@@ -2314,7 +2314,7 @@ export default function CyclesBoard({
                     title="고른 항목을 이 사이클에서 뺍니다 — TC 자체는 그대로 있습니다"
                     onClick={() => void dropCycleItems(picked)}
                   >
-                    ✕ 사이클에서 제거
+                    ✕ Remove from Cycle
                   </button>
                 </>
               )}
