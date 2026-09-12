@@ -20972,9 +20972,22 @@ async def run_queue(payload: dict, request: Request):
     # 이 일감이 몇 회차인가 — 일감 하나가 한 회차다. 「다시 실행」 이 지난
     # 회차를 덮지 않고 그 다음 번호로 쌓이는 것이 여기서 정해진다.
     rnd = await db.plan_run_next_round(plan_run_id)
+    # 반복 시험이면 고른 묶음을 repeat 번 돈다 — 한 바퀴가 한 회차다.
+    # 안 보내면 1 이라, 여태처럼 한 바퀴만 돌고 끝난다.
+    rep = {
+        "repeat_n": payload.get("repeat") or payload.get("repeat_n") or 1,
+        "gap_ms": payload.get("gap_ms", 500),
+        "on_fail": payload.get("on_fail") or "go",
+        "hold_min": payload.get("hold_min") or 180,
+        "hold_over": payload.get("hold_over") or "stop",
+        "fail_max": payload.get("fail_max") or 0,
+    }
     run = await db.run_create(
         run_id, cycle_id, str(cyc.get("name") or ""), picked,
-        who or str(payload.get("who") or ""), len(picked), plan_run_id, rnd,
+        # 총 개수는 **반복까지 곱한다** — 10 개를 1,000 번 돌면 10,000 이다.
+        # 안 곱하면 진행률이 첫 바퀴에서 100% 가 되어 멈춘 것처럼 보인다
+        who or str(payload.get("who") or ""),
+        len(picked) * max(1, int(rep["repeat_n"] or 1)), plan_run_id, rnd, rep,
     )
     await _run_push(run)
     return {"ok": True, "run": run}
@@ -21009,6 +21022,22 @@ async def run_one(run_id: str, after: int = 0):
     if run is None:
         raise HTTPException(404, "실행을 찾을 수 없습니다")
     return {"run": run, "logs": await db.run_log_get(run_id, after)}
+
+
+@app.post("/api/runs/{run_id}/resume")
+async def run_resume_api(run_id: str, payload: dict):
+    """멈춰 선 반복 시험에 답한다 — 배너의 세 단추가 부르는 자리.
+
+    go(계속) · skip(이 회차 건너뛰고 계속) · stop(시험 종료). 실행기는
+    대기하는 동안 progress 응답에서 이 값을 보고 깨어난다."""
+    what = str((payload or {}).get("what") or "").strip().lower()
+    if what not in ("go", "skip", "stop"):
+        raise HTTPException(400, "go · skip · stop 중 하나여야 합니다")
+    run = await db.run_resume(run_id, what)
+    if run is None:
+        raise HTTPException(404, "실행을 찾을 수 없습니다")
+    await _run_push(run)
+    return {"ok": True, "run": run}
 
 
 @app.post("/api/runs/{run_id}/stop")
@@ -21070,8 +21099,13 @@ async def run_progress(run_id: str, payload: dict):
     # 여기서 안 옮기면 도는 내내 Runs 화면이 0% 인 채로 남는다.
     await _mirror_plan_run(run)
     await _run_push(run, logs)
-    # 멈춤을 부탁받았는지 실행기에게 알려준다 — 스텝 사이에서 스스로 내려온다
-    return {"ok": True, "stop": bool(run.get("stop_asked"))}
+    # 멈춤을 부탁받았는지 실행기에게 알려준다 — 스텝 사이에서 스스로 내려온다.
+    # resume 은 **멈춰 선 반복 시험**에서 사람이 누른 답이다(계속·건너뛰기·종료)
+    return {
+        "ok": True,
+        "stop": bool(run.get("stop_asked")),
+        "resume": str(run.get("resume") or ""),
+    }
 
 
 @app.post("/api/runner/{run_id}/finish")

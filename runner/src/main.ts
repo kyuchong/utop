@@ -59,6 +59,15 @@ interface Run {
   /** **몇 회차인가.** 일감 하나가 한 회차다 — 「다시 실행」 은 지난 회차를
    *  덮지 않고 그 다음 번호로 쌓인다. 서버가 걸 때 정해 준다 */
   round?: number | null
+  /** 반복 시험 — 고른 묶음을 몇 바퀴 도나. 1 이면 여태처럼 한 바퀴 */
+  repeat_n?: number | null
+  /** 회차와 회차 사이 쉬는 시간 */
+  gap_ms?: number | null
+  /** 실패하면: go(계속) · hold(멈추고 대기) · stop(바로 종료) */
+  on_fail?: string | null
+  /** 「멈추고 대기」 한도(분). 넘기면 hold_over 대로 스스로 처리한다 */
+  hold_min?: number | null
+  hold_over?: string | null
 }
 
 interface Item {
@@ -124,6 +133,9 @@ class Pusher {
     Object.assign(this.patch, p)
   }
 
+  /** 배너에서 사람이 누른 답 — ''(아직) · go · skip · stop */
+  resume = ''
+
   /** 올리는 중인 것 — 겹쳐 부르지 못하게 한 줄로 세운다 */
   private flying: Promise<void> = Promise.resolve()
 
@@ -153,6 +165,9 @@ class Pusher {
     try {
       const r = await call(`/api/runner/${this.runId}/progress`, { patch, logs })
       if (r.stop) this.stop = true
+      /* 멈춰 선 반복 시험에서 사람이 누른 답 — go · skip · stop.
+         대기하는 동안 이 값만 보고 깨어난다(따로 묻지 않는다) */
+      this.resume = String(r.resume ?? '')
     } catch (e) {
       // 못 올려도 실행은 계속한다. 다음 번에 같이 올라간다.
       log('진행 올리기 실패', String(e))
@@ -259,9 +274,10 @@ async function doRun(run: Run): Promise<void> {
    * 사이클 문서 저장은 그대로 둔다 — 지금 화면들이 그것을 보고 있고,
    * 「가장 최근 결과」 라는 뜻으로 여전히 쓸모가 있다.
    */
-  const saveRound = async (it: Item, tookMs: number, round = Number(run.round) || 1): Promise<void> => {
+  const saveRound = async (it: Item, tookMs: number, round = Number(run.round) || 1): Promise<string> => {
     const rid = String(run.plan_run_id ?? '')
-    if (!rid) return // 실행 기록에 안 매인 일감이면 남길 자리가 없다
+    if (!rid) return '' // 실행 기록에 안 매인 일감이면 남길 자리가 없다
+    let verdict = ''
     try {
       const steps = (it.steps ?? []) as Array<Record<string, unknown>>
       /* 항목 판정 — 판정 기준이 걸린 스텝이 하나라도 깨졌으면 Fail.
@@ -269,7 +285,7 @@ async function doRun(run: Run): Promise<void> {
          **키는 status 다** — 실행기가 스텝에 적는 것이 그것이고, 화면도
          거기서 읽는다(asStep). mark 로 보면 늘 빈손이라 판정이 안 선다. */
       const marked = steps.filter((s) => String(s?.status ?? '').trim())
-      const verdict = marked.length
+      verdict = marked.length
         ? marked.some((s) => /fail/i.test(String(s.status))) ? 'Fail' : 'Pass'
         : ''
       const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(rid)}/item`, {
@@ -285,285 +301,385 @@ async function doRun(run: Run): Promise<void> {
         }),
       })
       if (!r.ok) throw new Error(String(r.status))
+      return verdict
     } catch (e) {
       /* 회차 기록이 실패해도 실행은 이어 간다 — 사이클 문서에는 이미 남았다 */
       log(`회차 기록 실패 (${it.tcid}) — ${String(e)}`)
+      return verdict
     }
   }
 
   /** 항목과 항목 사이 쉬는 시간(지시) — 장비가 숨 돌릴 틈을 준다 */
-  const GAP_MS = 500
-  let first = true
-  for (const raw of run.picked) {
-    /* 첫 항목 앞에서는 쉬지 않는다 — 누른 뒤 곧바로 돌기 시작해야 한다 */
-    if (!first) await sleep(GAP_MS)
-    first = false
-    await push.flush(true)
-    if (push.stop) {
-      stopped = true
-      break
-    }
-    /* tcid 면 지금 스냅샷에서 그 항목을 찾는다 — 어느 시점에 풀어도 같은 항목 */
-    const at = typeof raw === 'number' ? raw : all.findIndex((x) => x?.tcid === raw)
-    const it = at >= 0 ? all[at] : undefined
-    if (!it?.tcid) {
-      push.addLog({ i: -1, kind: 'fail', text: `항목을 찾을 수 없습니다 — ${String(raw)} (사이클에서 빠졌나 봅니다)` })
-      n++
-      push.set({ done: n })
-      continue
-    }
+  const GAP_MS = Math.max(0, Number(run.gap_ms ?? 500))
+  /** 고른 묶음을 몇 바퀴 도나 — **한 바퀴가 한 회차**다(반복 시험). 1 이면
+   *  여태처럼 한 바퀴만 돌고 끝난다. */
+  const REP = Math.max(1, Number(run.repeat_n) || 1)
+  const BASE_ROUND = Math.max(1, Number(run.round) || 1)
+  /** 실패하면 무엇을 하나 — go(계속) · hold(멈추고 대기) · stop(바로 종료) */
+  const ON_FAIL = String(run.on_fail || 'go')
 
-    push.itemAt(at)
-    /* 이 항목이 얼마나 걸렸나 — 회차 기록에 함께 남긴다 */
-    const t0 = Date.now()
-    push.set({ item_at: at, item_name: it.name || it.tcid, step_at: -1, step_count: 0, step_name: '' })
-    /* 항목 이름은 **안 찍는다**(지시: 왜 제목이 항상 먼저 나오나).
-       무엇을 돌고 있는지는 머리줄과 Test Report 가 이미 말한다 — 로그
-       첫 줄을 제목이 먹으면 시험 항목 화면의 로그와도 어긋난다. */
-    log(`▶ ${it.name || it.tcid}`)
+  /** 깨진 회차 수 — 합격 기준과 로그에 쓴다 */
+  let badRounds = 0
 
-    // 절차는 TC 가 갖고 있다. 사이클 항목에 박아 둔 옛 스텝을 쓰면
-    // 그동안 TC 를 고친 것이 반영되지 않는다.
-    let steps: TcStep[] = []
-    let sessions: string[] = []
-    // 계측기 스텝이 볼 트래픽 설정. 스텝에는 시작·정지·조회만 있고, 무엇을
-    // 얼마나 보낼지는 TC 의 Traffic 탭에 한 벌로 있다 — 스텝마다 되풀이해
-    // 적으면 한 군데만 고치고 나머지를 잊는다.
-    let meterCfg: MeterCfg | undefined
-    try {
-      const r = await apiFetch(`/api/tc/${encodeURIComponent(it.tcid)}`)
-      if (!r.ok) throw new Error(String(r.status))
-      const tc = (await r.json()) as { checks?: TcStep[]; sessions?: unknown; meterCfg?: MeterCfg }
-      steps = (tc.checks ?? []).slice()
-      /*
-       * **지난 실행의 자취를 지우고 시작한다**(지적: Response 에 두 달 전
-       * 장비 응답이 나온다).
-       *
-       * TC 의 checks 에는 그때 결과가 그대로 남아 있다 — 8/8 에 돌린
-       * `show system` 출력(그 자리에 있던 E5010-24C)까지. 이번 실행이 그
-       * 전부를 덮지는 않는다: `output` 은 스텝마다 새로 쓰지만 **rounds ·
-       * queries 는 그 스텝이 그 길로 가야만** 손대므로, 안 도는 회차·질의는
-       * 옛것이 살아남아 화면에 섞였다.
-       *
-       * 수동 스텝은 건드리지 않는다 — 사람이 적은 기록이고, 아래에서 플랜의
-       * 손 기록을 다시 얹는다.
-       */
-      steps = steps.map((st) => {
-        if (isManualStep(st)) return st
-        const c = { ...(st as Record<string, unknown>) }
-        for (const k of [
-          'output',
-          'out',
-          'rounds',
-          'status',
-          'executed_at',
-          'took_ms',
-          'reason',
-          'sentCmd',
-          'repeatResult',
-        ])
-          delete c[k]
-        return c as unknown as TcStep
-      })
-      sessions = Array.isArray(tc.sessions) ? (tc.sessions as string[]) : []
-      meterCfg = tc.meterCfg
-    } catch (e) {
-      push.addLog({ i: -1, kind: 'fail', text: `${it.tcid} 를 불러오지 못했습니다 (${String(e)})` })
-      n++
-      push.set({ done: n })
-      continue
-    }
-
-    // 수동 스텝의 **사람 기록**은 남긴다. 절차는 TC 가 정본이라 새로 받지만,
-    // 결과(result)·ACTUAL(글·사진)·RCA 는 사람이 플랜 항목에 적은 것이고
-    // TC 에는 없다 — 통째로 갈아 끼우면 재실행 한 번에 다 지워진다.
-    // 스텝에는 id 가 없어 「몇 번째 수동 스텝」 끼리 맞춘다. 자동 스텝을
-    // 넣거나 빼서 순번이 밀려도 수동 기록은 제자리를 찾는다.
-    {
-      type HumanMark = {
-        result?: string | null
-        executed_at?: string | null
-        actual_txt?: string | null
-        actual_img?: string | null
-        rca?: string | null
-      }
-      const olds = ((it.steps ?? []) as Array<(TcStep & HumanMark) | null>).filter(
-        (s): s is TcStep & HumanMark => !!s && isManualStep(s),
-      )
-      let mi = 0
-      for (let i = 0; i < steps.length && mi < olds.length; i++) {
-        const s = steps[i]
-        if (!s || !isManualStep(s)) continue
-        const old = olds[mi++]
-        if (!old) break
-        const keep: { result?: string; executed_at?: string; actual_txt?: string; actual_img?: string; rca?: string } = {}
-        if (old.actual_txt != null) keep.actual_txt = old.actual_txt
-        if (old.actual_img != null) keep.actual_img = old.actual_img
-        if (old.rca != null) keep.rca = old.rca
-        const r = String(old.result ?? '').trim()
-        if (r) {
-          keep.result = r
-          if (old.executed_at) keep.executed_at = old.executed_at
-        }
-        if (Object.keys(keep).length) steps[i] = { ...s, ...keep }
-      }
-    }
-
-    /* **읽은 절차를 있는 그대로 한 줄 남긴다**(진단: 사이클에서 돌리면
-       반복이 1 회만 돌았다. 같은 TC 를 TC 화면에서 돌리면 20 회가 정상이라,
-       실행기가 읽은 것과 화면이 보는 것이 갈린다는 뜻이다). */
-    try {
-      const lps = steps
-        .map((st, ix) => ({ st, ix }))
-        .filter((x) => String(x.st?.kind ?? '') === 'loop')
-      if (lps.length) {
-        for (const { st, ix } of lps) {
-          const body = steps.filter(
-            (x, j) => j > ix && Number(x?.indent ?? 0) > Number(st?.indent ?? 0),
-          ).length
-          const _diag =
-            `반복 스텝 #${ix + 1} — from=${String(st?.forFrom)} to=${String(st?.forTo)} ` +
-            `count=${String(st?.loopCount)} list=${String(st?.forList ?? '')} ` +
-            `indent=${String(st?.indent ?? 0)} · 몸통 ${body}줄`
-          /* 화면의 「실행 이벤트」 는 **스텝에 붙은 줄만** 보여 준다(i>=0).
-             진단은 스텝에 안 붙는 줄이라 거기서 걸린다 — 실행기 콘솔에도
-             찍어 `docker logs` 로 반드시 보이게 한다. */
-          /* 화면에는 **안 보낸다**(지적: 실행 이벤트가 시험 항목 로그와
-             다르다). 이것은 실행기를 고칠 때 보는 말이지 시험을 돌리는
-             사람이 읽을 말이 아니다 — `docker logs` 에만 남긴다. */
-          log(_diag)
-        }
-      } else {
-        const _diag0 = `반복 스텝이 없습니다 — 스텝 ${steps.length}개 · kind 목록 ${steps
-          .map((x) => String(x?.kind ?? ''))
-          .join(',')}`
-        log(_diag0)
-      }
-    } catch {
-      /* 진단이 실행을 막으면 안 된다 */
-    }
-
-    /*
-     * **어느 장비로 나가는지 먼저 적는다**(지적: 시험 항목에 설정된 세션과
-     * 다른 장비로 나갔다).
-     *
-     * 여태 화면에 있는 단서는 세션 판의 「장비 미지정」 과 프롬프트 `DUT#`
-     * 뿐이었다 — 엉뚱한 곳에 붙어도 알 길이 없고, 나중에 따질 기록도 안
-     * 남는다. 배정을 항목 첫 줄에 남기면 실행 이벤트만 보고 가린다.
-     */
-    {
-      const sessLine = sessions.length
-        ? sessions
-            .map((id, k) => {
-              const d = devById.get(id)
-              return `S${k + 1} = ${
-                d
-                  ? `${d.name || d.model || id}${d.ip ? ` (${d.ip}${d.port ? `:${d.port}` : ''})` : ''}`
-                  : `${id} — 장비 목록에 없습니다`
-              }`
-            })
-            .join(' · ')
-        : '세션이 없습니다 — 이 항목은 장비로 나가지 않습니다'
-      /* 화면에는 안 보낸다(지시: 시험 항목 로그와 똑같이) — 어느 장비로
-         나갔는지는 세션 판이 이미 말한다. 실행기 기록에는 남긴다. */
-      log(`세션 배정 · ${sessLine}`)
-    }
-
-    /* 스텝마다 **제 장비**를 심는다 — 세션 판이 이것으로 장비를 찾는다.
-       안 심어서 「장비 미지정」 으로만 떴다(지적). */
-    steps = steps.map((st) => {
-      const k = sessionIndex(st.session)
-      const id = k >= 0 ? sessions[k] : ''
-      return id ? ({ ...st, devId: id } as TcStep) : st
+  /**
+   * 실패해서 **멈춰 선다.** 장비를 손대지 않고 사람을 기다린다 — 새벽에
+   * 깨진 것을 아침에 와서 그대로 들어가 볼 수 있어야 한다(지시). 접속도
+   * 끊지 않는다.
+   *
+   * 한도를 넘기면 정해 둔 쪽으로 스스로 처리한다 — 금요일에 걸어 두고
+   * 주말 내내 장비가 잡혀 있으면 안 된다.
+   */
+  const holdAndWait = async (round: number): Promise<'go' | 'skip' | 'stop'> => {
+    const limitMs = Math.max(1, Number(run.hold_min) || 180) * 60_000
+    const over = String(run.hold_over || 'stop') === 'go' ? 'go' : 'stop'
+    push.set({ held_at: new Date().toISOString(), held_round: round })
+    push.addLog({
+      i: -1,
+      kind: 'wait',
+      text: `#${round} 회차에서 실패해 멈췄습니다 — 장비를 그대로 두고 기다립니다`,
     })
-
-    push.set({ step_count: steps.length, live_steps: steps })
-
-    // 멈춤은 스텝 사이에서 듣는다. 명령 한복판에서 끊으면 장비 세션이
-    // 열린 채로 남는다.
-    const ac = new AbortController()
-    await runSteps(
-      {
-        steps,
-        sessions,
-        devById,
-        meterCfg,
-        params: gparams,
-        onStep: (i, patch) => {
-          const cur = steps[i]
-          if (!cur) return
-          steps[i] = { ...cur, ...patch }
-          push.set({ live_steps: steps })
-          // 스텝이 길면 다음 스텝 경계까지 못 내려왔다 — 결과가 올 때마다 본다
-          if (push.stop) ac.abort()
-          void push.flush()
-        },
-        onAt: (i) => {
-          push.set({
-            step_at: i,
-            step_name: String(steps[i]?.cli ?? steps[i]?.step ?? '').split('\n')[0] ?? '',
-          })
-          if (push.stop) ac.abort()
-          // 스텝 경계는 **바로** 올린다(force). 예전엔 700ms 묶음에 얹혀,
-          // 그 안에 다음 스텝이 시작하면 step_at 이 덮여 화면이 1→3 으로
-          // 건너뛰었다 — 빠른 2번 스텝의 파란 강조가 통째로 사라졌다.
-          // 스텝 시작은 드문 사건이라 매번 올려도 부담이 없다(로그는 그대로 묶음).
-          void push.flush(true)
-        },
-        onLog: (line) => {
-          push.addLog(line)
-          if (push.stop) ac.abort()
-          void push.flush()
-        },
-        signal: ac.signal,
-      },
-      0,
-      false,
-    )
-
-    /* **회차가 정말 몇 번 돌았나**(진단). 절차는 from=1 to=20 으로 멀쩡한데
-       화면에는 1 회처럼 보인다 — 실제로 돈 횟수와 화면이 갈리는지 가른다.
-       runSteps 가 반복 안 스텝의 rounds 에 회차별 기록을 남긴다. */
-    try {
-      const _rd = steps
-        .map((st, ix) => {
-          const rs = (st as unknown as { rounds?: unknown[] })?.rounds
-          return Array.isArray(rs) && rs.length ? `#${ix + 1}:${rs.length}회` : ''
-        })
-        .filter(Boolean)
-        .join(' ')
-      log(_rd ? `회차 기록 — ${_rd}` : '회차 기록 없음 (반복 안 스텝에 rounds 가 안 남았다)')
-    } catch {
-      /* 진단이 실행을 막으면 안 된다 */
-    }
-
-    it.steps = steps
-    // 사람이 손으로 정한 옛 결과를 지운다. 안 지우면 항목 판정에서 그 값이
-    // 스텝을 이겨서, 방금 세 스텝 다 Pass 인데도 목록엔 옛 Fail 이 남는다.
-    // 방금 돈 것이 최신이다 — 자동 실행이 손 결과를 덮는다.
-    it.result = ''
-    /* **밀리초까지** 남긴다(지적: 1번보다 2번이 먼저 돈 것처럼 보인다).
-       초에서 자르면 한 초에 끝난 두 항목이 같은 값이 되어 차례를 가릴 수
-       없다 — 항목 사이에 쉬는 시간을 두는 것보다 이쪽이 공짜다.
-       화면은 초까지만 보여 준다(shortStamp 가 자른다). */
-    it.executed_at = new Date().toISOString().slice(0, 23).replace('T', ' ')
-    it.executed_by = run.started_by || '실행 서버'
-    it.executed_auto = true
-    n++
-    push.set({ done: n, live_steps: steps })
     await push.flush(true)
-    // 항목이 끝날 때마다 저장한다. 전에는 마지막에 한 번만 저장해서, 도는
-    // 동안 이미 끝난 1·2·3 항목이 목록에선 「미실행」 그대로였다(그 결과가
-    // 아직 서버에 없으니). 지금 저장하면 cycle_updated 로 다른 화면까지
-    // 그 자리에서 초록으로 바뀐다. 중간에 죽어도 여기까지는 남는다.
-    await saveAll()
-    /* 그리고 **이 회차의 것으로도** 남긴다. 사이클 문서는 다음 실행이
-       덮지만, 이쪽은 회차마다 한 줄씩 서서 지워지지 않는다. */
-    await saveRound(it, Date.now() - t0)
-    if (push.stop) {
-      stopped = true
-      break
+    const t0 = Date.now()
+    for (;;) {
+      await sleep(3000)
+      /* 따로 묻지 않는다 — 진행을 올리는 김에 서버가 답을 실어 준다 */
+      await push.flush(true)
+      if (push.stop) return 'stop'
+      const ans = push.resume
+      if (ans === 'go' || ans === 'skip' || ans === 'stop') {
+        push.set({ held_at: null, held_round: null, resume: '' })
+        push.addLog({
+          i: -1,
+          kind: 'info',
+          text: ans === 'stop' ? '사람이 시험을 닫았습니다' :
+            ans === 'skip' ? '이 회차를 건너뛰고 잇습니다' : '사람이 이어 가라고 했습니다',
+        })
+        await push.flush(true)
+        return ans
+      }
+      if (Date.now() - t0 >= limitMs) {
+        push.set({ held_at: null, held_round: null })
+        push.addLog({
+          i: -1,
+          kind: 'info',
+          text: `대기 한도(${Math.round(limitMs / 60000)}분)를 넘겨 ${
+            over === 'go' ? '이어 갑니다' : '시험을 닫습니다'
+          }`,
+        })
+        await push.flush(true)
+        return over
+      }
     }
+  }
+
+  for (let rep = 0; rep < REP && !stopped; rep++) {
+    /** 이 바퀴의 회차 번호. 「다시 실행」 이 준 번호에서 한 바퀴마다 하나씩 */
+    const round = BASE_ROUND + rep
+    /* 이 바퀴에서 하나라도 깨졌나 — 실패 처리는 바퀴가 끝난 뒤에 한다 */
+    let roundBad = false
+    if (REP > 1) {
+      push.set({ round })
+      push.addLog({ i: -1, kind: 'info', text: `── ${round} 회차 (${rep + 1}/${REP}) ──` })
+    }
+    let first = true
+    for (const raw of run.picked) {
+      /* 첫 항목 앞에서는 쉬지 않는다 — 누른 뒤 곧바로 돌기 시작해야 한다 */
+      if (!first) await sleep(GAP_MS)
+      first = false
+      await push.flush(true)
+      if (push.stop) {
+        stopped = true
+        break
+      }
+      /* tcid 면 지금 스냅샷에서 그 항목을 찾는다 — 어느 시점에 풀어도 같은 항목 */
+      const at = typeof raw === 'number' ? raw : all.findIndex((x) => x?.tcid === raw)
+      const it = at >= 0 ? all[at] : undefined
+      if (!it?.tcid) {
+        push.addLog({ i: -1, kind: 'fail', text: `항목을 찾을 수 없습니다 — ${String(raw)} (사이클에서 빠졌나 봅니다)` })
+        n++
+        push.set({ done: n })
+        continue
+      }
+
+      push.itemAt(at)
+      /* 이 항목이 얼마나 걸렸나 — 회차 기록에 함께 남긴다 */
+      const t0 = Date.now()
+      push.set({ item_at: at, item_name: it.name || it.tcid, step_at: -1, step_count: 0, step_name: '' })
+      /* 항목 이름은 **안 찍는다**(지시: 왜 제목이 항상 먼저 나오나).
+         무엇을 돌고 있는지는 머리줄과 Test Report 가 이미 말한다 — 로그
+         첫 줄을 제목이 먹으면 시험 항목 화면의 로그와도 어긋난다. */
+      log(`▶ ${it.name || it.tcid}`)
+
+      // 절차는 TC 가 갖고 있다. 사이클 항목에 박아 둔 옛 스텝을 쓰면
+      // 그동안 TC 를 고친 것이 반영되지 않는다.
+      let steps: TcStep[] = []
+      let sessions: string[] = []
+      // 계측기 스텝이 볼 트래픽 설정. 스텝에는 시작·정지·조회만 있고, 무엇을
+      // 얼마나 보낼지는 TC 의 Traffic 탭에 한 벌로 있다 — 스텝마다 되풀이해
+      // 적으면 한 군데만 고치고 나머지를 잊는다.
+      let meterCfg: MeterCfg | undefined
+      try {
+        const r = await apiFetch(`/api/tc/${encodeURIComponent(it.tcid)}`)
+        if (!r.ok) throw new Error(String(r.status))
+        const tc = (await r.json()) as { checks?: TcStep[]; sessions?: unknown; meterCfg?: MeterCfg }
+        steps = (tc.checks ?? []).slice()
+        /*
+         * **지난 실행의 자취를 지우고 시작한다**(지적: Response 에 두 달 전
+         * 장비 응답이 나온다).
+         *
+         * TC 의 checks 에는 그때 결과가 그대로 남아 있다 — 8/8 에 돌린
+         * `show system` 출력(그 자리에 있던 E5010-24C)까지. 이번 실행이 그
+         * 전부를 덮지는 않는다: `output` 은 스텝마다 새로 쓰지만 **rounds ·
+         * queries 는 그 스텝이 그 길로 가야만** 손대므로, 안 도는 회차·질의는
+         * 옛것이 살아남아 화면에 섞였다.
+         *
+         * 수동 스텝은 건드리지 않는다 — 사람이 적은 기록이고, 아래에서 플랜의
+         * 손 기록을 다시 얹는다.
+         */
+        steps = steps.map((st) => {
+          if (isManualStep(st)) return st
+          const c = { ...(st as Record<string, unknown>) }
+          for (const k of [
+            'output',
+            'out',
+            'rounds',
+            'status',
+            'executed_at',
+            'took_ms',
+            'reason',
+            'sentCmd',
+            'repeatResult',
+          ])
+            delete c[k]
+          return c as unknown as TcStep
+        })
+        sessions = Array.isArray(tc.sessions) ? (tc.sessions as string[]) : []
+        meterCfg = tc.meterCfg
+      } catch (e) {
+        push.addLog({ i: -1, kind: 'fail', text: `${it.tcid} 를 불러오지 못했습니다 (${String(e)})` })
+        n++
+        push.set({ done: n })
+        continue
+      }
+
+      // 수동 스텝의 **사람 기록**은 남긴다. 절차는 TC 가 정본이라 새로 받지만,
+      // 결과(result)·ACTUAL(글·사진)·RCA 는 사람이 플랜 항목에 적은 것이고
+      // TC 에는 없다 — 통째로 갈아 끼우면 재실행 한 번에 다 지워진다.
+      // 스텝에는 id 가 없어 「몇 번째 수동 스텝」 끼리 맞춘다. 자동 스텝을
+      // 넣거나 빼서 순번이 밀려도 수동 기록은 제자리를 찾는다.
+      {
+        type HumanMark = {
+          result?: string | null
+          executed_at?: string | null
+          actual_txt?: string | null
+          actual_img?: string | null
+          rca?: string | null
+        }
+        const olds = ((it.steps ?? []) as Array<(TcStep & HumanMark) | null>).filter(
+          (s): s is TcStep & HumanMark => !!s && isManualStep(s),
+        )
+        let mi = 0
+        for (let i = 0; i < steps.length && mi < olds.length; i++) {
+          const s = steps[i]
+          if (!s || !isManualStep(s)) continue
+          const old = olds[mi++]
+          if (!old) break
+          const keep: { result?: string; executed_at?: string; actual_txt?: string; actual_img?: string; rca?: string } = {}
+          if (old.actual_txt != null) keep.actual_txt = old.actual_txt
+          if (old.actual_img != null) keep.actual_img = old.actual_img
+          if (old.rca != null) keep.rca = old.rca
+          const r = String(old.result ?? '').trim()
+          if (r) {
+            keep.result = r
+            if (old.executed_at) keep.executed_at = old.executed_at
+          }
+          if (Object.keys(keep).length) steps[i] = { ...s, ...keep }
+        }
+      }
+
+      /* **읽은 절차를 있는 그대로 한 줄 남긴다**(진단: 사이클에서 돌리면
+         반복이 1 회만 돌았다. 같은 TC 를 TC 화면에서 돌리면 20 회가 정상이라,
+         실행기가 읽은 것과 화면이 보는 것이 갈린다는 뜻이다). */
+      try {
+        const lps = steps
+          .map((st, ix) => ({ st, ix }))
+          .filter((x) => String(x.st?.kind ?? '') === 'loop')
+        if (lps.length) {
+          for (const { st, ix } of lps) {
+            const body = steps.filter(
+              (x, j) => j > ix && Number(x?.indent ?? 0) > Number(st?.indent ?? 0),
+            ).length
+            const _diag =
+              `반복 스텝 #${ix + 1} — from=${String(st?.forFrom)} to=${String(st?.forTo)} ` +
+              `count=${String(st?.loopCount)} list=${String(st?.forList ?? '')} ` +
+              `indent=${String(st?.indent ?? 0)} · 몸통 ${body}줄`
+            /* 화면의 「실행 이벤트」 는 **스텝에 붙은 줄만** 보여 준다(i>=0).
+               진단은 스텝에 안 붙는 줄이라 거기서 걸린다 — 실행기 콘솔에도
+               찍어 `docker logs` 로 반드시 보이게 한다. */
+            /* 화면에는 **안 보낸다**(지적: 실행 이벤트가 시험 항목 로그와
+               다르다). 이것은 실행기를 고칠 때 보는 말이지 시험을 돌리는
+               사람이 읽을 말이 아니다 — `docker logs` 에만 남긴다. */
+            log(_diag)
+          }
+        } else {
+          const _diag0 = `반복 스텝이 없습니다 — 스텝 ${steps.length}개 · kind 목록 ${steps
+            .map((x) => String(x?.kind ?? ''))
+            .join(',')}`
+          log(_diag0)
+        }
+      } catch {
+        /* 진단이 실행을 막으면 안 된다 */
+      }
+
+      /*
+       * **어느 장비로 나가는지 먼저 적는다**(지적: 시험 항목에 설정된 세션과
+       * 다른 장비로 나갔다).
+       *
+       * 여태 화면에 있는 단서는 세션 판의 「장비 미지정」 과 프롬프트 `DUT#`
+       * 뿐이었다 — 엉뚱한 곳에 붙어도 알 길이 없고, 나중에 따질 기록도 안
+       * 남는다. 배정을 항목 첫 줄에 남기면 실행 이벤트만 보고 가린다.
+       */
+      {
+        const sessLine = sessions.length
+          ? sessions
+              .map((id, k) => {
+                const d = devById.get(id)
+                return `S${k + 1} = ${
+                  d
+                    ? `${d.name || d.model || id}${d.ip ? ` (${d.ip}${d.port ? `:${d.port}` : ''})` : ''}`
+                    : `${id} — 장비 목록에 없습니다`
+                }`
+              })
+              .join(' · ')
+          : '세션이 없습니다 — 이 항목은 장비로 나가지 않습니다'
+        /* 화면에는 안 보낸다(지시: 시험 항목 로그와 똑같이) — 어느 장비로
+           나갔는지는 세션 판이 이미 말한다. 실행기 기록에는 남긴다. */
+        log(`세션 배정 · ${sessLine}`)
+      }
+
+      /* 스텝마다 **제 장비**를 심는다 — 세션 판이 이것으로 장비를 찾는다.
+         안 심어서 「장비 미지정」 으로만 떴다(지적). */
+      steps = steps.map((st) => {
+        const k = sessionIndex(st.session)
+        const id = k >= 0 ? sessions[k] : ''
+        return id ? ({ ...st, devId: id } as TcStep) : st
+      })
+
+      push.set({ step_count: steps.length, live_steps: steps })
+
+      // 멈춤은 스텝 사이에서 듣는다. 명령 한복판에서 끊으면 장비 세션이
+      // 열린 채로 남는다.
+      const ac = new AbortController()
+      await runSteps(
+        {
+          steps,
+          sessions,
+          devById,
+          meterCfg,
+          params: gparams,
+          onStep: (i, patch) => {
+            const cur = steps[i]
+            if (!cur) return
+            steps[i] = { ...cur, ...patch }
+            push.set({ live_steps: steps })
+            // 스텝이 길면 다음 스텝 경계까지 못 내려왔다 — 결과가 올 때마다 본다
+            if (push.stop) ac.abort()
+            void push.flush()
+          },
+          onAt: (i) => {
+            push.set({
+              step_at: i,
+              step_name: String(steps[i]?.cli ?? steps[i]?.step ?? '').split('\n')[0] ?? '',
+            })
+            if (push.stop) ac.abort()
+            // 스텝 경계는 **바로** 올린다(force). 예전엔 700ms 묶음에 얹혀,
+            // 그 안에 다음 스텝이 시작하면 step_at 이 덮여 화면이 1→3 으로
+            // 건너뛰었다 — 빠른 2번 스텝의 파란 강조가 통째로 사라졌다.
+            // 스텝 시작은 드문 사건이라 매번 올려도 부담이 없다(로그는 그대로 묶음).
+            void push.flush(true)
+          },
+          onLog: (line) => {
+            push.addLog(line)
+            if (push.stop) ac.abort()
+            void push.flush()
+          },
+          signal: ac.signal,
+        },
+        0,
+        false,
+      )
+
+      /* **회차가 정말 몇 번 돌았나**(진단). 절차는 from=1 to=20 으로 멀쩡한데
+         화면에는 1 회처럼 보인다 — 실제로 돈 횟수와 화면이 갈리는지 가른다.
+         runSteps 가 반복 안 스텝의 rounds 에 회차별 기록을 남긴다. */
+      try {
+        const _rd = steps
+          .map((st, ix) => {
+            const rs = (st as unknown as { rounds?: unknown[] })?.rounds
+            return Array.isArray(rs) && rs.length ? `#${ix + 1}:${rs.length}회` : ''
+          })
+          .filter(Boolean)
+          .join(' ')
+        log(_rd ? `회차 기록 — ${_rd}` : '회차 기록 없음 (반복 안 스텝에 rounds 가 안 남았다)')
+      } catch {
+        /* 진단이 실행을 막으면 안 된다 */
+      }
+
+      it.steps = steps
+      // 사람이 손으로 정한 옛 결과를 지운다. 안 지우면 항목 판정에서 그 값이
+      // 스텝을 이겨서, 방금 세 스텝 다 Pass 인데도 목록엔 옛 Fail 이 남는다.
+      // 방금 돈 것이 최신이다 — 자동 실행이 손 결과를 덮는다.
+      it.result = ''
+      /* **밀리초까지** 남긴다(지적: 1번보다 2번이 먼저 돈 것처럼 보인다).
+         초에서 자르면 한 초에 끝난 두 항목이 같은 값이 되어 차례를 가릴 수
+         없다 — 항목 사이에 쉬는 시간을 두는 것보다 이쪽이 공짜다.
+         화면은 초까지만 보여 준다(shortStamp 가 자른다). */
+      it.executed_at = new Date().toISOString().slice(0, 23).replace('T', ' ')
+      it.executed_by = run.started_by || '실행 서버'
+      it.executed_auto = true
+      n++
+      push.set({ done: n, live_steps: steps })
+      await push.flush(true)
+      // 항목이 끝날 때마다 저장한다. 전에는 마지막에 한 번만 저장해서, 도는
+      // 동안 이미 끝난 1·2·3 항목이 목록에선 「미실행」 그대로였다(그 결과가
+      // 아직 서버에 없으니). 지금 저장하면 cycle_updated 로 다른 화면까지
+      // 그 자리에서 초록으로 바뀐다. 중간에 죽어도 여기까지는 남는다.
+      await saveAll()
+      /* 그리고 **이 회차의 것으로도** 남긴다. 사이클 문서는 다음 실행이
+         덮지만, 이쪽은 회차마다 한 줄씩 서서 지워지지 않는다. */
+      if ((await saveRound(it, Date.now() - t0, round)) === 'Fail') roundBad = true
+      if (push.stop) {
+        stopped = true
+        break
+      }
+    }
+
+    if (stopped) break
+    if (roundBad) {
+      badRounds++
+      if (ON_FAIL === 'stop') {
+        push.addLog({ i: -1, kind: 'info', text: `#${round} 회차가 깨져 시험을 닫습니다` })
+        stopped = true
+        break
+      }
+      if (ON_FAIL === 'hold') {
+        const ans = await holdAndWait(round)
+        if (ans === 'stop') {
+          stopped = true
+          break
+        }
+      }
+    }
+    /* 바퀴와 바퀴 사이에도 쉰다 — 장비가 잇달아 부팅하면 못 버틴다 */
+    if (REP > 1 && rep + 1 < REP && !stopped) await sleep(GAP_MS)
+  }
+
+  if (REP > 1) {
+    push.addLog({
+      i: -1,
+      kind: badRounds ? 'fail' : 'info',
+      text: `반복 ${REP}회 중 ${badRounds}회 실패`,
+    })
   }
 
   // 멈췄거나 끝났으면 마지막 상태를 한 번 더 굳힌다.

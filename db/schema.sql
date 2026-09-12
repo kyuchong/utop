@@ -544,6 +544,29 @@ CREATE INDEX IF NOT EXISTS idx_cycle_run_queued ON cycle_run(queued_at DESC);
 -- 반복 시험은 한 일감 안에서 이 번호부터 한 바퀴씩 늘어난다.
 ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS round INT NOT NULL DEFAULT 1;
 
+-- ── 반복 시험 — 고른 항목 묶음을 여러 번 돈다 ────────────────────────
+-- 부팅 10,000 회 같은 내구 시험이다. 한 일감 안에서 round 가 1 씩 늘며,
+-- 묶음(10 개 남짓)이 한 바퀴 돌 때마다 회차가 하나 선다.
+-- 총 반복 횟수. 1 이면 지금까지와 똑같이 한 바퀴만 돈다
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS repeat_n INT NOT NULL DEFAULT 1;
+-- 회차와 회차 사이 쉬는 시간 — 장비가 숨 돌릴 틈
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS gap_ms INT NOT NULL DEFAULT 500;
+-- 실패하면: go(계속) | hold(멈추고 대기) | stop(바로 종료)
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS on_fail TEXT NOT NULL DEFAULT 'go';
+-- 「멈추고 대기」 로 멎은 시각. 이때 **장비를 손대지 않는다** — 새벽에 깨진
+-- 것을 아침에 와서 그대로 들어가 볼 수 있어야 한다
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS held_at TIMESTAMPTZ;
+-- 그 회차 번호(화면이 「#412 에서 멈췄습니다」 를 쓴다)
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS held_round INT;
+-- 대기 한도(분). 금요일에 걸어 두고 주말 내내 장비가 잡혀 있으면 안 된다
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS hold_min INT NOT NULL DEFAULT 180;
+-- 한도를 넘기면 스스로 할 일: stop | go
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS hold_over TEXT NOT NULL DEFAULT 'stop';
+-- 사람이 배너에서 누른 것: ''(아직) | go(계속) | skip(이 회차 건너뛰고) | stop
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS resume TEXT NOT NULL DEFAULT '';
+-- 합격 기준 — 실패 몇 회까지 봐주나. 0 이면 한 번이라도 깨지면 불합격
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS fail_max INT NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS cycle_run_log (
   run_id        TEXT NOT NULL REFERENCES cycle_run(id) ON DELETE CASCADE,
   seq           BIGINT NOT NULL,

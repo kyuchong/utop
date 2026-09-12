@@ -2311,7 +2311,8 @@ async def cf_usage(target: str, key: str) -> int:
 _RUN_COLS = (
     "id, cycle_id, cycle_name, picked, status, stop_asked, started_by, worker, "
     "total, done, item_at, item_name, step_at, step_count, step_name, live_steps, "
-    "error, queued_at, started_at, ended_at, heartbeat_at, plan_run_id, round"
+    "error, queued_at, started_at, ended_at, heartbeat_at, plan_run_id, round, "
+    "repeat_n, gap_ms, on_fail, held_at, held_round, hold_min, hold_over, resume, fail_max"
 )
 
 
@@ -2324,7 +2325,7 @@ def _run_row(r) -> dict:
                 d[k] = json.loads(v)
             except Exception:
                 d[k] = None
-    for k in ("queued_at", "started_at", "ended_at", "heartbeat_at"):
+    for k in ("queued_at", "started_at", "ended_at", "heartbeat_at", "held_at"):
         if d.get(k) is not None:
             d[k] = d[k].isoformat()
     return d
@@ -2345,16 +2346,38 @@ async def plan_run_next_round(plan_run_id: str) -> int:
 
 
 async def run_create(run_id: str, cycle_id: str, cycle_name: str, picked: list, who: str,
-                     total: int, plan_run_id: str = "", rnd: int = 1) -> dict:
+                     total: int, plan_run_id: str = "", rnd: int = 1,
+                     rep: Optional[dict] = None) -> dict:
+    """일감을 만든다. rep 를 주면 **반복 시험**이다 — 고른 묶음을 그만큼 돈다."""
+    q = rep or {}
     async with pool().acquire() as c:
         r = await c.fetchrow(
             "INSERT INTO cycle_run (id, cycle_id, cycle_name, picked, started_by, total,"
-            "                       plan_run_id, round) "
-            "VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8) RETURNING " + _RUN_COLS,
+            "                       plan_run_id, round,"
+            "                       repeat_n, gap_ms, on_fail, hold_min, hold_over, fail_max) "
+            "VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING " + _RUN_COLS,
             run_id, cycle_id, cycle_name, json.dumps(picked or []), who, int(total or 0),
             plan_run_id or None, int(rnd or 1),
+            max(1, int(q.get("repeat_n") or 1)),
+            max(0, int(q.get("gap_ms", 500) or 0)),
+            str(q.get("on_fail") or "go"),
+            max(1, int(q.get("hold_min") or 180)),
+            str(q.get("hold_over") or "stop"),
+            max(0, int(q.get("fail_max") or 0)),
         )
         return _run_row(r)
+
+
+async def run_resume(run_id: str, what: str) -> Optional[dict]:
+    """멈춰 선 반복 시험에 사람이 답한다 — go(계속) · skip(이 회차 건너뛰고) · stop.
+
+    실행기는 대기하는 동안 progress 응답에서 이 값을 보고 깨어난다."""
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "UPDATE cycle_run SET resume=$2, heartbeat_at=now() WHERE id=$1 RETURNING " + _RUN_COLS,
+            run_id, str(what or ""),
+        )
+        return _run_row(r) if r else None
 
 
 # 항목 판정(글자) → 실행 기록의 한 글자. 화면과 같은 말을 써야 한다.
@@ -2673,6 +2696,8 @@ async def run_claim(worker: str) -> Optional[dict]:
 
 _RUN_PATCHABLE = (
     "done", "item_at", "item_name", "step_at", "step_count", "step_name", "live_steps",
+    # 반복 시험 — 지금 몇 회차인지, 실패해서 멈춰 섰는지
+    "round", "held_at", "held_round", "resume",
 )
 
 
