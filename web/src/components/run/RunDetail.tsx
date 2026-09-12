@@ -1685,6 +1685,11 @@ export default function RunDetail({
           }
           dut={dut?.name ?? 'DUT'}
           runStartedAt={String(run.started_at ?? '')}
+          /* 지금 보는 항목의 자리 — 실행기가 로그에 그 번호를 달아 올린다.
+             사이클 항목 배열에서의 자리라 그쪽 기준으로 찾는다. */
+          itemAt={((cycQ.data?.items ?? []) as Array<{ tcid?: string }>).findIndex(
+            (x) => String(x?.tcid ?? '') === cur,
+          )}
           logAt={log?.at}
         />
       ) : (

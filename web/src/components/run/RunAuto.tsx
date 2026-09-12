@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
+import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import BlockText from '@/components/tc/BlockText'
 import { stepLogOn } from '@/components/tc/types'
 import './RunAuto.css'
@@ -190,7 +191,7 @@ const FLT_N = (t: { total: number; p: number; f: number; n: number }) => ({
 })
 
 export default function RunAuto({
-  items, cur, onPick, steps, stepAt, onStep, dut, logAt, runStartedAt,
+  items, cur, onPick, steps, stepAt, onStep, dut, runStartedAt, itemAt = -1,
   runStep, runItem, waitAt, devices, liveLogs,
 }: {
   /** 장비 목록 — 세션 판이 세션에 붙은 장비를 여기서 찾는다 */
@@ -198,7 +199,10 @@ export default function RunAuto({
   /** **실행기가 보낸 줄** — 1 초마다 새로 온다(지시: 리얼타임으로).
    *  있으면 실행 이벤트가 이것을 그대로 그린다: 회차마다 한 줄씩 올라와
    *  TC 화면과 같은 결이 된다. 스텝에서 만들면 반복이 다 끝나야 나온다. */
-  liveLogs?: Array<{ seq?: number; ts?: string; round?: number | null; i?: number; kind?: string; text?: string }>
+  liveLogs?: Array<{ seq?: number; ts?: string; round?: number | null; i?: number; kind?: string; text?: string
+    /** 몇 번째 **항목**에서 나온 줄인가 */
+    at?: number
+  }>
   /** 지난 실행의 출력 — **이제 안 그린다**(지시).
    *  콘솔은 고른 스텝의 **지금 결과** 하나만 보여 준다. 위 판이 계속
    *  넘겨 주고 있어 자리만 남겨 둔다. */
@@ -220,6 +224,8 @@ export default function RunAuto({
   dut: string
   /** 이번 실행이 시작한 시각 — 그 뒤에 돈 항목만 Test Report 에 쌓는다 */
   runStartedAt?: string
+  /** 지금 보는 항목이 **몇 번째**인가 — 실행 로그를 그 항목 것만 추린다 */
+  itemAt?: number
   /** 이 항목을 언제 돌렸나 */
   logAt?: string
 }) {
@@ -435,19 +441,6 @@ export default function RunAuto({
   }, [items])
   /* 진행률은 위 띠(RunDetail)가 그린다 — 여기서 또 세지 않는다 */
 
-  /** 이벤트 — 로그의 스텝에서 뽑는다(지어내지 않는다) */
-  /** 반복 회차를 이벤트·명령 목록에 **몇 개까지 펼칠까**.
-   *  깨진 회차는 다 편다 — 그것을 보려고 반복을 도는 것이다.
-   *  통과한 회차는 마지막 이만큼만. 10,000 회를 다 펴면 화면이 죽는다. */
-  const KEEP_OK = 30
-  /** 이 스텝에서 **펼칠 회차 자리**(0부터). 깨진 것 전부 + 통과 마지막 30 */
-  const keepRounds = (s: AutoStep): number[] => {
-    const rds = s.rounds ?? []
-    const bad: number[] = []
-    const ok: number[] = []
-    rds.forEach((r, k) => (/fail/i.test(String(r.status ?? '')) ? bad : ok).push(k))
-    return [...new Set([...bad, ...ok.slice(-KEEP_OK)])].sort((x, y) => x - y)
-  }
 
   /**
    * 시험 항목 표와 **같은 번호**(지적: 실행 로그와 스텝이 안 맞는다).
@@ -464,102 +457,12 @@ export default function RunAuto({
   const tookText = (ms?: number) =>
     ms == null ? '' : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}초`
 
+  /** 실행 로그의 「부적합만」 — 시험 항목 화면과 같은 단추 */
+  const [logOnly, setLogOnly] = useState(false)
+
   /** 반복 스텝에서 **몇 회차를 보고 있나**(지시) — -1 이면 마지막 회차 */
   const [roundAt, setRoundAt] = useState(-1)
 
-  const events = useMemo(() => {
-    const out: Array<{ at: string; step: string; kind: string; text: string }> = []
-    /* **실행기가 보낸 줄이 있으면 그것을 그대로 그린다**(지시: 리얼타임으로).
-       1 초마다 새로 오므로 회차마다 한 줄씩 올라온다 — TC 화면과 같은 결이다.
-       스텝에서 만들면 회차 기록이 **반복이 다 끝나야** 오기 때문에 한꺼번에
-       팍 나오고, 시각도 스텝 것 하나로 다 같아진다(지적). */
-    if (liveLogs && liveLogs.length) {
-      /* 10,000 회를 다 그리면 화면이 죽는다 — **뒤에서 600 줄**만.
-         실행 중에 보고 싶은 것은 방금 무엇이 나갔는가다. */
-      for (const l of liveLogs.slice(-LIVE_MAX)) {
-        const i2 = Number(l.i ?? -1)
-        /* **시험 항목에서 로그를 끈 갈래는 여기서도 안 나온다**(지적).
-           주석처럼 장비로 아무것도 안 나가는 줄이 Cycles 에만 떠 있었다. */
-        const own = i2 >= 0 ? steps[i2] : undefined
-        if (own && !stepLogOn(own)) continue
-        const rd = Number(l.round ?? 0)
-        /* 시험 항목의 실행 로그와 **같은 줄**이어야 한다(지시). 거기서는
-           「비교 결과」 같은 앞말을 본문 앞에 세운다 — 그것을 버리면 무엇을
-           한 줄인지 다시 짚어야 한다. */
-        /* 앞말은 실행기가 글에 붙여 보낸다(서버 표에 칸이 없다). 화면에서
-           직접 돌린 실행은 label 로 오므로 둘 다 본다. */
-        const lb = String((l as { label?: string }).label ?? '').trim()
-        out.push({
-          at: String(l.ts ?? ''),
-          step: i2 >= 0 ? `Step ${nos[i2] || i2 + 1}${rd > 0 ? ` · ${rd}회` : ''}` : '',
-          kind: String(l.kind ?? 'info').toUpperCase(),
-          text: `${lb ? `${lb} ` : ''}${String(l.text ?? '')}`,
-        })
-      }
-      return out
-    }
-    steps.forEach((s, i) => {
-      /* **돈 스텝만** 적는다. 명령이 적혀 있다고 보낸 것은 아니다 —
-         아직 안 온 스텝까지 「보냄」 으로 찍혀, 2번이 도는데 5번까지 다
-         나와 있었다(지적). 지금 도는 스텝은 「보냄」 까지는 맞다. */
-      if (!s.ran && i !== runStep) return
-      const at = s.at ?? logAt ?? ''
-      /* **반복 안 스텝은 회차마다 적는다**(지시) — 20 회를 돌았으면 20 번
-         보낸 것이다. 스텝당 한 줄로 접으면 「1 회만 돌았다」 로 읽힌다. */
-      const rds = s.rounds ?? []
-      if (rds.length > 1) {
-        const keep = keepRounds(s)
-        const hid = rds.length - keep.length
-        if (hid > 0)
-          out.push({
-            at,
-            step: `Step ${s.no}`,
-            kind: 'INFO',
-            text: `통과한 ${hid}회차는 접었습니다 — 깨진 회차와 마지막 ${KEEP_OK}회만 폅니다`,
-          })
-        for (const k of keep) {
-          const r = rds[k]!
-          const tag = `Step ${s.no} · ${r.n ?? k + 1}회`
-          const mk = String(r.status ?? '')
-          /* **그 회차에 보낸 명령 그대로**(지시) — 변수가 든 명령은 회차마다
-             달라진다. 없으면 스텝의 원본으로 떨어진다. */
-          const rcmd = r.cmd || s.cmd
-          if (rcmd)
-            out.push({
-              at,
-              step: tag,
-              kind: 'INFO',
-              text: `${rcmd} 보냄${r.took_ms != null ? ` (${r.took_ms}ms)` : ''}`,
-            })
-          if (mk)
-            out.push({
-              at,
-              step: tag,
-              kind: /pass/i.test(mk) ? 'PASS' : 'FAIL',
-              text:
-                r.reason ||
-                (/pass/i.test(mk) ? `${s.t} — 기준 맞음` : `${s.t} — 기준 어긋남`),
-            })
-        }
-        return
-      }
-      if (s.cmd) out.push({ at, step: `Step ${s.no}`, kind: 'INFO', text: `${s.cmd} 보냄` })
-      if (s.mark)
-        out.push({
-          at,
-          step: `Step ${s.no}`,
-          kind: s.mark === 'Pass' ? 'PASS' : 'FAIL',
-          /* 사람이 적어 둔 판정 문구가 있으면 **그것**을 적는다(지시).
-             「기준 맞음」 은 아무것도 안 알려 준다 — 무엇이 왜 맞았는지는
-             그 문구에 있다. 없을 때만 기본 말로 떨어진다. */
-          text:
-            s.mark === 'Pass'
-              ? s.okMsg || `${s.t} — 기준 맞음`
-              : s.ngMsg || `${s.t} — 기준 어긋남`,
-        })
-    })
-    return out
-  }, [steps, logAt, runStep])
 
   /* ── 「대기」 스텝의 초읽기 ──
      실행기는 「몇 번째 스텝을 도는 중」 까지만 알려 준다. 남은 초는 안 준다.
@@ -838,13 +741,13 @@ export default function RunAuto({
                    장비로 아무것도 안 나가는 줄(주석·메시지)은 건너뛴다.
                    다만 **지금 고른 줄은 그것이라도 보여 준다** — 눌렀는데
                    아무것도 안 나오면 고장으로 읽힌다. */
+                /* 고른 줄까지 **빠짐없이** 쌓는다(지적: 스텝 1 이 안 보인다).
+                   장비로 안 나가는 줄(주석·메시지)을 건너뛰었더니 첫 줄이
+                   메시지인 시험에서 스텝 1 이 통째로 사라졌다 — 누적이라면
+                   있는 그대로 이어져야 무엇 다음에 무엇인지 읽힌다. */
                 steps
                   .slice(0, seeUpTo + 1)
                   .map((s2, k) => ({ s2, k }))
-                  .filter(
-                    ({ s2, k }) =>
-                      k === seeUpTo || !(s2.kind === 'comment' || s2.kind === 'message'),
-                  )
                   .map(({ s2, k: seeUpTo }) => {
                 /* 반복 안 스텝이면 **회차를 고를 수 있다**(지시).
                    기본은 마지막 회차 — 방금 돈 것이 궁금한 게 보통이다. */
@@ -930,42 +833,48 @@ export default function RunAuto({
         </>
       )
 
-    if (id === 'events')
+    if (id === 'events') {
+      /*
+       * **시험 항목 화면의 실행 로그와 같은 부품**으로 그린다(지시).
+       *
+       * 표로 따로 그리던 때는 같은 사건이 두 화면에서 다른 모양이었다 —
+       * 부품을 나눠 쓰면 한쪽을 고치면 양쪽이 같이 고쳐진다.
+       *
+       * 보여 주는 단위는 **지금 고른 항목 하나**다(지시). 62 건이 한 흐름으로
+       * 이어지면 어느 시험의 Step 1 인지 알 수 없다.
+       *
+       * 로그를 끈 갈래는 여기서도 안 나온다. 10,000 회를 다 그리면 화면이
+       * 죽으므로 뒤에서 LIVE_MAX 줄만 남긴다.
+       */
+      const lines: LogLine[] = (liveLogs ?? [])
+        .filter((l) => {
+          if (Number(l.at ?? -1) !== itemAt) return false
+          const i2 = Number(l.i ?? -1)
+          const own = i2 >= 0 ? steps[i2] : undefined
+          return !own || stepLogOn(own)
+        })
+        .slice(-LIVE_MAX)
+        .map((l, k) => ({
+          n: Number(l.seq ?? k),
+          i: Number(l.i ?? -1),
+          kind: String(l.kind ?? 'info'),
+          text: String(l.text ?? ''),
+          round: Number(l.round ?? 0) || undefined,
+          at: String(l.ts ?? ''),
+        }))
       return (
-        /* 거르개를 뺐다(지시) — 줄이 몇 개 안 되고, 어차피 다 읽는다.
-           칸도 좁혔다: 시각은 시:분:초면 되고 결과는 알약 폭이면 된다. */
-        <div className="ra-scroll">
-          {events.length ? (
-            <table className="ra-tbl ra-evt">
-              <thead>
-                <tr>
-                  <th style={{ width: 118 }}>시각</th>
-                  {/* `Step 2 · 1회` 가 한 줄로 들어가야 한다 — 52px 에서는
-                      회차가 아랫줄로 접혀 줄 높이가 들쭉날쭉했다(지적) */}
-                  <th style={{ width: 104 }}>Step</th>
-                  <th style={{ width: 54 }}>결과</th>
-                  <th>세부 내역</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((e, i2) => (
-                  <tr key={i2}>
-                    {/* Test Report 의 Timestamp 와 **같은 꼴**로(지시) */}
-                    <td className="ra-num">{shortStamp(e.at)}</td>
-                    <td className="ra-evst">{e.step}</td>
-                    <td>
-                      <span className={`ra-ev ${e.kind}`}>{e.kind.toUpperCase()}</span>
-                    </td>
-                    <td>{e.text}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="ra-none">남은 이벤트가 없습니다 — 실행 로그가 쌓이면 여기에 줄이 생깁니다.</div>
-          )}
-        </div>
+        <RunLog
+          lines={lines}
+          nos={nos}
+          only={logOnly}
+          onOnly={setLogOnly}
+          onPick={(i2) => onStep(i2)}
+          onClear={() => {
+            /* 서버에 쌓인 기록이라 화면에서 지우지 않는다 — 다음 실행이 덮는다 */
+          }}
+        />
       )
+    }
 
     /* Test Report — iTest 의 Test Reports 를 닮은 한 줄이다(지시).
        판정 아이콘 · Timestamp · TC ID · Test Case · Execution ID. */
@@ -1070,7 +979,11 @@ export default function RunAuto({
       const stail = sn && sn !== '—' ? ` · ${sn}${sdev ? ` (${sdev.name || sdev.ip || ''})` : ''}` : ''
       return `Step ${nos[stepAt] || stepAt + 1}${a && a !== '—' ? ` · ${a}` : ''}${stail}`
     }
-    if (p === 'events') return events.length ? `${events.length}줄` : ''
+    if (p === 'events') {
+      /* 지금 항목의 줄 수만 센다 — 판이 그 항목 것만 그린다(지시) */
+      const n = (liveLogs ?? []).filter((l) => Number(l.at ?? -1) === itemAt).length
+      return n ? `${n}줄` : ''
+    }
     /* **어디까지 왔나**를 먼저 적는다(지시: 총 몇 항목 중 몇 항목 진행).
        목록에는 끝난 것만 쌓이므로, 남은 수는 여기서만 알 수 있다. */
     const ranN = doneItems.length
