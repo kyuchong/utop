@@ -12814,6 +12814,54 @@ async def api_plan_run_delete(run_id: str):
     return {"success": True}
 
 
+# ── 회차가 남긴 결과 ────────────────────────────────────────────────
+#
+# 여태 결과는 사이클 문서에 덮어써서, 다시 돌리면 지난 회차가 사라졌다.
+# 이 넷이 회차를 따로 남기고 따로 꺼낸다. 목록은 **장비 출력을 안 싣는다** —
+# 10,000 줄을 그려도 수백 KB 이고, 전문은 한 줄을 펼칠 때만 꺼낸다.
+
+
+@app.get("/api/plan-runs/{run_id}/items")
+async def api_plan_run_items(run_id: str, tcid: str = "", bad: str = "0",
+                             limit: int = 300, offset: int = 0):
+    """Report 가 그리는 그 차례(끝난 것부터)로 회차 줄을 준다."""
+    return await db.plan_run_item_list(run_id, tcid, bad == "1", limit, offset)
+
+
+@app.get("/api/plan-runs/{run_id}/item")
+async def api_plan_run_item_get(run_id: str, tcid: str, round: int = 1):
+    """한 줄의 전문. 접힌 회차면 대표 회차의 것을 대신 준다."""
+    r = await db.plan_run_item_get(run_id, tcid, round)
+    if not r:
+        raise HTTPException(404, "그 회차를 찾을 수 없습니다")
+    return r
+
+
+@app.get("/api/plan-runs/{run_id}/stat")
+async def api_plan_run_stat(run_id: str, tcid: str = ""):
+    """몇 번 돌았고 몇 번 깨졌나 — 목록을 안 끌고 셈만 한다."""
+    return await db.plan_run_item_stat(run_id, tcid)
+
+
+@app.post("/api/plan-runs/{run_id}/item")
+async def api_plan_run_item_put(run_id: str, payload: dict):
+    """실행기가 항목 하나를 마칠 때마다 부른다.
+
+    사이클 문서와 달리 **덮어쓰지 않는다** — 회차마다 한 줄이 선다.
+    fold 면 앞 회차와 결과가 같을 때 전문을 또 쌓지 않는다."""
+    p = payload or {}
+    tcid = str(p.get("tcid") or "").strip()
+    if not tcid:
+        raise HTTPException(400, "tcid 가 없습니다")
+    body = p.get("data")
+    return await db.plan_run_item_put(
+        run_id, tcid, int(p.get("round") or 1), str(p.get("verdict") or ""),
+        str(p.get("at") or ""), int(p.get("took_ms") or 0),
+        body if isinstance(body, dict) else {},
+        bool(p.get("fold", True)),
+    )
+
+
 @app.post("/api/cycle/{cycle_id}")
 async def save_cycle(cycle_id: str, data: dict):
     # 부여 ID — 없을 때만 새로 매긴다. 한 번 박히면 영원하다…

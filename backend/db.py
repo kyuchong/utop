@@ -9,7 +9,7 @@ PostgreSQL 커넥션 풀 + 공통 CRUD 헬퍼.
 - 모든 함수는 async. 동기 컨텍스트에서 부를 때는 asyncio.run 또는 이벤트루프에 태워야 함.
 """
 from __future__ import annotations
-import os, json, re
+import os, json, re, hashlib
 import datetime as _dt
 from typing import Any, Optional
 from pathlib import Path
@@ -746,6 +746,176 @@ async def plan_run_delete(rid: str) -> bool:
     async with pool().acquire() as c:
         r = await c.execute("DELETE FROM plan_run WHERE id=$1", rid)
         return r.endswith("1")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# plan_run_item — 한 회차가 남긴 결과 (실행 1 : 항목·회차 N)
+#
+# 여태 결과는 사이클 문서에 **덮어썼다.** 두 번째로 돌리면 첫 번째가 그
+# 자리에서 사라졌다. 여기에 회차마다 따로 남긴다.
+#
+# 키가 (run_id, tcid, round) 라 한 표가 두 가지 회차를 같이 받는다 —
+# 사이클을 다시 돌린 것은 run_id 가, 고른 묶음이 반복하는 것은 round 가
+# 가른다. 반복 시험이 아니면 round 는 늘 1 이다.
+# ══════════════════════════════════════════════════════════════════════
+
+# 지문에서 빼는 칸 — 회차마다 늘 달라서, 넣으면 같은 결과가 하나도 안 겹친다
+_FP_DROP = {
+    "at", "ms", "sec", "tookMs", "took_ms", "executed_at", "executedAt",
+    "started_at", "startedAt", "ended_at", "endedAt", "logAt", "item_at",
+    "round", "rounds", "seq", "tick",
+}
+
+
+def _item_fp(data: Any) -> str:
+    """결과의 지문. 시각·소요시간을 뺀 나머지(명령·출력·판정)만 해시한다.
+
+    이것이 접기의 잣대다 — 부팅 10,000 회에서 9,997 회가 같은 출력이면
+    전문을 한 벌만 남기고 나머지는 대표 회차를 가리킨다."""
+    def clean(o):
+        if isinstance(o, dict):
+            return {k: clean(v) for k, v in sorted(o.items()) if k not in _FP_DROP}
+        if isinstance(o, list):
+            return [clean(x) for x in o]
+        return o
+    try:
+        raw = json.dumps(clean(data), ensure_ascii=False, sort_keys=True, default=str)
+    except Exception:  # noqa: BLE001
+        return ""
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+async def plan_run_item_put(run_id: str, tcid: str, round_: int = 1, verdict: str = "",
+                            at: str = "", took_ms: int = 0,
+                            data: Optional[dict] = None, fold: bool = True) -> dict:
+    """회차 하나의 결과를 남긴다.
+
+    fold 면 같은 항목의 앞 회차와 **결과가 똑같을 때 전문을 또 쌓지 않는다.**
+    same_as 로 대표 회차를 가리켜, 펼칠 때 그쪽 전문을 보여 준다.
+    """
+    body = dict(data or {})
+    fp = _item_fp(body)
+    same = None
+    async with pool().acquire() as c:
+        if fold and fp:
+            same = await c.fetchval(
+                "SELECT round FROM plan_run_item "
+                " WHERE run_id=$1 AND tcid=$2 AND fp=$3 AND same_as IS NULL AND round <> $4"
+                " ORDER BY round LIMIT 1",
+                run_id, tcid, fp, int(round_ or 1),
+            )
+        keep = {} if same is not None else body
+        await c.execute(
+            """
+            INSERT INTO plan_run_item (run_id, tcid, round, verdict, at, took_ms, fp, same_as, data)
+            VALUES ($1,$2,$3,$4,$5::timestamptz,$6,$7,$8,$9::jsonb)
+            ON CONFLICT (run_id, tcid, round) DO UPDATE SET
+              verdict=EXCLUDED.verdict, at=EXCLUDED.at, took_ms=EXCLUDED.took_ms,
+              fp=EXCLUDED.fp, same_as=EXCLUDED.same_as, data=EXCLUDED.data
+            """,
+            run_id, tcid, int(round_ or 1), str(verdict or ""), (at or None),
+            (int(took_ms) if took_ms else None), fp, same,
+            json.dumps(keep, ensure_ascii=False, default=str),
+        )
+    return {"round": int(round_ or 1), "same_as": same, "folded": same is not None}
+
+
+async def _bad_verdicts() -> list[str]:
+    """「실패」 로 세는 판정 값들. 셋업이 정본이라 코드에 박지 않는다."""
+    groups = await verdict_groups()
+    out = [v for v, g in groups.items() if g == "fail" and v]
+    out += [k for k, v in _LETTER_VERD.items() if v in out]  # 옛 글자(f·불합격)도
+    return sorted(set(out))
+
+
+async def plan_run_item_list(run_id: str, tcid: str = "", only_bad: bool = False,
+                             limit: int = 300, offset: int = 0) -> dict:
+    """목록 — **data 를 읽지 않는다.**
+
+    10,000 줄이어도 tcid·round·verdict·at 만 읽으면 수백 KB 다. 장비 출력은
+    한 줄을 펼칠 때(plan_run_item_get) 꺼낸다. 이것이 부팅 10,000 회를 열어도
+    화면이 멎지 않는 까닭이다 — 실행 목록이 data 를 안 읽는 것과 같은 이치."""
+    where, args = ["run_id = $1"], [run_id]
+    if tcid:
+        args.append(tcid)
+        where.append(f"tcid = ${len(args)}")
+    if only_bad:
+        bad = await _bad_verdicts()
+        if bad:
+            args.append(bad)
+            where.append(f"verdict = ANY(${len(args)}::text[])")
+        else:
+            where.append("false")
+    args.append(int(max(1, min(5000, limit))))
+    lim = f"${len(args)}"
+    args.append(int(max(0, offset)))
+    off = f"${len(args)}"
+    sql = (
+        "SELECT tcid, round, verdict, at, took_ms, same_as,"
+        "       (data <> '{}'::jsonb) AS has_body"
+        f"  FROM plan_run_item WHERE {' AND '.join(where)}"
+        f" ORDER BY at DESC NULLS LAST, tcid, round DESC LIMIT {lim} OFFSET {off}"
+    )
+    async with pool().acquire() as c:
+        rows = await c.fetch(sql, *args)
+        out = []
+        for r in rows:
+            d = dict(r)
+            if d.get("at") is not None:
+                d["at"] = d["at"].isoformat()
+            out.append(d)
+        return {"items": out}
+
+
+async def plan_run_item_get(run_id: str, tcid: str, round_: int = 1) -> Optional[dict]:
+    """한 줄의 상세. 접힌 회차면 **대표 회차의 전문**을 대신 준다."""
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "SELECT tcid, round, verdict, at, took_ms, same_as, data"
+            "  FROM plan_run_item WHERE run_id=$1 AND tcid=$2 AND round=$3",
+            run_id, tcid, int(round_ or 1),
+        )
+        if not r:
+            return None
+        d = dict(r)
+        if d.get("same_as") is not None and not (d.get("data") or {}):
+            rep = await c.fetchrow(
+                "SELECT data FROM plan_run_item WHERE run_id=$1 AND tcid=$2 AND round=$3",
+                run_id, tcid, int(d["same_as"]),
+            )
+            if rep:
+                d["data"] = rep["data"]
+        if d.get("at") is not None:
+            d["at"] = d["at"].isoformat()
+        if isinstance(d.get("data"), str):
+            try:
+                d["data"] = json.loads(d["data"])
+            except Exception:  # noqa: BLE001
+                d["data"] = {}
+        return d
+
+
+async def plan_run_item_stat(run_id: str, tcid: str = "") -> dict:
+    """회차 요약 — 몇 번 돌았고 몇 번 깨졌나. 목록을 안 끌고 셈만 한다."""
+    where, args = ["run_id = $1"], [run_id]
+    if tcid:
+        args.append(tcid)
+        where.append(f"tcid = ${len(args)}")
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT COALESCE(verdict,'') AS v, count(*) AS n"
+            f"  FROM plan_run_item WHERE {' AND '.join(where)} GROUP BY 1", *args)
+        top = await c.fetchrow(
+            "SELECT max(round) AS rounds, count(*) AS total, min(at) AS first_at, max(at) AS last_at"
+            f"  FROM plan_run_item WHERE {' AND '.join(where)}", *args)
+    hist = {str(r["v"]): int(r["n"]) for r in rows}
+    out = _fold_hist(hist, await verdict_groups())
+    out["rounds"] = int((top or {}).get("rounds") or 0)
+    out["total"] = int((top or {}).get("total") or 0)
+    for k in ("first_at", "last_at"):
+        v = (top or {}).get(k)
+        out[k] = v.isoformat() if v else None
+    return out
 
 
 async def plan_run_next_key(model: str) -> str:

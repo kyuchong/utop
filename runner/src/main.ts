@@ -54,6 +54,9 @@ interface Run {
   picked: Array<number | string>
   started_by?: string
   total: number
+  /** 이 일감이 매인 실행 기록. **회차를 가르는 열쇠**다 — 사이클을 다시
+   *  돌리면 새 plan_run 이 서고, 그 아래로 이번 결과가 따로 쌓인다 */
+  plan_run_id?: string | null
 }
 
 interface Item {
@@ -244,6 +247,46 @@ async function doRun(run: Run): Promise<void> {
     }
   }
 
+  /** 이 항목이 **이 회차에** 남긴 결과.
+   *
+   * 위 saveAll 은 사이클 문서에 덮어쓴다 — 한 벌뿐이라 다시 돌리면 지난
+   * 회차가 그 자리에서 사라진다(지적: 회차 표시는 되는데 확인할 방법이
+   * 없다). 이쪽은 실행 기록에 매달아 **회차마다 따로** 남기므로, 몇 번을
+   * 다시 돌려도 지난 것이 그대로 있다.
+   *
+   * 사이클 문서 저장은 그대로 둔다 — 지금 화면들이 그것을 보고 있고,
+   * 「가장 최근 결과」 라는 뜻으로 여전히 쓸모가 있다.
+   */
+  const saveRound = async (it: Item, tookMs: number, round = 1): Promise<void> => {
+    const rid = String(run.plan_run_id ?? '')
+    if (!rid) return // 실행 기록에 안 매인 일감이면 남길 자리가 없다
+    try {
+      const steps = (it.steps ?? []) as Array<Record<string, unknown>>
+      /* 항목 판정 — 판정 기준이 걸린 스텝이 하나라도 깨졌으면 Fail.
+         기준이 아예 없는 항목은 빈 값으로 둔다(조회만 하는 항목이다). */
+      const marked = steps.filter((s) => String(s?.mark ?? '').trim())
+      const verdict = marked.length
+        ? marked.some((s) => /fail/i.test(String(s.mark))) ? 'Fail' : 'Pass'
+        : ''
+      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(rid)}/item`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tcid: it.tcid,
+          round,
+          verdict,
+          at: it.executed_at ?? '',
+          took_ms: tookMs,
+          /* 서버가 앞 회차와 견주어 **같으면 전문을 또 쌓지 않는다**(접기) */
+          data: { steps: it.steps ?? [] },
+        }),
+      })
+      if (!r.ok) throw new Error(String(r.status))
+    } catch (e) {
+      /* 회차 기록이 실패해도 실행은 이어 간다 — 사이클 문서에는 이미 남았다 */
+      log(`회차 기록 실패 (${it.tcid}) — ${String(e)}`)
+    }
+  }
+
   /** 항목과 항목 사이 쉬는 시간(지시) — 장비가 숨 돌릴 틈을 준다 */
   const GAP_MS = 500
   let first = true
@@ -267,6 +310,8 @@ async function doRun(run: Run): Promise<void> {
     }
 
     push.itemAt(at)
+    /* 이 항목이 얼마나 걸렸나 — 회차 기록에 함께 남긴다 */
+    const t0 = Date.now()
     push.set({ item_at: at, item_name: it.name || it.tcid, step_at: -1, step_count: 0, step_name: '' })
     /* 항목 이름은 **안 찍는다**(지시: 왜 제목이 항상 먼저 나오나).
        무엇을 돌고 있는지는 머리줄과 Test Report 가 이미 말한다 — 로그
@@ -508,6 +553,9 @@ async function doRun(run: Run): Promise<void> {
     // 아직 서버에 없으니). 지금 저장하면 cycle_updated 로 다른 화면까지
     // 그 자리에서 초록으로 바뀐다. 중간에 죽어도 여기까지는 남는다.
     await saveAll()
+    /* 그리고 **이 회차의 것으로도** 남긴다. 사이클 문서는 다음 실행이
+       덮지만, 이쪽은 회차마다 한 줄씩 서서 지워지지 않는다. */
+    await saveRound(it, Date.now() - t0)
     if (push.stop) {
       stopped = true
       break

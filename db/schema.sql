@@ -759,6 +759,52 @@ CREATE INDEX IF NOT EXISTS plan_run_plan_idx  ON plan_run (plan_id);
 CREATE INDEX IF NOT EXISTS plan_run_vg_idx    ON plan_run (version_group);
 CREATE INDEX IF NOT EXISTS plan_run_upd_idx   ON plan_run (updated_at DESC);
 
+-- ── plan_run_item — 한 회차가 남긴 결과 (실행 1 : 항목·회차 N) ──────
+--
+-- 여태 결과는 사이클 문서(cycle.data.items[].steps)에 **덮어썼다.** 그래서
+-- 두 번째로 돌리면 첫 번째 결과가 그 자리에서 사라졌다(지적: 사이클에 회차
+-- 표시는 되는데 회차별로 확인할 방법이 없다). 여기에 회차마다 따로 남긴다.
+--
+-- 키가 (run_id, tcid, round) 인 것이 핵심이다 — 한 표가 **두 가지 회차**를
+-- 같이 받는다:
+--   · 사이클 회차 — 사이클을 다시 돌린 것. plan_run 이 하나씩 선다
+--   · 반복 회차   — 고른 항목 묶음이 도는 것. round 가 1,2,3… 으로 는다
+-- 반복 시험이 아니면 round 는 늘 1 이다.
+--
+-- 목록은 data 를 **안 읽는다.** 10,000 줄을 그려도 tcid·round·verdict·at
+-- 만 읽으면 수백 KB 다. 장비 출력은 한 줄을 펼칠 때만 꺼낸다 — 이것이
+-- 부팅 10,000 회를 열어도 화면이 멎지 않는 까닭이다.
+CREATE TABLE IF NOT EXISTS plan_run_item (
+  run_id     TEXT NOT NULL REFERENCES plan_run(id) ON DELETE CASCADE,
+  tcid       TEXT NOT NULL,
+  -- 반복 회차. 반복 시험이 아니면 1
+  round      INT  NOT NULL DEFAULT 1,
+  -- 항목 판정(Pass·Fail·…). 빈 값은 아직 안 돈 것
+  verdict    TEXT NOT NULL DEFAULT '',
+  -- 언제 돌았나 · 얼마나 걸렸나
+  at         TIMESTAMPTZ,
+  took_ms    INT,
+  -- 결과의 지문. 시각·소요시간을 뺀 나머지(명령·출력·판정)만 해시한다 —
+  -- 그것들은 회차마다 늘 달라서, 넣으면 같은 결과가 하나도 안 겹친다
+  fp         TEXT,
+  -- 같은 지문이 앞 회차에 있으면 그 번호. 이때 data 는 비운다(접기).
+  -- 10,000 회 중 9,997 회가 같으면 장비 출력 전문은 한 벌만 남는다
+  same_as    INT,
+  -- steps[] 등 상세. 접힌 회차는 '{}'
+  data       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY (run_id, tcid, round)
+);
+-- 목록은 시각 차례로 읽는다 — Report 가 「끝난 것부터 쌓이는」 그 차례다
+CREATE INDEX IF NOT EXISTS plan_run_item_at_idx  ON plan_run_item (run_id, at DESC);
+-- 실패만 추리기 · 한 항목의 회차만 보기
+CREATE INDEX IF NOT EXISTS plan_run_item_vrd_idx ON plan_run_item (run_id, verdict);
+CREATE INDEX IF NOT EXISTS plan_run_item_tc_idx  ON plan_run_item (run_id, tcid, round);
+-- 접기 — 이 항목의 같은 지문이 앞에 있었나. 전문을 가진 대표만 찾으면 된다
+CREATE INDEX IF NOT EXISTS plan_run_item_fp_idx  ON plan_run_item (run_id, tcid, fp)
+  WHERE same_as IS NULL;
+-- 이미 만들어진 DB 에는 CREATE TABLE IF NOT EXISTS 가 컬럼을 더해주지 않는다
+ALTER TABLE plan_run_item ADD COLUMN IF NOT EXISTS fp TEXT;
+
 -- ── Jira 이슈 ──────────────────────────────────────────────────
 --
 -- 지라에는 8만 건이 넘게 있다. 물을 때마다 지라에 가면 화면이 늘 느리고
