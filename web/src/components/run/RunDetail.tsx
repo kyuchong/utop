@@ -1846,6 +1846,9 @@ export default function RunDetail({
               }
               for (const [tc, list] of byTc) {
                 const asc = [...list].sort((a2, b2) => Number(a2.round) - Number(b2.round))
+                /* **한 번만 돈 항목에는 회차를 안 붙인다**(지적: TC ID 옆 숫자가
+                   뭐냐). (1) 과 1/0/1 은 아무 말도 안 하면서 자리만 먹는다 —
+                   그 항목을 여러 번 돌렸을 때만 뜻이 생긴다. */
                 let p = 0
                 let f = 0
                 for (const r of asc) {
@@ -1861,13 +1864,16 @@ export default function RunDetail({
                   const l = String(r.verdict ?? '').toLowerCase()
                   return {
                     id: String(r.tcid),
-                    round: Number(r.round) || 1,
+                    round: (byTc.get(String(r.tcid))?.length ?? 1) > 1 ? Number(r.round) || 1 : undefined,
                     name: m.name,
                     group: m.group,
                     verdict: (l.startsWith('p') ? 'p' : l.startsWith('f') ? 'f' : l ? 'b' : 'n') as Verdict,
                     at: String(r.at ?? '').replace('T', ' ').slice(0, 19),
                     exec: execId,
-                    sum: cum.get(`${r.tcid}#${r.round}`),
+                    sum:
+                      (byTc.get(String(r.tcid))?.length ?? 1) > 1
+                        ? cum.get(`${r.tcid}#${r.round}`)
+                        : undefined,
                   }
                 })
             }
