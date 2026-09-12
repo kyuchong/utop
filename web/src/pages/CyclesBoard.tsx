@@ -922,6 +922,13 @@ export default function CyclesBoard({
     }
     const arr = Array.isArray(saved) ? saved.map((x) => String(x)).filter(Boolean) : []
     setPickedRaw(arr)
+    /* 시험 조건도 문서가 정본이다 — 없으면 기본값(1회·계속 진행) */
+    const cond = (full as unknown as { test_cond?: unknown }).test_cond
+    setRepCfg(
+      cond && typeof cond === 'object' && Number((cond as RepeatCfg).repeat) > 0
+        ? (cond as RepeatCfg)
+        : null,
+    )
     /* 문서에서 읽어 왔으면 이미 굳은 것이다 — 그 말을 칩이 달고 있는다 */
     setPickSaved(arr.length ? 'saved' : '')
   }, [full, open])
@@ -3494,6 +3501,16 @@ export default function CyclesBoard({
           onGo={(cfg) => {
             setRepCfg(cfg)
             setRepPop(false)
+            /* **사이클에 굳힌다**(지시) — 화면 상태로 두면 새로고침 한 번에
+               1 회로 돌아간다. 사이클마다 조건이 다르니 사이클이 든다. */
+            if (open) {
+              void apiFetch(`/api/cycle/${encodeURIComponent(String(open))}/test-cond`, {
+                method: 'POST',
+                body: JSON.stringify({ cond: cfg }),
+              })
+                .then((r) => say(r.ok ? '시험 조건 저장됨 ✓' : '시험 조건을 저장하지 못했습니다'))
+                .catch(() => say('시험 조건을 저장하지 못했습니다'))
+            }
           }}
         />
       )}

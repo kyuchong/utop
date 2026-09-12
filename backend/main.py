@@ -9418,6 +9418,20 @@ async def cycle_picked_save(cycle_id: str, payload: dict):
     return {"ok": True, "picked": len(picked)}
 
 
+@app.post("/api/cycle/{cycle_id}/test-cond")
+async def cycle_cond_save(cycle_id: str, payload: dict):
+    """시험 조건을 사이클에 굳힌다 — 반복 횟수·간격·실패 처리·합격 기준.
+
+    화면 상태로 두면 새로고침 한 번에 1 회로 돌아간다(지적). 사이클마다
+    조건이 다르니 사이클이 들고 있어야 하고, 누가 열어도 같아야 한다."""
+    cond = (payload or {}).get("cond")
+    if cond is not None and not isinstance(cond, dict):
+        raise HTTPException(400, "cond 는 객체여야 합니다")
+    if not await db.cycle_set_cond(cycle_id, cond):
+        raise HTTPException(404, "사이클을 찾을 수 없습니다")
+    return {"ok": True}
+
+
 @app.get("/api/cycle/{cycle_id}/mail-log")
 async def cycle_mail_log(cycle_id: str, limit: int = 50):
     """결과서를 누구에게 언제 보냈나 — Test Summary 탭이 읽는다."""

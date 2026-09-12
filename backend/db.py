@@ -764,6 +764,24 @@ async def cycle_set_picked(cycle_id: str, picked: list) -> bool:
     return r.endswith("1")
 
 
+async def cycle_set_cond(cycle_id: str, cond: Optional[dict]) -> bool:
+    """사이클의 **시험 조건**(반복 횟수·간격·실패 처리·합격 기준)을 갈아 끼운다.
+
+    고른 항목과 같은 까닭으로 문서에 둔다(지시) — 화면 상태로 두면 새로고침
+    한 번에 1 회로 돌아간다. 사이클마다 조건이 다르므로 계정이 아니라
+    사이클이 들고 있어야 하고, 누가 열어도 같아야 한다.
+
+    items 는 손대지 않는다 — 수 MB 를 통째로 다시 쓰지 않으려고 이 칸만 바꾼다."""
+    async with pool().acquire() as c:
+        r = await c.execute(
+            "UPDATE cycle SET data = jsonb_set(data, '{test_cond}', $2::jsonb, true),"
+            "                 updated_at = now()"
+            " WHERE id = $1",
+            cycle_id, dict(cond or {}),
+        )
+    return r.endswith("1")
+
+
 async def plan_run_item_clear(run_id: str, tcids: Optional[list] = None) -> int:
     """이 실행의 회차 기록을 **지운다** — 다시 돌리기 직전에 부른다.
 
