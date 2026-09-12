@@ -539,6 +539,10 @@ CREATE TABLE IF NOT EXISTS cycle_run (
 CREATE INDEX IF NOT EXISTS idx_cycle_run_cycle  ON cycle_run(cycle_id);
 CREATE INDEX IF NOT EXISTS idx_cycle_run_status ON cycle_run(status);
 CREATE INDEX IF NOT EXISTS idx_cycle_run_queued ON cycle_run(queued_at DESC);
+-- 이 일감이 **몇 회차**인가. 일감 하나가 한 회차다 — 「다시 실행」 을 누르면
+-- 지난 회차를 덮지 않고 그 다음 번호로 쌓인다(plan_run_item.round).
+-- 반복 시험은 한 일감 안에서 이 번호부터 한 바퀴씩 늘어난다.
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS round INT NOT NULL DEFAULT 1;
 
 CREATE TABLE IF NOT EXISTS cycle_run_log (
   run_id        TEXT NOT NULL REFERENCES cycle_run(id) ON DELETE CASCADE,

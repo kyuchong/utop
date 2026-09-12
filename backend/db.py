@@ -931,6 +931,34 @@ async def plan_run_item_get(run_id: str, tcid: str, round_: int = 1) -> Optional
         return d
 
 
+async def plan_run_rounds(run_id: str) -> dict:
+    """회차 띠가 읽는 요약 — 회차마다 몇 건 돌고 몇 건 깨졌나.
+
+    **장비 출력을 안 읽는다.** 10,000 회차여도 셈만 세므로 가볍다."""
+    bad = await _bad_verdicts()
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT round,"
+            "       count(*) AS total,"
+            "       count(*) FILTER (WHERE verdict = ANY($2::text[])) AS fail,"
+            "       count(*) FILTER (WHERE verdict <> '') AS judged,"
+            "       min(at) AS from_at, max(at) AS to_at"
+            "  FROM plan_run_item WHERE run_id=$1 GROUP BY round ORDER BY round",
+            run_id, bad or [""],
+        )
+    out = []
+    for r in rows:
+        d = dict(r)
+        for k in ("from_at", "to_at"):
+            v = d.get(k)
+            d[k] = v.isoformat() if v else None
+        for k in ("round", "total", "fail", "judged"):
+            d[k] = int(d.get(k) or 0)
+        d["pass"] = max(0, d["judged"] - d["fail"])
+        out.append(d)
+    return {"rounds": out}
+
+
 async def plan_run_item_stat(run_id: str, tcid: str = "") -> dict:
     """회차 요약 — 몇 번 돌았고 몇 번 깨졌나. 목록을 안 끌고 셈만 한다."""
     where, args = ["run_id = $1"], [run_id]
@@ -2266,7 +2294,7 @@ async def cf_usage(target: str, key: str) -> int:
 _RUN_COLS = (
     "id, cycle_id, cycle_name, picked, status, stop_asked, started_by, worker, "
     "total, done, item_at, item_name, step_at, step_count, step_name, live_steps, "
-    "error, queued_at, started_at, ended_at, heartbeat_at, plan_run_id"
+    "error, queued_at, started_at, ended_at, heartbeat_at, plan_run_id, round"
 )
 
 
@@ -2285,14 +2313,29 @@ def _run_row(r) -> dict:
     return d
 
 
+async def plan_run_next_round(plan_run_id: str) -> int:
+    """이 실행에서 **다음 회차 번호**.
+
+    일감 하나가 한 회차다 — 「다시 실행」 을 누르면 지난 회차를 덮지 않고
+    그 다음 번호로 쌓인다. 한 항목만 다시 돌려도 새 번호를 받는다(그 회차엔
+    그 항목만 있다) — 「412 회차에 T0025 만 돌았다」 가 그대로 읽힌다."""
+    if not plan_run_id:
+        return 1
+    async with pool().acquire() as c:
+        n = await c.fetchval(
+            "SELECT COALESCE(max(round), 0) FROM plan_run_item WHERE run_id=$1", plan_run_id)
+    return int(n or 0) + 1
+
+
 async def run_create(run_id: str, cycle_id: str, cycle_name: str, picked: list, who: str,
-                     total: int, plan_run_id: str = "") -> dict:
+                     total: int, plan_run_id: str = "", rnd: int = 1) -> dict:
     async with pool().acquire() as c:
         r = await c.fetchrow(
-            "INSERT INTO cycle_run (id, cycle_id, cycle_name, picked, started_by, total, plan_run_id) "
-            "VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7) RETURNING " + _RUN_COLS,
+            "INSERT INTO cycle_run (id, cycle_id, cycle_name, picked, started_by, total,"
+            "                       plan_run_id, round) "
+            "VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8) RETURNING " + _RUN_COLS,
             run_id, cycle_id, cycle_name, json.dumps(picked or []), who, int(total or 0),
-            plan_run_id or None,
+            plan_run_id or None, int(rnd or 1),
         )
         return _run_row(r)
 

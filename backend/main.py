@@ -12837,6 +12837,12 @@ async def api_plan_run_item_get(run_id: str, tcid: str, round: int = 1):
     return r
 
 
+@app.get("/api/plan-runs/{run_id}/rounds")
+async def api_plan_run_rounds(run_id: str):
+    """회차 띠가 읽는 요약 — 회차마다 몇 건 돌고 몇 건 깨졌나."""
+    return await db.plan_run_rounds(run_id)
+
+
 @app.get("/api/plan-runs/{run_id}/stat")
 async def api_plan_run_stat(run_id: str, tcid: str = ""):
     """몇 번 돌았고 몇 번 깨졌나 — 목록을 안 끌고 셈만 한다."""
@@ -20960,9 +20966,12 @@ async def run_queue(payload: dict, request: Request):
     except Exception:
         pass
     run_id = _uuid4().hex[:16]
+    # 이 일감이 몇 회차인가 — 일감 하나가 한 회차다. 「다시 실행」 이 지난
+    # 회차를 덮지 않고 그 다음 번호로 쌓이는 것이 여기서 정해진다.
+    rnd = await db.plan_run_next_round(plan_run_id)
     run = await db.run_create(
         run_id, cycle_id, str(cyc.get("name") or ""), picked,
-        who or str(payload.get("who") or ""), len(picked), plan_run_id,
+        who or str(payload.get("who") or ""), len(picked), plan_run_id, rnd,
     )
     await _run_push(run)
     return {"ok": True, "run": run}

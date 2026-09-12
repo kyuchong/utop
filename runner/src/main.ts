@@ -54,9 +54,11 @@ interface Run {
   picked: Array<number | string>
   started_by?: string
   total: number
-  /** 이 일감이 매인 실행 기록. **회차를 가르는 열쇠**다 — 사이클을 다시
-   *  돌리면 새 plan_run 이 서고, 그 아래로 이번 결과가 따로 쌓인다 */
+  /** 이 일감이 매인 실행 기록. 회차 기록을 여기에 매단다 */
   plan_run_id?: string | null
+  /** **몇 회차인가.** 일감 하나가 한 회차다 — 「다시 실행」 은 지난 회차를
+   *  덮지 않고 그 다음 번호로 쌓인다. 서버가 걸 때 정해 준다 */
+  round?: number | null
 }
 
 interface Item {
@@ -257,7 +259,7 @@ async function doRun(run: Run): Promise<void> {
    * 사이클 문서 저장은 그대로 둔다 — 지금 화면들이 그것을 보고 있고,
    * 「가장 최근 결과」 라는 뜻으로 여전히 쓸모가 있다.
    */
-  const saveRound = async (it: Item, tookMs: number, round = 1): Promise<void> => {
+  const saveRound = async (it: Item, tookMs: number, round = Number(run.round) || 1): Promise<void> => {
     const rid = String(run.plan_run_id ?? '')
     if (!rid) return // 실행 기록에 안 매인 일감이면 남길 자리가 없다
     try {
