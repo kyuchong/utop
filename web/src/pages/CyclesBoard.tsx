@@ -2591,6 +2591,9 @@ export default function CyclesBoard({
             <RunDetail
               runId={selRun}
               plan={plan}
+              /* 어느 탭에서 열었나 — 실행 기록에는 mode 가 안 실려서, 이걸
+                 안 넘기면 Manual 탭에서도 자동 작업대가 열린다(지적) */
+              mode={runMode}
               /* 표에 보이는 그 차례 그대로 — 이 목록이 실행기가 도는 차례다 */
               only={runItems.filter((x) => (runMode === 'M' ? x.man : !x.man)).map((x) => x.tcid)}
               focus={runFocus}

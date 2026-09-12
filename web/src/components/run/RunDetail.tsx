@@ -305,10 +305,17 @@ type LiveLog = { seq?: number; ts?: string; round?: number | null; i?: number; k
 const LOG_KEEP = 4000
 
 export default function RunDetail({
-  runId, plan, onBack, lead, onClose, only, focus,
+  runId, plan, onBack, lead, onClose, only, focus, mode,
 }: {
   runId: string
   plan?: CycleMeta
+  /** **부르는 쪽이 고른 방식**(지시: Manual 탭인데 자동 작업대가 열린다).
+   *
+   *  실행 기록에는 mode 가 안 실린다 — 만들 때 안 보내므로 늘 빈 값이고,
+   *  아래 isAuto 가 기본값 「자동」 으로 떨어져 수동 탭에서도 자동 작업대가
+   *  열렸다. 사람이 Manual 탭에서 눌렀다는 것보다 정확한 신호는 없으므로
+   *  **이 값이 가장 먼저**다. 안 주면 예전처럼 실행 기록에서 뽑는다. */
+  mode?: 'A' | 'M'
   /**
    * **이 실행기에서 다룰 항목과 그 차례**(지시).
    *
@@ -736,7 +743,9 @@ export default function RunDetail({
      없으면 지금 고른 항목의 성격에서 뽑는다 — Plans 와 같은 규칙이다. */
   /* 「M」 처럼 팀이 바꾼 이름도 알아듣는다(lib/runMode). 글자를 그대로
      견주던 탓에 253 에서는 수동 시험도 자동 작업대가 열렸다. */
-  const isAuto = !isManual(run?.mode || meta?.run_type || meta?.kind || '자동')
+  /* 부르는 쪽이 방식을 정해 주면 그것이 먼저다 — 사람이 「Manual 탭」 에서
+     눌렀다는 사실보다 확실한 신호는 없다. 안 주면 예전 규칙을 그대로 탄다. */
+  const isAuto = mode ? mode === 'A' : !isManual(run?.mode || meta?.run_type || meta?.kind || '자동')
   /** 멈출 것이 있나 — 도는 일감이 있거나, 수동이 시작만 눌린 상태 */
   /* 수동에는 중지가 없다(지시) — 멈출 실행기가 없고, 경과는 기록일 뿐이다 */
   const canStop = jobLive
