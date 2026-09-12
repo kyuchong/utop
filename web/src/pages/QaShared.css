@@ -395,3 +395,12 @@
 /* 판정 메뉴의 색점 — 셋업 색을 그대로 */
 .qav .qa-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 2px; vertical-align: -1px; }
 .qav .qa-menuh { padding: 2px 8px 4px; font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+/* 체크한 항목 수 — 도구 줄에서 단추 둘 앞에 선다(반복 시험, 승인).
+   체크한 것이 있을 때만 나타나므로 평소 화면은 지금 그대로다. */
+.cu-pick {
+  display: inline-flex; align-items: center;
+  background: #edf7f7; border: 1px solid #bfe0e3; color: #0b7580;
+  border-radius: 999px; padding: 1px 9px;
+  font-size: 10.5px; font-weight: 800; white-space: nowrap;
+}

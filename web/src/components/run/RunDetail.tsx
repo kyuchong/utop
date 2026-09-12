@@ -305,8 +305,15 @@ type LiveLog = { seq?: number; ts?: string; round?: number | null; i?: number; k
 const LOG_KEEP = 4000
 
 export default function RunDetail({
-  runId, plan, onBack, lead, onClose, only, focus, mode,
+  runId, plan, onBack, lead, onClose, only, focus, mode, repeat,
 }: {
+  /** 걸어 둔 반복 규칙 — 있으면 「시험 시작」 이 이대로 건다(반복 시험).
+   *  없으면 여태처럼 한 바퀴만 돈다. */
+  repeat?: {
+    repeat: number; gapSec: number
+    onFail: 'go' | 'hold' | 'stop'
+    holdHour: number; holdOver: 'stop' | 'go'; failMax: number
+  }
   runId: string
   plan?: CycleMeta
   /** **부르는 쪽이 고른 방식**(지시: Manual 탭인데 자동 작업대가 열린다).
@@ -1032,7 +1039,22 @@ export default function RunDetail({
     try {
       const r = await apiFetch('/api/runs', {
         method: 'POST',
-        body: JSON.stringify({ plan_run_id: runId, ...(order.length ? { pick: order } : {}) }),
+        body: JSON.stringify({
+          plan_run_id: runId,
+          ...(order.length ? { pick: order } : {}),
+          /* 반복 규칙을 걸어 두었으면 함께 보낸다 — 실행기가 고른 묶음을
+             그만큼 돌고, 실패했을 때 무엇을 할지도 여기서 정해진다 */
+          ...(repeat
+            ? {
+                repeat: Math.max(1, Math.round(repeat.repeat)),
+                gap_ms: Math.max(0, Math.round(repeat.gapSec * 1000)),
+                on_fail: repeat.onFail,
+                hold_min: Math.max(1, Math.round(repeat.holdHour * 60)),
+                hold_over: repeat.holdOver,
+                fail_max: Math.max(0, Math.round(repeat.failMax)),
+              }
+            : {}),
+        }),
       })
       const j = (await r.json().catch(() => ({}))) as { run?: { id?: string }; detail?: string }
       if (!r.ok) throw new Error(j.detail || '실행기에 걸지 못했습니다')

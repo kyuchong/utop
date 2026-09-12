@@ -32,6 +32,7 @@ import NTable from '@/components/ntable/NTable'
 import { EMPTY_VIEW } from '@/components/ntable/types'
 import { autoColor } from '@/components/ntable/palette'
 import type { NCol, NRow, NView } from '@/components/ntable/types'
+import RepeatPop, { type RepeatCfg } from '@/components/cycle/RepeatPop'
 import MakeCycle from '@/components/cycle/MakeCycle'
 import AddItems from '@/components/cycle/AddItems'
 import CycleEdit from '@/components/cycle/CycleEdit'
@@ -287,6 +288,14 @@ export default function CyclesBoard({
     () => (prefGet('utop.cyc.daykind') === 'bar' ? 'bar' : 'line'),
   )
   const [runMode, setRunMode] = useState<'A' | 'M'>('A')
+  /** 표에서 체크한 항목 — 있으면 도구 줄에 단추 둘이 나타난다(승인) */
+  const [picked, setPicked] = useState<string[]>([])
+  /** 실행을 열 때 **고정한** 목록. picked 를 그대로 쓰면 표에서 체크를
+   *  푸는 순간 도는 목록이 바뀐다 */
+  const [runPick, setRunPick] = useState<string[]>([])
+  /** 반복 시험 규칙 — 걸어 두면 실행 화면의 「시험 시작」 이 이대로 건다 */
+  const [repPop, setRepPop] = useState(false)
+  const [repCfg, setRepCfg] = useState<RepeatCfg | null>(null)
   const [runFocus, setRunFocus] = useState('')
   const [wide, setWide] = useState(false)
   const [runMoreAt, setRunMoreAt] = useState<{ x: number; y: number } | null>(null)
@@ -1247,6 +1256,8 @@ export default function CyclesBoard({
       if (!made) return
     }
     setRunMode(mode)
+    /* 체크한 것이 있으면 **그것만** 돈다(승인: iTest 처럼 몇 개만) */
+    setRunPick(picked)
     setRunFocus(focus)
     setRunnerOn(true)
     /* 3열에 끼워 넣으면 실행기가 화면의 3분의 1을 받아 스텝 표가 설 자리가
@@ -1710,7 +1721,8 @@ export default function CyclesBoard({
               if (col.key === 'last' && !row.last) return <span className="cu-m">—</span>
               return undefined
             }}
-            perPage={100}
+            onSelect={setPicked}
+          perPage={100}
           />
         </div>
       </section>
@@ -2065,6 +2077,34 @@ export default function CyclesBoard({
               >
                 ↓ 이 차례로 저장
               </button>
+              {/* ── 체크한 것이 있을 때만 나타난다(승인). 아무것도 안 고르면
+                  지금 화면과 완전히 같다 — 단추가 아예 없다. ── */}
+              {picked.length > 0 && (
+                <>
+                  <span className="cu-pick">{picked.length}개 선택</span>
+                  <button
+                    type="button"
+                    className="cu-new small"
+                    title="고른 항목만 돌립니다 — 나머지 결과는 건드리지 않습니다"
+                    onClick={() => {
+                      setRepCfg(null)
+                      openRunner(man ? 'M' : 'A')
+                    }}
+                  >
+                    ▶ 고른 항목 실행
+                  </button>
+                  {!man && (
+                    <button
+                      type="button"
+                      className="cu-new small"
+                      title="고른 항목을 한 묶음으로 여러 번 돌립니다 — 부팅 반복 같은 내구 시험"
+                      onClick={() => setRepPop(true)}
+                    >
+                      🔁 반복 실행…
+                    </button>
+                  )}
+                </>
+              )}
             </>
           }
           perPage={100}
@@ -2595,7 +2635,13 @@ export default function CyclesBoard({
                  안 넘기면 Manual 탭에서도 자동 작업대가 열린다(지적) */
               mode={runMode}
               /* 표에 보이는 그 차례 그대로 — 이 목록이 실행기가 도는 차례다 */
-              only={runItems.filter((x) => (runMode === 'M' ? x.man : !x.man)).map((x) => x.tcid)}
+              only={runItems
+                .filter((x) => (runMode === 'M' ? x.man : !x.man))
+                /* 고른 것이 있으면 그것만 — 없으면 여태처럼 전부 */
+                .filter((x) => !runPick.length || runPick.includes(x.tcid))
+                .map((x) => x.tcid)}
+              /* 걸어 둔 반복 규칙 — 「시험 시작」 이 이대로 건다 */
+              repeat={repCfg ?? undefined}
               focus={runFocus}
               onBack={() => setRunnerOn(false)}
               lead={
@@ -2946,6 +2992,21 @@ export default function CyclesBoard({
           onDone={() => {
             setCloneId('')
             void plansQ.refetch()
+          }}
+        />
+      )}
+      {/* 반복 시험 규칙(승인) — 걸어 두면 실행 화면의 「시험 시작」 이 이대로
+          건다. 바로 돌리지 않는 것은 일부러다: 10,000 회가 실수로 시작되면
+          장비가 며칠 잡힌다. 한 번 더 누르게 한다. */}
+      {repPop && (
+        <RepeatPop
+          count={picked.length}
+          init={repCfg ?? undefined}
+          onClose={() => setRepPop(false)}
+          onGo={(cfg) => {
+            setRepCfg(cfg)
+            setRepPop(false)
+            openRunner('A')
           }}
         />
       )}
