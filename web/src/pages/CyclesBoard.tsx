@@ -404,16 +404,18 @@ export default function CyclesBoard({
   /* 시험 항목 탭의 노션 표 — 열 정의는 코드가 정본, 폭·숨김·차례는 계정에.
      유형 선택지는 담긴 값에서 뽑아 색만 자동으로 입힌다. */
   const [itView, setItView] = useState<NView>({ ...EMPTY_VIEW, groupBy: 'folder' })
+  /**
+   * 열 차례는 **박아 둔다**(지시) — 폴더 ▸ REQ ▸ Key ▸ TCID ▸ 제목.
+   *
+   * 사이클을 열 때마다 손으로 끌어 옮기고 있었다. 사람이 만든 칸(Key)은
+   * 여기 없다 — 열쇠를 모르므로 아래 itCols 에서 **REQ 바로 뒤**에 끼운다.
+   */
   const IT_DEFS: NCol[] = [
-    /* **시험 차례** — 이 열로 정렬해야 끌어 옮길 수 있다(정렬을 지우지
-       않는다: 사람이 잡아 둔 정렬·묶기를 코드가 날리면 안 된다) */
-    { key: 'seq', label: '#', type: 'number', width: 52, fixed: true },
+    { key: 'folder', label: '폴더', type: 'text', width: 200 },
+    { key: 'req', label: 'REQ', type: 'text', width: 130 },
+    /* ↑ 여기 뒤에 사람이 만든 칸(Key 등)이 선다 */
     { key: 'id', label: 'ID', type: 'text', width: 124, fixed: true },
     { key: 'title', label: '제목', type: 'text', width: 340, fixed: true },
-    { key: 'req', label: 'REQ', type: 'text', width: 130 },
-    { key: 'folder', label: '폴더', type: 'text', width: 200 },
-    { key: 'mg', label: '모델그룹', type: 'text', width: 90 },
-    { key: 'model', label: '모델명', type: 'text', width: 90 },
     { key: 'type', label: '유형', type: 'select', width: 96, options: [] },
     {
       key: 'run', label: '타입', type: 'select', width: 88,
@@ -423,6 +425,11 @@ export default function CyclesBoard({
       ],
     },
     { key: 'fail', label: '실패 이력', type: 'text', width: 110 },
+    /* **시험 차례** — 이 열로 정렬해야 끌어 옮길 수 있다(정렬을 지우지
+       않는다: 사람이 잡아 둔 정렬·묶기를 코드가 날리면 안 된다) */
+    { key: 'seq', label: '#', type: 'number', width: 52, fixed: true },
+    { key: 'mg', label: '모델그룹', type: 'text', width: 90 },
+    { key: 'model', label: '모델명', type: 'text', width: 90 },
   ]
   const [itColsRaw, setItCols] = useNCols('utop.ntb.cycit.cols', IT_DEFS)
 
@@ -451,6 +458,20 @@ export default function CyclesBoard({
     prefSet('utop.ntb.cyc.statslim', '1')
     const cur = lsCols.find((c) => c.key === 'stat')
     if (cur && (cur.width ?? 0) > 120) setLsCols(lsCols.map((c) => (c.key === 'stat' ? { ...c, width: 110 } : c)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  /* 항목 표의 **열 차례를 한 번만** 새 기본으로 바로잡는다(지시: 폴더 ▸
+     REQ ▸ Key ▸ TCID ▸ 제목). 계정에 남은 옛 차례가 코드의 기본을 이겨,
+     고쳐도 예전 그대로 보인다. 폭·숨김은 건드리지 않고 **차례만** 세운다 —
+     사람이 그 뒤에 옮긴 것은 그대로 남는다. */
+  useEffect(() => {
+    if (prefGet('utop.ntb.cycit.order3') === '1') return
+    prefSet('utop.ntb.cycit.order3', '1')
+    const rank = new Map(IT_DEFS.map((c, i) => [c.key, i * 10]))
+    /* 만든 칸(Key 등)은 REQ 바로 뒤 — 정의에 없으니 자리를 따로 준다 */
+    const cfAt = (rank.get('req') ?? 0) + 5
+    const at = (k: string) => rank.get(k) ?? (k.startsWith('cf_') ? cfAt : 1e9)
+    setItCols([...itColsRaw].sort((a, b) => at(a.key) - at(b.key)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1048,15 +1069,26 @@ export default function CyclesBoard({
          늘어났다(지적: Key 가 엄청나게 많이 생긴다). 열쇠로 걸러 낸다. */
       (() => {
         const seen = new Set<string>()
-        return [
-          ...itColsRaw,
-          ...cfTc.map((cf) => ({
-            key: `cf_${String(cf.key ?? '')}`,
-            label: String(cf.label ?? ''),
-            type: (String(cf.type ?? '') === 'number' ? 'number' : 'text') as NCol['type'],
-            width: 96,
-          })),
-        ].filter((c) => {
+        const made: NCol[] = cfTc.map((cf) => ({
+          key: `cf_${String(cf.key ?? '')}`,
+          label: String(cf.label ?? ''),
+          type: (String(cf.type ?? '') === 'number' ? 'number' : 'text') as NCol['type'],
+          width: 96,
+        }))
+        /* 만든 칸은 **REQ 바로 뒤**에 세운다(지시: 폴더 ▸ REQ ▸ Key ▸ TCID
+           ▸ 제목). 맨 뒤에 붙이던 때는 사이클을 열 때마다 손으로 끌어 와야
+           했다. 사람이 이미 자리를 옮겨 저장한 칸은 그 자리를 지킨다 —
+           아래 dedup 이 먼저 만난 것을 남긴다. */
+        const have = new Set(itColsRaw.map((c) => c.key))
+        const fresh = made.filter((c) => !have.has(c.key))
+        const laid: NCol[] = []
+        for (const c of itColsRaw) {
+          laid.push(c)
+          if (c.key === 'req') laid.push(...fresh)
+        }
+        /* REQ 열을 숨겼거나 지웠으면 갈 곳이 없다 — 뒤에 붙인다 */
+        if (!itColsRaw.some((c) => c.key === 'req')) laid.push(...fresh)
+        return laid.filter((c) => {
           if (!c.key || seen.has(c.key)) return false
           seen.add(c.key)
           return true
