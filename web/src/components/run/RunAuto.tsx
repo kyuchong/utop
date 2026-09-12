@@ -1,8 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
-import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import BlockText from '@/components/tc/BlockText'
-import { stepLogOn } from '@/components/tc/types'
+import { IconChevron } from '@/components/icons'
 import './RunAuto.css'
 
 /**
@@ -67,15 +66,19 @@ export interface AutoItem {
 }
 
 type SlotId = 'LT' | 'LB' | 'RT' | 'RB'
-type PanelId = 'steps' | 'response' | 'events' | 'tc'
-const DEFAULT: Record<SlotId, PanelId> = { LT: 'steps', LB: 'events', RT: 'response', RB: 'tc' }
-/* 판 넷. 「Sessions」 는 걷었다(지시) — 세션 현황은 스텝의 Session 칸과
-   실행 이벤트가 이미 말한다. */
-const ALL_PANELS: PanelId[] = ['steps', 'response', 'events', 'tc']
+type PanelId = 'response' | 'tc'
+const DEFAULT: Record<SlotId, PanelId> = { LT: 'tc', LB: 'tc', RT: 'response', RB: 'response' }
+/*
+ * **판 둘**(승인) — Test Report 와 Response.
+ *
+ * 「실행 Step」 과 「실행 이벤트」 는 걷었다. 그 둘이 하던 말은 Response 의
+ * 스텝 카드 안으로 들어왔다 — 표의 Expected Result 는 판정 기준 줄로,
+ * 이벤트의 한 줄은 RCA 줄로. 카드를 접으면 표와 같은 밀도가 된다.
+ * 「Sessions」 도 앞서 같은 이유로 걷었다.
+ */
+const ALL_PANELS: PanelId[] = ['response', 'tc']
 const TITLE: Record<PanelId, string> = {
-  steps: '실행 Step',
   response: 'Response',
-  events: '실행 이벤트',
   tc: 'Test Report',
 }
 
@@ -141,10 +144,6 @@ function Verdict({ v }: { v: string }) {
   )
 }
 
-/** 판정 시각 — `2026-09-08 08:18:33` 을 `26/09/08 08:18:33` 로 줄인다(지시).
- *  칸이 좁아 연도 앞 두 자리는 접는다 — 같은 해 안에서 보는 목록이다. */
-/** 실시간 줄은 **뒤에서 이만큼**만 그린다 — 10,000 회를 다 그리면 죽는다 */
-const LIVE_MAX = 600
 
 /**
  * Test Report 의 Timestamp — `26/09/10 10:37:17`.
@@ -195,8 +194,8 @@ const FLT_N = (t: { total: number; p: number; f: number; n: number }) => ({
 })
 
 export default function RunAuto({
-  items, cur, onPick, steps, stepAt, onStep, dut, runStartedAt, itemAt = -1,
-  runStep, runItem, waitAt, devices, liveLogs,
+  items, cur, onPick, steps, stepAt, onStep, dut, runStartedAt,
+  runStep, runItem, waitAt, devices,
 }: {
   /** 장비 목록 — 세션 판이 세션에 붙은 장비를 여기서 찾는다 */
   devices?: AutoDev[]
@@ -484,8 +483,6 @@ export default function RunAuto({
     setFolded(next)
   }, [cur, steps])
 
-  /** 실행 로그의 「부적합만」 — 시험 항목 화면과 같은 단추 */
-  const [logOnly, setLogOnly] = useState(false)
 
   /** 반복 스텝에서 **몇 회차를 보고 있나**(지시) — -1 이면 마지막 회차 */
   const [roundAt, setRoundAt] = useState(-1)
@@ -671,84 +668,6 @@ export default function RunAuto({
 
   /* ── 판 그리기 ── */
   const body = (id: PanelId) => {
-    if (id === 'steps')
-      return (
-        <div className="ra-scroll">
-          {steps.length ? (
-            <table className="ra-tbl">
-              <thead>
-                <tr>
-                  <th style={{ width: 30 }}>#</th>
-                  {/* Action 은 「SNMP Public」 처럼 두 마디짜리가 있다 — 접히면
-                      그 줄만 두 줄이 되어 표가 들쭉날쭉해진다(지적). 한 줄로 세운다 */}
-                  <th className="ra-act" style={{ width: 78 }}>Action</th>
-                  <th style={{ width: 58 }}>Session</th>
-                  <th>Description</th>
-                  <th>Expected Result</th>
-                  <th style={{ width: 74 }}>Status</th>
-                  <th style={{ width: 62 }}>Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {steps.map((s, i) =>
-                  /* 주석은 **사이클 표에 안 선다**(지시) — 장비로 아무것도
-                     안 나가고 판정도 없다. 자리(i)는 그대로 두어 runStep·
-                     onStep 이 어긋나지 않게 한다. */
-                  s.kind === 'comment' ? null : (
-                  <tr
-                    key={s.no ?? i}
-                    ref={i === runStep ? runRowRef : undefined}
-                    className={
-                      i === runStep ? 'ra-running' : i === stepAt ? 'ra-on' : undefined
-                    }
-                    onClick={() => onStep(i)}
-                  >
-                    <td>{nos[i] || s.no || i + 1}</td>
-                    <td className="ra-act">
-                      <b>{s.action ?? (s.cmd ? 'command' : '—')}</b>
-                    </td>
-                    <td>{s.session ?? '—'}</td>
-                    {/* 시험 항목의 **「명령 내용」** 그대로(지시) */}
-                    <td>{s.cmd || s.t || '—'}</td>
-                    <td>{s.expected ?? '—'}</td>
-                    <td>
-                      {i === runStep ? (
-                        <span className="ra-st run">
-                          <i />
-                          RUN
-                        </span>
-                      ) : (
-                        /* 판정이 있으면 PASS·FAIL, 없어도 **돌았으면 완료**다.
-                           WAIT 는 아직 안 돌린 것만 — 안 그러면 건너뛴 것처럼 보인다. */
-                        <span
-                          className={`ra-st ${
-                            s.mark === 'Pass' ? 'ok' : s.mark === 'Fail' ? 'bad' : s.ran ? 'done' : 'wait'
-                          }`}
-                          title={
-                            s.mark || !s.ran
-                              ? undefined
-                              : '돌았습니다 — 이 스텝에는 견줄 기준이 없어 판정이 없습니다'
-                          }
-                        >
-                          {s.mark === 'Pass' ? 'PASS' : s.mark === 'Fail' ? 'FAIL' : s.ran ? '완료' : 'WAIT'}
-                        </span>
-                      )}
-                    </td>
-                    <td className="ra-num">
-                      {/* **그 스텝이 걸린 시간**(지시). 여기 있던 「10회」 배지는
-                          걷었다 — 회차는 실행 이벤트가 회차마다 적는다. */}
-                      {tookText(s.tookMs) || mmss(s.took)}
-                    </td>
-                  </tr>
-                  ),
-                )}
-              </tbody>
-            </table>
-          ) : (
-            <div className="ra-empty">스텝이 없습니다 — 이 항목은 아직 안 돌렸습니다.</div>
-          )}
-        </div>
-      )
 
     if (id === 'response')
       return (
@@ -867,7 +786,7 @@ export default function RunAuto({
                   ) : (
                     <button
                       type="button"
-                      className="ra-bcar hit"
+                      className={`ra-bcar hit${folded.has(seeUpTo) ? '' : ' open'}`}
                       title={folded.has(seeUpTo) ? '펴기' : '접기'}
                       onClick={() =>
                         setFolded((f) => {
@@ -878,7 +797,7 @@ export default function RunAuto({
                         })
                       }
                     >
-                      {folded.has(seeUpTo) ? '▸' : '▾'}
+                      <IconChevron />
                     </button>
                   )}
                   <b className="ra-bno">{nos[seeUpTo] ? `Step ${nos[seeUpTo]}` : '주석'}</b>
@@ -1040,48 +959,6 @@ export default function RunAuto({
         </>
       )
 
-    if (id === 'events') {
-      /*
-       * **시험 항목 화면의 실행 로그와 같은 부품**으로 그린다(지시).
-       *
-       * 표로 따로 그리던 때는 같은 사건이 두 화면에서 다른 모양이었다 —
-       * 부품을 나눠 쓰면 한쪽을 고치면 양쪽이 같이 고쳐진다.
-       *
-       * 보여 주는 단위는 **지금 고른 항목 하나**다(지시). 62 건이 한 흐름으로
-       * 이어지면 어느 시험의 Step 1 인지 알 수 없다.
-       *
-       * 로그를 끈 갈래는 여기서도 안 나온다. 10,000 회를 다 그리면 화면이
-       * 죽으므로 뒤에서 LIVE_MAX 줄만 남긴다.
-       */
-      const lines: LogLine[] = (liveLogs ?? [])
-        .filter((l) => {
-          if (Number(l.at ?? -1) !== itemAt) return false
-          const i2 = Number(l.i ?? -1)
-          const own = i2 >= 0 ? steps[i2] : undefined
-          return !own || stepLogOn(own)
-        })
-        .slice(-LIVE_MAX)
-        .map((l, k) => ({
-          n: Number(l.seq ?? k),
-          i: Number(l.i ?? -1),
-          kind: String(l.kind ?? 'info'),
-          text: String(l.text ?? ''),
-          round: Number(l.round ?? 0) || undefined,
-          at: String(l.ts ?? ''),
-        }))
-      return (
-        <RunLog
-          lines={lines}
-          nos={nos}
-          only={logOnly}
-          onOnly={setLogOnly}
-          onPick={(i2) => onStep(i2)}
-          onClear={() => {
-            /* 서버에 쌓인 기록이라 화면에서 지우지 않는다 — 다음 실행이 덮는다 */
-          }}
-        />
-      )
-    }
 
     /* Test Report — iTest 의 Test Reports 를 닮은 한 줄이다(지시).
        판정 아이콘 · Timestamp · TC ID · Test Case · Execution ID. */
@@ -1173,7 +1050,6 @@ export default function RunAuto({
 
   /** 판 제목 옆 꼬리말 — 목업의 「CLI Response · Step 3 Live」 자리 */
   const subOf = (p: PanelId): string => {
-    if (p === 'steps') return cur || ''
     if (p === 'response') {
       if (!steps.length) return ''
       /* action 이 「—」 인 스텝이 있다 — 그대로 붙이면 「Step 1 · —」 가 된다 */
@@ -1185,11 +1061,6 @@ export default function RunAuto({
       const sdev = devOf(steps[stepAt]?.devId)
       const stail = sn && sn !== '—' ? ` · ${sn}${sdev ? ` (${sdev.name || sdev.ip || ''})` : ''}` : ''
       return `Step ${nos[stepAt] || stepAt + 1}${a && a !== '—' ? ` · ${a}` : ''}${stail}`
-    }
-    if (p === 'events') {
-      /* 지금 항목의 줄 수만 센다 — 판이 그 항목 것만 그린다(지시) */
-      const n = (liveLogs ?? []).filter((l) => Number(l.at ?? -1) === itemAt).length
-      return n ? `${n}줄` : ''
     }
     /* **어디까지 왔나**를 먼저 적는다(지시: 총 몇 항목 중 몇 항목 진행).
        목록에는 끝난 것만 쌓이므로, 남은 수는 여기서만 알 수 있다. */

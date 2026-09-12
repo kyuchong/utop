@@ -136,10 +136,14 @@
   padding: 3px 8px; background: #e6f1f3; border-bottom: 1px solid #c9dee3;
   color: #17505c; font-weight: 600; font-size: 12px;
 }
+/* 스텝 번호 칸 — **고정 폭**이라야 명령이 같은 자리에서 시작한다(지적:
+   들쭉날쭉하다). `Step 1` 과 `Step 11` 은 글자 수가 달라 뒤가 밀렸다. */
 .ra-bno {
   flex: none; font-size: 9.5px; font-weight: 800; color: #6c828b;
-  background: #fff; border: 1px solid #dde6e9; border-radius: 4px; padding: 1px 5px;
-  font-family: -apple-system, "Malgun Gothic", sans-serif;
+  background: #fff; border: 1px solid #dde6e9; border-radius: 4px;
+  padding: 1px 5px; letter-spacing: .02em;
+  min-width: 52px; box-sizing: border-box; text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .ra-bcmd { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ra-confoot {
@@ -664,15 +668,18 @@
 /* 블록 머리의 접기 화살표 — **모든 줄이 같은 폭**을 먹어야 Step 라벨이
    세로로 선다(지적: 정렬이 안 되고 들쭉날쭉하다). 펼 것이 없는 줄에는
    같은 크기의 빈 자리를 둔다. 과녁도 넉넉히. */
+/* 접기 화살표 — **사이클 트리와 같은 부품·같은 몸짓**(지시). 글자 화살표는
+   글리프마다 여백이 달라 어떻게 세워도 들쭉날쭉했다. 그림을 칸 한가운데
+   두고 펴질 때 90도 돌린다. */
 .ra-bcar {
   flex: none;
   box-sizing: border-box;
   width: 20px; height: 20px;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 12px; line-height: 1; color: #6f8089;
+  display: grid; place-items: center;
+  border: 0; background: none; padding: 0; margin: 0;
+  color: #6f8089; border-radius: 4px;
 }
-button.ra-bcar {
-  border: 0; background: none; padding: 0; margin: 0; font: inherit;
-  font-size: 12px; cursor: pointer; border-radius: 4px;
-}
+button.ra-bcar { cursor: pointer; }
 button.ra-bcar:hover { background: #cfe3e8; color: #12414c; }
+.ra-bcar svg { width: 13px; height: 13px; transition: transform 0.12s; }
+.ra-bcar.open svg { transform: rotate(90deg); }
