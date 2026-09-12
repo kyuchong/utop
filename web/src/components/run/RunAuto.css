@@ -549,9 +549,12 @@
 /* 판 내리기 — 안 보는 판은 아래 띠로(지시). 올리면 제자리(슬롯)로 돌아온다 */
 /* 짙은 머리 위에서는 밝은 글자라야 보인다 */
 .ra-minb {
-  border: 0; background: none; padding: 0 4px; font: inherit; font-size: 13px;
-  color: rgba(234, 244, 246, 0.8); cursor: pointer; line-height: 1;
+  /* 누를 자리가 너무 좁았다(지적) — 글자만 한 과녁이라 빗나갔다 */
+  border: 0; background: none; padding: 3px 8px; font: inherit; font-size: 16px;
+  color: rgba(234, 244, 246, 0.85); cursor: pointer; line-height: 1;
+  border-radius: 5px;
 }
+.ra-minb:hover { background: rgba(255, 255, 255, 0.14); }
 .ra-minb:hover { color: #fff; }
 .ra-dockbar {
   flex: none; display: flex; gap: 6px; padding: 5px 8px 2px; align-items: center;
@@ -611,3 +614,19 @@
 .ra-blk.v-fail > .ra-cmd { padding-left: 12px; }
 .ra-st.ok { background: #e8f5ed; color: #12643a; }
 .ra-st.bad { background: #fdeaea; color: #a02323; }
+
+/* 스텝 칩 줄 — 판정이 걸린 줄과 깨진 줄을 색으로 가르고, 누르면 그 줄로
+   간다(지시). 시험 항목 화면의 「판정 기준」 탭이 쓰는 것과 같은 언어다. */
+.ra-sbar {
+  flex: none; display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 6px 9px; border-bottom: 1px solid #e7edf0; background: #fbfdfe;
+}
+.ra-sch {
+  border: 1px solid #dfe7ea; background: #fff; border-radius: 5px;
+  min-width: 26px; padding: 1px 6px; font: inherit; font-size: 11px;
+  color: #6b7a82; cursor: pointer; line-height: 1.6; font-variant-numeric: tabular-nums;
+}
+.ra-sch:hover { border-color: #b7c4cb; }
+.ra-sch.ok { background: #e8f5ed; border-color: #b9e0c9; color: #12643a; }
+.ra-sch.bad { background: #fdeaea; border-color: #f2c2c2; color: #a02323; }
+.ra-sch.on { outline: 2px solid #0f6e56; outline-offset: 1px; }

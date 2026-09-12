@@ -733,6 +733,30 @@ export default function RunAuto({
           {/* 콘솔은 **이어진다**(지시). 스텝마다 판을 갈아 끼우면 앞 명령의
               출력이 사라져, 무엇 다음에 무엇이 나왔는지 못 읽는다.
               지금 보는 스텝까지를 차례로 쌓고, 그 자리로 끌어 준다. */}
+          {/* **스텝 번호 줄**(지시) — 판정이 걸린 줄은 초록, 깨진 줄은 빨강,
+              그 밖은 흰 칩이다. 누르면 그 줄로 간다. 62 스텝을 훑을 때
+              카드를 스크롤하지 않고도 깨진 자리로 바로 갈 수 있다. */}
+          <div className="ra-sbar">
+            {steps.map((s2, i2) =>
+              s2.kind === 'comment' ? null : (
+                <button
+                  key={i2}
+                  type="button"
+                  className={`ra-sch${
+                    /pass/i.test(String(s2.mark ?? ''))
+                      ? ' ok'
+                      : /fail/i.test(String(s2.mark ?? ''))
+                        ? ' bad'
+                        : ''
+                  }${i2 === seeUpTo ? ' on' : ''}`}
+                  title={`${nos[i2] ? `스텝 ${nos[i2]}` : ''} ${s2.cmd || s2.t || ''}`.trim()}
+                  onClick={() => onStep(i2)}
+                >
+                  {nos[i2] || '·'}
+                </button>
+              ),
+            )}
+          </div>
           <div className="ra-con" ref={conRef} onScroll={onConScroll}>
             {/* 지난 실행 — 다시 돌릴 때마다 콘솔이 초기화되던 것을 고쳤다(지시).
                 흐리게 그리고 가름선에 시각을 적어, 지금 것과 안 섞이게 한다. */}
