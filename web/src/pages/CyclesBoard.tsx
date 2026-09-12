@@ -898,7 +898,15 @@ export default function CyclesBoard({
     const key = String(open)
     if (pickSeen.current === key) return
     pickSeen.current = key
-    const saved = (full as unknown as { picked?: unknown }).picked
+    /* 예전에 문자열로 굳어 버린 것도 읽는다 — 고치기 전에 저장된 값이 있다 */
+    let saved: unknown = (full as unknown as { picked?: unknown }).picked
+    if (typeof saved === 'string') {
+      try {
+        saved = JSON.parse(saved)
+      } catch {
+        saved = []
+      }
+    }
     setPickedRaw(Array.isArray(saved) ? saved.map((x) => String(x)).filter(Boolean) : [])
   }, [full, open])
 

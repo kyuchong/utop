@@ -756,7 +756,10 @@ async def cycle_set_picked(cycle_id: str, picked: list) -> bool:
             "UPDATE cycle SET data = jsonb_set(data, '{picked}', $2::jsonb, true),"
             "                 updated_at = now()"
             " WHERE id = $1",
-            cycle_id, json.dumps([str(x) for x in (picked or [])]),
+            # 배열을 **그대로** 넘긴다 — 풀이 JSONB 코덱을 걸어 두었다(init_pool).
+            # json.dumps 로 감싸면 jsonb 안에 배열이 아니라 문자열이 들어가,
+            # 화면이 Array.isArray 에서 걸러 낸다(실사고: 선택이 안 되살아났다).
+            cycle_id, [str(x) for x in (picked or [])],
         )
     return r.endswith("1")
 
