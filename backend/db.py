@@ -2360,20 +2360,6 @@ def _run_row(r) -> dict:
     return d
 
 
-async def plan_run_next_round(plan_run_id: str) -> int:
-    """이 실행에서 **다음 회차 번호**.
-
-    일감 하나가 한 회차다 — 「다시 실행」 을 누르면 지난 회차를 덮지 않고
-    그 다음 번호로 쌓인다. 한 항목만 다시 돌려도 새 번호를 받는다(그 회차엔
-    그 항목만 있다) — 「412 회차에 T0025 만 돌았다」 가 그대로 읽힌다."""
-    if not plan_run_id:
-        return 1
-    async with pool().acquire() as c:
-        n = await c.fetchval(
-            "SELECT COALESCE(max(round), 0) FROM plan_run_item WHERE run_id=$1", plan_run_id)
-    return int(n or 0) + 1
-
-
 async def run_create(run_id: str, cycle_id: str, cycle_name: str, picked: list, who: str,
                      total: int, plan_run_id: str = "", rnd: int = 1,
                      rep: Optional[dict] = None) -> dict:

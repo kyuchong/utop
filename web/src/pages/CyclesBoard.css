@@ -60,14 +60,27 @@
 /* 읽기 전용 값(사이클 ID) — 입력칸과 같은 크기·들여쓰기, 손대도 테두리는 안 선다 */
 .cyb .kvin.kvro { display: inline-flex; align-items: center; }
 .cyb .kvin.kvro:hover { border-color: transparent; background: transparent; }
+/* **이름은 위, 칸은 아래**(지시).
+     사업자
+     [ 콤포넌트 ▾ ]
+   가로 2 열이면 칸이 72px 만큼 밀려 좁아진다 — 1 행 3 열로 편 뒤로는
+   더 좁다. 세로로 두면 칸이 폭을 다 쓰고 이름도 안 잘린다. */
 .cyb .metacard .kv1 {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 5px var(--sp-2);
-  align-items: baseline;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
 }
-.cyb .metacard .kv1 .k { color: var(--c-text-muted); font-size: var(--fs-sm); }
+.cyb .metacard .kv1 .k {
+  color: var(--c-text-muted); font-size: var(--fs-sm);
+  margin: 10px 0 3px;
+}
+.cyb .metacard .kv1 > .k:first-child { margin-top: 0; }
 .cyb .metacard .kv1 .v { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* 칸은 폭을 다 쓴다 */
+.cyb .metacard .kv1 .v > .kvin,
+.cyb .metacard .kv1 .v > select,
+.cyb .metacard .kv1 .v > input { width: 100%; box-sizing: border-box; }
 
 /* 목록 노션 표 — 남는 높이를 다 갖고 제 안에서 굴린다 */
 /* 노션 표의 스크롤은 **이 판**이 맡는다(NTable 설계) — 자식 높이를 판에

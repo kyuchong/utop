@@ -137,7 +137,7 @@ export default function CyclesBoard({
 
   /** 열린 사이클 — 비면 목록. 주소(?cycle=)가 정본이다 */
   const [open, setOpen] = useState(() => prefGet('utop.cycle.sel') ?? '')
-  const [tab, setTab] = useState<'info' | 'run' | 'itm' | 'ita' | 'def' | 'sum'>('info')
+  const [tab, setTab] = useState<'info' | 'run' | 'itm' | 'ita' | 'def' | 'sum' | 'mail'>('info')
   const [making, setMaking] = useState(false)
   const [addTo, setAddTo] = useState(false)
   const [mkRun, setMkRun] = useState(false)
@@ -1973,10 +1973,21 @@ export default function CyclesBoard({
     return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
   }
 
-  /** 보낸 메일 자취 — Test Summary 탭이 읽는다 */
+  /** 메일 이력 표 — 다른 목록과 같은 노션 표(지시) */
+  const [mailCols, setMailCols] = useState<NCol[]>([
+    { key: 'at', label: '보낸 때', type: 'text', width: 130, fixed: true },
+    { key: 'to', label: '받는 사람', type: 'text', width: 240 },
+    { key: 'subject', label: '제목', type: 'text', width: 380 },
+    { key: 'who', label: '보낸이', type: 'text', width: 110 },
+    { key: 'ok', label: '결과', type: 'text', width: 80 },
+    { key: 'note', label: '한마디', type: 'text', width: 260 },
+  ])
+  const [mailView, setMailView] = useState<NView>({ ...EMPTY_VIEW })
+
+  /** 보낸 메일 자취 — 메일 이력 탭이 읽는다 */
   const mailQ = useQuery({
     queryKey: ['cycle-mail', open],
-    enabled: !!open && tab === 'sum',
+    enabled: !!open && (tab === 'sum' || tab === 'mail'),
     queryFn: async () => {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(String(open))}/mail-log`)
       if (!r.ok) return { items: [] as MailRow[] }
@@ -2018,61 +2029,83 @@ export default function CyclesBoard({
     if (!plan) return null
     return (
       <div className="cu-scroll">
-        <div className="cu-sec cyb-sumrow">
-          <div className="cu-card cyb-desccard">
-            <h2>
-              설명
-              <span className="cu-sp" />
-              <button
-                type="button"
-                className="cu-new small"
-                disabled={aiBusy}
-                title="이 사이클의 결과를 읽어 설명 초안을 써 줍니다 — 쓴 뒤 고치면 됩니다"
-                onClick={() => void makeAiDesc()}
-              >
-                {aiBusy ? '쓰는 중…' : '✨ AI 생성'}
-              </button>
-            </h2>
-            <div className="pad cyb-descbody">
-              {/* 위키와 같은 블록 노트 — 편집 단추 없이 바로 친다(지시).
-                  고친 것은 초안에 담기고 머리의 저장 단추가 실어 보낸다 */}
-              <DescNote
-                key={`${open}-${aiStamp}`}
-                doc={(draft.description_doc ?? full?.description_doc) as unknown}
-                text={String((draft as Record<string, unknown>).description ?? full?.description ?? '')}
-                editable
-                onChange={(d, md) => stage({ description_doc: d, description: md })}
-              />
-            </div>
+        <div className="cu-sec cu-card cyb-desccard">
+          <h2>
+            설명
+            <span className="cu-sp" />
+            <button
+              type="button"
+              className="cu-new small"
+              disabled={aiBusy}
+              title="이 사이클의 결과를 읽어 설명 초안을 써 줍니다 — 쓴 뒤 고치면 됩니다"
+              onClick={() => void makeAiDesc()}
+            >
+              {aiBusy ? '쓰는 중…' : '✨ AI 생성'}
+            </button>
+          </h2>
+          <div className="pad cyb-descbody">
+            {/* 위키와 같은 블록 노트 — 편집 단추 없이 바로 친다(지시).
+                고친 것은 초안에 담기고 머리의 저장 단추가 실어 보낸다 */}
+            <DescNote
+              key={`${open}-${aiStamp}`}
+              doc={(draft.description_doc ?? full?.description_doc) as unknown}
+              text={String((draft as Record<string, unknown>).description ?? full?.description ?? '')}
+              editable
+              onChange={(d, md) => stage({ description_doc: d, description: md })}
+            />
           </div>
-          <div className="cu-card cyb-maillog">
-            <h2>
-              메일 전송 이력
-              <span className="cu-sp" />
-              <span className="cu-m">{mailQ.data?.items?.length ?? 0}건</span>
-            </h2>
-            <div className="pad">
-              {!(mailQ.data?.items ?? []).length ? (
-                <div className="cu-empty">
-                  <strong>아직 보낸 적이 없습니다</strong>
-                  <span>머리의 「더보기 → 메일」 로 결과서를 보내면 여기에 쌓입니다.</span>
-                </div>
-              ) : (
-                <ul className="cyb-mlist">
-                  {(mailQ.data?.items ?? []).map((m2) => (
-                    <li key={m2.id} className={m2.ok ? '' : 'bad'}>
-                      <span className="t">{stamp(m2.at)}</span>
-                      <span className="to" title={m2.to_list ?? ''}>{m2.to_list || '—'}</span>
-                      <span className="s" title={m2.subject ?? ''}>{m2.subject || '(제목 없음)'}</span>
-                      <span className="w">{m2.who || '—'}</span>
-                      {m2.ok ? <i className="ok">보냄</i> : <i className="ng" title={m2.error ?? ''}>실패</i>}
-                    </li>
-                  ))}
-                </ul>
-              )}
+        </div>
+      </div>
+    )
+  }
+
+  /* ── 상세: 메일 이력 ──
+   *
+   * 여태 메일은 **보내기만 하고 자취가 없었다.** 「지난주에 보냈던가」 를
+   * 확인할 길이 없어 같은 메일을 두 번 보내거나, 안 보낸 줄 알고 미뤘다.
+   * 다른 목록과 같은 노션 표로 보여 준다(지시) — 거르고 정렬하고 폭을
+   * 잡는 손버릇이 그대로 통한다. */
+  function renderMail() {
+    if (!plan) return null
+    const rows = (mailQ.data?.items ?? []).map((m2) => ({
+      __id: String(m2.id),
+      id: String(m2.id),
+      at: stamp(m2.at),
+      to: m2.to_list || '—',
+      subject: m2.subject || '(제목 없음)',
+      who: m2.who || '—',
+      ok: m2.ok ? '보냄' : '실패',
+      note: m2.note || (m2.error ? `실패 — ${m2.error}` : ''),
+    }))
+    if (!rows.length)
+      return (
+        <div className="cu-scroll">
+          <div className="cu-sec cu-card">
+            <div className="cu-empty">
+              <strong>아직 보낸 적이 없습니다</strong>
+              <span>머리의 「더보기 → 메일」 로 결과서를 보내면 여기에 쌓입니다.</span>
             </div>
           </div>
         </div>
+      )
+    return (
+      <div className="cu-fill">
+        <NTable
+          columns={mailCols}
+          rows={rows}
+          view={mailView}
+          onView={setMailView}
+          onColumns={setMailCols}
+          people={people}
+          meName={meName}
+          /* 보낸 자취는 **고칠 것이 없다** — 읽기만 한다 */
+          onCell={() => {}}
+          readOnlyKeys={['at', 'to', 'subject', 'who', 'ok', 'note']}
+          lockDefs
+          idKey="id"
+          titleKey="subject"
+          perPage={50}
+        />
       </div>
     )
   }
@@ -2843,6 +2876,9 @@ export default function CyclesBoard({
           <button type="button" role="tab" aria-selected={tab === 'sum'} className={tab === 'sum' ? 'on' : ''} onClick={() => setTab('sum')}>
             Test Summary
           </button>
+          <button type="button" role="tab" aria-selected={tab === 'mail'} className={tab === 'mail' ? 'on' : ''} onClick={() => setTab('mail')}>
+            메일 이력 <span className="tabn">{mailQ.data?.items?.length ?? 0}</span>
+          </button>
         </div>
         {tab === 'info' ? (
           renderInfo()
@@ -2850,6 +2886,8 @@ export default function CyclesBoard({
           renderRunTab()
         ) : tab === 'sum' ? (
           renderSummary()
+        ) : tab === 'mail' ? (
+          renderMail()
         ) : tab === 'def' ? (
           renderDefects()
         ) : tab === 'itm' ? (
