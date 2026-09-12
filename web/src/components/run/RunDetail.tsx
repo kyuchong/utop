@@ -512,6 +512,9 @@ export default function RunDetail({
         item_at?: number; ended_at?: string | null
                 /** 살아 있음 신호 — 끊긴 지 오래면 「응답 없음」 으로 알린다 */
                 heartbeat_at?: string | null
+                /** 반복 시험이 실패해 **멈춰 선** 시각·회차 */
+                held_at?: string | null
+                held_round?: number | null
                 /** 어느 실행기가 집었나 */
                 worker?: string | null
         /** 지금 도는 항목의 스텝들 — 결과가 차오르는 그대로다 */
@@ -1127,6 +1130,22 @@ export default function RunDetail({
     }
   }
 
+  /** 멈춰 선 반복 시험에 답한다 — 배너의 세 단추.
+   *  실행기는 진행을 올리는 김에 이 답을 받아 깨어난다. */
+  const answerHold = async (what: 'go' | 'skip' | 'stop') => {
+    if (!jobId) return
+    try {
+      const r = await apiFetch(`/api/runs/${encodeURIComponent(jobId)}/resume`, {
+        method: 'POST',
+        body: JSON.stringify({ what }),
+      })
+      if (!r.ok) throw new Error(String(r.status))
+      await jobQ.refetch()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '답하지 못했습니다')
+    }
+  }
+
   /** 중지. 도는 일감이 있으면 실행기에 부탁하고(스텝 사이에서 내려온다),
       없으면 시작 기록만 지운다. */
   const stop = async () => {
@@ -1421,6 +1440,9 @@ export default function RunDetail({
     if (!jobId || !st) return null
     const beat = job?.heartbeat_at ? Date.parse(String(job.heartbeat_at).replace(' ', 'T') + 'Z') : NaN
     const quiet = Number.isFinite(beat) ? Date.now() - beat : 0
+    /* 멈춰 서 있으면 그것이 먼저다 — 사람이 답할 때까지 아무것도 안 돈다 */
+    if (job?.held_at)
+      return { k: 'held', t: '멈춰 섰습니다', s: '장비를 그대로 두고 기다립니다' }
     if (st === 'queued')
       return { k: 'wait', t: '실행기를 기다립니다', s: '큐에 걸렸습니다 — 실행기가 집으면 바로 돕니다' }
     if (st === 'running') {
@@ -1710,6 +1732,44 @@ export default function RunDetail({
           다른 데서 알 수 없다(실패는 까닭이 여기에만 있다). */}
       {/* 「실행기가 집어 가기를 기다립니다」 띠도 뺐다(지시).
           실패만 남긴다 — 까닭이 이 줄에만 있어서 지우면 알 길이 없다. */}
+      {/* ── **멈춰 섰습니다**(승인) — 반복 시험이 실패해 사람을 기다린다.
+          장비를 손대지 않고 접속도 끊지 않았다: 새벽에 깨진 것을 아침에
+          와서 그대로 들어가 볼 수 있어야 한다. 세 단추가 고를 수 있는
+          전부다 — 계속 · 이 회차 건너뛰고 · 시험 종료. ── */}
+      {isAuto && !!job?.held_at && (
+        <div className="rd-halt">
+          <i className="ic" aria-hidden="true">‖</i>
+          <span className="tx">
+            <b>
+              {job.held_round ? `#${job.held_round} 회차에서 ` : ''}실패해 멈췄습니다
+            </b>
+            <em>
+              장비를 그대로 두고 기다립니다 — 접속도 끊지 않았습니다.
+              지금 들어가 상태를 살펴보실 수 있습니다.
+            </em>
+          </span>
+          <span className="rt">
+            <span className="wait">
+              {(() => {
+                const t = Date.parse(String(job.held_at).replace(' ', 'T') + 'Z')
+                if (!Number.isFinite(t)) return ''
+                const m = Math.max(0, Math.round((Date.now() - t) / 60000))
+                return m >= 60 ? `대기 ${Math.floor(m / 60)}시간 ${m % 60}분` : `대기 ${m}분`
+              })()}
+            </span>
+            <button type="button" className="go" onClick={() => void answerHold('go')}>
+              ▶ 계속
+            </button>
+            <button type="button" className="skip" onClick={() => void answerHold('skip')}>
+              ↷ 이 회차 건너뛰고
+            </button>
+            <button type="button" className="stop" onClick={() => void answerHold('stop')}>
+              ■ 시험 종료
+            </button>
+          </span>
+        </div>
+      )}
+
       {isAuto && jobId && job?.status === 'failed' && (
         <div className="rd-warn">
           <b>!</b>
