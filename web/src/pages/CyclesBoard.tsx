@@ -116,6 +116,9 @@ interface ItemRow {
   reqLabel: string
   reqTitle: string
   folder: string
+  /** 사람이 만든 칸 — `cf_<열쇠>`. 값은 TC 문서(custom)에서 오고, 요구사항에
+   *  만든 칸은 그 아래 시험 항목이 물려받는다. 열 정의는 SETUP 한 곳이다 */
+  [k: `cf_${string}`]: unknown
 }
 
 /** 지금 도는 일감 한 줄 — 떠 있는 띠가 읽는다 */
@@ -2291,6 +2294,11 @@ export default function CyclesBoard({
     const rows: NRow[] = mine.map((r) => {
       const st = failStat.get(r.tcid)
       return {
+        /* **줄을 통째로 편다**(지적: TC 의 Key 값을 못 가져온다).
+           여기서 칸을 골라 담는 바람에 사람이 만든 칸(cf_*)과 차례(#)가 늘
+           비었다 — 열은 서 있는데 값만 없어 「못 가져온다」 로 보였다.
+           앞으로 ItemRow 에 칸이 늘어도 이 줄이 저절로 따라간다. */
+        ...r,
         __id: r.tcid,
         id: r.tcid,
         title: r.title || '(이름 없음)',
