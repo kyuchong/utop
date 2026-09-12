@@ -1074,10 +1074,9 @@ export default function RunAuto({
                   {/* 이 자리는 **판정 시각**이다(지적). 걸린 시간은 안 적는다 —
                       스텝 표의 Time 칸이 이미 그것을 말한다. */}
                   <span className="ra-tct">{shortStamp(it.at)}</span>
-                  <span className="ra-tcid" title={it.id}>
-                    {it.id}
-                    {it.round ? <b className="ra-rnd">({it.round})</b> : null}
-                  </span>
+                  {/* 회차는 **오른쪽 누적의 맨 뒤 숫자**가 이미 말한다
+                      (2/1/3 이면 3 회차) — 여기 (3) 을 또 적지 않는다(지적) */}
+                  <span className="ra-tcid" title={it.id}>{it.id}</span>
                   <span className="ra-tcnm">{it.name}</span>
                   {/* 그 회차까지의 누적 — 왼쪽 녹색 판정과 짝을 이룬다(지시) */}
                   {it.sum ? (
