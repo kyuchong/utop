@@ -514,6 +514,8 @@ export default function RunDetail({
                 heartbeat_at?: string | null
                 /** 지금 도는 회차 — 반복 시험이면 1 씩 는다 */
                 round?: number | null
+                /** 몇 바퀴 도는 일감인가 — 1 이면 반복이 아니다 */
+                repeat_n?: number | null
                 /** 반복 시험이 실패해 **멈춰 선** 시각·회차 */
                 held_at?: string | null
                 held_round?: number | null
@@ -659,8 +661,14 @@ export default function RunDetail({
     },
     staleTime: 3000,
   })
-  /** 반복 시험인가 — 한 항목이 두 번 넘게 돈 줄이 있으면 그렇다 */
-  const hasRounds = (runItemsQ.data?.items ?? []).some((x) => Number(x.round) > 1)
+  /** **반복 시험인가.**
+   *
+   *  일감이 몇 바퀴짜리인지(repeat_n)가 먼저다 — 쌓인 줄만 보면 첫 바퀴에는
+   *  모두 1 회차라 반복인 줄 모르고, 그 바퀴 동안 누적이 안 붙는다(지적:
+   *  1 회차 데이터가 일부 표시가 안 된다). 일감이 끝난 뒤에는 쌓인 줄로 안다. */
+  const hasRounds =
+    Number(job?.repeat_n ?? 0) > 1 ||
+    (runItemsQ.data?.items ?? []).some((x) => Number(x.round) > 1)
 
     const roundsQ = useQuery({
     /* **지금 보는 항목의 회차**만 센다(지시) — 실행 전체를 세면 65 항목을
@@ -1846,9 +1854,9 @@ export default function RunDetail({
               }
               for (const [tc, list] of byTc) {
                 const asc = [...list].sort((a2, b2) => Number(a2.round) - Number(b2.round))
-                /* **한 번만 돈 항목에는 회차를 안 붙인다**(지적: TC ID 옆 숫자가
-                   뭐냐). (1) 과 1/0/1 은 아무 말도 안 하면서 자리만 먹는다 —
-                   그 항목을 여러 번 돌렸을 때만 뜻이 생긴다. */
+                /* 누적은 **반복 시험이면 첫 바퀴부터** 붙는다 — 항목별로
+                   「이미 여러 번 돌았나」 로 가리면, 첫 바퀴에 아직 한 번만
+                   돈 항목이 빈칸으로 남는다(지적). */
                 let p = 0
                 let f = 0
                 for (const r of asc) {
@@ -1864,16 +1872,13 @@ export default function RunDetail({
                   const l = String(r.verdict ?? '').toLowerCase()
                   return {
                     id: String(r.tcid),
-                    round: (byTc.get(String(r.tcid))?.length ?? 1) > 1 ? Number(r.round) || 1 : undefined,
+                    round: Number(r.round) || 1,
                     name: m.name,
                     group: m.group,
                     verdict: (l.startsWith('p') ? 'p' : l.startsWith('f') ? 'f' : l ? 'b' : 'n') as Verdict,
                     at: String(r.at ?? '').replace('T', ' ').slice(0, 19),
                     exec: execId,
-                    sum:
-                      (byTc.get(String(r.tcid))?.length ?? 1) > 1
-                        ? cum.get(`${r.tcid}#${r.round}`)
-                        : undefined,
+                    sum: cum.get(`${r.tcid}#${r.round}`),
                   }
                 })
             }
