@@ -304,6 +304,10 @@ export default function CyclesBoard({
   const [runMode, setRunMode] = useState<'A' | 'M'>('A')
   /** 표에서 체크한 항목 — 있으면 도구 줄에 단추 둘이 나타난다(승인) */
   const [picked, setPicked] = useState<string[]>([])
+  /** 손잡이로 끌어 잡은 **화면 차례**. 「시험 순서 저장」 을 누르기 전에는
+   *  여기에만 있다 — 잘못 끌었을 때 되돌릴 자리가 있어야 한다. 사이클을
+   *  바꾸면 비운다. */
+  const [orderOverride, setOrderOverride] = useState<string[] | null>(null)
   /** 실행을 열 때 **고정한** 목록. picked 를 그대로 쓰면 표에서 체크를
    *  푸는 순간 도는 목록이 바뀐다 */
   const [runPick, setRunPick] = useState<string[]>([])
@@ -827,6 +831,10 @@ export default function CyclesBoard({
     void saveFull({ itView: { sorts: itView.sorts, groupBy: itView.groupBy } } as Partial<PlanFull>)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewSig])
+  useEffect(() => {
+    setOrderOverride(null)
+  }, [open])
+
   const itemRows = useMemo<ItemRow[]>(() => {
     const out: ItemRow[] = []
     for (const it of full?.items ?? []) {
@@ -865,8 +873,14 @@ export default function CyclesBoard({
        담으면서 순서가 정해져야 한다). 이름으로 다시 세우면 요구사항 이름을
        고칠 때마다 차례가 바뀌고, 보기 설정은 사람마다 다르다.
        담을 때 폴더 ▸ REQ ▸ ID 로 세워 넣으므로 처음 모습은 예전과 같다. */
+    /* 손잡이로 끌어 잡은 차례가 있으면 그대로 세운다 — 저장 전에는
+       화면에서만 바뀐 것이고, 「시험 순서 저장」 이 사이클에 굳힌다 */
+    if (orderOverride?.length) {
+      const at = new Map(orderOverride.map((x, n) => [x, n]))
+      out.sort((a2, b2) => (at.get(a2.tcid) ?? 1e9) - (at.get(b2.tcid) ?? 1e9))
+    }
     return out
-  }, [full, tcOf, reqIndex])
+  }, [full, tcOf, reqIndex, orderOverride])
   /* 유형 선택지는 자료에서 뽑는다 — 담긴 값이 곧 목록이고 색은 자동 */
   /**
    * 지금 표에 보이는 차례로 **사이클 항목을 다시 세워 저장**한다(지시).
@@ -2196,7 +2210,18 @@ export default function CyclesBoard({
           toolbarLeft={
             <>
               <button type="button" className="cu-new small" onClick={() => setAddTo(true)}>
-                <i aria-hidden="true">＋</i>Add Coverage
+                <i aria-hidden="true">＋</i>Add TC
+              </button>
+              {/* **시험 순서 저장**(지시) — 담기 바로 오른쪽에 둔다. 표에서
+                  손잡이로 잡은 차례를 사이클 문서에 못박는다. 문서에 남으므로
+                  다른 사람이 열어도·다시 돌려도 같은 차례다. */}
+              <button
+                type="button"
+                className="cu-new small"
+                title="지금 보이는 차례를 이 사이클의 시험 차례로 저장합니다"
+                onClick={() => void saveOrder()}
+              >
+                ↓ 시험 순서 저장
               </button>
               <button
                 type="button"
@@ -2206,7 +2231,7 @@ export default function CyclesBoard({
                 disabled={!mine.length}
                 title={
                   !mine.length
-                    ? `이 사이클에 ${man ? '수동' : '자동'} 항목이 없습니다 — 「Add Coverage」 로 먼저 담으세요`
+                    ? `이 사이클에 ${man ? '수동' : '자동'} 항목이 없습니다 — 「Add TC」 로 먼저 담으세요`
                     : `${
                         man
                           ? '수동 항목 — 사람이 확인하고 판정을 기록합니다'
@@ -2226,17 +2251,6 @@ export default function CyclesBoard({
                         repCfg && repCfg.repeat > 1 ? ` · ${repCfg.repeat}회` : ''
                       }`
                     : '▶ Automation Test Start'}
-              </button>
-              {/* **이 차례로 저장**(지시) — 표에서 정렬한 차례를 사이클에
-                  못박는다. 차례가 사이클 문서에 남으므로 서버에 저장되고,
-                  다른 사람이 열어도·다시 돌려도 같은 차례다. */}
-              <button
-                type="button"
-                className="cu-new small"
-                title="지금 보이는 차례를 이 사이클의 시험 차례로 저장합니다"
-                onClick={() => void saveOrder()}
-              >
-                ↓ 이 차례로 저장
               </button>
               {/* ── 체크한 것이 있을 때만 나타난다(승인). 아무것도 안 고르면
                   지금 화면과 완전히 같다 — 단추가 아예 없다. ── */}
@@ -2269,6 +2283,10 @@ export default function CyclesBoard({
           }
           /* 체크한 항목을 받는다 — 도구 줄의 단추 둘이 이걸 본다(승인) */
           onSelect={setPicked}
+          /* 끌어서 시험 차례 바꾸기(지시). 여기서는 **화면 차례만** 바꾸고,
+             「시험 순서 저장」 을 눌러야 사이클 문서에 굳는다 — 잘못 끌었을
+             때 되돌릴 자리가 있어야 한다 */
+          onReorder={(ids) => setOrderOverride(ids)}
           /* 실행 화면에 다녀오면 이 표는 통째로 사라졌다 다시 선다 —
              그때 체크를 되살린다(지적: 실행할 때마다 다시 골라야 한다) */
           initSelected={picked}

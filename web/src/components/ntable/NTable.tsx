@@ -60,6 +60,10 @@ export interface NTableProps {
   /** 처음 세울 때 되살릴 선택 — 화면을 떠났다 와도 체크가 남아야 한다(지적:
    *  실행할 때마다 다시 골라야 한다). 마운트 때만 본다 */
   initSelected?: string[]
+  /** **끌어서 차례 바꾸기**(지시) — 주면 행 앞에 손잡이(⋮⋮)가 선다.
+   *  놓으면 바뀐 차례를 통째로 알려 준다. 정렬이 걸려 있으면 그 차례가
+   *  이겨 버리므로, 끌기 시작할 때 정렬을 지운다. */
+  onReorder?: (ids: string[]) => void
   /** 이 숫자가 바뀌면 **고른 줄을 푼다** — 일을 끝낸 화면이 부른다.
       선택이 남아 있으면 방금 한 일이 또 될 것 같아 사람이 멈칫한다 */
   selEpoch?: number
@@ -130,6 +134,9 @@ export default function NTable(p: NTableProps) {
     setChecked(new Set())
   }, [p.selEpoch])
   const [checked, setChecked] = useState<Set<string>>(() => new Set(p.initSelected ?? []))
+  /** 지금 끌고 있는 행 · 지나가는 행 */
+  const [dragRow, setDragRow] = useState<string | null>(null)
+  const [overRow, setOverRow] = useState<string | null>(null)
   useEffect(() => {
     p.onSelect?.([...checked])
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1002,9 +1009,69 @@ export default function NTable(p: NTableProps) {
                       /* 그리는 차례 그대로 자리 번호를 매긴다 */
                       const ri = flatRef.current.push(r) - 1
                       return (
-                      <tr key={r.__id} className={checked.has(r.__id) ? 'ntb-row on' : 'ntb-row'}>
+                      <tr
+                        key={r.__id}
+                        className={(() => {
+                          let k = `ntb-row${checked.has(r.__id) ? ' on' : ''}`
+                          if (dragRow === r.__id) return `${k} ntb-drag`
+                          if (overRow === r.__id && dragRow) {
+                            /* 놓일 자리를 **위/아래 선**으로 보인다 — 행 전체를
+                               칠하면 어디에 들어가는지 알 수 없다(지시: 가시성) */
+                            const ids = flatRef.current.map((x) => String(x.__id))
+                            k += ids.indexOf(String(dragRow)) < ids.indexOf(String(r.__id))
+                              ? ' ntb-over-b'
+                              : ' ntb-over-t'
+                          }
+                          return k
+                        })()}
+                        onDragOver={
+                          p.onReorder && dragRow
+                            ? (e) => {
+                                e.preventDefault()
+                                if (overRow !== r.__id) setOverRow(String(r.__id))
+                              }
+                            : undefined
+                        }
+                        onDrop={
+                          p.onReorder && dragRow
+                            ? (e) => {
+                                e.preventDefault()
+                                const ids = flatRef.current.map((x) => String(x.__id))
+                                const from = ids.indexOf(String(dragRow))
+                                const to = ids.indexOf(String(r.__id))
+                                setDragRow(null)
+                                setOverRow(null)
+                                if (from < 0 || to < 0 || from === to) return
+                                const arr = ids.slice()
+                                const [mv] = arr.splice(from, 1)
+                                arr.splice(to, 0, mv!)
+                                p.onReorder?.(arr)
+                              }
+                            : undefined
+                        }
+                      >
                         <td className="ntb-gp">
                           <div className="ntb-gpin">
+                            {!!p.onReorder && (
+                              <span
+                                className="ntb-grip"
+                                draggable
+                                title="끌어서 시험 차례를 바꿉니다"
+                                onDragStart={(e) => {
+                                  e.dataTransfer.effectAllowed = 'move'
+                                  /* 정렬이 걸려 있으면 그 차례가 이겨, 끌어 놓아도
+                                     제자리로 돌아간다 — 먼저 지운다 */
+                                  if (view.sorts?.length) onView({ ...view, sorts: [] })
+                                  setDragRow(String(r.__id))
+                                }}
+                                onDragEnd={() => {
+                                  setDragRow(null)
+                                  setOverRow(null)
+                                }}
+                              >
+                                ⠿
+                              </span>
+                            )}
                             <input
                               type="checkbox"
                               checked={checked.has(r.__id)}
