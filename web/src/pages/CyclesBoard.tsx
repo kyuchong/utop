@@ -102,6 +102,21 @@ interface RunFullX extends RunFull {
 
 const keyOf = (...parts: string[]) => parts.join('|')
 
+/** 천 자리를 끊는다 — 반복 회차는 10,000 까지 간다(RepeatPop 과 같은 셈) */
+const nfmt = (n: number): string =>
+  String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
+/** 항목 하나의 회차 셈 — `/api/plan-runs/{id}/stat?by=tcid` 가 돌려준다.
+ *  실행 문서가 쥔 「마지막 판정 하나」 와 달리 **몇 바퀴 돌았나**를 말한다 */
+interface RoundStat {
+  n_total?: number
+  n_pass?: number
+  n_fail?: number
+  n_etc?: number
+  n_none?: number
+  rounds?: number
+}
+
 /** 시험 항목 한 줄 — 사이클 항목에 TC 메타·REQ 이름표를 입힌 것 */
 interface ItemRow {
   /** **시험 차례**(1 부터). 사이클에 담긴 배열 차례 그대로다 — 이 열로
@@ -1172,21 +1187,56 @@ export default function CyclesBoard({
     return out
   }, [covCum, spanD])
 
+  /**
+   * 회차별 셈 — 실행마다 **항목별로 한 방에** 받는다.
+   *
+   * 실행 문서(results)는 항목마다 마지막 판정 하나만 쥔다. 100 회를 돌려도
+   * 거기엔 한 줄뿐이라 「1회 중 0」 으로 보였다(지적). 회차는 plan_run_item
+   * 에만 남으므로 그 셈을 따로 받아 포갠다.
+   */
+  const roundStatQs = useQueries({
+    queries: myRuns.map((r) => ({
+      queryKey: ['plan-run-stat', r.id],
+      enabled: !!open && (tab === 'run' || tab === 'itm' || tab === 'ita'),
+      queryFn: async () => {
+        const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}/stat?by=tcid`)
+        if (!res.ok) throw new Error('회차를 불러오지 못했습니다')
+        return (await res.json()) as { items?: Record<string, RoundStat> }
+      },
+    })),
+  })
+
   const failStat = useMemo(() => {
     const m = new Map<string, { fail: number; ran: number }>()
-    for (const qr of failQs) {
+    failQs.forEach((qr, i) => {
+      const byTc = roundStatQs[i]?.data?.items ?? {}
       for (const [tcid, v] of Object.entries(qr.data?.results ?? {})) {
         const g = vGroup(verds, String(v ?? ''))
         if (g === 'none') continue
         const s = m.get(tcid) ?? { fail: 0, ran: 0 }
-        s.ran++
-        if (g === 'fail') s.fail++
+        /* **회차가 남아 있으면 회차를 센다**(지적: 100 회를 돌렸는데
+           「1회 중 0」). 판정이 안 붙은 줄(n_none)은 돈 것으로 치지 않는다.
+           회차 기록이 없는 옛 실행은 예전처럼 실행 한 건을 한 번으로 센다 —
+           안 그러면 예전 이력이 통째로 0 이 된다. */
+        const rs = byTc[tcid]
+        const ran = Math.max(0, Number(rs?.n_total ?? 0) - Number(rs?.n_none ?? 0))
+        if (ran > 0) {
+          s.ran += ran
+          s.fail += Number(rs?.n_fail ?? 0)
+        } else {
+          s.ran++
+          if (g === 'fail') s.fail++
+        }
         m.set(tcid, s)
       }
-    }
+    })
     return m
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [failQs.map((q2) => q2.dataUpdatedAt).join(','), verds])
+  }, [
+    failQs.map((q2) => q2.dataUpdatedAt).join(','),
+    roundStatQs.map((q2) => q2.dataUpdatedAt).join(','),
+    verds,
+  ])
 
   /** 전문을 통째로 고쳐 저장한다 — 서버는 data 를 통으로 받는다 */
   async function saveFull(patch: Partial<PlanFull>) {
@@ -1684,9 +1734,11 @@ export default function CyclesBoard({
                   {n.ico ? `${n.ico} ` : ''}
                   {n.label}
                   {/* 개수는 이름 바로 오른쪽에(지시: REQ-Coverage 꼴) —
-                      폴더는 사이클 수, 잎은 실행 횟수라 잎엔 「회」 를 붙인다 */}
-                  <span className={`cnt${n.zero ? ' zero' : ''}`} title={n.plan ? `실행 ${n.n}회` : `사이클 ${n.n}건`}>
-                    ({n.plan ? `${n.n}회` : n.n})
+                      폴더는 사이클 수, 잎은 **실행 건수**다.
+                      「회」 를 붙였더니 반복 회차로 읽혔다(지적: 100 회를
+                      돌린 사이클이 「1회」). 「회」 는 회차에만 쓴다. */}
+                  <span className={`cnt${n.zero ? ' zero' : ''}`} title={n.plan ? `실행 ${n.n}건` : `사이클 ${n.n}건`}>
+                    ({n.plan ? `${n.n}건` : n.n})
                   </span>
                 </span>
                 {!n.plan && n.key !== '__all' && (
@@ -1779,7 +1831,8 @@ export default function CyclesBoard({
         items: String(p._item_count ?? p.items?.length ?? 0),
         /* 결함 — 항목에 달린 결함 수의 합(레거시 플랜 표와 같은 셈) */
         iss: String((p.items ?? []).reduce((n2, it) => n2 + (it.issues?.length ?? 0), 0)),
-        runs: rs.length ? `${rs.length}회${openRunN ? ` (진행 ${openRunN})` : ''}` : '',
+        /* 실행 **건수**다 — 「회」 는 반복 회차에만 쓴다(트리 잎과 같은 결) */
+        runs: rs.length ? `${rs.length}건${openRunN ? ` (진행 ${openRunN})` : ''}` : '',
         last: last ? `${String(last.name || last.id)} · ${ago(last.created_at)}` : '',
         stat: t.total ? `통과 ${t.pass} · 실패 ${t.fail} · 미실행 ${t.none}` : '',
         assignee: String(p.assignee ?? ''),
@@ -2308,7 +2361,9 @@ export default function CyclesBoard({
         model: r.model,
         type: r.type,
         run: r.man ? '수동' : '자동',
-        fail: !st || !st.ran ? '' : st.fail ? `${st.fail}회 / ${st.ran}${st.fail >= 2 ? ' 반복' : ''}` : `${st.ran}회 중 0`,
+        /* 회차까지 센 값이다 — 100 회 반복이면 「100회 중 0」 이 선다.
+           천 자리를 끊는다: 10000 회는 눈으로 자릿수를 못 읽는다 */
+        fail: !st || !st.ran ? '' : st.fail ? `${nfmt(st.fail)}회 / ${nfmt(st.ran)}${st.fail >= 2 ? ' 반복' : ''}` : `${nfmt(st.ran)}회 중 0`,
       }
     })
     return (
@@ -2353,12 +2408,14 @@ export default function CyclesBoard({
             if (col.key !== 'fail') return undefined
             const st = failStat.get(String(row.__id))
             if (!st || !st.ran) return <span className="cu-m">—</span>
-            if (!st.fail) return <span className="cu-m">{st.ran}회 중 0</span>
+            if (!st.fail) return <span className="cu-m">{nfmt(st.ran)}회 중 0</span>
             return (
               <>
-                <span className="badge b-fail">{st.fail}회</span>
-                <span className="cu-m"> / {st.ran}</span>
-                {st.fail >= 2 && <span className="flag" title="돌릴 때마다 깨집니다"> 반복</span>}
+                <span className="badge b-fail">{nfmt(st.fail)}회</span>
+                <span className="cu-m"> / {nfmt(st.ran)}</span>
+                {/* 「돌릴 때마다」 였는데, 회차를 세면서 100 회 중 2 회도 여기
+                    걸린다 — 말을 사실에 맞춘다 */}
+                {st.fail >= 2 && <span className="flag" title="두 번 넘게 깨졌습니다"> 반복</span>}
               </>
             )
           }}

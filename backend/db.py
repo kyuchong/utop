@@ -1071,6 +1071,31 @@ async def plan_run_rounds(run_id: str, buckets: int = 0, tcid: str = "") -> dict
     return {"rounds": out, "total_rounds": hi, "size": int(size)}
 
 
+async def plan_run_item_stat_by_tc(run_id: str) -> dict:
+    """**항목별** 회차 요약 — 한 방에 센다.
+
+    사이클 표의 「실패 이력」 이 이것을 읽는다. 항목마다 따로 물으면 62 항목
+    × 실행 수만큼 조회가 나간다 — 한 줄로 접어 한 번에 센다.
+
+    실행 문서(results)는 항목마다 **마지막 판정 하나**만 쥔다. 그래서 100 회를
+    돌려도 「1회 중 0」 으로 보였다(지적). 회차는 이 표에만 남아 있다.
+    """
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT tcid, COALESCE(verdict,'') AS v, count(*) AS n, max(round) AS rounds"
+            "  FROM plan_run_item WHERE run_id=$1 GROUP BY 1, 2", run_id)
+    groups = await verdict_groups()
+    acc: dict[str, dict] = {}
+    for r in rows:
+        cur = acc.setdefault(str(r["tcid"]), {"hist": {}, "rounds": 0})
+        cur["hist"][str(r["v"])] = int(r["n"] or 0)
+        cur["rounds"] = max(cur["rounds"], int(r["rounds"] or 0))
+    return {
+        tcid: {**_fold_hist(v["hist"], groups), "rounds": v["rounds"]}
+        for tcid, v in acc.items()
+    }
+
+
 async def plan_run_item_stat(run_id: str, tcid: str = "") -> dict:
     """회차 요약 — 몇 번 돌았고 몇 번 깨졌나. 목록을 안 끌고 셈만 한다."""
     where, args = ["run_id = $1"], [run_id]

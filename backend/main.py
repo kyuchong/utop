@@ -12893,8 +12893,13 @@ async def api_plan_run_rounds(run_id: str, buckets: int = 0, tcid: str = ""):
 
 
 @app.get("/api/plan-runs/{run_id}/stat")
-async def api_plan_run_stat(run_id: str, tcid: str = ""):
-    """몇 번 돌았고 몇 번 깨졌나 — 목록을 안 끌고 셈만 한다."""
+async def api_plan_run_stat(run_id: str, tcid: str = "", by: str = ""):
+    """몇 번 돌았고 몇 번 깨졌나 — 목록을 안 끌고 셈만 한다.
+
+    `by=tcid` 면 **항목별로 한 방에** 센다 — 사이클 표의 「실패 이력」 이
+    이것을 읽는다. 항목마다 따로 물으면 조회가 항목 수만큼 늘어난다."""
+    if by == "tcid":
+        return {"items": await db.plan_run_item_stat_by_tc(run_id)}
     return await db.plan_run_item_stat(run_id, tcid)
 
 
