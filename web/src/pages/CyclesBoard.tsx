@@ -2211,11 +2211,25 @@ export default function CyclesBoard({
                   </g>
                 )
               })}
-          {rows.map(([d], i) => (
-            <text key={d} x={cx(i)} y={H - 7} textAnchor="middle" className="tick">
-              {`${d.slice(5)} (${dow(d)})`}
-            </text>
-          ))}
+          {/* 날짜 글자는 **띄엄띄엄** 찍는다(지적: 15일·한 달이면 겹친다).
+              한 칸이 60px 는 돼야 「09-11 (금)」 이 안 붙는다 — 그보다 좁으면
+              몇 개씩 건너뛰고, 마지막 날은 언제나 찍어 축 끝을 알려 준다.
+              열흘이 넘으면 요일은 뺀다. */
+          }
+          {(() => {
+            const step = Math.max(1, Math.ceil(rows.length / Math.max(1, Math.floor((W - padL - 8) / 60))))
+            const longSpan = rows.length > 10
+            return rows.map(([d], i) => {
+              if (i % step !== 0 && i !== rows.length - 1) return null
+              /* 마지막 날과 너무 붙으면 그 앞 것은 건너뛴다 */
+              if (i !== rows.length - 1 && rows.length - 1 - i < step / 2) return null
+              return (
+                <text key={d} x={cx(i)} y={H - 7} textAnchor="middle" className="tick">
+                  {longSpan ? d.slice(5) : `${d.slice(5)} (${dow(d)})`}
+                </text>
+              )
+            })
+          })()}
         </svg>
         <div className="cyb-daylegend">
           {series.map((s2) => (
