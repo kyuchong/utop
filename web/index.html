@@ -11,5 +11,20 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- **지금 화면이 어느 판인가**(지적: 받았는데 전혀 변한 게 없다).
+         Vite 가 번들 이름에 붙이는 해시를 그대로 읽어 둔다 — 빌드가 바뀌면
+         파일 이름이 바뀌므로, 이 여섯 글자가 그대로면 옛 것을 보고 있는
+         것이다(브라우저 캐시 포함). 왼쪽 메뉴 맨 아래에 보인다. -->
+    <script>
+      (function () {
+        try {
+          var s = document.querySelector('script[type=module][src*="index-"]')
+          var m = s && /index-([A-Za-z0-9_-]{6,})\./.exec(s.getAttribute('src') || '')
+          document.documentElement.dataset.build = m ? m[1].slice(0, 6) : 'dev'
+        } catch (e) {
+          document.documentElement.dataset.build = '—'
+        }
+      })()
+    </script>
   </body>
 </html>

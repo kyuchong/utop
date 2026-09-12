@@ -347,6 +347,25 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
               <TopStatus me={user} />
             </div>
 
+            {/* **지금 화면이 어느 판인가**(지적: 받았는데 전혀 변한 게 없다).
+                배포가 닿았는지 매번 짐작해야 했다 — 번들 이름에 붙는 해시를
+                그대로 보인다. 받은 뒤 이 여섯 글자가 바뀌면 새 것이고,
+                그대로면 아직 옛 것을 보고 있는 것이다(브라우저 캐시 포함).
+                눌러 복사할 수 있게 해 둔다 — 물어볼 때 그대로 읽어 주면 된다. */}
+            {!collapsed && (
+              <button
+                type="button"
+                className="nav-build"
+                title="지금 화면의 판. 받은 뒤에도 안 바뀌면 캐시이거나 배포가 안 닿은 것입니다 — 눌러서 복사"
+                onClick={() => {
+                  const v = String(document.documentElement.dataset.build ?? '')
+                  void navigator.clipboard?.writeText(v)
+                }}
+              >
+                판 {String(document.documentElement.dataset.build ?? '—')}
+              </button>
+            )}
+
             {/* 독 자동 숨김 — 축소 단추 위 체크박스(지시). 접힌 레일에서는
                 글자 자리가 없어 숨긴다 — 아이콘 레일과 독은 어차피 같이 쓸
                 조합이 아니다.
