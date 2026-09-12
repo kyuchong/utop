@@ -104,7 +104,41 @@ export default function RepeatPop({
         <div className="rp-b">
           <div className="rp-row">
             <span className="k">반복 횟수</span>
-            {num(c.repeat, (n) => set({ repeat: Math.max(1, Math.min(100000, Math.round(n))) }))}
+            {/* 늘리고 줄이는 단추(지시) — 눌러 맞추는 편이 빠르다.
+                한 번에 1, 길게 누르지 않아도 되게 ×10 도 둔다. */}
+            <span className="rp-step">
+              <button
+                type="button"
+                title="10 줄이기"
+                disabled={c.repeat <= 1}
+                onClick={() => set({ repeat: Math.max(1, c.repeat - 10) })}
+              >
+                ≪
+              </button>
+              <button
+                type="button"
+                title="1 줄이기"
+                disabled={c.repeat <= 1}
+                onClick={() => set({ repeat: Math.max(1, c.repeat - 1) })}
+              >
+                −
+              </button>
+              {num(c.repeat, (n) => set({ repeat: Math.max(1, Math.min(100000, Math.round(n))) }), 70)}
+              <button
+                type="button"
+                title="1 늘리기"
+                onClick={() => set({ repeat: Math.min(100000, c.repeat + 1) })}
+              >
+                ＋
+              </button>
+              <button
+                type="button"
+                title="10 늘리기"
+                onClick={() => set({ repeat: Math.min(100000, c.repeat + 10) })}
+              >
+                ≫
+              </button>
+            </span>
             <span className="u">회</span>
             <span className="hint">한 바퀴가 한 회차입니다</span>
           </div>

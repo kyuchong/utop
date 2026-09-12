@@ -89,3 +89,18 @@
 .rp-btn.go { background: #16a34a; border-color: #16a34a; color: #fff; }
 .rp-btn:hover { border-color: #b9ccd1; }
 .rp-btn.go:hover { background: #15903f; border-color: #15903f; }
+
+/* 늘리고 줄이는 단추(지시) — 입력 칸을 가운데 두고 양옆에. 큰 수도 쓰므로
+   ±1 만으로는 더디다: ≪ ≫ 로 열씩 움직인다. */
+.rp-step { display: inline-flex; align-items: stretch; gap: 0; }
+.rp-step > button {
+  border: 1px solid #d5e0e4; background: #fbfdfe;
+  width: 26px; padding: 0; font: inherit; font-size: 12px; font-weight: 800;
+  color: #5b7176; cursor: pointer; line-height: 1;
+}
+.rp-step > button:first-child { border-radius: 5px 0 0 5px; }
+.rp-step > button:last-child { border-radius: 0 5px 5px 0; }
+.rp-step > button:hover:not(:disabled) { background: #edf7f7; color: #0b7580; border-color: #bfe0e3; }
+.rp-step > button:disabled { opacity: 0.4; cursor: default; }
+/* 가운데 입력 — 양옆 단추와 테두리를 맞물린다 */
+.rp-step > .rp-num { border-radius: 0; border-left: 0; border-right: 0; }
