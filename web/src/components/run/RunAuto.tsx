@@ -1213,7 +1213,9 @@ export default function RunAuto({
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => paneDown(id)}
             >
-              ⌄
+              {/* `⌄` 는 글리프 아래가 비어 있어 어떻게 세워도 위로 뜬다(지적:
+                  가운데 정렬이 안 된다). 삼각형은 몸통이 가운데에 있다. */}
+              ▾
             </button>
           </header>
           {body(id)}
