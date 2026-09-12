@@ -1136,39 +1136,6 @@ export default function RunDetail({
     }
   }
 
-  /** **고른 항목 하나만** 돌린다(지시).
-   *  서버는 pick(플랜 항목의 자리 번호)을 받는다 — 그것만 걸면 나머지
-   *  항목의 결과는 건드리지 않는다. */
-  const startOne = async () => {
-    if (busy || !cur) return
-    const items = (plan?.items ?? []) as Array<{ tcid?: string }>
-    const at = items.findIndex((x) => String(x?.tcid ?? '') === cur)
-    if (at < 0) {
-      window.alert('이 항목이 플랜에 없습니다 — 플랜에서 빠졌는지 보세요')
-      return
-    }
-    setBusy(true)
-    try {
-      const r = await apiFetch('/api/runs', {
-        method: 'POST',
-        body: JSON.stringify({
-          plan_run_id: runId,
-          pick: [at],
-          /* 한 항목을 여러 번 — 부팅 반복 같은 내구 시험이 바로 이 꼴이다 */
-          ...(repeat ? repeatBody(repeat) : {}),
-        }),
-      })
-      const j = (await r.json().catch(() => ({}))) as { run?: { id?: string }; detail?: string }
-      if (!r.ok) throw new Error(j.detail || '실행기에 걸지 못했습니다')
-      froze.current = ''
-      await save({ started_at: new Date().toISOString(), runner: run?.owner ?? '', job_id: String(j.run?.id ?? '') })
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : '실행기에 걸지 못했습니다')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   /** 멈춰 선 반복 시험에 답한다 — 배너의 세 단추.
    *  실행기는 진행을 올리는 김에 이 답을 받아 깨어난다. */
   const answerHold = async (what: 'go' | 'skip' | 'stop') => {
@@ -1741,26 +1708,9 @@ export default function RunDetail({
             </button>
           )
         )}
-        {/* 「장비 배정」 은 뺐다 — binds 를 저장만 하고 실행기가 안 읽어,
-            배정해도 그 장비로 안 돌았다(죽은 단추였다).
-            「실패만 재시험」·「실행 닫기」 도 뺐다(지시). */}
-        {isAuto && (
-          <button
-            type="button"
-            className="rd-btn"
-            disabled={busy || !cur || jobLive}
-            title={
-              jobLive
-                ? '지금 돌고 있습니다'
-                : cur
-                  ? `${cur} 하나만 실행기에 겁니다 — 나머지 결과는 그대로 둡니다`
-                  : '먼저 시험 항목을 고르세요'
-            }
-            onClick={() => void startOne()}
-          >
-            ▶ 이 항목만 실행
-          </button>
-        )}
+        {/* 「장비 배정」·「실패만 재시험」·「실행 닫기」 는 뺐다(지시).
+            「이 항목만 실행」 도 걷었다(지시) — 사이클 표에서 체크해 「고른
+            N개 실행」 이 같은 일을 하고, 그쪽은 고른 것이 서버에 남는다. */}
         {!!onClose && (
           <button type="button" className="rd-x" title="닫기" onClick={onClose}>
             ✕
