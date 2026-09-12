@@ -329,10 +329,8 @@ export default function CyclesBoard({
    *  체크할 때마다 곧바로 부르지 않고 잠깐 모아 보낸다 — 예순다섯 개를
    *  하나씩 찍으면 예순다섯 번을 부르게 된다. */
   const [picked, setPickedRaw] = useState<string[]>([])
-  /** 체크가 서버에 굳었나 — '' · saving · saved.
-   *  조용히 저장되면 「저장된 건지」 를 알 수 없다(지적). 잠깐 떴다 사라지면
-   *  그것도 못 본다 — **다음에 바뀔 때까지 계속** 달고 있는다. */
-  const [pickSaved, setPickSaved] = useState<'' | 'saving' | 'saved'>('')
+  /** 체크가 서버로 가는 중인가 — 끝나면 오른쪽 알림(flash)이 말한다 */
+  const [, setPickSaved] = useState<'' | 'saving' | 'saved'>('')
   const pickTimer = useRef<number | null>(null)
   const setPicked = (ids: string[]) => {
     setPickedRaw(ids)
@@ -346,11 +344,13 @@ export default function CyclesBoard({
         body: JSON.stringify({ picked: ids }),
       })
         .then((r) => {
-          setPickSaved(r.ok ? 'saved' : '')
+          setPickSaved('')
+          say(r.ok ? '고른 항목 저장됨 ✓' : '고른 항목을 저장하지 못했습니다')
         })
         .catch(() => {
           /* 못 굳혀도 화면은 그대로 — 다음 체크에 다시 보낸다 */
           setPickSaved('')
+          say('고른 항목을 저장하지 못했습니다')
         })
     }, 600)
   }
@@ -361,6 +361,15 @@ export default function CyclesBoard({
   /** 차례 저장의 낌새 — '' · saving · saved. 눌러도 아무 말이 없으면
    *  됐는지 알 수 없다(지적: 저장되는 느낌이 하나도 없음) */
   const [orderSave, setOrderSave] = useState<'' | 'saving' | 'saved'>('')
+  /** **떴다 사라지는 알림**(지시) — 도구 줄 오른쪽. 왼쪽에 붙박이로 두면
+   *  단추를 밀어내고, 다 본 뒤에도 자리를 차지한다. */
+  const [flash, setFlash] = useState('')
+  const flashTimer = useRef<number | null>(null)
+  const say = (msg: string) => {
+    setFlash(msg)
+    if (flashTimer.current != null) window.clearTimeout(flashTimer.current)
+    flashTimer.current = window.setTimeout(() => setFlash(''), 2600)
+  }
   /** 실행을 열 때 **고정한** 목록. picked 를 그대로 쓰면 표에서 체크를
    *  푸는 순간 도는 목록이 바뀐다 */
   const [runPick, setRunPick] = useState<string[]>([])
@@ -996,9 +1005,13 @@ export default function CyclesBoard({
       void saveFull({ items })
         .then(() => {
           setOrderOverride(null)
-          setOrderSave('saved')
+          setOrderSave('')
+          say('시험 차례 저장됨 ✓')
         })
-        .catch(() => setOrderSave(''))
+        .catch(() => {
+          setOrderSave('')
+          say('시험 차례를 저장하지 못했습니다')
+        })
     }, 600)
   }
 
@@ -2339,13 +2352,10 @@ export default function CyclesBoard({
               <button type="button" className="cu-new small" onClick={() => setAddTo(true)}>
                 <i aria-hidden="true">＋</i>Add TC
               </button>
-              {/* 차례는 **끌어 놓는 즉시** 굳는다(지시: 자동 저장) — 누를
-                  단추가 없다. 굳는 동안·굳은 뒤를 이 알이 말한다. */}
-              {orderSave !== '' && (
-                <span className={`cu-pick${orderSave === 'saved' ? ' saved' : ''}`}>
-                  {orderSave === 'saving' ? '시험 차례 저장 중…' : '시험 차례 저장됨 ✓'}
-                </span>
-              )}
+              {/* 굳는 **동안**만 왼쪽에 — 끝나면 오른쪽 알림이 말한다 */}
+              {orderSave === 'saving' && <span className="cu-pick">시험 차례 저장 중…</span>}
+              {/* **떴다 사라지는 알림**(지시) — 오른쪽 끝, 검색 앞자리 */}
+              {!!flash && <span className="cu-flash">{flash}</span>}
               <button
                 type="button"
                 className="cu-new small"
@@ -2389,13 +2399,8 @@ export default function CyclesBoard({
               </button>
               {picked.length > 0 && (
                 <>
-                  <span className={`cu-pick${pickSaved === 'saved' ? ' saved' : ''}`}>
-                    {picked.length}개 선택
-                    {pickSaved === 'saving'
-                      ? ' · 저장 중…'
-                      : pickSaved === 'saved'
-                        ? ' · 저장됨 ✓'
-                        : ' — 이것만 돕니다'}
+                  <span className="cu-pick">
+                    {picked.length}개 선택 — 이것만 돕니다
                   </span>
                   {/* 아래 선택 띠를 걷은 자리(지시) — 제거는 여기로 옮긴다.
                       없애 버리면 담은 항목을 뺄 길이 사라진다 */}

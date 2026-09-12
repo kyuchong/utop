@@ -436,3 +436,19 @@
   background: #eaf8f1; border-color: #b6ddc9; color: #0f7a4a;
   transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
+
+/* **떴다 사라지는 알림**(지시) — 도구 줄 오른쪽 끝, 검색 앞자리.
+   왼쪽에 붙박이로 두면 단추를 밀어내고 다 본 뒤에도 자리를 차지한다. */
+.cu-flash {
+  margin-left: auto; flex: none;
+  display: inline-flex; align-items: center;
+  background: #eaf8f1; border: 1px solid #b6ddc9; color: #0f7a4a;
+  border-radius: 999px; padding: 2px 11px;
+  font-size: 11px; font-weight: 800; white-space: nowrap;
+  animation: cu-flash-in 0.22s ease-out;
+}
+@keyframes cu-flash-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .cu-flash { animation: none; } }
