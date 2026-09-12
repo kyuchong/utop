@@ -1151,9 +1151,10 @@ export default function RunAuto({
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => paneDown(id)}
             >
-              {/* `⌄` 는 글리프 아래가 비어 있어 어떻게 세워도 위로 뜬다(지적:
-                  가운데 정렬이 안 된다). 삼각형은 몸통이 가운데에 있다. */}
-              ▾
+              {/* 스텝 카드의 접기와 **같은 부품**(지시) — 글자 화살표는 글리프
+                  여백 탓에 어떻게 세워도 어긋난다. 판을 아래로 내리는
+                  몸짓이라 그림을 아래로 돌려 세운다. */}
+              <IconChevron />
             </button>
           </header>
           {body(id)}

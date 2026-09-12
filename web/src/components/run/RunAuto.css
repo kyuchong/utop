@@ -553,15 +553,16 @@
 /* 판 내리기 — 안 보는 판은 아래 띠로(지시). 올리면 제자리(슬롯)로 돌아온다 */
 /* 짙은 머리 위에서는 밝은 글자라야 보인다 */
 .ra-minb {
-  /* 누를 자리가 너무 좁았다(지적) — 글자만 한 과녁이라 빗나갔다.
-     글리프를 **칸 한가운데**에 세운다(지적: 가운데 정렬이 아니다) —
-     line-height 만으로는 ⌄ 처럼 아래가 빈 글자가 위로 뜬다. */
-  border: 0; background: none; padding: 0; font: inherit; font-size: 15px;
+  /* 스텝 카드의 접기와 **같은 부품·같은 자리잡기**(지시) — 그림을 칸
+     한가운데 두고, 판을 내리는 몸짓이라 아래로 돌려 세운다. */
+  border: 0; background: none; padding: 0; margin: 0;
   color: #fff; cursor: pointer;
+  box-sizing: border-box;
   width: 24px; height: 22px;
-  display: inline-flex; align-items: center; justify-content: center;
+  display: grid; place-items: center;
   border-radius: 5px;
 }
+.ra-minb svg { width: 13px; height: 13px; transform: rotate(90deg); }
 .ra-minb:hover { background: rgba(255, 255, 255, 0.14); }
 .ra-minb:hover { color: #fff; }
 .ra-dockbar {
