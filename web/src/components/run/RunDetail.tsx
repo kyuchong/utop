@@ -629,12 +629,17 @@ export default function RunDetail({
      따로 쌓인다. 여기서는 「어떤 회차가 있나」 와 「지금 어느 회차를 보나」
      만 들고, 실제 결과는 아래 steps 계산이 골라 온다. */
   const roundsQ = useQuery({
-    queryKey: ['plan-run-rounds', runId],
-    enabled: !!runId,
+    /* **지금 보는 항목의 회차**만 센다(지시) — 실행 전체를 세면 65 항목을
+       한 번씩 돌린 것도 「65 회차」 로 보인다. 회차는 한 항목을 여러 번
+       돌린 수이고, 그때만 띠가 뜬다. */
+    queryKey: ['plan-run-rounds', runId, cur],
+    enabled: !!runId && !!cur,
     queryFn: async () => {
       /* 칸 수를 정해 **서버에서 접어** 받는다 — 10,000 회차를 그대로
          내려받으면 응답만 1MB 다. 회차가 적으면 서버가 안 접는다. */
-      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/rounds?buckets=120`)
+      const r = await apiFetch(
+        `/api/plan-runs/${encodeURIComponent(runId)}/rounds?buckets=120&tcid=${encodeURIComponent(cur)}`,
+      )
       if (!r.ok) return { rounds: [] as RoundRow[], total_rounds: 0, size: 1 }
       return (await r.json()) as { rounds: RoundRow[]; total_rounds?: number; size?: number }
     },
@@ -1439,7 +1444,9 @@ export default function RunDetail({
   })()
 
   const liveBand = (
-    <div className="rd-live">
+    <div className={`rd-live${jobState?.k === 'run' ? ' is-run' : ''}${
+      jobState?.k === 'lost' ? ' is-lost' : ''
+    }`}>
         {!!jobState && (
           <span className={`rd-state s-${jobState.k}`} title={jobState.s}>
             <i aria-hidden="true" />
@@ -1482,12 +1489,21 @@ export default function RunDetail({
 
         <span className="rd-lb grow2 last">
           <em>진행</em>
-          <span className="rd-bar2">
-            <i className="p" style={{ flexGrow: tally.p }} />
-            <i className="f" style={{ flexGrow: tally.f }} />
-            <i className="b" style={{ flexGrow: tally.b }} />
-            <i className="n" style={{ flexGrow: tally.n }} />
-          </span>
+          {/* 도는 중에는 **실행기가 세는 수**로 채운다 — 항목 판정만 보면
+              반복 시험에서 바가 안 움직인다(10 회를 돌아도 0%) */}
+          {jobLive && Number(job?.total) > 0 ? (
+            <span className="rd-bar2">
+              <i className="p" style={{ flexGrow: Number(job?.done ?? 0) }} />
+              <i className="n" style={{ flexGrow: Math.max(0, Number(job?.total) - Number(job?.done ?? 0)) }} />
+            </span>
+          ) : (
+            <span className="rd-bar2">
+              <i className="p" style={{ flexGrow: tally.p }} />
+              <i className="f" style={{ flexGrow: tally.f }} />
+              <i className="b" style={{ flexGrow: tally.b }} />
+              <i className="n" style={{ flexGrow: tally.n }} />
+            </span>
+          )}
           {/* 실행기가 세는 수(done/total)가 있으면 그것이 먼저다 — 반복
               시험은 항목 수만 보면 10 회를 돌아도 0% 에 머문다 */}
           {jobLive && Number(job?.total) > 0 ? (

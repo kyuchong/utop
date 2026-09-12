@@ -982,7 +982,7 @@ async def plan_run_item_get(run_id: str, tcid: str, round_: int = 1) -> Optional
         return d
 
 
-async def plan_run_rounds(run_id: str, buckets: int = 0) -> dict:
+async def plan_run_rounds(run_id: str, buckets: int = 0, tcid: str = "") -> dict:
     """회차 띠가 읽는 요약 — 회차마다 몇 건 돌고 몇 건 깨졌나.
 
     **장비 출력을 안 읽는다.** 10,000 회차여도 셈만 세므로 가볍다.
@@ -997,8 +997,11 @@ async def plan_run_rounds(run_id: str, buckets: int = 0) -> dict:
     회차가 buckets 보다 적으면 size 가 1 이라 회차별 그대로다."""
     bad = await _bad_verdicts()
     async with pool().acquire() as c:
+        # **항목 하나의 회차**만 센다(지시) — 실행 전체를 세면 65 항목을 한 번씩
+        # 돌린 것도 「65 회차」 로 보인다. 회차는 한 항목을 여러 번 돌린 수다.
         hi = int(await c.fetchval(
-            "SELECT COALESCE(max(round), 0) FROM plan_run_item WHERE run_id=$1", run_id) or 0)
+            "SELECT COALESCE(max(round), 0) FROM plan_run_item"
+            " WHERE run_id=$1 AND ($2 = '' OR tcid = $2)", run_id, tcid) or 0)
         if not hi:
             return {"rounds": [], "total_rounds": 0, "size": 1}
         size = 1 if buckets <= 0 or hi <= buckets else -(-hi // buckets)
@@ -1009,8 +1012,9 @@ async def plan_run_rounds(run_id: str, buckets: int = 0) -> dict:
             "       count(*) FILTER (WHERE verdict = ANY($2::text[])) AS fail,"
             "       count(*) FILTER (WHERE verdict <> '') AS judged,"
             "       min(at) AS from_at, max(at) AS to_at"
-            "  FROM plan_run_item WHERE run_id=$1 GROUP BY 1 ORDER BY 1",
-            run_id, bad or [""], int(size),
+            "  FROM plan_run_item WHERE run_id=$1 AND ($4 = '' OR tcid = $4)"
+            " GROUP BY 1 ORDER BY 1",
+            run_id, bad or [""], int(size), tcid,
         )
     out = []
     for r in rows:
