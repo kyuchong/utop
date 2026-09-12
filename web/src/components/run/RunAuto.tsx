@@ -869,7 +869,11 @@ export default function RunAuto({
                   return (
                     <div className="ra-why">
                       <span className="k">판정 기준</span>
-                      <span className={crit && crit !== '—' ? '' : 'dim'}>
+                      <span
+                        className={
+                          crit && crit !== '—' ? (mk && /fail/i.test(mk) ? 'bad' : '') : 'dim'
+                        }
+                      >
                         {crit && crit !== '—'
                           ? crit
                           : calc
@@ -940,7 +944,10 @@ export default function RunAuto({
                               x &&
                               !/^(has|not|==|!=|>=|<=|>|<|있으면|없으면|같다|다르다|포함|포함한다)$/.test(x),
                           )
-                        if (toks.includes(t)) return 'has'
+                        /* **판정 색으로 칠한다**(지시: 합격 초록·불합격 붉음).
+                           불합격은 대개 찾는 값이 원문에 아예 없어 칠할 것이
+                           없다 — 그때는 판정 기준 줄에서 붉게 보인다. */
+                        if (toks.includes(t)) return /fail/i.test(String(mk)) ? 'not' : 'has'
                         if ((s2.vars ?? []).some((x) => x.name === t)) return 'var'
                         return null
                       }}
