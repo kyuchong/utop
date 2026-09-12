@@ -461,6 +461,11 @@ export default function RunAuto({
   const tookText = (ms?: number) =>
     ms == null ? '' : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}초`
 
+  /** 접어 둔 스텝 자리 — 접으면 머리만 남아 실행 스텝 표와 같은 밀도가 된다 */
+  const [folded, setFolded] = useState<Set<number>>(new Set())
+  /** 깨진 스텝만 보기 — 62 건에서 실패한 자리로 바로 간다 */
+  const [onlyBad, setOnlyBad] = useState(false)
+
   /** 실행 로그의 「부적합만」 — 시험 항목 화면과 같은 단추 */
   const [logOnly, setLogOnly] = useState(false)
 
@@ -737,6 +742,28 @@ export default function RunAuto({
               그 밖은 흰 칩이다. 누르면 그 줄로 간다. 62 스텝을 훑을 때
               카드를 스크롤하지 않고도 깨진 자리로 바로 갈 수 있다. */}
           <div className="ra-sbar">
+            {/* 62 스텝을 훑는 두 손잡이(승인) — 접으면 머리만 남고, 부적합만
+                고르면 그 자리만 선다. 실행 스텝 표가 하던 일이다.
+                말은 시험 항목 실행 로그의 단추와 맞춘다(지시). */}
+            <button
+              type="button"
+              className="ra-sbtn"
+              onClick={() =>
+                setFolded((f) =>
+                  f.size ? new Set() : new Set(steps.map((_, i3) => i3)),
+                )
+              }
+            >
+              {folded.size ? '모두 펴기' : '모두 접기'}
+            </button>
+            <button
+              type="button"
+              className={`ra-sbtn${onlyBad ? ' on' : ''}`}
+              onClick={() => setOnlyBad((v) => !v)}
+            >
+              부적합만
+            </button>
+            <span className="ra-ssep" />
             {steps.map((s2, i2) =>
               s2.kind === 'comment' ? null : (
                 <button
@@ -780,6 +807,7 @@ export default function RunAuto({
                 steps
                   .slice(0, seeUpTo + 1)
                   .map((s2, k) => ({ s2, k }))
+                  .filter(({ s2, k }) => !onlyBad || k === seeUpTo || /fail/i.test(String(s2.mark ?? '')))
                   .map(({ s2, k: seeUpTo }) => {
                 /* 반복 안 스텝이면 **회차를 고를 수 있다**(지시).
                    기본은 마지막 회차 — 방금 돈 것이 궁금한 게 보통이다. */
@@ -815,6 +843,26 @@ export default function RunAuto({
                   {/* 주석은 번호를 안 먹는다(nos 가 비어 있다). 그때 s2.no 로
                       떨어지면 **다음 줄과 같은 번호**가 붙어 같은 스텝이 두
                       번 나온 것처럼 보였다(지적). 번호가 없으면 안 적는다. */}
+                  {/* 펼 것이 있는 줄에만 화살표를 둔다 — 주석·메시지는 잴 것이 없다 */}
+                  {s2.kind === 'comment' || s2.kind === 'message' ? (
+                    <span className="ra-bcar" />
+                  ) : (
+                    <button
+                      type="button"
+                      className="ra-bcar hit"
+                      title={folded.has(seeUpTo) ? '펴기' : '접기'}
+                      onClick={() =>
+                        setFolded((f) => {
+                          const n = new Set(f)
+                          if (n.has(seeUpTo)) n.delete(seeUpTo)
+                          else n.add(seeUpTo)
+                          return n
+                        })
+                      }
+                    >
+                      {folded.has(seeUpTo) ? '▸' : '▾'}
+                    </button>
+                  )}
                   <b className="ra-bno">{nos[seeUpTo] ? `Step ${nos[seeUpTo]}` : '주석'}</b>
                   <span className="ra-bcmd">
                     {(() => {
@@ -854,8 +902,9 @@ export default function RunAuto({
                 </div>
                 {/* **판정 기준 · 변수 · RCA**(승인) — 무엇으로 보았고, 무엇을
                     담았고, 그래서 어떻게 판정됐나. 셋을 한 격자에 두어 라벨이
-                    세로로 맞는다. */}
-                {(() => {
+                    세로로 맞는다. 접으면 머리만 남는다. */}
+                {!folded.has(seeUpTo) &&
+                  (() => {
                   const quiet2 = s2.kind === 'comment' || s2.kind === 'message'
                   if (quiet2) return null
                   const crit = String(s2.expected ?? '').trim()
@@ -910,7 +959,7 @@ export default function RunAuto({
                     </div>
                   )
                 })()}
-                {rds.length > 1 && (
+                {!folded.has(seeUpTo) && rds.length > 1 && (
                   <div className="ra-rds">
                     <span className="l">회차 {rds.length}회</span>
                     {rds.map((r, k) => (
@@ -926,7 +975,7 @@ export default function RunAuto({
                     ))}
                   </div>
                 )}
-                {isWait(s2) ? (
+                {folded.has(seeUpTo) ? null : isWait(s2) ? (
                   <pre className="ra-wait">{waitLine(s2, seeUpTo)}</pre>
                 ) : (
                   /* 시험 항목 화면과 **같은 부품**으로 그린다(지시: 실행

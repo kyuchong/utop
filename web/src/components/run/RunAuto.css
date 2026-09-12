@@ -649,3 +649,21 @@
 .ra-sch.ok { background: #e8f5ed; border-color: #b9e0c9; color: #12643a; }
 .ra-sch.bad { background: #fdeaea; border-color: #f2c2c2; color: #a02323; }
 .ra-sch.on { outline: 2px solid #0f6e56; outline-offset: 1px; }
+
+/* 스텝 칩 줄의 손잡이 — 모두 접기 · 부적합만 */
+.ra-sbtn {
+  border: 1px solid #dfe7ea; background: #fff; border-radius: 5px;
+  padding: 1px 9px; font: inherit; font-size: 11px; color: #4a5a63;
+  cursor: pointer; line-height: 1.6;
+}
+.ra-sbtn:hover { border-color: #b7c4cb; }
+.ra-sbtn.on { background: #fdeaea; border-color: #f2c2c2; color: #a02323; }
+.ra-ssep { width: 1px; height: 14px; background: #dfe7ea; margin: 0 3px; }
+
+/* 블록 머리의 접기 화살표 — 펼 것이 없는 줄에는 빈 자리만 */
+.ra-bcar {
+  flex: none; width: 16px; height: 16px; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 10px; color: #97a6ae;
+}
+button.ra-bcar { border: 0; background: none; padding: 0; cursor: pointer; border-radius: 4px; }
+button.ra-bcar:hover { background: #e9eff2; color: #35434b; }
