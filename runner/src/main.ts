@@ -265,10 +265,12 @@ async function doRun(run: Run): Promise<void> {
     try {
       const steps = (it.steps ?? []) as Array<Record<string, unknown>>
       /* 항목 판정 — 판정 기준이 걸린 스텝이 하나라도 깨졌으면 Fail.
-         기준이 아예 없는 항목은 빈 값으로 둔다(조회만 하는 항목이다). */
-      const marked = steps.filter((s) => String(s?.mark ?? '').trim())
+         기준이 아예 없는 항목은 빈 값으로 둔다(조회만 하는 항목이다).
+         **키는 status 다** — 실행기가 스텝에 적는 것이 그것이고, 화면도
+         거기서 읽는다(asStep). mark 로 보면 늘 빈손이라 판정이 안 선다. */
+      const marked = steps.filter((s) => String(s?.status ?? '').trim())
       const verdict = marked.length
-        ? marked.some((s) => /fail/i.test(String(s.mark))) ? 'Fail' : 'Pass'
+        ? marked.some((s) => /fail/i.test(String(s.status))) ? 'Fail' : 'Pass'
         : ''
       const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(rid)}/item`, {
         method: 'POST',
