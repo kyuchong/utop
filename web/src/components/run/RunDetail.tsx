@@ -158,7 +158,23 @@ function asStep(raw: Record<string, unknown>, i: number): {
   const cli = g('cli') || g('cmd')
   /* 기대값 — criteria 가 비면 rules 를 사람 말로 잇는다 */
   const rules = Array.isArray(raw?.rules) ? (raw.rules as Array<Record<string, unknown>>) : []
+  /* **견주는 줄은 그 식이 곧 기준**이다(지적: Diff 에 「기준 없음」 이 떴다).
+     criteria 칸을 안 쓰고 cmpLeft·cmpOp·cmpRight 에 적는 갈래라 비어 보였다.
+     적어 둔 말(cmpLeftLabel)이 있으면 함께 세워 사람 말로 읽히게 한다. */
+  const cmpText = (() => {
+    if (String(raw?.kind ?? '') !== 'diff') return ''
+    const l = `${g('cmpLeftLabel')} ${g('cmpLeft')}`.trim()
+    const r = `${g('cmpRightLabel')} ${g('cmpRight')}`.trim()
+    if (!l && !r) return ''
+    const op = g('cmpOp') || '=='
+    const word: Record<string, string> = {
+      '==': '같다', '!=': '다르다', '포함': '포함한다',
+      '>': '크다', '<': '작다', '>=': '크거나 같다', '<=': '작거나 같다',
+    }
+    return `${l} ${word[op] ?? op} ${r}`.trim()
+  })()
   const expected =
+    cmpText ||
     g('criteria') ||
     g('expected') ||
     rules

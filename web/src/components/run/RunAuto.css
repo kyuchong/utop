@@ -601,3 +601,13 @@
 .ra-why > .bad { color: #a02323; }
 .ra-why code { font-family: var(--mono, ui-monospace, monospace); background: #f3f6f8; border-radius: 3px; padding: 0 4px; }
 .ra-vrule { font-style: normal; color: #9aa7ae; margin-left: 5px; }
+
+/* 스텝 카드의 판정 — **왼쪽 세로 띠**(지적: Pass 구분이 잘 안 된다).
+   오른쪽 끝 배지 하나로는 카드가 줄줄이 설 때 눈에 안 들어온다. */
+.ra-blk.v-pass { box-shadow: inset 3px 0 0 #2e9e63; }
+.ra-blk.v-fail { box-shadow: inset 3px 0 0 #e34663; }
+.ra-blk.v-fail > .ra-cmd { background: #fdf2f3; }
+.ra-blk.v-pass > .ra-cmd,
+.ra-blk.v-fail > .ra-cmd { padding-left: 12px; }
+.ra-st.ok { background: #e8f5ed; color: #12643a; }
+.ra-st.bad { background: #fdeaea; color: #a02323; }

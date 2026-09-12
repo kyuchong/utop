@@ -777,7 +777,16 @@ export default function RunAuto({
                         : '(출력 없음)')
                 const mk = rd ? String(rd.status ?? '') : String(s2.mark ?? '')
                 return (
-                <div className="ra-blk" key={s2.no ?? seeUpTo} ref={conEndRef}>
+                <div
+                  /* 판정을 **왼쪽 세로 띠**로 보여 준다(지적: Pass 구분이 잘
+                     안 된다). 오른쪽 끝 배지 하나로는 카드가 줄줄이 설 때
+                     눈에 안 들어온다 — 시험 항목 표가 쓰는 것과 같은 언어다. */
+                  className={`ra-blk${
+                    mk ? (/pass/i.test(mk) ? ' v-pass' : ' v-fail') : ''
+                  }`}
+                  key={s2.no ?? seeUpTo}
+                  ref={conEndRef}
+                >
                 <div className="ra-cmd">
                   {/* 주석은 번호를 안 먹는다(nos 가 비어 있다). 그때 s2.no 로
                       떨어지면 **다음 줄과 같은 번호**가 붙어 같은 스텝이 두
@@ -795,7 +804,11 @@ export default function RunAuto({
                       /* 장비로 **안 나가는 줄**에는 프롬프트를 안 붙인다 —
                          주석·메시지에 `DUT# ` 가 붙어 마치 그 글을 명령으로
                          보낸 것처럼 보였다(지적). 그런 줄은 출력도 없다. */
-                      const quiet = s2.kind === 'comment' || s2.kind === 'message'
+                      /* 장비로 **안 나가는 갈래**에는 프롬프트를 안 붙인다 —
+                         Diff·치환·대기도 명령이 아니라 셈이다(지적: DUT# 가 붙는다) */
+                      const quiet = ['comment', 'message', 'diff', 'map', 'wait', 'if', 'else', 'loop'].includes(
+                        String(s2.kind ?? ''),
+                      )
                       if (quiet) return c2 || s2.t || s2.action || '—'
                       return c2 ? `${pr}# ${c2}` : s2.t || s2.action || '—'
                     })()}
@@ -811,7 +824,7 @@ export default function RunAuto({
                     <span className={`ra-st ${/pass/i.test(mk) ? 'ok' : 'bad'}`}>
                       {/pass/i.test(mk) ? 'PASS' : 'FAIL'}
                     </span>
-                  ) : (
+                  ) : s2.kind === 'comment' || s2.kind === 'message' ? null : (
                     <span className="ra-bnone">판정 없음</span>
                   )}
                 </div>
@@ -827,6 +840,7 @@ export default function RunAuto({
                   if (!crit && !rca && !vs.length) return null
                   /* 기준을 안 적은 스텝 — 조회 명령인지 아닌지로 말을 가른다(합의) */
                   const c0 = String(s2.cmd ?? '').trim().toLowerCase()
+                  const calc = ['diff', 'map', 'wait', 'if', 'else', 'loop'].includes(String(s2.kind ?? ''))
                   const look = /^(show|display|get|dir|more)\b/.test(c0) || s2.action === 'SNMP Public'
                   return (
                     <div className="ra-why">
@@ -834,9 +848,11 @@ export default function RunAuto({
                       <span className={crit && crit !== '—' ? '' : 'dim'}>
                         {crit && crit !== '—'
                           ? crit
-                          : look
-                            ? '없음 — 조회만 합니다'
-                            : '없음 — 클리어 및 실행만 합니다'}
+                          : calc
+                            ? '없음 — 판정하지 않습니다'
+                            : look
+                              ? '없음 — 조회만 합니다'
+                              : '없음 — 클리어 및 실행만 합니다'}
                       </span>
                       {vs.length > 0 && (
                         <>
