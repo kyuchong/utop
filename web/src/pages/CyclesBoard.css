@@ -246,3 +246,32 @@
 /* 세 줄이 Full HD 한 화면에 들어오게 — 줄 안쪽 여백도 조인다 */
 .cyb .cyb-rtl, .cyb .cyb-rtr { padding: 10px 14px; }
 .cyb .cyb-rtl .sumrows { gap: 3px; }
+
+/* Status — **1행 3열 + 2행 통짜**(지시). 위는 자동·수동·커버리지 셋을
+   나란히, 아래는 누적 그림 하나가 폭을 다 쓴다. */
+.cyb .cyb-rt3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0;
+}
+.cyb .cyb-rt3 > .cyb-rtl {
+  padding: 12px 14px; min-width: 0;
+  border-left: 1px solid var(--c-border-soft, #dfe4ea);
+}
+.cyb .cyb-rt3 > .cyb-rtl:first-child { border-left: 0; }
+.cyb .cyb-rtw {
+  grid-column: 1 / -1; padding: 12px 14px; min-width: 0;
+  border-top: 1px solid var(--c-border-soft, #dfe4ea);
+}
+/* 셋이 나란히 서면 폭이 좁다 — 도넛과 알약을 위아래로 쌓는다 */
+.cyb .cyb-rt3 .ov-verd { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.cyb .cyb-rt3 .sumrows { max-width: none; }
+
+/* 기간 고르개 — 7일 · 15일 · 한 달 */
+.cyb .cyb-span { display: inline-flex; gap: 3px; }
+.cyb .cyb-span > button {
+  border: 1px solid var(--c-border-soft, #dfe4ea); background: #fff;
+  border-radius: 5px; padding: 2px 9px; font: inherit; font-size: 11px;
+  font-weight: 700; color: #64777f; cursor: pointer;
+}
+.cyb .cyb-span > button.on { background: #edf7f7; border-color: #bfe0e3; color: #0b7580; }

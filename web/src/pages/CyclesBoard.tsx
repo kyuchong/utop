@@ -37,8 +37,6 @@ import MakeCycle from '@/components/cycle/MakeCycle'
 import AddItems from '@/components/cycle/AddItems'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
-import CycleInsight from '@/components/cycle/CycleInsight'
-import TestSummary from '@/components/cycle/TestSummary'
 import AssigneePicker from '@/components/AssigneePicker'
 import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserPeople } from '@/pages/qaBits'
 import { useVerdictsState, vDef, vGroup, vLetter } from '@/lib/verdicts'
@@ -127,7 +125,7 @@ export default function CyclesBoard({
 
   /** 열린 사이클 — 비면 목록. 주소(?cycle=)가 정본이다 */
   const [open, setOpen] = useState(() => prefGet('utop.cycle.sel') ?? '')
-  const [tab, setTab] = useState<'info' | 'run' | 'itm' | 'ita' | 'def' | 'ai' | 'sum'>('info')
+  const [tab, setTab] = useState<'info' | 'run' | 'itm' | 'ita' | 'def'>('info')
   const [making, setMaking] = useState(false)
   const [addTo, setAddTo] = useState(false)
   const [mkRun, setMkRun] = useState(false)
@@ -235,8 +233,8 @@ export default function CyclesBoard({
     },
   })
   const people = useUserPeople()
-  /** 실행 판정 기준 — 셋업이 정본. 막대 색·Test Summary 셈이 쓴다 */
-  const { defs: verds, ready: verdsReady } = useVerdictsState()
+  /** 실행 판정 기준 — 셋업이 정본. 막대 색과 판정 알약이 쓴다 */
+  const { defs: verds } = useVerdictsState()
   const verdPal = useMemo(
     () => ({
       p: vDef(verds, 'Pass').color,
@@ -924,7 +922,7 @@ export default function CyclesBoard({
   const failQs = useQueries({
     queries: myRuns.map((r) => ({
       queryKey: ['plan-run', r.id],
-      enabled: !!open && (tab === 'run' || tab === 'itm' || tab === 'ita' || tab === 'sum'),
+      enabled: !!open && (tab === 'run' || tab === 'itm' || tab === 'ita'),
       queryFn: async () => {
         const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}`)
         if (!res.ok) throw new Error('실행을 불러오지 못했습니다')
@@ -963,6 +961,12 @@ export default function CyclesBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [failQs.map((q2) => q2.dataUpdatedAt).join(','), myRuns, verds, tcOf])
 
+  /** 누적 그림에서 **며칠치를 보나**(지시: 7일·15일·한 달) */
+  const [spanD, setSpanD] = useState<number>(() => {
+    const v = Number(prefGet('utop.cyc.span') ?? 7)
+    return v === 15 || v === 30 ? v : 7
+  })
+
   /** 커버리지 — 그날까지 **판정한 항목 누적**을 자동·수동으로 나눠 본다(지시) */
   const covCum = useMemo(() => {
     const days = [...new Set([...dayStat.auto.map(([d]) => d), ...dayStat.man.map(([d]) => d)])].sort()
@@ -977,6 +981,19 @@ export default function CyclesBoard({
       return [d, { p: a, f: m, b: 0 }] as [string, { p: number; f: number; b: number }]
     })
   }, [dayStat])
+
+  /** 고른 기간만 — 마지막 기록일에서 거슬러 센다(없는 날은 애초에 줄이 없다) */
+  const covCumSpan = useMemo(() => {
+    if (covCum.length < 2) return covCum
+    const last = covCum[covCum.length - 1]![0]
+    const end = Date.parse(`${last}T00:00:00Z`)
+    if (!Number.isFinite(end)) return covCum.slice(-spanD)
+    const from = end - (spanD - 1) * 86400000
+    return covCum.filter(([d]) => {
+      const t = Date.parse(`${d}T00:00:00Z`)
+      return !Number.isFinite(t) || t >= from
+    })
+  }, [covCum, spanD])
 
   const failStat = useMemo(() => {
     const m = new Map<string, { fail: number; ran: number }>()
@@ -993,46 +1010,6 @@ export default function CyclesBoard({
     return m
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [failQs.map((q2) => q2.dataUpdatedAt).join(','), verds])
-
-  /** Test Summary 용 합산 — 실행들이 남긴 판정을 항목별로 겹쳐(뒤가 이김) 센다 */
-  const sumOfRuns = useMemo(() => {
-    const asc = [...myRuns].sort((a, b) =>
-      String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')),
-    )
-    const got = new Map<string, { v: string; run: string }>()
-    for (const r of asc) {
-      const full2 = failQs[myRuns.findIndex((x) => x.id === r.id)]?.data
-      for (const [tcid, v] of Object.entries(full2?.results ?? {})) {
-        const g = vGroup(verds, String(v ?? ''))
-        if (g !== 'none') got.set(tcid, { v: g, run: String(r.name || r.id) })
-      }
-    }
-    const stat = { total: itemRows.length, pass: 0, fail: 0, etc: 0, none: 0, rate: 0 }
-    const fails: Array<{ tcid: string; title: string; run: string }> = []
-    for (const it of itemRows) {
-      const hit = got.get(it.tcid)
-      if (!hit) stat.none++
-      else if (hit.v === 'pass') stat.pass++
-      else if (hit.v === 'fail') {
-        stat.fail++
-        fails.push({ tcid: it.tcid, title: it.title, run: hit.run })
-      } else stat.etc++
-    }
-    stat.rate = stat.pass + stat.fail ? Math.round((stat.pass / (stat.pass + stat.fail)) * 100) : 0
-    /* 「다 왔나」 는 isLoading 으로 재면 안 된다 — enabled 가 켜지기 직전에는
-       아직 안 도는 쿼리도 isLoading=false 라, 빈 손으로 ready 가 되어
-       초안이 「실패 0」 으로 굳었다(실측). 자료가 실제로 왔는지를 본다. */
-    return {
-      stat,
-      fails,
-      /* 셋업(판정 계열)까지 와야 셈이 맞다 — 커스텀 pass/fail 이 폴백(중립)으로
-         셈해진 초안이 굳으면 안 된다(검증 지적) */
-      ready:
-        verdsReady &&
-        (!myRuns.length || failQs.every((q2) => q2.data !== undefined || q2.isError)),
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myRuns, itemRows, failQs.map((q2) => q2.dataUpdatedAt).join(','), verds, verdsReady])
 
   /** 전문을 통째로 고쳐 저장한다 — 서버는 data 를 통으로 받는다 */
   async function saveFull(patch: Partial<PlanFull>) {
@@ -2237,6 +2214,25 @@ export default function CyclesBoard({
   }
 
   /** 그래프 꼴 고르개 — 선(기본)·막대 */
+  /** 7일 · 15일 · 한 달(지시) — 누적 그림이 덮는 기간 */
+  const spanPick = (
+    <span className="cyb-span">
+      {([[7, '7일'], [15, '15일'], [30, '한 달']] as Array<[number, string]>).map(([n, l]) => (
+        <button
+          key={n}
+          type="button"
+          className={spanD === n ? 'on' : ''}
+          onClick={() => {
+            setSpanD(n)
+            prefSet('utop.cyc.span', String(n))
+          }}
+        >
+          {l}
+        </button>
+      ))}
+    </span>
+  )
+
   const kindPick = (
     <select
       className="cyb-kind"
@@ -2335,35 +2331,14 @@ export default function CyclesBoard({
       )
     }
 
-    const VERD3 = [
-      { k: 'p' as const, label: 'Pass', color: cP },
-      { k: 'f' as const, label: 'Fail', color: cF },
-      { k: 'b' as const, label: '그 밖', color: cB },
-    ]
-
     return (
       <div className="cu-scroll">
-        {/* 2열 3행(지시) — 왼쪽은 도넛·판정, 오른쪽은 그 갈래의 일자별 그림.
-            행 사이는 두 열을 가로지르는 실금으로 나눈다 */}
-        <div className="cu-sec cu-card cyb-rt">
+        {/* **1행 3열 + 2행 통짜**(지시). 위는 자동·수동·커버리지 셋을 나란히,
+            아래는 누적 그림 하나가 폭을 다 쓴다. 갈래별 일자 그림 둘은
+            걷었다(지시) — 아래 누적이 같은 것을 더 잘 말한다. */}
+        <div className="cu-sec cu-card cyb-rt3">
           <div className="cyb-rtl">{verdCell('자동 시험', false)}</div>
-          <div className="cyb-rtr">
-            <h3 className="cyb-rowh">
-              일자별 <span className="dim">자동 · 판정 수</span>
-              <span className="cu-sp" />
-              {kindPick}
-            </h3>
-            <DayChart rows={dayStat.auto} series={VERD3} />
-          </div>
-
           <div className="cyb-rtl">{verdCell('수동 시험', true)}</div>
-          <div className="cyb-rtr">
-            <h3 className="cyb-rowh">
-              일자별 <span className="dim">수동 · 판정 수</span>
-            </h3>
-            <DayChart rows={dayStat.man} series={VERD3} />
-          </div>
-
           <div className="cyb-rtl">
             <h3 className="cyb-rowh">커버리지</h3>
             <div className="ov-verd">
@@ -2387,12 +2362,15 @@ export default function CyclesBoard({
               </div>
             </div>
           </div>
-          <div className="cyb-rtr">
+          <div className="cyb-rtw">
             <h3 className="cyb-rowh">
               일자별 <span className="dim">누적 판정 — 자동 · 수동</span>
+              <span className="cu-sp" />
+              {spanPick}
+              {kindPick}
             </h3>
             <DayChart
-              rows={covCum}
+              rows={covCumSpan}
               series={[
                 { k: 'p', label: '자동(누적)', color: 'var(--c-primary)' },
                 { k: 'f', label: '수동(누적)', color: '#8a949e' },
@@ -2567,11 +2545,8 @@ export default function CyclesBoard({
             </button>
           </div>
         </div>
-        {/* 순서는 **읽는 순서**다(옛 화면 그대로) — 한눈에 보고(개요),
-            무엇이 일어났는지 읽고(AI 요약), 글로 옮기고(Test Summary),
-            마지막에 항목 하나하나를 판다. */}
-        {/* 탭 차례는 지시대로: Info → 실행 → 수동 시험항목 → 자동 시험항목
-            → 결함 내역 → AI 요약 → Test Summary */}
+        {/* 탭 차례는 읽는 순서다: Info → Status → 수동 → 자동 → 결함.
+            「AI 요약」·「Test Summary」 는 걷었다(지시). */}
         <div className="cu-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'info'} className={tab === 'info' ? 'on' : ''} onClick={() => setTab('info')}>
             Info
@@ -2588,37 +2563,9 @@ export default function CyclesBoard({
           <button type="button" role="tab" aria-selected={tab === 'def'} className={tab === 'def' ? 'on' : ''} onClick={() => setTab('def')}>
             Defects
           </button>
-          <button type="button" role="tab" aria-selected={tab === 'ai'} className={tab === 'ai' ? 'on' : ''} onClick={() => setTab('ai')}>
-            AI 요약
-          </button>
-          <button type="button" role="tab" aria-selected={tab === 'sum'} className={tab === 'sum' ? 'on' : ''} onClick={() => setTab('sum')}>
-            Test Summary
-          </button>
         </div>
         {tab === 'info' ? (
           renderInfo()
-        ) : tab === 'ai' ? (
-          /* AI 요약 — 창이 아니라 탭 안에(옛 화면 그대로). 부품 한 벌 */
-          <div className="cu-fill">
-            <CycleInsight
-              inline
-              mode="ai"
-              cycleId={plan.id}
-              title={[plan.model, plan.version].filter(Boolean).join(' · ') || String(plan.cid ?? plan.id)}
-              items={[]}
-              onClose={() => setTab('info')}
-            />
-          </div>
-        ) : tab === 'sum' ? (
-          <div className="cu-fill">
-            <TestSummary
-              plan={plan}
-              title={String(plan.name ?? plan.version ?? plan.id)}
-              stat={sumOfRuns.stat}
-              fails={sumOfRuns.fails}
-              statReady={sumOfRuns.ready}
-            />
-          </div>
         ) : tab === 'run' ? (
           renderRunTab()
         ) : tab === 'def' ? (
