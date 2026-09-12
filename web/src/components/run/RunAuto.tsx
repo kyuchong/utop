@@ -923,7 +923,29 @@ export default function RunAuto({
                   /* 시험 항목 화면과 **같은 부품**으로 그린다(지시: 실행
                      Response 에서는 블럭이 안 잡힌다). 여기서는 보기만 하므로
                      누를 거리는 넘기지 않는다. */
-                  <pre><BlockText text={body} /></pre>
+                  <pre>
+                    <BlockText
+                      text={body}
+                      /* **기준·변수로 쓰인 값을 칠한다**(지시: iTest 처럼).
+                         판정 기준 글(has == E6100 · 있으면 E6100)에서 값만
+                         추려 견준다 — 연산자·말머리는 값이 아니다. */
+                      markOf={(v) => {
+                        const t = v.trim()
+                        if (!t) return null
+                        const toks = String(s2.expected ?? '')
+                          .split(/[\s,]+/)
+                          .map((x) => x.replace(/^["']|["']$/g, '').trim())
+                          .filter(
+                            (x) =>
+                              x &&
+                              !/^(has|not|==|!=|>=|<=|>|<|있으면|없으면|같다|다르다|포함|포함한다)$/.test(x),
+                          )
+                        if (toks.includes(t)) return 'has'
+                        if ((s2.vars ?? []).some((x) => x.name === t)) return 'var'
+                        return null
+                      }}
+                    />
+                  </pre>
                 )}
               </div>
               )})}
