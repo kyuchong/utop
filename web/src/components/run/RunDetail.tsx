@@ -1500,7 +1500,10 @@ export default function RunDetail({
     <div className={`rd-live${jobState?.k === 'run' ? ' is-run' : ''}${
       jobState?.k === 'lost' ? ' is-lost' : ''
     }`}>
-        {!!jobState && (
+        {/* 도는 중에는 **안 세운다**(지시) — 띠가 초록으로 깔리고 진행률·
+            경과가 이미 그 말을 한다. 긴 항목 이름까지 붙어 자리만 먹었다.
+            이상할 때만 선다: 큐 대기 · 응답 없음 · 멈춰 섬 · 실패. */}
+        {!!jobState && jobState.k !== 'run' && (
           <span className={`rd-state s-${jobState.k}`} title={jobState.s}>
             <i aria-hidden="true" />
             {jobState.t}
