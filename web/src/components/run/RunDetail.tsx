@@ -140,6 +140,10 @@ function autoName(raw: Record<string, unknown>): string {
 function asStep(raw: Record<string, unknown>, i: number): {
   no: number; kind: string; t: string; cmd: string; expected: string; action: string
   session: string; out: string; mark?: string; took?: string; tookMs?: number; waitSec?: number; at?: string
+  /** 왜 그 판정이 났나 — 블록이 판정 기준 아래 적는다 */
+  reason?: string
+  /** 이 스텝이 담는 변수 — 이름과 규칙 */
+  vars?: Array<{ name: string; rule?: string }>
   /** 이 스텝이 붙은 장비 — 세션 판이 이것으로 장비를 찾는다 */
   devId?: string
   /** 비교 스텝이 통과·실패일 때 적어 둔 문구 */
@@ -189,6 +193,22 @@ function asStep(raw: Record<string, unknown>, i: number): {
     /* 스텝이 **언제** 돌았나. 안 실으면 이벤트 줄이 전부 항목 끝난 시각
        하나로 찍혀, 무엇이 먼저였는지 알 수 없다. */
     at: g('executed_at') || g('at') || undefined,
+    /* **왜 그 판정이 났나**(RCA) — 블록이 판정 기준 바로 아래 적는다(승인) */
+    reason: g('reason') || undefined,
+    /* 이 스텝이 **담는 변수** — 이름과 규칙. 값은 RCA 문장에 이미 들어 있다 */
+    vars: (() => {
+      const out: Array<{ name: string; rule?: string }> = []
+      for (const x of (Array.isArray(raw?.extracts) ? raw.extracts : []) as Array<Record<string, unknown>>) {
+        const n = String(x?.var ?? '').trim()
+        if (n) out.push({ name: n, rule: String(x?.rule ?? '') || undefined })
+      }
+      for (const x of (Array.isArray(raw?.queries) ? raw.queries : []) as Array<Record<string, unknown>>) {
+        const n = String(x?.var ?? '').trim()
+        if (n && !out.some((y) => y.name === n))
+          out.push({ name: n, rule: String(x?.q ?? x?.col ?? '') || undefined })
+      }
+      return out.length ? out : undefined
+    })(),
     /* 사람이 적어 둔 판정 문구. 실행 이벤트가 「기준 맞음」 대신 이걸 적는다(지시) */
     okMsg: g('msgYes') || g('trueMsg') || undefined,
     ngMsg: g('msgNo') || g('falseMsg') || undefined,

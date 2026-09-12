@@ -38,6 +38,10 @@ export interface AutoStep {
   took?: string
   /** 그 스텝이 **걸린 시간**(ms). 「10회」 배지 자리에 이것을 적는다(지시) */
   tookMs?: number
+  /** 왜 그 판정이 났나(RCA) — 판정 기준 바로 아래 선다 */
+  reason?: string
+  /** 이 스텝이 담는 변수 — 이름과 규칙 */
+  vars?: Array<{ name: string; rule?: string }>
   /** 「대기」 스텝이 기다리기로 한 초. 카운트다운은 이 값에서 내려온다 */
   waitSec?: number
   /** 실제로 돌았나 — 판정이 없는 스텝과 안 돌린 스텝을 가른다 */
@@ -796,12 +800,67 @@ export default function RunAuto({
                       return c2 ? `${pr}# ${c2}` : s2.t || s2.action || '—'
                     })()}
                   </span>
+                  {/* 실행 스텝 표가 하던 말을 머리가 받는다(승인) — 동작·세션·
+                      걸린 시간. 판을 합치면서 잃을 것이 없어야 한다. */}
+                  <span className="ra-bmeta">
+                    {s2.action && s2.action !== '—' ? s2.action : ''}
+                    {s2.session && s2.session !== '—' ? ` · ${s2.session}` : ''}
+                  </span>
+                  <span className="ra-btime">{tookText(s2.tookMs) || mmss(s2.took)}</span>
                   {mk ? (
                     <span className={`ra-st ${/pass/i.test(mk) ? 'ok' : 'bad'}`}>
                       {/pass/i.test(mk) ? 'PASS' : 'FAIL'}
                     </span>
-                  ) : null}
+                  ) : (
+                    <span className="ra-bnone">판정 없음</span>
+                  )}
                 </div>
+                {/* **판정 기준 · 변수 · RCA**(승인) — 무엇으로 보았고, 무엇을
+                    담았고, 그래서 어떻게 판정됐나. 셋을 한 격자에 두어 라벨이
+                    세로로 맞는다. */}
+                {(() => {
+                  const quiet2 = s2.kind === 'comment' || s2.kind === 'message'
+                  if (quiet2) return null
+                  const crit = String(s2.expected ?? '').trim()
+                  const rca = String(rd?.reason ?? s2.reason ?? '').trim()
+                  const vs = s2.vars ?? []
+                  if (!crit && !rca && !vs.length) return null
+                  /* 기준을 안 적은 스텝 — 조회 명령인지 아닌지로 말을 가른다(합의) */
+                  const c0 = String(s2.cmd ?? '').trim().toLowerCase()
+                  const look = /^(show|display|get|dir|more)\b/.test(c0) || s2.action === 'SNMP Public'
+                  return (
+                    <div className="ra-why">
+                      <span className="k">판정 기준</span>
+                      <span className={crit && crit !== '—' ? '' : 'dim'}>
+                        {crit && crit !== '—'
+                          ? crit
+                          : look
+                            ? '없음 — 조회만 합니다'
+                            : '없음 — 클리어 및 실행만 합니다'}
+                      </span>
+                      {vs.length > 0 && (
+                        <>
+                          <span className="k">변수</span>
+                          <span>
+                            {vs.map((v, vi) => (
+                              <span key={v.name}>
+                                {vi > 0 ? ' · ' : ''}
+                                <code>{v.name}</code>
+                                {v.rule ? <i className="ra-vrule">{v.rule}</i> : null}
+                              </span>
+                            ))}
+                          </span>
+                        </>
+                      )}
+                      {!!rca && (
+                        <>
+                          <span className="k">RCA</span>
+                          <span className={mk ? (/pass/i.test(mk) ? 'ok' : 'bad') : 'dim'}>{rca}</span>
+                        </>
+                      )}
+                    </div>
+                  )
+                })()}
                 {rds.length > 1 && (
                   <div className="ra-rds">
                     <span className="l">회차 {rds.length}회</span>

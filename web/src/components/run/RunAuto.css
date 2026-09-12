@@ -579,3 +579,25 @@
 .ra-dz.T { bottom: 55%; }
 .ra-dz.B { top: 55%; }
 .ra-hsash.off { cursor: default; pointer-events: none; }
+
+/* 블록 머리의 곁말 — 동작·세션, 그리고 걸린 시간(실행 스텝 표가 하던 말) */
+.ra-bmeta { flex: none; color: #7c8b93; font-size: 11.5px; }
+.ra-btime { flex: none; margin-left: auto; color: #7c8b93; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.ra-bnone { flex: none; color: #9aa7ae; font-size: 11px; }
+
+/* 판정 기준 · 변수 · RCA — 라벨이 세로로 맞는 격자 */
+.ra-why {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 0 9px;
+  padding: 6px 10px;
+  border-top: 1px solid #e7edf0;
+  font-size: 11.5px;
+  line-height: 1.75;
+}
+.ra-why > .k { color: #8c9aa1; }
+.ra-why > .dim { color: #9aa7ae; }
+.ra-why > .ok { color: #12643a; }
+.ra-why > .bad { color: #a02323; }
+.ra-why code { font-family: var(--mono, ui-monospace, monospace); background: #f3f6f8; border-radius: 3px; padding: 0 4px; }
+.ra-vrule { font-style: normal; color: #9aa7ae; margin-left: 5px; }
