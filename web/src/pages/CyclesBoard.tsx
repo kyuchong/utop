@@ -2388,15 +2388,19 @@ export default function CyclesBoard({
               {/* **조건**(지시) — Test Start 바로 오른쪽에 늘 있다.
                   반복 횟수·회차 간격·실패 조건·합격 기준을 정하고, 창 아래에
                   예상 소요 시간이 선다. 거는 것은 왼쪽 Test Start 다. */}
-              <button
-                type="button"
-                className={`cu-new small${repCfg && repCfg.repeat > 1 ? ' cu-dirty' : ''}`}
-                title="반복 횟수 · 회차 간격 · 실패 조건 · 합격 기준을 정합니다 — 예상 소요 시간도 같이 보여 줍니다"
-                onClick={() => setRepPop(true)}
-              >
-                ⚙ Test Condition
-                {repCfg && repCfg.repeat > 1 ? ` · ${repCfg.repeat}회` : ''}
-              </button>
+              {/* **자동에만 세운다**(지시) — 수동 시험은 사람이 손으로 하니
+                  반복 횟수·회차 간격·실패 조건이 뜻을 갖지 않는다 */}
+              {!man && (
+                <button
+                  type="button"
+                  className={`cu-new small${repCfg && repCfg.repeat > 1 ? ' cu-dirty' : ''}`}
+                  title="반복 횟수 · 회차 간격 · 실패 조건 · 합격 기준을 정합니다 — 예상 소요 시간도 같이 보여 줍니다"
+                  onClick={() => setRepPop(true)}
+                >
+                  ⚙ Test Condition
+                  {repCfg && repCfg.repeat > 1 ? ` · ${repCfg.repeat}회` : ''}
+                </button>
+              )}
               {picked.length > 0 && (
                 <>
                   <span className="cu-pick">
