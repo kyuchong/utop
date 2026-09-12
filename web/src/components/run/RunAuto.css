@@ -600,8 +600,20 @@
 }
 .ra-why > .k { color: #8c9aa1; }
 .ra-why > .dim { color: #9aa7ae; }
-.ra-why > .ok { color: #12643a; }
-.ra-why > .bad { color: #a02323; }
+/* RCA 는 **한눈에 걸려야 한다**(지적: 가시성이 덜하다) — 색만으로는
+   62 줄 사이에서 안 보인다. 바탕을 깔고 판정 기호를 앞에 세운다. */
+.ra-why > .ok,
+.ra-why > .bad {
+  border-radius: 4px;
+  padding: 1px 7px;
+  margin: 1px 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.ra-why > .ok { color: #0b5c34; background: #e6f6ec; }
+.ra-why > .bad { color: #8e1d1d; background: #fdeaea; font-weight: 500; }
+.ra-rmk { font-style: normal; flex: none; }
 .ra-why code { font-family: var(--mono, ui-monospace, monospace); background: #f3f6f8; border-radius: 3px; padding: 0 4px; }
 .ra-vrule { font-style: normal; color: #9aa7ae; margin-left: 5px; }
 

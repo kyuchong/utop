@@ -22,8 +22,8 @@
  * 테두리만 둘렀더니 원문이 빽빽할 때 어느 값이 기준인지 눈에 안 들어왔다.
  * 바탕을 칠하면 글자 사이에서 그 값만 떠오른다.
  */
-.bv-b.m-has { background: #b9edc8; box-shadow: none; color: #0b4a25; }
-.bv-b.m-not { background: #f8c4c4; box-shadow: none; color: #7a1b1b; }
+.bv-b.m-has { background: #a3e8b8; box-shadow: none; color: #0b4a25; }
+.bv-b.m-not { background: #f7b3b3; box-shadow: none; color: #7a1b1b; }
 .bv-b.m-var { background: #fbe3a8; box-shadow: none; color: #6b4a05; }
 .bv-b.m-has:hover,
 .bv-b.m-not:hover,

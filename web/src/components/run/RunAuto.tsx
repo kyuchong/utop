@@ -899,7 +899,12 @@ export default function RunAuto({
                       {!!rca && (
                         <>
                           <span className="k">RCA</span>
-                          <span className={mk ? (/pass/i.test(mk) ? 'ok' : 'bad') : 'dim'}>{rca}</span>
+                          <span className={mk ? (/pass/i.test(mk) ? 'ok' : 'bad') : 'dim'}>
+                            {/* 판정을 **글자 앞에 세운다**(지적: 가시성) — 62 줄을
+                                훑을 때 색만으로는 눈에 안 걸린다 */}
+                            {mk ? <i className="ra-rmk">{/pass/i.test(mk) ? '✓' : '✕'}</i> : null}
+                            {rca}
+                          </span>
                         </>
                       )}
                     </div>
