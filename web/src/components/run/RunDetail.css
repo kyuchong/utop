@@ -408,3 +408,19 @@
 /* 사이클 ID 칩 — 누르면 복사 */
 .rd-copy { cursor: pointer; font: inherit; }
 .rd-copy:hover { border-color: var(--c-primary, #1769d2); color: var(--c-primary, #1769d2); }
+
+/* 걸어 둔 반복 — 머리줄에서 「지금 무엇이 걸려 있나」 를 말한다(지적:
+   10 회를 걸었는데 관련 설정이 안 보인다). ✕ 로 그 자리에서 푼다. */
+.rd-rep {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #fff1e6; border: 1px solid #f6cfae; border-radius: 999px;
+  padding: 2px 4px 2px 9px; font-size: 11px; color: #b4530a; white-space: nowrap;
+}
+.rd-rep > b { font-weight: 800; font-variant-numeric: tabular-nums; }
+.rd-rep > em { font-style: normal; color: #a4794f; font-size: 10.5px; }
+.rd-rep > button {
+  border: 0; background: none; padding: 0; margin: 0;
+  width: 17px; height: 17px; border-radius: 999px;
+  color: #b4530a; font-size: 11px; cursor: pointer;
+}
+.rd-rep > button:hover { background: rgba(180, 83, 10, 0.14); }

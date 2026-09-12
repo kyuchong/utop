@@ -49,6 +49,20 @@ function copyText(t: string, ok: () => void) {
   legacy()
 }
 
+/** 걸어 둔 반복 규칙을 일감 몸통으로 — 시작하는 자리가 둘이라 한 곳에 둔다 */
+const repeatBody = (r: {
+  repeat: number; gapSec: number
+  onFail: 'go' | 'hold' | 'stop'
+  holdHour: number; holdOver: 'stop' | 'go'; failMax: number
+}) => ({
+  repeat: Math.max(1, Math.round(r.repeat)),
+  gap_ms: Math.max(0, Math.round(r.gapSec * 1000)),
+  on_fail: r.onFail,
+  hold_min: Math.max(1, Math.round(r.holdHour * 60)),
+  hold_over: r.holdOver,
+  fail_max: Math.max(0, Math.round(r.failMax)),
+})
+
 /** 회차 한 줄 — 「다시 실행」 마다 하나씩 선다. 셈만 담고 장비 출력은 없다 */
 export interface RoundRow {
   /** 칸 번호(0부터). 접혔을 때만 뜻이 있다 */
@@ -305,8 +319,10 @@ type LiveLog = { seq?: number; ts?: string; round?: number | null; i?: number; k
 const LOG_KEEP = 4000
 
 export default function RunDetail({
-  runId, plan, onBack, lead, onClose, only, focus, mode, repeat,
+  runId, plan, onBack, lead, onClose, only, focus, mode, repeat, onClearRepeat,
 }: {
+  /** 걸어 둔 반복을 푼다 — 머리 배지의 ✕ 가 부른다 */
+  onClearRepeat?: () => void
   /** 걸어 둔 반복 규칙 — 있으면 「시험 시작」 이 이대로 건다(반복 시험).
    *  없으면 여태처럼 한 바퀴만 돈다. */
   repeat?: {
@@ -1047,16 +1063,7 @@ export default function RunDetail({
           ...(order.length ? { pick: order } : {}),
           /* 반복 규칙을 걸어 두었으면 함께 보낸다 — 실행기가 고른 묶음을
              그만큼 돌고, 실패했을 때 무엇을 할지도 여기서 정해진다 */
-          ...(repeat
-            ? {
-                repeat: Math.max(1, Math.round(repeat.repeat)),
-                gap_ms: Math.max(0, Math.round(repeat.gapSec * 1000)),
-                on_fail: repeat.onFail,
-                hold_min: Math.max(1, Math.round(repeat.holdHour * 60)),
-                hold_over: repeat.holdOver,
-                fail_max: Math.max(0, Math.round(repeat.failMax)),
-              }
-            : {}),
+          ...(repeat ? repeatBody(repeat) : {}),
         }),
       })
       const j = (await r.json().catch(() => ({}))) as { run?: { id?: string }; detail?: string }
@@ -1085,7 +1092,12 @@ export default function RunDetail({
     try {
       const r = await apiFetch('/api/runs', {
         method: 'POST',
-        body: JSON.stringify({ plan_run_id: runId, pick: [at] }),
+        body: JSON.stringify({
+          plan_run_id: runId,
+          pick: [at],
+          /* 한 항목을 여러 번 — 부팅 반복 같은 내구 시험이 바로 이 꼴이다 */
+          ...(repeat ? repeatBody(repeat) : {}),
+        }),
       })
       const j = (await r.json().catch(() => ({}))) as { run?: { id?: string }; detail?: string }
       if (!r.ok) throw new Error(j.detail || '실행기에 걸지 못했습니다')
@@ -1505,6 +1517,28 @@ export default function RunDetail({
         {/* 경과·진행이 먼저 서고, 실행 단추 두 개는 **닫기 바로 왼쪽**에
             모인다(지시) — 누르는 것끼리 한자리에 있어야 손이 덜 간다 */}
         <span className="rd-inline">{liveBand}</span>
+        {/* ── 걸어 둔 반복(지적: 10 회를 걸었는데 관련 설정이 안 보인다) ──
+            걸렸는지 눈으로 알 수 없으면 누르기 전에 확신이 안 선다. 여기서
+            몇 회·실패하면 무엇을 할지를 말하고, ✕ 로 바로 푼다. */}
+        {isAuto && !!repeat && repeat.repeat > 1 && (
+          <span className="rd-rep" title={`고른 항목을 ${repeat.repeat}회 돕니다`}>
+            🔁 <b>{repeat.repeat}회 반복</b>
+            <em>
+              {repeat.onFail === 'hold'
+                ? '실패하면 멈추고 대기'
+                : repeat.onFail === 'stop'
+                  ? '실패하면 종료'
+                  : '실패해도 계속'}
+            </em>
+            <button
+              type="button"
+              title="반복을 풉니다 — 한 바퀴만 돕니다"
+              onClick={() => onClearRepeat?.()}
+            >
+              ✕
+            </button>
+          </span>
+        )}
         {isAuto && <i className="rd-vsep" aria-hidden="true" />}
         {/* 「삭제」 는 뺐다(지시). 보고 있는 것을 그 자리에서 지우는 단추는
             누를 일보다 잘못 누를 일이 많다 — 지우기는 목록에서 골라서 한다
@@ -1536,7 +1570,13 @@ export default function RunDetail({
               }
               onClick={() => void start()}
             >
-              {busy ? '거는 중…' : jobDone ? '▶ 다시 실행' : '▶ 시험 시작'}
+              {busy
+                ? '거는 중…'
+                : repeat && repeat.repeat > 1
+                  ? `▶ ${repeat.repeat}회 반복 시작`
+                  : jobDone
+                    ? '▶ 다시 실행'
+                    : '▶ 시험 시작'}
             </button>
           )
         )}

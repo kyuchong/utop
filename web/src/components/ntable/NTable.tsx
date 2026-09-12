@@ -57,6 +57,9 @@ export interface NTableProps {
   bulk?: Array<{ k: string; label: string; danger?: boolean }>
   /** 지금 체크된 줄 — 화면 제 도구줄(복제·삭제·⋯)이 이걸 본다 */
   onSelect?: (ids: string[]) => void
+  /** 처음 세울 때 되살릴 선택 — 화면을 떠났다 와도 체크가 남아야 한다(지적:
+   *  실행할 때마다 다시 골라야 한다). 마운트 때만 본다 */
+  initSelected?: string[]
   /** 이 숫자가 바뀌면 **고른 줄을 푼다** — 일을 끝낸 화면이 부른다.
       선택이 남아 있으면 방금 한 일이 또 될 것 같아 사람이 멈칫한다 */
   selEpoch?: number
@@ -126,7 +129,7 @@ export default function NTable(p: NTableProps) {
     if (p.selEpoch === undefined) return
     setChecked(new Set())
   }, [p.selEpoch])
-  const [checked, setChecked] = useState<Set<string>>(new Set())
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(p.initSelected ?? []))
   useEffect(() => {
     p.onSelect?.([...checked])
     // eslint-disable-next-line react-hooks/exhaustive-deps

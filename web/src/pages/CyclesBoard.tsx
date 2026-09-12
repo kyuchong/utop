@@ -2118,6 +2118,9 @@ export default function CyclesBoard({
           }
           /* 체크한 항목을 받는다 — 도구 줄의 단추 둘이 이걸 본다(승인) */
           onSelect={setPicked}
+          /* 실행 화면에 다녀오면 이 표는 통째로 사라졌다 다시 선다 —
+             그때 체크를 되살린다(지적: 실행할 때마다 다시 골라야 한다) */
+          initSelected={picked}
           perPage={100}
         />
         </div>
@@ -2653,6 +2656,7 @@ export default function CyclesBoard({
                 .map((x) => x.tcid)}
               /* 걸어 둔 반복 규칙 — 「시험 시작」 이 이대로 건다 */
               repeat={repCfg ?? undefined}
+              onClearRepeat={() => setRepCfg(null)}
               focus={runFocus}
               onBack={() => setRunnerOn(false)}
               lead={
