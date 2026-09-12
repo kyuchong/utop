@@ -776,3 +776,23 @@ button.ra-bcar:hover { background: #cfe3e8; color: #12414c; }
   margin-left: 4px; font-weight: 800; font-size: 10.5px; color: #b4530a;
   font-variant-numeric: tabular-nums;
 }
+/* 반복 시험 결과서 — 묶음 머리 오른쪽에 Pass/Fail/전체 */
+.ra-grp { display: flex; align-items: baseline; gap: 8px; }
+.ra-gsum {
+  margin-left: auto; display: inline-flex; align-items: baseline; gap: 1px;
+  font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.ra-gsum > i { font-style: normal; font-weight: 800; }
+.ra-gsum > i.p { color: #16a05b; }
+.ra-gsum > i.f { color: #e34663; }
+.ra-gsum > u { text-decoration: none; opacity: 0.4; margin: 0 1px; }
+/* 그 회차까지의 누적 — 제목 오른쪽. 왼쪽 녹색 판정과 짝을 이룬다(지시) */
+.ra-tcsum {
+  margin-left: auto; flex: none;
+  display: inline-flex; align-items: baseline; gap: 1px;
+  font-size: 10.5px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.ra-tcsum > i { font-style: normal; font-weight: 800; }
+.ra-tcsum > i.p { color: #16a05b; }
+.ra-tcsum > i.f { color: #e34663; }
+.ra-tcsum > u { text-decoration: none; opacity: 0.38; margin: 0 1px; }

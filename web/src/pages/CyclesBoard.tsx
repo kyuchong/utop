@@ -118,19 +118,6 @@ interface ItemRow {
   folder: string
 }
 
-/** 탭 옆 셈 — Pass / Fail / 전체(지시). 색으로 갈라야 셋이 한눈에 읽힌다 */
-function TabN({ s }: { s: { p: number; f: number; t: number } }) {
-  return (
-    <span className="tabn tabn3" title={`Pass ${s.p} · Fail ${s.f} · 전체 ${s.t}`}>
-      <i className="p">{s.p}</i>
-      <u>/</u>
-      <i className={s.f ? 'f' : ''}>{s.f}</i>
-      <u>/</u>
-      <i>{s.t}</i>
-    </span>
-  )
-}
-
 /** 지금 도는 일감 한 줄 — 떠 있는 띠가 읽는다 */
 interface LiveRun {
   id: string
@@ -864,7 +851,8 @@ export default function CyclesBoard({
   )
 
   /** 표가 거르고 세운 차례 — 시험도 이 차례로 돈다(makeRun) */
-  const [shownOrder, setShownOrder] = useState<string[]>([])
+  /** 표가 지금 그리고 있는 차례 — 끌어 옮긴 뒤 그 차례로 굳힐 때 쓴다 */
+  const [, setShownOrder] = useState<string[]>([])
 
   /*
    * 정렬·묶기는 **사이클에 남긴다**(지적: 정렬은 저장이 안 되는데).
@@ -987,36 +975,33 @@ export default function CyclesBoard({
    * 차례가 사이클 문서에 남으므로 서버에 저장되고, 다른 사람이 열어도 같다.
    * 거르기로 숨은 항목은 자리를 잃지 않게 **뒤에 그대로** 붙인다.
    */
-  /** 지금 보이는 차례가 **사이클에 담긴 차례와 다른가.**
-   *  같으면 저장할 것이 없다 — 눌러도 아무 일이 없는 단추는 고장으로 읽힌다 */
-  const orderDirty = useMemo(() => {
-    const now = shownOrder.filter(Boolean)
-    if (!full || !now.length) return false
-    const was = (full.items ?? []).map((x) => String(x?.tcid ?? '')).filter(Boolean)
-    const mine = was.filter((k) => now.includes(k))
-    return mine.length === now.length && mine.some((k, i) => k !== now[i])
-  }, [shownOrder, full])
 
-  const saveOrder = async () => {
-    if (!full || !shownOrder.length || orderSave === 'saving') return
-    const rank = new Map(shownOrder.map((id, i) => [id, i]))
-    const items = [...(full.items ?? [])]
-    items.sort(
-      (a, b) =>
-        (rank.get(String(a?.tcid ?? '')) ?? 1e9) - (rank.get(String(b?.tcid ?? '')) ?? 1e9),
-    )
+
+  /** 끌어 놓은 차례를 **바로** 굳힌다(지시: 자동 저장).
+   *  고른 항목이 체크하는 즉시 저장되는데 차례만 단추를 눌러야 하면
+   *  결이 어긋난다. 0.6 초 모아 보낸다 — 여러 번 끌면 마지막 것만 간다. */
+  const orderTimer = useRef<number | null>(null)
+  const saveOrderNow = (ids: string[]) => {
+    if (!full || !ids.length) return
     setOrderSave('saving')
-    try {
-      await saveFull({ items })
-      /* 굳었으니 화면 차례는 비운다 — 이제 사이클 문서가 정본이다 */
-      setOrderOverride(null)
-      setOrderSave('saved')
-      window.setTimeout(() => setOrderSave(''), 1800)
-    } catch (e) {
-      setOrderSave('')
-      window.alert(e instanceof Error ? e.message : '차례를 저장하지 못했습니다')
-    }
+    if (orderTimer.current != null) window.clearTimeout(orderTimer.current)
+    orderTimer.current = window.setTimeout(() => {
+      orderTimer.current = null
+      const rank = new Map(ids.map((id, i) => [id, i]))
+      const items = [...(full.items ?? [])]
+      items.sort(
+        (a2, b2) =>
+          (rank.get(String(a2?.tcid ?? '')) ?? 1e9) - (rank.get(String(b2?.tcid ?? '')) ?? 1e9),
+      )
+      void saveFull({ items })
+        .then(() => {
+          setOrderOverride(null)
+          setOrderSave('saved')
+        })
+        .catch(() => setOrderSave(''))
+    }, 600)
   }
+
 
   const itCols = useMemo<NCol[]>(
     () =>
@@ -1321,23 +1306,7 @@ export default function CyclesBoard({
   })
   const runFull = runFullQ.data
 
-  /** 탭 옆 셈 — **Pass / Fail / 전체**(지시). 전체 수만 적혀 있어 시험이
-   *  어디까지 갔는지 탭에서는 알 수 없었다. 보는 실행의 판정을 그대로 센다. */
-  const tabStat = useMemo(() => {
-    const res = (runFull?.results ?? {}) as Record<string, string>
-    const one = (man: boolean) => {
-      const ids = itemRows.filter((r) => r.man === man).map((r) => r.tcid)
-      let p = 0
-      let f = 0
-      for (const k of ids) {
-        const l = vLetter(verds, String(res[k] ?? ''))
-        if (l === 'p') p += 1
-        else if (l === 'f') f += 1
-      }
-      return { p, f, t: ids.length }
-    }
-    return { auto: one(false), man: one(true) }
-  }, [itemRows, runFull, verds])
+
   const runLite = runs.find((r) => r.id === selRun)
 
   const openRun = (id: string) => {
@@ -2370,28 +2339,13 @@ export default function CyclesBoard({
               <button type="button" className="cu-new small" onClick={() => setAddTo(true)}>
                 <i aria-hidden="true">＋</i>Add TC
               </button>
-              {/* **시험 순서 저장**(지시) — 담기 바로 오른쪽에 둔다. 표에서
-                  손잡이로 잡은 차례를 사이클 문서에 못박는다. 문서에 남으므로
-                  다른 사람이 열어도·다시 돌려도 같은 차례다. */}
-              <button
-                type="button"
-                className={`cu-new small${orderDirty ? ' cu-dirty' : ''}${
-                  orderSave === 'saved' ? ' cu-done' : ''
-                }`}
-                disabled={orderSave === 'saving' || (!orderDirty && orderSave !== 'saved')}
-                title={
-                  orderDirty
-                    ? '끌어 잡은 차례를 이 사이클의 시험 차례로 굳힙니다'
-                    : '바뀐 차례가 없습니다 — 「#」 로 정렬한 뒤 손잡이(⠿)로 끌어 옮기면 켜집니다.\n고른 항목은 여기가 아니라 체크하는 즉시 저장됩니다'
-                }
-                onClick={() => void saveOrder()}
-              >
-                {orderSave === 'saving'
-                  ? '저장 중…'
-                  : orderSave === 'saved'
-                    ? '✓ 저장됨'
-                    : `↓ Save Test Order${orderDirty ? ' ●' : ''}`}
-              </button>
+              {/* 차례는 **끌어 놓는 즉시** 굳는다(지시: 자동 저장) — 누를
+                  단추가 없다. 굳는 동안·굳은 뒤를 이 알이 말한다. */}
+              {orderSave !== '' && (
+                <span className={`cu-pick${orderSave === 'saved' ? ' saved' : ''}`}>
+                  {orderSave === 'saving' ? '시험 차례 저장 중…' : '시험 차례 저장됨 ✓'}
+                </span>
+              )}
               <button
                 type="button"
                 className="cu-new small"
@@ -2462,7 +2416,10 @@ export default function CyclesBoard({
           /* 끌어서 시험 차례 바꾸기(지시). 여기서는 **화면 차례만** 바꾸고,
              「시험 순서 저장」 을 눌러야 사이클 문서에 굳는다 — 잘못 끌었을
              때 되돌릴 자리가 있어야 한다 */
-          onReorder={(ids) => setOrderOverride(ids)}
+          onReorder={(ids) => {
+            setOrderOverride(ids)
+            saveOrderNow(ids)
+          }}
           /* 이 열로 정렬돼 있을 때만 끌 수 있다 — 다른 정렬 중에는 화면
              차례와 실제 차례가 달라 끌어 놓아도 뜻이 없다 */
           reorderKey="seq"
@@ -3060,10 +3017,10 @@ export default function CyclesBoard({
             Status
           </button>
           <button type="button" role="tab" aria-selected={tab === 'itm'} className={tab === 'itm' ? 'on' : ''} onClick={() => setTab('itm')}>
-            Manual <TabN s={tabStat.man} />
+            Manual <span className="tabn">{nMan}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'ita'} className={tab === 'ita' ? 'on' : ''} onClick={() => setTab('ita')}>
-            Automation <TabN s={tabStat.auto} />
+            Automation <span className="tabn">{nAuto}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'def'} className={tab === 'def' ? 'on' : ''} onClick={() => setTab('def')}>
             Defects

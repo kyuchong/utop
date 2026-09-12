@@ -66,6 +66,10 @@ export interface AutoItem {
   /** **몇 회차인가** — 반복 시험일 때만 찬다. 같은 항목이 회차마다 한 줄씩
    *  서고 이름 뒤에 (2) 처럼 붙는다. 반복이 아니면 비운다 */
   round?: number
+  /** **그 회차까지의 누적**(지시) — 첫 줄이 합격이면 1/0/1, 둘째 줄도
+   *  합격이면 2/0/2, 셋째가 깨지면 2/1/3. 줄을 따라 내려가며 읽으면
+   *  이 항목이 어떻게 버텨 왔는지가 보인다 */
+  sum?: { p: number; f: number; t: number }
 }
 
 type SlotId = 'LT' | 'LB' | 'RT' | 'RB'
@@ -1067,6 +1071,19 @@ export default function RunAuto({
                     {it.round ? <b className="ra-rnd">({it.round})</b> : null}
                   </span>
                   <span className="ra-tcnm">{it.name}</span>
+                  {/* 그 회차까지의 누적 — 왼쪽 녹색 판정과 짝을 이룬다(지시) */}
+                  {it.sum ? (
+                    <b
+                      className="ra-tcsum"
+                      title={`${it.round}회차까지 — Pass ${it.sum.p} · Fail ${it.sum.f} · 전체 ${it.sum.t}`}
+                    >
+                      <i className="p">{it.sum.p}</i>
+                      <u>/</u>
+                      <i className={it.sum.f ? 'f' : ''}>{it.sum.f}</i>
+                      <u>/</u>
+                      <i>{it.sum.t}</i>
+                    </b>
+                  ) : null}
                   {it.id === runItem ? <RunMark /> : <span />}
                 </button>
               ))}

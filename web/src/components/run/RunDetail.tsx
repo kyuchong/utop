@@ -1819,8 +1819,28 @@ export default function RunDetail({
                지금 화면과 똑같다. */
             if (hasRounds) {
               const seen = new Set(ids)
-              return (runItemsQ.data?.items ?? [])
-                .filter((r) => seen.has(String(r.tcid)))
+              const rows = (runItemsQ.data?.items ?? []).filter((r) => seen.has(String(r.tcid)))
+              /* **그 회차까지의 누적**(지시) — 항목마다 회차 오름차순으로
+                 세어 둔다. 목록은 최신순이라 그대로 세면 거꾸로 쌓인다. */
+              const cum = new Map<string, { p: number; f: number; t: number }>()
+              const byTc = new Map<string, typeof rows>()
+              for (const r of rows) {
+                const k = String(r.tcid)
+                if (!byTc.has(k)) byTc.set(k, [])
+                byTc.get(k)!.push(r)
+              }
+              for (const [tc, list] of byTc) {
+                const asc = [...list].sort((a2, b2) => Number(a2.round) - Number(b2.round))
+                let p = 0
+                let f = 0
+                for (const r of asc) {
+                  const l = String(r.verdict ?? '').toLowerCase()
+                  if (l.startsWith('p')) p += 1
+                  else if (l.startsWith('f')) f += 1
+                  cum.set(`${tc}#${r.round}`, { p, f, t: p + f })
+                }
+              }
+              return rows
                 .map((r) => {
                   const m = one(String(r.tcid))
                   const l = String(r.verdict ?? '').toLowerCase()
@@ -1832,6 +1852,7 @@ export default function RunDetail({
                     verdict: (l.startsWith('p') ? 'p' : l.startsWith('f') ? 'f' : l ? 'b' : 'n') as Verdict,
                     at: String(r.at ?? '').replace('T', ' ').slice(0, 19),
                     exec: execId,
+                    sum: cum.get(`${r.tcid}#${r.round}`),
                   }
                 })
             }
