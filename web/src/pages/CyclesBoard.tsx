@@ -332,7 +332,32 @@ export default function CyclesBoard({
   )
   const [runMode, setRunMode] = useState<'A' | 'M'>('A')
   /** 표에서 체크한 항목 — 있으면 도구 줄에 단추 둘이 나타난다(승인) */
-  const [picked, setPicked] = useState<string[]>([])
+  /** 골라 둔 항목 — **계정에 남는다**(지적: 업데이트하니 풀렸다).
+   *  화면 상태로만 두면 새로고침·배포 한 번에 날아간다. 사이클마다 따로
+   *  담되 열쇠는 하나로 모은다(사이클이 늘 때마다 설정 열쇠가 늘면 안 된다). */
+  const PICKS_KEY = 'utop.cyc.picks'
+  const readPicks = (cyc: string): string[] => {
+    try {
+      const all = JSON.parse(prefGet(PICKS_KEY) ?? '{}') as Record<string, string[]>
+      const v = all[cyc]
+      return Array.isArray(v) ? v : []
+    } catch {
+      return []
+    }
+  }
+  const [picked, setPickedRaw] = useState<string[]>([])
+  const setPicked = (ids: string[]) => {
+    setPickedRaw(ids)
+    if (!open) return
+    try {
+      const all = JSON.parse(prefGet(PICKS_KEY) ?? '{}') as Record<string, string[]>
+      if (ids.length) all[String(open)] = ids
+      else delete all[String(open)]
+      prefSet(PICKS_KEY, JSON.stringify(all))
+    } catch {
+      /* 사생활 보호 모드 — 이번 판에서만 기억한다 */
+    }
+  }
   /** 손잡이로 끌어 잡은 **화면 차례**. 「시험 순서 저장」 을 누르기 전에는
    *  여기에만 있다 — 잘못 끌었을 때 되돌릴 자리가 있어야 한다. 사이클을
    *  바꾸면 비운다. */
@@ -865,6 +890,9 @@ export default function CyclesBoard({
   }, [viewSig])
   useEffect(() => {
     setOrderOverride(null)
+    /* 사이클을 바꾸면 그 사이클에 골라 둔 것을 되살린다 */
+    setPickedRaw(open ? readPicks(String(open)) : [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const itemRows = useMemo<ItemRow[]>(() => {

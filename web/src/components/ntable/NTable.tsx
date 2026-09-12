@@ -138,6 +138,16 @@ export default function NTable(p: NTableProps) {
     setChecked(new Set())
   }, [p.selEpoch])
   const [checked, setChecked] = useState<Set<string>>(() => new Set(p.initSelected ?? []))
+  /* 되살릴 선택이 **나중에** 와도 반영한다(지적: 업데이트하니 골라 둔 것이
+     풀렸다) — 계정 설정은 비동기로 오므로 마운트 때만 읽으면 늘 빈손이다.
+     값이 같으면 건드리지 않는다: 안 그러면 고를 때마다 서로를 덮어 맴돈다. */
+  const initKey = (p.initSelected ?? []).join('\u0001')
+  const initSeen = useRef(initKey)
+  useEffect(() => {
+    if (initSeen.current === initKey) return
+    initSeen.current = initKey
+    setChecked(new Set(p.initSelected ?? []))
+  }, [initKey])
   /** 지금 끌고 있는 행 · 지나가는 행 */
   const [dragRow, setDragRow] = useState<string | null>(null)
   const [overRow, setOverRow] = useState<string | null>(null)

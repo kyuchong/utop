@@ -33,6 +33,9 @@ const SYNC = new Set([
   'utop.nav.dock', 'utop.drawer.side',
   // 담당 고르개 최근
   'utop.ass.recent',
+  // 사이클에서 골라 둔 시험 항목 · 누적 그림 기간 — 계정을 따라가야
+  // 새로고침·배포 한 번에 골라 둔 것이 날아가지 않는다(지적)
+  'utop.cyc.picks', 'utop.cyc.span', 'utop.run.lay', 'utop.run.hid',
   // 끌어 맞춘 판·칸 폭(Resizer)
   'rqtcSideW', 'tcLogW', 'utop.ai.seqw', 'utop.cycle.execSideW', 'utop.tc.listW', 'utop.tc.seqW2',
   'utop.rls.w1',
