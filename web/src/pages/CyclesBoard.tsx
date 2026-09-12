@@ -475,6 +475,26 @@ export default function CyclesBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /** 지금 도는 일감 전부 — 목록의 「진행 중」 은 이것만 믿는다.
+   *  plan_run.closed_at 은 아무도 안 박는다(「실행 닫기」 를 걷었다). */
+  const liveAllQ = useQuery({
+    queryKey: ['runs-active-all'],
+    refetchInterval: 8000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/runs?active=1')
+      if (!r.ok) return { runs: [] as LiveRun[] }
+      return (await r.json()) as { runs: LiveRun[] }
+    },
+  })
+  const liveByPlan = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of liveAllQ.data?.runs ?? []) {
+      const k = String(r.cycle_id ?? '')
+      if (k) m.set(k, (m.get(k) ?? 0) + 1)
+    }
+    return m
+  }, [liveAllQ.data])
+
   const plans = useMemo(() => plansQ.data?.cycles ?? plansQ.data?.items ?? [], [plansQ.data])
   const runs = useMemo(() => runsQ.data?.runs ?? [], [runsQ.data])
   const planOf = useMemo(() => new Map(plans.map((p) => [p.id, p])), [plans])
@@ -1847,7 +1867,10 @@ export default function CyclesBoard({
   function renderList() {
     const listRows: NRow[] = scopedRows.map((p) => {
       const rs = runsByPlan.get(p.id) ?? []
-      const openRunN = rs.filter((r) => !r.closed_at).length
+      /* 「진행 중」 은 **실행기 일감**(queued·running)이 정본이다.
+         closed_at 은 아무도 안 박아서 모든 실행이 영원히 「진행」 으로
+         보였다(지적: 다섯 줄 전부 「진행 1」 — 아무것도 돌지 않는데). */
+      const openRunN = liveByPlan.get(String(p.id)) ?? 0
       const last = rs
         .slice()
         .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))[0]
