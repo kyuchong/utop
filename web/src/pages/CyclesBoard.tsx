@@ -115,6 +115,19 @@ interface ItemRow {
   folder: string
 }
 
+/** 탭 옆 셈 — Pass / Fail / 전체(지시). 색으로 갈라야 셋이 한눈에 읽힌다 */
+function TabN({ s }: { s: { p: number; f: number; t: number } }) {
+  return (
+    <span className="tabn tabn3" title={`Pass ${s.p} · Fail ${s.f} · 전체 ${s.t}`}>
+      <i className="p">{s.p}</i>
+      <u>/</u>
+      <i className={s.f ? 'f' : ''}>{s.f}</i>
+      <u>/</u>
+      <i>{s.t}</i>
+    </span>
+  )
+}
+
 /** 지금 도는 일감 한 줄 — 떠 있는 띠가 읽는다 */
 interface LiveRun {
   id: string
@@ -975,6 +988,8 @@ export default function CyclesBoard({
   const nAuto = itemRows.filter((r) => !r.man).length
   const nMan = itemRows.length - nAuto
 
+
+
   /** 커버리지 분모 — 이 모델(그룹)에 속한 시험 전체(담기 창과 같은 규칙) */
   const poolN = useMemo(() => {
     const m = String(plan?.model ?? '').trim()
@@ -1238,6 +1253,24 @@ export default function CyclesBoard({
     },
   })
   const runFull = runFullQ.data
+
+  /** 탭 옆 셈 — **Pass / Fail / 전체**(지시). 전체 수만 적혀 있어 시험이
+   *  어디까지 갔는지 탭에서는 알 수 없었다. 보는 실행의 판정을 그대로 센다. */
+  const tabStat = useMemo(() => {
+    const res = (runFull?.results ?? {}) as Record<string, string>
+    const one = (man: boolean) => {
+      const ids = itemRows.filter((r) => r.man === man).map((r) => r.tcid)
+      let p = 0
+      let f = 0
+      for (const k of ids) {
+        const l = vLetter(verds, String(res[k] ?? ''))
+        if (l === 'p') p += 1
+        else if (l === 'f') f += 1
+      }
+      return { p, f, t: ids.length }
+    }
+    return { auto: one(false), man: one(true) }
+  }, [itemRows, runFull, verds])
   const runLite = runs.find((r) => r.id === selRun)
 
   const openRun = (id: string) => {
@@ -2952,10 +2985,10 @@ export default function CyclesBoard({
             Status
           </button>
           <button type="button" role="tab" aria-selected={tab === 'itm'} className={tab === 'itm' ? 'on' : ''} onClick={() => setTab('itm')}>
-            Manual <span className="tabn">{nMan}</span>
+            Manual <TabN s={tabStat.man} />
           </button>
           <button type="button" role="tab" aria-selected={tab === 'ita'} className={tab === 'ita' ? 'on' : ''} onClick={() => setTab('ita')}>
-            Automation <span className="tabn">{nAuto}</span>
+            Automation <TabN s={tabStat.auto} />
           </button>
           <button type="button" role="tab" aria-selected={tab === 'def'} className={tab === 'def' ? 'on' : ''} onClick={() => setTab('def')}>
             Defects

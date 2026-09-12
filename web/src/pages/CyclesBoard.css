@@ -456,3 +456,13 @@
   .cyb .cu-toast { animation: none; }
   .cyb .cu-toast .dot { animation: none; }
 }
+
+/* 탭 옆 셈 — Pass / Fail / 전체(지시). 색으로 갈라야 셋이 한눈에 읽힌다 */
+.cyb .tabn3 {
+  display: inline-flex; align-items: baseline; gap: 1px;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.cyb .tabn3 > i { font-style: normal; font-weight: 800; }
+.cyb .tabn3 > i.p { color: #16a05b; }
+.cyb .tabn3 > i.f { color: #e34663; }
+.cyb .tabn3 > u { text-decoration: none; opacity: 0.42; margin: 0 1px; }
