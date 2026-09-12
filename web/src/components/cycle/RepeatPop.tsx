@@ -67,8 +67,10 @@ export default function RepeatPop({
   const rounds = Math.max(1, c.repeat)
   const runs = rounds * Math.max(1, count)
   const sec = runs * GUESS_SEC + rounds * Math.max(0, c.gapSec)
-  /* 장비 출력 한 회 2KB 로 어림. 접으면 같은 결과는 한 벌만 남는다 */
-  const rawKB = Math.round((runs * 2) / 1024)
+  /* 장비 출력 한 회 2KB 로 어림. 접으면 같은 결과는 한 벌만 남는다.
+     100 회쯤이면 200KB 라 「0MB」 가 된다 — 단위를 값에 맞춘다 */
+  const rawKB = runs * 2
+  const rawTxt = rawKB >= 1024 ? `${nfmt(Math.round(rawKB / 1024))}MB` : `${nfmt(rawKB)}KB`
   const num = (v: number, on: (n: number) => void, w = 78) => (
     <input
       className="rp-num"
@@ -175,7 +177,7 @@ export default function RepeatPop({
             {nfmt(count)}항목 × {nfmt(rounds)}회 = <b>{nfmt(runs)}회</b> 실행 ·
             예상 소요 <b>{hhmm(sec)}</b>
             <br />
-            장비 출력 약 <b>{nfmt(rawKB)}MB</b> — 같은 결과는 접어 한 벌만 남깁니다
+            장비 출력 약 <b>{rawTxt}</b> — 같은 결과는 접어 한 벌만 남깁니다
           </div>
         </div>
 
