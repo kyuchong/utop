@@ -308,6 +308,9 @@ export default function CyclesBoard({
    *  여기에만 있다 — 잘못 끌었을 때 되돌릴 자리가 있어야 한다. 사이클을
    *  바꾸면 비운다. */
   const [orderOverride, setOrderOverride] = useState<string[] | null>(null)
+  /** 차례 저장의 낌새 — '' · saving · saved. 눌러도 아무 말이 없으면
+   *  됐는지 알 수 없다(지적: 저장되는 느낌이 하나도 없음) */
+  const [orderSave, setOrderSave] = useState<'' | 'saving' | 'saved'>('')
   /** 실행을 열 때 **고정한** 목록. picked 를 그대로 쓰면 표에서 체크를
    *  푸는 순간 도는 목록이 바뀐다 */
   const [runPick, setRunPick] = useState<string[]>([])
@@ -888,15 +891,35 @@ export default function CyclesBoard({
    * 차례가 사이클 문서에 남으므로 서버에 저장되고, 다른 사람이 열어도 같다.
    * 거르기로 숨은 항목은 자리를 잃지 않게 **뒤에 그대로** 붙인다.
    */
+  /** 지금 보이는 차례가 **사이클에 담긴 차례와 다른가.**
+   *  같으면 저장할 것이 없다 — 눌러도 아무 일이 없는 단추는 고장으로 읽힌다 */
+  const orderDirty = useMemo(() => {
+    const now = shownOrder.filter(Boolean)
+    if (!full || !now.length) return false
+    const was = (full.items ?? []).map((x) => String(x?.tcid ?? '')).filter(Boolean)
+    const mine = was.filter((k) => now.includes(k))
+    return mine.length === now.length && mine.some((k, i) => k !== now[i])
+  }, [shownOrder, full])
+
   const saveOrder = async () => {
-    if (!full || !shownOrder.length) return
+    if (!full || !shownOrder.length || orderSave === 'saving') return
     const rank = new Map(shownOrder.map((id, i) => [id, i]))
     const items = [...(full.items ?? [])]
     items.sort(
       (a, b) =>
         (rank.get(String(a?.tcid ?? '')) ?? 1e9) - (rank.get(String(b?.tcid ?? '')) ?? 1e9),
     )
-    await saveFull({ items })
+    setOrderSave('saving')
+    try {
+      await saveFull({ items })
+      /* 굳었으니 화면 차례는 비운다 — 이제 사이클 문서가 정본이다 */
+      setOrderOverride(null)
+      setOrderSave('saved')
+      window.setTimeout(() => setOrderSave(''), 1800)
+    } catch (e) {
+      setOrderSave('')
+      window.alert(e instanceof Error ? e.message : '차례를 저장하지 못했습니다')
+    }
   }
 
   const itCols = useMemo<NCol[]>(
@@ -2217,11 +2240,24 @@ export default function CyclesBoard({
                   다른 사람이 열어도·다시 돌려도 같은 차례다. */}
               <button
                 type="button"
-                className="cu-new small"
-                title="지금 보이는 차례를 이 사이클의 시험 차례로 저장합니다 — 손잡이(⠿)로 끌어 잡은 차례가 그대로 굳습니다"
+                className={`cu-new small${orderDirty ? ' cu-dirty' : ''}${
+                  orderSave === 'saved' ? ' cu-done' : ''
+                }`}
+                disabled={orderSave === 'saving' || (!orderDirty && orderSave !== 'saved')}
+                title={
+                  orderDirty
+                    ? '끌어 잡은 차례를 이 사이클의 시험 차례로 굳힙니다'
+                    : '바뀐 차례가 없습니다 — 손잡이(⠿)로 끌어 옮기면 켜집니다'
+                }
                 onClick={() => void saveOrder()}
               >
-                ↓ Save Test Order
+                {orderSave === 'saving'
+                  ? '저장 중…'
+                  : orderSave === 'saved'
+                    ? '✓ 저장됨'
+                    : orderDirty
+                      ? '↓ Save Test Order ●'
+                      : '↓ Save Test Order'}
               </button>
               <button
                 type="button"

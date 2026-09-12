@@ -415,3 +415,12 @@
   color: #b4530a; font-size: 10.5px; cursor: pointer;
 }
 .cu-pick.rep > button:hover { background: rgba(180, 83, 10, 0.16); }
+
+/* 차례가 바뀌었다 — 저장할 것이 있다는 표시(지적: 저장되는 느낌이 없다).
+   바뀐 게 없으면 단추는 꺼져 있고, 누르면 「저장 중…」 → 「✓ 저장됨」. */
+.cu-new.small.cu-dirty {
+  border-color: #16a34a; color: #15803d; background: #f2fbf5; font-weight: 800;
+}
+.cu-new.small.cu-done { border-color: #16a34a; background: #16a34a; color: #fff; }
+.cu-new.small:disabled { opacity: 0.5; cursor: default; }
+.cu-new.small.cu-done:disabled { opacity: 1; }
