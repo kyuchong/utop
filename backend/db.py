@@ -785,8 +785,43 @@ def _item_fp(data: Any) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
+def _as_obj(v: Any) -> dict:
+    """jsonb 칸을 dict 로. asyncpg 는 코덱을 안 걸면 **문자열로** 준다."""
+    if isinstance(v, dict):
+        return v
+    if isinstance(v, str):
+        try:
+            o = json.loads(v)
+        except Exception:  # noqa: BLE001
+            return {}
+        return o if isinstance(o, dict) else {}
+    return {}
+
+
+def _as_utc(v: Any) -> Optional[_dt.datetime]:
+    """실행기가 보낸 시각을 **UTC 로** 읽는다.
+
+    실행기는 `toISOString()` 을 잘라 보내므로 Z 가 없어도 UTC 다. 그대로
+    timestamptz 로 캐스팅하면 서버 시간대로 읽혀 9 시간이 어긋난다.
+    asyncpg 는 캐스트가 붙어 있어도 문자열을 안 받으므로 여기서 만든다."""
+    if not v:
+        return None
+    if isinstance(v, _dt.datetime):
+        return v if v.tzinfo else v.replace(tzinfo=_dt.timezone.utc)
+    s = str(v).strip().replace(" ", "T")
+    if not s:
+        return None
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        d = _dt.datetime.fromisoformat(s)
+    except Exception:  # noqa: BLE001
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=_dt.timezone.utc)
+
+
 async def plan_run_item_put(run_id: str, tcid: str, round_: int = 1, verdict: str = "",
-                            at: str = "", took_ms: int = 0,
+                            at: Any = "", took_ms: int = 0,
                             data: Optional[dict] = None, fold: bool = True) -> dict:
     """회차 하나의 결과를 남긴다.
 
@@ -808,14 +843,17 @@ async def plan_run_item_put(run_id: str, tcid: str, round_: int = 1, verdict: st
         await c.execute(
             """
             INSERT INTO plan_run_item (run_id, tcid, round, verdict, at, took_ms, fp, same_as, data)
-            VALUES ($1,$2,$3,$4,$5::timestamptz,$6,$7,$8,$9::jsonb)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
             ON CONFLICT (run_id, tcid, round) DO UPDATE SET
               verdict=EXCLUDED.verdict, at=EXCLUDED.at, took_ms=EXCLUDED.took_ms,
               fp=EXCLUDED.fp, same_as=EXCLUDED.same_as, data=EXCLUDED.data
             """,
-            run_id, tcid, int(round_ or 1), str(verdict or ""), (at or None),
+            run_id, tcid, int(round_ or 1), str(verdict or ""), _as_utc(at),
             (int(took_ms) if took_ms else None), fp, same,
-            json.dumps(keep, ensure_ascii=False, default=str),
+            # dict 를 **그대로** 넘긴다 — 풀이 JSONB 코덱을 걸어 두었다(init_pool).
+            # 여기서 json.dumps 로 감싸면 jsonb 안에 객체가 아니라 문자열이
+            # 들어가, 빈 것을 가리는 `data <> '{}'` 가 늘 참이 된다
+            keep,
         )
     return {"round": int(round_ or 1), "same_as": same, "folded": same is not None}
 
@@ -878,20 +916,18 @@ async def plan_run_item_get(run_id: str, tcid: str, round_: int = 1) -> Optional
         if not r:
             return None
         d = dict(r)
-        if d.get("same_as") is not None and not (d.get("data") or {}):
+        # jsonb 는 **문자열로 온다**(코덱을 안 걸었다) — 빈지 먼저 가리지 않고
+        # 그대로 보면 '{}' 가 참이라, 접힌 회차가 대표를 안 따라가 빈손이 된다
+        d["data"] = _as_obj(d.get("data"))
+        if d.get("same_as") is not None and not d["data"]:
             rep = await c.fetchrow(
                 "SELECT data FROM plan_run_item WHERE run_id=$1 AND tcid=$2 AND round=$3",
                 run_id, tcid, int(d["same_as"]),
             )
             if rep:
-                d["data"] = rep["data"]
+                d["data"] = _as_obj(rep["data"])
         if d.get("at") is not None:
             d["at"] = d["at"].isoformat()
-        if isinstance(d.get("data"), str):
-            try:
-                d["data"] = json.loads(d["data"])
-            except Exception:  # noqa: BLE001
-                d["data"] = {}
         return d
 
 
