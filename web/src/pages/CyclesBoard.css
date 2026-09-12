@@ -318,3 +318,23 @@
 }
 .cyb .cyb-span > button:hover { border-color: #bfd8dd; background: #f7fbfb; }
 .cyb .cyb-span > button.on { background: #edf7f7; border-color: #bfe0e3; color: #0b7580; }
+
+/* 일자별 그림 — 선은 그려지듯 들어오고, 면은 옅게 깔린다.
+   pathLength=1 이라 길이를 몰라도 dasharray 로 그릴 수 있다. */
+@keyframes cyb-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes cyb-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cyb-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.cyb .cyb-daychart .cyb-line {
+  stroke-dasharray: 1; animation: cyb-draw 0.75s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.cyb .cyb-daychart .cyb-area { animation: cyb-fade 0.9s ease both; }
+.cyb .cyb-daychart .cyb-halo { animation: cyb-fade 1.1s ease both; }
+.cyb .cyb-daychart .cyb-barp { animation: cyb-rise 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .cyb .cyb-daychart .cyb-line,
+  .cyb .cyb-daychart .cyb-area,
+  .cyb .cyb-daychart .cyb-halo,
+  .cyb .cyb-daychart .cyb-barp { animation: none; stroke-dasharray: none; }
+}
+/* 범례 — 그림과 한 뼘 띄우고, 색 점을 동그랗게 */
+.cyb .cyb-daylegend { margin-top: 8px; gap: 14px; }

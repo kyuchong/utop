@@ -2140,6 +2140,28 @@ export default function CyclesBoard({
   }
 
   /** 일자별 그림 — 선(기본)·막대 두 꼴. 세 갈래를 쌓거나 세 선으로 긋는다 */
+  /** 꺾인 선을 **부드러운 곡선**으로. 누적 그림은 단조증가라, 제어점을
+   *  이웃 두 점 사이에 가둬 위로 튀지 않게 한다(안 가두면 줄지 않은 구간이
+   *  잠깐 내려갔다 오는 것처럼 보인다). */
+  const smoothPath = (pts: Array<[number, number]>): string => {
+    if (pts.length < 2) return pts.length ? `M ${pts[0]![0]},${pts[0]![1]}` : ''
+    const clamp = (v: number, a2: number, b2: number) =>
+      Math.max(Math.min(v, Math.max(a2, b2)), Math.min(a2, b2))
+    let d = `M ${pts[0]![0]},${pts[0]![1]}`
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] ?? pts[i]!
+      const p1 = pts[i]!
+      const p2 = pts[i + 1]!
+      const p3 = pts[i + 2] ?? p2
+      const c1x = p1[0] + (p2[0] - p0[0]) / 6
+      const c2x = p2[0] - (p3[0] - p1[0]) / 6
+      const c1y = clamp(p1[1] + (p2[1] - p0[1]) / 6, p1[1], p2[1])
+      const c2y = clamp(p2[1] - (p3[1] - p1[1]) / 6, p1[1], p2[1])
+      d += ` C ${c1x},${c1y} ${c2x},${c2y} ${p2[0]},${p2[1]}`
+    }
+    return d
+  }
+
   function DayChart({
     rows, series, unit,
   }: {
@@ -2183,6 +2205,7 @@ export default function CyclesBoard({
     const ticks = [0, 0.25, 0.5, 0.75, 1]
     /* 점은 날이 적을 때만 — 서른 개를 찍으면 선이 안 보인다 */
     const dots = rows.length <= 16
+    const gid = `cybg-${series.map((s2) => s2.k).join('')}-${rows.length}`
     const one = rows.length === 1
     return (
       <>
@@ -2193,6 +2216,14 @@ export default function CyclesBoard({
           role="img"
           aria-label="일자별 시험 현황"
         >
+          <defs>
+            {series.map((s2) => (
+              <linearGradient key={s2.k} id={`${gid}-${s2.k}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={s2.color} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={s2.color} stopOpacity={0.02} />
+              </linearGradient>
+            ))}
+          </defs>
           {ticks.map((t2) => (
             <g key={t2}>
               <line
@@ -2220,7 +2251,19 @@ export default function CyclesBoard({
                       const n = v[s2.k]
                       if (!n) return null
                       top -= hOf(n)
-                      return <rect key={s2.k} x={cx(i) - bw / 2} y={top} width={bw} height={hOf(n)} fill={s2.color} rx={3} />
+                      return (
+                        <rect
+                          key={s2.k}
+                          className="cyb-barp"
+                          x={cx(i) - bw / 2}
+                          y={top}
+                          width={bw}
+                          height={hOf(n)}
+                          fill={s2.color}
+                          rx={3}
+                          style={{ transformOrigin: `0 ${y(0)}px` }}
+                        />
+                      )
                     })}
                     {/* 값은 **마지막 칸만** — 다 찍으면 글자가 겹친다 */}
                     {!!tot(v) && (i === rows.length - 1 || rows.length <= 8) && (
@@ -2231,15 +2274,25 @@ export default function CyclesBoard({
               })
             : series.map((s2) => {
                 const pts = rows.map(([, v], i) => [cx(i), y(v[s2.k])] as [number, number])
-                const line = pts.map(([x2, y2]) => `${x2},${y2}`).join(' ')
                 /* 선 아래를 옅게 채운다 — 누적이 얼마나 찼는지 눈에 잡힌다 */
-                const area = `M ${pts[0]![0]},${y(0)} L ${line.split(' ').join(' L ')} L ${pts[pts.length - 1]![0]},${y(0)} Z`
+                const curve = smoothPath(pts)
+                const area = `${curve} L ${pts[pts.length - 1]![0]},${y(0)} L ${pts[0]![0]},${y(0)} Z`
                 const lastV = rows[rows.length - 1]![1][s2.k]
                 return (
                   <g key={s2.k}>
-                    {pts.length > 1 && <path d={area} fill={s2.color} opacity={0.1} />}
+                    {pts.length > 1 && <path className="cyb-area" d={area} fill={`url(#${gid}-${s2.k})`} />}
                     {pts.length > 1 ? (
-                      <polyline points={line} fill="none" stroke={s2.color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                      <path
+                        className="cyb-line"
+                        d={curve}
+                        pathLength={1}
+                        fill="none"
+                        stroke={s2.color}
+                        strokeWidth={2.5}
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
                     ) : null}
                     {(dots || pts.length === 1) &&
                       rows.map(([d, v], i) => (
@@ -2250,7 +2303,8 @@ export default function CyclesBoard({
                     {/* 끝값은 언제나 짚어 준다 — 「지금 얼마인가」 가 제일 궁금하다 */}
                     {!!lastV && (
                       <>
-                        <circle cx={cx(rows.length - 1)} cy={y(lastV)} r={4.5} fill={s2.color} />
+                        <circle className="cyb-halo" cx={cx(rows.length - 1)} cy={y(lastV)} r={9} fill={s2.color} opacity={0.16} />
+                        <circle cx={cx(rows.length - 1)} cy={y(lastV)} r={4.5} fill={s2.color} stroke="#fff" strokeWidth={1.5} />
                         <text x={cx(rows.length - 1)} y={y(lastV) - 10} textAnchor="middle" className="val" fill={s2.color}>
                           {lastV}
                         </text>
