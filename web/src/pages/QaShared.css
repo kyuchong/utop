@@ -404,3 +404,14 @@
   border-radius: 999px; padding: 1px 9px;
   font-size: 10.5px; font-weight: 800; white-space: nowrap;
 }
+/* 걸어 둔 반복 — 도구 줄에서 ✕ 로 바로 푼다 */
+.cu-pick.rep {
+  background: #fff1e6; border-color: #f6cfae; color: #b4530a;
+  gap: 4px; padding-right: 3px;
+}
+.cu-pick.rep > button {
+  border: 0; background: none; padding: 0; margin: 0;
+  width: 16px; height: 16px; border-radius: 999px;
+  color: #b4530a; font-size: 10.5px; cursor: pointer;
+}
+.cu-pick.rep > button:hover { background: rgba(180, 83, 10, 0.16); }

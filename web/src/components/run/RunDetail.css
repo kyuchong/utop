@@ -424,3 +424,9 @@
   color: #b4530a; font-size: 11px; cursor: pointer;
 }
 .rd-rep > button:hover { background: rgba(180, 83, 10, 0.14); }
+/* 고른 항목만 도는 중 — 반복 배지와 같은 꼴, 색만 다르다 */
+.rd-rep.pick {
+  background: #edf7f7; border-color: #bfe0e3; color: #0b7580;
+}
+.rd-rep.pick > button { color: #0b7580; }
+.rd-rep.pick > button:hover { background: rgba(11, 117, 128, 0.14); }

@@ -2073,7 +2073,17 @@ export default function CyclesBoard({
                 }
                 onClick={() => openRunner(man ? 'M' : 'A')}
               >
-                {man ? '✎ Manual Test Start' : '▶ Automation Test Start'}
+                {/* 무엇이 시작되는지 단추가 말한다 — 고른 수·반복 횟수(지적:
+                    고른 것이 표시가 안 된다 / 반복 설정이 안 보인다) */}
+                {man
+                  ? picked.length
+                    ? `✎ 고른 ${picked.length}개 Manual Test`
+                    : '✎ Manual Test Start'
+                  : picked.length
+                    ? `▶ 고른 ${picked.length}개 실행${
+                        repCfg && repCfg.repeat > 1 ? ` · ${repCfg.repeat}회` : ''
+                      }`
+                    : '▶ Automation Test Start'}
               </button>
               {/* **이 차례로 저장**(지시) — 표에서 정렬한 차례를 사이클에
                   못박는다. 차례가 사이클 문서에 남으므로 서버에 저장되고,
@@ -2090,29 +2100,28 @@ export default function CyclesBoard({
                   지금 화면과 완전히 같다 — 단추가 아예 없다. ── */}
               {picked.length > 0 && (
                 <>
-                  <span className="cu-pick">{picked.length}개 선택</span>
-                  <button
-                    type="button"
-                    className="cu-new small"
-                    title="고른 항목만 돌립니다 — 나머지 결과는 건드리지 않습니다"
-                    onClick={() => {
-                      setRepCfg(null)
-                      openRunner(man ? 'M' : 'A')
-                    }}
-                  >
-                    ▶ 고른 항목 실행
-                  </button>
+                  <span className="cu-pick">{picked.length}개 선택 — 이것만 돕니다</span>
                   {!man && (
                     <button
                       type="button"
                       className="cu-new small"
-                      title="고른 항목을 한 묶음으로 여러 번 돌립니다 — 부팅 반복 같은 내구 시험"
+                      title="고른 항목을 한 묶음으로 여러 번 돌립니다 — 부팅 반복 같은 내구 시험.
+거는 것은 위 「Test Start」 입니다"
                       onClick={() => setRepPop(true)}
                     >
-                      🔁 반복 실행…
+                      🔁 반복 설정…
                     </button>
                   )}
                 </>
+              )}
+              {/* 걸어 둔 반복 — 화면을 안 바꾸므로 여기서 말해 줘야 안다(지적) */}
+              {!!repCfg && repCfg.repeat > 1 && (
+                <span className="cu-pick rep">
+                  🔁 {repCfg.repeat}회 반복
+                  <button type="button" title="반복을 풉니다" onClick={() => setRepCfg(null)}>
+                    ✕
+                  </button>
+                </span>
               )}
             </>
           }
@@ -2657,6 +2666,9 @@ export default function CyclesBoard({
               /* 걸어 둔 반복 규칙 — 「시험 시작」 이 이대로 건다 */
               repeat={repCfg ?? undefined}
               onClearRepeat={() => setRepCfg(null)}
+              /* 골라서 왔으면 몇 개인지 머리에 말해 준다(지적) */
+              pickedN={runPick.length}
+              onClearPick={() => setRunPick([])}
               focus={runFocus}
               onBack={() => setRunnerOn(false)}
               lead={
@@ -3018,10 +3030,11 @@ export default function CyclesBoard({
           count={picked.length}
           init={repCfg ?? undefined}
           onClose={() => setRepPop(false)}
+          /* **화면을 안 바꾼다**(지적: 고르기 선택하면 바로 실행으로 넘어가면
+             안 된다). 여기서는 걸어 두기만 하고, 거는 것은 위 「Test Start」 다 */
           onGo={(cfg) => {
             setRepCfg(cfg)
             setRepPop(false)
-            openRunner('A')
           }}
         />
       )}

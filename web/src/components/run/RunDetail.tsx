@@ -320,7 +320,12 @@ const LOG_KEEP = 4000
 
 export default function RunDetail({
   runId, plan, onBack, lead, onClose, only, focus, mode, repeat, onClearRepeat,
+  pickedN, onClearPick,
 }: {
+  /** 표에서 **골라서** 온 항목 수. 0 이면 고르지 않고 전부 도는 것이다.
+   *  머리에 「고른 2개만」 으로 세워 준다(지적: 고른 것이 표시가 안 된다) */
+  pickedN?: number
+  onClearPick?: () => void
   /** 걸어 둔 반복을 푼다 — 머리 배지의 ✕ 가 부른다 */
   onClearRepeat?: () => void
   /** 걸어 둔 반복 규칙 — 있으면 「시험 시작」 이 이대로 건다(반복 시험).
@@ -1520,6 +1525,20 @@ export default function RunDetail({
         {/* ── 걸어 둔 반복(지적: 10 회를 걸었는데 관련 설정이 안 보인다) ──
             걸렸는지 눈으로 알 수 없으면 누르기 전에 확신이 안 선다. 여기서
             몇 회·실패하면 무엇을 할지를 말하고, ✕ 로 바로 푼다. */}
+        {/* 고른 항목만 도는 중이라는 표시(지적) — 체크는 표에서 했는데
+            여기서는 몇 개가 걸렸는지 알 수 없었다. ✕ 로 전체로 되돌린다. */}
+        {!!pickedN && pickedN > 0 && (
+          <span className="rd-rep pick" title={`표에서 고른 ${pickedN}개만 돕니다`}>
+            🎯 <b>고른 {pickedN}개만</b>
+            <button
+              type="button"
+              title="고르기를 풀고 전체를 돕니다"
+              onClick={() => onClearPick?.()}
+            >
+              ✕
+            </button>
+          </span>
+        )}
         {isAuto && !!repeat && repeat.repeat > 1 && (
           <span className="rd-rep" title={`고른 항목을 ${repeat.repeat}회 돕니다`}>
             🔁 <b>{repeat.repeat}회 반복</b>
