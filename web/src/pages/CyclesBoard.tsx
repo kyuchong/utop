@@ -2354,8 +2354,6 @@ export default function CyclesBoard({
               </button>
               {/* 굳는 **동안**만 왼쪽에 — 끝나면 오른쪽 알림이 말한다 */}
               {orderSave === 'saving' && <span className="cu-pick">시험 차례 저장 중…</span>}
-              {/* **떴다 사라지는 알림**(지시) — 오른쪽 끝, 검색 앞자리 */}
-              {!!flash && <span className="cu-flash">{flash}</span>}
               <button
                 type="button"
                 className="cu-new small"
@@ -2418,6 +2416,10 @@ export default function CyclesBoard({
                   </button>
                 </>
               )}
+              {/* **떴다 사라지는 알림**(지시) — 도구 줄 **맨 끝**, 검색 앞자리.
+                  중간에 두면 margin-left:auto 가 그 자리에서 벌어져 앞이 비고
+                  뒤 단추가 밀린다(지적: 빈 자리가 생겼다). */}
+              {!!flash && <span className="cu-flash">{flash}</span>}
             </>
           }
           /* 체크한 항목을 받는다 — 도구 줄의 단추 둘이 이걸 본다(승인) */
