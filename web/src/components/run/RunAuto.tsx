@@ -465,6 +465,24 @@ export default function RunAuto({
   const [folded, setFolded] = useState<Set<number>>(new Set())
   /** 깨진 스텝만 보기 — 62 건에서 실패한 자리로 바로 간다 */
   const [onlyBad, setOnlyBad] = useState(false)
+  /*
+   * **처음 열면 부적합만 펴 둔다**(지시).
+   *
+   * 62 건 가운데 대개는 통과라, 다 펴 두면 볼 것을 찾느라 스크롤만 한다.
+   * 통과한 줄과 판정이 없는 줄은 접고 깨진 줄만 편다 — 손대는 순간부터는
+   * 사람 뜻을 따르고, 항목을 옮기면 다시 이 기본으로 돌아온다.
+   */
+  const foldSeed = useRef('')
+  useEffect(() => {
+    const key = `${cur}|${steps.length}|${steps.map((x) => x.mark ?? '').join(',')}`
+    if (foldSeed.current === key) return
+    foldSeed.current = key
+    const next = new Set<number>()
+    steps.forEach((s2, i3) => {
+      if (!/fail/i.test(String(s2.mark ?? ''))) next.add(i3)
+    })
+    setFolded(next)
+  }, [cur, steps])
 
   /** 실행 로그의 「부적합만」 — 시험 항목 화면과 같은 단추 */
   const [logOnly, setLogOnly] = useState(false)
