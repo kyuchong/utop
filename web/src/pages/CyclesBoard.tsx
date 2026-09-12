@@ -2162,6 +2162,22 @@ export default function CyclesBoard({
     return d
   }
 
+  /** 그림이 들어앉을 칸의 **실제 폭**. 이 값을 viewBox 로 써야 비율도
+   *  지키고 좌우 여백도 안 생긴다. */
+  function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
+    const ref = useRef<HTMLDivElement>(null)
+    const [w, setW] = useState(0)
+    useEffect(() => {
+      const el = ref.current
+      if (!el) return
+      const ro = new ResizeObserver(() => setW(Math.round(el.getBoundingClientRect().width)))
+      ro.observe(el)
+      setW(Math.round(el.getBoundingClientRect().width))
+      return () => ro.disconnect()
+    }, [])
+    return [ref, w]
+  }
+
   function DayChart({
     rows, series, unit,
   }: {
@@ -2169,6 +2185,7 @@ export default function CyclesBoard({
     series: Array<{ k: 'p' | 'f' | 'b'; label: string; color: string }>
     unit?: string
   }) {
+    const [wrapRef, wrapW] = useWidth()
     if (!rows.length)
       return (
         <div className="cu-empty">
@@ -2176,10 +2193,10 @@ export default function CyclesBoard({
           <span>판정을 남기면 날짜별로 쌓입니다.</span>
         </div>
       )
-    /* **가로로 늘리지 않는다**(지적: 일자별 표현이 서툴다) — 예전에는
-       preserveAspectRatio="none" 이라 칸이 넓어질수록 글자와 선이 납작하게
-       늘어났다. 비율을 지키고 폭에 맞춰 고르게 키운다. */
-    const W = 1000
+    /* **칸 폭을 재서 그린다.** 예전에는 preserveAspectRatio="none" 이라
+       넓어질수록 글자가 납작해졌고, meet 로 바꾸니 이번엔 남는 폭이 양옆
+       여백이 됐다(지적). 실제 폭을 viewBox 로 쓰면 둘 다 없다. */
+    const W = wrapW || 1000
     const H = 230
     const padL = 44
     const padR = 14
@@ -2208,11 +2225,11 @@ export default function CyclesBoard({
     const gid = `cybg-${series.map((s2) => s2.k).join('')}-${rows.length}`
     const one = rows.length === 1
     return (
-      <>
+      <div ref={wrapRef}>
         <svg
           className="cyb-daychart"
           viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="none"
           role="img"
           aria-label="일자별 시험 현황"
         >
@@ -2339,7 +2356,7 @@ export default function CyclesBoard({
           ))}
           {!!unit && <span className="cu-m">{unit}</span>}
         </div>
-      </>
+      </div>
     )
   }
 

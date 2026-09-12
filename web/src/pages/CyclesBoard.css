@@ -200,10 +200,9 @@
    가로로만 늘어난다. 높이가 폭을 따라 커지면 세 줄이 화면 밖으로 나간다 */
 /* 비율을 지키며 폭에 맞춰 큰다 — 높이는 auto 라야 글자가 안 눌린다.
    칸이 아주 넓어도 그림만 커지지 않게 최대 높이를 둔다. */
-.cyb .cyb-daychart {
-  display: block; width: 100%; height: auto; max-height: 260px;
-  overflow: visible;
-}
+/* 칸 폭을 **재서** viewBox 를 맞춘다 — 비율을 지키면서도 좌우가 안 빈다
+   (지적: 여백이 많다). meet 로 맞추면 남는 폭이 양옆 여백이 됐다. */
+.cyb .cyb-daychart { display: block; width: 100%; height: 230px; overflow: visible; }
 .cyb .cyb-daychart .tick { font-size: 11px; fill: var(--c-text-faint, #98a2ad); }
 .cyb .cyb-daychart .val { font-size: 12px; font-weight: 800; fill: var(--c-text-muted, #6b7680); }
 .cyb .cyb-daylegend { display: flex; gap: 14px; font-size: var(--fs-xs); color: var(--c-text-muted); }
@@ -290,12 +289,16 @@
 }
 .cyb .cyb-rt3 .sumrow {
   display: grid;
-  grid-template-columns: 46px 20px minmax(0, 1fr);
-  align-items: center; gap: 7px; min-width: 0;
+  grid-template-columns: 50px 26px minmax(0, 1fr);
+  align-items: center; gap: 8px; min-width: 0;
 }
+/* 세 칸 모두 **자기 칸을 넘지 않게**(지적: 배지가 겹친다) — grid 는 아이템
+   최소폭이 내용이라, 「100%」 알약이 50px 칸을 넘어 옆 숫자를 덮었다 */
+.cyb .cyb-rt3 .sumrow > * { min-width: 0; }
 .cyb .cyb-rt3 .sumrow .vpill {
+  display: flex; width: 100%; box-sizing: border-box;
   justify-content: center; padding: 2px 0; font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
 }
 .cyb .cyb-rt3 .sumrow > b {
   text-align: right; font-size: 12.5px; font-variant-numeric: tabular-nums;
