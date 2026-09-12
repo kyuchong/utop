@@ -199,9 +199,16 @@
   font-size: 12px; font-weight: 800; color: #2e7d55; font-variant-numeric: tabular-nums;
 }
 .ra-band > .h > .rate.bad { color: #b83043; }
-.ra-band > .bars { display: flex; align-items: stretch; gap: 2px; height: 28px; }
+.ra-band > .bars {
+  display: flex; align-items: stretch; justify-content: flex-start;
+  gap: 2px; height: 22px;
+}
+/* 막대는 **가늘게**(지적: 막대가 너무 크다). 열일곱 개가 화면을 꽉 채우면
+   상태 띠가 아니라 막대그래프로 읽힌다 — 상태 페이지처럼 잘게 선다.
+   칸이 많아지면 알아서 줄고, 적어도 9px 를 넘지 않는다. */
 .ra-bb {
-  flex: 1; min-width: 3px; border: 0; padding: 0; margin: 0;
+  flex: 1 1 0; min-width: 3px; max-width: 9px;
+  border: 0; padding: 0; margin: 0;
   border-radius: 2px; background: #2e9e63; cursor: pointer;
 }
 /* 칸 안에 일부만 깨졌다 — 접힌 띠에서 드문 실패가 여기서 드러난다 */
