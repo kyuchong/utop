@@ -1035,6 +1035,8 @@ export default function RunAuto({
             <span>Timestamp</span>
             <span>TC ID</span>
             <span>Test Case</span>
+            {/* 누적·도는 표시 자리 — 줄과 칸 수가 같아야 제목이 안 어긋난다 */}
+            <span />
             <span />
           </div>
           {!groups.length && (
@@ -1089,7 +1091,13 @@ export default function RunAuto({
                       <i>{it.sum.t}</i>
                     </b>
                   ) : null}
-                  {it.id === runItem ? <RunMark /> : <span />}
+                  {/* 도는 표시도 **그 회차 줄에만**(지적: 2 회차부터 같이 돈다) —
+                      회차를 안 보면 같은 항목의 줄이 전부 도는 것처럼 보인다 */}
+                  {it.id === runItem && (!it.round || it.round === nowRound) ? (
+                    <RunMark />
+                  ) : (
+                    <span />
+                  )}
                 </button>
               ))}
             </div>
