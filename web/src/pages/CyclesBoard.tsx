@@ -2212,6 +2212,9 @@ export default function CyclesBoard({
             <span className="cu-m" title={String(r.run)}>{r.run === '수동' ? '✎' : '▶'}</span>
           )}
           onOpen={(id) => goto('tc', id)}
+          /* 아래 선택 띠는 안 세운다(지시) — 도구 줄이 이미 「N개 선택」 을
+             말한다. 제거는 그 줄로 옮겼다(아래 「✕ 사이클에서 제거」). */
+          hideBulk
           bulk={[{ k: 'del', label: '사이클에서 제거', danger: true }]}
           onBulk={(a, ids) => {
             if (a === 'del') void dropCycleItems(ids)
@@ -2255,9 +2258,9 @@ export default function CyclesBoard({
                   ? '저장 중…'
                   : orderSave === 'saved'
                     ? '✓ 저장됨'
-                    : orderDirty
-                      ? '↓ Save Test Order ●'
-                      : '↓ Save Test Order'}
+                    : `↓ Save Test Order${picked.length ? ` (${picked.length})` : ''}${
+                        orderDirty ? ' ●' : ''
+                      }`}
               </button>
               <button
                 type="button"
@@ -2288,32 +2291,32 @@ export default function CyclesBoard({
                       }`
                     : '▶ Automation Test Start'}
               </button>
-              {/* ── 체크한 것이 있을 때만 나타난다(승인). 아무것도 안 고르면
-                  지금 화면과 완전히 같다 — 단추가 아예 없다. ── */}
+              {/* **조건**(지시) — Test Start 바로 오른쪽에 늘 있다.
+                  반복 횟수·회차 간격·실패 조건·합격 기준을 정하고, 창 아래에
+                  예상 소요 시간이 선다. 거는 것은 왼쪽 Test Start 다. */}
+              <button
+                type="button"
+                className={`cu-new small${repCfg && repCfg.repeat > 1 ? ' cu-dirty' : ''}`}
+                title="반복 횟수 · 회차 간격 · 실패 조건 · 합격 기준을 정합니다 — 예상 소요 시간도 같이 보여 줍니다"
+                onClick={() => setRepPop(true)}
+              >
+                ⚙ 조건
+                {repCfg && repCfg.repeat > 1 ? ` · ${repCfg.repeat}회` : ''}
+              </button>
               {picked.length > 0 && (
                 <>
                   <span className="cu-pick">{picked.length}개 선택 — 이것만 돕니다</span>
-                  {!man && (
-                    <button
-                      type="button"
-                      className="cu-new small"
-                      title="고른 항목을 한 묶음으로 여러 번 돌립니다 — 부팅 반복 같은 내구 시험.
-거는 것은 위 「Test Start」 입니다"
-                      onClick={() => setRepPop(true)}
-                    >
-                      🔁 반복 설정…
-                    </button>
-                  )}
-                </>
-              )}
-              {/* 걸어 둔 반복 — 화면을 안 바꾸므로 여기서 말해 줘야 안다(지적) */}
-              {!!repCfg && repCfg.repeat > 1 && (
-                <span className="cu-pick rep">
-                  🔁 {repCfg.repeat}회 반복
-                  <button type="button" title="반복을 풉니다" onClick={() => setRepCfg(null)}>
-                    ✕
+                  {/* 아래 선택 띠를 걷은 자리(지시) — 제거는 여기로 옮긴다.
+                      없애 버리면 담은 항목을 뺄 길이 사라진다 */}
+                  <button
+                    type="button"
+                    className="cu-new small cu-dgr"
+                    title="고른 항목을 이 사이클에서 뺍니다 — TC 자체는 그대로 있습니다"
+                    onClick={() => void dropCycleItems(picked)}
+                  >
+                    ✕ 사이클에서 제거
                   </button>
-                </span>
+                </>
               )}
             </>
           }
@@ -3346,7 +3349,7 @@ export default function CyclesBoard({
           장비가 며칠 잡힌다. 한 번 더 누르게 한다. */}
       {repPop && (
         <RepeatPop
-          count={picked.length}
+          count={picked.length || itemRows.filter((x) => (runMode === 'M' ? x.man : !x.man)).length}
           init={repCfg ?? undefined}
           onClose={() => setRepPop(false)}
           /* **화면을 안 바꾼다**(지적: 고르기 선택하면 바로 실행으로 넘어가면

@@ -424,3 +424,6 @@
 .cu-new.small.cu-done { border-color: #16a34a; background: #16a34a; color: #fff; }
 .cu-new.small:disabled { opacity: 0.5; cursor: default; }
 .cu-new.small.cu-done:disabled { opacity: 1; }
+/* 빼는 단추 — 되돌리기 어려운 일이라 색으로 한 번 멈칫하게 한다 */
+.cu-new.small.cu-dgr { border-color: #f0b7bd; color: #c0344b; }
+.cu-new.small.cu-dgr:hover { background: #fff2f5; border-color: #e08d99; }

@@ -384,3 +384,13 @@
 /* 놓일 자리 — 초록 실선 한 줄 */
 .ntb-tbl tr.ntb-over-t > td { box-shadow: inset 0 2px 0 #16a34a; }
 .ntb-tbl tr.ntb-over-b > td { box-shadow: inset 0 -2px 0 #16a34a; }
+
+/* 고른 줄 — **선택된 느낌**이 있어야 한다(지적). 옅은 하늘색만으로는
+   눈에 안 든다: 왼쪽에 파란 획을 세우고 글자도 한 급 진하게. */
+.ntb-tbl tr.ntb-row.on > td { background: #e8f3fe; }
+.ntb-tbl tr.ntb-row.on > td:first-child { box-shadow: inset 3px 0 0 #2f70d1; }
+.ntb-tbl tr.ntb-row.on { color: #123d6b; }
+.ntb-tbl tr.ntb-row.on:hover > td { background: #dcecfd; }
+/* 체크 자체도 제 색으로 — 회색 네모는 켜졌는지 한참 봐야 안다 */
+.ntb-gpin input[type='checkbox'] { accent-color: #2f70d1; width: 13px; height: 13px; }
+.ntb-tbl tr.ntb-row.on .ntb-no { color: #2f70d1; font-weight: 800; }

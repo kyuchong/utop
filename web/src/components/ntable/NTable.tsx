@@ -60,6 +60,10 @@ export interface NTableProps {
   /** 처음 세울 때 되살릴 선택 — 화면을 떠났다 와도 체크가 남아야 한다(지적:
    *  실행할 때마다 다시 골라야 한다). 마운트 때만 본다 */
   initSelected?: string[]
+  /** 아래 선택 띠를 안 세운다(지시) — 도구 줄이 이미 「N개 선택」 을
+   *  말하고 있으면 같은 말이 두 번 나와 거슬린다. 그 자리의 단추는
+   *  부르는 쪽이 제 도구 줄에 둔다. */
+  hideBulk?: boolean
   /** **끌어서 차례 바꾸기**(지시) — 주면 행 앞에 손잡이(⋮⋮)가 선다.
    *  놓으면 바뀐 차례를 통째로 알려 준다. 정렬이 걸려 있으면 그 차례가
    *  이겨 버리므로, 끌기 시작할 때 정렬을 지운다. */
@@ -1562,7 +1566,7 @@ export default function NTable(p: NTableProps) {
       )}
 
       {/* ── 여러 줄 골랐을 때 ── */}
-      {checked.size > 0 && (
+      {checked.size > 0 && !p.hideBulk && (
         <div className="ntb-bulk">
           <b>{checked.size}건 선택</b>
           {(p.bulk ?? BULK).map((b) => (
