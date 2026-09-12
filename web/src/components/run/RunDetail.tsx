@@ -51,6 +51,11 @@ function copyText(t: string, ok: () => void) {
 
 /** 회차 한 줄 — 「다시 실행」 마다 하나씩 선다. 셈만 담고 장비 출력은 없다 */
 export interface RoundRow {
+  /** 칸 번호(0부터). 접혔을 때만 뜻이 있다 */
+  b?: number
+  /** 이 칸이 덮는 회차 범위. 안 접혔으면 둘이 같다 */
+  r_from?: number
+  r_to?: number
   round: number
   total: number
   pass?: number
@@ -585,14 +590,20 @@ export default function RunDetail({
     queryKey: ['plan-run-rounds', runId],
     enabled: !!runId,
     queryFn: async () => {
-      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/rounds`)
-      if (!r.ok) return { rounds: [] as RoundRow[] }
-      return (await r.json()) as { rounds: RoundRow[] }
+      /* 칸 수를 정해 **서버에서 접어** 받는다 — 10,000 회차를 그대로
+         내려받으면 응답만 1MB 다. 회차가 적으면 서버가 안 접는다. */
+      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/rounds?buckets=120`)
+      if (!r.ok) return { rounds: [] as RoundRow[], total_rounds: 0, size: 1 }
+      return (await r.json()) as { rounds: RoundRow[]; total_rounds?: number; size?: number }
     },
     staleTime: 10_000,
   })
   const rounds = roundsQ.data?.rounds ?? []
-  const lastRound = rounds.reduce((m, r) => Math.max(m, Number(r.round) || 0), 0)
+  /** 총 회차 수. 접힌 띠에서는 마지막 칸의 번호가 아니라 이것이 마지막 회차다 */
+  const lastRound = Number(roundsQ.data?.total_rounds ?? 0) ||
+    rounds.reduce((m, r) => Math.max(m, Number(r.r_to ?? r.round) || 0), 0)
+  /** 막대 한 칸이 몇 회차인가. 1 이면 안 접힌 것이다 */
+  const roundSize = Math.max(1, Number(roundsQ.data?.size ?? 1))
   /** 고른 회차. null 이면 **가장 최근** — 평소에는 지금과 구별되지 않는다 */
   const [roundSel, setRoundSel] = useState<number | null>(null)
   /* 지난 회차를 보는 중인가. 최근 회차는 사이클 문서가 정본이라 그대로 둔다 */
@@ -1573,6 +1584,8 @@ export default function RunDetail({
           }}
           /* 회차 띠 — 회차가 하나뿐이면 RunAuto 가 아예 안 그린다(지금 화면 그대로) */
           rounds={rounds}
+          roundSize={roundSize}
+          totalRounds={lastRound}
           runRound={roundSel}
           onRunRound={(n) => {
             setRoundSel(n)

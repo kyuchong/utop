@@ -199,6 +199,9 @@ const FLT_N = (t: { total: number; p: number; f: number; n: number }) => ({
   n: t.n,
 })
 
+/** 천 단위에 쉼표 — `10000` 이 아니라 `10,000` 이라야 자릿수가 읽힌다 */
+const nfmt = (n: number): string => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
 /** 회차 띠에 적는 짧은 시각 — `09-08 14:02`.
  *  서버가 주는 값은 UTC 다(isoformat 이라 +00:00 이 붙는다). 표시가 없는
  *  옛 값도 UTC 로 읽는다 — 그냥 넘기면 브라우저가 제 시간대로 쳐서 아홉
@@ -215,11 +218,22 @@ const rstamp = (v?: string | null): string => {
 
 export default function RunAuto({
   items, cur, onPick, steps, stepAt, onStep, dut, runStartedAt,
-  runStep, runItem, waitAt, devices, rounds, runRound, onRunRound,
+  runStep, runItem, waitAt, devices, rounds, roundSize, totalRounds, runRound, onRunRound,
 }: {
   /** 이 실행에 쌓인 회차 — 「다시 실행」 을 누를 때마다 하나씩 선다.
    *  하나뿐이면 띠를 아예 안 보여 준다(지금 화면 그대로다). */
-  rounds?: Array<{ round: number; total: number; pass?: number; fail?: number; from_at?: string | null }>
+  rounds?: Array<{
+    round: number; total: number; pass?: number; fail?: number
+    from_at?: string | null
+    /** 칸 번호(0부터) — 접혔을 때만 뜻이 있다 */
+    b?: number
+    /** 이 칸이 덮는 회차 범위 — 접혔을 때만 둘이 다르다 */
+    r_from?: number; r_to?: number
+  }>
+  /** 막대 한 칸이 몇 회차인가. 1 이면 안 접힌 것 */
+  roundSize?: number
+  /** 총 회차 수 */
+  totalRounds?: number
   /** 지금 보는 **실행 회차**. 비면 가장 최근 — 평소에는 지금과 구별되지 않는다.
    *  아래 roundAt(반복 스텝 안의 회차)과는 다른 것이다 — 이름을 가르지 않으면
    *  한쪽이 다른 쪽을 조용히 가린다 */
@@ -1102,7 +1116,17 @@ export default function RunAuto({
   }
 
   /** 가장 최근 회차. 아무것도 안 고르면 늘 이것을 본다 */
-  const lastRound = (rounds ?? []).reduce((m, r) => Math.max(m, Number(r.round) || 0), 0)
+  const lastRound = Number(totalRounds ?? 0) ||
+    (rounds ?? []).reduce((m, r) => Math.max(m, Number(r.r_to ?? r.round) || 0), 0)
+  /** 열두 개 안쪽이고 안 접혔으면 칩으로 — 날짜가 그대로 읽힌다 */
+  const asChips = (rounds?.length ?? 0) <= 12 && (roundSize ?? 1) === 1
+  /** 띠 오른쪽 성공률 — 깨진 회차가 몇인지부터 눈에 들어와야 한다 */
+  const badRounds = (rounds ?? []).reduce((n, r) => n + Number(r.fail ?? 0), 0)
+  const judgedN = (rounds ?? []).reduce((n, r) => n + Number(r.total ?? 0), 0)
+  const rateTxt = judgedN
+    ? `${(((judgedN - badRounds) / judgedN) * 100).toFixed(judgedN > 200 ? 2 : 1)} % 성공`
+    : '—'
+
 
   const panel = (id: PanelId) => {
     return (
@@ -1197,29 +1221,77 @@ export default function RunAuto({
               회차가 다섯이든 만이든 화면이 드는 무게는 같다.
               회차가 하나뿐이면 아예 안 그린다 — 평소에는 지금 화면 그대로다. ── */}
           {id === 'response' && (rounds?.length ?? 0) > 1 && (
-            <div className="ra-rnds">
-              <span className="k">회차</span>
-              {(rounds ?? []).map((r) => {
-                const on = (runRound ?? lastRound) === r.round
-                const bad = Number(r.fail ?? 0)
-                return (
-                  <button
-                    key={r.round}
-                    type="button"
-                    className={`ra-rch${on ? ' on' : ''}`}
-                    title={`${r.round}회차 — ${r.total}건${bad ? ` · Fail ${bad}` : ' 모두 Pass'}`}
-                    onClick={() => onRunRound?.(r.round === lastRound ? null : r.round)}
-                  >
-                    <i className={`d ${bad ? 'f' : 'p'}`} aria-hidden="true" />
-                    <b>{r.round}회</b>
-                    <em>
-                      {rstamp(r.from_at)}
-                      {bad ? ` · Fail ${bad}` : ''}
-                    </em>
-                  </button>
-                )
-              })}
-            </div>
+            asChips ? (
+              /* 열두 개 안쪽이면 **칩**이 낫다 — 날짜와 Fail 수가 그대로 읽힌다 */
+              <div className="ra-rnds">
+                <span className="k">회차</span>
+                {(rounds ?? []).map((r) => {
+                  const on = (runRound ?? lastRound) === r.round
+                  const bad = Number(r.fail ?? 0)
+                  return (
+                    <button
+                      key={r.round}
+                      type="button"
+                      className={`ra-rch${on ? ' on' : ''}`}
+                      title={`${r.round}회차 — ${r.total}건${bad ? ` · Fail ${bad}` : ' 모두 Pass'}`}
+                      onClick={() => onRunRound?.(r.round === lastRound ? null : r.round)}
+                    >
+                      <i className={`d ${bad ? 'f' : 'p'}`} aria-hidden="true" />
+                      <b>{r.round}회</b>
+                      <em>
+                        {rstamp(r.from_at)}
+                        {bad ? ` · Fail ${bad}` : ''}
+                      </em>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              /* ── 막대 띠(승인) — 10,000 회차도 한 줄에 담는다.
+                 칸 하나가 여러 회차라도 **실패는 안 묻힌다**: 그 안에 한 번이라도
+                 깨졌으면 칸이 색을 바꾼다. 언제쯤 무너졌는지가 그대로 보인다 —
+                 목록 10,000 줄로는 절대 안 보이는 것이다. ── */
+              <div className="ra-band">
+                <div className="h">
+                  <span className="t">회차</span>
+                  <span className="n">{nfmt(totalRounds ?? 0)}회</span>
+                  <span className="sp" />
+                  <span className={`rate${badRounds ? ' bad' : ''}`}>
+                    {rateTxt}
+                    {badRounds ? ` · Fail ${nfmt(badRounds)}` : ''}
+                  </span>
+                </div>
+                <div className="bars">
+                  {(rounds ?? []).map((r, bi) => {
+                    const bad = Number(r.fail ?? 0)
+                    const from = Number(r.r_from ?? r.round)
+                    const to = Number(r.r_to ?? r.round)
+                    const span = to > from ? `${nfmt(from)} ~ ${nfmt(to)} 회차` : `${nfmt(from)} 회차`
+                    const on = runRound != null && runRound >= from && runRound <= to
+                    return (
+                      <button
+                        key={r.b ?? bi}
+                        type="button"
+                        className={`ra-bb${bad ? (to > from ? ' part' : ' bad') : ''}${on ? ' on' : ''}`}
+                        title={`${span} · ${nfmt(r.total)}건\n${
+                          bad ? `Fail ${nfmt(bad)}` : '모두 Pass'
+                        }${to > from ? '\n누르면 이 구간의 첫 회차로 갑니다' : ''}`}
+                        onClick={() => onRunRound?.(from === lastRound ? null : from)}
+                      />
+                    )
+                  })}
+                </div>
+                <div className="ax">
+                  <span>1 회차</span>
+                  <i />
+                  <span className="mid">
+                    {(roundSize ?? 1) > 1 ? `막대 하나 = ${nfmt(roundSize ?? 1)} 회차` : '막대 하나 = 한 회차'}
+                  </span>
+                  <i />
+                  <span>{nfmt(totalRounds ?? 0)} 회차</span>
+                </div>
+              </div>
+            )
           )}
           {body(id)}
         </section>

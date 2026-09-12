@@ -12838,9 +12838,12 @@ async def api_plan_run_item_get(run_id: str, tcid: str, round: int = 1):
 
 
 @app.get("/api/plan-runs/{run_id}/rounds")
-async def api_plan_run_rounds(run_id: str):
-    """회차 띠가 읽는 요약 — 회차마다 몇 건 돌고 몇 건 깨졌나."""
-    return await db.plan_run_rounds(run_id)
+async def api_plan_run_rounds(run_id: str, buckets: int = 0):
+    """회차 띠가 읽는 요약 — 회차마다 몇 건 돌고 몇 건 깨졌나.
+
+    buckets 를 주면 그 칸 수로 접어 준다(10,000 회차 → 100 칸). 회차가
+    그보다 적으면 접지 않는다."""
+    return await db.plan_run_rounds(run_id, max(0, min(400, buckets)))
 
 
 @app.get("/api/plan-runs/{run_id}/stat")

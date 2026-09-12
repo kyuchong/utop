@@ -931,20 +931,35 @@ async def plan_run_item_get(run_id: str, tcid: str, round_: int = 1) -> Optional
         return d
 
 
-async def plan_run_rounds(run_id: str) -> dict:
+async def plan_run_rounds(run_id: str, buckets: int = 0) -> dict:
     """회차 띠가 읽는 요약 — 회차마다 몇 건 돌고 몇 건 깨졌나.
 
-    **장비 출력을 안 읽는다.** 10,000 회차여도 셈만 세므로 가볍다."""
+    **장비 출력을 안 읽는다.** 10,000 회차여도 셈만 세므로 가볍다.
+
+    buckets 를 주면 그 칸 수로 **접어서** 준다 — 10,000 회차를 100 칸으로.
+    막대를 10,000 개 그리면 한 칸이 머리카락 굵기라 눌리지도 보이지도
+    않고, 응답만 1MB 가 된다(상태 페이지가 90 일을 90 칸으로 보여 주는
+    것과 같은 이치다).
+
+    접어도 **실패는 묻히지 않는다** — 칸 안에 한 번이라도 실패가 있으면
+    그 칸이 fail>0 으로 돌아오고, 실패한 회차 번호는 목록에 그대로 남는다.
+    회차가 buckets 보다 적으면 size 가 1 이라 회차별 그대로다."""
     bad = await _bad_verdicts()
     async with pool().acquire() as c:
+        hi = int(await c.fetchval(
+            "SELECT COALESCE(max(round), 0) FROM plan_run_item WHERE run_id=$1", run_id) or 0)
+        if not hi:
+            return {"rounds": [], "total_rounds": 0, "size": 1}
+        size = 1 if buckets <= 0 or hi <= buckets else -(-hi // buckets)
         rows = await c.fetch(
-            "SELECT round,"
+            "SELECT ((round - 1) / $3)::int AS b,"
+            "       min(round) AS r_from, max(round) AS r_to,"
             "       count(*) AS total,"
             "       count(*) FILTER (WHERE verdict = ANY($2::text[])) AS fail,"
             "       count(*) FILTER (WHERE verdict <> '') AS judged,"
             "       min(at) AS from_at, max(at) AS to_at"
-            "  FROM plan_run_item WHERE run_id=$1 GROUP BY round ORDER BY round",
-            run_id, bad or [""],
+            "  FROM plan_run_item WHERE run_id=$1 GROUP BY 1 ORDER BY 1",
+            run_id, bad or [""], int(size),
         )
     out = []
     for r in rows:
@@ -952,11 +967,13 @@ async def plan_run_rounds(run_id: str) -> dict:
         for k in ("from_at", "to_at"):
             v = d.get(k)
             d[k] = v.isoformat() if v else None
-        for k in ("round", "total", "fail", "judged"):
+        for k in ("b", "r_from", "r_to", "total", "fail", "judged"):
             d[k] = int(d.get(k) or 0)
         d["pass"] = max(0, d["judged"] - d["fail"])
+        # 한 칸이 회차 하나면 round 가 곧 그 회차다 — 칩으로 그릴 때 쓴다
+        d["round"] = d["r_from"]
         out.append(d)
-    return {"rounds": out}
+    return {"rounds": out, "total_rounds": hi, "size": int(size)}
 
 
 async def plan_run_item_stat(run_id: str, tcid: str = "") -> dict:

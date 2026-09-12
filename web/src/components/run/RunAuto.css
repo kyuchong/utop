@@ -181,6 +181,41 @@
 .ra-rch.on > b { color: #17548f; }
 .ra-rch.on > em { color: #5b83b4; }
 
+/* ── 회차 막대 띠(승인) — 10,000 회차도 한 줄에 담는다 ──────────────
+   칸 하나가 여러 회차라도 실패는 안 묻힌다: 그 안에 한 번이라도 깨졌으면
+   칸이 색을 바꾼다. 언제쯤 무너졌는지가 그대로 보인다 — 목록 10,000 줄로는
+   절대 안 보이는 것이다. */
+.ra-band {
+  flex: none; padding: 9px 11px 8px; background: #fbfdfe;
+  border-bottom: 1px solid var(--c-border, #e2e8eb);
+}
+.ra-band > .h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.ra-band > .h > .t {
+  font-size: 10px; font-weight: 800; color: #8c9aa1; letter-spacing: .03em;
+}
+.ra-band > .h > .n { font-size: 11px; color: #7c8b93; font-variant-numeric: tabular-nums; }
+.ra-band > .h > .sp { flex: 1; }
+.ra-band > .h > .rate {
+  font-size: 12px; font-weight: 800; color: #2e7d55; font-variant-numeric: tabular-nums;
+}
+.ra-band > .h > .rate.bad { color: #b83043; }
+.ra-band > .bars { display: flex; align-items: stretch; gap: 2px; height: 28px; }
+.ra-bb {
+  flex: 1; min-width: 3px; border: 0; padding: 0; margin: 0;
+  border-radius: 2px; background: #2e9e63; cursor: pointer;
+}
+/* 칸 안에 일부만 깨졌다 — 접힌 띠에서 드문 실패가 여기서 드러난다 */
+.ra-bb.part { background: #e8a33d; }
+.ra-bb.bad { background: #e34663; }
+.ra-bb:hover { outline: 2px solid #17548f; outline-offset: 1px; }
+.ra-bb.on { outline: 2px solid #17548f; outline-offset: 1px; }
+.ra-band > .ax {
+  display: flex; align-items: center; gap: 8px; margin-top: 5px;
+  font-size: 10px; color: #9aa7ae; font-variant-numeric: tabular-nums;
+}
+.ra-band > .ax > i { flex: 1; height: 1px; background: #dfe8ea; }
+.ra-band > .ax > .mid { color: #7c8b93; font-weight: 600; }
+
 /* 거르개 */
 .ra-chips { display: flex; gap: 5px; padding: 6px 8px; border-bottom: 1px solid var(--c-border, #e2e8eb); }
 .ra-chip {
