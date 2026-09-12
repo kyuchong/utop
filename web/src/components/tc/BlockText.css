@@ -22,9 +22,11 @@
  * 테두리만 둘렀더니 원문이 빽빽할 때 어느 값이 기준인지 눈에 안 들어왔다.
  * 바탕을 칠하면 글자 사이에서 그 값만 떠오른다.
  */
-.bv-b.m-has { background: #a3e8b8; box-shadow: none; color: #0b4a25; }
-.bv-b.m-not { background: #f7b3b3; box-shadow: none; color: #7a1b1b; }
-.bv-b.m-var { background: #fbe3a8; box-shadow: none; color: #6b4a05; }
+/* **검정 바탕에 형광 글자**(지시) — 원문이 빽빽할수록 밝은 형광펜은
+   묻힌다. 어두운 바탕은 흰 종이 위에서 저 혼자 도드라진다. */
+.bv-b.m-has { background: #14181c; box-shadow: none; color: #4ade80; }
+.bv-b.m-not { background: #14181c; box-shadow: none; color: #ff7676; }
+.bv-b.m-var { background: #14181c; box-shadow: none; color: #fbbf24; }
 .bv-b.m-has:hover,
 .bv-b.m-not:hover,
 .bv-b.m-var:hover { box-shadow: 0 0 0 1px #5b9bd5; }

@@ -611,8 +611,9 @@
   align-items: baseline;
   gap: 5px;
 }
-.ra-why > .ok { color: #0b5c34; background: #e6f6ec; }
-.ra-why > .bad { color: #8e1d1d; background: #fdeaea; font-weight: 500; }
+/* 블럭과 **같은 언어**로 — 검정 바탕에 형광 글자(지시) */
+.ra-why > .ok { color: #4ade80; background: #14181c; }
+.ra-why > .bad { color: #ff7676; background: #14181c; }
 .ra-rmk { font-style: normal; flex: none; }
 .ra-why code { font-family: var(--mono, ui-monospace, monospace); background: #f3f6f8; border-radius: 3px; padding: 0 4px; }
 .ra-vrule { font-style: normal; color: #9aa7ae; margin-left: 5px; }
