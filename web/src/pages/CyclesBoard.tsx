@@ -339,6 +339,8 @@ export default function CyclesBoard({
    *  체크할 때마다 곧바로 부르지 않고 잠깐 모아 보낸다 — 예순다섯 개를
    *  하나씩 찍으면 예순다섯 번을 부르게 된다. */
   const [picked, setPickedRaw] = useState<string[]>([])
+  /** 체크가 서버에 굳었나 — 조용히 저장되면 「저장된 건지」 를 알 수 없다(지적) */
+  const [pickSaved, setPickSaved] = useState(false)
   const pickTimer = useRef<number | null>(null)
   const setPicked = (ids: string[]) => {
     setPickedRaw(ids)
@@ -349,9 +351,15 @@ export default function CyclesBoard({
       void apiFetch(`/api/cycle/${encodeURIComponent(String(open))}/picked`, {
         method: 'POST',
         body: JSON.stringify({ picked: ids }),
-      }).catch(() => {
-        /* 못 굳혀도 화면은 그대로 — 다음 체크에 다시 보낸다 */
       })
+        .then((r) => {
+          if (!r.ok) return
+          setPickSaved(true)
+          window.setTimeout(() => setPickSaved(false), 1600)
+        })
+        .catch(() => {
+          /* 못 굳혀도 화면은 그대로 — 다음 체크에 다시 보낸다 */
+        })
     }, 600)
   }
   /** 손잡이로 끌어 잡은 **화면 차례**. 「시험 순서 저장」 을 누르기 전에는
@@ -2413,7 +2421,10 @@ export default function CyclesBoard({
               </button>
               {picked.length > 0 && (
                 <>
-                  <span className="cu-pick">{picked.length}개 선택 — 이것만 돕니다</span>
+                  <span className={`cu-pick${pickSaved ? ' saved' : ''}`}>
+                    {picked.length}개 선택
+                    {pickSaved ? ' · 저장됨 ✓' : ' — 이것만 돕니다'}
+                  </span>
                   {/* 아래 선택 띠를 걷은 자리(지시) — 제거는 여기로 옮긴다.
                       없애 버리면 담은 항목을 뺄 길이 사라진다 */}
                   <button
