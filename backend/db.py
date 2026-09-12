@@ -742,6 +742,28 @@ async def plan_run_upsert(rid: str, item: dict) -> None:
         )
 
 
+async def plan_run_item_clear(run_id: str, tcids: Optional[list] = None) -> int:
+    """이 실행의 회차 기록을 **지운다** — 다시 돌리기 직전에 부른다.
+
+    사이클 하나가 한 번의 시험이고 다시 실행하면 덮어쓴다(지시). 그런데
+    지난 회차를 안 지우면 화면에 그것이 그대로 남아, 방금 시작한 시험과
+    한 자리에서 섞인다 — 진행은 0% 인데 Response 에는 지난주 83 회차가
+    가득 차 있었다(실사고). 돌릴 항목만 지운다: 이번에 안 도는 항목의
+    지난 결과까지 날리면 안 된다."""
+    async with pool().acquire() as c:
+        if tcids:
+            r = await c.execute(
+                "DELETE FROM plan_run_item WHERE run_id=$1 AND tcid = ANY($2::text[])",
+                run_id, [str(x) for x in tcids],
+            )
+        else:
+            r = await c.execute("DELETE FROM plan_run_item WHERE run_id=$1", run_id)
+    try:
+        return int(str(r).rsplit(" ", 1)[-1])
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 async def cycle_mail_add(cycle_id: str, who: str, to_list: str, subject: str,
                          note: str = "", ok: bool = True, error: str = "") -> None:
     """결과서 메일 한 통을 기록한다 — 실패한 것도 남긴다."""

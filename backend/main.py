@@ -20985,6 +20985,15 @@ async def run_queue(payload: dict, request: Request):
         who = _user_of(_token_from(request)) or ""
     except Exception:
         pass
+    # **다시 실행은 덮어쓴다**(지시) — 돌릴 항목의 지난 회차 기록을 먼저
+    # 지운다. 안 지우면 화면에 옛 회차가 그대로 남아 방금 시작한 시험과
+    # 섞인다: 진행 0% 인데 Response 에는 지난 83 회차가 가득했다(실사고).
+    if plan_run_id:
+        try:
+            await db.plan_run_item_clear(plan_run_id, picked)
+        except Exception:  # noqa: BLE001
+            pass  # 못 지워도 실행은 건다 — 새 결과가 같은 자리를 덮는다
+
     run_id = _uuid4().hex[:16]
     # **「다시 실행」 은 덮어쓴다**(지시) — 사이클 하나가 한 번의 시험이다.
     # 회차가 쌓이는 것은 **반복 시험뿐**이고, 그것은 실행기가 1 부터 센다.

@@ -49,6 +49,9 @@ function copyText(t: string, ok: () => void) {
   legacy()
 }
 
+/** 천 단위에 쉼표 — 10000 이 아니라 10,000 이라야 자릿수가 읽힌다 */
+const nfmt = (n: number): string => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
 /** 걸어 둔 반복 규칙을 일감 몸통으로 — 시작하는 자리가 둘이라 한 곳에 둔다 */
 const repeatBody = (r: {
   repeat: number; gapSec: number
@@ -507,6 +510,10 @@ export default function RunDetail({
         run?: { status?: string; done?: number; total?: number; item_name?: string
                 step_name?: string; step_at?: number; step_count?: number; error?: string
         item_at?: number; ended_at?: string | null
+                /** 살아 있음 신호 — 끊긴 지 오래면 「응답 없음」 으로 알린다 */
+                heartbeat_at?: string | null
+                /** 어느 실행기가 집었나 */
+                worker?: string | null
         /** 지금 도는 항목의 스텝들 — 결과가 차오르는 그대로다 */
         live_steps?: unknown[] | null }
         logs?: LiveLog[]
@@ -1401,8 +1408,38 @@ export default function RunDetail({
   /** 경과·진행 띠 — 자동·수동 모두 머리줄 **안**에 선다(지시).
       자동만 있던 아래 한 줄은 걷었다 — 「지금 항목」·「지금 스텝」 은
       오른쪽 목록의 굵은 줄과 가운데 스텝 표가 이미 같은 말을 한다. */
+  /** **지금 무슨 상태인가.** 진행률만으로는 「0% 인데 왜 안 도나」 를 알 수
+   *  없었다(지적: 뭐가 어떻게 되는 건지 알 수가 없다) — 큐에 걸린 것인지,
+   *  실행기가 집었는지, 응답이 끊겼는지, 끝났는지를 먼저 말한다. */
+  const jobState = (() => {
+    const st = String(job?.status ?? '')
+    if (!jobId || !st) return null
+    const beat = job?.heartbeat_at ? Date.parse(String(job.heartbeat_at).replace(' ', 'T') + 'Z') : NaN
+    const quiet = Number.isFinite(beat) ? Date.now() - beat : 0
+    if (st === 'queued')
+      return { k: 'wait', t: '실행기를 기다립니다', s: '큐에 걸렸습니다 — 실행기가 집으면 바로 돕니다' }
+    if (st === 'running') {
+      if (quiet > 90_000)
+        return {
+          k: 'lost',
+          t: '실행기 응답 없음',
+          s: `${Math.round(quiet / 60000)}분째 소식이 없습니다 — 실행기가 살아 있는지 보세요`,
+        }
+      return { k: 'run', t: '실행 중', s: `${job?.worker || '실행기'} 가 돌리는 중입니다` }
+    }
+    if (st === 'failed') return { k: 'bad', t: '실행기 오류', s: String(job?.error ?? '') }
+    if (st === 'stopped') return { k: 'stop', t: '멈춤', s: '사람이 중지했습니다' }
+    return { k: 'done', t: '끝남', s: '' }
+  })()
+
   const liveBand = (
     <div className="rd-live">
+        {!!jobState && (
+          <span className={`rd-state s-${jobState.k}`} title={jobState.s}>
+            <i aria-hidden="true" />
+            {jobState.t}
+          </span>
+        )}
         <span className="rd-lb">
           <em>경과</em>
           <b>
@@ -1444,11 +1481,25 @@ export default function RunDetail({
             <i className="b" style={{ flexGrow: tally.b }} />
             <i className="n" style={{ flexGrow: tally.n }} />
           </span>
-          <b>{pct}%</b>
-          <i>
-            (<span className="p">Pass {tally.p}</span> <span className="f">Fail {tally.f}</span> 대기{' '}
-            {tally.n} · 전체 {tally.total})
-          </i>
+          {/* 실행기가 세는 수(done/total)가 있으면 그것이 먼저다 — 반복
+              시험은 항목 수만 보면 10 회를 돌아도 0% 에 머문다 */}
+          {jobLive && Number(job?.total) > 0 ? (
+            <>
+              <b>{Math.round((Number(job?.done ?? 0) / Number(job?.total)) * 100)}%</b>
+              <i>
+                ({nfmt(Number(job?.done ?? 0))} / {nfmt(Number(job?.total))} 돎
+                {tally.f ? <span className="f"> · Fail {tally.f}</span> : null})
+              </i>
+            </>
+          ) : (
+            <>
+              <b>{pct}%</b>
+              <i>
+                (<span className="p">Pass {tally.p}</span> <span className="f">Fail {tally.f}</span> 대기{' '}
+                {tally.n} · 전체 {tally.total})
+              </i>
+            </>
+          )}
         </span>
 
         {/* 「지금 항목」·「지금 스텝」 칸은 걷었다(지시) */}
@@ -1525,34 +1576,38 @@ export default function RunDetail({
         {/* ── 걸어 둔 반복(지적: 10 회를 걸었는데 관련 설정이 안 보인다) ──
             걸렸는지 눈으로 알 수 없으면 누르기 전에 확신이 안 선다. 여기서
             몇 회·실패하면 무엇을 할지를 말하고, ✕ 로 바로 푼다. */}
-        {/* 고른 항목만 도는 중이라는 표시(지적) — 체크는 표에서 했는데
-            여기서는 몇 개가 걸렸는지 알 수 없었다. ✕ 로 전체로 되돌린다. */}
-        {!!pickedN && pickedN > 0 && (
-          <span className="rd-rep pick" title={`표에서 고른 ${pickedN}개만 돕니다`}>
-            🎯 <b>고른 {pickedN}개만</b>
+        {/* 걸어 둔 조건 — **한 알로** 묶는다(지적: 배지가 둘이라 어수선하다).
+            고른 수와 반복 횟수를 한 줄로 말하고, ✕ 로 한꺼번에 푼다. */}
+        {(!!pickedN || (isAuto && !!repeat && repeat.repeat > 1)) && (
+          <span
+            className="rd-rep"
+            title={[
+              pickedN ? `표에서 고른 ${pickedN}개만 돕니다` : '',
+              repeat && repeat.repeat > 1
+                ? `${repeat.repeat}회 반복 · ${
+                    repeat.onFail === 'hold'
+                      ? '실패하면 멈추고 대기'
+                      : repeat.onFail === 'stop'
+                        ? '실패하면 종료'
+                        : '실패해도 계속'
+                  }`
+                : '',
+            ]
+              .filter(Boolean)
+              .join('\n')}
+          >
+            <b>
+              {pickedN ? `고른 ${pickedN}개` : ''}
+              {pickedN && repeat && repeat.repeat > 1 ? ' · ' : ''}
+              {isAuto && repeat && repeat.repeat > 1 ? `${repeat.repeat}회 반복` : ''}
+            </b>
             <button
               type="button"
-              title="고르기를 풀고 전체를 돕니다"
-              onClick={() => onClearPick?.()}
-            >
-              ✕
-            </button>
-          </span>
-        )}
-        {isAuto && !!repeat && repeat.repeat > 1 && (
-          <span className="rd-rep" title={`고른 항목을 ${repeat.repeat}회 돕니다`}>
-            🔁 <b>{repeat.repeat}회 반복</b>
-            <em>
-              {repeat.onFail === 'hold'
-                ? '실패하면 멈추고 대기'
-                : repeat.onFail === 'stop'
-                  ? '실패하면 종료'
-                  : '실패해도 계속'}
-            </em>
-            <button
-              type="button"
-              title="반복을 풉니다 — 한 바퀴만 돕니다"
-              onClick={() => onClearRepeat?.()}
+              title="조건을 풀고 전체를 한 바퀴만 돕니다"
+              onClick={() => {
+                onClearPick?.()
+                onClearRepeat?.()
+              }}
             >
               ✕
             </button>
