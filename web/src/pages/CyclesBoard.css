@@ -400,3 +400,20 @@
 }
 .cyb .cyb-mlist i.ok { background: #eaf8f1; color: #0f9151; }
 .cyb .cyb-mlist i.ng { background: #fff0f3; color: #d53f60; }
+
+/* Info 칸 — **테두리를 세운다**(지시). 평소 투명이라 고칠 수 있는 칸인지
+   알 수 없었다. 세로로 편 뒤로는 더 그렇다 — 이름 아래 빈 자리로 보인다. */
+.cyb .metacard .kv1 .kvin {
+  height: 30px;
+  border-color: var(--c-border-soft, #dfe4ea);
+  background: var(--c-surface, #fff);
+}
+.cyb .metacard .kv1 .kvin:hover { border-color: #bfd8dd; }
+.cyb .metacard .kv1 .kvin:focus { border-color: var(--c-primary); }
+/* 손댈 수 없는 값(사이클 ID)은 그대로 — 테두리를 세우면 고칠 수 있어 보인다 */
+.cyb .metacard .kv1 .kvin.kvro { border-color: transparent; background: transparent; }
+
+/* 설명 본문 — 앱 글자 크기에 맞춘다(지시: 트리 글자와 같게).
+   블록 노트 기본은 16px 라 이 화면에서 혼자 컸다. */
+.cyb .cyb-descbody .bn-editor { font-size: 13px; }
+.cyb .cyb-descbody .bn-editor .bn-block-content { font-size: 13px; }
