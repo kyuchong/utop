@@ -67,6 +67,12 @@ export interface AutoItem {
 
 type SlotId = 'LT' | 'LB' | 'RT' | 'RB'
 type PanelId = 'response' | 'tc'
+/** 기본 배치 — 왼쪽 시험 항목, 오른쪽 Response. **판마다 한 칸씩**이다.
+ *  (지적: 엣지에서 판이 2개씩 나온다 — 판이 다섯이던 시절의 네 칸 기본값을
+ *  그대로 두고 값만 둘로 줄여, 같은 판이 위아래로 두 번 섰다.) */
+const DEFAULT_LAY: PanelId[][] = [['tc'], ['response']]
+const newLay = (): PanelId[][] => DEFAULT_LAY.map((col) => [...col])
+/** 옛 저장본(네 칸 도킹)을 읽을 때만 쓴다 — 겹치는 것은 fill 이 걷어낸다 */
 const DEFAULT: Record<SlotId, PanelId> = { LT: 'tc', LB: 'tc', RT: 'response', RB: 'response' }
 /*
  * **판 둘**(승인) — Test Report 와 Response.
@@ -240,18 +246,22 @@ export default function RunAuto({
     /** 판이 하나 늘었다고 **사람이 잡아 둔 배치를 지우지 않는다**.
      *  아는 판만 남기고, 빠진 판은 마지막 열 끝에 붙인다. */
     const fill = (cols: PanelId[][]): PanelId[][] => {
-      const c = cols.map((col) => col.filter((x) => ALL.includes(x))).filter((col) => col.length)
-      if (!c.length) return [[DEFAULT.LT, DEFAULT.LB], [DEFAULT.RT, DEFAULT.RB]]
-      const flat = c.flat()
-      const miss = ALL.filter((x) => !flat.includes(x))
+      /* 한 판은 **한 번만** 선다 — 겹쳐 저장된 옛 배치도 여기서 걷힌다 */
+      const seen = new Set<PanelId>()
+      const c = cols
+        .map((col) => col.filter((x) => ALL.includes(x) && !seen.has(x) && (seen.add(x), true)))
+        .filter((col) => col.length)
+      if (!c.length) return newLay()
+      const miss = ALL.filter((x) => !seen.has(x))
       if (miss.length) c[c.length - 1]!.push(...miss)
       return c
     }
     try {
       const j = JSON.parse(prefGet('utop.run.lay') ?? '') as PanelId[][]
       if (Array.isArray(j) && j.every((c) => Array.isArray(c))) {
-        const known = j.flat().filter((x) => ALL.includes(x))
-        if (known.length && new Set(known).size === known.length) return fill(j)
+        /* 겹쳐 있어도 버리지 않는다 — fill 이 한 벌로 추리므로, 사람이
+           잡아 둔 좌우 순서는 그대로 살린다 */
+        if (j.flat().some((x) => ALL.includes(x))) return fill(j)
       }
     } catch {
       /* 처음이거나 옛 저장 — 아래에서 잇는다 */
@@ -261,7 +271,7 @@ export default function RunAuto({
       const d = { ...DEFAULT, ...j }
       return fill([[d.LT, d.LB], [d.RT, d.RB]])
     } catch {
-      return [[DEFAULT.LT, DEFAULT.LB], [DEFAULT.RT, DEFAULT.RB]]
+      return newLay()
     }
   })
   /* 걷어낸 판이 저장본에 남아 있으면 빈 자리가 선다 — 읽을 때 걸러 낸다 */

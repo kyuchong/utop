@@ -133,7 +133,10 @@
 .ra-cmd {
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; gap: 7px;
-  padding: 3px 8px; background: #e6f1f3; border-bottom: 1px solid #c9dee3;
+  /* 왼쪽 여백은 **줄마다 같다**(지적: 들쭉날쭉하다) — 판정이 걸린 줄에만
+     레일(3px)을 피하려 12px 를 줬더니, 판정 없는 줄과 4px 씩 어긋났다.
+     PASS 인 Step 3·7 만 오른쪽으로 밀려 보인 것이 이것이다. */
+  padding: 3px 8px 3px 12px; background: #e6f1f3; border-bottom: 1px solid #c9dee3;
   color: #17505c; font-weight: 600; font-size: 12px;
 }
 /* 스텝 번호 칸 — **고정 폭**이라야 명령이 같은 자리에서 시작한다(지적:
@@ -642,14 +645,18 @@
 .ra-blk.v-pass { box-shadow: inset 3px 0 0 #2e9e63; }
 .ra-blk.v-fail { box-shadow: inset 3px 0 0 #e34663; }
 .ra-blk.v-fail > .ra-cmd { background: #fdf2f3; }
-.ra-blk.v-pass > .ra-cmd,
-.ra-blk.v-fail > .ra-cmd { padding-left: 12px; }
 /* 판정 배지 — **찬 바탕에 흰 글자**(지시). 옅은 바탕에 진한 글자는
    머리줄의 다른 곁말(CLI · s0 · 1.6초)과 무게가 같아 배지로 안 읽혔다. */
 .ra-st.ok { background: #1d9e75; color: #fff; font-weight: 700; letter-spacing: .02em; }
 .ra-st.bad { background: #e24b4a; color: #fff; font-weight: 700; letter-spacing: .02em; }
 /* 배지도 같은 폭 — 「판정 없음」 자리와 맞물려야 오른쪽 끝이 선다 */
-.ra-cmd > .ra-st { flex: none; box-sizing: border-box; min-width: 54px; text-align: center; }
+/* 배지도 같은 폭 — 「판정 없음」 자리와 맞물려야 오른쪽 끝이 선다.
+   `.ra-st` 는 inline-flex 라 text-align 이 먹지 않는다(지적: PASS 가
+   왼쪽 정렬이다) — 넓힌 칸 안에서 글자를 가운데로 세운다. */
+.ra-cmd > .ra-st {
+  flex: none; box-sizing: border-box; min-width: 54px;
+  justify-content: center; text-align: center;
+}
 
 /* 스텝 칩 줄 — 판정이 걸린 줄과 깨진 줄을 색으로 가르고, 누르면 그 줄로
    간다(지시). 시험 항목 화면의 「판정 기준」 탭이 쓰는 것과 같은 언어다. */
