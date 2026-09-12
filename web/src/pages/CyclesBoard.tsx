@@ -2218,10 +2218,10 @@ export default function CyclesBoard({
               <button
                 type="button"
                 className="cu-new small"
-                title="지금 보이는 차례를 이 사이클의 시험 차례로 저장합니다"
+                title="지금 보이는 차례를 이 사이클의 시험 차례로 저장합니다 — 손잡이(⠿)로 끌어 잡은 차례가 그대로 굳습니다"
                 onClick={() => void saveOrder()}
               >
-                ↓ 시험 순서 저장
+                ↓ Save Test Order
               </button>
               <button
                 type="button"

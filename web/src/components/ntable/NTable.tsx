@@ -1059,9 +1059,12 @@ export default function NTable(p: NTableProps) {
                                 title="끌어서 시험 차례를 바꿉니다"
                                 onDragStart={(e) => {
                                   e.dataTransfer.effectAllowed = 'move'
-                                  /* 정렬이 걸려 있으면 그 차례가 이겨, 끌어 놓아도
-                                     제자리로 돌아간다 — 먼저 지운다 */
-                                  if (view.sorts?.length) onView({ ...view, sorts: [] })
+                                  /* 정렬·묶기가 걸려 있으면 그 차례가 이겨, 끌어
+                                     놓아도 제자리로 돌아간다 — 먼저 지운다.
+                                     묶기를 빼먹어 「선은 서는데 순서는 그대로」
+                                     였다(실측). */
+                                  if (view.sorts?.length || view.groupBy)
+                                    onView({ ...view, sorts: [], groupBy: '' })
                                   setDragRow(String(r.__id))
                                 }}
                                 onDragEnd={() => {
