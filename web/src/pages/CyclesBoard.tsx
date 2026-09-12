@@ -342,12 +342,15 @@ export default function CyclesBoard({
    *  체크할 때마다 곧바로 부르지 않고 잠깐 모아 보낸다 — 예순다섯 개를
    *  하나씩 찍으면 예순다섯 번을 부르게 된다. */
   const [picked, setPickedRaw] = useState<string[]>([])
-  /** 체크가 서버에 굳었나 — 조용히 저장되면 「저장된 건지」 를 알 수 없다(지적) */
-  const [pickSaved, setPickSaved] = useState(false)
+  /** 체크가 서버에 굳었나 — '' · saving · saved.
+   *  조용히 저장되면 「저장된 건지」 를 알 수 없다(지적). 잠깐 떴다 사라지면
+   *  그것도 못 본다 — **다음에 바뀔 때까지 계속** 달고 있는다. */
+  const [pickSaved, setPickSaved] = useState<'' | 'saving' | 'saved'>('')
   const pickTimer = useRef<number | null>(null)
   const setPicked = (ids: string[]) => {
     setPickedRaw(ids)
     if (!open) return
+    setPickSaved('saving')
     if (pickTimer.current != null) window.clearTimeout(pickTimer.current)
     pickTimer.current = window.setTimeout(() => {
       pickTimer.current = null
@@ -356,12 +359,11 @@ export default function CyclesBoard({
         body: JSON.stringify({ picked: ids }),
       })
         .then((r) => {
-          if (!r.ok) return
-          setPickSaved(true)
-          window.setTimeout(() => setPickSaved(false), 1600)
+          setPickSaved(r.ok ? 'saved' : '')
         })
         .catch(() => {
           /* 못 굳혀도 화면은 그대로 — 다음 체크에 다시 보낸다 */
+          setPickSaved('')
         })
     }, 600)
   }
@@ -921,7 +923,10 @@ export default function CyclesBoard({
         saved = []
       }
     }
-    setPickedRaw(Array.isArray(saved) ? saved.map((x) => String(x)).filter(Boolean) : [])
+    const arr = Array.isArray(saved) ? saved.map((x) => String(x)).filter(Boolean) : []
+    setPickedRaw(arr)
+    /* 문서에서 읽어 왔으면 이미 굳은 것이다 — 그 말을 칩이 달고 있는다 */
+    setPickSaved(arr.length ? 'saved' : '')
   }, [full, open])
 
   const itemRows = useMemo<ItemRow[]>(() => {
@@ -2377,7 +2382,7 @@ export default function CyclesBoard({
                 title={
                   orderDirty
                     ? '끌어 잡은 차례를 이 사이클의 시험 차례로 굳힙니다'
-                    : '바뀐 차례가 없습니다 — 손잡이(⠿)로 끌어 옮기면 켜집니다'
+                    : '바뀐 차례가 없습니다 — 「#」 로 정렬한 뒤 손잡이(⠿)로 끌어 옮기면 켜집니다.\n고른 항목은 여기가 아니라 체크하는 즉시 저장됩니다'
                 }
                 onClick={() => void saveOrder()}
               >
@@ -2385,9 +2390,7 @@ export default function CyclesBoard({
                   ? '저장 중…'
                   : orderSave === 'saved'
                     ? '✓ 저장됨'
-                    : `↓ Save Test Order${picked.length ? ` (${picked.length})` : ''}${
-                        orderDirty ? ' ●' : ''
-                      }`}
+                    : `↓ Save Test Order${orderDirty ? ' ●' : ''}`}
               </button>
               <button
                 type="button"
@@ -2432,9 +2435,13 @@ export default function CyclesBoard({
               </button>
               {picked.length > 0 && (
                 <>
-                  <span className={`cu-pick${pickSaved ? ' saved' : ''}`}>
+                  <span className={`cu-pick${pickSaved === 'saved' ? ' saved' : ''}`}>
                     {picked.length}개 선택
-                    {pickSaved ? ' · 저장됨 ✓' : ' — 이것만 돕니다'}
+                    {pickSaved === 'saving'
+                      ? ' · 저장 중…'
+                      : pickSaved === 'saved'
+                        ? ' · 저장됨 ✓'
+                        : ' — 이것만 돕니다'}
                   </span>
                   {/* 아래 선택 띠를 걷은 자리(지시) — 제거는 여기로 옮긴다.
                       없애 버리면 담은 항목을 뺄 길이 사라진다 */}
