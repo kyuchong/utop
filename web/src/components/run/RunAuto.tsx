@@ -1064,9 +1064,7 @@ export default function RunAuto({
                   className={`ra-tc${
                     it.id === cur && (!it.round || it.round === (runRound ?? lastRound)) ? ' on' : ''
                   }${
-                    it.id === runItem && (!it.round || it.round === (runRoundNow ?? it.round))
-                      ? ' running'
-                      : ''
+                    it.id === runItem && (!it.round || it.round === nowRound) ? ' running' : ''
                   }`}
                   onClick={() => onPick(it.id, it.round)}
                 >
@@ -1151,6 +1149,17 @@ export default function RunAuto({
   /** 가장 최근 회차. 아무것도 안 고르면 늘 이것을 본다 */
   const lastRound = Number(totalRounds ?? 0) ||
     (rounds ?? []).reduce((m, r) => Math.max(m, Number(r.r_to ?? r.round) || 0), 0)
+  /** **지금 도는 회차** — 실행기가 알려 준 값이 먼저고, 없으면 그 항목의
+   *  가장 큰 회차로 본다. 없을 때 「아무 회차나」 로 두면 같은 항목의 회차
+   *  줄이 **전부** 도는 것처럼 보인다(지적: 2 회차부터 같이 돈다). */
+  const nowRound = (() => {
+    if (runRoundNow) return runRoundNow
+    if (!runItem) return 0
+    let hi = 0
+    for (const x of items) if (x.id === runItem && (x.round ?? 0) > hi) hi = x.round ?? 0
+    return hi
+  })()
+
   /** 열두 개 안쪽이고 안 접혔으면 칩으로 — 날짜가 그대로 읽힌다 */
   const asChips = (rounds?.length ?? 0) <= 12 && (roundSize ?? 1) === 1
   /** 띠 오른쪽 성공률 — 깨진 회차가 몇인지부터 눈에 들어와야 한다 */
