@@ -115,6 +115,18 @@ interface ItemRow {
   folder: string
 }
 
+/** 보낸 메일 한 줄 */
+interface MailRow {
+  id: number
+  at?: string | null
+  who?: string | null
+  to_list?: string | null
+  subject?: string | null
+  note?: string | null
+  ok?: boolean
+  error?: string | null
+}
+
 export default function CyclesBoard({
   me,
 }: {
@@ -125,7 +137,7 @@ export default function CyclesBoard({
 
   /** 열린 사이클 — 비면 목록. 주소(?cycle=)가 정본이다 */
   const [open, setOpen] = useState(() => prefGet('utop.cycle.sel') ?? '')
-  const [tab, setTab] = useState<'info' | 'run' | 'itm' | 'ita' | 'def'>('info')
+  const [tab, setTab] = useState<'info' | 'run' | 'itm' | 'ita' | 'def' | 'sum'>('info')
   const [making, setMaking] = useState(false)
   const [addTo, setAddTo] = useState(false)
   const [mkRun, setMkRun] = useState(false)
@@ -137,6 +149,10 @@ export default function CyclesBoard({
   /* 상세 메타의 **초안** — 수동 저장(지시): 고친 값은 여기 담기고,
      머리의 저장 단추를 눌러야 실려 나간다 */
   const [draft, setDraft] = useState<Partial<PlanFull>>({})
+  /** AI 가 설명 초안을 쓰는 중인가. 다 쓰면 aiStamp 를 올려 노트를 새로 세운다
+   *  (블록 노트는 doc 을 처음 세울 때만 읽어, key 를 바꿔야 갈아 끼워진다) */
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiStamp, setAiStamp] = useState(0)
   const [savingMeta, setSavingMeta] = useState(false)
   const [cidDone, setCidDone] = useState(false)
   const dirty = Object.keys(draft).length > 0
@@ -1941,18 +1957,119 @@ export default function CyclesBoard({
             </div>
           </div>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  /** 서버가 주는 시각은 UTC 다 — 그대로 읽으면 아홉 시간이 어긋난다 */
+  const stamp = (v?: string | null): string => {
+    const t = String(v ?? '').trim()
+    if (!t) return '—'
+    const iso = t.includes('T') ? t : t.replace(' ', 'T')
+    const d = new Date(/[Zz]$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`)
+    if (Number.isNaN(d.getTime())) return t.slice(0, 16)
+    const p = (n: number) => String(n).padStart(2, '0')
+    return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+  }
+
+  /** 보낸 메일 자취 — Test Summary 탭이 읽는다 */
+  const mailQ = useQuery({
+    queryKey: ['cycle-mail', open],
+    enabled: !!open && tab === 'sum',
+    queryFn: async () => {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(String(open))}/mail-log`)
+      if (!r.ok) return { items: [] as MailRow[] }
+      return (await r.json()) as { items: MailRow[] }
+    },
+    staleTime: 20_000,
+  })
+
+  /** 이 사이클의 결과를 읽어 **설명 초안**을 쓴다. 쓴 뒤 사람이 고치면 된다 */
+  const makeAiDesc = async () => {
+    if (!open || aiBusy) return
+    setAiBusy(true)
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(String(open))}/summarize`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+      const j = (await r.json()) as { ok?: boolean; error?: string; summary?: { text?: string } }
+      if (!j.ok) throw new Error(j.error || '요약을 만들지 못했습니다')
+      const txt = String(j.summary?.text ?? '').trim()
+      if (!txt) throw new Error('빈 요약이 왔습니다')
+      /* 글만 갈아 끼운다 — 블록 노트가 다시 서면서 이 글로 다시 만들어진다 */
+      stage({ description: txt, description_doc: undefined })
+      setAiStamp((n) => n + 1)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
+  /* ── 상세: Test Summary ──
+   *
+   * 왼쪽은 **설명**(블록 노트) — Info 에 있던 것을 옮겼다(지시). 위에
+   * 「AI 생성」 을 두어, 이 사이클이 남긴 결과를 읽어 초안을 써 준다.
+   * 오른쪽은 **메일 전송 이력** — 여태 메일은 보내기만 하고 자취가 없어,
+   * 「지난주에 보냈던가」 를 확인할 길이 없었다. */
+  function renderSummary() {
+    if (!plan) return null
+    return (
+      <div className="cu-scroll">
+        <div className="cu-sec cyb-sumrow">
           <div className="cu-card cyb-desccard">
-            <h2>설명</h2>
+            <h2>
+              설명
+              <span className="cu-sp" />
+              <button
+                type="button"
+                className="cu-new small"
+                disabled={aiBusy}
+                title="이 사이클의 결과를 읽어 설명 초안을 써 줍니다 — 쓴 뒤 고치면 됩니다"
+                onClick={() => void makeAiDesc()}
+              >
+                {aiBusy ? '쓰는 중…' : '✨ AI 생성'}
+              </button>
+            </h2>
             <div className="pad cyb-descbody">
               {/* 위키와 같은 블록 노트 — 편집 단추 없이 바로 친다(지시).
                   고친 것은 초안에 담기고 머리의 저장 단추가 실어 보낸다 */}
               <DescNote
-                key={open}
+                key={`${open}-${aiStamp}`}
                 doc={(draft.description_doc ?? full?.description_doc) as unknown}
-                text={pv('description')}
+                text={String((draft as Record<string, unknown>).description ?? full?.description ?? '')}
                 editable
                 onChange={(d, md) => stage({ description_doc: d, description: md })}
               />
+            </div>
+          </div>
+          <div className="cu-card cyb-maillog">
+            <h2>
+              메일 전송 이력
+              <span className="cu-sp" />
+              <span className="cu-m">{mailQ.data?.items?.length ?? 0}건</span>
+            </h2>
+            <div className="pad">
+              {!(mailQ.data?.items ?? []).length ? (
+                <div className="cu-empty">
+                  <strong>아직 보낸 적이 없습니다</strong>
+                  <span>머리의 「더보기 → 메일」 로 결과서를 보내면 여기에 쌓입니다.</span>
+                </div>
+              ) : (
+                <ul className="cyb-mlist">
+                  {(mailQ.data?.items ?? []).map((m2) => (
+                    <li key={m2.id} className={m2.ok ? '' : 'bad'}>
+                      <span className="t">{stamp(m2.at)}</span>
+                      <span className="to" title={m2.to_list ?? ''}>{m2.to_list || '—'}</span>
+                      <span className="s" title={m2.subject ?? ''}>{m2.subject || '(제목 없음)'}</span>
+                      <span className="w">{m2.who || '—'}</span>
+                      {m2.ok ? <i className="ok">보냄</i> : <i className="ng" title={m2.error ?? ''}>실패</i>}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
@@ -2723,11 +2840,16 @@ export default function CyclesBoard({
           <button type="button" role="tab" aria-selected={tab === 'def'} className={tab === 'def' ? 'on' : ''} onClick={() => setTab('def')}>
             Defects
           </button>
+          <button type="button" role="tab" aria-selected={tab === 'sum'} className={tab === 'sum' ? 'on' : ''} onClick={() => setTab('sum')}>
+            Test Summary
+          </button>
         </div>
         {tab === 'info' ? (
           renderInfo()
         ) : tab === 'run' ? (
           renderRunTab()
+        ) : tab === 'sum' ? (
+          renderSummary()
         ) : tab === 'def' ? (
           renderDefects()
         ) : tab === 'itm' ? (

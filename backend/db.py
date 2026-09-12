@@ -742,6 +742,35 @@ async def plan_run_upsert(rid: str, item: dict) -> None:
         )
 
 
+async def cycle_mail_add(cycle_id: str, who: str, to_list: str, subject: str,
+                         note: str = "", ok: bool = True, error: str = "") -> None:
+    """결과서 메일 한 통을 기록한다 — 실패한 것도 남긴다."""
+    async with pool().acquire() as c:
+        await c.execute(
+            "INSERT INTO cycle_mail (cycle_id, who, to_list, subject, note, ok, error)"
+            " VALUES ($1,$2,$3,$4,$5,$6,$7)",
+            cycle_id, who or "", to_list or "", subject or "", note or "",
+            bool(ok), (error or None),
+        )
+
+
+async def cycle_mail_list(cycle_id: str, limit: int = 50) -> list[dict]:
+    """보낸 자취 — 새것부터."""
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT id, at, who, to_list, subject, note, ok, error"
+            "  FROM cycle_mail WHERE cycle_id=$1 ORDER BY at DESC LIMIT $2",
+            cycle_id, int(max(1, min(500, limit))),
+        )
+    out = []
+    for r in rows:
+        d = dict(r)
+        if d.get("at") is not None:
+            d["at"] = d["at"].isoformat()
+        out.append(d)
+    return out
+
+
 async def plan_run_delete(rid: str) -> bool:
     async with pool().acquire() as c:
         r = await c.execute("DELETE FROM plan_run WHERE id=$1", rid)

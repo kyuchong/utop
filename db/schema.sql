@@ -832,6 +832,27 @@ CREATE INDEX IF NOT EXISTS plan_run_item_fp_idx  ON plan_run_item (run_id, tcid,
 -- 이미 만들어진 DB 에는 CREATE TABLE IF NOT EXISTS 가 컬럼을 더해주지 않는다
 ALTER TABLE plan_run_item ADD COLUMN IF NOT EXISTS fp TEXT;
 
+-- ── cycle_mail — 결과서를 누구에게 언제 보냈나 ─────────────────────
+--
+-- 여태 메일은 **보내기만 하고 자취가 없었다.** 「지난주에 LG 에 보냈던가」
+-- 를 확인할 길이 없어 같은 메일을 두 번 보내거나, 안 보낸 줄 알고 미뤘다.
+-- 보낼 때마다 한 줄씩 남긴다 — 실패한 것도 남겨야 다시 보낼지 안다.
+CREATE TABLE IF NOT EXISTS cycle_mail (
+  id         BIGSERIAL PRIMARY KEY,
+  cycle_id   TEXT NOT NULL,
+  at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- 누가 눌렀나
+  who        TEXT,
+  -- 받는 사람(쉼표로 이은 그대로). 실제로 나간 주소다
+  to_list    TEXT,
+  subject    TEXT,
+  -- 같이 적어 보낸 한마디
+  note       TEXT,
+  ok         BOOLEAN NOT NULL DEFAULT true,
+  error      TEXT
+);
+CREATE INDEX IF NOT EXISTS cycle_mail_cyc_idx ON cycle_mail (cycle_id, at DESC);
+
 -- ── Jira 이슈 ──────────────────────────────────────────────────
 --
 -- 지라에는 8만 건이 넘게 있다. 물을 때마다 지라에 가면 화면이 늘 느리고

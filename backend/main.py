@@ -9385,11 +9385,28 @@ async def cycle_mail(cycle_id: str, payload: dict, token: str = ""):
         str(payload.get("body_html") or ""),
     )
     subject = str(payload.get("subject") or "").strip() or subject
+    who = _user_from_token(token) or ""
+    note = str(payload.get("note") or "").strip()
     try:
         sent = _send_mail(to, subject, html, html=True)
     except Exception as e:
+        # **실패도 남긴다** — 다시 보낼지 판단하려면 시도한 자취가 있어야 한다
+        try:
+            await db.cycle_mail_add(cycle_id, str(who), str(to), subject, note, False, str(e))
+        except Exception:  # noqa: BLE001
+            pass
         raise HTTPException(400, f"보내지 못했습니다 — {e}")
+    try:
+        await db.cycle_mail_add(cycle_id, str(who), str(sent or to), subject, note, True, "")
+    except Exception:  # noqa: BLE001
+        pass  # 기록이 실패해도 메일은 이미 나갔다
     return {"success": True, "to": sent, "subject": subject}
+
+
+@app.get("/api/cycle/{cycle_id}/mail-log")
+async def cycle_mail_log(cycle_id: str, limit: int = 50):
+    """결과서를 누구에게 언제 보냈나 — Test Summary 탭이 읽는다."""
+    return {"items": await db.cycle_mail_list(cycle_id, limit)}
 
 
 # 버전그룹 폴더 — `{ "<모델명>": ["R200", "R300"] }`
