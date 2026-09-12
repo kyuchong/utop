@@ -271,7 +271,10 @@
    판정 아이콘과 색만으로 충분하다. */
 /* 제목(Test Case)과 **같은 굵기·크기**다(지시) — 굵고 작은 글씨가 오히려
    눈에 먼저 박혀 정작 무슨 시험인지가 뒤로 밀렸다. 색만 남겨 ID 임을 알린다. */
-.ra-tcid { color: #0a8795; font-weight: 400; font-size: 12px; }
+.ra-tcid {
+  color: #0a8795; font-weight: 400; font-size: 12px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .ra-tcnm { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .ra-res { font-size: 9.5px; font-weight: 800; text-align: right; }
 .ra-res.p { color: #16a05b; }
@@ -489,7 +492,9 @@
    두 줄로 접혀 줄 높이가 들쭉날쭉했다(지적). */
 /* TC ID 칸은 **글자 폭만큼만**(지시: ID 와 제목 사이 여백이 너무 많다).
    118px 은 `E61xx-T0002` 보다 한참 넓어 제목이 멀찍이 밀려 있었다. */
-.ra-cols, .ra-tc { grid-template-columns: 12px 92px 84px minmax(0, 1fr) auto; gap: 4px; padding: 2px 8px; line-height: 1.2; }
+/* TC ID 칸은 **회차까지 들어가야 한다**(지적: TC ID 가 잘린다) —
+   `E61xx-T0011 (2)` 가 한 줄로 서려면 84px 로는 모자란다 */
+.ra-cols, .ra-tc { grid-template-columns: 12px 92px 124px minmax(0, 1fr) auto; gap: 4px; padding: 2px 8px; line-height: 1.2; }
 /* 한 줄로 — 좁은 칸에서 접히면 줄 높이가 들쭉날쭉해진다(지적) */
 .ra-cols > *, .ra-tc > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ra-tcid { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
