@@ -742,6 +742,25 @@ async def plan_run_upsert(rid: str, item: dict) -> None:
         )
 
 
+async def cycle_set_picked(cycle_id: str, picked: list) -> bool:
+    """사이클에 **골라 둔 시험 항목**만 갈아 끼운다.
+
+    계정 설정이 아니라 **사이클 문서**에 둔다(지시) — 골라 둔 것은 그 사람의
+    화면 취향이 아니라 「이번에 이것만 돌린다」 는 시험 계획이라서다. 누가
+    열어도 같아야 하고, 자리를 옮겨 앉아도·브라우저를 갈아도 남아야 한다.
+
+    문서 전체를 다시 쓰지 않는다 — items 가 수 MB 라 체크 한 번에 그것을
+    통째로 밀어 넣으면 표가 버벅인다. 이 칸 하나만 바꾼다."""
+    async with pool().acquire() as c:
+        r = await c.execute(
+            "UPDATE cycle SET data = jsonb_set(data, '{picked}', $2::jsonb, true),"
+            "                 updated_at = now()"
+            " WHERE id = $1",
+            cycle_id, json.dumps([str(x) for x in (picked or [])]),
+        )
+    return r.endswith("1")
+
+
 async def plan_run_item_clear(run_id: str, tcids: Optional[list] = None) -> int:
     """이 실행의 회차 기록을 **지운다** — 다시 돌리기 직전에 부른다.
 

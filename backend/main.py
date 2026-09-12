@@ -9403,6 +9403,21 @@ async def cycle_mail(cycle_id: str, payload: dict, token: str = ""):
     return {"success": True, "to": sent, "subject": subject}
 
 
+@app.post("/api/cycle/{cycle_id}/picked")
+async def cycle_picked_save(cycle_id: str, payload: dict):
+    """골라 둔 시험 항목을 사이클에 굳힌다(지시: 계정 말고 서버에).
+
+    체크는 「이번에 이것만 돌린다」 는 시험 계획이라 누가 열어도 같아야
+    한다. 문서 전체를 다시 쓰지 않고 이 칸 하나만 바꾼다 — items 가 수 MB
+    라 체크 한 번에 통째로 밀면 표가 버벅인다."""
+    picked = (payload or {}).get("picked")
+    if not isinstance(picked, list):
+        raise HTTPException(400, "picked 는 배열이어야 합니다")
+    if not await db.cycle_set_picked(cycle_id, picked):
+        raise HTTPException(404, "사이클을 찾을 수 없습니다")
+    return {"ok": True, "picked": len(picked)}
+
+
 @app.get("/api/cycle/{cycle_id}/mail-log")
 async def cycle_mail_log(cycle_id: str, limit: int = 50):
     """결과서를 누구에게 언제 보냈나 — Test Summary 탭이 읽는다."""

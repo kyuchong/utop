@@ -332,31 +332,27 @@ export default function CyclesBoard({
   )
   const [runMode, setRunMode] = useState<'A' | 'M'>('A')
   /** 표에서 체크한 항목 — 있으면 도구 줄에 단추 둘이 나타난다(승인) */
-  /** 골라 둔 항목 — **계정에 남는다**(지적: 업데이트하니 풀렸다).
-   *  화면 상태로만 두면 새로고침·배포 한 번에 날아간다. 사이클마다 따로
-   *  담되 열쇠는 하나로 모은다(사이클이 늘 때마다 설정 열쇠가 늘면 안 된다). */
-  const PICKS_KEY = 'utop.cyc.picks'
-  const readPicks = (cyc: string): string[] => {
-    try {
-      const all = JSON.parse(prefGet(PICKS_KEY) ?? '{}') as Record<string, string[]>
-      const v = all[cyc]
-      return Array.isArray(v) ? v : []
-    } catch {
-      return []
-    }
-  }
+  /** 골라 둔 항목 — **사이클 문서에 남는다**(지시: 계정 말고 서버에).
+   *
+   *  골라 둔 것은 그 사람의 화면 취향이 아니라 「이번에 이것만 돌린다」 는
+   *  시험 계획이다. 누가 열어도 같아야 하고, 브라우저를 갈아도 남아야 한다.
+   *  체크할 때마다 곧바로 부르지 않고 잠깐 모아 보낸다 — 예순다섯 개를
+   *  하나씩 찍으면 예순다섯 번을 부르게 된다. */
   const [picked, setPickedRaw] = useState<string[]>([])
+  const pickTimer = useRef<number | null>(null)
   const setPicked = (ids: string[]) => {
     setPickedRaw(ids)
     if (!open) return
-    try {
-      const all = JSON.parse(prefGet(PICKS_KEY) ?? '{}') as Record<string, string[]>
-      if (ids.length) all[String(open)] = ids
-      else delete all[String(open)]
-      prefSet(PICKS_KEY, JSON.stringify(all))
-    } catch {
-      /* 사생활 보호 모드 — 이번 판에서만 기억한다 */
-    }
+    if (pickTimer.current != null) window.clearTimeout(pickTimer.current)
+    pickTimer.current = window.setTimeout(() => {
+      pickTimer.current = null
+      void apiFetch(`/api/cycle/${encodeURIComponent(String(open))}/picked`, {
+        method: 'POST',
+        body: JSON.stringify({ picked: ids }),
+      }).catch(() => {
+        /* 못 굳혀도 화면은 그대로 — 다음 체크에 다시 보낸다 */
+      })
+    }, 600)
   }
   /** 손잡이로 끌어 잡은 **화면 차례**. 「시험 순서 저장」 을 누르기 전에는
    *  여기에만 있다 — 잘못 끌었을 때 되돌릴 자리가 있어야 한다. 사이클을
@@ -890,10 +886,21 @@ export default function CyclesBoard({
   }, [viewSig])
   useEffect(() => {
     setOrderOverride(null)
-    /* 사이클을 바꾸면 그 사이클에 골라 둔 것을 되살린다 */
-    setPickedRaw(open ? readPicks(String(open)) : [])
+    /* 사이클을 바꾸면 화면 것부터 비운다 — 실제 값은 문서를 읽고 채운다 */
+    setPickedRaw([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  /** 사이클 전문이 오면 **거기 적힌 선택**을 되살린다 — 서버가 정본이다 */
+  const pickSeen = useRef('')
+  useEffect(() => {
+    if (!full || !open) return
+    const key = String(open)
+    if (pickSeen.current === key) return
+    pickSeen.current = key
+    const saved = (full as unknown as { picked?: unknown }).picked
+    setPickedRaw(Array.isArray(saved) ? saved.map((x) => String(x)).filter(Boolean) : [])
+  }, [full, open])
 
   const itemRows = useMemo<ItemRow[]>(() => {
     const out: ItemRow[] = []
