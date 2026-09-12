@@ -199,10 +199,32 @@ const FLT_N = (t: { total: number; p: number; f: number; n: number }) => ({
   n: t.n,
 })
 
+/** 회차 띠에 적는 짧은 시각 — `09-08 14:02`.
+ *  서버가 주는 값은 UTC 다(isoformat 이라 +00:00 이 붙는다). 표시가 없는
+ *  옛 값도 UTC 로 읽는다 — 그냥 넘기면 브라우저가 제 시간대로 쳐서 아홉
+ *  시간이 어긋난다. */
+const rstamp = (v?: string | null): string => {
+  const t = String(v ?? '').trim()
+  if (!t) return ''
+  const iso = t.includes('T') ? t : t.replace(' ', 'T')
+  const d = new Date(/[Zz]$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 export default function RunAuto({
   items, cur, onPick, steps, stepAt, onStep, dut, runStartedAt,
-  runStep, runItem, waitAt, devices,
+  runStep, runItem, waitAt, devices, rounds, runRound, onRunRound,
 }: {
+  /** 이 실행에 쌓인 회차 — 「다시 실행」 을 누를 때마다 하나씩 선다.
+   *  하나뿐이면 띠를 아예 안 보여 준다(지금 화면 그대로다). */
+  rounds?: Array<{ round: number; total: number; pass?: number; fail?: number; from_at?: string | null }>
+  /** 지금 보는 **실행 회차**. 비면 가장 최근 — 평소에는 지금과 구별되지 않는다.
+   *  아래 roundAt(반복 스텝 안의 회차)과는 다른 것이다 — 이름을 가르지 않으면
+   *  한쪽이 다른 쪽을 조용히 가린다 */
+  runRound?: number | null
+  onRunRound?: (n: number | null) => void
   /** 장비 목록 — 세션 판이 세션에 붙은 장비를 여기서 찾는다 */
   devices?: AutoDev[]
   /** **실행기가 보낸 줄** — 1 초마다 새로 온다(지시: 리얼타임으로).
@@ -1079,6 +1101,9 @@ export default function RunAuto({
     return `${head}${head ? ' · ' : ''}Pass ${tal.p} · Fail ${tal.f} · 대기 ${tal.n}`
   }
 
+  /** 가장 최근 회차. 아무것도 안 고르면 늘 이것을 본다 */
+  const lastRound = (rounds ?? []).reduce((m, r) => Math.max(m, Number(r.round) || 0), 0)
+
   const panel = (id: PanelId) => {
     return (
       <div
@@ -1167,6 +1192,35 @@ export default function RunAuto({
               <IconChevron />
             </button>
           </header>
+          {/* ── 회차 띠(승인) — 「다시 실행」 마다 하나씩 선다. 누르면 이 판이
+              통째로 그 회차로 바뀐다. Response 는 **언제나 한 회차만** 그리므로
+              회차가 다섯이든 만이든 화면이 드는 무게는 같다.
+              회차가 하나뿐이면 아예 안 그린다 — 평소에는 지금 화면 그대로다. ── */}
+          {id === 'response' && (rounds?.length ?? 0) > 1 && (
+            <div className="ra-rnds">
+              <span className="k">회차</span>
+              {(rounds ?? []).map((r) => {
+                const on = (runRound ?? lastRound) === r.round
+                const bad = Number(r.fail ?? 0)
+                return (
+                  <button
+                    key={r.round}
+                    type="button"
+                    className={`ra-rch${on ? ' on' : ''}`}
+                    title={`${r.round}회차 — ${r.total}건${bad ? ` · Fail ${bad}` : ' 모두 Pass'}`}
+                    onClick={() => onRunRound?.(r.round === lastRound ? null : r.round)}
+                  >
+                    <i className={`d ${bad ? 'f' : 'p'}`} aria-hidden="true" />
+                    <b>{r.round}회</b>
+                    <em>
+                      {rstamp(r.from_at)}
+                      {bad ? ` · Fail ${bad}` : ''}
+                    </em>
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {body(id)}
         </section>
         {dz?.id === id && dragPane && dragPane !== id && <div className={`ra-dz ${dz.z}`} aria-hidden="true" />}

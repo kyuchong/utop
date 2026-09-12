@@ -156,6 +156,31 @@
 .ra-confoot.ok { background: #f1faf5; color: #12684b; border-top-color: #b6ded0; }
 .ra-confoot.bad { background: #fff2f5; color: #b52f4c; border-top-color: #f0c3ce; }
 
+/* ── 회차 띠 — Response 머리 바로 아래(승인) ──────────────────────
+   「다시 실행」 마다 한 알씩 는다. 누르면 이 판이 통째로 그 회차로 바뀐다.
+   회차가 하나뿐이면 아예 안 그린다 — 평소에는 지금 화면과 구별되지 않는다. */
+.ra-rnds {
+  flex: none; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  padding: 6px 9px; background: #fbfdfe; border-bottom: 1px solid var(--c-border, #e2e8eb);
+}
+.ra-rnds > .k {
+  font-size: 10px; font-weight: 800; color: #8c9aa1; letter-spacing: .03em; margin-right: 2px;
+}
+.ra-rch {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid #dde5e8; background: #fff; border-radius: 999px;
+  padding: 2px 9px 2px 7px; font: inherit; font-size: 11px; color: #54696f; cursor: pointer;
+}
+.ra-rch:hover { border-color: #bfd8dd; background: #f6fbfb; }
+.ra-rch > b { font-weight: 800; font-size: 10.5px; color: #39505a; font-variant-numeric: tabular-nums; }
+.ra-rch > em { font-style: normal; color: #9aa7ae; font-size: 10px; font-variant-numeric: tabular-nums; }
+.ra-rch > .d { flex: none; width: 6px; height: 6px; border-radius: 999px; background: #1d9e75; }
+.ra-rch > .d.f { background: #e24b4a; }
+/* 지금 보는 회차 — 스텝 카드의 「지금 보는 것」 과 같은 파랑 */
+.ra-rch.on { background: #dcebfa; border-color: #b9d5f4; color: #17548f; }
+.ra-rch.on > b { color: #17548f; }
+.ra-rch.on > em { color: #5b83b4; }
+
 /* 거르개 */
 .ra-chips { display: flex; gap: 5px; padding: 6px 8px; border-bottom: 1px solid var(--c-border, #e2e8eb); }
 .ra-chip {

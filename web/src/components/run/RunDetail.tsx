@@ -49,6 +49,17 @@ function copyText(t: string, ok: () => void) {
   legacy()
 }
 
+/** 회차 한 줄 — 「다시 실행」 마다 하나씩 선다. 셈만 담고 장비 출력은 없다 */
+export interface RoundRow {
+  round: number
+  total: number
+  pass?: number
+  fail?: number
+  judged?: number
+  from_at?: string | null
+  to_at?: string | null
+}
+
 export interface RunFull {
   id: string
   plan_id?: string | null
@@ -563,6 +574,39 @@ export default function RunDetail({
       return (await r.json()) as Record<string, unknown>
     },
     staleTime: 30_000,
+  })
+
+  /* ── 회차 ──────────────────────────────────────────────────────
+     「다시 실행」 은 여태 사이클 문서를 **덮어썼다** — 두 번째로 돌리면
+     첫 번째가 그 자리에서 사라졌다. 이제 일감 하나가 한 회차라, 회차마다
+     따로 쌓인다. 여기서는 「어떤 회차가 있나」 와 「지금 어느 회차를 보나」
+     만 들고, 실제 결과는 아래 steps 계산이 골라 온다. */
+  const roundsQ = useQuery({
+    queryKey: ['plan-run-rounds', runId],
+    enabled: !!runId,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/rounds`)
+      if (!r.ok) return { rounds: [] as RoundRow[] }
+      return (await r.json()) as { rounds: RoundRow[] }
+    },
+    staleTime: 10_000,
+  })
+  const rounds = roundsQ.data?.rounds ?? []
+  const lastRound = rounds.reduce((m, r) => Math.max(m, Number(r.round) || 0), 0)
+  /** 고른 회차. null 이면 **가장 최근** — 평소에는 지금과 구별되지 않는다 */
+  const [roundSel, setRoundSel] = useState<number | null>(null)
+  /* 지난 회차를 보는 중인가. 최근 회차는 사이클 문서가 정본이라 그대로 둔다 */
+  const oldRound = roundSel != null && roundSel !== lastRound
+  const roundQ = useQuery({
+    queryKey: ['plan-run-item', runId, cur, roundSel],
+    enabled: !!runId && !!cur && oldRound,
+    queryFn: async () => {
+      const q = `tcid=${encodeURIComponent(cur)}&round=${roundSel}`
+      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/item?${q}`)
+      if (!r.ok) return null
+      return (await r.json()) as { data?: { steps?: unknown[] }; at?: string; verdict?: string }
+    },
+    staleTime: 60_000,
   })
 
   /* 담긴 항목이 먼저다. 결과만 보면, 결과가 아직 안 깔린 실행이
@@ -1527,6 +1571,13 @@ export default function RunDetail({
             setCur(id)
             setStepAt(0)
           }}
+          /* 회차 띠 — 회차가 하나뿐이면 RunAuto 가 아예 안 그린다(지금 화면 그대로) */
+          rounds={rounds}
+          runRound={roundSel}
+          onRunRound={(n) => {
+            setRoundSel(n)
+            setStepAt(0)
+          }}
           /* 스텝은 **시험 항목의 정의**가 바탕이다. 실행 로그만 보면 아직
              안 돌린 항목은 「스텝이 없습니다」 가 되는데, 정의는 있다(지적).
              정의를 깔고 그 위에 실행 결과를 자리(차례)로 얹는다. */
@@ -1565,7 +1616,9 @@ export default function RunDetail({
             /* 도는 중에는 **실행기가 보내는 실시간 스텝**을 쓴다.
                실행기는 항목을 다 마쳐야 저장하므로, 그 전까지 저장본은
                **지난 실행의 값**이다 — 그걸 그리면 지금 것과 섞인다(지적). */
-            const onAir = jobLive && runId2 === cur
+            /* 지난 회차를 보는 중이면 **실시간 스텝을 쓰지 않는다** — 3 회차를
+               펴 놓았는데 지금 도는 5 회차 출력이 덮이면 안 된다 */
+            const onAir = !oldRound && jobLive && runId2 === cur
             /* 넘어가는 사이(실행기는 다음 항목, 화면은 아직 이 항목)에도
                붙들어 둔 실시간 스텝을 쓴다 — 그래야 마지막 결과가 안 사라진다 */
             const held =
@@ -1595,7 +1648,16 @@ export default function RunDetail({
                run.logs 는 화면에서 직접 돌리던 시절의 자리라, 자동 실행에서는
                갱신되지 않고 **옛 기록만** 남아 있다 — 그것을 먼저 쓰면 지난
                장비의 응답이 이번 결과를 이긴다. 전문이 비었을 때만 쓴다. */
-            const saved = (fromPlan.length ? fromPlan : (log?.steps ?? [])) as unknown[]
+            /* **지난 회차를 고르면 그 회차가 정본이다.** 사이클 문서에는 늘
+               가장 최근 것만 있으므로, 3 회차를 보는데 5 회차 출력을 그리면
+               안 된다 — 회차 기록에서 그 줄만 따로 받아 온다(접힌 회차면
+               서버가 대표 회차의 전문을 대신 준다). */
+            const fromRound = (oldRound ? (roundQ.data?.data?.steps ?? []) : []) as unknown[]
+            const saved = (fromRound.length
+              ? fromRound
+              : fromPlan.length
+                ? fromPlan
+                : (log?.steps ?? [])) as unknown[]
             const lg = ((live ?? (onAir ? [] : saved)) as unknown[]) as Array<Record<string, unknown>>
             if (!lg.length) return def
             const run2 = lg.map(asStep)
