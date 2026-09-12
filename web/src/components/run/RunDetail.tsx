@@ -631,7 +631,26 @@ export default function RunDetail({
      첫 번째가 그 자리에서 사라졌다. 이제 일감 하나가 한 회차라, 회차마다
      따로 쌓인다. 여기서는 「어떤 회차가 있나」 와 「지금 어느 회차를 보나」
      만 들고, 실제 결과는 아래 steps 계산이 골라 온다. */
-  const roundsQ = useQuery({
+  /** 이 실행이 남긴 **회차 줄** — 반복 시험이면 한 항목이 여러 줄이다.
+   *  장비 출력은 안 싣는다(목록용). 반복이 아니면 항목마다 한 줄뿐이라
+   *  지금 화면과 똑같다. */
+  const runItemsQ = useQuery({
+    queryKey: ['plan-run-items', runId],
+    enabled: !!runId,
+    refetchInterval: jobLive ? 3000 : false,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/items?limit=3000`)
+      if (!r.ok) return { items: [] as Array<{ tcid: string; round: number; verdict: string; at?: string | null }> }
+      return (await r.json()) as {
+        items: Array<{ tcid: string; round: number; verdict: string; at?: string | null }>
+      }
+    },
+    staleTime: 3000,
+  })
+  /** 반복 시험인가 — 한 항목이 두 번 넘게 돈 줄이 있으면 그렇다 */
+  const hasRounds = (runItemsQ.data?.items ?? []).some((x) => Number(x.round) > 1)
+
+    const roundsQ = useQuery({
     /* **지금 보는 항목의 회차**만 센다(지시) — 실행 전체를 세면 65 항목을
        한 번씩 돌린 것도 「65 회차」 로 보인다. 회차는 한 항목을 여러 번
        돌린 수이고, 그때만 띠가 뜬다. */
@@ -1785,20 +1804,52 @@ export default function RunDetail({
       ) : isAuto ? (
         /* 자동은 **네 판 작업대**(주신 목업) — 판 크기와 자리는 계정별로 남는다 */
         <RunAuto
-          items={ids.map((id) => {
-            const t2 = tcById.get(id)
-            return {
-              id,
-              name: String(t2?.name ?? id),
-              group: reqName.get(String(t2?.req_id ?? '')) ?? (t2?.req_id ? '이름 없는 요구사항' : '요구사항 없음'),
-              verdict: (results[id] ?? 'n') as Verdict,
-              at: atOf(id),
-              /* 실행 번호는 **항목마다 다르다**(지시) — 서버가 항목이 한 번
-                 돌 때마다 찍어 둔 것을 그대로 읽는다. 옛 기록에 없으면
-                 실행 Key 로 떨어진다. 안 돌린 줄에는 안 붙인다. */
-              exec: String((run.logs ?? {})[id]?.exec ?? '') || (atOf(id) ? execId : ''),
+          items={(() => {
+            const one = (id: string) => {
+              const t2 = tcById.get(id)
+              return {
+                name: String(t2?.name ?? id),
+                group:
+                  reqName.get(String(t2?.req_id ?? '')) ??
+                  (t2?.req_id ? '이름 없는 요구사항' : '요구사항 없음'),
+              }
             }
-          })}
+            /* **반복 시험이면 회차마다 한 줄**(지시) — T0025(1) · T0026(1) ·
+               T0025(2) … 끝난 것부터 쌓인다. 반복이 아니면 항목마다 한 줄로
+               지금 화면과 똑같다. */
+            if (hasRounds) {
+              const seen = new Set(ids)
+              return (runItemsQ.data?.items ?? [])
+                .filter((r) => seen.has(String(r.tcid)))
+                .map((r) => {
+                  const m = one(String(r.tcid))
+                  const l = String(r.verdict ?? '').toLowerCase()
+                  return {
+                    id: String(r.tcid),
+                    round: Number(r.round) || 1,
+                    name: m.name,
+                    group: m.group,
+                    verdict: (l.startsWith('p') ? 'p' : l.startsWith('f') ? 'f' : l ? 'b' : 'n') as Verdict,
+                    at: String(r.at ?? '').replace('T', ' ').slice(0, 19),
+                    exec: execId,
+                  }
+                })
+            }
+            return ids.map((id) => {
+              const m = one(id)
+              return {
+                id,
+                name: m.name,
+                group: m.group,
+                verdict: (results[id] ?? 'n') as Verdict,
+                at: atOf(id),
+                /* 실행 번호는 **항목마다 다르다**(지시) — 서버가 항목이 한 번
+                   돌 때마다 찍어 둔 것을 그대로 읽는다. 옛 기록에 없으면
+                   실행 Key 로 떨어진다. 안 돌린 줄에는 안 붙인다. */
+                exec: String((run.logs ?? {})[id]?.exec ?? '') || (atOf(id) ? execId : ''),
+              }
+            })
+          })()}
           cur={cur}
           devices={dev2List.map((d) => ({
             id: String(d.id ?? ''),
@@ -1809,8 +1860,10 @@ export default function RunDetail({
             protocol: String(d.protocol ?? ''),
             port: (d.port as number | string | undefined) ?? undefined,
           }))}
-          onPick={(id) => {
+          onPick={(id, round) => {
             setCur(id)
+            /* 회차 줄을 눌렀으면 그 회차를 편다 — 안 그러면 늘 마지막만 보인다 */
+            if (round) setRoundSel(round)
             setStepAt(0)
           }}
           /* 회차 띠 — 회차가 하나뿐이면 RunAuto 가 아예 안 그린다(지금 화면 그대로) */

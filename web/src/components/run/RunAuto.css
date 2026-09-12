@@ -770,3 +770,9 @@ button.ra-bcar { cursor: pointer; }
 button.ra-bcar:hover { background: #cfe3e8; color: #12414c; }
 .ra-bcar svg { width: 13px; height: 13px; transition: transform 0.12s; }
 .ra-bcar.open svg { transform: rotate(90deg); }
+/* Test Report 의 회차 — `E61xx-T0025 (2)`. 반복 시험일 때만 붙는다.
+   같은 항목이 회차마다 한 줄씩 서므로 이것이 줄을 가르는 표다. */
+.ra-rnd {
+  margin-left: 4px; font-weight: 800; font-size: 10.5px; color: #b4530a;
+  font-variant-numeric: tabular-nums;
+}

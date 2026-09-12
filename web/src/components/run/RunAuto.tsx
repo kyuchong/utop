@@ -63,6 +63,9 @@ export interface AutoItem {
   at?: string
   /** 이 항목이 돈 **실행 번호** — `E61xx-E0001`. 안 돌았으면 비운다 */
   exec?: string
+  /** **몇 회차인가** — 반복 시험일 때만 찬다. 같은 항목이 회차마다 한 줄씩
+   *  서고 이름 뒤에 (2) 처럼 붙는다. 반복이 아니면 비운다 */
+  round?: number
 }
 
 type SlotId = 'LT' | 'LB' | 'RT' | 'RB'
@@ -261,7 +264,8 @@ export default function RunAuto({
   waitAt?: number | null
   items: AutoItem[]
   cur: string
-  onPick: (id: string) => void
+  /** 줄을 눌렀다 — 반복 시험이면 몇 회차인지도 함께 온다 */
+  onPick: (id: string, round?: number) => void
   steps: AutoStep[]
   stepAt: number
   onStep: (i: number) => void
@@ -1048,15 +1052,20 @@ export default function RunAuto({
               {arr.map((it) => (
                 <button
                   type="button"
-                  key={it.id}
-                  className={`ra-tc${it.id === cur ? ' on' : ''}${it.id === runItem ? ' running' : ''}`}
-                  onClick={() => onPick(it.id)}
+                  key={it.round ? `${it.id}#${it.round}` : it.id}
+                  className={`ra-tc${
+                    it.id === cur && (!it.round || it.round === (runRound ?? lastRound)) ? ' on' : ''
+                  }${it.id === runItem ? ' running' : ''}`}
+                  onClick={() => onPick(it.id, it.round)}
                 >
                   <Verdict v={it.verdict} />
                   {/* 이 자리는 **판정 시각**이다(지적). 걸린 시간은 안 적는다 —
                       스텝 표의 Time 칸이 이미 그것을 말한다. */}
                   <span className="ra-tct">{shortStamp(it.at)}</span>
-                  <span className="ra-tcid" title={it.id}>{it.id}</span>
+                  <span className="ra-tcid" title={it.id}>
+                    {it.id}
+                    {it.round ? <b className="ra-rnd">({it.round})</b> : null}
+                  </span>
                   <span className="ra-tcnm">{it.name}</span>
                   {it.id === runItem ? <RunMark /> : <span />}
                 </button>
