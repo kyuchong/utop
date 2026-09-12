@@ -198,9 +198,14 @@
 .cyb .cyb-daybody { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 /* 그림은 **키가 고정**이다(지적: Full HD 를 넘어갔다) — 폭이 넓어지면
    가로로만 늘어난다. 높이가 폭을 따라 커지면 세 줄이 화면 밖으로 나간다 */
-.cyb .cyb-daychart { display: block; width: 100%; height: 168px; }
-.cyb .cyb-daychart .tick { font-size: 10px; fill: var(--c-text-faint, #98a2ad); }
-.cyb .cyb-daychart .val { font-size: 11px; font-weight: 700; fill: var(--c-text-muted, #6b7680); }
+/* 비율을 지키며 폭에 맞춰 큰다 — 높이는 auto 라야 글자가 안 눌린다.
+   칸이 아주 넓어도 그림만 커지지 않게 최대 높이를 둔다. */
+.cyb .cyb-daychart {
+  display: block; width: 100%; height: auto; max-height: 260px;
+  overflow: visible;
+}
+.cyb .cyb-daychart .tick { font-size: 11px; fill: var(--c-text-faint, #98a2ad); }
+.cyb .cyb-daychart .val { font-size: 12px; font-weight: 800; fill: var(--c-text-muted, #6b7680); }
 .cyb .cyb-daylegend { display: flex; gap: 14px; font-size: var(--fs-xs); color: var(--c-text-muted); }
 .cyb .cyb-daylegend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
 

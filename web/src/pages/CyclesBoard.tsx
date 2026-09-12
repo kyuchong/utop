@@ -2154,77 +2154,122 @@ export default function CyclesBoard({
           <span>판정을 남기면 날짜별로 쌓입니다.</span>
         </div>
       )
-    const W = 560
-    const H = 172
-    const padL = 34
-    const padB = 24
-    const padT = 14
+    /* **가로로 늘리지 않는다**(지적: 일자별 표현이 서툴다) — 예전에는
+       preserveAspectRatio="none" 이라 칸이 넓어질수록 글자와 선이 납작하게
+       늘어났다. 비율을 지키고 폭에 맞춰 고르게 키운다. */
+    const W = 1000
+    const H = 230
+    const padL = 44
+    const padR = 14
+    const padB = 30
+    const padT = 18
     const tot = (v: { p: number; f: number; b: number }) => series.reduce((n, s2) => n + v[s2.k], 0)
     const max = Math.max(1, ...rows.map(([, v]) => (dayKind === 'bar' ? tot(v) : Math.max(...series.map((s2) => v[s2.k])))))
-    const y = (n: number) => padT + (H - padT - padB) * (1 - n / max)
-    const hOf = (n: number) => ((H - padT - padB) * n) / max
-    const slot = (W - padL - 10) / rows.length
-    const cx = (i: number) => padL + 10 + i * slot + slot / 2
+    /* 눈금은 **깔끔한 수**로 — 62 를 3 등분해 20.67 같은 값을 적지 않는다 */
+    const niceMax = (() => {
+      const raw = max
+      const mag = Math.pow(10, Math.floor(Math.log10(raw)))
+      for (const m of [1, 2, 2.5, 5, 10]) {
+        const c = mag * m
+        if (c >= raw) return c
+      }
+      return mag * 10
+    })()
+    const y = (n: number) => padT + (H - padT - padB) * (1 - n / niceMax)
+    const hOf = (n: number) => ((H - padT - padB) * n) / niceMax
+    const inner = W - padL - padR
+    const slot = inner / rows.length
+    const cx = (i: number) => padL + i * slot + slot / 2
+    const ticks = [0, 0.25, 0.5, 0.75, 1]
+    /* 점은 날이 적을 때만 — 서른 개를 찍으면 선이 안 보인다 */
+    const dots = rows.length <= 16
+    const one = rows.length === 1
     return (
       <>
         <svg
           className="cyb-daychart"
           viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label="일자별 시험 현황"
         >
-          {[0, 0.5, 1].map((t2) => (
+          {ticks.map((t2) => (
             <g key={t2}>
-              <line x1={padL} x2={W - 4} y1={y(max * t2)} y2={y(max * t2)} stroke="var(--c-border-soft, #e8ecef)" vectorEffect="non-scaling-stroke" />
-              <text x={padL - 6} y={y(max * t2) + 4} textAnchor="end" className="tick">
-                {Math.round(max * t2)}
+              <line
+                x1={padL}
+                x2={W - padR}
+                y1={y(niceMax * t2)}
+                y2={y(niceMax * t2)}
+                stroke="var(--c-border-soft, #e8ecef)"
+                strokeDasharray={t2 === 0 ? undefined : '3 4'}
+                vectorEffect="non-scaling-stroke"
+              />
+              <text x={padL - 8} y={y(niceMax * t2) + 4} textAnchor="end" className="tick">
+                {Math.round(niceMax * t2)}
               </text>
             </g>
           ))}
           {dayKind === 'bar'
             ? rows.map(([d, v], i) => {
-                const bw = Math.max(10, Math.min(46, slot - 14))
+                const bw = one ? 64 : Math.max(6, Math.min(44, slot - 10))
                 let top = y(0)
                 return (
                   <g key={d}>
+                    <title>{`${d.slice(5)} · ${tot(v)}건`}</title>
                     {series.map((s2) => {
                       const n = v[s2.k]
                       if (!n) return null
                       top -= hOf(n)
-                      return <rect key={s2.k} x={cx(i) - bw / 2} y={top} width={bw} height={hOf(n)} fill={s2.color} rx={2} />
+                      return <rect key={s2.k} x={cx(i) - bw / 2} y={top} width={bw} height={hOf(n)} fill={s2.color} rx={3} />
                     })}
-                    {!!tot(v) && (
-                      <text x={cx(i)} y={top - 5} textAnchor="middle" className="val">{tot(v)}</text>
+                    {/* 값은 **마지막 칸만** — 다 찍으면 글자가 겹친다 */}
+                    {!!tot(v) && (i === rows.length - 1 || rows.length <= 8) && (
+                      <text x={cx(i)} y={top - 6} textAnchor="middle" className="val">{tot(v)}</text>
                     )}
                   </g>
                 )
               })
             : series.map((s2) => {
-                const pts = rows.map(([, v], i) => `${cx(i)},${y(v[s2.k])}`).join(' ')
+                const pts = rows.map(([, v], i) => [cx(i), y(v[s2.k])] as [number, number])
+                const line = pts.map(([x2, y2]) => `${x2},${y2}`).join(' ')
+                /* 선 아래를 옅게 채운다 — 누적이 얼마나 찼는지 눈에 잡힌다 */
+                const area = `M ${pts[0]![0]},${y(0)} L ${line.split(' ').join(' L ')} L ${pts[pts.length - 1]![0]},${y(0)} Z`
+                const lastV = rows[rows.length - 1]![1][s2.k]
                 return (
                   <g key={s2.k}>
-                    <polyline points={pts} fill="none" stroke={s2.color} strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-                    {rows.map(([d, v], i) => (
-                      <circle key={d} cx={cx(i)} cy={y(v[s2.k])} r={3} fill="#fff" stroke={s2.color} strokeWidth={2} vectorEffect="non-scaling-stroke" />
-                    ))}
+                    {pts.length > 1 && <path d={area} fill={s2.color} opacity={0.1} />}
+                    {pts.length > 1 ? (
+                      <polyline points={line} fill="none" stroke={s2.color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                    ) : null}
+                    {(dots || pts.length === 1) &&
+                      rows.map(([d, v], i) => (
+                        <circle key={d} cx={cx(i)} cy={y(v[s2.k])} r={3.5} fill="#fff" stroke={s2.color} strokeWidth={2} vectorEffect="non-scaling-stroke">
+                          <title>{`${d.slice(5)} · ${s2.label} ${v[s2.k]}`}</title>
+                        </circle>
+                      ))}
+                    {/* 끝값은 언제나 짚어 준다 — 「지금 얼마인가」 가 제일 궁금하다 */}
+                    {!!lastV && (
+                      <>
+                        <circle cx={cx(rows.length - 1)} cy={y(lastV)} r={4.5} fill={s2.color} />
+                        <text x={cx(rows.length - 1)} y={y(lastV) - 10} textAnchor="middle" className="val" fill={s2.color}>
+                          {lastV}
+                        </text>
+                      </>
+                    )}
                   </g>
                 )
               })}
-          {/* 날짜 글자는 **띄엄띄엄** 찍는다(지적: 15일·한 달이면 겹친다).
-              한 칸이 60px 는 돼야 「09-11 (금)」 이 안 붙는다 — 그보다 좁으면
-              몇 개씩 건너뛰고, 마지막 날은 언제나 찍어 축 끝을 알려 준다.
-              열흘이 넘으면 요일은 뺀다. */
-          }
+          {/* 날짜 글자는 **띄엄띄엄** — 한 칸이 90 단위는 돼야 안 붙는다.
+              마지막 날은 언제나 찍어 축 끝을 알려 주고, 열흘이 넘으면
+              요일은 뺀다(날짜만으로 충분하고 글자가 절반이 된다). */}
           {(() => {
-            const step = Math.max(1, Math.ceil(rows.length / Math.max(1, Math.floor((W - padL - 8) / 60))))
+            const step = Math.max(1, Math.ceil(rows.length / Math.max(1, Math.floor(inner / 90))))
             const longSpan = rows.length > 10
             return rows.map(([d], i) => {
               if (i % step !== 0 && i !== rows.length - 1) return null
-              /* 마지막 날과 너무 붙으면 그 앞 것은 건너뛴다 */
               if (i !== rows.length - 1 && rows.length - 1 - i < step / 2) return null
               return (
-                <text key={d} x={cx(i)} y={H - 7} textAnchor="middle" className="tick">
+                <text key={d} x={cx(i)} y={H - 9} textAnchor="middle" className="tick">
                   {longSpan ? d.slice(5) : `${d.slice(5)} (${dow(d)})`}
                 </text>
               )
