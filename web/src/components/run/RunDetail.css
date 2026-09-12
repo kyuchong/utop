@@ -454,3 +454,9 @@
 @media (prefers-reduced-motion: reduce) {
   .rd-state > i { animation: none !important; }
 }
+/* 배지 옆 — **지금 도는 항목**. 무엇을 하고 있는지가 제일 궁금하다 */
+.rd-state > u {
+  text-decoration: none; font-weight: 600; opacity: 0.82;
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-left: 1px solid currentColor; padding-left: 8px; margin-left: 2px;
+}

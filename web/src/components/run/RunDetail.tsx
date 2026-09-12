@@ -1425,7 +1425,13 @@ export default function RunDetail({
           t: '실행기 응답 없음',
           s: `${Math.round(quiet / 60000)}분째 소식이 없습니다 — 실행기가 살아 있는지 보세요`,
         }
-      return { k: 'run', t: '실행 중', s: `${job?.worker || '실행기'} 가 돌리는 중입니다` }
+      return {
+        k: 'run',
+        t: '실행 중',
+        /* 지금 무엇을 도는지가 제일 궁금하다 — 배지 옆에 바로 적는다 */
+        now: String(job?.item_name ?? '').trim(),
+        s: `${job?.worker || '실행기'} 가 돌리는 중입니다`,
+      }
     }
     if (st === 'failed') return { k: 'bad', t: '실행기 오류', s: String(job?.error ?? '') }
     if (st === 'stopped') return { k: 'stop', t: '멈춤', s: '사람이 중지했습니다' }
@@ -1438,6 +1444,7 @@ export default function RunDetail({
           <span className={`rd-state s-${jobState.k}`} title={jobState.s}>
             <i aria-hidden="true" />
             {jobState.t}
+            {'now' in jobState && jobState.now ? <u>{jobState.now}</u> : null}
           </span>
         )}
         <span className="rd-lb">
@@ -1487,7 +1494,7 @@ export default function RunDetail({
             <>
               <b>{Math.round((Number(job?.done ?? 0) / Number(job?.total)) * 100)}%</b>
               <i>
-                ({nfmt(Number(job?.done ?? 0))} / {nfmt(Number(job?.total))} 돎
+                ({nfmt(Number(job?.done ?? 0))} / {nfmt(Number(job?.total))} 진행 중
                 {tally.f ? <span className="f"> · Fail {tally.f}</span> : null})
               </i>
             </>

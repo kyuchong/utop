@@ -20991,6 +20991,21 @@ async def run_queue(payload: dict, request: Request):
     if plan_run_id:
         try:
             await db.plan_run_item_clear(plan_run_id, picked)
+            # **지난 판정도 비운다.** 회차 기록만 지우고 results 를 놔두면
+            # Test Report 가 옛 판정을 세어 「65 중 6 진행인데 Pass 62」 가
+            # 된다 — 머리의 10/65 와 셋이 다 다른 숫자가 나왔다(실사고).
+            cur_run = await db.plan_run_get(plan_run_id)
+            if cur_run:
+                res = dict(cur_run.get("results") or {})
+                vat = dict(cur_run.get("vat") or {})
+                logs = dict(cur_run.get("logs") or {})
+                for k in picked:
+                    res[k] = ""
+                    vat.pop(k, None)
+                    logs.pop(k, None)
+                await db.plan_run_upsert(
+                    plan_run_id, {**cur_run, "results": res, "vat": vat, "logs": logs}
+                )
         except Exception:  # noqa: BLE001
             pass  # 못 지워도 실행은 건다 — 새 결과가 같은 자리를 덮는다
 
