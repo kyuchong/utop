@@ -510,7 +510,11 @@ export default function RunAuto({
   const noneRan = runStep == null && lastRan < 0
   const seeUpTo = (() => {
     /* 돌고 있으면 **도는 줄**, 아니면 **고른 줄**이다 */
-    const at = Math.min(runStep != null ? runStep : stepAt, Math.max(0, steps.length - 1))
+    /* 안 돌고 있으면 **돈 데까지 전부** 편다(지시: 스텝을 안 눌러도 한 번에
+       나왔으면 한다). 고른 줄까지만 그리던 때는 항목을 막 열었을 때 첫 줄
+       하나만 보여 「아무것도 안 나온다」 로 읽혔다. */
+    const want = runStep != null ? runStep : Math.max(stepAt, lastRan)
+    const at = Math.min(want, Math.max(0, steps.length - 1))
     /* **몸통을 거느리는 줄은 제 출력이 없다**(지적: 회차 칩이 안 보인다).
        loop·if 를 보고 있으면 바로 아래 들여쓴 줄을 대신 편다 — 회차도
        출력도 거기에 있다. 처음 화면을 열면 늘 첫 줄(대개 loop)이라
@@ -771,7 +775,10 @@ export default function RunAuto({
                 return (
                 <div className="ra-blk" key={s2.no ?? seeUpTo} ref={conEndRef}>
                 <div className="ra-cmd">
-                  <b className="ra-bno">Step {nos[seeUpTo] || s2.no}</b>
+                  {/* 주석은 번호를 안 먹는다(nos 가 비어 있다). 그때 s2.no 로
+                      떨어지면 **다음 줄과 같은 번호**가 붙어 같은 스텝이 두
+                      번 나온 것처럼 보였다(지적). 번호가 없으면 안 적는다. */}
+                  <b className="ra-bno">{nos[seeUpTo] ? `Step ${nos[seeUpTo]}` : '주석'}</b>
                   <span className="ra-bcmd">
                     {(() => {
                       /* 회차를 골랐으면 **그 회차에 보낸 명령**을 적는다(지시) */
