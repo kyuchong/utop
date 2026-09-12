@@ -982,17 +982,34 @@ export default function CyclesBoard({
     })
   }, [dayStat])
 
-  /** 고른 기간만 — 마지막 기록일에서 거슬러 센다(없는 날은 애초에 줄이 없다) */
+  /** 고른 기간을 **날마다 채워서** 준다(지적: 7일을 눌러도 9/11 하루만 나온다).
+   *
+   *  기록이 있는 날만 그리면 축이 하루짜리가 된다. 누적 그림이므로 **없는
+   *  날은 직전 값을 잇는다** — 그래야 7일·15일·한 달이 정말 그 폭으로 보인다.
+   *  기간 시작보다 앞선 기록은 시작값으로 접어 넣는다. */
   const covCumSpan = useMemo(() => {
-    if (covCum.length < 2) return covCum
-    const last = covCum[covCum.length - 1]![0]
-    const end = Date.parse(`${last}T00:00:00Z`)
-    if (!Number.isFinite(end)) return covCum.slice(-spanD)
-    const from = end - (spanD - 1) * 86400000
-    return covCum.filter(([d]) => {
+    type Pt = { p: number; f: number; b: number }
+    const dayMs = 86400000
+    const endTxt = covCum.length ? covCum[covCum.length - 1]![0] : ''
+    const end = Date.parse(`${endTxt}T00:00:00Z`)
+    if (!Number.isFinite(end)) return covCum
+    const from = end - (spanD - 1) * dayMs
+    const M = new Map(covCum)
+    /* 기간 시작 이전의 마지막 누적 — 첫날이 0 에서 시작하면 안 된다 */
+    let last: Pt = { p: 0, f: 0, b: 0 }
+    for (const [d, v] of covCum) {
       const t = Date.parse(`${d}T00:00:00Z`)
-      return !Number.isFinite(t) || t >= from
-    })
+      if (Number.isFinite(t) && t < from) last = v
+      else break
+    }
+    const out: Array<[string, Pt]> = []
+    for (let t = from; t <= end; t += dayMs) {
+      const d = new Date(t).toISOString().slice(0, 10)
+      const v = M.get(d)
+      if (v) last = v
+      out.push([d, last])
+    }
+    return out
   }, [covCum, spanD])
 
   const failStat = useMemo(() => {
@@ -2279,6 +2296,48 @@ export default function CyclesBoard({
       return { total: vals.length, by, p, f, b, done: vals.length - none }
     }
 
+    /** 전체 항목 — 자동·수동을 합쳐 센다(커버리지 칸이 쓴다) */
+    const allStat = () => {
+      const a2 = modeStat(false)
+      const b2 = modeStat(true)
+      const by = new Map(a2.by)
+      for (const [k2, n2] of b2.by) by.set(k2, (by.get(k2) ?? 0) + n2)
+      return {
+        total: a2.total + b2.total,
+        by,
+        p: a2.p + b2.p,
+        f: a2.f + b2.f,
+        b: a2.b + b2.b,
+        done: a2.done + b2.done,
+      }
+    }
+
+    /** 판정 알약 여섯 — **2 열로 나눈다**(지적: 세로 한 줄이라 너무 길다) */
+    const verdRows = (st: ReturnType<typeof modeStat>) => (
+      <div className="sumrows">
+        {[
+          ...verds,
+          ...[...st.by.keys()]
+            .filter((k2) => !verds.some((d) => d.v === k2))
+            .map((k2) => ({ ...vDef(verds, k2), label: `${k2} (지워진 판정)` })),
+        ].map((d) => {
+          const nn = st.by.get(d.v) ?? 0
+          return (
+            <span key={d.v || '(none)'} className="sumrow">
+              <span
+                className={`vpill${d.v ? '' : ' v-n'}`}
+                style={d.v ? { background: d.color, color: '#fff' } : undefined}
+              >
+                {st.total ? Math.round((nn / st.total) * 100) : 0}%
+              </span>
+              <b>{nn || '-'}</b>
+              <span className="cu-m">{d.label}</span>
+            </span>
+          )
+        })}
+      </div>
+    )
+
     /** 왼쪽 한 줄 — 도넛과 판정 알약 */
     const verdCell = (title: string, man: boolean) => {
       const st = modeStat(man)
@@ -2304,28 +2363,7 @@ export default function CyclesBoard({
                 {st.total}개 중 {st.done} 완료됨
               </div>
             </div>
-            <div className="sumrows">
-              {[
-                ...verds,
-                ...[...st.by.keys()]
-                  .filter((k2) => !verds.some((d) => d.v === k2))
-                  .map((k2) => ({ ...vDef(verds, k2), label: `${k2} (지워진 판정)` })),
-              ].map((d) => {
-                const nn = st.by.get(d.v) ?? 0
-                return (
-                  <span key={d.v || '(none)'} className="sumrow">
-                    <span
-                      className={`vpill${d.v ? '' : ' v-n'}`}
-                      style={d.v ? { background: d.color, color: '#fff' } : undefined}
-                    >
-                      {st.total ? Math.round((nn / st.total) * 100) : 0}%
-                    </span>
-                    <b>{nn || '-'}</b>
-                    <span className="cu-m">{d.label}</span>
-                  </span>
-                )
-              })}
-            </div>
+            {verdRows(st)}
           </div>
         </>
       )
@@ -2345,21 +2383,13 @@ export default function CyclesBoard({
               <div className="sumdonut">
                 <Donut big parts={[{ v: itemRows.length, cls: 'c' }]} total={poolN} label={String(itemRows.length)} sub={`${cov}%`} />
                 <div className="cu-m">
-                  {String(plan.model ?? plan.model_group ?? '전체')} 시험 {poolN}건 중
+                  {String(plan.model ?? plan.model_group ?? '전체')} 시험 {poolN}건 중 · 안 담김{' '}
+                  {Math.max(0, poolN - itemRows.length)}
                 </div>
               </div>
-              <div className="sumrows">
-                <span className="sumrow">
-                  <span className="vpill pc">{cov}%</span>
-                  <b>{itemRows.length}</b>
-                  <span className="cu-m">담은 항목</span>
-                </span>
-                <span className="sumrow">
-                  <span className="vpill v-n">{poolN ? (100 - Number(cov)).toFixed(1) : '0.0'}%</span>
-                  <b>{Math.max(0, poolN - itemRows.length)}</b>
-                  <span className="cu-m">안 담김</span>
-                </span>
-              </div>
+              {/* 담은 항목 **전체 기준** 판정 여섯(지시) — 자동·수동을 합쳐
+                  센다. 담은/안 담김 수는 위 도넛과 그 밑 한 줄이 말한다. */}
+              {verdRows(allStat())}
             </div>
           </div>
           <div className="cyb-rtw">
