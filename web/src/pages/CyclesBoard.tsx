@@ -115,6 +115,22 @@ interface ItemRow {
   folder: string
 }
 
+/** 지금 도는 일감 한 줄 — 떠 있는 띠가 읽는다 */
+interface LiveRun {
+  id: string
+  cycle_id?: string
+  cycle_name?: string
+  status?: string
+  done?: number
+  total?: number
+  item_name?: string
+  started_by?: string
+  worker?: string
+  plan_run_id?: string | null
+  round?: number
+  repeat_n?: number
+}
+
 /** 보낸 메일 한 줄 */
 interface MailRow {
   id: number
@@ -2019,6 +2035,22 @@ export default function CyclesBoard({
   ])
   const [mailView, setMailView] = useState<NView>({ ...EMPTY_VIEW })
 
+  /** **지금 도는 일감**(지시: 다른 사람이 들어와도 분간이 안 된다).
+   *
+   *  서버 상태를 그대로 읽으므로 내가 건 것이든 남이 건 것이든 똑같이
+   *  보인다. 4 초마다 다시 묻는다 — 시험은 분 단위로 도니 그 정도면 된다. */
+  const liveRunQ = useQuery({
+    queryKey: ['runs-active', open],
+    enabled: !!open,
+    refetchInterval: 4000,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/runs?cycle_id=${encodeURIComponent(String(open))}&active=1`)
+      if (!r.ok) return { runs: [] as LiveRun[] }
+      return (await r.json()) as { runs: LiveRun[] }
+    },
+  })
+  const liveRun = (liveRunQ.data?.runs ?? [])[0]
+
   /** 보낸 메일 자취 — 메일 이력 탭이 읽는다 */
   const mailQ = useQuery({
     queryKey: ['cycle-mail', open],
@@ -2968,6 +3000,35 @@ export default function CyclesBoard({
 
   return (
     <div className="qav cyb rnb">
+      {/* ── **지금 돌고 있습니다** — 떠 있는 띠(지시).
+          어느 탭에 있든, 누가 걸었든 보인다. 서버 상태를 그대로 읽으므로
+          옆자리 사람이 건 시험도 똑같이 뜬다 — 「같이 들어갔는데 도는 건지
+          분간이 안 된다」 가 이것이다. 누르면 그 실행 화면으로 간다. ── */}
+      {!!liveRun && !runnerOn && (
+        <button
+          type="button"
+          className="cu-toast"
+          title="누르면 그 시험 화면으로 갑니다"
+          onClick={() => {
+            if (liveRun.plan_run_id) openRun(String(liveRun.plan_run_id))
+            setRunnerOn(true)
+            setWide(true)
+          }}
+        >
+          <i className="dot" aria-hidden="true" />
+          <span className="t">
+            <b>시험이 돌고 있습니다</b>
+            <em>
+              {liveRun.item_name || liveRun.cycle_name || ''}
+              {Number(liveRun.total) > 0
+                ? ` · ${Number(liveRun.done ?? 0)}/${Number(liveRun.total)}`
+                : ''}
+              {liveRun.started_by ? ` · ${liveRun.started_by}` : ''}
+            </em>
+          </span>
+          <span className="go">보기 →</span>
+        </button>
+      )}
       <div ref={gridRef} className="cu-grid" style={{ gridTemplateColumns: cols }}>
         {!(wide && runnerCols) && sideOn && renderSide()}
         {!(wide && runnerCols) && (open ? renderDetail() : renderList())}

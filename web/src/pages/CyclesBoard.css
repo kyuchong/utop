@@ -417,3 +417,42 @@
    블록 노트 기본은 16px 라 이 화면에서 혼자 컸다. */
 .cyb .cyb-descbody .bn-editor { font-size: 13px; }
 .cyb .cyb-descbody .bn-editor .bn-block-content { font-size: 13px; }
+
+/* ── 떠 있는 띠 — **지금 돌고 있습니다**(지시) ──────────────────────
+   어느 탭에 있든 보인다. 남이 건 시험도 서버 상태 그대로 뜨므로,
+   「같이 들어갔는데 도는 건지 분간이 안 된다」 가 없어진다. */
+.cyb .cu-toast {
+  position: fixed; right: 20px; bottom: 20px; z-index: 50;
+  display: flex; align-items: center; gap: 11px;
+  border: 1px solid #bfe0cf; border-radius: 999px;
+  background: #fff; padding: 9px 14px 9px 13px;
+  box-shadow: 0 6px 22px rgba(16, 60, 44, 0.18);
+  font: inherit; cursor: pointer; text-align: left;
+  animation: cu-toast-in 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+@keyframes cu-toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.cyb .cu-toast:hover { border-color: #16a34a; box-shadow: 0 8px 26px rgba(16, 60, 44, 0.24); }
+.cyb .cu-toast .dot {
+  width: 9px; height: 9px; border-radius: 999px; background: #16a34a; flex: none;
+  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5);
+  animation: cu-toast-beat 1.4s ease-out infinite;
+}
+@keyframes cu-toast-beat {
+  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
+  70% { box-shadow: 0 0 0 9px rgba(22, 163, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+.cyb .cu-toast .t { display: grid; gap: 1px; min-width: 0; }
+.cyb .cu-toast .t > b { font-size: 12.5px; font-weight: 800; color: #15803d; }
+.cyb .cu-toast .t > em {
+  font-style: normal; font-size: 11.5px; color: #5b7176;
+  max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cyb .cu-toast .go { font-size: 11.5px; font-weight: 800; color: #16a34a; flex: none; }
+@media (prefers-reduced-motion: reduce) {
+  .cyb .cu-toast { animation: none; }
+  .cyb .cu-toast .dot { animation: none; }
+}
