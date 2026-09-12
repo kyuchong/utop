@@ -64,10 +64,15 @@ export interface NTableProps {
    *  말하고 있으면 같은 말이 두 번 나와 거슬린다. 그 자리의 단추는
    *  부르는 쪽이 제 도구 줄에 둔다. */
   hideBulk?: boolean
-  /** **끌어서 차례 바꾸기**(지시) — 주면 행 앞에 손잡이(⋮⋮)가 선다.
-   *  놓으면 바뀐 차례를 통째로 알려 준다. 정렬이 걸려 있으면 그 차례가
-   *  이겨 버리므로, 끌기 시작할 때 정렬을 지운다. */
+  /** **끌어서 차례 바꾸기** — 주면 행 앞에 손잡이가 선다.
+   *
+   *  단 **이 열쇠로 정렬돼 있을 때만** 끌 수 있다(reorderKey). 다른 정렬이
+   *  걸려 있으면 화면 차례와 실제 차례가 달라, 끌어 놓아도 뜻이 없다.
+   *  예전에는 끌기 시작할 때 정렬을 **지워 버렸다** — 사람이 잡아 둔 정렬·
+   *  묶기가 말없이 날아갔다(지적). 지우지 않고, 못 끄는 까닭을 말한다. */
   onReorder?: (ids: string[]) => void
+  /** 차례를 담는 열 — 이 열로 정렬돼 있을 때만 손잡이가 산다 */
+  reorderKey?: string
   /** 이 숫자가 바뀌면 **고른 줄을 푼다** — 일을 끝낸 화면이 부른다.
       선택이 남아 있으면 방금 한 일이 또 될 것 같아 사람이 멈칫한다 */
   selEpoch?: number
@@ -148,6 +153,13 @@ export default function NTable(p: NTableProps) {
     initSeen.current = initKey
     setChecked(new Set(p.initSelected ?? []))
   }, [initKey])
+  /** **지금 끌 수 있나** — 차례 열로 정렬돼 있어야 한다.
+   *  묶기는 상관없다: 묶음 안에서 차례를 잡는 것도 뜻이 있다. */
+  const canDrag =
+    !!p.onReorder &&
+    (!view.sorts?.length ||
+      (view.sorts.length === 1 && view.sorts[0]!.key === (p.reorderKey ?? '')))
+
   /** 지금 끌고 있는 행 · 지나가는 행 */
   const [dragRow, setDragRow] = useState<string | null>(null)
   const [overRow, setOverRow] = useState<string | null>(null)
@@ -1039,7 +1051,7 @@ export default function NTable(p: NTableProps) {
                           return k
                         })()}
                         onDragOver={
-                          p.onReorder && dragRow
+                          canDrag && dragRow
                             ? (e) => {
                                 e.preventDefault()
                                 if (overRow !== r.__id) setOverRow(String(r.__id))
@@ -1047,7 +1059,7 @@ export default function NTable(p: NTableProps) {
                             : undefined
                         }
                         onDrop={
-                          p.onReorder && dragRow
+                          canDrag && dragRow
                             ? (e) => {
                                 e.preventDefault()
                                 const ids = flatRef.current.map((x) => String(x.__id))
@@ -1068,17 +1080,19 @@ export default function NTable(p: NTableProps) {
                           <div className="ntb-gpin">
                             {!!p.onReorder && (
                               <span
-                                className="ntb-grip"
-                                draggable
-                                title="끌어서 시험 차례를 바꿉니다"
+                                className={`ntb-grip${canDrag ? '' : ' off'}`}
+                                draggable={canDrag}
+                                title={
+                                  canDrag
+                                    ? '끌어서 시험 차례를 바꿉니다'
+                                    : '「#」 차례로 정렬해야 끌 수 있습니다 — 지금은 다른 열로 정렬돼 있어 화면 차례와 실제 차례가 다릅니다'
+                                }
                                 onDragStart={(e) => {
+                                  if (!canDrag) {
+                                    e.preventDefault()
+                                    return
+                                  }
                                   e.dataTransfer.effectAllowed = 'move'
-                                  /* 정렬·묶기가 걸려 있으면 그 차례가 이겨, 끌어
-                                     놓아도 제자리로 돌아간다 — 먼저 지운다.
-                                     묶기를 빼먹어 「선은 서는데 순서는 그대로」
-                                     였다(실측). */
-                                  if (view.sorts?.length || view.groupBy)
-                                    onView({ ...view, sorts: [], groupBy: '' })
                                   setDragRow(String(r.__id))
                                 }}
                                 onDragEnd={() => {

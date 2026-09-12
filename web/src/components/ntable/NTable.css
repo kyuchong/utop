@@ -394,3 +394,6 @@
 /* 체크 자체도 제 색으로 — 회색 네모는 켜졌는지 한참 봐야 안다 */
 .ntb-gpin input[type='checkbox'] { accent-color: #2f70d1; width: 13px; height: 13px; }
 .ntb-tbl tr.ntb-row.on .ntb-no { color: #2f70d1; font-weight: 800; }
+/* 못 끄는 상태 — 까닭은 말풍선이 말한다(「#」 차례로 정렬해야 한다) */
+.ntb-grip.off { cursor: not-allowed; opacity: 0.35; }
+.ntb-row:hover .ntb-grip.off { color: #d6d2ce; }

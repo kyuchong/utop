@@ -104,6 +104,9 @@ const keyOf = (...parts: string[]) => parts.join('|')
 
 /** 시험 항목 한 줄 — 사이클 항목에 TC 메타·REQ 이름표를 입힌 것 */
 interface ItemRow {
+  /** **시험 차례**(1 부터). 사이클에 담긴 배열 차례 그대로다 — 이 열로
+   *  정렬해야 화면 차례와 실제 차례가 같아지고, 그때만 끌어 옮길 수 있다 */
+  seq: number
   tcid: string
   title: string
   man: boolean
@@ -386,6 +389,9 @@ export default function CyclesBoard({
      유형 선택지는 담긴 값에서 뽑아 색만 자동으로 입힌다. */
   const [itView, setItView] = useState<NView>({ ...EMPTY_VIEW, groupBy: 'folder' })
   const IT_DEFS: NCol[] = [
+    /* **시험 차례** — 이 열로 정렬해야 끌어 옮길 수 있다(정렬을 지우지
+       않는다: 사람이 잡아 둔 정렬·묶기를 코드가 날리면 안 된다) */
+    { key: 'seq', label: '#', type: 'number', width: 52, fixed: true },
     { key: 'id', label: 'ID', type: 'text', width: 124, fixed: true },
     { key: 'title', label: '제목', type: 'text', width: 340, fixed: true },
     { key: 'req', label: 'REQ', type: 'text', width: 130 },
@@ -928,6 +934,7 @@ export default function CyclesBoard({
          정하는 orderTcIds 와 같은 눈으로 봐야 묶음과 차례가 안 갈린다 */
       const rq = reqIndex.get(String(meta?.req_id ?? it?.req_id ?? ''))
       out.push({
+        seq: 0,
         tcid,
         title: String(meta?.name ?? it?.name ?? ''),
         /* 자동·수동은 **사람이 TC 에 적어 둔 타입**만 본다(지시).
@@ -962,6 +969,10 @@ export default function CyclesBoard({
       const at = new Map(orderOverride.map((x, n) => [x, n]))
       out.sort((a2, b2) => (at.get(a2.tcid) ?? 1e9) - (at.get(b2.tcid) ?? 1e9))
     }
+    /* 차례 번호는 **마지막에** 매긴다 — 위에서 자리를 바꿨으면 그것이 정본 */
+    out.forEach((r, i) => {
+      r.seq = i + 1
+    })
     return out
   }, [full, tcOf, reqIndex, orderOverride])
   /* 유형 선택지는 자료에서 뽑는다 — 담긴 값이 곧 목록이고 색은 자동 */
@@ -2445,6 +2456,9 @@ export default function CyclesBoard({
              「시험 순서 저장」 을 눌러야 사이클 문서에 굳는다 — 잘못 끌었을
              때 되돌릴 자리가 있어야 한다 */
           onReorder={(ids) => setOrderOverride(ids)}
+          /* 이 열로 정렬돼 있을 때만 끌 수 있다 — 다른 정렬 중에는 화면
+             차례와 실제 차례가 달라 끌어 놓아도 뜻이 없다 */
+          reorderKey="seq"
           /* 실행 화면에 다녀오면 이 표는 통째로 사라졌다 다시 선다 —
              그때 체크를 되살린다(지적: 실행할 때마다 다시 골라야 한다) */
           initSelected={picked}
