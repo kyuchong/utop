@@ -601,6 +601,11 @@ export default function RunDetail({
        안 읽으면 화면이 든 사이클은 실행 전 그대로라 출력이 영영 안 온다.
        스텝 표에 PASS·시간이 보인 것은 실시간으로 올라온 live_steps 였다. */
     void qc.invalidateQueries({ queryKey: ['cycle-full'] })
+    /* **회차 줄도 다시 읽는다**(지적: 2 개를 2 번 돌렸는데 3 줄만 찍힌다).
+       끝나는 순간 폴링이 멎어(jobLive→false), 마지막 회차가 저장되기 전에
+       갱신이 끊겼다 — 서버에는 네 줄이 다 있는데 화면만 세 줄이었다. */
+    void qc.invalidateQueries({ queryKey: ['plan-run-items', runId] })
+    void qc.invalidateQueries({ queryKey: ['plan-run-rounds', runId] })
   }, [job?.status, jobId, qc, runId])
 
   /* 항목 하나가 끝날 때마다도 다시 읽는다 — 62 건짜리 실행에서 끝까지
@@ -613,6 +618,8 @@ export default function RunDetail({
        시험 결과가 안 채워진다). Test Report 의 시각·판정은 run.logs 와
        run.results 에서 오는데, 여태 일감이 다 끝나야 읽었다. */
     void qc.invalidateQueries({ queryKey: ['plan-run', runId] })
+    /* 회차 줄도 — 반복 시험은 한 바퀴마다 줄이 는다 */
+    void qc.invalidateQueries({ queryKey: ['plan-run-items', runId] })
   }, [doneN, qc, runId])
 
   /** 사이클 **전문** — 담을 때 복제된 시험서가 여기 있다(목록 API 는 줄여 준다) */
@@ -639,7 +646,10 @@ export default function RunDetail({
   const runItemsQ = useQuery({
     queryKey: ['plan-run-items', runId],
     enabled: !!runId,
+    /* 도는 동안 3 초마다. **끝난 뒤에도 한 번 더** 받는다 — 마지막 회차가
+       저장되는 데 한 박자 걸려, 끊자마자 멈추면 그 줄을 놓친다 */
     refetchInterval: jobLive ? 3000 : false,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/items?limit=3000`)
       if (!r.ok) return { items: [] as Array<{ tcid: string; round: number; verdict: string; at?: string | null }> }
