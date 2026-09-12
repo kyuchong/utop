@@ -641,8 +641,11 @@ export default function RunDetail({
     const add = (k: string) => {
       if (k && !out.includes(k)) out.push(k)
     }
-    /* ⓪ 부르는 쪽이 「이것만, 이 차례로」 를 정해 줬으면 그것이 정본이다 */
-    if (only?.length) {
+    /* ⓪ 부르는 쪽이 「이것만, 이 차례로」 를 정해 줬으면 그것이 정본이다.
+       **빈 배열이어도 그대로 따른다** — 「이 방식의 항목이 없다」 는 뜻이지
+       「아무것도 안 정했다」 가 아니다. 예전엔 빈 배열이 아래로 흘러 실행
+       전체가 나왔고, 그래서 Manual 탭에서 시작해도 자동 항목이 떴다(지적). */
+    if (only) {
       for (const k of only) add(String(k ?? ''))
       return out
     }

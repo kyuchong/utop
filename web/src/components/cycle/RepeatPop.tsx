@@ -29,10 +29,12 @@ export interface RepeatCfg {
   failMax: number
 }
 
+/** 기본값은 **지금과 같게**(지시) — 1 회·계속 진행.
+ *  창을 열자마자 100 회가 걸려 있으면 실수로 장비를 며칠 잡는다. */
 export const REPEAT_DEFAULT: RepeatCfg = {
-  repeat: 100,
+  repeat: 1,
   gapSec: 0.5,
-  onFail: 'hold',
+  onFail: 'go',
   holdHour: 3,
   holdOver: 'stop',
   failMax: 0,

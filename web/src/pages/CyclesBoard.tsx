@@ -1277,7 +1277,17 @@ export default function CyclesBoard({
   }
   const runItems = useMemo<RunItemRow[]>(() => {
     if (!runFull) return []
-    const ids = (runFull.items ?? []).map((x) => String(x?.tcid ?? '')).filter(Boolean)
+    /* **사이클에 담긴 것도 센다**(지적: Manual 탭인데 자동 항목만 나온다).
+       실행을 만든 뒤에 담은 항목 — 특히 수동 — 은 실행 스냅샷에 없다.
+       그것만 보면 수동 목록이 비고, 빈 목록은 아래에서 다시 전체로 떨어져
+       자동 62 건이 나왔다. */
+    const ids = [
+      ...new Set([
+        ...((plan?.items ?? []) as Array<{ tcid?: string }>).map((x) => String(x?.tcid ?? '')),
+        ...(runFull.items ?? []).map((x) => String(x?.tcid ?? '')),
+        ...Object.keys(runFull.results ?? {}),
+      ]),
+    ].filter(Boolean)
     const list = orderTcIds(ids.length ? ids : Object.keys(runFull.results ?? {}), tcOf, reqIndex)
     const asg = runFull.assignees ?? {}
     return list.map((tcid) => {
@@ -1294,7 +1304,7 @@ export default function CyclesBoard({
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runFull, tcOf, reqIndex, verds])
+  }, [runFull, plan, tcOf, reqIndex, verds])
 
   /* ── 그리기 ── */
   const kv = (k: string, v: React.ReactNode) => (
