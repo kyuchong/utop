@@ -17,7 +17,7 @@ import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { goto, onGoto, reflectUrl } from '@/api/goto'
 import { prefGet, prefRemove, prefSet } from '@/lib/prefs'
-import { normMode } from '@/lib/runMode'
+import { isManualTc } from '@/lib/runMode'
 import DescNote from '@/components/DescNote'
 import { exportCycleXlsx, CloneDialog } from '@/pages/Cycles'
 import type { CycleItemLite, CycleMeta } from '@/pages/Cycles'
@@ -839,7 +839,9 @@ export default function CyclesBoard({
       out.push({
         tcid,
         title: String(meta?.name ?? it?.name ?? ''),
-        man: normMode(String(meta?.run_type ?? meta?.kind ?? '')) === '수동',
+        /* 자동·수동은 **사람이 TC 에 적어 둔 타입**만 본다(지시).
+           판별은 lib/runMode 한 곳이다 — 스텝을 뜯어 짐작하지 않는다 */
+        man: isManualTc(meta),
         mg: String(meta?.model_group ?? ''),
         model: String(meta?.model ?? ''),
         type: String(meta?.type ?? ''),
@@ -961,10 +963,9 @@ export default function CyclesBoard({
         const day = String(vat[tcid] ?? '').slice(0, 10) || made
         if (!day) continue
         /* isManTc 는 아래에 선언돼 있어 여기서 못 부른다(실측: 화면이
-           통째로 죽었다 — Cannot access before initialization). 같은 규칙을
-           여기서 바로 본다 */
-        const t2 = tcOf.get(tcid)
-        const man = normMode(String(t2?.run_type ?? t2?.kind ?? '')) === '수동'
+           통째로 죽었다 — Cannot access before initialization). 같은 함수를
+           여기서 바로 부른다 */
+        const man = isManualTc(tcOf.get(tcid))
         const m = man ? byMode.man : byMode.auto
         const cur = m.get(day) ?? { p: 0, f: 0, b: 0 }
         cur[l] += 1
@@ -1172,10 +1173,7 @@ export default function CyclesBoard({
   /* ══ 실행 탭 — 옛 Runs 화면의 심장을 그대로 들여왔다 ══ */
 
   /** 이 시험이 수동인가 — 정본은 TC 의 run_type(팀이 바꾼 「M」 도 알아듣는다) */
-  const isManTc = (tcid: string) => {
-    const t = tcOf.get(tcid)
-    return normMode(String(t?.run_type ?? t?.kind ?? '')) === '수동'
-  }
+  const isManTc = (tcid: string) => isManualTc(tcOf.get(tcid))
 
   const runFullQ = useQuery({
     queryKey: ['plan-run', selRun],

@@ -40,6 +40,22 @@ export function normMode(v: unknown): Mode {
 /** 수동인가 — 모르는 값은 수동이 아니다(예전과 같다) */
 export const isManual = (v: unknown): boolean => normMode(v) === '수동'
 
+/**
+ * **시험 항목이 수동인가 — 이 한 줄이 정본이다.**
+ *
+ * 보는 것은 **사람이 TC 에 적어 둔 타입뿐**이다(지시: 자동·수동은 내가
+ * 정의하는 대로). 스텝을 뜯어 「CLI 가 있으니 자동이겠지」 로 짐작하지
+ * 않는다 — 짐작은 사람이 정한 것을 덮고, 화면마다 다른 답을 낸다.
+ * 옛 화면 하나가 그렇게 추론하고 있었다: 타입이 비면 스텝을 보고,
+ * 못 가리면 수동으로 쳤다. 그래서 같은 항목이 한 화면에서는 자동,
+ * 다른 화면에서는 수동이었다.
+ *
+ * 안 적었으면 **자동**이다 — 대다수가 자동이고, 수동은 사람이 일부러
+ * 고르는 것이라서다.
+ */
+export const isManualTc = (tc: { run_type?: unknown; kind?: unknown } | null | undefined): boolean =>
+  normMode(String((tc?.run_type ?? tc?.kind ?? '') as string)) === '수동'
+
 export interface ModeGot {
   /** **판정에 쓸 값** — 자동·수동·빈 문자열 셋 중 하나로 풀어 놓은 것 */
   v: string

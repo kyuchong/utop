@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet } from '@/lib/prefs'
 /* 이 파일에는 항목을 받는 isManual 이 따로 있다 — 뜻 푸는 쪽만 들여온다 */
-import { normMode } from '@/lib/runMode'
+import { normMode, isManualTc } from '@/lib/runMode'
 import { isManualStep } from '@/components/tc/types'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch } from '@/api/client'
@@ -10,7 +10,6 @@ import AssigneePicker from '@/components/AssigneePicker'
 import { goto, gotoHref } from '@/api/goto'
 import {
   itemVerdict,
-  kindOf,
   useResults,
   type CycleItemLite,
   type CycleMeta,
@@ -163,17 +162,11 @@ export default function CyclePlan({
       const done = pass + fail + other
       return { total, done, pass, fail, other, none: total - done }
     }
-    const isManual = (it: CycleItemLite) => {
-      const rt = String(tcRun.get(it.tcid) ?? '').trim()
-      /* 예전엔 여기서만 M·MANUAL 을 손으로 넓혀 두었다. 이제 한 곳에서
-         푼다(lib/runMode) — 팀이 코드 이름을 바꿔도 따라온다.
-         「혼합」 은 수동이 섞였다는 뜻이라 여기서는 수동으로 친다. */
-      const nm = normMode(rt)
-      if (nm === '자동') return false
-      if (nm === '수동' || rt === '혼합' || rt.toUpperCase() === 'MIXED') return true
-      const kd = kindOf(it.steps ?? [])
-      return !(kd === 'auto' || kd === 'mixed')
-    }
+    /* **사람이 적어 둔 타입만 본다**(지시: 자동·수동은 내가 정의하는 대로).
+       예전에는 타입이 비면 스텝을 뜯어 짐작했고, 못 가리면 수동으로 쳤다 —
+       그래서 같은 항목이 이 화면에서는 수동, 사이클 표에서는 자동이었다.
+       판별은 lib/runMode 한 곳이다. */
+    const isManual = (it: CycleItemLite) => isManualTc({ run_type: tcRun.get(it.tcid) })
     const who = new Map<string, number>()
     for (const it of items) {
       const a = String(it.assignee ?? '').trim() || '(미배정)'
