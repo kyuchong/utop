@@ -226,6 +226,7 @@ const rstamp = (v?: string | null): string => {
 export default function RunAuto({
   items, cur, onPick, steps, stepAt, onStep, dut, runStartedAt,
   runStep, runItem, waitAt, devices, rounds, roundSize, totalRounds, runRound, onRunRound,
+  runRoundNow,
 }: {
   /** 이 실행에 쌓인 회차 — 「다시 실행」 을 누를 때마다 하나씩 선다.
    *  하나뿐이면 띠를 아예 안 보여 준다(지금 화면 그대로다). */
@@ -241,6 +242,9 @@ export default function RunAuto({
   roundSize?: number
   /** 총 회차 수 */
   totalRounds?: number
+  /** **실행기가 지금 도는 회차** — 반복 줄은 ID 가 다 같아서, 이것까지 봐야
+   *  어느 줄이 도는 중인지 가려진다(지적: 진행 아이콘이 전부 뜬다) */
+  runRoundNow?: number
   /** 지금 보는 **실행 회차**. 비면 가장 최근 — 평소에는 지금과 구별되지 않는다.
    *  아래 roundAt(반복 스텝 안의 회차)과는 다른 것이다 — 이름을 가르지 않으면
    *  한쪽이 다른 쪽을 조용히 가린다 */
@@ -1059,7 +1063,11 @@ export default function RunAuto({
                   key={it.round ? `${it.id}#${it.round}` : it.id}
                   className={`ra-tc${
                     it.id === cur && (!it.round || it.round === (runRound ?? lastRound)) ? ' on' : ''
-                  }${it.id === runItem ? ' running' : ''}`}
+                  }${
+                    it.id === runItem && (!it.round || it.round === (runRoundNow ?? it.round))
+                      ? ' running'
+                      : ''
+                  }`}
                   onClick={() => onPick(it.id, it.round)}
                 >
                   <Verdict v={it.verdict} />

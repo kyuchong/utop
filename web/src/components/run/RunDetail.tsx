@@ -512,6 +512,8 @@ export default function RunDetail({
         item_at?: number; ended_at?: string | null
                 /** 살아 있음 신호 — 끊긴 지 오래면 「응답 없음」 으로 알린다 */
                 heartbeat_at?: string | null
+                /** 지금 도는 회차 — 반복 시험이면 1 씩 는다 */
+                round?: number | null
                 /** 반복 시험이 실패해 **멈춰 선** 시각·회차 */
                 held_at?: string | null
                 held_round?: number | null
@@ -1889,6 +1891,8 @@ export default function RunDetail({
           }}
           /* 회차 띠 — 회차가 하나뿐이면 RunAuto 가 아예 안 그린다(지금 화면 그대로) */
           rounds={rounds}
+          /* 실행기가 지금 도는 회차 — 반복 줄 중 어느 것이 도는지 가린다 */
+          runRoundNow={Number(job?.round) || undefined}
           roundSize={roundSize}
           totalRounds={lastRound}
           runRound={roundSel}
