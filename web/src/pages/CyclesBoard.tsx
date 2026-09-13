@@ -351,8 +351,13 @@ export default function CyclesBoard({
   const [, setPickSaved] = useState<'' | 'saving' | 'saved'>('')
   const pickTimer = useRef<number | null>(null)
   const setPicked = (ids: string[]) => {
+    /* **안 바뀌었으면 안 보낸다**(지적: 탭만 바꿔도 저장 알림) — 표가 되살아
+       나며 돌려주는 메아리는 값이 같다. 차례는 안 본다: 실행 차례는 사이클
+       항목 차례가 정하지, 체크한 차례가 아니다. */
+    const same =
+      ids.length === picked.length && [...ids].sort().join('') === [...picked].sort().join('')
     setPickedRaw(ids)
-    if (!open) return
+    if (!open || same) return
     setPickSaved('saving')
     if (pickTimer.current != null) window.clearTimeout(pickTimer.current)
     pickTimer.current = window.setTimeout(() => {

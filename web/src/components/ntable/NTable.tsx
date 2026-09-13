@@ -189,7 +189,15 @@ export default function NTable(p: NTableProps) {
     cur.splice(to + (at.after ? 1 : 0), 0, mv)
     onColumns(cur)
   }
+  /* 첫 알림은 삼킨다(지적: 탭만 바꿔도 「고른 항목 저장됨」 이 울린다) —
+     마운트 직후의 알림은 부모가 준 initSelected 를 그대로 돌려주는
+     메아리다. 부모는 이미 아는 값이고, 사람이 체크한 것이 아니다. */
+  const selFirst = useRef(true)
   useEffect(() => {
+    if (selFirst.current) {
+      selFirst.current = false
+      return
+    }
     p.onSelect?.([...checked])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checked])
