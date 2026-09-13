@@ -452,20 +452,22 @@
    인라인 표를 걷어낼 때 이 규칙들이 같이 잘려 나가, ID 가 **브라우저 기본
    단추 꼴**(테두리·바탕)로 나와 입력칸처럼 보였다(지적). ID 는 누를 수 있는
    글자다 — 단추 꾸밈을 지우고 글처럼 세운다. */
+/* ID 링크는 표의 ID 열(.ntb-id)과 **한 글씨체**다(지적: 두 열이 다르다) —
+   Inter 12px · 청록. R/T 구분은 글자가 이미 말한다(R0001·T0023). */
 .rqtc-rid {
   flex: none;
   border: 0;
   background: transparent;
   padding: 0;
   margin-right: 8px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--c-primary);
+  font-family: inherit;
+  font-size: 12px;
+  color: #0e7490;
   cursor: pointer;
   white-space: nowrap;
 }
 .rqtc-rid:hover { text-decoration: underline; }
-.rqtc-rid.tc { color: #1f7a45; }
+.rqtc-rid.tc { color: #0e7490; }
 .rqtc-rtitle { color: var(--c-text); }
 .rqtc-tr:not(.rqtc-th):hover .rqtc-rtitle { text-decoration: underline; }
 
