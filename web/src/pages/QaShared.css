@@ -148,7 +148,9 @@
   background: var(--c-surface);
   padding: var(--sp-2) 0 var(--sp-1);
 }
-.qav .cu-card h2 {
+/* **바로 아래 자식만**(지적: 편집기 안의 제목2가 제목3보다 작다) —
+   후손 전부에 걸면 카드 안 블록 노트의 h2 까지 머리글 꼴로 눌린다. */
+.qav .cu-card > h2 {
   margin: 0 0 6px;
   padding: var(--card-pad);
   padding-top: 0;

@@ -54,7 +54,7 @@
    카드 가로 폭이 너무 남아서 세로로 쌓고 설명이 남는 폭을 갖는다 */
 .cyb .cyb-inforow { display: grid; grid-template-columns: minmax(330px, 420px) minmax(0, 1fr); gap: var(--sp-3); }
 .cyb .cyb-infocol { display: grid; gap: var(--sp-3); align-content: start; }
-.cyb .cyb-desccard h2 { margin: 0; }
+.cyb .cyb-desccard > h2 { margin: 0; } /* 후손 h2(블록 노트)는 안 건드린다(지적) */
 @media (max-width: 1100px) { .cyb .cyb-inforow { grid-template-columns: 1fr; } }
 
 /* 읽기 전용 값(사이클 ID) — 입력칸과 같은 크기·들여쓰기, 손대도 테두리는 안 선다 */
@@ -377,7 +377,7 @@
 }
 @media (max-width: 1100px) { .cyb .cyb-sumrow { grid-template-columns: 1fr; } }
 .cyb .cyb-sumrow .cyb-desccard { min-height: 460px; }
-.cyb .cyb-sumrow h2 { display: flex; align-items: center; gap: 8px; }
+.cyb .cyb-sumrow .cu-card > h2 { display: flex; align-items: center; gap: 8px; }
 
 /* 메일 자취 — 한 줄에 [시각][받는이][제목][보낸이][결과] */
 .cyb .cyb-mlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
