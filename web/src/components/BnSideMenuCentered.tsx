@@ -44,16 +44,18 @@ const OPTS = {
         try {
           const c = contentUnderMouse()
           if (!c) return 0
+          const outer = (c.closest('.bn-block-outer') as HTMLElement | null) ?? c
           const cr = c.getBoundingClientRect()
+          const or2 = outer.getBoundingClientRect()
           /* 첫 줄 = 안쪽 첫 요소(h1‥h6·p)의 line-height */
           const inner = (c.firstElementChild as HTMLElement | null) ?? c
           const lh = parseFloat(getComputedStyle(inner).lineHeight) || 24
           const pt = parseFloat(getComputedStyle(c).paddingTop) || 0
           const menuH = a.rects.floating.height || 30
-          /* 목표: 손잡이 top = 첫 줄 중앙 − 손잡이 절반. 기준 y 가 무엇을
-             가리키든 절대 좌표로 맞추면 흔들리지 않는다 */
-          const targetTop = cr.top + pt + lh / 2 - menuH / 2
-          return { crossAxis: targetTop - a.rects.reference.y }
+          /* **블록 안 상대 거리**만 쓴다 — 기준 사각형은 좌표계가 달랐다
+             (실측: 화면보다 52px 위, 컨테이너 상대). 블록 위끝에서 첫 줄
+             중앙까지의 거리는 어느 좌표계에서 재도 같다. */
+          return { crossAxis: cr.top - or2.top + pt + lh / 2 - menuH / 2 }
         } catch {
           return 0
         }
