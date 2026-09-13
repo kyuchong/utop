@@ -33,7 +33,11 @@ const OPTS = {
     middleware: [
       offset((a: { rects: { reference: { y: number }; floating: { height: number } } }) => {
         try {
+          /* 계측(임시) — 호출 여부와 마지막 셈을 창에 남긴다 */
+          const w = window as unknown as { __bnFix?: number; __bnLast?: unknown }
+          w.__bnFix = (w.__bnFix ?? 0) + 1
           const c = contentAt(a.rects.reference.y)
+          w.__bnLast = { y: a.rects.reference.y, found: !!c }
           if (!c) return 0
           const cr = c.getBoundingClientRect()
           /* 첫 줄 = 안쪽 첫 요소(h1‥h6·p)의 line-height */
