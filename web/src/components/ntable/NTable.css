@@ -43,12 +43,26 @@
   text-align: left; padding: 0; border-bottom: 1px solid var(--ntb-line);
   position: sticky; top: 0; z-index: 3; background: var(--c-surface, #fff);
 }
-.ntb-hb { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 4px 8px; border-radius: 6px; font: inherit; font-size: 12px; font-weight: 400; color: var(--ntb-mut); cursor: pointer; white-space: nowrap; overflow: hidden; }
+/* 머리 글자는 **읽혀야 한다**(지적: 잘 안 보인다) — 옅은 회색(mut)·400 을
+   soft·600 으로. 그림(유형 아이콘)은 옅게 둬서 글자가 앞선다. */
+.ntb-hb { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 4px 8px; border-radius: 6px; font: inherit; font-size: 12px; font-weight: 600; color: var(--ntb-soft); cursor: pointer; white-space: nowrap; overflow: hidden; }
+.ntb-hb > svg { color: var(--ntb-mut); flex: none; }
 .ntb-hb .l { overflow: hidden; text-overflow: ellipsis; }
-.ntb-hb:hover, .ntb-hb.on { background: var(--ntb-hov); color: var(--ntb-soft); }
+.ntb-hb:hover, .ntb-hb.on { background: var(--ntb-hov); color: var(--ntb-ink); }
+/* 열 끌어 옮기기 — 끌리는 머리는 흐려지고, 놓일 자리는 좌/우 실선 */
+.ntb-hb.drag { opacity: 0.45; }
+.ntb-tbl th.ntb-cover-l { box-shadow: inset 2px 0 0 var(--ntb-acc); }
+.ntb-tbl th.ntb-cover-r { box-shadow: inset -2px 0 0 var(--ntb-acc); }
 .ntb-rs { position: absolute; right: -3px; top: 5px; bottom: 5px; width: 7px; cursor: col-resize; z-index: 4; }
 .ntb-rs:hover:after { content: ''; position: absolute; left: 2px; top: 0; bottom: 0; width: 2px; background: var(--ntb-acc); border-radius: 2px; }
 .ntb-tbl td { padding: 2px 8px; border-bottom: 1px solid var(--ntb-line2); vertical-align: middle; white-space: nowrap; overflow: hidden; }
+/* **세로 구분선**(지시) — 노션 표를 쓰는 모든 화면에 함께 걸린다.
+   맨 끝 채움 칸과 왼쪽 번호 칸 뒤에는 긋지 않는다: 표 바깥 여백과
+   붙어 있어 선이 허공에 뜬 것처럼 보인다. */
+.ntb-tbl th, .ntb-tbl td { border-right: 1px solid var(--ntb-line2); }
+.ntb-tbl th.ntb-fill, .ntb-tbl td.ntb-fill,
+.ntb-tbl th:last-child, .ntb-tbl td:last-child,
+.ntb-tbl th.ntb-gp, .ntb-tbl td.ntb-gp { border-right: 0; }
 .ntb-row:hover td { background: var(--ntb-hov); }
 .ntb-row.on td { background: #f0f9ff; }
 /* 칸(td·th)에는 display:flex 를 주면 안 된다 — 표 폭 계산에서 빠져

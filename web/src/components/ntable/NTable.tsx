@@ -169,6 +169,26 @@ export default function NTable(p: NTableProps) {
   /** 지금 끌고 있는 행 · 지나가는 행 */
   const [dragRow, setDragRow] = useState<string | null>(null)
   const [overRow, setOverRow] = useState<string | null>(null)
+
+  /* ── 열 끌어 옮기기(지시) — 속성 창의 ↑↓ 는 한 칸씩이라 열 열두 개를
+     건너 옮기려면 열두 번 눌러야 했다. 머리를 잡아 좌우로 끈다. ── */
+  const [dragCol, setDragCol] = useState<string | null>(null)
+  const [overCol, setOverCol] = useState<{ key: string; after: boolean } | null>(null)
+  const dropCol = () => {
+    const from0 = dragCol
+    const at = overCol
+    setDragCol(null)
+    setOverCol(null)
+    if (!from0 || !at || from0 === at.key) return
+    const cur = [...columns]
+    const from = cur.findIndex((c) => c.key === from0)
+    if (from < 0) return
+    const [mv] = cur.splice(from, 1)
+    const to = cur.findIndex((c) => c.key === at.key)
+    if (to < 0 || !mv) return
+    cur.splice(to + (at.after ? 1 : 0), 0, mv)
+    onColumns(cur)
+  }
   useEffect(() => {
     p.onSelect?.([...checked])
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -922,11 +942,53 @@ export default function NTable(p: NTableProps) {
                 const I = TYPE_ICON[c.type]
                 const s = view.sorts.find((x) => x.key === c.key)
                 return (
-                  <th key={c.key} style={{ width: wOf(c) }}>
+                  <th
+                    key={c.key}
+                    style={{ width: wOf(c) }}
+                    /* 놓일 자리를 좌/우 실선으로 — 행 끌기와 같은 말 */
+                    className={
+                      dragCol && overCol?.key === c.key
+                        ? overCol.after
+                          ? 'ntb-cover-r'
+                          : 'ntb-cover-l'
+                        : undefined
+                    }
+                    onDragOver={
+                      dragCol
+                        ? (e) => {
+                            e.preventDefault()
+                            const r2 = e.currentTarget.getBoundingClientRect()
+                            const after = e.clientX > r2.left + r2.width / 2
+                            if (overCol?.key !== c.key || overCol.after !== after)
+                              setOverCol({ key: c.key, after })
+                          }
+                        : undefined
+                    }
+                    onDrop={
+                      dragCol
+                        ? (e) => {
+                            e.preventDefault()
+                            dropCol()
+                          }
+                        : undefined
+                    }
+                  >
                     <button
                       type="button"
                       title={c.label}
-                      className={`ntb-hb${menuAt?.key === c.key ? ' on' : ''}${c.headIcon ? ' ico' : ''}`}
+                      className={`ntb-hb${menuAt?.key === c.key ? ' on' : ''}${c.headIcon ? ' ico' : ''}${dragCol === c.key ? ' drag' : ''}`}
+                      /* **열 머리를 잡아 끈다**(지시) — 누르면 메뉴, 끌면 이동.
+                         브라우저가 몇 픽셀 움직여야 끌기로 치므로 둘이 안 싸운다 */
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = 'move'
+                        setMenuAt(null)
+                        setDragCol(c.key)
+                      }}
+                      onDragEnd={() => {
+                        setDragCol(null)
+                        setOverCol(null)
+                      }}
                       onClick={(e) => {
                         const b = e.currentTarget.getBoundingClientRect()
                         setMenuAt(menuAt?.key === c.key ? null : { key: c.key, x: b.left, y: b.bottom + 4 })
