@@ -416,6 +416,12 @@
 /* 설명 본문 — 앱 글자 크기에 맞춘다(지시: 트리 글자와 같게).
    블록 노트 기본은 16px 라 이 화면에서 혼자 컸다. */
 .cyb .cyb-descbody .bn-editor { font-size: 13px; }
+/* 표 행 간격(지적: 넓다) — 셀 여백 5px 와 셀 안 문단의 최소 높이 24px 가
+   행을 35px 로 벌렸다. 글줄(19.5px)에 맞춰 표답게 조인다 → 행 약 25px. */
+.cyb .cyb-descbody .bn-editor table td,
+.cyb .cyb-descbody .bn-editor table th { padding: 2px 8px; }
+.cyb .cyb-descbody .bn-editor table td p,
+.cyb .cyb-descbody .bn-editor table th p { min-height: 0; }
 .cyb .cyb-descbody .bn-editor .bn-block-content { font-size: 13px; }
 
 /* ── 떠 있는 띠 — **지금 돌고 있습니다**(지시) ──────────────────────
