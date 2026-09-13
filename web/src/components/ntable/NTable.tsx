@@ -994,8 +994,10 @@ export default function NTable(p: NTableProps) {
                         setMenuAt(menuAt?.key === c.key ? null : { key: c.key, x: b.left, y: b.bottom + 4 })
                       }}
                     >
-                      <I />
-                      {!c.headIcon && <span className="l">{c.label}</span>}
+                      {/* 유형 그림은 **걷었다**(지시: 가로폭 낭비) — 유형은
+                          열 메뉴 안에서 본다. 그림만 쓰는 머리(headIcon,
+                          담당자 같은 좁은 칸)는 글자가 없으니 그림을 남긴다. */}
+                      {c.headIcon ? <I /> : <span className="l">{c.label}</span>}
                     </button>
                     {/* 정렬은 **열 머리에서 바로**(지시). 메뉴를 열어 찾게 하면
                         두 번 누를 일을 네 번 누르게 된다. 거르기는 도구줄의
