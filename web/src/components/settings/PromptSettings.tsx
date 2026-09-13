@@ -32,10 +32,12 @@ interface Purpose {
   params: Record<string, string>
 }
 
-/** 파라미터 칸 정의 — 이름·걸음폭·안내. 서버 키와 같다 */
+/** 파라미터 칸 정의 — 이름·걸음폭·안내. 서버 키와 같다.
+ *  LLM 설정의 파라미터 카드를 **통째로** 옮겨 왔다(지시). */
 const PARAM_FIELDS: ReadonlyArray<readonly [string, string, string, string]> = [
   ['temperature', 'Temperature', '0.1', '예: 0.2 차분 · 0.7 다양'],
   ['max_tokens', 'Max Tokens', '1', '예: 2048'],
+  ['context_size', 'Context Size', '1', '예: 262144 — Max Tokens 의 한도'],
   ['top_p', 'Top P', '0.05', '0.0 ~ 1.0'],
   ['top_k', 'Top K', '1', '예: 50'],
   ['presence_penalty', 'Presence Penalty', '0.1', '-2.0 ~ 2.0'],
@@ -175,6 +177,19 @@ export default function PromptSettings() {
                   <b>파라미터</b>
                   <span className="muted small">비우면 모델(LLM 설정)의 기본값을 따릅니다.</span>
                 </div>
+                <label className="ps-fld">
+                  <span>Completion Mode</span>
+                  <select
+                    value={x.params.completion_mode ?? ''}
+                    onChange={(e) =>
+                      set(x.id, { params: { ...x.params, completion_mode: e.target.value } })
+                    }
+                  >
+                    <option value="">모델 기본</option>
+                    <option value="chat">Chat</option>
+                    <option value="completion">Completion</option>
+                  </select>
+                </label>
                 {PARAM_FIELDS.map(([k, label, step, hint]) => (
                   <label className="ps-fld" key={k}>
                     <span>{label}</span>

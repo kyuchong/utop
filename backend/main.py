@@ -3065,10 +3065,12 @@ def _prompt_of(purpose: str) -> dict:
     }
 
 
-# 용도에 걸 수 있는 파라미터(지시: 파라미터는 용도별 프롬프트로).
-# 모델(LLM 설정)에는 기본값이 남고, 용도 값이 있으면 그것이 이긴다.
+# 용도에 걸 수 있는 파라미터(지시: 파라미터는 **전부** 용도별 프롬프트로).
+# 모델(LLM 설정)에는 옛 저장값이 기본값으로 남고, 용도 값이 있으면 이긴다.
 _PURPOSE_PARAM_KEYS = ("max_tokens", "temperature", "top_p", "top_k",
-                       "presence_penalty", "frequency_penalty")
+                       "presence_penalty", "frequency_penalty", "context_size")
+# 숫자가 아닌 칸 — completion_mode 는 chat|completion 글자다
+_PURPOSE_PARAM_STR = ("completion_mode",)
 
 
 def _purpose_params(purpose: str) -> dict:
@@ -3082,31 +3084,48 @@ def _purpose_params(purpose: str) -> dict:
             v = (saved.get("params") or {}).get(k)
             if v is None or v == "":
                 continue
-            out[k] = int(float(v)) if k in ("max_tokens", "top_k") else float(v)
+            out[k] = int(float(v)) if k in ("max_tokens", "top_k", "context_size") else float(v)
+        for k in _PURPOSE_PARAM_STR:
+            v = str((saved.get("params") or {}).get(k) or "").strip()
+            if v:
+                out[k] = v
         return out
     except Exception:
         return {}
 
 
 def _clean_purpose_params(raw) -> dict:
-    """저장 전 청소 — 숫자만 받고, 못 읽는 값·빈 칸은 버린다."""
+    """저장 전 청소 — 숫자는 숫자로, 못 읽는 값·빈 칸은 버린다."""
     out = {}
     for k in _PURPOSE_PARAM_KEYS:
         v = (raw or {}).get(k)
         if v is None or str(v).strip() == "":
             continue
         try:
-            out[k] = int(float(v)) if k in ("max_tokens", "top_k") else float(v)
+            out[k] = int(float(v)) if k in ("max_tokens", "top_k", "context_size") else float(v)
         except (TypeError, ValueError):
             continue
+    for k in _PURPOSE_PARAM_STR:
+        v = str((raw or {}).get(k) or "").strip()
+        if v in ("chat", "completion"):
+            out[k] = v
     return out
 
 
 def _apply_purpose_params(body: dict, purpose: str) -> None:
     """OpenAI 호환 body 에 용도 파라미터를 덮는다 — 사람이 설정에 적은 값이
-    코드에 박힌 기본을 이긴다. 요약은 차갑게, 요구사항은 뜨겁게(지시)."""
-    for k, v in _purpose_params(purpose).items():
+    코드에 박힌 기본을 이긴다. 요약은 차갑게, 요구사항은 뜨겁게(지시).
+
+    context_size 는 body 로 보내는 값이 아니라 **한도**다 — max_tokens 를
+    넘지 못하게 깎는다. completion_mode 는 저장·표시용이다(서버 안 호출은
+    전부 chat 방식이라 body 에 실으면 400 만 난다)."""
+    p = _purpose_params(purpose)
+    for k, v in p.items():
+        if k in ("context_size", "completion_mode"):
+            continue
         body[k] = v
+    if "context_size" in p and isinstance(body.get("max_tokens"), (int, float)):
+        body["max_tokens"] = min(int(body["max_tokens"]), int(p["context_size"]))
 
 
 def _llm_pick(purpose: str = "", llm_id: str = ""):

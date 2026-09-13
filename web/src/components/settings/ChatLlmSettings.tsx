@@ -471,36 +471,9 @@ export default function ChatLlmSettings() {
                 </label>
               </section>
 
-              <section className="set-card">
-                <div className="set-card-head">
-                  <b>파라미터</b>
-                  {/* Temperature·Top P/K·Penalty·Max Tokens 는 **용도별
-                      프롬프트**로 옮겼다(지시) — 일의 성격이 정하는 값이라
-                      모델에 박으면 용도마다 모델을 복제하게 된다. 여기 저장돼
-                      있던 값은 용도에서 비웠을 때의 기본값으로 계속 쓰인다. */}
-                  <span className="muted small">
-                    Temperature 등 생성 파라미터는 「용도별 프롬프트」 에서 용도마다 정합니다.
-                  </span>
-                </div>
-                <label className="fld">
-                  <span>Completion Mode</span>
-                  <select
-                    value={draft.completion_mode}
-                    onChange={(e) => set('completion_mode', e.target.value)}
-                  >
-                    <option value="chat">Chat</option>
-                    <option value="completion">Completion</option>
-                  </select>
-                </label>
-                <label className="fld">
-                  <span>Context Size</span>
-                  <input
-                    type="number"
-                    value={draft.context_size}
-                    onChange={(e) => set('context_size', Number(e.target.value))}
-                  />
-                </label>
-              </section>
+              {/* 파라미터 카드는 **통째로** 용도별 프롬프트로 옮겼다(지시).
+                  여기 저장돼 있던 값은 용도에서 비웠을 때의 기본값으로 계속
+                  쓰인다 — 업데이트로 동작이 바뀌지 않는다. */}
 
               <section className="set-card">
                 <div className="set-card-head">
