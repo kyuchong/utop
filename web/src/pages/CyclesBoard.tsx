@@ -1957,8 +1957,10 @@ export default function CyclesBoard({
             meName={meName}
             onCell={(rowId, key, v) => {
               if (key === 'assignee') void saveAssigneeOf(rowId, v)
+              /* 제목 두 번 누르면 고친다(지시) — 빈 이름·무변경은 안 보낸다 */
+              else if (key === 'title') void saveNameOf(rowId, v)
             }}
-            readOnlyKeys={['id', 'title', 'vg', 'customer', 'mg', 'model', 'items', 'iss', 'runs', 'last', 'stat', 'created']}
+            readOnlyKeys={['id', 'vg', 'customer', 'mg', 'model', 'items', 'iss', 'runs', 'last', 'stat', 'created']}
             lockDefs
             idKey="id"
             titleKey="title"
@@ -2006,6 +2008,30 @@ export default function CyclesBoard({
   }
 
   /** 목록 칸에서 담당 바꾸기 — 서버는 전문을 통으로 받으니 읽어서 되민다 */
+  /** 목록에서 제목을 바꾼다(지시: 제목 두 번 누르면 수정).
+   *  서버 저장은 전문을 통째로 받으므로 읽어서 이름만 갈아 끼운다. */
+  async function saveNameOf(planId: string, name: string) {
+    const nm = name.trim()
+    if (!nm) return
+    const r = await apiFetch(`/api/cycle/${encodeURIComponent(planId)}`)
+    if (!r.ok) {
+      window.alert('사이클을 불러오지 못했습니다')
+      return
+    }
+    const d = (await r.json()) as PlanFull
+    if (nm === String(d.name ?? '')) return
+    const w = await apiFetch(`/api/cycle/${encodeURIComponent(planId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ ...d, name: nm, updated_by: meName }),
+    })
+    if (!w.ok) {
+      window.alert('저장하지 못했습니다')
+      return
+    }
+    void plansQ.refetch()
+    if (open === planId) await qc.invalidateQueries({ queryKey: ['cycle-full', open] })
+  }
+
   async function saveAssigneeOf(planId: string, who: string) {
     const r = await apiFetch(`/api/cycle/${encodeURIComponent(planId)}`)
     if (!r.ok) {

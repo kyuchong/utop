@@ -498,7 +498,15 @@ export default function NTable(p: NTableProps) {
       return (
         <span className="ntb-idw">
           {p.rowIcon?.(r)}
-          <button type="button" className="ntb-id" title="상세 화면으로" onClick={() => onOpen?.(r.__id)}>
+          {/* ID 클릭(지시) — 팝업이 있는 화면(REQ·Coverage)은 **상세내역
+              팝업**, 없는 화면(사이클)은 상세 화면 이동. 상세로 가는 길은
+              제목의 「열기」 가 늘 있다. */}
+          <button
+            type="button"
+            className="ntb-id"
+            title={onPeek ? '상세내역 팝업' : '상세 화면으로'}
+            onClick={() => (onPeek ? onPeek(r.__id) : onOpen?.(r.__id))}
+          >
             {v}
           </button>
         </span>
@@ -509,9 +517,13 @@ export default function NTable(p: NTableProps) {
     if (c.key === titleKey)
       return (
         <div className="ntb-ttl">
-          <button type="button" className="ntb-tico" title="팝업으로 보기" onClick={() => onPeek?.(r.__id)}>
-            {(() => { const I = TYPE_ICON.text; return <I /> })()}
-          </button>
+          {/* 팝업이 없는 화면에서는 그림도 안 세운다 — 눌러도 아무 일 없는
+              단추는 고장으로 보인다 */}
+          {!!onPeek && (
+            <button type="button" className="ntb-tico" title="상세내역 팝업" onClick={() => onPeek(r.__id)}>
+              {(() => { const I = TYPE_ICON.text; return <I /> })()}
+            </button>
+          )}
           {editing ? (
             <TextEditor
               value={v}
