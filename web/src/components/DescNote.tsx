@@ -47,6 +47,15 @@ export default function DescNote({
     if (bs.length) {
       seeding.current = true
       editor.replaceBlocks(editor.document, bs)
+      /* 갈아 끼운 직후 **선택을 맨 앞에 접어 둔다**(지적: AI 생성을
+         눌렀더니 손도 안 댔는데 파란 선택·포맷 툴바·손잡이가 어중간한
+         자리에 떠 있다) — replaceBlocks 가 남긴 선택이 툴바를 세운다. */
+      try {
+        const first = editor.document[0]
+        if (first) editor.setTextCursorPosition(first, 'start')
+      } catch {
+        /* 커서를 못 접어도 본문은 이미 섰다 */
+      }
       window.setTimeout(() => {
         seeding.current = false
       }, 0)
