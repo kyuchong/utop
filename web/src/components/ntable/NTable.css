@@ -11,7 +11,8 @@
   --ntb-acc: #0e7490;
   --ntb-hov: #fafaf9;
   color: var(--ntb-ink);
-  font-size: 13px;
+  /* 몸통 글자 한 급수 — 제목·본문 칸 전부 여기서 물려받는다(지시: 12.5) */
+  font-size: 12.5px;
 }
 
 /* 도구줄 */
@@ -45,7 +46,7 @@
 }
 /* 머리 글자는 **읽혀야 한다**(지적: 잘 안 보인다) — 옅은 회색(mut)·400 을
    soft·600 으로. 그림(유형 아이콘)은 옅게 둬서 글자가 앞선다. */
-.ntb-hb { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 4px 8px; border-radius: 6px; font: inherit; font-size: 12px; font-weight: 600; color: var(--ntb-soft); cursor: pointer; white-space: nowrap; overflow: hidden; }
+.ntb-hb { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 4px 8px; border-radius: 6px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ntb-soft); cursor: pointer; white-space: nowrap; overflow: hidden; }
 .ntb-hb > svg { color: var(--ntb-mut); flex: none; }
 .ntb-hb .l { overflow: hidden; text-overflow: ellipsis; }
 .ntb-hb:hover, .ntb-hb.on { background: var(--ntb-hov); color: var(--ntb-ink); }
@@ -92,7 +93,9 @@
 
 /* 셀 */
 .ntb-cellb { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; max-width: 100%; overflow: hidden; text-align: left; color: inherit; }
-.ntb-id { border: 0; background: none; padding: 0; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--ntb-acc); cursor: pointer; }
+/* ID(REQ·TC·Cycle 공통) — 고정폭을 걷고 본문 글꼴로(지시: Inter 12px).
+   OS 마다 고정폭이 달라 화면마다 결이 갈렸다. */
+.ntb-id { border: 0; background: none; padding: 0; font-family: inherit; font-size: 12px; color: var(--ntb-acc); cursor: pointer; }
 .ntb-id:hover { text-decoration: underline; }
 .ntb-ttl { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .ntb-tico { border: 0; background: none; padding: 0; color: #c8c4c0; cursor: pointer; display: inline-flex; flex: none; }
@@ -101,7 +104,8 @@
 .ntb-open { margin-left: auto; display: none; align-items: center; gap: 3px; border: 1px solid var(--ntb-bd); background: #fff; border-radius: 5px; padding: 1px 7px; font: inherit; font-size: 11px; color: var(--ntb-soft); cursor: pointer; flex: none; }
 .ntb-row:hover .ntb-open { display: inline-flex; }
 .ntb-txt { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.ntb-cellinp { width: 100%; border: 1px solid var(--ntb-acc); border-radius: 6px; padding: 0 6px; font: inherit; font-size: 13px; outline: none; }
+/* 고치기 입력은 칸 글자와 같은 급수 — 다르면 열자마자 글자가 튄다 */
+.ntb-cellinp { width: 100%; border: 1px solid var(--ntb-acc); border-radius: 6px; padding: 0 6px; font: inherit; font-size: 12.5px; outline: none; }
 .ntb-per { display: inline-flex; align-items: center; gap: 6px; }
 .ntb-av { width: 17px; height: 17px; border-radius: 50%; background: #0e7490; color: #fff; font-size: 9.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 
