@@ -11,10 +11,14 @@ const OPTS: ReadonlyArray<readonly [ListSortMode, string]> = [
   ['recent', '최근'],
 ]
 
-/** 1열 폴더 정렬 — 목록 정렬과 **같은 꼴**을 쓴다(지시) */
-export type FolderSortMode = 'name' | 'req' | 'recent'
+/** 1열 폴더 정렬 — 목록 정렬과 **같은 꼴**을 쓴다(지시).
+ *  숫자·알파벳을 더했다(지시: 정렬을 다양하게) — 숫자순은 앞머리 번호를
+ *  수로 읽고(2 < 10), 알파벳순은 번호를 떼고 글자만 본다. */
+export type FolderSortMode = 'name' | 'num' | 'abc' | 'req' | 'recent'
 
 const FOPTS: ReadonlyArray<readonly [FolderSortMode, string]> = [
+  ['num', '숫자순'],
+  ['abc', '알파벳순'],
   ['name', '이름'],
   ['req', '요구사항 많은 순'],
   ['recent', '최근'],

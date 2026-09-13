@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
 import EditProjectDialog from '@/components/EditProjectDialog'
 import MoveCatDialog from '@/components/MoveCatDialog'
-import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
+import { compareByAlpha, compareByNumber, reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
 import { onGoto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
 import { useCodes } from '@/hooks/useCodes'
@@ -1804,13 +1804,19 @@ export default function ReqTc({ me }: Props) {
           return hit(c)
         })
         .sort((a, b) =>
-          fsort === 'name'
-            ? a.name.localeCompare(b.name)
-            : fsort === 'req'
-              ? countOf(b.id).r - countOf(a.id).r
-              : String((b as { updated_at?: string }).updated_at ?? '').localeCompare(
-                  String((a as { updated_at?: string }).updated_at ?? ''),
-                ),
+          /* 숫자·알파벳을 더했다(지시: 정렬을 다양하게) — 셈은 types 의
+             한 곳(compareByNumber·compareByAlpha)을 쓴다 */
+          fsort === 'num'
+            ? compareByNumber(a.name, b.name)
+            : fsort === 'abc'
+              ? compareByAlpha(a.name, b.name)
+              : fsort === 'name'
+                ? a.name.localeCompare(b.name)
+                : fsort === 'req'
+                  ? countOf(b.id).r - countOf(a.id).r
+                  : String((b as { updated_at?: string }).updated_at ?? '').localeCompare(
+                      String((a as { updated_at?: string }).updated_at ?? ''),
+                    ),
         )
         .map((c) => {
           const kid = kids.get(c.id) ?? []
@@ -1821,13 +1827,26 @@ export default function ReqTc({ me }: Props) {
           const own = (treeReqs || !!nq
             ? reqs.filter((r) => catOf(r) === c.id)
             : []
-          ).filter(
-            (r) =>
-              !nq ||
-              norm(r.title).includes(nq) ||
-              norm(reqLabel(r)).includes(nq) ||
-              norm(c.name).includes(nq),
           )
+            .filter(
+              (r) =>
+                !nq ||
+                norm(r.title).includes(nq) ||
+                norm(reqLabel(r)).includes(nq) ||
+                norm(c.name).includes(nq),
+            )
+            /* 잎(요구사항)도 폴더와 **같은 정렬**을 탄다(지적: 14→11 로
+               뒤집혀 선다). 「요구사항 많은 순」 은 잎에는 뜻이 없어
+               이름으로 눕힌다. */
+            .sort((x, y) =>
+              fsort === 'num'
+                ? compareByNumber(String(x.title ?? ''), String(y.title ?? ''))
+                : fsort === 'abc'
+                  ? compareByAlpha(String(x.title ?? ''), String(y.title ?? ''))
+                  : fsort === 'recent'
+                    ? String(y.updated_at ?? '').localeCompare(String(x.updated_at ?? ''))
+                    : String(x.title ?? '').localeCompare(String(y.title ?? '')),
+            )
           const canOpen = kid.length > 0 || own.length > 0
           const on = openCat.has(c.id) || !!treeQ.trim()
           const n = countOf(c.id)
