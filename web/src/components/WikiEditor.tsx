@@ -21,6 +21,7 @@ import { withCollaboration } from '@blocknote/core/yjs'
 import { RefSpec } from './wikiRef'
 import { ViewSpec } from './wikiView'
 import ListButtons, { BlockKindSelect } from './wikiListButtons'
+import BnSideMenuCentered from './BnSideMenuCentered'
 import { ko } from '@blocknote/core/locales'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
@@ -876,6 +877,8 @@ export default function WikiEditor({
           theme={THEME}
           slashMenu={false}
           formattingToolbar={false}
+          /* 손잡이(＋⠿)는 줄 중앙 맞춤판으로(지적: 제목마다 위치가 다름) */
+          sideMenu={false}
           onChange={() => {
             if (!ready) return
             dirty.current = true
@@ -986,6 +989,7 @@ export default function WikiEditor({
               return [...docs, ...reqs, ...tcs]
             }}
           />
+          <BnSideMenuCentered />
         </BlockNoteView>
       </div>
 

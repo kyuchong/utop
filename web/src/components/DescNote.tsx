@@ -4,6 +4,7 @@ import { BlockNoteView } from '@blocknote/mantine'
 import { ko } from '@blocknote/core/locales'
 import type { PartialBlock } from '@blocknote/core'
 import { THEME } from './WikiEditor'
+import BnSideMenuCentered from './BnSideMenuCentered'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
 
@@ -68,10 +69,15 @@ export default function DescNote({
       editor={editor}
       theme={THEME}
       editable={editable}
+      /* 기본 손잡이는 끄고 **줄 중앙 맞춤판**으로 바꿔 단다(지적) —
+         나머지 기본 UI(툴바·슬래시 메뉴)는 그대로 산다 */
+      sideMenu={false}
       onChange={() => {
         if (!onChange || seeding.current) return
         onChange(editor.document as unknown[], editor.blocksToMarkdownLossy(editor.document))
       }}
-    />
+    >
+      <BnSideMenuCentered />
+    </BlockNoteView>
   )
 }
