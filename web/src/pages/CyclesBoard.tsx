@@ -1020,10 +1020,12 @@ export default function CyclesBoard({
         ...Object.fromEntries(
           Object.entries(rq?.custom ?? {}).map(([k, v]) => [`cf_${k}`, String(v ?? '')]),
         ),
+        /* 시험 항목의 **빈 값은 안 덮는다** — 물려받은 Key 를 빈 문자열이
+           지우면 상속이 없는 것과 같아진다(Coverage 와 같은 규칙) */
         ...Object.fromEntries(
-          Object.entries((meta as unknown as { custom?: Record<string, unknown> })?.custom ?? {}).map(
-            ([k, v]) => [`cf_${k}`, String(v ?? '')],
-          ),
+          Object.entries((meta as unknown as { custom?: Record<string, unknown> })?.custom ?? {})
+            .filter(([, v]) => String(v ?? '') !== '')
+            .map(([k, v]) => [`cf_${k}`, String(v ?? '')]),
         ),
       })
     }

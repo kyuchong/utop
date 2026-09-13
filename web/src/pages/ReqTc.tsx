@@ -1397,11 +1397,19 @@ export default function ReqTc({ me }: Props) {
           run_type: String(t.run_type ?? t.kind ?? ''),
           origin: String((t as unknown as Record<string, unknown>).origin ?? ''),
           /* 만든 칸(cf_)은 최상위가 아니라 custom 안에 산다 — 안 펴면
-             늘 비어 보였다(검증) */
+             늘 비어 보였다(검증).
+             **요구사항 것을 먼저 깔고 시험 항목 것으로 덮는다**(지적:
+             Coverage 의 Key 가 전부 비었다) — 요구사항에 만든 칸(Key)은
+             그 아래 시험 항목이 물려받는다. 사이클 화면과 같은 규칙이다. */
           ...Object.fromEntries(
-            Object.entries(((t as unknown as { custom?: Record<string, unknown> }).custom ?? {})).map(
+            Object.entries(((r as unknown as { custom?: Record<string, unknown> })?.custom ?? {})).map(
               ([k, v]) => [`cf_${k}`, String(v ?? '')],
             ),
+          ),
+          ...Object.fromEntries(
+            Object.entries(((t as unknown as { custom?: Record<string, unknown> }).custom ?? {}))
+              .filter(([, v]) => String(v ?? '') !== '')
+              .map(([k, v]) => [`cf_${k}`, String(v ?? '')]),
           ),
         }
       }),
