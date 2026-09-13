@@ -2288,10 +2288,13 @@ export default function CyclesBoard({
   })
   const liveRun = (liveRunQ.data?.runs ?? [])[0]
 
-  /** 보낸 메일 자취 — 메일 이력 탭이 읽는다 */
+  /** 보낸 메일 자취 — 메일 이력 탭이 읽고, **머리의 숫자 배지**도 이걸 센다.
+   *  탭을 열어야 받아 오게 가둬 두면 사이클을 막 열었을 때 배지가 늘
+   *  0 이었다(지적: 탭을 눌러야 1 로 는다) — 사이클이 열리면 바로 받는다.
+   *  목록 하나라 가볍고 20초 캐시가 있다. */
   const mailQ = useQuery({
     queryKey: ['cycle-mail', open],
-    enabled: !!open && (tab === 'sum' || tab === 'mail'),
+    enabled: !!open,
     queryFn: async () => {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(String(open))}/mail-log`)
       if (!r.ok) return { items: [] as MailRow[] }
@@ -3569,7 +3572,16 @@ export default function CyclesBoard({
         </>
       )}
 
-      {!!mailPlan && <CycleMailOne cycle={mailPlan} onClose={() => setMailPlan(null)} />}
+      {!!mailPlan && (
+        <CycleMailOne
+          cycle={mailPlan}
+          onClose={() => {
+            setMailPlan(null)
+            /* 방금 보낸 메일이 배지·이력에 바로 서게 — 20초 캐시를 깬다 */
+            void qc.invalidateQueries({ queryKey: ['cycle-mail'] })
+          }}
+        />
+      )}
       {!!repPlan && (
         <CycleReport
           cycleId={repPlan.id}
