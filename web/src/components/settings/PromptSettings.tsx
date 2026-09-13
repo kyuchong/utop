@@ -28,7 +28,19 @@ interface Purpose {
   placeholder: string
   /** 눌러서 바로 묻는 추천 질문 */
   asks: string[]
+  /** 생성 파라미터(지시: LLM 설정에서 옮겨 옴) — 비우면 모델 기본을 따른다 */
+  params: Record<string, string>
 }
+
+/** 파라미터 칸 정의 — 이름·걸음폭·안내. 서버 키와 같다 */
+const PARAM_FIELDS: ReadonlyArray<readonly [string, string, string, string]> = [
+  ['temperature', 'Temperature', '0.1', '예: 0.2 차분 · 0.7 다양'],
+  ['max_tokens', 'Max Tokens', '1', '예: 2048'],
+  ['top_p', 'Top P', '0.05', '0.0 ~ 1.0'],
+  ['top_k', 'Top K', '1', '예: 50'],
+  ['presence_penalty', 'Presence Penalty', '0.1', '-2.0 ~ 2.0'],
+  ['frequency_penalty', 'Frequency Penalty', '0.1', '-2.0 ~ 2.0'],
+]
 
 interface Llm {
   id?: string
@@ -59,6 +71,10 @@ export default function PromptSettings() {
           greeting: x.greeting ?? '',
           placeholder: x.placeholder ?? '',
           asks: Array.isArray(x.asks) ? x.asks : [],
+          /* 서버는 숫자로 준다 — 입력칸은 글자로 다룬다(비움 = 기본) */
+          params: Object.fromEntries(
+            Object.entries((x.params ?? {}) as Record<string, unknown>).map(([k, v]) => [k, String(v)]),
+          ),
         })))
         setLlms(k.llms ?? [])
       } catch {
@@ -85,6 +101,10 @@ export default function PromptSettings() {
               placeholder: x.placeholder,
               /* 빈 줄은 버린다 — 「＋질문 추가」 를 눌러 놓고 안 적은 것 */
               asks: x.asks.filter((q) => q.trim()),
+              /* 빈 칸은 안 보낸다 — 비움 = 모델 기본을 따른다는 뜻 */
+              params: Object.fromEntries(
+                Object.entries(x.params).filter(([, v]) => String(v).trim() !== ''),
+              ),
             },
           ]),
         ),
@@ -146,6 +166,28 @@ export default function PromptSettings() {
                   ))}
                 </select>
               </label>
+
+              {/* 파라미터(지시: LLM 설정에서 이리로) — 일의 성격이 정하는
+                  값이라 용도에 붙인다. 요약은 차갑게(0.2), 요구사항은
+                  뜨겁게(0.7). 비우면 모델의 기본값을 따른다. */}
+              <div className="ps-chat">
+                <div className="ps-chat-h">
+                  <b>파라미터</b>
+                  <span className="muted small">비우면 모델(LLM 설정)의 기본값을 따릅니다.</span>
+                </div>
+                {PARAM_FIELDS.map(([k, label, step, hint]) => (
+                  <label className="ps-fld" key={k}>
+                    <span>{label}</span>
+                    <input
+                      type="number"
+                      step={step}
+                      value={x.params[k] ?? ''}
+                      placeholder={hint}
+                      onChange={(e) => set(x.id, { params: { ...x.params, [k]: e.target.value } })}
+                    />
+                  </label>
+                ))}
+              </div>
 
               {/* 채팅 화면에서 보이는 것 — 프롬프트는 AI 가 읽고, 이 셋은
                   사람이 본다(지시: 붉은 상자). 여는 말·입력칸 안내·추천 질문. */}

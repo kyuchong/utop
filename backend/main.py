@@ -3060,7 +3060,53 @@ def _prompt_of(purpose: str) -> dict:
         "greeting": saved.get("greeting") or base.get("greeting") or "",
         "placeholder": saved.get("placeholder") or base.get("placeholder") or "",
         "asks": list(saved.get("asks") or base.get("asks") or []),
+        # 용도별 파라미터(지시) — 비우면 모델 기본을 따른다
+        "params": dict(saved.get("params") or {}),
     }
+
+
+# 용도에 걸 수 있는 파라미터(지시: 파라미터는 용도별 프롬프트로).
+# 모델(LLM 설정)에는 기본값이 남고, 용도 값이 있으면 그것이 이긴다.
+_PURPOSE_PARAM_KEYS = ("max_tokens", "temperature", "top_p", "top_k",
+                       "presence_penalty", "frequency_penalty")
+
+
+def _purpose_params(purpose: str) -> dict:
+    """이 용도에 걸어 둔 파라미터. 빈 칸은 돌려주지 않는다 — 비우면 기본."""
+    if not purpose or not PROMPTS_FILE.exists():
+        return {}
+    try:
+        saved = (load_json(PROMPTS_FILE).get("purposes") or {}).get(purpose) or {}
+        out = {}
+        for k in _PURPOSE_PARAM_KEYS:
+            v = (saved.get("params") or {}).get(k)
+            if v is None or v == "":
+                continue
+            out[k] = int(float(v)) if k in ("max_tokens", "top_k") else float(v)
+        return out
+    except Exception:
+        return {}
+
+
+def _clean_purpose_params(raw) -> dict:
+    """저장 전 청소 — 숫자만 받고, 못 읽는 값·빈 칸은 버린다."""
+    out = {}
+    for k in _PURPOSE_PARAM_KEYS:
+        v = (raw or {}).get(k)
+        if v is None or str(v).strip() == "":
+            continue
+        try:
+            out[k] = int(float(v)) if k in ("max_tokens", "top_k") else float(v)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _apply_purpose_params(body: dict, purpose: str) -> None:
+    """OpenAI 호환 body 에 용도 파라미터를 덮는다 — 사람이 설정에 적은 값이
+    코드에 박힌 기본을 이긴다. 요약은 차갑게, 요구사항은 뜨겁게(지시)."""
+    for k, v in _purpose_params(purpose).items():
+        body[k] = v
 
 
 def _llm_pick(purpose: str = "", llm_id: str = ""):
@@ -3113,6 +3159,7 @@ async def llm_purposes():
             "greeting": cur.get("greeting") or "",
             "placeholder": cur.get("placeholder") or "",
             "asks": cur.get("asks") or [],
+            "params": cur.get("params") or {},
         })
     return {"purposes": out}
 
@@ -3132,6 +3179,8 @@ async def llm_purposes_save(data: dict):
             "greeting": str((v or {}).get("greeting") or ""),
             "placeholder": str((v or {}).get("placeholder") or ""),
             "asks": [str(x) for x in ((v or {}).get("asks") or []) if str(x).strip()],
+            # 파라미터(지시: 용도별로) — 숫자만 받고 빈 칸은 저장하지 않는다
+            "params": _clean_purpose_params((v or {}).get("params")),
         }
     cur["purposes"] = ps
     PROMPTS_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -3139,7 +3188,7 @@ async def llm_purposes_save(data: dict):
     return {"ok": True}
 
 
-async def _llm_json(llm, sys_p, user_p, schema, timeout=120):
+async def _llm_json(llm, sys_p, user_p, schema, timeout=120, purpose: str = ""):
     """LLM 에게 JSON 하나를 받는다. `guided_json` 이 없는 판이면 한 번 더 물러선다."""
     import httpx
     body = {
@@ -3149,6 +3198,7 @@ async def _llm_json(llm, sys_p, user_p, schema, timeout=120):
         "max_tokens": 1536,
         "guided_json": schema,
     }
+    _apply_purpose_params(body, purpose)   # 용도 파라미터가 코드 기본을 이긴다(지시)
     headers = {"Content-Type": "application/json"}
     if llm.get("apikey"):
         headers["Authorization"] = f"Bearer {llm['apikey']}"
@@ -3242,7 +3292,7 @@ async def llm_similar(payload: dict):
             "\n\n가장 가까운 것부터 최대 3개의 tcid 만 {\"tcids\":[...]} 로 출력하라."
         )
         try:
-            got = await _llm_json(llm, sys_p, user_p, schema, timeout=60)
+            got = await _llm_json(llm, sys_p, user_p, schema, timeout=60, purpose="similar")
             ids = [str(x) for x in (got.get("tcids") or [])]
             byid = {str(t.get("tcid")): t for t in top}
             picked = [byid[i] for i in ids if i in byid]
@@ -3338,7 +3388,7 @@ async def llm_wiring(payload: dict):
         "\n\n{\"wires\":[...]} 로만 출력하라."
     )
     try:
-        got = await _llm_json(llm, sys_p, user_p, schema)
+        got = await _llm_json(llm, sys_p, user_p, schema, purpose="wiring")
     except Exception as e:
         return {"ok": False, "error": str(e)[:300]}
 
@@ -14907,13 +14957,14 @@ def _ai_llm(llm_id: str = ""):
     return (loc[0] if loc else (act[0] if act else None))
 
 async def _ai_chat(messages, max_tokens=1800, temperature=0.3, json_schema=None, timeout=180,
-                   llm_id: str = ""):
+                   llm_id: str = "", purpose: str = ""):
     """OpenAI 호환 chat/completions 1회 호출 → (content, error). json_schema 지정 시 vLLM guided_json."""
     llm = _ai_llm(llm_id)
     if not llm:
         return None, "등록된 로컬 LLM이 없습니다 — AI Assistant ▸ LLM 설정에서 등록하세요."
     import httpx
     body = {"model": llm.get("model") or "", "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
+    _apply_purpose_params(body, purpose)   # 용도 파라미터가 코드 기본을 이긴다(지시)
     if json_schema:
         body["guided_json"] = json_schema
     headers = {"Content-Type": "application/json"}
@@ -15192,7 +15243,7 @@ async def _cycle_ai_summary(cycle_id, llm_id: str = ""):
              "## Fail 분석(항목별 원인 추정과 근거 — 출력·판정기준 인용) / ## 권고사항(재시험·설정확인 등 구체적으로). "
              "결과에 없는 내용은 추측하지 말고, Fail이 없으면 Fail 분석은 '해당 없음'으로 쓴다.")
     ans, err = await _ai_chat([{"role": "system", "content": sys_p}, {"role": "user", "content": ctx}],
-                              max_tokens=1600, llm_id=llm_id)
+                              max_tokens=1600, llm_id=llm_id, purpose="cycle_summary")
     if err:
         return None, err
     llm = _ai_llm(llm_id) or {}
@@ -16961,7 +17012,8 @@ async def api_defect_classify(payload: dict):
         async with gate:
             try:
                 out = await _jira_llm_complete(
-                    llm, sys_p, "이슈:\n" + txt + "\n분류 JSON:", max_tokens=200, temp=0.0)
+                    llm, sys_p, "이슈:\n" + txt + "\n분류 JSON:", max_tokens=200, temp=0.0,
+                    purpose="jira_defect")
                 m = _re.search(r"\{[\s\S]*\}", str(out or ""))
                 return k, _defect_norm(_json.loads(m.group(0)) if m else {})
             except Exception:
@@ -18763,7 +18815,7 @@ async def kai_ask(payload: dict, request: Request):
         (LLM_PURPOSES.get("kai_answer") or {}).get("system") or "")
     user_p = "질문: " + q + "\n\n근거:\n" + ("\n\n".join(blocks) if blocks else "(찾은 근거 없음)")
     llm = _llm_pick("kai_answer") or _ai_llm() or {}
-    ans = await _jira_llm_complete(llm, sys_p, user_p, max_tokens=900)
+    ans = await _jira_llm_complete(llm, sys_p, user_p, max_tokens=900, purpose="kai_answer")
     if not ans:
         ans = ("LLM 이 설정되지 않았거나 답을 만들지 못했습니다. 찾은 근거는 오른쪽에서 볼 수 있습니다."
                if srcs else "찾은 근거가 없습니다 — 범위를 넓히거나 말을 바꿔 보세요.")
@@ -18884,19 +18936,23 @@ async def release_summary_save(data: dict):
     _kv_save_sync("release_summary", data or {"releases": []})
     return {"ok": True}
 
-async def _jira_llm_complete(llm, sys_p, user_p, max_tokens=400, temp=0.0):
+async def _jira_llm_complete(llm, sys_p, user_p, max_tokens=400, temp=0.0, purpose: str = ""):
     """LLM 1회 호출 → 텍스트 반환 (JQL 자동생성 등 보조용). 실패 시 ''."""
     import httpx as _hx
     if not llm: return ""
+    _pp = _purpose_params(purpose)   # 용도 파라미터가 코드 기본을 이긴다(지시)
     ltype = str(llm.get("type") or "").lower(); ep = str(llm.get("endpoint") or "")
     try:
         if ltype in ("claude", "anthropic") or "anthropic.com" in ep:
             import anthropic as _ah
+            _kw = {"temperature": _pp["temperature"]} if "temperature" in _pp else {}
             m = _ah.Anthropic(api_key=llm.get("apikey") or "").messages.create(
-                model=llm.get("model") or "claude-sonnet-4-6", max_tokens=max_tokens, system=sys_p,
-                messages=[{"role": "user", "content": user_p}])
+                model=llm.get("model") or "claude-sonnet-4-6",
+                max_tokens=int(_pp.get("max_tokens") or max_tokens), system=sys_p,
+                messages=[{"role": "user", "content": user_p}], **_kw)
             return "".join(getattr(b, "text", "") for b in m.content).strip()
         body = {"model": llm.get("model") or "", "messages": [{"role": "system", "content": sys_p}, {"role": "user", "content": user_p}], "temperature": temp, "max_tokens": max_tokens}
+        _apply_purpose_params(body, purpose)
         headers = {"Content-Type": "application/json"}; ak = llm.get("apikey")
         if ak and not str(ak).lower().startswith("http"): headers["Authorization"] = f"Bearer {ak}"
         async with _hx.AsyncClient(timeout=120) as client:
@@ -20456,6 +20512,8 @@ async def _llm_text(use: str, system: str, user: str, max_tokens: int = 1500,
             "temperature": float(llm.get("temperature") or 0.7),
             "messages": [{"role": "system", "content": sys_p}, {"role": "user", "content": user}],
         }
+        # 용도별 파라미터가 있으면 그것이 이긴다(지시) — use 가 곧 용도다
+        _apply_purpose_params(body, use)
         # JSON 이 필요하면 **규격으로** 부탁한다. 말로만 「JSON 만 출력하라」 고
         # 하면 작은 모델은 곧잘 설명을 앞에 붙인다(지적: 모델이 JSON 을 안 줬다).
         if want_json:
@@ -20490,11 +20548,17 @@ async def _llm_text(use: str, system: str, user: str, max_tokens: int = 1500,
             ".env 에 ANTHROPIC_API_KEY 를 넣으세요",
         )
     try:
+        # 용도별 파라미터(지시) — Anthropic 은 받는 것만(max_tokens·temperature) 쓴다
+        _pp = _purpose_params(use)
+        _kw = {}
+        if "temperature" in _pp:
+            _kw["temperature"] = _pp["temperature"]
         msg = cl.messages.create(
             model=cmodel or CLAUDE_FALLBACK_MODEL,
-            max_tokens=max_tokens,
+            max_tokens=int(_pp.get("max_tokens") or max_tokens),
             system=sys_p,
             messages=[{"role": "user", "content": user}],
+            **_kw,
         )
         return "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
     except Exception as e:

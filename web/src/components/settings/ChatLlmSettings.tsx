@@ -322,9 +322,7 @@ export default function ChatLlmSettings() {
     }
   }
 
-  /** 숫자 칸. 비우면 null 로 둔다 — 0 과 '안 정함' 은 다르다. */
-  const num = (v: number | null) => (v === null || v === undefined ? '' : String(v))
-  const toNum = (s: string): number | null => (s.trim() === '' ? null : Number(s))
+  /* 숫자 칸 도우미(num·toNum)는 파라미터를 용도별 프롬프트로 옮기며 걷었다 */
 
   if (loading) return <div className="empty">불러오는 중…</div>
 
@@ -476,6 +474,13 @@ export default function ChatLlmSettings() {
               <section className="set-card">
                 <div className="set-card-head">
                   <b>파라미터</b>
+                  {/* Temperature·Top P/K·Penalty·Max Tokens 는 **용도별
+                      프롬프트**로 옮겼다(지시) — 일의 성격이 정하는 값이라
+                      모델에 박으면 용도마다 모델을 복제하게 된다. 여기 저장돼
+                      있던 값은 용도에서 비웠을 때의 기본값으로 계속 쓰인다. */}
+                  <span className="muted small">
+                    Temperature 등 생성 파라미터는 「용도별 프롬프트」 에서 용도마다 정합니다.
+                  </span>
                 </div>
                 <label className="fld">
                   <span>Completion Mode</span>
@@ -488,67 +493,11 @@ export default function ChatLlmSettings() {
                   </select>
                 </label>
                 <label className="fld">
-                  <span>Max Tokens</span>
-                  <input
-                    type="number"
-                    value={draft.max_tokens}
-                    onChange={(e) => set('max_tokens', Number(e.target.value))}
-                  />
-                </label>
-                <label className="fld">
                   <span>Context Size</span>
                   <input
                     type="number"
                     value={draft.context_size}
                     onChange={(e) => set('context_size', Number(e.target.value))}
-                  />
-                </label>
-                <label className="fld">
-                  <span>Temperature</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={draft.temperature}
-                    onChange={(e) => set('temperature', Number(e.target.value))}
-                  />
-                </label>
-                <label className="fld">
-                  <span>Top P</span>
-                  <input
-                    type="number"
-                    step="0.05"
-                    value={num(draft.top_p)}
-                    placeholder="0.0 ~ 1.0 (비우면 기본값)"
-                    onChange={(e) => set('top_p', toNum(e.target.value))}
-                  />
-                </label>
-                <label className="fld">
-                  <span>Top K</span>
-                  <input
-                    type="number"
-                    value={num(draft.top_k)}
-                    placeholder="예: 50 (비우면 기본값)"
-                    onChange={(e) => set('top_k', toNum(e.target.value))}
-                  />
-                </label>
-                <label className="fld">
-                  <span>Presence Penalty</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={num(draft.presence_penalty)}
-                    placeholder="-2.0 ~ 2.0"
-                    onChange={(e) => set('presence_penalty', toNum(e.target.value))}
-                  />
-                </label>
-                <label className="fld">
-                  <span>Frequency Penalty</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={num(draft.frequency_penalty)}
-                    placeholder="-2.0 ~ 2.0"
-                    onChange={(e) => set('frequency_penalty', toNum(e.target.value))}
                   />
                 </label>
               </section>
