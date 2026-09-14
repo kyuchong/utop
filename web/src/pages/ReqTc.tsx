@@ -2648,9 +2648,9 @@ export default function ReqTc({ me }: Props) {
                 할 일도 없는 단추가 자리를 먹으면 빵부스러기가 밀려 두 줄로
                 접힌다(지적: 빵부스러기가 잘린다). 치우면 그 줄이 통째로
                 자리 이야기 몫이 된다. */}
-            {openTc && tcApi2?.menu && (
-              <span className="rqtc-tcmore">{tcApi2.menu}</span>
-            )}
+            {/* 팝업의 ⋯(더보기)는 걷었다(지시) — 안에 있던 내보내기·
+                가져오기는 목록 상단 상시 단추가 됐다. 「다른 이름으로 저장」·
+                「변경 이력」 은 TC 단독 화면(Test AI ▸ 목록)에 그대로 있다. */}
             {!openTc && !openReq && !gpOpen && (
             <>
             <span className="rqtc-vsep" aria-hidden="true" />
