@@ -924,11 +924,31 @@ export default function ReqTc({ me }: Props) {
     try {
       const f = parseTcFile(await file.text())
       const tc = { ...f.tc } as Record<string, unknown>
+      /* 남의 서버 살림살이는 버린다(지적: 문구만 나오고 안 들어간다) —
+         옛 파일에는 _rev 가 실려 있어, 그대로 보내면 이쪽 서버의 판
+         비교에 걸려 「남이 저장했습니다」 로 거절당했다. */
+      for (const k of ['_rev', '_updated_at_pg', '_cli_count', '_sess_n']) delete tc[k]
       const id = String(tc.tcid ?? '')
       if (!id) throw new Error('파일에 TC ID 가 없습니다')
-      await apiFetch(`/api/tc/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify(tc) })
+      const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body: JSON.stringify(tc),
+      })
+      /* 실패를 성공이라 말하지 않는다 — 여태 응답을 안 봐서, 거절당해도
+         「가져왔습니다」 가 떴다. */
+      if (!r.ok) {
+        const detail = ((await r.json().catch(() => ({}))) as { detail?: string }).detail
+        throw new Error(detail || `서버가 거절했습니다 (${r.status})`)
+      }
       await tcQ.refetch()
-      window.alert(`가져왔습니다 — ${id}`)
+      /* 어디 들어갔는지도 말한다 — 파일의 요구사항이 이 서버에 없으면
+         지금 보는 폴더가 아니라 「REQ 미할당」 에 선다. */
+      const rq = reqById.get(String(tc.req_id ?? ''))
+      window.alert(
+        rq
+          ? `가져왔습니다 — ${id} (${reqLabel(rq)} 아래)`
+          : `가져왔습니다 — ${id}\n이 서버에 연결할 요구사항이 없어 「REQ 미할당」 에 들어갔습니다.`,
+      )
     } catch (e) {
       window.alert(`가져오지 못했습니다 — ${String((e as Error).message)}`)
     }

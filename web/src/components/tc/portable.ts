@@ -46,12 +46,17 @@ export interface TcFile {
  */
 export function buildTcFile(d: TcData, devById: Map<string, Device>): TcFile {
   const sessions = Array.isArray(d.sessions) ? (d.sessions as string[]) : []
+  /* 이 서버만의 살림살이는 **떼고** 싣는다(지적: 다른 서버에서 가져오기가
+     안 된다). _rev 가 실려 가면 저쪽 서버의 판 비교에 걸려 「남이
+     저장했습니다」 로 거절당한다 — 파일은 판 밖의 것이다. */
+  const tc = { ...(d as Record<string, unknown>) }
+  for (const k of ['_rev', '_updated_at_pg', '_cli_count', '_sess_n']) delete tc[k]
   return {
     utop: TC_FILE_VERSION,
     kind: 'tc',
     exported_at: new Date().toISOString(),
     origin: window.location.host,
-    tc: d,
+    tc: tc as unknown as TcData,
     session_devices: sessions.map((id) => {
       const dev = devById.get(id)
       if (!dev) return null
