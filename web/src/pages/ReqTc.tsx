@@ -37,7 +37,7 @@ import TcMapReqDialog from '@/components/tc/TcMapReqDialog'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import CopyDialog from '@/components/CopyDialog'
-import { buildTcFile, tcFileName, downloadJson, parseTcFile } from '@/components/tc/portable'
+import { buildTcFile, tcFileName, downloadJson, nextTcId, parseTcFile } from '@/components/tc/portable'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
 import TestCases from '@/pages/TestCases'
@@ -928,8 +928,23 @@ export default function ReqTc({ me }: Props) {
          옛 파일에는 _rev 가 실려 있어, 그대로 보내면 이쪽 서버의 판
          비교에 걸려 「남이 저장했습니다」 로 거절당했다. */
       for (const k of ['_rev', '_updated_at_pg', '_cli_count', '_sess_n']) delete tc[k]
-      const id = String(tc.tcid ?? '')
+      let id = String(tc.tcid ?? '')
       if (!id) throw new Error('파일에 TC ID 가 없습니다')
+      /* 같은 ID 가 이미 있으면 **묻는다**(지적: 가져와도 56건 그대로) —
+         조용히 덮어쓰면 「추가가 안 된다」 로 읽힌다. 확인=덮어쓰기,
+         취소=새 ID 로 추가. */
+      if (tcs.some((t) => t.tcid === id)) {
+        const taken = new Set(tcs.map((t) => t.tcid))
+        const nid = nextTcId(id, taken)
+        const over = window.confirm(
+          `${id} 는 이미 이 서버에 있습니다.\n\n확인 — 그 항목을 파일 내용으로 덮어씁니다\n취소 — 새 ID(${nid})로 추가합니다`,
+        )
+        if (!over) {
+          id = nid
+          tc.tcid = nid
+          /* 새 항목이다 — 원본의 실행 흔적은 두고 이름은 그대로 */
+        }
+      }
       const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`, {
         method: 'POST',
         body: JSON.stringify(tc),
