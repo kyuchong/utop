@@ -903,20 +903,30 @@ export default function ReqTc({ me }: Props) {
   /** 표에서 체크한 시험 항목 — 상단 「내보내기」 가 이것을 내보낸다(지시).
    *  옛 sel 에 담으면 일괄 바가 둘이 되어 서로를 덮었다(검증) — 따로 든다. */
   const [tcSel, setTcSel] = useState<string[]>([])
-  /** 가져오기에서 같은 ID 를 만났을 때 묻는 팝업(지시: alert 말고 팝업) */
+  /** 가져오기 확인 팝업(지시: 정보를 띄운 뒤 고른다) — 늘 뜬다.
+   *  같은 ID 가 있으면 덮어쓰기/새 ID, 없으면 가져오기 단추가 선다. */
   const [impAsk, setImpAsk] = useState<{
     tc: Record<string, unknown>
     id: string
     nid: string
     name: string
+    exists: boolean
+    origin: string
+    at: string
   } | null>(null)
+  /** 내보내기 확인 팝업(지시) — 무엇을 내보내는지 보고 누른다 */
+  const [expAsk, setExpAsk] = useState<string[] | null>(null)
   /** 자리가 정해졌다(지시: Coverage 상단) — 체크한 항목을 파일로 내보낸다.
-   *  여러 개면 하나씩 차례로 내려온다. */
+   *  누르면 먼저 **무엇을 내보내는지** 팝업으로 보여 준다(지시). */
   const exportTc = async (ids: string[]) => {
     if (!ids.length) {
       window.alert('내보낼 항목을 표에서 체크하세요.')
       return
     }
+    setExpAsk(ids)
+  }
+  /** 팝업에서 확인한 뒤 실제로 내려받는다 — 여러 개면 하나씩 차례로 */
+  const doExport = async (ids: string[]) => {
     try {
       for (const id of ids) {
         const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
@@ -937,14 +947,19 @@ export default function ReqTc({ me }: Props) {
       for (const k of ['_rev', '_updated_at_pg', '_cli_count', '_sess_n']) delete tc[k]
       const id = String(tc.tcid ?? '')
       if (!id) throw new Error('파일에 TC ID 가 없습니다')
-      /* 같은 ID 가 이미 있으면 **팝업으로 묻는다**(지시: alert 말고 팝업) —
-         덮어쓰기 / 새 ID 로 추가 / 취소를 단추로 고른다. */
-      if (tcs.some((t) => t.tcid === id)) {
-        const taken = new Set(tcs.map((t) => t.tcid))
-        setImpAsk({ tc, id, nid: nextTcId(id, taken), name: String(tc.name ?? '') })
-        return
-      }
-      await sendImport(tc, id)
+      /* **늘 팝업으로 먼저 보여 준다**(지시) — 파일이 무엇인지(제품군·
+         제품명·출처) 보고 나서 가져오기를 누른다. 같은 ID 가 있으면
+         덮어쓰기/새 ID 단추가 대신 선다. */
+      const taken = new Set(tcs.map((t) => t.tcid))
+      setImpAsk({
+        tc,
+        id,
+        nid: nextTcId(id, taken),
+        name: String(tc.name ?? ''),
+        exists: taken.has(id),
+        origin: String(f.origin ?? ''),
+        at: String(f.exported_at ?? '').slice(0, 16).replace('T', ' '),
+      })
     } catch (e) {
       window.alert(`가져오지 못했습니다 — ${String((e as Error).message)}`)
     }
@@ -3287,52 +3302,136 @@ export default function ReqTc({ me }: Props) {
         />
       )}
 
-      {/* 가져오기 — 같은 ID 를 만나면 묻는다(지시: 팝업으로). 조용하게:
-          구역 둘, 실금만. 단추가 곧 답이다. */}
-      {impAsk && (
+      {/* 가져오기 확인(지시: 정보를 띄운 뒤 고른다) — 파일이 무엇인지 보고
+          누른다. 같은 ID 면 덮어쓰기/새 ID, 아니면 가져오기. */}
+      {impAsk && (() => {
+        const t = impAsk.tc as { model_group?: unknown; model?: unknown; req_id?: unknown }
+        const rq2 = reqById.get(String(t.req_id ?? ''))
+        const rows: Array<[string, string]> = [
+          ['TC ID', impAsk.id],
+          ['제목', impAsk.name || '(없음)'],
+          ['제품군', String(t.model_group ?? '') || '–'],
+          ['제품명', String(t.model ?? '') || '–'],
+          ['요구사항', rq2 ? `${reqLabel(rq2)} ${rq2.title ?? ''}` : '이 서버에 없음 → REQ 미할당'],
+          ['출처', [impAsk.origin, impAsk.at].filter(Boolean).join(' · ') || '–'],
+        ]
+        return (
         <div className="modal-back" onMouseDown={() => setImpAsk(null)}>
           <div className="modal rqtc-impask" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
             <div className="modal-head slim">
-              <b>가져오기 — 같은 ID 가 있습니다</b>
+              <b>가져오기{impAsk.exists ? ' — 같은 ID 가 있습니다' : ''}</b>
             </div>
             <div className="rqtc-impask-b">
-              <p>
-                <b className="mono">{impAsk.id}</b> 는 이미 이 서버에 있습니다.
-                {impAsk.name ? <span className="muted"> — {impAsk.name}</span> : null}
-              </p>
-              <p className="muted small">
-                덮어쓰면 그 항목이 파일 내용으로 바뀌고, 추가하면 새 ID(
-                <b className="mono">{impAsk.nid}</b>)로 새 항목이 섭니다.
-              </p>
+              <table className="rqtc-impask-t">
+                <tbody>
+                  {rows.map(([k, v]) => (
+                    <tr key={k}>
+                      <th>{k}</th>
+                      <td>{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {impAsk.exists && (
+                <p className="muted small">
+                  덮어쓰면 기존 항목이 파일 내용으로 바뀌고, 추가하면 새 ID(
+                  <b className="mono">{impAsk.nid}</b>)로 새 항목이 섭니다.
+                </p>
+              )}
             </div>
             <div className="rqtc-impask-f">
               <button type="button" className="btn" onClick={() => setImpAsk(null)}>
                 취소
               </button>
               <span className="sp" />
-              <button
-                type="button"
-                className="btn"
-                title={`기존 ${impAsk.id} 를 파일 내용으로 바꿉니다`}
-                onClick={() => {
-                  const a = impAsk
-                  setImpAsk(null)
-                  void sendImport(a.tc, a.id)
-                }}
-              >
-                덮어쓰기
+              {impAsk.exists ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn"
+                    title={`기존 ${impAsk.id} 를 파일 내용으로 바꿉니다`}
+                    onClick={() => {
+                      const a = impAsk
+                      setImpAsk(null)
+                      void sendImport(a.tc, a.id)
+                    }}
+                  >
+                    덮어쓰기
+                  </button>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    title={`새 ID ${impAsk.nid} 로 새 항목을 만듭니다`}
+                    onClick={() => {
+                      const a = impAsk
+                      setImpAsk(null)
+                      void sendImport(a.tc, a.nid)
+                    }}
+                  >
+                    새 ID로 추가
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => {
+                    const a = impAsk
+                    setImpAsk(null)
+                    void sendImport(a.tc, a.id)
+                  }}
+                >
+                  가져오기
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        )
+      })()}
+      {/* 내보내기 확인(지시) — 무엇을 내보내는지 보고 누른다 */}
+      {expAsk && (
+        <div className="modal-back" onMouseDown={() => setExpAsk(null)}>
+          <div className="modal rqtc-impask" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-head slim">
+              <b>내보내기 — {expAsk.length}건</b>
+            </div>
+            <div className="rqtc-impask-b">
+              <table className="rqtc-impask-t list">
+                <thead>
+                  <tr><th>TC ID</th><th>제목</th><th>제품군</th><th>제품명</th></tr>
+                </thead>
+                <tbody>
+                  {expAsk.map((id2) => {
+                    const t = tcs.find((x) => x.tcid === id2)
+                    return (
+                      <tr key={id2}>
+                        <th>{id2}</th>
+                        <td>{String(t?.name ?? '')}</td>
+                        <td>{String(t?.model_group ?? '') || '–'}</td>
+                        <td>{String(t?.model ?? '') || '–'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <p className="muted small">항목마다 JSON 파일 하나씩 내려받습니다.</p>
+            </div>
+            <div className="rqtc-impask-f">
+              <button type="button" className="btn" onClick={() => setExpAsk(null)}>
+                취소
               </button>
+              <span className="sp" />
               <button
                 type="button"
                 className="btn primary"
-                title={`새 ID ${impAsk.nid} 로 새 항목을 만듭니다`}
                 onClick={() => {
-                  const a = impAsk
-                  setImpAsk(null)
-                  void sendImport(a.tc, a.nid)
+                  const ids = expAsk
+                  setExpAsk(null)
+                  void doExport(ids)
                 }}
               >
-                새 ID로 추가
+                내보내기
               </button>
             </div>
           </div>

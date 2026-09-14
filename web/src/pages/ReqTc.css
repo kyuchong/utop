@@ -60,6 +60,17 @@
   border-top: 1px solid var(--c-border-soft, var(--c-border));
 }
 .rqtc-impask-f .sp { flex: 1; }
+/* 정보 표 — 이름은 왼쪽 옅게, 값은 오른쪽에. 목록꼴(list)은 머리줄이 있다 */
+.rqtc-impask-t { border-collapse: collapse; width: 100%; font-size: 12.5px; margin-bottom: 8px; }
+.rqtc-impask-t th {
+  text-align: left; font-weight: 600; color: var(--c-text-soft);
+  padding: 3px 10px 3px 0; white-space: nowrap; vertical-align: top;
+}
+.rqtc-impask-t td { padding: 3px 0; }
+.rqtc-impask-t.list th, .rqtc-impask-t.list td {
+  padding: 3px 10px 3px 0; border-bottom: 1px solid var(--c-border-soft, #eef2f3);
+}
+.rqtc-impask-t.list thead th { color: var(--c-text-faint); font-weight: 600; font-size: 11.5px; }
 
 /* 상단 내보내기·가져오기(지시) — 크럼 줄 오른쪽의 작은 글자 단추 */
 .rqtc-topbtn {
