@@ -1557,8 +1557,11 @@ export default function NTable(p: NTableProps) {
                 className="ntb-mi"
                 key={c.key}
                 onClick={() => {
+                  /* 조건만 걸고 **창은 닫는다**(지시). 값 고르기가 곧바로
+                     따라 열리면, 조건을 둘셋 걸려던 사람이 매번 한 번 더
+                     닫아야 한다. 값은 생긴 칩을 눌러 고른다. */
                   addFilter(c.key)
-                  setPanel({ ...panel, kind: 'fvals', key: c.key })
+                  setPanel(null)
                 }}
               >
                 <IcPlus />
