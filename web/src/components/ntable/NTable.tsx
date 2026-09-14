@@ -136,7 +136,7 @@ export default function NTable(p: NTableProps) {
   const [editAt, setEditAt] = useState<{ row: string; key: string } | null>(null)
   /* 고른 줄을 바깥에 흘려 준다 — 안 그러면 화면의 「복제·삭제·⋯」 가
      영영 안 켜진다(플랜에서 재현). 그릴 때가 아니라 바뀔 때만 알린다. */
-  const [panel, setPanel] = useState<{ kind: 'filter' | 'sort' | 'group' | 'props'; x: number; y: number } | null>(null)
+  const [panel, setPanel] = useState<{ kind: 'filter' | 'fvals' | 'sort' | 'group' | 'props'; x: number; y: number; key?: string } | null>(null)
   /* 바깥이 일을 끝냈다고 알리면 선택을 푼다 */
   useEffect(() => {
     if (p.selEpoch === undefined) return
@@ -976,8 +976,12 @@ export default function NTable(p: NTableProps) {
                 title="눌러서 값을 고칩니다"
                 onClick={(e) => {
                   const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                  /* **그 열의 값만** 바로 연다(목업) — 필터 창을 열어 여러
+                     조건 가운데 이것을 다시 찾게 하지 않는다 */
                   setPanel(
-                    panel?.kind === 'filter' ? null : { kind: 'filter', x: b.left - 20, y: b.bottom + 6 },
+                    panel?.kind === 'fvals' && panel.key === f.key
+                      ? null
+                      : { kind: 'fvals', key: f.key, x: b.left - 20, y: b.bottom + 6 },
                   )
                 }}
               >
@@ -1486,6 +1490,8 @@ export default function NTable(p: NTableProps) {
           col={curCol}
           at={menuAt}
           canDelete={!lockDefs && vis.length > 1}
+          canFilter={canFilter(curCol)}
+          canSort={canSort(curCol)}
           lockDefs={lockDefs}
           onCol={(next) => putCol(curCol.key, next)}
           onSort={(d) => addSort(curCol.key, d)}
@@ -1529,76 +1535,29 @@ export default function NTable(p: NTableProps) {
       {panel?.kind === 'filter' && (
         <Pop at={panel} w={244} h={360} onClose={() => setPanel(null)}>
           <div className="ntb-sec">필터</div>
-          {view.filters.map((f) => {
-            const c = colOf(f.key)
-            return (
-              <div key={f.key} className="ntb-fblk">
-                <div className="ntb-frow">
-                  <b>{c?.label ?? f.key}</b>
-                  <button
-                    type="button"
-                    onClick={() => onView({ ...view, filters: view.filters.filter((x) => x.key !== f.key) })}
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="ntb-fvals">
-                  {/* 고를 값과 그 **건수**는 지금 줄에서 뽑는다(합의) — 열
-                      정의의 선택지만 보면, 자료에 없는 값이 서고(골라도 0건)
-                      선택지가 없는 열은 거를 길이 없었다. 많이 나온 값이 위로. */}
-                  {(() => {
-                    const cnt = countFor(f.key)
-                    const opt = new Map((c?.options ?? []).map((o) => [o.value, o.color]))
-                    const vals = [...cnt.entries()].sort(
-                      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko', { numeric: true }),
-                    )
-                    if (!vals.length) return <span className="ntb-sub">고를 값이 없습니다</span>
-                    return vals.map(([v, n]) => {
-                      const on = f.values.includes(v)
-                      return (
-                        <button
-                          type="button"
-                          key={v}
-                          className={on ? 'on' : ''}
-                          onClick={() =>
-                            onView({
-                              ...view,
-                              filters: view.filters.map((x) =>
-                                x.key !== f.key
-                                  ? x
-                                  : {
-                                      ...x,
-                                      values: on
-                                        ? x.values.filter((y) => y !== v)
-                                        : [...x.values, v],
-                                    },
-                              ),
-                            })
-                          }
-                        >
-                          <Pill value={v} color={opt.get(v)} />
-                          <span className="ntb-fcnt">{n}</span>
-                          {on && <IcCheck className="ntb-chk" />}
-                        </button>
-                      )
-                    })
-                  })()}
-                </div>
-              </div>
-            )
-          })}
           <div className="ntb-hr" />
           <div className="ntb-sec">조건 추가</div>
-          {/* 거를 수 있는 열 — **지금 자료를 보고** 정한다(합의).
-              값이 하나뿐인 열은 걸어도 줄이 그대로라 목록에 안 세운다. */}
+          {/* 걸린 조건은 **여기 안 편다**(목업) — 조건은 칩 줄에 서 있고,
+              값은 칩을 누르거나 여기서 열을 고르면 나오는 「값 고르기」
+              한 화면에서 만진다. 창 하나에 조건을 모두 펴 두면, 조건이
+              셋만 넘어도 무엇을 고치는 중인지 안 갈린다.
+              거를 수 있는 열은 **지금 자료를 보고** 정한다 — 값이
+              하나뿐인 열은 걸어도 줄이 그대로라 세우지 않는다. */}
           {(() => {
             const av = columns.filter((c) => canFilter(c) && !view.filters.some((f) => f.key === c.key))
-            if (!av.length) return <div className="ntb-sub">더 걸 조건이 없습니다</div>
+            if (!av.length) return <div className="ntb-sec">더 걸 조건이 없습니다</div>
             return av.map((c) => (
-              <button type="button" className="ntb-mi" key={c.key} onClick={() => addFilter(c.key)}>
+              <button
+                type="button"
+                className="ntb-mi"
+                key={c.key}
+                onClick={() => {
+                  addFilter(c.key)
+                  setPanel({ ...panel, kind: 'fvals', key: c.key })
+                }}
+              >
                 <IcPlus />
                 <span className="l">{c.label}</span>
-                <span className="ntb-sub">{valueStat.get(c.key)?.size ?? 0}가지</span>
               </button>
             ))
           })()}
@@ -1609,9 +1568,64 @@ export default function NTable(p: NTableProps) {
           )}
         </Pop>
       )}
+
+      {/* ── 값 고르기 — 한 열의 값만 놓고 고른다(목업) ── */}
+      {panel?.kind === 'fvals' && panel.key && (() => {
+        const key = panel.key
+        const c = colOf(key)
+        const f = view.filters.find((x) => x.key === key)
+        const cnt = countFor(key)
+        const opt = new Map((c?.options ?? []).map((o) => [o.value, o.color]))
+        /* 많이 나온 값이 위로 — 고를 것이 대개 거기 있다 */
+        const vals = [...cnt.entries()].sort(
+          (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko', { numeric: true }),
+        )
+        const cur = f?.values ?? []
+        const put = (vs: string[]) =>
+          onView({ ...view, filters: view.filters.map((x) => (x.key === key ? { ...x, values: vs } : x)) })
+        return (
+          <Pop at={panel} w={244} h={380} onClose={() => setPanel(null)}>
+            <div className="ntb-sec">{c?.label ?? key} — 여럿 고를 수 있습니다</div>
+            <div className="ntb-hr" />
+            {!vals.length && <div className="ntb-sec">고를 값이 없습니다</div>}
+            <div className="ntb-fvals">
+              {vals.map(([v, n]) => {
+                const on = cur.includes(v)
+                return (
+                  <button
+                    type="button"
+                    key={v}
+                    className={on ? 'on' : ''}
+                    onClick={() => put(on ? cur.filter((y) => y !== v) : [...cur, v])}
+                  >
+                    <Pill value={v} color={opt.get(v)} />
+                    <span className="ntb-fcnt">{n}</span>
+                    {on && <IcCheck className="ntb-chk" />}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="ntb-hr" />
+            {cur.length > 0 && (
+              <button type="button" className="ntb-mi" onClick={() => put([])}>
+                <span className="l">고른 값 지우기 — 전체 보기</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="ntb-mi"
+              onClick={() => setPanel({ ...panel, kind: 'filter', key: undefined })}
+            >
+              <IcPlus />
+              <span className="l">다른 조건 추가</span>
+            </button>
+          </Pop>
+        )
+      })()}
       {panel?.kind === 'sort' && (
         <Pop at={panel} w={262} h={340} onClose={() => setPanel(null)}>
           <div className="ntb-sec">정렬</div>
+          <div className="ntb-hr" />
           {/* **무엇이 먼저인지** 말로 적는다(지적: 누가 우선순위인지 알 수
               없다). 번호만 두면 그것이 차례인지 이름인지 안 갈린다. */}
           {view.sorts.length > 1 && (
@@ -1679,7 +1693,8 @@ export default function NTable(p: NTableProps) {
               </button>
             </div>
           ))}
-          <div className="ntb-hr" />
+          {/* 걸린 정렬이 없으면 실금을 겹쳐 긋지 않는다 — 빈 칸만 벌어진다 */}
+          {view.sorts.length > 0 && <div className="ntb-hr" />}
           <div className="ntb-sec">정렬 추가</div>
           {/* 세울 만한 열만 — 값이 한 가지면 세워도 차례가 그대로다(목업) */}
           {columns

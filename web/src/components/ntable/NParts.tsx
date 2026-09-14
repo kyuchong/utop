@@ -637,12 +637,17 @@ export function OptionsManager({
 /* 그룹·삽입·복제·숨기기 손잡이는 안 받는다 — 그 항목을 걷었다(지시).
    부르는 쪽이 넘겨도 무시되지 않게 아예 인자에서 뺀다. */
 export function FieldMenu({
-  col, at, canDelete, onCol, onSort, onFilter, onClose, lockDefs,
+  col, at, canDelete, canFilter = true, canSort = true, onCol, onSort, onFilter, onClose, lockDefs,
 }: {
   lockDefs?: boolean
   col: NCol
   at: { x: number; y: number }
   canDelete: boolean
+  /** 이 열을 **지금 자료에서** 거를 수 있나 — 못 거는 열은 흐려 둔다(목업).
+      ID·제목처럼 줄마다 값이 다른 열은 걸어 봐야 한 줄만 남는다. */
+  canFilter?: boolean
+  /** 세울 뜻이 있나 — 값이 한 가지면 세워도 차례가 그대로다 */
+  canSort?: boolean
   onCol: (next: NCol | null) => void
   onSort: (dir: 'asc' | 'desc') => void
   onFilter: () => void
@@ -702,13 +707,21 @@ export function FieldMenu({
         <span className="ntb-sub">{TYPES.find((t) => t.k === col.type)?.label} ›</span>
       </button>
       <div className="ntb-hr" />
-      <button type="button" className="ntb-mi" onClick={() => go(() => onSort('asc'))}>
+      {/* 못 하는 일은 **흐려서 미리 말한다**(지적: ID·제목에서 「필터 추가」
+          가 눌린다). 눌러 보고 아무 일도 안 나는 것보다 낫다. */}
+      <button type="button" className="ntb-mi" disabled={!canSort}
+              title={canSort ? '' : '값이 한 가지라 세워도 차례가 그대로입니다'}
+              onClick={() => go(() => onSort('asc'))}>
         <IcSortAsc /><span className="l">오름차순 정렬</span>
       </button>
-      <button type="button" className="ntb-mi" onClick={() => go(() => onSort('desc'))}>
+      <button type="button" className="ntb-mi" disabled={!canSort}
+              title={canSort ? '' : '값이 한 가지라 세워도 차례가 그대로입니다'}
+              onClick={() => go(() => onSort('desc'))}>
         <IcSortDesc /><span className="l">내림차순 정렬</span>
       </button>
-      <button type="button" className="ntb-mi" onClick={() => go(onFilter)}>
+      <button type="button" className="ntb-mi" disabled={!canFilter}
+              title={canFilter ? '' : '줄마다 값이 달라 걸어도 줄이 안 줄어듭니다'}
+              onClick={() => go(onFilter)}>
         <IcFilter /><span className="l">필터 추가</span>
       </button>
       {/* 「이 필드로 그룹·왼쪽/오른쪽에 삽입·속성 복제·숨기기」 는 걷었다
