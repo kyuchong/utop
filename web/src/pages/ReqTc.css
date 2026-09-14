@@ -50,6 +50,22 @@
 .rqtc-sidehead .sp { flex: 1; }
 /* 가름선은 상단바(제품 이름 오른쪽)로 옮겼다(지시) — 여기서는 뺀다 */
 /* 찾기·정렬·더보기 — 사진의 머리줄 아이콘들 */
+/* 상단 내보내기·가져오기(지시) — 크럼 줄 오른쪽의 작은 글자 단추 */
+.rqtc-topbtn {
+  flex: none;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 7px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rqtc-topbtn:hover { background: var(--c-surface-alt); color: var(--c-text); }
+
 .rqtc-ib {
   flex: none;
   /* 한 줄에 선 것들을 **모두 28px 한 치수**로 맞춘다(승인) — 34·32·30 이

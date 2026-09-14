@@ -900,18 +900,22 @@ export default function ReqTc({ me }: Props) {
      ${이름} 으로 쓰는 값이라, 시험을 보다가 바로 열어 고칠 일이 잦다. */
   const [gpOpen, setGpOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
-  /* 「파일로 내보내기」 단추는 뺐지만(지시) 기능은 남긴다 — 자리를 정하면
-     다시 낸다. 참조가 없으면 빌드가 막히므로 창에서 부를 수 있게 걸어 둔다. */
-  useEffect(() => {
-    ;(window as unknown as { utopExportTc?: () => void }).utopExportTc = () => void exportTc()
-  })
-  const exportTc = async () => {
-    const id = [...sel][0]
-    if (!id) return
+  /** 표에서 체크한 시험 항목 — 상단 「내보내기」 가 이것을 내보낸다(지시).
+   *  옛 sel 에 담으면 일괄 바가 둘이 되어 서로를 덮었다(검증) — 따로 든다. */
+  const [tcSel, setTcSel] = useState<string[]>([])
+  /** 자리가 정해졌다(지시: Coverage 상단) — 체크한 항목을 파일로 내보낸다.
+   *  여러 개면 하나씩 차례로 내려온다. */
+  const exportTc = async (ids: string[]) => {
+    if (!ids.length) {
+      window.alert('내보낼 항목을 표에서 체크하세요.')
+      return
+    }
     try {
-      const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
-      const d = (await r.json()) as Record<string, unknown>
-      downloadJson(tcFileName(d as never), buildTcFile({ ...d, tcid: id } as never, new Map()))
+      for (const id of ids) {
+        const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
+        const d = (await r.json()) as Record<string, unknown>
+        downloadJson(tcFileName(d as never), buildTcFile({ ...d, tcid: id } as never, new Map()))
+      }
     } catch (e) {
       window.alert(`내보내지 못했습니다 — ${String((e as Error).message)}`)
     }
@@ -2616,6 +2620,29 @@ export default function ReqTc({ me }: Props) {
             </div>
             )}
             <span className="sp" />
+            {/* 내보내기·가져오기 — 팝업의 더보기에 있던 것을 **상단에 상시**
+                로(지시). 내보내기는 체크한 항목을 파일로, 가져오기는 파일을
+                이 서버에 싣는다. */}
+            {mode === 'tc' && !openTc && !openReq && !gpOpen && (
+              <>
+                <button
+                  type="button"
+                  className="rqtc-topbtn"
+                  title="체크한 시험 항목을 JSON 파일로 내려받습니다 — 여러 개면 하나씩"
+                  onClick={() => void exportTc(tcSel)}
+                >
+                  ⬇ 내보내기{tcSel.length ? ` ${tcSel.length}` : ''}
+                </button>
+                <button
+                  type="button"
+                  className="rqtc-topbtn"
+                  title="내보낸 JSON 파일을 골라 이 서버에 싣습니다 — 같은 ID 는 덮어씁니다"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  ⬆ 가져오기
+                </button>
+              </>
+            )}
             {/* 여기부터는 **목록을 어떻게 볼지** 정하는 것들이다 — 미커버만·
                 찾기·정렬·열 고르기. 상세를 열면 목록이 없으므로 다 치운다.
                 할 일도 없는 단추가 자리를 먹으면 빵부스러기가 밀려 두 줄로
@@ -2925,6 +2952,9 @@ export default function ReqTc({ me }: Props) {
                 onNew={() => setEditTc(null)}
                 onColumns={(cs) => void applyCols(nCols, cs, '', 'utop.ntb.order')}
                 onCell={(id, key, v) => void setOneField('tc', id, { [key]: v })}
+                /* 체크한 것을 상단 「내보내기」 가 쓴다(지시) — 표의 자체
+                   선택은 그대로 두고 사본만 받는다 */
+                onSelect={setTcSel}
                 readOnlyKeys={['model_group', 'model', 'last', 'req']}
                 idKey="tcid"
                 titleKey="name"
