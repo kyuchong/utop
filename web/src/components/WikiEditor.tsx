@@ -340,6 +340,25 @@ export default function WikiEditor({
       // 메뉴·말풍선을 한국어로 — 「/」 를 쳤을 때 나오는 이름들이다
       dictionary: ko,
       schema: SCHEMA,
+      /* 긴 글 붙여넣기(지시: Test Summary 처럼 블록으로) — 메모장·터미널
+         에서 복사하면 클립보드에 text/plain 만 있는데, 그때 마크다운이
+         해석되지 않아 「## 제목」 이 글자 그대로 한 줄글로 들어갔다(실측).
+         plain 만 온 붙여넣기는 마크다운으로 읽어 제목·목록·표 블록으로
+         가른다. HTML 이 같이 온 것(워드·웹 복사)은 기본 길 그대로. */
+      pasteHandler: ({ event, editor: ed2, defaultPasteHandler }) => {
+        const plain = event.clipboardData?.getData('text/plain') ?? ''
+        const html = event.clipboardData?.getData('text/html') ?? ''
+        const files = event.clipboardData?.files?.length ?? 0
+        if (plain && !html && !files) {
+          try {
+            ed2.pasteMarkdown(plain)
+            return true
+          } catch {
+            /* 해석이 깨지면 기본 길로 */
+          }
+        }
+        return defaultPasteHandler()
+      },
       /* 그림 붙여넣기(지시) — 이 손잡이가 있어야 클립보드의 스크린샷·
          끌어다 놓은 파일이 그림 블록으로 선다. 없으면 조용히 버려졌다.
          저장은 요구사항 그림과 같은 곳(/api/upload/image)이다. */
