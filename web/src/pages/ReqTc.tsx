@@ -3307,11 +3307,15 @@ export default function ReqTc({ me }: Props) {
       {impAsk && (() => {
         const t = impAsk.tc as { model_group?: unknown; model?: unknown; req_id?: unknown }
         const rq2 = reqById.get(String(t.req_id ?? ''))
+        /* 이름을 바로잡았다(지적) — 모델그룹이 E61xx, 제품군은 L2·L3 다.
+           프로젝트명은 요구사항이 앉은 프로젝트에서 온다. */
+        const prj2 = prjOf(rq2)
         const rows: Array<[string, string]> = [
           ['TC ID', impAsk.id],
           ['제목', impAsk.name || '(없음)'],
-          ['제품군', String(t.model_group ?? '') || '–'],
-          ['제품명', String(t.model ?? '') || '–'],
+          ['프로젝트', prj2?.name || (rq2 ? '(프로젝트 밖)' : '–')],
+          ['모델그룹', String(t.model_group ?? '') || prj2?.model_group || '–'],
+          ['모델명', String(t.model ?? '') || prj2?.model || '–'],
           ['요구사항', rq2 ? `${reqLabel(rq2)} ${rq2.title ?? ''}` : '이 서버에 없음 → REQ 미할당'],
           ['출처', [impAsk.origin, impAsk.at].filter(Boolean).join(' · ') || '–'],
         ]
@@ -3401,11 +3405,13 @@ export default function ReqTc({ me }: Props) {
               {expAsk.map((id2, i) => {
                 const t = tcs.find((x) => x.tcid === id2)
                 const rq2 = reqById.get(String(t?.req_id ?? ''))
+                const prj2 = prjOf(rq2)
                 const rows: Array<[string, string]> = [
                   ['TC ID', id2],
                   ['제목', String(t?.name ?? '') || '(없음)'],
-                  ['제품군', String(t?.model_group ?? '') || '–'],
-                  ['제품명', String(t?.model ?? '') || '–'],
+                  ['프로젝트', prj2?.name || (rq2 ? '(프로젝트 밖)' : '–')],
+                  ['모델그룹', String(t?.model_group ?? '') || prj2?.model_group || '–'],
+                  ['모델명', String(t?.model ?? '') || prj2?.model || '–'],
                   ['요구사항', rq2 ? `${reqLabel(rq2)} ${rq2.title ?? ''}` : '–'],
                 ]
                 return (
