@@ -3397,24 +3397,30 @@ export default function ReqTc({ me }: Props) {
               <b>내보내기 — {expAsk.length}건</b>
             </div>
             <div className="rqtc-impask-b">
-              <table className="rqtc-impask-t list">
-                <thead>
-                  <tr><th>TC ID</th><th>제목</th><th>제품군</th><th>제품명</th></tr>
-                </thead>
-                <tbody>
-                  {expAsk.map((id2) => {
-                    const t = tcs.find((x) => x.tcid === id2)
-                    return (
-                      <tr key={id2}>
-                        <th>{id2}</th>
-                        <td>{String(t?.name ?? '')}</td>
-                        <td>{String(t?.model_group ?? '') || '–'}</td>
-                        <td>{String(t?.model ?? '') || '–'}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+              {/* 가져오기와 **같은 꼴**(지시) — 항목마다 이름·값 세로표 */}
+              {expAsk.map((id2, i) => {
+                const t = tcs.find((x) => x.tcid === id2)
+                const rq2 = reqById.get(String(t?.req_id ?? ''))
+                const rows: Array<[string, string]> = [
+                  ['TC ID', id2],
+                  ['제목', String(t?.name ?? '') || '(없음)'],
+                  ['제품군', String(t?.model_group ?? '') || '–'],
+                  ['제품명', String(t?.model ?? '') || '–'],
+                  ['요구사항', rq2 ? `${reqLabel(rq2)} ${rq2.title ?? ''}` : '–'],
+                ]
+                return (
+                  <table className={`rqtc-impask-t${i ? ' next' : ''}`} key={id2}>
+                    <tbody>
+                      {rows.map(([k, v]) => (
+                        <tr key={k}>
+                          <th>{k}</th>
+                          <td>{v}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              })}
               <p className="muted small">항목마다 JSON 파일 하나씩 내려받습니다.</p>
             </div>
             <div className="rqtc-impask-f">

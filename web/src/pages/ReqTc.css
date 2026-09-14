@@ -67,10 +67,12 @@
   padding: 3px 10px 3px 0; white-space: nowrap; vertical-align: top;
 }
 .rqtc-impask-t td { padding: 3px 0; }
-.rqtc-impask-t.list th, .rqtc-impask-t.list td {
-  padding: 3px 10px 3px 0; border-bottom: 1px solid var(--c-border-soft, #eef2f3);
-}
-.rqtc-impask-t.list thead th { color: var(--c-text-faint); font-weight: 600; font-size: 11.5px; }
+/* 여러 건 내보내기 — 항목 사이는 실금 하나로 가른다 */
+.rqtc-impask-t.next { border-top: 1px solid var(--c-border-soft, #eef2f3); margin-top: 8px; }
+.rqtc-impask-t.next tr:first-child th,
+.rqtc-impask-t.next tr:first-child td { padding-top: 8px; }
+/* 내용이 길면 창 안에서 굴린다 */
+.rqtc-impask-b { max-height: 60vh; overflow: auto; }
 
 /* 상단 내보내기·가져오기(지시) — 크럼 줄 오른쪽의 작은 글자 단추 */
 .rqtc-topbtn {
