@@ -351,11 +351,23 @@ export default function WikiEditor({
         const files = event.clipboardData?.files?.length ?? 0
         if (plain && !html && !files) {
           try {
-            /* **마크다운으로 렌더링해 넣는다**(지시: Test Summary 처럼) —
-               「## 제목」·표·목록이 글자 그대로가 아니라 제목·표·목록
-               블록으로 선다. CLI 원문을 그대로 담고 싶으면 ``` 로 감싸
-               붙이면 코드 블록이 된다. */
-            ed2.pasteMarkdown(plain)
+            /* 둘로 가른다(합의) —
+               · 마크다운 표식(#·목록·표·인용·펜스)이 보이면 **렌더링**해
+                 제목·표·목록 블록으로 세운다(Test Summary 꼴).
+               · 아니면(장비 출력·로그 원문) **회색 상자(코드 블록)** 하나에
+                 담아 경계가 보이게 한다 — 문단으로 가르면 들여쓰기·정렬이
+                 무너지고, 상자가 없으면 어디까지가 원문인지 안 갈린다. */
+            const looksMd = /^(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|\||```)/m.test(plain)
+            if (looksMd) {
+              ed2.pasteMarkdown(plain)
+            } else if (plain.includes('\n')) {
+              /* 본문에 ``` 가 있어도 안 깨지게 — 담장은 안의 백틱보다 길게 */
+              const runs = plain.match(/`+/g) ?? []
+              const fence = '`'.repeat(Math.max(3, ...runs.map((s) => s.length + 1)))
+              ed2.pasteMarkdown(`${fence}\n${plain}\n${fence}`)
+            } else {
+              return defaultPasteHandler()
+            }
             return true
           } catch {
             /* 해석이 깨지면 기본 길로 */
