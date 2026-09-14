@@ -351,7 +351,21 @@ export default function WikiEditor({
         const files = event.clipboardData?.files?.length ?? 0
         if (plain && !html && !files) {
           try {
-            ed2.pasteMarkdown(plain)
+            /* 무엇으로 붙일지 가른다(지시: CLI 출력은 코드 블록으로) —
+               줄머리에 마크다운 표식(#·목록·표·인용·펜스)이 보이면 문서로
+               해석하고, 아니면 장비 출력·로그 원문이니 **코드 블록 하나**로
+               담는다. 원문을 문단으로 가르면 들여쓰기·정렬이 다 무너진다. */
+            const looksMd = /^(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|\||```)/m.test(plain)
+            if (looksMd) {
+              ed2.pasteMarkdown(plain)
+            } else if (plain.includes('\n')) {
+              /* 본문에 ``` 가 있어도 안 깨지게 — 담장은 안의 백틱보다 길게 */
+              const runs = plain.match(/`+/g) ?? []
+              const fence = '`'.repeat(Math.max(3, ...runs.map((s) => s.length + 1)))
+              ed2.pasteMarkdown(`${fence}\n${plain}\n${fence}`)
+            } else {
+              return defaultPasteHandler()
+            }
             return true
           } catch {
             /* 해석이 깨지면 기본 길로 */
