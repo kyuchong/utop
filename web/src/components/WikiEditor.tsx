@@ -340,6 +340,21 @@ export default function WikiEditor({
       // 메뉴·말풍선을 한국어로 — 「/」 를 쳤을 때 나오는 이름들이다
       dictionary: ko,
       schema: SCHEMA,
+      /* 그림 붙여넣기(지시) — 이 손잡이가 있어야 클립보드의 스크린샷·
+         끌어다 놓은 파일이 그림 블록으로 선다. 없으면 조용히 버려졌다.
+         저장은 요구사항 그림과 같은 곳(/api/upload/image)이다. */
+      uploadFile: async (file: File) => {
+        const fd = new FormData()
+        /* 클립보드 스크린샷은 이름이 없다 — 확장자는 서버가 검사하므로
+           붙여 준다 */
+        fd.append('file', file, file.name || 'paste.png')
+        const r = await apiFetch('/api/upload/image', { method: 'POST', body: fd })
+        if (!r.ok) {
+          const d = ((await r.json().catch(() => ({}))) as { detail?: string }).detail
+          throw new Error(d || '그림을 올리지 못했습니다')
+        }
+        return ((await r.json()) as { url: string }).url
+      },
       collaboration: {
         provider,
         fragment: ydoc.getXmlFragment('doc'),
