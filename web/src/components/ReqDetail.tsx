@@ -11,7 +11,8 @@ import {
 } from '@/types'
 import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import Markdown from './Markdown'
-import MarkdownEditor from './MarkdownEditorLazy'
+/* 구현내용은 블록 노트로 바꿨다(지시) — 옛 마크다운 편집기는 안 쓴다 */
+import DescNote from './DescNote'
 import InfoPane from '@/components/info/InfoPane'
 import { goto } from '@/api/goto'
 import './ReqDetail.css'
@@ -362,12 +363,21 @@ ${md}` : md))
     setError('')
   }, [reqPk(req), desc])
 
+  /* 블록 저장분 — 노트가 고칠 때마다 여기 담기고, 저장이 함께 싣는다 */
+  const docRef = useRef<unknown>(undefined)
+  /* 노트를 새로 세워야 할 때(AI 초안을 넣을 때) 올린다 */
+  const [docStamp, setDocStamp] = useState(0)
   const dirty = editing && draft !== savedRef.current
 
   const saveM = useMutation({
     mutationFn: () =>
       // 본문만 바꾼다. 나머지 필드는 그대로 실어 보내야 서버가 덮어쓰지 않는다.
-      reqApi.save(reqPk(req), { ...req, desc: draft.trim() }),
+      // 블록 저장분(desc_doc)도 함께 — 다음에 열 때 그대로 선다.
+      reqApi.save(reqPk(req), {
+        ...req,
+        desc: draft.trim(),
+        desc_doc: docRef.current ?? (req as unknown as { desc_doc?: unknown }).desc_doc,
+      }),
     onSuccess: () => {
       savedRef.current = draft
       setEditing(false)
@@ -468,6 +478,9 @@ ${md}` : md))
               type="button"
               onClick={() => {
                 setDraft(aiText)
+                /* 글로만 갈아 끼운다 — 노트가 이 글에서 블록을 다시 세운다 */
+                docRef.current = undefined
+                setDocStamp((n) => n + 1)
                 setEditing(true)
                 setAiText('')
               }}
@@ -485,11 +498,20 @@ ${md}` : md))
       )}
 
       {editing ? (
-        <div className="doc-editor">
-          <MarkdownEditor
-            value={draft}
-            onChange={setDraft}
-            placeholder="무엇을, 어떻게 구현하는지 적습니다."
+        /* 위키·Test Summary 와 같은 **블록 노트**(지시: 노드 추가 기능) —
+           「/」 로 제목·목록·표·그림을 넣는다. 마크다운(desc)은 계속 함께
+           저장한다: 결과서·RAG·시험항목 생성이 그 글자를 읽는다.
+           doc 은 처음 설 때만 읽히므로 key 로 갈아 끼운다(AI 초안). */
+        <div className="doc-editor rd-note">
+          <DescNote
+            key={`rd-${reqPk(req)}-${docStamp}`}
+            doc={(req as unknown as { desc_doc?: unknown }).desc_doc}
+            text={draft}
+            editable
+            onChange={(d, md) => {
+              docRef.current = d
+              setDraft(md)
+            }}
           />
         </div>
       ) : (

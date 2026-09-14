@@ -729,3 +729,10 @@
 }
 .tcx-crumbid:hover:not(:disabled) { background: #d9eef0; border-color: #8fc9cf; }
 .tcx-crumbid:disabled { cursor: default; }
+
+/* 시험 목적·사전 준비 조건의 블록 노트(지시) — 카드 안에서 제 높이를 갖게.
+   BlockNote 는 제 높이를 안 가져서 틀이 키를 줘야 한다(위키·요약과 같은 함정) */
+.tc-note { border: 1px solid var(--c-border, #e2e8eb); border-radius: 7px; overflow: hidden; }
+.tc-note .bn-container { min-height: 96px; display: flex; flex-direction: column; }
+.tc-note .bn-editor { flex: 1; min-height: 84px; padding-inline: 44px 12px; font-size: 13px; }
+.tc-note .bn-editor .bn-block-content { font-size: 13px; }

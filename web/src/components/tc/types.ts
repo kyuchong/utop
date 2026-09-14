@@ -1168,10 +1168,14 @@ export interface TcData {
   updated_by?: string
   created_at?: string
   updated_at?: string
-  /** 시험 목적 */
+  /** 시험 목적 — 글자(마크다운). 결과서·RAG·AI 가 이것을 읽는다 */
   object_md?: string
-  /** 사전 준비 조건 */
+  /** 시험 목적 — 블록 저장분(정본). 없으면 object_md 에서 들여온다 */
+  object_doc?: unknown
+  /** 사전 준비 조건 — 글자(마크다운) */
   precondition_md?: string
+  /** 사전 준비 조건 — 블록 저장분(정본) */
+  precondition_doc?: unknown
   /**
    * 이 TC 가 쓰는 전역 파라미터 파일 — iTest 와 같이 **고른다**.
    *

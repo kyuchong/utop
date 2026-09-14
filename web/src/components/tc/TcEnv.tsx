@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import LlmPick, { useLlmPick } from '@/components/LlmPick'
+import DescNote from '@/components/DescNote'
 import type { TcData } from './types'
 
 interface Props {
@@ -32,6 +33,9 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
    */
   const [prop, setProp] = useState<{ object_md: string; precondition_md: string } | null>(null)
   const [err, setErr] = useState('')
+  /* 블록 노트는 doc 을 **처음 설 때만** 읽는다 — AI 글을 넣으면 도장을
+     올려 노트를 새로 세운다(Test Summary 와 같은 규칙) */
+  const [aiStamp, setAiStamp] = useState(0)
 
   /**
    * 누구에게 맡길 것인가.
@@ -114,10 +118,14 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
                 className="btn small primary"
                 type="button"
                 onClick={() => {
+                  /* 글만 갈아 끼운다 — 블록은 이 글로 다시 세워진다 */
                   onChange({
                     object_md: prop.object_md,
                     precondition_md: prop.precondition_md,
-                  })
+                    object_doc: undefined,
+                    precondition_doc: undefined,
+                  } as Partial<TcData>)
+                  setAiStamp((n) => n + 1)
                   setProp(null)
                 }}
               >
@@ -136,13 +144,18 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
           </div>
         )}
 
-        <textarea
-          className="tc-text"
-          rows={3}
-          value={data.object_md ?? ''}
-          placeholder="예) E6100 의 포트별 rate limit 이 설정값대로 동작하는지 확인한다."
-          onChange={(e) => onChange({ object_md: e.target.value })}
-        />
+        {/* 위키·Test Summary 와 같은 **블록 노트**(지시: 노드 추가 기능) —
+            제목·목록·표·그림을 「/」 로 넣는다. 마크다운(object_md)은 계속
+            함께 저장한다: 결과서·RAG·AI 가 그 글자를 읽는다. */}
+        <div className="tc-note">
+          <DescNote
+            key={`obj-${tcid}-${aiStamp}`}
+            doc={(data as unknown as { object_doc?: unknown }).object_doc}
+            text={data.object_md ?? ''}
+            editable
+            onChange={(d, md) => onChange({ object_doc: d, object_md: md } as Partial<TcData>)}
+          />
+        </div>
       </section>
 
       <section className="tc-card">
@@ -150,13 +163,17 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
           <b>사전 준비 조건</b>
           <span className="muted small">시작하기 전에 되어 있어야 하는 것</span>
         </div>
-        <textarea
-          className="tc-text"
-          rows={3}
-          value={data.precondition_md ?? ''}
-          placeholder={'예)\n- OLT 와 ONT 가 링크업 되어 있을 것'}
-          onChange={(e) => onChange({ precondition_md: e.target.value })}
-        />
+        <div className="tc-note">
+          <DescNote
+            key={`pre-${tcid}-${aiStamp}`}
+            doc={(data as unknown as { precondition_doc?: unknown }).precondition_doc}
+            text={data.precondition_md ?? ''}
+            editable
+            onChange={(d, md) =>
+              onChange({ precondition_doc: d, precondition_md: md } as Partial<TcData>)
+            }
+          />
+        </div>
       </section>
     </div>
   )

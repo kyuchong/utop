@@ -183,3 +183,8 @@
 .kv .kv-titleedit { font: inherit; }
 .kv .pick-view.kv-titleedit { cursor: text; border-bottom: 1px dashed transparent; }
 .kv .pick-view.kv-titleedit:hover { border-bottom-color: var(--c-border, #cfd8de); }
+
+/* 구현내용 블록 노트(지시) — 편집칸 높이를 틀이 준다 */
+.rd-note { border: 1px solid var(--c-border, #e2e8eb); border-radius: 8px; overflow: auto; min-height: 0; flex: 1; display: flex; flex-direction: column; }
+.rd-note .bn-container { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.rd-note .bn-editor { flex: 1; min-height: 320px; padding-inline: 48px 16px; }
