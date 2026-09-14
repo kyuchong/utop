@@ -79,12 +79,21 @@
 .ntb-add { border: 0; background: none; color: var(--ntb-mut); font: inherit; font-size: 12.5px; padding: 4px 9px; cursor: pointer; width: 100%; text-align: left; }
 .ntb-add:hover { background: var(--ntb-hov); color: var(--ntb-soft); }
 
-/* 묶음 줄 */
-.ntb-grh td { background: var(--ntb-hov); border-bottom: 1px solid var(--ntb-line); padding: 3px 9px; font-size: 12.5px; }
+/* 묶음 줄 — **줄보다 커야 갈린 자리로 읽힌다**(지적: 목업이 더 크다).
+   목업 치수 그대로: 높이 32px·글자 15px·굵기 700. 12.5px 로는 자료 줄과
+   크기가 같아 「여기서부터 다른 묶음」 이 눈에 안 잡혔다. */
+.ntb-grh td { background: var(--ntb-line2); box-shadow: inset 0 -1px 0 var(--ntb-bd);
+              height: 32px; padding: 0 10px; font-size: 15px; font-weight: 700; color: var(--ntb-ink); }
 .ntb-gck { margin: 0 8px 0 0; vertical-align: -1px; cursor: pointer; }
-.ntb-gtog { border: 0; background: none; color: var(--ntb-mut); cursor: pointer; padding: 0 6px 0 0; font-size: 12px; }
-.ntb-gcnt { color: var(--ntb-mut); margin-left: 8px; font-size: 12px; }
-.ntb-gnew { float: right; border: 0; background: none; color: var(--ntb-mut); font: inherit; font-size: 12px; cursor: pointer; }
+.ntb-gtog { border: 0; background: none; color: var(--ntb-soft); cursor: pointer; padding: 0 6px 0 0; font-size: 10px; }
+/* 묶음 안 알약도 함께 키운다 — 이름이 알약으로 서는 열(상태·우선순위)에서
+   혼자 작으면 같은 줄 글자와 층이 안 맞는다 */
+.ntb-grh .ntb-pill { font-size: 13px; font-weight: 700; padding: 1px 10px; }
+/* 건수는 흰 배지로 — 이름과 같은 굵기로 이어 붙으면 어디까지가 이름인지
+   안 갈린다(목업) */
+.ntb-gcnt { margin-left: 4px; font-size: 11px; font-weight: 600; color: var(--ntb-soft);
+            background: #fff; border: 1px solid var(--ntb-bd); border-radius: 9px; padding: 1px 8px; }
+.ntb-gnew { float: right; border: 0; background: none; color: var(--ntb-mut); font: inherit; font-size: 12px; font-weight: 400; cursor: pointer; line-height: 20px; }
 .ntb-gnew:hover { color: var(--ntb-acc); }
 
 /* 값 알약 */
