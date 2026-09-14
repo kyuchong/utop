@@ -20,6 +20,7 @@ import {
 import { withCollaboration } from '@blocknote/core/yjs'
 import { RefSpec } from './wikiRef'
 import { ViewSpec } from './wikiView'
+import { BoxSpec } from './wikiBox'
 import ListButtons, { BlockKindSelect } from './wikiListButtons'
 import BnSideMenuCentered from './BnSideMenuCentered'
 import { ko } from '@blocknote/core/locales'
@@ -129,8 +130,9 @@ table, pre, .wv, img { break-inside: avoid; }
 /** 기본 조각에 「짚기」 를 더한 서식 — 편집기가 이 서식으로 글을 읽고 쓴다 */
 const SCHEMA = BlockNoteSchema.create({
   inlineContentSpecs: { ...defaultInlineContentSpecs, ref: RefSpec },
-  /* 「살아 있는 표」 — 숫자가 아니라 질의를 담는 블록(wikiView) */
-  blockSpecs: { ...defaultBlockSpecs, utopView: ViewSpec() },
+  /* 「살아 있는 표」(질의를 담는 블록) 와 **상자**(지시: Test Summary
+     설명 칸 같은 블록) */
+  blockSpecs: { ...defaultBlockSpecs, utopView: ViewSpec(), utopBox: BoxSpec() },
 })
 
 /**
@@ -974,6 +976,28 @@ export default function WikiEditor({
                     group: '짚기',
                     /* 「@」 를 대신 쳐 준다 — 짚는 길이 둘이면 하나는 잊힌다 */
                     onItemClick: () => editor.insertInlineContent('@'),
+                  },
+                  {
+                    title: '상자',
+                    subtext: '글을 상자로 감쌉니다 — 안에 담을 줄은 Tab 으로 들여씁니다',
+                    group: '기본 블록',
+                    onItemClick: () => {
+                      /* 제목 줄을 상자로 바꾸고, 담을 자리(들여쓴 문단)를
+                         하나 깔아 준다 — 빈 상자만 서면 무엇을 하라는
+                         것인지 알 수 없다 */
+                      const cur = editor.getTextCursorPosition().block
+                      editor.updateBlock(cur, { type: 'utopBox', props: { kind: 'plain' } })
+                      const put = editor.insertBlocks(
+                        [{ type: 'paragraph' }],
+                        cur,
+                        'after',
+                      )
+                      const kid = put[0]
+                      if (kid) {
+                        editor.setTextCursorPosition(kid, 'start')
+                        editor.nestBlock()
+                      }
+                    },
                   },
                   {
                     title: 'UTOP 표 끼우기',

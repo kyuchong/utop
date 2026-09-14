@@ -602,3 +602,36 @@
 .wke-pvthumb:hover img { outline: 2px solid #6ea8c9; }
 .wke-pvthumb.on { border-color: #78b6e0; }
 .wke-pvthumb.on span { color: #fff; font-weight: 700; }
+
+/* ── 문서 안의 상자(지시: Test Summary 설명 칸 같은 블록) ──────────────
+   상자 블록과 **그 아래 들여쓴 자식들까지** 한 테두리로 감싼다. 자식은
+   BlockNote 가 상자 밖(아래)에 그리므로, 감싸는 일은 바깥 줄(.bn-block-outer)
+   이 맡아야 한다 — :has 로 「상자를 품은 줄」 을 집는다. */
+.bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type='utopBox']) {
+  border: 1px solid #dde5e8;
+  border-radius: 8px;
+  background: #fafcfc;
+  padding: 8px 12px 8px 10px;
+  margin: 8px 0;
+}
+/* 결마다 색 — 왼쪽 획만 바꾼다(조용하게: 실금만) */
+.bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type='utopBox'] .wbx[data-kind='note']) {
+  border-left: 3px solid #4c9ad4; background: #f6fbfe;
+}
+.bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type='utopBox'] .wbx[data-kind='warn']) {
+  border-left: 3px solid #e0a030; background: #fffaf2;
+}
+/* 제목 줄 — 그림 단추와 글 */
+.wbx { display: flex; align-items: baseline; gap: 7px; width: 100%; }
+.wbx-t { flex: 1; min-width: 0; font-weight: 600; }
+.wbx-ico {
+  flex: none; border: 0; background: none; padding: 0; margin: 0;
+  font-size: 12px; line-height: 1.6; color: #7e929a; cursor: pointer; user-select: none;
+}
+.wbx-ico:disabled { cursor: default; }
+.wbx-ico:hover:not(:disabled) { color: #0b7580; }
+.wbx[data-kind='note'] .wbx-ico { color: #3d86bd; }
+.wbx[data-kind='warn'] .wbx-ico { color: #c5871f; }
+/* 상자 안 자식은 왼쪽 들여쓰기 선을 지운다 — 테두리가 이미 묶고 있다 */
+.bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type='utopBox'])
+  > .bn-block > .bn-block-group { margin-left: 0; padding-left: 20px; }

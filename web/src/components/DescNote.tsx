@@ -3,6 +3,7 @@ import { useCreateBlockNote } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import { ko } from '@blocknote/core/locales'
 import type { PartialBlock } from '@blocknote/core'
+import { apiFetch } from '@/api/client'
 import { THEME } from './WikiEditor'
 import BnSideMenuCentered from './BnSideMenuCentered'
 import '@blocknote/core/fonts/inter.css'
@@ -37,7 +38,50 @@ export default function DescNote({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
-  const editor = useCreateBlockNote({ dictionary: ko, initialContent: initial }, [])
+  const editor = useCreateBlockNote(
+    {
+      dictionary: ko,
+      initialContent: initial,
+      /* 그림 붙여넣기(지시) — 위키와 **같은 손잡이**다. 없으면 클립보드의
+         스크린샷이 조용히 버려진다. 저장은 요구사항 그림과 같은 곳. */
+      uploadFile: async (file: File) => {
+        const fd = new FormData()
+        /* 클립보드 스크린샷은 이름이 없다 — 확장자는 서버가 보므로 붙여 준다 */
+        fd.append('file', file, file.name || 'paste.png')
+        const r = await apiFetch('/api/upload/image', { method: 'POST', body: fd })
+        if (!r.ok) {
+          const d = ((await r.json().catch(() => ({}))) as { detail?: string }).detail
+          throw new Error(d || '그림을 올리지 못했습니다')
+        }
+        return ((await r.json()) as { url: string }).url
+      },
+      /* 긴 글은 마크다운으로 읽어 블록으로 가른다 — 위키와 한 규칙(지시) */
+      pasteHandler: ({ event, editor: ed2, defaultPasteHandler }) => {
+        const plain = event.clipboardData?.getData('text/plain') ?? ''
+        const html = event.clipboardData?.getData('text/html') ?? ''
+        const files = event.clipboardData?.files?.length ?? 0
+        if (plain && !html && !files) {
+          try {
+            const looksMd = /^(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|\||```)/m.test(plain)
+            if (looksMd) {
+              ed2.pasteMarkdown(plain)
+              return true
+            }
+            if (plain.includes('\n')) {
+              const runs = plain.match(/`+/g) ?? []
+              const fence = '`'.repeat(Math.max(3, ...runs.map((s) => s.length + 1)))
+              ed2.pasteMarkdown(`${fence}\n${plain}\n${fence}`)
+              return true
+            }
+          } catch {
+            /* 해석이 깨지면 기본 길로 */
+          }
+        }
+        return defaultPasteHandler()
+      },
+    },
+    [],
+  )
 
   /* 블록 저장분이 없는 옛 자료 — 마크다운 글을 블록으로 들여온다.
      이 씨앗 심기가 onChange 로 새면 손도 안 댔는데 초안이 선다 — 막는다 */
