@@ -90,11 +90,12 @@ export default function TcCycles({ tcid }: Props) {
                     title="이 플랜로 이동 (Ctrl+클릭·오른쪽 단추로 새 탭)"
                     onClick={(e) => gotoClick(e, 'cycle', r.cycle_id)}
                   >
-                    <b>{r.version || '(버전 없음)'}</b>
+                    <b>{r.version || r.cycle_id || '(버전 없음)'}</b>
                   </a>
-                  <span className="muted small">{r.model || r.cycle_id}</span>
                 </span>
-                <span className="muted small">{r.device || '–'}</span>
+                {/* 장비명은 **장비 칸에**(지적: 버전명 옆에 나와 있다) —
+                    배정된 장비가 없으면 그 플랜의 모델명이 곧 장비다 */}
+                <span className="muted small">{r.device || r.model || '–'}</span>
                 <span className="cy-at">
                   {r.at ? r.at.slice(0, 16).replace('T', ' ') : '–'}
                   {/* 손으로 돌렸는지 자동으로 돌렸는지. 결과를 믿을 수 있는
