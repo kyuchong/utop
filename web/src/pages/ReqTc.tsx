@@ -268,6 +268,33 @@ export default function ReqTc({ me }: Props) {
   const tcs = useMemo(() => tcQ.data?.tcs ?? [], [tcQ.data])
   const cats = useMemo(() => catQ.data?.categories ?? [], [catQ.data])
   const projects = useMemo(() => prjQ.data?.projects ?? [], [prjQ.data])
+  /* 제품군(L2·L3)은 TC 에도 프로젝트에도 없다 — **장비 카탈로그의 모델**이
+     들고 있다(지적: 제품군이 빠졌다). 모델명으로 찾아 팝업이 보여 준다. */
+  const famQ = useQuery({
+    queryKey: ['device-catalog2'],
+    staleTime: 300_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/device-catalog2')
+      if (!r.ok) return { items: [] as Array<Record<string, unknown>> }
+      return (await r.json()) as { items: Array<Record<string, unknown>> }
+    },
+  })
+  /** 모델명 → 제품군. 모델그룹으로도 한 번 더 찾는다(모델이 비었을 때) */
+  const famOf = useMemo(() => {
+    const byModel = new Map<string, string>()
+    const byGroup = new Map<string, string>()
+    for (const x of famQ.data?.items ?? []) {
+      if (String(x.kind ?? '') !== 'model') continue
+      const f = String(x.family ?? '').trim()
+      if (!f) continue
+      const nm = String(x.name ?? '').trim()
+      const g = String(x.model_group ?? '').trim()
+      if (nm) byModel.set(nm, f)
+      if (g && !byGroup.has(g)) byGroup.set(g, f)
+    }
+    return (model: string, group: string) =>
+      byModel.get(model.trim()) || byGroup.get(group.trim()) || ''
+  }, [famQ.data])
   const lastOf = (id: string) => lastQ.data?.[id]?.result ?? ''
 
   const kids = useMemo(() => {
@@ -3312,12 +3339,15 @@ export default function ReqTc({ me }: Props) {
         const prj2 = prjOf(rq2)
         /* **프로젝트가 맨 위**(지시) — 어느 제품 것인지가 먼저 읽혀야
            엉뚱한 서버·제품에 싣는 실수를 그 자리에서 막는다 */
+        const mg2 = String(t.model_group ?? '') || prj2?.model_group || ''
+        const md2 = String(t.model ?? '') || prj2?.model || ''
         const rows: Array<[string, string]> = [
           ['프로젝트', prj2?.name || (rq2 ? '(프로젝트 밖)' : '–')],
           ['TC ID', impAsk.id],
           ['제목', impAsk.name || '(없음)'],
-          ['모델그룹', String(t.model_group ?? '') || prj2?.model_group || '–'],
-          ['모델명', String(t.model ?? '') || prj2?.model || '–'],
+          ['제품군', famOf(md2, mg2) || '–'],
+          ['모델그룹', mg2 || '–'],
+          ['모델명', md2 || '–'],
           ['요구사항', rq2 ? `${reqLabel(rq2)} ${rq2.title ?? ''}` : '이 서버에 없음 → REQ 미할당'],
           ['출처', [impAsk.origin, impAsk.at].filter(Boolean).join(' · ') || '–'],
         ]
@@ -3408,12 +3438,15 @@ export default function ReqTc({ me }: Props) {
                 const t = tcs.find((x) => x.tcid === id2)
                 const rq2 = reqById.get(String(t?.req_id ?? ''))
                 const prj2 = prjOf(rq2)
+                const mg2 = String(t?.model_group ?? '') || prj2?.model_group || ''
+                const md2 = String(t?.model ?? '') || prj2?.model || ''
                 const rows: Array<[string, string]> = [
                   ['프로젝트', prj2?.name || (rq2 ? '(프로젝트 밖)' : '–')],
                   ['TC ID', id2],
                   ['제목', String(t?.name ?? '') || '(없음)'],
-                  ['모델그룹', String(t?.model_group ?? '') || prj2?.model_group || '–'],
-                  ['모델명', String(t?.model ?? '') || prj2?.model || '–'],
+                  ['제품군', famOf(md2, mg2) || '–'],
+                  ['모델그룹', mg2 || '–'],
+                  ['모델명', md2 || '–'],
                   ['요구사항', rq2 ? `${reqLabel(rq2)} ${rq2.title ?? ''}` : '–'],
                 ]
                 return (
