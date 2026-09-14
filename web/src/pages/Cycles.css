@@ -1127,10 +1127,8 @@ select.cy-v.na { color: #999; }
   overflow: hidden;
   background: var(--c-surface);
 }
-/* 첫 화면일 때는 **판이 없는 것처럼**(지시) — 틀의 여백·바탕을 다 걷어
-   오로라가 메뉴바 워시와 상단바에 그대로 맞닿는다. 사각형 테가 사라지고
-   한 장면이 된다. 일이 시작되면(athome 해제) 원래 판으로 돌아온다. */
-.main[data-page='ai-tc'] { padding: 0; }
+/* 「판이 없는 것처럼」 여백을 0 으로 걷던 규칙은 뺐다(지적: Test AI 만
+   nav 를 더 차지한다) — 다른 화면과 같은 틀 여백(4px) 위에 카드로 선다. */
 .ask.athome .ask-cols { padding: 0; }
 .ask.athome .ask-canvas {
   padding: 0;
