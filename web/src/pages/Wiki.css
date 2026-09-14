@@ -637,3 +637,6 @@
 /* 상자 안 자식은 왼쪽 들여쓰기 선을 지운다 — 테두리가 이미 묶고 있다 */
 .bn-block-outer:has(> .bn-block > .react-renderer.node-utopBox)
   > .bn-block > .bn-block-group { margin-left: 0; padding-left: 20px; }
+/* 슬래시 메뉴의 「상자」 그림 — 기본 항목 아이콘과 같은 크기로 */
+.wbx-mico { display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px; font-size: 15px; line-height: 1; }

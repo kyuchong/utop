@@ -993,6 +993,10 @@ export default function WikiEditor({
                     title: '상자',
                     subtext: '글을 상자로 감쌉니다 — 안에 담을 줄은 Tab 으로 들여씁니다',
                     group: '기본 블록',
+                    /* 그림이 없으면 왼쪽 끝에 붙어 **그룹 머리처럼** 보인다
+                       (지적) — 다른 항목과 같은 자리에 서게 그림을 준다.
+                       블록에 세우는 것과 같은 ▢ 라 눈이 이어진다. */
+                    icon: <span className="wbx-mico">▢</span>,
                     onItemClick: () => {
                       /* 제목 줄을 상자로 바꾸고, 담을 자리(들여쓴 문단)를
                          하나 깔아 준다 — 빈 상자만 서면 무엇을 하라는
