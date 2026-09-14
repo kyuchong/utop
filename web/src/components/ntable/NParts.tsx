@@ -6,8 +6,8 @@ import { PALETTE as FULL } from '@/components/settings/ColorPick'
 import { PeoplePick } from '@/components/AssigneePicker'
 import { multiJoin, multiVals, type NCol, type NOption, type NPerson, type NType } from './types'
 import {
-  IcCheck, IcCopy, IcDate, IcFilter, IcGroup, IcHide, IcLeft, IcNumber, IcPerson,
-  IcPlus, IcRight, IcSelect, IcSortAsc, IcSortDesc, IcText, IcTrash, TYPE_ICON,
+  IcCheck, IcDate, IcFilter, IcNumber, IcPerson,
+  IcPlus, IcSelect, IcSortAsc, IcSortDesc, IcText, IcTrash, TYPE_ICON,
 } from './NIcons'
 
 /* ── 팝오버 바탕 — 화면 밖으로 안 나가게 되밀고, 겹침에 안 잘리게 포털로 ── */
@@ -634,8 +634,10 @@ export function OptionsManager({
 }
 
 /* ── 헤더 필드 메뉴 ── */
+/* 그룹·삽입·복제·숨기기 손잡이는 안 받는다 — 그 항목을 걷었다(지시).
+   부르는 쪽이 넘겨도 무시되지 않게 아예 인자에서 뺀다. */
 export function FieldMenu({
-  col, at, canDelete, onCol, onSort, onFilter, onGroup, onInsert, onDup, onClose, lockDefs,
+  col, at, canDelete, onCol, onSort, onFilter, onClose, lockDefs,
 }: {
   lockDefs?: boolean
   col: NCol
@@ -644,9 +646,6 @@ export function FieldMenu({
   onCol: (next: NCol | null) => void
   onSort: (dir: 'asc' | 'desc') => void
   onFilter: () => void
-  onGroup: () => void
-  onInsert: (side: 'left' | 'right') => void
-  onDup: () => void
   onClose: () => void
 }) {
   const [name, setName] = useState(col.label)
@@ -712,22 +711,10 @@ export function FieldMenu({
       <button type="button" className="ntb-mi" onClick={() => go(onFilter)}>
         <IcFilter /><span className="l">필터 추가</span>
       </button>
-      <button type="button" className="ntb-mi" disabled={col.type !== 'select'} onClick={() => go(onGroup)}>
-        <IcGroup /><span className="l">이 필드로 그룹</span>
-      </button>
-      <div className="ntb-hr" />
-      <button type="button" className="ntb-mi" disabled={lockDefs} onClick={() => go(() => onInsert('left'))}>
-        <IcLeft /><span className="l">왼쪽에 삽입</span>
-      </button>
-      <button type="button" className="ntb-mi" disabled={lockDefs} onClick={() => go(() => onInsert('right'))}>
-        <IcRight /><span className="l">오른쪽에 삽입</span>
-      </button>
-      <button type="button" className="ntb-mi" disabled={lockDefs} onClick={() => go(onDup)}>
-        <IcCopy /><span className="l">속성 복제</span>
-      </button>
-      <button type="button" className="ntb-mi" disabled={col.fixed} onClick={() => go(() => onCol({ ...col, hidden: true }))}>
-        <IcHide /><span className="l">숨기기</span>
-      </button>
+      {/* 「이 필드로 그룹·왼쪽/오른쪽에 삽입·속성 복제·숨기기」 는 걷었다
+          (지시: 목업에 없다). 같은 일을 하는 자리가 이미 있다 —
+          그룹은 도구줄 「그룹」, 숨기기·순서·새 필드는 「속성」. 한 일에
+          자리가 둘이면 어느 쪽이 맞는지 묻게 된다. */}
       <div className="ntb-hr" />
       <button
         type="button"
@@ -771,4 +758,4 @@ export function FieldMenu({
   )
 }
 
-export { IcText, IcSelect, IcNumber, IcDate, IcPerson, IcFilter, IcSortAsc, IcGroup, IcHide, IcPlus, IcTrash }
+export { IcText, IcSelect, IcNumber, IcDate, IcPerson, IcFilter, IcSortAsc, IcPlus, IcTrash }

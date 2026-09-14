@@ -136,7 +136,7 @@ export default function NTable(p: NTableProps) {
   const [editAt, setEditAt] = useState<{ row: string; key: string } | null>(null)
   /* 고른 줄을 바깥에 흘려 준다 — 안 그러면 화면의 「복제·삭제·⋯」 가
      영영 안 켜진다(플랜에서 재현). 그릴 때가 아니라 바뀔 때만 알린다. */
-  const [panel, setPanel] = useState<{ kind: 'filter' | 'sort' | 'props'; x: number; y: number } | null>(null)
+  const [panel, setPanel] = useState<{ kind: 'filter' | 'sort' | 'group' | 'props'; x: number; y: number } | null>(null)
   /* 바깥이 일을 끝냈다고 알리면 선택을 푼다 */
   useEffect(() => {
     if (p.selEpoch === undefined) return
@@ -382,6 +382,19 @@ export default function NTable(p: NTableProps) {
     return m
   }
 
+  /** 이 열로 **묶을 수 있나** — 값이 겹쳐야 덩어리가 생긴다.
+      줄마다 다른 값(ID·제목)으로 묶으면 한 줄짜리 덩어리만 잔뜩 선다.
+      숨긴 열도 뺀다 — 표에 없는 열로 묶이면 왜 갈렸는지 알 수 없다. */
+  const canGroup = (c: NCol) => {
+    if (c.hidden || c.fixed) return false
+    const d = valueStat.get(c.key)?.size ?? 0
+    if (d < 2) return false
+    return c.type === 'select' || c.type === 'multiselect' || c.type === 'person' || d < rows.length
+  }
+
+  /** 이 열로 **정렬할 뜻이 있나** — 값이 한 가지면 세워도 차례가 그대로다 */
+  const canSort = (c: NCol) => !c.hidden && (valueStat.get(c.key)?.size ?? 0) > 1
+
   /** 값이 하나뿐이라 조건에서 뺀 열 — 왜 목록에 없는지 말해 준다 */
   const oneValueCols = useMemo(
     () =>
@@ -512,21 +525,8 @@ export default function NTable(p: NTableProps) {
     if (!next) return onColumns(columns.filter((c) => c.key !== key))
     onColumns(columns.map((c) => (c.key === key ? next : c)))
   }
-  const insertCol = (key: string, side: 'left' | 'right') => {
-    const i = columns.findIndex((c) => c.key === key)
-    const nc: NCol = { key: `f_${Date.now()}`, label: '새 속성', type: 'text', width: 110 }
-    const next = [...columns]
-    next.splice(side === 'left' ? i : i + 1, 0, nc)
-    onColumns(next)
-  }
-  const dupCol = (key: string) => {
-    const i = columns.findIndex((c) => c.key === key)
-    const c = columns[i]
-    if (!c) return
-    const next = [...columns]
-    next.splice(i + 1, 0, { ...c, key: `${c.key}_c${Date.now()}`, label: `${c.label} (복사)`, fixed: false })
-    onColumns(next)
-  }
+  /* 열 삽입·복제는 걷었다(지시: 머리글 메뉴에서 뺐다) — 새 열은
+     「속성」 의 「새 필드 만들기」 한 자리에서만 만든다. */
   const addSort = (key: string, dir: 'asc' | 'desc') =>
     onView({ ...view, sorts: [{ key, dir }, ...view.sorts.filter((s) => s.key !== key)] })
   const addFilter = (key: string) =>
@@ -940,7 +940,7 @@ export default function NTable(p: NTableProps) {
             className={`ntb-tb${view.groupBy ? ' on' : ''}`}
             onClick={(e) => {
               const b = e.currentTarget.getBoundingClientRect()
-              setPanel({ kind: 'props', x: b.left - 120, y: b.bottom + 6 })
+              setPanel(panel?.kind === 'group' ? null : { kind: 'group', x: b.left - 90, y: b.bottom + 6 })
             }}
           >
             <IcGroup /> 그룹
@@ -1490,9 +1490,6 @@ export default function NTable(p: NTableProps) {
           onCol={(next) => putCol(curCol.key, next)}
           onSort={(d) => addSort(curCol.key, d)}
           onFilter={() => addFilter(curCol.key)}
-          onGroup={() => onView({ ...view, groupBy: view.groupBy === curCol.key ? '' : curCol.key })}
-          onInsert={(side) => insertCol(curCol.key, side)}
-          onDup={() => dupCol(curCol.key)}
           onClose={() => setMenuAt(null)}
         />
       )}
@@ -1684,14 +1681,67 @@ export default function NTable(p: NTableProps) {
           ))}
           <div className="ntb-hr" />
           <div className="ntb-sec">정렬 추가</div>
+          {/* 세울 만한 열만 — 값이 한 가지면 세워도 차례가 그대로다(목업) */}
           {columns
-            .filter((c) => !view.sorts.some((s) => s.key === c.key))
+            .filter((c) => canSort(c) && !view.sorts.some((s) => s.key === c.key))
             .map((c) => (
               <button type="button" className="ntb-mi" key={c.key} onClick={() => addSort(c.key, 'asc')}>
                 <IcSortDesc />
                 <span className="l">{c.label}</span>
               </button>
             ))}
+          {oneValueCols.length > 0 && (
+            <div className="ntb-hint">
+              {oneValueCols.map((c) => c.label).join(' · ')} — 값이 하나뿐이라 뺐습니다
+            </div>
+          )}
+        </Pop>
+      )}
+      {panel?.kind === 'group' && (
+        <Pop at={panel} w={232} h={360} onClose={() => setPanel(null)}>
+          <div className="ntb-sec">그룹</div>
+          <div className="ntb-hr" />
+          {/* 지금 묶인 것을 **맨 위에 켜서** 보이고 풀기를 바로 옆에 둔다 —
+              어디에 묶였는지 찾아 내려가지 않아도 된다(목업). */}
+          {view.groupBy && colOf(view.groupBy) && (
+            <>
+              <div className="ntb-sec">묶은 기준</div>
+              <button
+                type="button"
+                className="ntb-mi on"
+                onClick={() => {
+                  onView({ ...view, groupBy: '' })
+                  setPanel(null)
+                }}
+              >
+                <IcGroup />
+                <span className="l">{colOf(view.groupBy)?.label}</span>
+                <span className="ntb-off">풀기</span>
+              </button>
+              <div className="ntb-hr" />
+            </>
+          )}
+          <div className="ntb-sec">{view.groupBy ? '다른 기준으로 묶기' : '묶을 기준'}</div>
+          {(() => {
+            const use = columns.filter((c) => canGroup(c) && c.key !== view.groupBy)
+            if (!use.length) return <div className="ntb-sec">묶을 만한 열이 없습니다</div>
+            return use.map((c) => (
+              <button
+                type="button"
+                className="ntb-mi"
+                key={c.key}
+                onClick={() => {
+                  onView({ ...view, groupBy: c.key })
+                  setPanel(null)
+                }}
+              >
+                <IcGroup />
+                <span className="l">{c.label}</span>
+                {/* 몇 덩어리로 갈리는지 미리 — 눌러 보고 되돌리지 않아도 된다 */}
+                <span className="ntb-fcnt">{valueStat.get(c.key)?.size ?? 0}</span>
+              </button>
+            ))
+          })()}
         </Pop>
       )}
       {panel?.kind === 'props' && (
@@ -1739,21 +1789,8 @@ export default function NTable(p: NTableProps) {
               </button>
             </div>
           ))}
-          <div className="ntb-hr" />
-          <div className="ntb-sec">묶기</div>
-          {/* 모든 필드로 묶는다(지시) — 전에는 선택형만 나왔다 */}
-          {columns.map((c) => (
-              <button
-                type="button"
-                className="ntb-mi"
-                key={c.key}
-                onClick={() => onView({ ...view, groupBy: view.groupBy === c.key ? '' : c.key })}
-              >
-                <IcGroup />
-                <span className="l">{c.label}</span>
-                {view.groupBy === c.key && <IcCheck className="ntb-chk" />}
-              </button>
-            ))}
+          {/* 「묶기」 는 도구줄 「그룹」 창으로 옮겼다(지시: 목업은 둘을
+              따로 세운다). 여기 두면 속성 창이 두 가지 일을 하게 된다. */}
           <div className="ntb-hr" />
           {!lockDefs && (
             <button
