@@ -15,7 +15,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch, type MeUser } from '@/api/client'
+import { apiFetch, type MeUser, isAdminUser } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import NTable from '@/components/ntable/NTable'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
@@ -537,7 +537,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
       .slice(0, 300)
   }, [fldQuery.data, allCols, fldQ])
 
-  const isAdmin = me?.role === 'admin' || me?.role === '관리자'
+  const isAdmin = isAdminUser(me)
 
   /** 칸을 더하거나 뺀다 — **온 서버 공용**이라 관리자만 */
   async function saveExtras(next: ExtraCol[]) {
@@ -770,7 +770,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
                 onPick={applyView}
                 current={nBody}
                 meName={me?.username || me?.name || ''}
-                isAdmin={me?.role === 'admin'}
+                isAdmin={isAdminUser(me)}
               />
             }
             busy={issQuery.isLoading || busy}

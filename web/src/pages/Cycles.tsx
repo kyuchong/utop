@@ -5,7 +5,7 @@ import IdPill from '@/components/IdPill'
 import Markdown from '@/components/Markdown'
 import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch, projectApi } from '@/api/client'
+import { apiFetch, projectApi, isAdminUser } from '@/api/client'
 import { currentProjects } from '@/components/ProjectPicker'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { goto, onGoto, reflectUrl, gotoHref } from '@/api/goto'
@@ -1068,7 +1068,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
           />
           ) : (
           <CycleBoard
-            isAdmin={me?.role === 'admin'}
+            isAdmin={isAdminUser(me)}
             onNew={() => setMaking(true)}
             cycles={cycles}
             mgroupOf={mgroupOf}

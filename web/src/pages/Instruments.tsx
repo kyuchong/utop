@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/api/client'
+import { apiFetch, isAdminUser } from '@/api/client'
 import DeviceForm from '@/components/DeviceForm'
 import LockCell, { useLocks } from '@/components/LockCell'
 import MeterPorts from '@/components/MeterPorts'
@@ -61,7 +61,7 @@ export default function Instruments({ me }: Props) {
     )
   }, [all, q])
 
-  const isAdmin = me?.role === '관리자' || me?.role === 'admin'
+  const isAdmin = isAdminUser(me)
   const err = devQ.error
 
   return (

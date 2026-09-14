@@ -212,6 +212,16 @@ export interface MeUser {
   [k: string]: unknown
 }
 
+/**
+ * 관리자인가 — **판별은 여기 한 곳**이다.
+ *
+ * 서버가 쓰는 값은 한글 「관리자」 다(팀원·팀장·담당·관리자 넷). 화면마다
+ * `role === 'admin'` 으로 적어 둔 곳이 있었는데, 그런 값은 아예 없어서
+ * 관리자가 관리자로 안 보였다. 영문도 함께 받아 두되 늘어날 일은 없다.
+ */
+export const isAdminUser = (u?: { role?: string } | null): boolean =>
+  u?.role === '관리자' || u?.role === 'admin'
+
 export const authApi = {
   login: async (username: string, password: string) => {
     const res = await fetch('/api/login', {

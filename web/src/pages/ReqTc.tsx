@@ -3,7 +3,7 @@ import { prefGet, prefSet } from '@/lib/prefs'
 import { isReleaseTc } from '@/lib/tcSeries'
 import type React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
+import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser, isAdminUser } from '@/api/client'
 import EditProjectDialog from '@/components/EditProjectDialog'
 import MoveCatDialog from '@/components/MoveCatDialog'
 import { compareByAlpha, compareByNumber, reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
@@ -2920,7 +2920,7 @@ export default function ReqTc({ me }: Props) {
                     onPick={applyView}
                     current={nBody}
                     meName={me?.username || me?.name || ''}
-                    isAdmin={me?.role === 'admin'}
+                    isAdmin={isAdminUser(me)}
                   />
                 }
                 onNew={() => setEditReq(null)}
@@ -3029,7 +3029,7 @@ export default function ReqTc({ me }: Props) {
                     onPick={applyView}
                     current={nBody}
                     meName={me?.username || me?.name || ''}
-                    isAdmin={me?.role === 'admin'}
+                    isAdmin={isAdminUser(me)}
                   />
                 }
                 onNew={() => setEditTc(null)}

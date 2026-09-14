@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { autoColor, paintOfAny } from './palette'
 import { apiFetch } from '@/api/client'
+import { useIsAdmin } from './useAdmin'
 import { CALC_LABEL, multiVals, type NCalc, type NCol, type NPerson, type NRow, type NView } from './types'
 import {
   DateEditor, FieldMenu, PersonEditor, Pill, Pop, SelectEditor, TextEditor,
@@ -137,6 +138,9 @@ export default function NTable(p: NTableProps) {
   /* 고른 줄을 바깥에 흘려 준다 — 안 그러면 화면의 「복제·삭제·⋯」 가
      영영 안 켜진다(플랜에서 재현). 그릴 때가 아니라 바뀔 때만 알린다. */
   const [panel, setPanel] = useState<{ kind: 'filter' | 'fvals' | 'sort' | 'group' | 'props'; x: number; y: number; key?: string } | null>(null)
+  /* 유형 변경은 관리자만(지시) — 표가 **스스로** 묻는다. 화면마다 넘기게
+     하면 한 곳만 빠뜨려도 그 화면에서만 아무나 바꾸게 된다. */
+  const isAdmin = useIsAdmin()
   /* 바깥이 일을 끝냈다고 알리면 선택을 푼다 */
   useEffect(() => {
     if (p.selEpoch === undefined) return
@@ -1492,6 +1496,7 @@ export default function NTable(p: NTableProps) {
           canDelete={!lockDefs && vis.length > 1}
           canFilter={canFilter(curCol)}
           canSort={canSort(curCol)}
+          isAdmin={isAdmin}
           lockDefs={lockDefs}
           onCol={(next) => putCol(curCol.key, next)}
           onSort={(d) => addSort(curCol.key, d)}

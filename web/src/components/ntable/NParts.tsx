@@ -637,7 +637,8 @@ export function OptionsManager({
 /* 그룹·삽입·복제·숨기기 손잡이는 안 받는다 — 그 항목을 걷었다(지시).
    부르는 쪽이 넘겨도 무시되지 않게 아예 인자에서 뺀다. */
 export function FieldMenu({
-  col, at, canDelete, canFilter = true, canSort = true, onCol, onSort, onFilter, onClose, lockDefs,
+  col, at, canDelete, canFilter = true, canSort = true, isAdmin = false,
+  onCol, onSort, onFilter, onClose, lockDefs,
 }: {
   lockDefs?: boolean
   col: NCol
@@ -648,6 +649,8 @@ export function FieldMenu({
   canFilter?: boolean
   /** 세울 뜻이 있나 — 값이 한 가지면 세워도 차례가 그대로다 */
   canSort?: boolean
+  /** 관리자인가 — 유형 변경은 관리자만 한다(지시). 나머지는 읽기만 */
+  isAdmin?: boolean
   onCol: (next: NCol | null) => void
   onSort: (dir: 'asc' | 'desc') => void
   onFilter: () => void
@@ -693,10 +696,14 @@ export function FieldMenu({
           <span className="ntb-sub">{(col.options ?? []).length}개 ›</span>
         </button>
       )}
+      {/* 유형 변경은 **관리자만**(지시). 다른 사람에게도 줄은 그대로 보인다 —
+          무엇으로 되어 있는지는 알아야 하고, 없어지면 「내 화면만 다르다」 가
+          된다. 흐린 채로 두고 왜 못 누르는지 말해 준다. */}
       <button
         type="button"
         className="ntb-mi"
-        disabled={col.fixed || lockDefs}
+        disabled={col.fixed || lockDefs || !isAdmin}
+        title={!isAdmin && !col.fixed && !lockDefs ? '유형은 관리자만 바꿉니다' : ''}
         onClick={(e) => {
           const r = e.currentTarget.getBoundingClientRect()
           setTypeAt(typeAt ? null : { x: r.right + 6, y: r.top })
@@ -704,7 +711,10 @@ export function FieldMenu({
       >
         <Cur />
         <span className="l">유형 변경</span>
-        <span className="ntb-sub">{TYPES.find((t) => t.k === col.type)?.label} ›</span>
+        <span className="ntb-sub">
+          {TYPES.find((t) => t.k === col.type)?.label}
+          {isAdmin ? ' ›' : ''}
+        </span>
       </button>
       <div className="ntb-hr" />
       {/* 못 하는 일은 **흐려서 미리 말한다**(지적: ID·제목에서 「필터 추가」

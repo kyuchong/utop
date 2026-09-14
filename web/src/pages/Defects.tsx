@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch, type MeUser } from '@/api/client'
+import { apiFetch, type MeUser, isAdminUser } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import NTable from '@/components/ntable/NTable'
@@ -206,7 +206,7 @@ export default function Defects({ me }: { me?: MeUser | null }) {
                 onPick={applyView}
                 current={nBody}
                 meName={me?.username || me?.name || ''}
-                isAdmin={me?.role === 'admin' || me?.role === '관리자'}
+                isAdmin={isAdminUser(me)}
               />
             }
             idKey="id"

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '@/api/client'
+import { apiFetch, isAdminUser } from '@/api/client'
 import DeviceForm, { expandRange } from '@/components/DeviceForm'
 import LockCell, { useLocks, type Lock } from '@/components/LockCell'
 import { ColFilter, EditCell, type Device, type DeviceAccess } from '@/pages/Devices'
@@ -822,7 +822,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
                           kind="device"
                           lock={lockBy.get(d.id) ?? lockBy.get(d.ip)}
                           me={me?.username}
-                          isAdmin={me?.role === '관리자' || me?.role === 'admin'}
+                          isAdmin={isAdminUser(me)}
                           onMessage={(kind, text) => setNote({ kind: kind === 'ok' ? 'ok' : 'err', msg: text })}
                         />
                       ) : (
