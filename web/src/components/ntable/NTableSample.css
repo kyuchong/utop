@@ -1,0 +1,42 @@
+/* 노션 표 견본의 **틀** — 표 자체 모양은 NTable.css 한 곳이 갖는다(지시).
+   여기 있는 것은 「표를 어디에 어떻게 앉히나」 뿐이다.
+
+   접두어 nts- 는 이 견본 전용. **복사해 갈 때 반드시 바꾼다** — 이름이
+   겹치면 다른 화면이 조용히 망가진다(겪은 사고). */
+
+/* 표를 담는 판 — 스크롤은 **이 판이** 맡는다.
+   NTable 안에 맡기면 머리줄(sticky)이 같이 흘러가 무슨 칸인지 모르게 된다.
+   min-height:0 이 없으면 flex 자식이 안 줄어들어 표가 판을 뚫고 늘어난다. */
+.nts-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 8px;
+}
+
+/* 값이 없는 칸 — 빈칸으로 두면 「자료가 없는 것」 과 「안 그려진 것」 이
+   구별되지 않는다. 옅은 대시 하나가 그 답이다. */
+.nts-none {
+  color: var(--c-text-faint, #98a2ad);
+  font-size: 12px;
+}
+
+/* ── 표를 카드 안에 넣을 때 ──────────────────────────────────────────
+   Coverage·Cycles 는 도구줄과 표를 **따로 선 카드 둘**로 나눈다. 한 판에
+   붙여 두면 어디까지가 「고르는 곳」 이고 어디부터가 「자료」 인지 눈으로
+   안 갈린다. 그 꼴이 필요하면 아래를 함께 복사한다.
+
+.nts-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+.nts-card > .nts-wrap { padding: 0; }
+
+   판의 제 여백은 주지 않는다 — 앱 틀(.main)이 이미 사방 4px 를 준다.
+   여기서 또 얹으면 이 화면만 Nav 옆이 떠 보인다(겪은 지적).
+   ────────────────────────────────────────────────────────────────── */
