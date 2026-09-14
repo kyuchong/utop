@@ -183,10 +183,9 @@ export default function RunManual({
     { key: 'id', label: 'TC ID', type: 'text', width: 124, fixed: true },
     { key: 'title', label: '시험 항목', type: 'text', width: 300, fixed: true },
     { key: 'who', label: '담당자', type: 'person', width: 52, headIcon: true },
-    /* 판정 색점 — TC ID 왼쪽에 붙어 있던 것을 **실행자 왼쪽 제 열**로
-       옮겼다(지시). 누르면 그 줄만 판정한다. */
-    { key: 'vdot', label: '판정', type: 'text', width: 46 },
-    { key: 'runner', label: '실행자', type: 'person', width: 52, headIcon: true },
+    /* 판정 색 막대는 실행자 **칸 안** 아이콘 왼쪽에 선다(지시: 열을 새로
+       만들지 말고 옮기라) — 폭을 조금 넓혀 막대 자리를 준다 */
+    { key: 'runner', label: '실행자', type: 'person', width: 64, headIcon: true },
     { key: 'bugs', label: '버그', type: 'text', width: 62 },
     /* 시험 시간만 **기본 꺼짐**(지시) — 속성 판에서 켠다 */
     { key: 'at', label: '시험 시간', type: 'text', width: 150, hidden: true },
@@ -217,20 +216,6 @@ export default function RunManual({
     prefSet('utop.ntb.runman.bugon', '1')
     const cur2 = lsCols.find((c) => c.key === 'bugs')
     if (cur2?.hidden) setLsCols(lsCols.map((c) => (c.key === 'bugs' ? { ...c, hidden: false } : c)))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  /* 판정 색점 열은 **실행자 바로 왼쪽**이 제자리다(지시). 계정에 남은 옛
-     차례에는 이 열이 없어 맨 뒤에 붙는다 — 한 번만 제자리로 옮겨 준다. */
-  useEffect(() => {
-    if (prefGet('utop.ntb.runman.vdot') === '1') return
-    prefSet('utop.ntb.runman.vdot', '1')
-    const at = lsCols.findIndex((c) => c.key === 'vdot')
-    const run = lsCols.findIndex((c) => c.key === 'runner')
-    if (at < 0 || run < 0 || at === run - 1) return
-    const next = [...lsCols]
-    const [v] = next.splice(at, 1)
-    next.splice(next.findIndex((c) => c.key === 'runner'), 0, v!)
-    setLsCols(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const lsRows = useMemo<NRow[]>(
@@ -323,28 +308,6 @@ export default function RunManual({
               onOpen={(id) => onPick(id)}
               onPeek={(id) => onPick(id)}
               renderCell={(r, c) => {
-                if (c.key === 'vdot') {
-                  /* 판정 색점(지시: 실행자 왼쪽) — 누르면 이 줄만 판정 */
-                  const it = items.find((x) => x.id === r.__id)
-                  const d = vDef(verds, String(it?.raw ?? ''))
-                  return (
-                    <button
-                      type="button"
-                      className="rm-dotb"
-                      title={`판정 ${it?.raw ? d.label : '전'} — 누르면 이 줄만 판정합니다`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        const b2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                        setRowAt({ x: Math.max(8, b2.left - 60), y: b2.bottom + 4, id: String(r.__id) })
-                      }}
-                    >
-                      <span
-                        className="rm-dot"
-                        style={{ background: it?.raw ? d.color : '#d6dbe0' }}
-                      />
-                    </button>
-                  )
-                }
                 if (c.key === 'id') {
                   return (
                     <span className="ntb-idw">
@@ -398,18 +361,27 @@ export default function RunManual({
                         {nm ? face : <span className="rm-muted">–</span>}
                       </span>
                     )
+                  /* 판정 색 막대 — TC ID 왼쪽에 있던 것을 **여기 아이콘
+                     왼쪽**으로 옮겼다(지시: 열을 새로 만들지 말고).
+                     단추 안이라 막대를 눌러도 그 줄 판정이 뜬다. */
+                  const it = items.find((x) => x.id === r.__id)
+                  const d = vDef(verds, String(it?.raw ?? ''))
                   return (
                     <span className="rm-avc2">
                       <button
                         type="button"
                         className="rm-avb2"
-                        title={`${nm || '실행자 없음'} — 누르면 이 줄만 판정합니다`}
+                        title={`${nm || '실행자 없음'} · 판정 ${it?.raw ? d.label : '전'} — 누르면 이 줄만 판정합니다`}
                         onClick={(e) => {
                           e.stopPropagation()
                           const b2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
                           setRowAt({ x: Math.max(8, b2.left - 60), y: b2.bottom + 4, id: String(r.__id) })
                         }}
                       >
+                        <span
+                          className="rm-dot"
+                          style={{ background: it?.raw ? d.color : '#d6dbe0' }}
+                        />
                         {face}
                       </button>
                     </span>
