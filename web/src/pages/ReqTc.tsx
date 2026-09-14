@@ -903,6 +903,13 @@ export default function ReqTc({ me }: Props) {
   /** 표에서 체크한 시험 항목 — 상단 「내보내기」 가 이것을 내보낸다(지시).
    *  옛 sel 에 담으면 일괄 바가 둘이 되어 서로를 덮었다(검증) — 따로 든다. */
   const [tcSel, setTcSel] = useState<string[]>([])
+  /** 가져오기에서 같은 ID 를 만났을 때 묻는 팝업(지시: alert 말고 팝업) */
+  const [impAsk, setImpAsk] = useState<{
+    tc: Record<string, unknown>
+    id: string
+    nid: string
+    name: string
+  } | null>(null)
   /** 자리가 정해졌다(지시: Coverage 상단) — 체크한 항목을 파일로 내보낸다.
    *  여러 개면 하나씩 차례로 내려온다. */
   const exportTc = async (ids: string[]) => {
@@ -928,29 +935,28 @@ export default function ReqTc({ me }: Props) {
          옛 파일에는 _rev 가 실려 있어, 그대로 보내면 이쪽 서버의 판
          비교에 걸려 「남이 저장했습니다」 로 거절당했다. */
       for (const k of ['_rev', '_updated_at_pg', '_cli_count', '_sess_n']) delete tc[k]
-      let id = String(tc.tcid ?? '')
+      const id = String(tc.tcid ?? '')
       if (!id) throw new Error('파일에 TC ID 가 없습니다')
-      /* 같은 ID 가 이미 있으면 **묻는다**(지적: 가져와도 56건 그대로) —
-         조용히 덮어쓰면 「추가가 안 된다」 로 읽힌다. 확인=덮어쓰기,
-         취소=새 ID 로 추가. */
+      /* 같은 ID 가 이미 있으면 **팝업으로 묻는다**(지시: alert 말고 팝업) —
+         덮어쓰기 / 새 ID 로 추가 / 취소를 단추로 고른다. */
       if (tcs.some((t) => t.tcid === id)) {
         const taken = new Set(tcs.map((t) => t.tcid))
-        const nid = nextTcId(id, taken)
-        const over = window.confirm(
-          `${id} 는 이미 이 서버에 있습니다.\n\n확인 — 그 항목을 파일 내용으로 덮어씁니다\n취소 — 새 ID(${nid})로 추가합니다`,
-        )
-        if (!over) {
-          id = nid
-          tc.tcid = nid
-          /* 새 항목이다 — 원본의 실행 흔적은 두고 이름은 그대로 */
-        }
+        setImpAsk({ tc, id, nid: nextTcId(id, taken), name: String(tc.name ?? '') })
+        return
       }
+      await sendImport(tc, id)
+    } catch (e) {
+      window.alert(`가져오지 못했습니다 — ${String((e as Error).message)}`)
+    }
+  }
+  /** 파일 내용을 서버에 싣는다 — 응답을 봐서 실패는 실패라고 말한다 */
+  const sendImport = async (tc: Record<string, unknown>, id: string) => {
+    try {
+      tc.tcid = id
       const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`, {
         method: 'POST',
         body: JSON.stringify(tc),
       })
-      /* 실패를 성공이라 말하지 않는다 — 여태 응답을 안 봐서, 거절당해도
-         「가져왔습니다」 가 떴다. */
       if (!r.ok) {
         const detail = ((await r.json().catch(() => ({}))) as { detail?: string }).detail
         throw new Error(detail || `서버가 거절했습니다 (${r.status})`)
@@ -3281,6 +3287,57 @@ export default function ReqTc({ me }: Props) {
         />
       )}
 
+      {/* 가져오기 — 같은 ID 를 만나면 묻는다(지시: 팝업으로). 조용하게:
+          구역 둘, 실금만. 단추가 곧 답이다. */}
+      {impAsk && (
+        <div className="modal-back" onMouseDown={() => setImpAsk(null)}>
+          <div className="modal rqtc-impask" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-head slim">
+              <b>가져오기 — 같은 ID 가 있습니다</b>
+            </div>
+            <div className="rqtc-impask-b">
+              <p>
+                <b className="mono">{impAsk.id}</b> 는 이미 이 서버에 있습니다.
+                {impAsk.name ? <span className="muted"> — {impAsk.name}</span> : null}
+              </p>
+              <p className="muted small">
+                덮어쓰면 그 항목이 파일 내용으로 바뀌고, 추가하면 새 ID(
+                <b className="mono">{impAsk.nid}</b>)로 새 항목이 섭니다.
+              </p>
+            </div>
+            <div className="rqtc-impask-f">
+              <button type="button" className="btn" onClick={() => setImpAsk(null)}>
+                취소
+              </button>
+              <span className="sp" />
+              <button
+                type="button"
+                className="btn"
+                title={`기존 ${impAsk.id} 를 파일 내용으로 바꿉니다`}
+                onClick={() => {
+                  const a = impAsk
+                  setImpAsk(null)
+                  void sendImport(a.tc, a.id)
+                }}
+              >
+                덮어쓰기
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                title={`새 ID ${impAsk.nid} 로 새 항목을 만듭니다`}
+                onClick={() => {
+                  const a = impAsk
+                  setImpAsk(null)
+                  void sendImport(a.tc, a.nid)
+                }}
+              >
+                새 ID로 추가
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {pop && (
         <DetailPop
           kind={pop.kind}

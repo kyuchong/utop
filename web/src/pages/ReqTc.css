@@ -50,6 +50,17 @@
 .rqtc-sidehead .sp { flex: 1; }
 /* 가름선은 상단바(제품 이름 오른쪽)로 옮겼다(지시) — 여기서는 뺀다 */
 /* 찾기·정렬·더보기 — 사진의 머리줄 아이콘들 */
+/* 가져오기 — 같은 ID 물음 창(지시: 팝업으로). 조용하게: 구역 둘·실금만 */
+.rqtc-impask { width: 430px; max-width: calc(100vw - 32px); }
+.rqtc-impask-b { padding: 12px 16px; font-size: 13px; line-height: 1.6; }
+.rqtc-impask-b p { margin: 0 0 6px; }
+.rqtc-impask-b .mono { font-variant-numeric: tabular-nums; }
+.rqtc-impask-f {
+  display: flex; gap: 8px; padding: 10px 16px;
+  border-top: 1px solid var(--c-border-soft, var(--c-border));
+}
+.rqtc-impask-f .sp { flex: 1; }
+
 /* 상단 내보내기·가져오기(지시) — 크럼 줄 오른쪽의 작은 글자 단추 */
 .rqtc-topbtn {
   flex: none;
