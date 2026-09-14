@@ -3493,7 +3493,9 @@ export function TcPop({
           >
             {api?.saving ? '저장 중…' : api?.dirty ? '저장' : '저장됨'}
           </button>
-          {api?.menu && <span className="tcx-more">{api.menu}</span>}
+          {/* ⋯(더보기)는 걷었다(지시) — 내보내기·가져오기는 Coverage 상단
+              상시 단추가 됐고, 다른 이름으로 저장·변경 이력은 TC 단독
+              화면에 그대로 있다. */}
           <button className="tcx-close" type="button" onClick={onClose}>
             ✕ 닫기
           </button>
