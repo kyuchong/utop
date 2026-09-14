@@ -1,7 +1,8 @@
 .dev-panel {
   flex: 1;
   min-height: 0;
-  margin-top: var(--sp-2);
+  /* 위 여백은 앱 틀(.main)이 준다 — 여기 또 얹으면 이 판만 더 떠서
+     다른 화면과 어긋난다(지적: Traffic Gen 상단 여백). */
 }
 
 .dev-msg {

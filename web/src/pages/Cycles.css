@@ -1118,7 +1118,15 @@ select.cy-v.na { color: #999; }
 }
 
 /* ── TC 생성 (말로 시험 만들기) ── */
-.aitc { display: flex; flex: 1; min-height: 0; }
+.aitc {
+  display: flex; flex: 1; min-height: 0;
+  /* 다른 화면과 같은 카드 꼴(지적: nav 옆·위 간격) — 앱 바탕 위에 뜬
+     판으로 보이려면 테두리·라운드가 있어야 한다 */
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--c-surface);
+}
 /* 첫 화면일 때는 **판이 없는 것처럼**(지시) — 틀의 여백·바탕을 다 걷어
    오로라가 메뉴바 워시와 상단바에 그대로 맞닿는다. 사각형 테가 사라지고
    한 장면이 된다. 일이 시작되면(athome 해제) 원래 판으로 돌아온다. */

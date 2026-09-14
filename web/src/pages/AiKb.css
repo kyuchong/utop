@@ -1,7 +1,13 @@
 /* Knowledge AI — 접두어 kai- 로 가둔다(다른 화면과 안 겹치게).
    보라→청록 그라데이션이 이 화면의 얼굴 — Test AI(청록→파랑)와 형제지만
    딴 사람임이 첫눈에 갈리게. */
-.kai { display: flex; flex: 1; min-height: 0; background: #f5f8f9; }
+.kai {
+  display: flex; flex: 1; min-height: 0; background: #f5f8f9;
+  /* 다른 화면과 같은 카드 꼴(지적: nav 옆·위 간격) */
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
 
 /* ── 1열 대화 목록(B — 늘 선다) ── */
 .kai-list {
