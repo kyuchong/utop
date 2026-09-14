@@ -127,6 +127,22 @@ img { max-width: 100% !important; height: auto !important; }
 table, pre, .wv, img { break-inside: avoid; }
 `
 
+/**
+ * 슬래시 메뉴의 **기본 블록 무리 안에** 항목 하나를 끼운다.
+ *
+ * 그룹 이름만 같게 두고 배열 뒤에 붙이면, 메뉴가 배열 차례대로 그리면서
+ * 그룹이 바뀔 때마다 머리를 새로 세운다 — 「기본 블록」 이 두 번 서고
+ * 새 항목은 목록 맨 아래에 따로 앉는다(지적: /상자 가 없다).
+ */
+function withBox<T extends { group?: string }>(items: T[], extra: T): T[] {
+  const g = extra.group
+  let at = -1
+  items.forEach((x, i) => {
+    if (x.group === g) at = i
+  })
+  return at < 0 ? [extra, ...items] : [...items.slice(0, at + 1), extra, ...items.slice(at + 1)]
+}
+
 /** 기본 조각에 「짚기」 를 더한 서식 — 편집기가 이 서식으로 글을 읽고 쓴다 */
 const SCHEMA = BlockNoteSchema.create({
   inlineContentSpecs: { ...defaultInlineContentSpecs, ref: RefSpec },
@@ -969,15 +985,11 @@ export default function WikiEditor({
             getItems={async (query) =>
               filterSuggestionItems(
                 [
-                  ...getDefaultReactSlashMenuItems(editor),
-                  {
-                    title: 'REQ · TC 짚기',
-                    subtext: '요구사항·시험을 눌러서 갈 수 있게 박습니다',
-                    group: '짚기',
-                    /* 「@」 를 대신 쳐 준다 — 짚는 길이 둘이면 하나는 잊힌다 */
-                    onItemClick: () => editor.insertInlineContent('@'),
-                  },
-                  {
+                  /* 「상자」 는 **기본 블록 무리 안에** 끼운다(지시) —
+                     배열 뒤에 두면 같은 그룹 이름이라도 헤더가 한 번 더
+                     생겨 목록 맨 아래에 따로 서고, 사람은 위쪽 기본 블록만
+                     보고 「없다」 고 한다. */
+                  ...withBox(getDefaultReactSlashMenuItems(editor), {
                     title: '상자',
                     subtext: '글을 상자로 감쌉니다 — 안에 담을 줄은 Tab 으로 들여씁니다',
                     group: '기본 블록',
@@ -987,17 +999,20 @@ export default function WikiEditor({
                          것인지 알 수 없다 */
                       const cur = editor.getTextCursorPosition().block
                       editor.updateBlock(cur, { type: 'utopBox', props: { kind: 'plain' } })
-                      const put = editor.insertBlocks(
-                        [{ type: 'paragraph' }],
-                        cur,
-                        'after',
-                      )
+                      const put = editor.insertBlocks([{ type: 'paragraph' }], cur, 'after')
                       const kid = put[0]
                       if (kid) {
                         editor.setTextCursorPosition(kid, 'start')
                         editor.nestBlock()
                       }
                     },
+                  }),
+                  {
+                    title: 'REQ · TC 짚기',
+                    subtext: '요구사항·시험을 눌러서 갈 수 있게 박습니다',
+                    group: '짚기',
+                    /* 「@」 를 대신 쳐 준다 — 짚는 길이 둘이면 하나는 잊힌다 */
+                    onItemClick: () => editor.insertInlineContent('@'),
                   },
                   {
                     title: 'UTOP 표 끼우기',
