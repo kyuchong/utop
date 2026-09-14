@@ -3310,10 +3310,12 @@ export default function ReqTc({ me }: Props) {
         /* 이름을 바로잡았다(지적) — 모델그룹이 E61xx, 제품군은 L2·L3 다.
            프로젝트명은 요구사항이 앉은 프로젝트에서 온다. */
         const prj2 = prjOf(rq2)
+        /* **프로젝트가 맨 위**(지시) — 어느 제품 것인지가 먼저 읽혀야
+           엉뚱한 서버·제품에 싣는 실수를 그 자리에서 막는다 */
         const rows: Array<[string, string]> = [
+          ['프로젝트', prj2?.name || (rq2 ? '(프로젝트 밖)' : '–')],
           ['TC ID', impAsk.id],
           ['제목', impAsk.name || '(없음)'],
-          ['프로젝트', prj2?.name || (rq2 ? '(프로젝트 밖)' : '–')],
           ['모델그룹', String(t.model_group ?? '') || prj2?.model_group || '–'],
           ['모델명', String(t.model ?? '') || prj2?.model || '–'],
           ['요구사항', rq2 ? `${reqLabel(rq2)} ${rq2.title ?? ''}` : '이 서버에 없음 → REQ 미할당'],
@@ -3407,9 +3409,9 @@ export default function ReqTc({ me }: Props) {
                 const rq2 = reqById.get(String(t?.req_id ?? ''))
                 const prj2 = prjOf(rq2)
                 const rows: Array<[string, string]> = [
+                  ['프로젝트', prj2?.name || (rq2 ? '(프로젝트 밖)' : '–')],
                   ['TC ID', id2],
                   ['제목', String(t?.name ?? '') || '(없음)'],
-                  ['프로젝트', prj2?.name || (rq2 ? '(프로젝트 밖)' : '–')],
                   ['모델그룹', String(t?.model_group ?? '') || prj2?.model_group || '–'],
                   ['모델명', String(t?.model ?? '') || prj2?.model || '–'],
                   ['요구사항', rq2 ? `${reqLabel(rq2)} ${rq2.title ?? ''}` : '–'],
