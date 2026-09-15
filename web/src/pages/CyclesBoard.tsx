@@ -885,7 +885,9 @@ export default function CyclesBoard({
   /** 이 사이클의 결함 — 결함 내역 탭이 읽는다 */
   const defQ = useQuery({
     queryKey: ['cycle-defects', open],
-    enabled: !!open && tab === 'def',
+    /* 탭을 눌러야 받아오게 두면 **탭 옆 숫자가 늘 0** 이다(메일 이력에서
+       겪은 그것) — 사이클을 열면 바로 받는다 */
+    enabled: !!open,
     queryFn: async () => {
       const r = await apiFetch(`/api/defects?cycle_id=${encodeURIComponent(open)}`)
       if (!r.ok) throw new Error('결함을 불러오지 못했습니다')
@@ -898,6 +900,14 @@ export default function CyclesBoard({
           tcid?: string
           tc_name?: string
           jira_key?: string | null
+          jira_project?: string | null
+          project_name?: string | null
+          issue_type?: string | null
+          priority?: string | null
+          fix_version?: string | null
+          component?: string | null
+          reporter?: string | null
+          created_by?: string | null
           created_at?: string
         }>
       }
@@ -3083,59 +3093,78 @@ export default function CyclesBoard({
   }
 
   /* ── 상세: 결함 내역 — 이 사이클에 등록된 결함(지시) ── */
+  /** 결함 표의 열 — **Defects 화면과 같은 한 벌**(지시).
+   *  같은 자료를 두 화면이 다른 열로 보이면 어느 쪽이 정본인지 묻게 된다.
+   *  사이클 안이라 사이클·모델·버전은 뺐다 — 지금 보는 그 사이클이다. */
+  const defDefs = useMemo<NCol[]>(
+    () => [
+      { key: 'id', label: 'ID', type: 'text', width: 124, fixed: true },
+      { key: 'jira_project', label: '프로젝트 키', type: 'text', width: 96 },
+      { key: 'project_name', label: '프로젝트명', type: 'text', width: 104 },
+      { key: 'issue_type', label: '이슈유형', type: 'select', width: 92 },
+      { key: 'title', label: '제목', type: 'text', width: 420, fixed: true },
+      { key: 'status', label: '상태', type: 'select', width: 104 },
+      { key: 'priority', label: '우선순위', type: 'select', width: 88 },
+      { key: 'fix_version', label: '수정버전', type: 'text', width: 130 },
+      { key: 'component', label: '구성요소', type: 'select', width: 104 },
+      { key: 'reporter', label: '보고자', type: 'text', width: 96 },
+      { key: 'created_by', label: '등록자', type: 'text', width: 104 },
+      { key: 'created_at', label: '등록일', type: 'date', width: 132 },
+      { key: 'tcid', label: '시험 항목', type: 'text', width: 130 },
+      { key: 'jira_key', label: 'Jira 키', type: 'text', width: 118 },
+    ],
+    [],
+  )
+  const [defCols, setDefCols] = useNCols('utop.ntb.cyc.def', defDefs)
+  const [defView, setDefView] = useState<NView>({ ...EMPTY_VIEW })
+  /** 고를 값은 **지금 자료에서** — 열 정의에 박아 두면 없는 값이 목록에 선다 */
+  const defRows = useMemo<NRow[]>(
+    () =>
+      (defQ.data?.defects ?? []).map((d) => ({
+        ...d,
+        __id: String(d.id ?? ''),
+        id: String(d.id ?? ''),
+        title: String(d.title || d.tc_name || ''),
+        created_at: String(d.created_at ?? '').slice(0, 10),
+      })),
+    [defQ.data],
+  )
+  const defColsView = useMemo<NCol[]>(
+    () =>
+      defCols.map((c) => {
+        if (c.type !== 'select' || c.hidden) return c
+        const vals = [...new Set(defRows.map((r) => String(r[c.key] ?? '')).filter(Boolean))]
+        return { ...c, options: vals.slice(0, 40).map((v) => ({ value: v, color: 'gray' })) }
+      }),
+    [defCols, defRows],
+  )
+
   function renderDefects() {
-    const list = defQ.data?.defects ?? []
     return (
       <div className="cu-scroll">
-        <div className="cu-sec cu-card flat">
-          <h2 className="flexh">
-            결함 내역 <span className="dim">{list.length}</span>
-          </h2>
-          {defQ.isLoading ? (
-            <div className="cu-empty"><strong>불러오는 중…</strong></div>
-          ) : list.length ? (
-            <table className="grid">
-              <thead>
-                <tr>
-                  <th style={{ width: 120 }}>결함 ID</th>
-                  <th>제목</th>
-                  <th style={{ width: 120 }}>시험 항목</th>
-                  <th style={{ width: 72 }}>상태</th>
-                  <th style={{ width: 80 }}>심각도</th>
-                  <th style={{ width: 110 }}>Jira</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((d) => (
-                  <tr key={String(d.id ?? d.title)}>
-                    <td className="cu-mono">{String(d.id ?? '') || '—'}</td>
-                    <td title={String(d.title ?? '')}>{String(d.title ?? '') || '—'}</td>
-                    <td>
-                      {d.tcid ? (
-                        <button type="button" className="linkbtn cu-mono" onClick={() => goto('tc', String(d.tcid))}>
-                          {String(d.tcid)}
-                        </button>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td>
-                      <span className={`badge ${String(d.status) === 'open' ? 'b-fail' : 'b-pass'}`}>
-                        {String(d.status ?? '') || '—'}
-                      </span>
-                    </td>
-                    <td>{String(d.severity ?? '') || '—'}</td>
-                    <td className="cu-mono">{String(d.jira_key ?? '') || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="cu-empty">
-              <strong>등록된 결함이 없습니다</strong>
-              <span>실행에서 실패한 항목에 결함을 등록하면 여기에 모입니다.</span>
-            </div>
-          )}
+        <div className="cyb-ntb">
+          <NTable
+            columns={defColsView}
+            rows={defRows}
+            view={defView}
+            onView={setDefView}
+            onColumns={setDefCols}
+            /* 결함은 여기서 고치지 않는다 — 결함 화면이 정본이다 */
+            onCell={() => {}}
+            readOnlyKeys={defDefs.map((c) => c.key)}
+            lockDefs
+            idKey="id"
+            titleKey="title"
+            /* ID·제목을 누르면 **그 시험 항목**으로 간다 — 결함을 고치는
+               일은 Defects 화면이 맡고, 여기서 궁금한 것은 「어느 시험이
+               깨졌나」 다 */
+            onOpen={(id) => {
+              const d = (defQ.data?.defects ?? []).find((x) => String(x.id ?? '') === id)
+              if (d?.tcid) goto('tc', String(d.tcid))
+            }}
+            exportTitle="결함 내역"
+            perPage={100}
+          />
         </div>
       </div>
     )
@@ -3276,7 +3305,7 @@ export default function CyclesBoard({
             Automation <span className="tabn">{nAuto}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'def'} className={tab === 'def' ? 'on' : ''} onClick={() => setTab('def')}>
-            Defects
+            Defects <span className="tabn">{defQ.data?.defects?.length ?? 0}</span>
           </button>
           <button type="button" role="tab" aria-selected={tab === 'sum'} className={tab === 'sum' ? 'on' : ''} onClick={() => setTab('sum')}>
             Test Summary
