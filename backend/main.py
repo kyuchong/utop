@@ -12976,6 +12976,17 @@ _JIRA_OPT_CACHE: dict = {}          # (프로젝트, 이슈유형) → {필드: 
 _JIRA_PRJ_NAMES: dict = {}          # 프로젝트 키 → 이름
 
 
+async def _jira_load_project_names() -> None:
+    """Jira 프로젝트 키 → 이름. 한 번 받아 두고 다시 쓴다(245 개다)."""
+    if _JIRA_PRJ_NAMES:
+        return
+    r, err = _jira_call("GET", "/rest/api/2/project")
+    if err or not r.is_success:
+        return
+    for p in r.json() or []:
+        _JIRA_PRJ_NAMES[str(p.get("key") or "")] = str(p.get("name") or "")
+
+
 async def _jira_defect_defaults(cycle: dict) -> dict:
     """**SETUP 의 Jira 프로젝트 패널 설정**에서 이 결함의 기본값을 뽑는다(지시).
 
@@ -12992,10 +13003,11 @@ async def _jira_defect_defaults(cycle: dict) -> dict:
     둔다.
     """
     cfg = _jira_cfg()
+    mg = str(cycle.get("model_group") or "")
+    md = str(cycle.get("model") or "")
     key = ""
+    # ① 사람이 맺어 둔 연결이 먼저다(SETUP ▸ 프로젝트의 jira_project)
     try:
-        mg = str(cycle.get("model_group") or "")
-        md = str(cycle.get("model") or "")
         async with db.pool().acquire() as c:
             r = await c.fetchrow(
                 "SELECT jira_project FROM project "
@@ -13006,20 +13018,30 @@ async def _jira_defect_defaults(cycle: dict) -> dict:
         key = str((r or {}).get("jira_project") or "").strip()
     except Exception:
         pass
-    key = key or str(cfg.get("default_project") or "").strip()
+    # ② 없으면 **이름이 제품인 Jira 프로젝트**를 찾는다 — 이 팀은 Jira
+    #    프로젝트 이름을 제품명으로 둔다(E6100 = P88, E6400 = P278).
+    if not key:
+        try:
+            await _jira_load_project_names()
+            for k, nm in _JIRA_PRJ_NAMES.items():
+                if md and nm == md:
+                    key = k
+                    break
+            if not key and mg:
+                key = next((k for k, nm in _JIRA_PRJ_NAMES.items() if nm == mg), "")
+        except Exception:
+            pass
+    # ③ 그래도 못 찾으면 **비운다**. 설정의 기본 프로젝트로 떨어뜨리면
+    #    E6100 시험의 결함이 엉뚱한 제품(U9532H)에 붙는다(지적) —
+    #    빈칸이 틀린 값보다 낫다. 사람이 결함 창에서 고르면 된다.
     if not key:
         return {}
     tmpl = ((cfg.get("panel_templates") or {}).get(key) or {}).get("defect") or {}
     itype = str(tmpl.get("issuetype") or cfg.get("default_issuetype") or "")
     fd = tmpl.get("field_defaults") or {}
     out = {"jira_project": key, "issue_type": itype}
-    # 프로젝트 이름
     try:
-        if key not in _JIRA_PRJ_NAMES:
-            r, err = _jira_call("GET", "/rest/api/2/project")
-            if not err and r.is_success:
-                for p in r.json() or []:
-                    _JIRA_PRJ_NAMES[str(p.get("key") or "")] = str(p.get("name") or "")
+        await _jira_load_project_names()
         out["project_name"] = _JIRA_PRJ_NAMES.get(key, "")
     except Exception:
         pass
