@@ -301,18 +301,41 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
    * **사람이 고른 값은 안 건드린다** — 기본값은 빈 칸에만 들어간다.
    */
   useEffect(() => {
-    const fd = panelDefaults[proj]
-    if (!fd || !jfDefs.length) return
+    if (!jfDefs.length) return
+    const fd = panelDefaults[proj] ?? {}
+    const today = new Date()
+    const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+      today.getDate(),
+    ).padStart(2, '0')}`
     setJfVals((v) => {
       const out = { ...v }
       let hit = false
-      for (const f of jfDefs) {
-        const dv = fd[f.id]
-        if (dv === undefined || dv === null || dv === '') continue
-        const cur = out[f.id]
-        if (Array.isArray(cur) ? cur.length : String(cur ?? '')) continue
-        out[f.id] = f.type === 'array' ? [String(dv)] : String(dv)
+      const put = (id: string, val: unknown) => {
+        const cur = out[id]
+        if (Array.isArray(cur) ? cur.length : String(cur ?? '')) return
+        out[id] = val
         hit = true
+      }
+      for (const f of jfDefs) {
+        const nm = String(f.name || f.id).replace(/\s+/g, '')
+        /* SETUP 에 정해 둔 값 */
+        const dv = fd[f.id]
+        if (dv !== undefined && dv !== null && dv !== '') {
+          put(f.id, f.type === 'array' ? [String(dv)] : String(dv))
+          continue
+        }
+        /* **시작일은 오늘**(지시) — 결함을 낸 날이 곧 그 일의 시작이다.
+           완료일은 비워 둔다: 언제 끝날지는 아직 아무도 모른다. */
+        if (nm.startsWith('시작일')) {
+          put(f.id, ymd)
+          continue
+        }
+        /* **우선순위 기본은 「보통(기본)」**(지시) — SETUP 에 따로 정해 둔
+           값이 있으면 위에서 이미 들어갔고, 없을 때만 이것이 선다. */
+        if (nm.startsWith('우선순위')) {
+          const mid = (f.options ?? []).find((o) => String(o.name ?? '').startsWith('보통'))
+          if (mid?.id) put(f.id, String(mid.id))
+        }
       }
       return hit ? out : v
     })

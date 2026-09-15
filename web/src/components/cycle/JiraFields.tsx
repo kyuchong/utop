@@ -57,7 +57,48 @@ const KEEP = new Set([
   '발생빈도',
   '목표버전',
   '대외OPEN',
+  /* 아래 셋은 Jira 등록 창에 있는데 여기에만 없었다(지적) — 있는 칸은
+     건드리지 않고 빠진 것만 더한다.
+     · OS 시험버전(최초) — 어느 판에서 난 문제인지가 첫 물음이다
+     · 시작일·완료일(WBSGantt) — 일정 칸 */
+  'OS시험버전',
+  '시작일',
+  '완료일',
 ])
+
+/**
+ * **고를 값에서 빼는 것**(지시).
+ *
+ * Jira 는 그 프로젝트가 아는 값을 다 주지만, 여기서 결함을 낼 때 고를 일이
+ * 없는 값이 섞여 있다. 이름으로 건다 — 값 ID 는 프로젝트마다 다르다.
+ */
+const DROP_OPT: Record<string, Set<string>> = {
+  /* 우선순위 — 「전체」 는 고를 값이 아니다(거르개용) */
+  우선순위: new Set(['전체']),
+  /* 이슈분류 — PON 갈래는 이 팀이 안 쓴다 */
+  이슈분류: new Set(['1G-PON', '10G-PON']),
+}
+/** 사업자는 **이 열 가지만**(지시) — 그 밖의 값은 목록에 안 세운다 */
+const ONLY_OPT: Record<string, string[]> = {
+  사업자: ['KT', 'LGU+', 'ENT', 'SO', '공공', '삼성OEM', 'LGHV', '해외(ITUS)', '해외(ADTRAN)', '해외(기타)'],
+}
+
+/** 그 칸이 실제로 보여 줄 값 — 빼기·남기기를 한 자리에서 판단한다 */
+export function optionsOf(f: JiraField): Array<{ id?: string; name?: string }> {
+  const all = f.options ?? []
+  const key = keyOfName(f.name || f.id)
+  const only = ONLY_OPT[key]
+  if (only) {
+    const want = new Set(only)
+    const kept = all.filter((o) => want.has(String(o.name ?? '')))
+    /* 하나도 안 맞으면 거르지 않는다 — 프로젝트마다 이름이 다를 수 있고,
+       빈 목록을 주면 아무것도 못 고른다 */
+    if (kept.length) return kept
+    return all
+  }
+  const drop = DROP_OPT[key]
+  return drop ? all.filter((o) => !drop.has(String(o.name ?? ''))) : all
+}
 const keyOfName = (v?: string) => String(v ?? '').replace(/\s+/g, '').split('(')[0] ?? ''
 export const wanted = (f: JiraField) => !!f.required || KEEP.has(keyOfName(f.name || f.id))
 
@@ -160,7 +201,7 @@ function One({
     </div>
   )
   const isArr = f.type === 'array'
-  const opts = f.options ?? []
+  const opts = optionsOf(f)
 
   /* 담당자 — 이름·메일·ID 로 찾는다. Jira 아이디를 외우고 있는 사람은 없다 */
   if (f.type === 'user') {
