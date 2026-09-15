@@ -1576,21 +1576,32 @@ export default function RunDetail({
             const from = hhmmss(run.started_at)
             /* 끝났으면 **잰 시각**을, 도는 중이면 **끝나는 때**를 적는다(지시).
                셈은 위 etaAt 한 곳이 한다 — 여기서는 적기만 한다. */
-            let tail = ''
+            /* **숫자만** 굴린다 — 한글까지 굴림 상자에 넣으면 글꼴 높이가
+               달라 글자가 숫자보다 처진다(지적: 열이 안 맞는다). */
+            let tailAt = ''
+            let tailWord = ''
             let tip = `${from} 시작`
             if (stoppedAt) {
-              tail = ` · ${hhmmss(stoppedAt)} 끝`
-              tip += ` · ${hhmmss(stoppedAt)} 끝`
+              tailAt = hhmmss(stoppedAt)
+              tailWord = '끝'
+              tip += ` · ${tailAt} 끝`
             } else if (etaAt) {
-              tail = ` · ${hhmmss(etaAt)} 끝 예정`
+              tailAt = hhmmss(etaAt)
+              tailWord = '끝 예정'
               const min = Math.max(1, Math.round((etaAt - Date.now()) / 60000))
               const per = perItemMs ? ` · 한 건 ${(perItemMs / 1000).toFixed(1)}초` : ''
-              tip += ` · ${hhmmss(etaAt)} 끝 예정 (남은 ${leftN}건 · 약 ${min}분${per})`
+              tip += ` · ${tailAt} 끝 예정 (남은 ${leftN}건 · 약 ${min}분${per})`
             }
             return (
               <i className="rd-when" title={tip}>
                 (<RollNum text={from} /> 시작
-                {tail ? <RollNum text={tail} /> : null})
+                {tailAt ? (
+                  <>
+                    {' · '}
+                    <RollNum text={tailAt} /> {tailWord}
+                  </>
+                ) : null}
+                )
               </i>
             )
           })()}

@@ -629,8 +629,15 @@
    흰 바탕이라 주신 견본의 검은 판·그림자는 걷고 **글자만** 굴린다.
    자리 폭을 고정해(0.6em) 숫자가 바뀔 때 옆 글자가 밀리지 않는다. */
 /* 칸들을 **위에서 맞춘다.** baseline 으로 두면 숫자 칸이 overflow:hidden
-   이라 제 아래 모서리를 기준선으로 삼아, 콜론만 10px 처진다(실측). */
-.rn { display: inline-flex; align-items: flex-start; font-variant-numeric: tabular-nums; }
+   이라 제 아래 모서리를 기준선으로 삼아, 콜론만 10px 처진다(실측).
+   바깥 글줄과의 높이는 vertical-align 으로 맞춘다 — inline-flex 의 기준선은
+   첫 자식(숫자 칸)의 아래 모서리라, 그냥 두면 숫자만 위로 떠 옆 글자와
+   열이 어긋난다(지적). */
+.rn {
+  display: inline-flex; align-items: flex-start;
+  vertical-align: -0.18em;
+  font-variant-numeric: tabular-nums;
+}
 .rn-d { position: relative; display: inline-block; width: 0.6em; height: 1.16em; overflow: hidden; vertical-align: baseline; }
 .rn-s {
   position: absolute; top: 0; left: 0; right: 0;
