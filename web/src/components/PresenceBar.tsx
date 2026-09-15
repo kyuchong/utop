@@ -3,6 +3,10 @@ import './PresenceBar.css'
 interface Props {
   users: string[]
   me: string
+  /** **무엇을** 같이 보는 중인가 — 사이클 이름·문서 제목처럼 그 자리를
+      가리키는 말. 마우스를 올리면 이것과 이름이 함께 뜬다(지시: 구분이
+      안 된다). 배지 글자는 짧게 두고 자세한 것은 여기에 담는다. */
+  what?: string
 }
 
 /** 이름에서 늘 같은 색을 뽑는다 — 같은 사람은 어느 화면에서나 같은 색 */
@@ -18,7 +22,7 @@ function colorOf(name: string): string {
  * 나 혼자면 아무것도 안 보인다. 둘부터 뜬다 — 혼자일 때도 동그라미가
  * 있으면 그것이 늘 있는 장식이 되어, 정작 둘이 됐을 때 눈에 안 띈다.
  */
-export default function PresenceBar({ users, me }: Props) {
+export default function PresenceBar({ users, me, what }: Props) {
   if (users.length < 2) return null
   // 나를 맨 앞에
   const all = [...users].sort((a, b) => (a === me ? -1 : b === me ? 1 : 0))
@@ -26,7 +30,12 @@ export default function PresenceBar({ users, me }: Props) {
   const more = all.length - shown.length
 
   return (
-    <span className="pb" title={all.map((u) => (u === me ? `${u} (나)` : u)).join(', ')}>
+    <span
+      className="pb"
+      title={`${what ? `${what} — ` : ''}같이 보는 중: ${all
+        .map((u) => (u === me ? `${u} (나)` : u))
+        .join(', ')}`}
+    >
       {shown.map((u) => (
         <span
           key={u}

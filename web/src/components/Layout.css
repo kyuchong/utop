@@ -733,7 +733,3 @@
 /* 화면이 쓰는 머리줄 자리 — 지금은 WIKI 의 「함께 보는 중」 이 여기 선다.
    비어 있을 때는 자리를 안 먹는다. */
 .app-top-slot { display: inline-flex; align-items: center; }
-/* 이 자리가 차면 전체 프레즌스는 숨는다 — 「이 문서를 같이 보는 사람」 이
-   「UTOP 을 같이 쓰는 사람」 보다 지금 하는 일에 가깝다. 둘이 나란히
-   서면 같은 그림 두 벌이 되어 어느 쪽이 무엇인지 안 갈린다. */
-.app-top-slot:not(:empty) + .pb { display: none; }

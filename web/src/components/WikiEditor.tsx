@@ -717,7 +717,11 @@ export default function WikiEditor({
             문서에 하는 일(가져오기·PDF·이력)로 차 있어, 소식이 그 사이에
             끼면 단추처럼 읽혔다. 머리줄 오른쪽은 알림 종과 한 묶음이라
             소식이 서는 자리다. 자리는 Layout 이 내주고 여기서 그린다. */}
-        {topSlot && createPortal(<PresenceBar users={who} me={meName} />, topSlot)}
+        {topSlot &&
+          createPortal(
+            <PresenceBar users={who} me={meName} what={`${title || '문서'} 문서`} />,
+            topSlot,
+          )}
         {/* 워드 가져오기 — 그대로 옮겨 온다(지시: 표·그림·표 안의 표까지).
             .docx 는 압축 파일이라 브라우저가 못 읽는다. 서버가 풀어 HTML 로
             돌려주면 편집기가 그것을 블록으로 읽는다 — 우리가 블록을 손으로

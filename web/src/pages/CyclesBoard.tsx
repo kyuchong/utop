@@ -3320,7 +3320,17 @@ export default function CyclesBoard({
     <div className="qav cyb rnb">
       {/* 「n명이 함께 보는 중」 은 머리줄 오른쪽에(지시) — WIKI 와 같은 자리다.
           혼자면 아무것도 안 뜬다(PresenceBar 규칙). */}
-      {topSlot && createPortal(<PresenceBar users={presence.users} me={meName} />, topSlot)}
+      {topSlot &&
+        createPortal(
+          <PresenceBar
+            users={presence.users}
+            me={meName}
+            /* **무엇을** 같이 보는 중인지 — 목록과 사이클 안은 다른 자리다
+               (지적: 버전에 들어간 사람과 표만 보는 사람이 안 갈린다) */
+            what={open ? `${String(plan?.name ?? plan?.version ?? open)} 사이클` : '사이클 목록'}
+          />,
+          topSlot,
+        )}
       {/* ── **시험이 진행 중입니다** — 떠 있는 띠(지시).
           어느 탭에 있든, 누가 걸었든 보인다. 서버 상태를 그대로 읽으므로
           옆자리 사람이 건 시험도 똑같이 뜬다 — 「같이 들어갔는데 도는 건지
