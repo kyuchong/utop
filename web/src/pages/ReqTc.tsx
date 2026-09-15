@@ -30,11 +30,9 @@ import ListSortBtn, {
 } from '@/components/ListSortBtn'
 import { useInfoCols } from '@/components/useInfoCols'
 import ReqForm from '@/components/ReqForm'
-import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
 import ReqMapDialog from '@/components/ReqMapDialog'
 import TcMapReqDialog from '@/components/tc/TcMapReqDialog'
-import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import CopyDialog from '@/components/CopyDialog'
 import { buildTcFile, tcFileName, downloadJson, nextTcId, parseTcFile } from '@/components/tc/portable'
@@ -337,7 +335,6 @@ export default function ReqTc({ me }: Props) {
   const dragCatRef = useRef('')
   /* 도구줄이 여는 창들 — 요구사항·시험항목 화면의 것을 그대로 쓴다.
      같은 일을 하는 창을 새로 만들면 두 화면이 서로 다르게 동작한다. */
-  const [bulkNew, setBulkNew] = useState(false)
   const [bulkEdit, setBulkEdit] = useState(false)
   /** 선택 바에서 「일괄 편집」 으로 넘어온 줄들.
    *  시험 항목 표는 **제 선택을 스스로 들고 있어** sel 과 다르다(그래서
@@ -909,8 +906,6 @@ export default function ReqTc({ me }: Props) {
      랩마다 UTOP 이 따로 서 있어서, 한쪽에서 만든 시험을 다른 쪽에서 그대로
      돌리고 싶은 일이 잦다. DB 를 통째로 옮기면 장비 비밀번호까지 따라가므로
      시험 하나만 파일로 뗀다. */
-  /** 만들기 메뉴 — ⋯ 안에 ＋New·＋Bulk New·＋Copy 가 든다 */
-  const [newOpen, setNewOpen] = useState(false)
   /* 시험 연결 — 요구사항 화면이 쓰던 **그 창**을 그대로 얹는다(지시).
      TC Map 칸은 보여 주기만 한다: 붙였다 떼는 일은 이 창이 한다. */
   const [mapFor, setMapFor] = useState<Requirement | null>(null)
@@ -2496,61 +2491,10 @@ export default function ReqTc({ me }: Props) {
             {/* Requirements/Coverage 토글은 **상단바**로 올렸다(지시) —
                 프로젝트 오른쪽, 세로선 너머다. 여기 또 두면 같은 것을 두 곳
                 에서 고치게 된다. */}
-            {/* 만들기 셋은 **⋯ 안으로**(지시). 늘 서 있을 필요가 없는
-                것들이라 줄을 먹고 있었다 — 눌러서 꺼내 쓴다. */}
-            {!openReq && !openTc && !gpOpen && (
-            <div className="rqtc-more">
-              <button
-                type="button"
-                className="rqtc-ib rqtc-newb"
-                aria-haspopup="menu"
-                aria-expanded={newOpen}
-                title="만들기"
-                onClick={() => setNewOpen((v) => !v)}
-              >
-                ⋯
-              </button>
-              {newOpen && (
-                <>
-                  <div className="tc-menu-back" onClick={() => setNewOpen(false)} />
-                  <div className="tc-menu" role="menu">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewOpen(false)
-                        if (mode === 'req') setEditReq(null)
-                        else setEditTc(null)
-                      }}
-                    >
-                      ＋ New
-                    </button>
-                    <button
-                      type="button"
-                      title="엑셀·문서에서 붙여넣어 여러 건을 한 번에 만듭니다"
-                      onClick={() => {
-                        setNewOpen(false)
-                        setBulkNew(true)
-                      }}
-                    >
-                      ＋ Bulk New
-                    </button>
-                    {mode === 'tc' && (
-                      <button
-                        type="button"
-                        title="다른 폴더·요구사항의 시험을 복사해 옵니다"
-                        onClick={() => {
-                          setNewOpen(false)
-                          setCopyOpen(true)
-                        }}
-                      >
-                        ＋ Copy
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-            )}
+            {/* ⋯(만들기) 메뉴는 걷었다(지시). 「New」 는 표 아래 「＋ 새로
+                만들기」 와 같은 일을 하고 있었고, 「Bulk New」 도 함께 뺐다.
+                「Copy」 는 내보내기 옆 상시 단추로 나갔다 — 파일로 떼고
+                붙이는 일과 한 묶음이라 거기 있어야 찾는다. */}
             {/* 세로선 — 왼쪽은 「무엇을 볼지·무엇을 만들지」, 오른쪽은
                 「지금 어디를 보고 있나」(빵부스러기)다(지시). */}
             <span className="rqtc-vsep" aria-hidden="true" />
@@ -2708,6 +2652,14 @@ export default function ReqTc({ me }: Props) {
                 이 서버에 싣는다. */}
             {mode === 'tc' && !openTc && !openReq && !gpOpen && (
               <>
+                <button
+                  type="button"
+                  className="rqtc-topbtn"
+                  title="다른 폴더·요구사항의 시험을 복사해 옵니다"
+                  onClick={() => setCopyOpen(true)}
+                >
+                  ⧉ Copy
+                </button>
                 <button
                   type="button"
                   className="rqtc-topbtn"
@@ -3282,12 +3234,9 @@ export default function ReqTc({ me }: Props) {
         />
       )}
 
-      {bulkNew &&
-        (mode === 'req' ? (
-          <ReqBulkForm presetFolder={cat === NOREQ_CAT ? null : cat || null} onClose={() => setBulkNew(false)} />
-        ) : (
-          <TcBulkForm onClose={() => setBulkNew(false)} />
-        ))}
+      {/* 「Bulk New」 는 걷었다(지시) — 여는 자리가 없어져 뜨지 않는 창을
+          그리고 있지 않게 함께 뺀다. 부품(ReqBulkForm·TcBulkForm)은 그대로
+          두었다: 되살릴 때 이 네 줄만 도로 붙이면 된다. */}
       {bulkEdit &&
         (mode === 'req' ? (
           <ReqBulkEdit
