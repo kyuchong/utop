@@ -12972,6 +12972,85 @@ async def api_plan_run_stat(run_id: str, tcid: str = "", by: str = ""):
     return await db.plan_run_item_stat(run_id, tcid)
 
 
+def _step_is_fail(st: dict) -> bool:
+    """스텝 하나가 깨졌나 — 판정 글자가 없으면 회차 안을 본다.
+
+    반복 시험은 스텝 최상위에 판정을 안 남기고 rounds[] 에만 남기는 일이
+    있다. 겉만 보면 「깨진 스텝이 없다」 가 되어 결함 본문이 빈다."""
+    v = str(st.get("status") or st.get("verdict") or "").strip().upper()
+    if v:
+        return v.startswith("F") or v in ("부적합", "실패", "불합격")
+    rs = st.get("rounds")
+    if isinstance(rs, list):
+        for r in rs:
+            if isinstance(r, dict) and str(r.get("status") or "").strip().upper().startswith("F"):
+                return True
+    return False
+
+
+async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
+    """**자동 시험이 깨지면 그 자리에서 결함을 만든다**(지시).
+
+    사람이 「결함 만들기」 를 누르러 돌아오지 않아도 사이클 Defects 탭과
+    Defects 화면에 바로 선다 — 둘은 같은 표(defect)를 읽으므로, 여기서
+    한 번 만들면 두 곳에 함께 쌓인다.
+
+    항목 하나에 결함 하나다(defect_by_item). 50 회를 돌려 50 번 깨져도
+    결함은 하나고, 깨진 스텝 내용은 그 하나에 담긴다.
+
+    **결과 저장을 막지 않는다** — 결함을 못 만들어도 실행 기록은 남아야
+    하므로 모든 예외를 여기서 삼킨다.
+    """
+    run = await db.plan_run_get(run_id)
+    if not run:
+        return
+    cid = str(run.get("plan_id") or "").strip()
+    if not cid:
+        return
+    if await db.defect_by_item(cid, tcid):
+        return                                   # 이미 있다 — 항목 하나에 하나
+    cyc = await db.cycle_get(cid) or {}
+    name = ""
+    for it in (cyc.get("items") or []):
+        if isinstance(it, dict) and str(it.get("tcid") or "") == tcid:
+            name = str(it.get("name") or it.get("title") or "")
+            break
+    model = str(cyc.get("model") or "")
+    version = str(cyc.get("version") or run.get("version") or "")
+    steps = [x for x in (body.get("steps") or []) if isinstance(x, dict)]
+    bad = [x for x in steps if _step_is_fail(x)]
+    pick = bad or steps
+    briefs = [{
+        "no": steps.index(x) + 1,
+        "kind": str(x.get("kind") or "cli"),
+        "desc": str(x.get("desc") or x.get("step") or ""),
+        "cli": str(x.get("cli") or ""),
+        "criteria": str(x.get("criteria") or ""),
+        "status": str(x.get("status") or x.get("verdict") or "FAIL"),
+        "reason": str(x.get("reason") or ""),
+        "output": str(x.get("output") or "")[:4000],
+    } for x in pick[:40]]
+    for _ in range(3):
+        did = await db.defect_next_id("")
+        try:
+            await db.defect_create({
+                "id": did,
+                "title": name or tcid,
+                "cycle_id": cid,
+                "cycle_name": " · ".join([x for x in (model, version) if x]),
+                "tcid": tcid,
+                "tc_name": name or tcid,
+                "model": model,
+                "version": version,
+                "steps": briefs,
+                "note": "자동 시험에서 부적합이 나와 자동으로 등록했습니다.",
+                "created_by": "실행기",
+            })
+            return
+        except Exception:
+            continue
+
+
 @app.post("/api/plan-runs/{run_id}/item")
 async def api_plan_run_item_put(run_id: str, payload: dict):
     """실행기가 항목 하나를 마칠 때마다 부른다.
@@ -12983,12 +13062,20 @@ async def api_plan_run_item_put(run_id: str, payload: dict):
     if not tcid:
         raise HTTPException(400, "tcid 가 없습니다")
     body = p.get("data")
-    return await db.plan_run_item_put(
-        run_id, tcid, int(p.get("round") or 1), str(p.get("verdict") or ""),
+    verdict = str(p.get("verdict") or "")
+    out = await db.plan_run_item_put(
+        run_id, tcid, int(p.get("round") or 1), verdict,
         str(p.get("at") or ""), int(p.get("took_ms") or 0),
         body if isinstance(body, dict) else {},
         bool(p.get("fold", True)),
     )
+    # 깨졌으면 결함을 만든다(지시) — 실패해도 위 저장은 이미 끝났다
+    try:
+        if verdict and verdict in await db._bad_verdicts():
+            await _auto_defect(run_id, tcid, body if isinstance(body, dict) else {})
+    except Exception:
+        pass
+    return out
 
 
 @app.post("/api/cycle/{cycle_id}")
