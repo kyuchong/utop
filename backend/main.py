@@ -12976,6 +12976,22 @@ _JIRA_OPT_CACHE: dict = {}          # (프로젝트, 이슈유형) → {필드: 
 _JIRA_PRJ_NAMES: dict = {}          # 프로젝트 키 → 이름
 
 
+def _user_name_of(who: str) -> str:
+    """계정 아이디·이름 어느 쪽이 와도 **이름**을 돌려준다(화면에 적을 값)."""
+    w = str(who or "").strip()
+    if not w:
+        return ""
+    try:
+        for u in (_users_load_sync().get("users") or []):
+            if str(u.get("name") or "") == w:
+                return w
+            if str(u.get("username") or "") == w:
+                return str(u.get("name") or w)
+    except Exception:
+        pass
+    return w
+
+
 def _user_id_of(who: str) -> str:
     """표시 이름·계정 아이디 어느 쪽이 와도 **계정 아이디**를 돌려준다.
 
@@ -13168,10 +13184,12 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
                 "          started_at DESC NULLS LAST, queued_at DESC NULLS LAST LIMIT 1",
                 run_id,
             )
-        who = _user_id_of(str((r2 or {}).get("started_by") or ""))
+        who = str((r2 or {}).get("started_by") or "").strip()
     except Exception:
         pass
-    who = who or str(run.get("created_by") or cyc.get("created_by") or "").strip()
+    # **이름으로 적는다**(지시) — 화면에서 사람이 읽는 값이다. 계정 아이디는
+    # 지라로 올릴 때 그 자리에서 옮긴다(_jira_user_name).
+    who = who or _user_name_of(str(run.get("created_by") or cyc.get("created_by") or ""))
     if who:
         extra["reporter"] = who
     steps = [x for x in (body.get("steps") or []) if isinstance(x, dict)]
@@ -13193,26 +13211,37 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
             # **현상**(지시) — 어떤 시험을 돌다 무엇이 어긋났는지 한 문단.
             # 사람이 결함을 열었을 때 첫 칸이 비어 있으면 그때부터 기억을
             # 더듬어야 한다. 깨진 스텝의 판정 근거가 곧 그 문장이다.
-            why = ""
+            # 「현상」 은 **증상 한 줄**이다(지시: "dwrr 비율이 맞지않는 현상,
+            # Multicast 플러딩 불가" 같은 꼴). 깨진 스텝마다 「무엇이 안 된다」
+            # 를 짧게 적고 쉼표로 잇는다 — 자세한 경위는 아래 판들이 맡는다.
+            bits: list[str] = []
             for b in briefs:
-                if str(b.get("status") or "").upper().startswith("F"):
-                    why = str(b.get("reason") or "").strip()
-                    if why:
-                        break
-            first = briefs[0] if briefs else {}
-            where = str(first.get("cli") or first.get("desc") or "").strip()
-            sym = (
-                f"{version or cyc.get('name') or cid} 사이클의 자동 시험에서 "
-                f"「{name or tcid}」 항목이 부적합으로 났습니다."
+                if not str(b.get("status") or "").upper().startswith("F"):
+                    continue
+                what = str(b.get("desc") or b.get("cli") or "").strip()
+                why2 = str(b.get("reason") or "").strip()
+                # 판정 근거는 대개 한 문장이라 그대로 쓰되, 길면 앞만 남긴다
+                if len(why2) > 60:
+                    why2 = why2[:60].rstrip() + "…"
+                if what and why2:
+                    bits.append(f"{what} 실패 — {why2}")
+                elif what:
+                    bits.append(f"{what} 실패")
+                elif why2:
+                    bits.append(why2)
+                if len(bits) >= 5:
+                    break
+            sym = ", ".join(bits) or f"{name or tcid} 부적합"
+            # 경위는 「시험내역」 이 맡는다 — 현상 칸에 섞으면 증상이 안 읽힌다
+            det = (
+                f"사이클: {version or cyc.get('name') or cid}\n"
+                f"시험 항목: {tcid} {name or ''}".rstrip() + "\n"
+                f"모델: {model or '—'} · 버전: {version or '—'}\n"
+                f"자동 시험에서 부적합으로 났습니다."
             )
-            if where:
-                sym += f"\n동작: {where}"
-            if why:
-                sym += f"\n어긋난 점: {why}"
-            sym += f"\n(시험 항목 {tcid} · 모델 {model or '—'} · 버전 {version or '—'})"
             await db.defect_create({
                 **extra,
-                "panels": {"symptom": sym},
+                "panels": {"symptom": sym, "detail": det},
                 "id": did,
                 # 새로 난 결함은 **New** 다(지시) — 「미해결」 탭은 닫히지
                 # 않은 것을 모두 담으므로 여기서도 보인다
@@ -21814,7 +21843,9 @@ async def defect_push_jira(did: str, payload: dict = None):
         fields["components"] = [{"name": comp}]
     rep = payload.get("reporter") or d.get("reporter")
     if rep:
-        fields["reporter"] = {"name": rep}
+        # 결함에는 **이름**으로 적혀 있다(화면에서 읽는 값) — Jira 의 reporter
+        # 는 계정 아이디를 받으므로 여기서 옮긴다. 이미 아이디면 그대로 간다.
+        fields["reporter"] = {"name": _user_id_of(str(rep))}
     # 화면에서 방금 고친 판이 오면 그것으로 쓴다 — 「변경 저장」 을 먼저
     # 누르지 않고 바로 올리는 사람이 있다. 저장 안 했다고 옛 본문이 올라가면
     # 무엇이 올라갔는지 아무도 모른다.
