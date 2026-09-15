@@ -13157,9 +13157,15 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
     who = ""
     try:
         async with db.pool().acquire() as c:
+            # **시간으로 고른다.** id 는 랜덤 hex 라 정렬해도 시간순이 아니다 —
+            # 그 바람에 늘 엉뚱한(옛) 일감을 집어, 누가 돌리든 보고자가 처음
+            # 돌린 사람으로 박혔다(지적: 계정과 상관없이 admin).
+            # 지금 도는 일감이 있으면 그것이 먼저다.
             r2 = await c.fetchrow(
                 "SELECT started_by FROM cycle_run WHERE plan_run_id = $1 "
-                " AND COALESCE(started_by,'') <> '' ORDER BY id DESC LIMIT 1",
+                " AND COALESCE(started_by,'') <> '' "
+                " ORDER BY (status IN ('running','queued')) DESC, "
+                "          started_at DESC NULLS LAST, queued_at DESC NULLS LAST LIMIT 1",
                 run_id,
             )
         who = _user_id_of(str((r2 or {}).get("started_by") or ""))
