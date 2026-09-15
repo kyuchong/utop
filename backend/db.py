@@ -3129,7 +3129,11 @@ async def defect_create(d: dict) -> dict:
 
 async def defect_list(status: str = "", cycle_id: str = "", limit: int = 300) -> list:
     where, args = [], []
-    if status:
+    if status == "open":
+        # 「미해결」 은 **아직 닫히지 않은 것**이다 — 글자를 그대로 맞추면
+        # 자동 등록분(New)이 이 탭에서 사라진다(지시: 상태는 New).
+        where.append("COALESCE(status,'') NOT IN ('closed','pushed')")
+    elif status:
         args.append(status); where.append(f"status = ${len(args)}")
     if cycle_id:
         args.append(cycle_id); where.append(f"cycle_id = ${len(args)}")

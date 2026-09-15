@@ -16,7 +16,10 @@
     옛 ?cycle= 이 되살아나 왼쪽 메뉴가 Plans 로 되돌아갔다(지적). */
 /** releases = Releases 화면 자체. Knowledge AI 가 「Jira 이슈는 저기서
     찾으세요」 하고 보낼 곳이 필요하다 — 항목이 아니라 **화면**을 연다. */
-export type GotoKind = 'tc' | 'req' | 'cycle' | 'ce' | 'report' | 'cat' | 'wiki' | 'run' | 'releases'
+/** defect = 결함 한 건. 사이클 결함 탭에서 ID 를 누르면 **결함 화면의 그
+    결함**으로 가야 한다(지시) — 여기서는 보기만 하고 고치는 자리는 거기다. */
+export type GotoKind =
+  | 'tc' | 'req' | 'cycle' | 'ce' | 'report' | 'cat' | 'wiki' | 'run' | 'releases' | 'defect'
 
 export function goto(kind: GotoKind, id: string): void {
   window.dispatchEvent(new CustomEvent('utop:goto', { detail: { kind, id } }))

@@ -12972,6 +12972,92 @@ async def api_plan_run_stat(run_id: str, tcid: str = "", by: str = ""):
     return await db.plan_run_item_stat(run_id, tcid)
 
 
+_JIRA_OPT_CACHE: dict = {}          # (프로젝트, 이슈유형) → {필드: {id: 이름}}
+_JIRA_PRJ_NAMES: dict = {}          # 프로젝트 키 → 이름
+
+
+async def _jira_defect_defaults(cycle: dict) -> dict:
+    """**SETUP 의 Jira 프로젝트 패널 설정**에서 이 결함의 기본값을 뽑는다(지시).
+
+    사람이 결함 창을 열어 하나씩 고르던 값들(프로젝트·이슈유형·우선순위·
+    구성요소)을, 자동 등록에서는 설정이 대신 정한다. 어느 프로젝트인지는
+    **사이클이 앉은 프로젝트**가 먼저고(project.jira_project), 없으면 설정의
+    기본 프로젝트다.
+
+    패널 설정은 값을 **Jira 내부 ID** 로 들고 있다(우선순위 '10100'). 표에는
+    이름이 서야 하므로 createmeta 로 한 번 받아 옮겨 적고, 그 뒤로는 담아
+    둔 것을 쓴다 — 결함 하나 만들 때마다 Jira 를 부르면 시험이 느려진다.
+
+    Jira 가 안 붙어 있어도 **결함은 만들어져야 한다** — 못 읽은 칸은 빈 채로
+    둔다.
+    """
+    cfg = _jira_cfg()
+    key = ""
+    try:
+        mg = str(cycle.get("model_group") or "")
+        md = str(cycle.get("model") or "")
+        async with db.pool().acquire() as c:
+            r = await c.fetchrow(
+                "SELECT jira_project FROM project "
+                " WHERE model_group = $1 AND ($2 = '' OR COALESCE(model,'') = $2) "
+                " ORDER BY (COALESCE(model,'') = $2) DESC LIMIT 1",
+                mg, md,
+            )
+        key = str((r or {}).get("jira_project") or "").strip()
+    except Exception:
+        pass
+    key = key or str(cfg.get("default_project") or "").strip()
+    if not key:
+        return {}
+    tmpl = ((cfg.get("panel_templates") or {}).get(key) or {}).get("defect") or {}
+    itype = str(tmpl.get("issuetype") or cfg.get("default_issuetype") or "")
+    fd = tmpl.get("field_defaults") or {}
+    out = {"jira_project": key, "issue_type": itype}
+    # 프로젝트 이름
+    try:
+        if key not in _JIRA_PRJ_NAMES:
+            r, err = _jira_call("GET", "/rest/api/2/project")
+            if not err and r.is_success:
+                for p in r.json() or []:
+                    _JIRA_PRJ_NAMES[str(p.get("key") or "")] = str(p.get("name") or "")
+        out["project_name"] = _JIRA_PRJ_NAMES.get(key, "")
+    except Exception:
+        pass
+    # 우선순위·구성요소 — ID 를 이름으로
+    try:
+        ck = (key, itype)
+        if ck not in _JIRA_OPT_CACHE:
+            names: dict = {}
+            r, err = _jira_call(
+                "GET",
+                f"/rest/api/2/issue/createmeta?projectKeys={key}&expand=projects.issuetypes.fields",
+            )
+            if not err and r.is_success:
+                for pr in (r.json().get("projects") or [])[:1]:
+                    for it in pr.get("issuetypes", []):
+                        if itype and str(it.get("id")) != itype and it.get("name") != itype:
+                            continue
+                        for fid, f in (it.get("fields") or {}).items():
+                            av = f.get("allowedValues")
+                            if isinstance(av, list):
+                                names[fid] = {
+                                    str(o.get("id") or ""): str(o.get("name") or o.get("value") or "")
+                                    for o in av
+                                }
+                        break
+            _JIRA_OPT_CACHE[ck] = names
+        names = _JIRA_OPT_CACHE.get(ck) or {}
+        pv = str(fd.get("priority") or "")
+        if pv:
+            out["priority"] = (names.get("priority") or {}).get(pv, "")
+        cv = str(fd.get("components") or "")
+        if cv:
+            out["component"] = (names.get("components") or {}).get(cv, "")
+    except Exception:
+        pass
+    return {k: v for k, v in out.items() if v}
+
+
 def _step_is_fail(st: dict) -> bool:
     """스텝 하나가 깨졌나 — 판정 글자가 없으면 회차 안을 본다.
 
@@ -13017,6 +13103,7 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
             break
     model = str(cyc.get("model") or "")
     version = str(cyc.get("version") or run.get("version") or "")
+    extra = await _jira_defect_defaults(cyc)
     steps = [x for x in (body.get("steps") or []) if isinstance(x, dict)]
     bad = [x for x in steps if _step_is_fail(x)]
     pick = bad or steps
@@ -13034,7 +13121,11 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
         did = await db.defect_next_id("")
         try:
             await db.defect_create({
+                **extra,
                 "id": did,
+                # 새로 난 결함은 **New** 다(지시) — 「미해결」 탭은 닫히지
+                # 않은 것을 모두 담으므로 여기서도 보인다
+                "status": "New",
                 "title": name or tcid,
                 "cycle_id": cid,
                 "cycle_name": " · ".join([x for x in (model, version) if x]),

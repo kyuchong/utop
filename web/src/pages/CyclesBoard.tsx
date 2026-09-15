@@ -3172,12 +3172,20 @@ export default function CyclesBoard({
             lockDefs
             idKey="id"
             titleKey="title"
-            /* ID·제목을 누르면 **그 시험 항목**으로 간다 — 결함을 고치는
-               일은 Defects 화면이 맡고, 여기서 궁금한 것은 「어느 시험이
-               깨졌나」 다 */
-            onOpen={(id) => {
-              const d = (defQ.data?.defects ?? []).find((x) => String(x.id ?? '') === id)
-              if (d?.tcid) goto('tc', String(d.tcid))
+            /* **ID 는 Defects 화면의 그 결함으로**(지시) — 다른 표와 같은
+               규칙이다: ID 를 누르면 그것의 제집으로 간다. 결함을 고치고
+               지라로 올리는 일은 거기서 한다.
+               시험 항목으로 가는 길은 아래 「시험 항목」 칸이 맡는다. */
+            onOpen={(id) => goto('defect', id)}
+            renderCell={(row, col) => {
+              if (col.key !== 'tcid') return undefined
+              const tc = String(row.tcid ?? '')
+              if (!tc) return <span className="cu-m">—</span>
+              return (
+                <button type="button" className="linkbtn cu-mono" title="이 시험 항목으로 갑니다" onClick={() => goto('tc', tc)}>
+                  {tc}
+                </button>
+              )
             }}
             /* 고른 줄 지우기 — 손잡이를 안 넘겨 두었더니 「삭제」 를 눌러도
                아무 일도 안 났다(지적). 표는 부르기만 하고 **지우는 일은

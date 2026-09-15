@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, type MeUser, isAdminUser } from '@/api/client'
 import { onWs } from '@/api/wsBus'
+import { onGoto } from '@/api/goto'
 import { prefGet, prefSet } from '@/lib/prefs'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import NTable from '@/components/ntable/NTable'
@@ -76,6 +77,29 @@ export default function Defects({ me }: { me?: MeUser | null }) {
   /* 결함 소식을 듣고 그 자리에서 다시 받는다(지시: 실시간) — 사이클
      화면에서 만들어지거나 지워진 것이 여기에도 바로 선다. */
   useEffect(() => onWs((m) => { if (m.type === 'defect_updated') void refetch() }), [refetch])
+
+  /* **다른 화면이 짚어 보낸 결함**을 연다(지시: 사이클 결함 탭의 ID).
+     목록이 아직 안 왔을 수 있어 id 를 들고 기다렸다가, 오면 그때 편다. */
+  const [wantId, setWantId] = useState(() => {
+    try {
+      return String(prefGet('utop.defect.open') ?? '')
+    } catch {
+      return ''
+    }
+  })
+  useEffect(() => onGoto((kind, id) => { if (kind === 'defect') setWantId(id) }), [])
+  useEffect(() => {
+    if (!wantId) return
+    const d = (data ?? []).find((x) => String(x.id ?? '') === wantId)
+    if (!d) return
+    setOpen(d)
+    setWantId('')
+    try {
+      prefSet('utop.defect.open', '')
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }, [wantId, data])
 
   const rows = useMemo(() => {
     const all = data ?? []

@@ -143,6 +143,9 @@ export default function App() {
       /* ?cat=cat-… — REQ-Coverage 의 폴더 링크. 「지금 보는 이 자리」 를
          그대로 보내려면 폴더도 주소가 있어야 한다(지시: 링크 복사). */
       ['cat', 'utop.reqtc.cat', 'reqtc'],
+      /* ?defect=DEF-UTOP-006 — 결함 한 건. 사이클 결함 탭의 ID 가 여기로
+         보낸다(지시: ID 는 Defects 화면으로) */
+      ['defect', 'utop.defect.open', 'defects'],
       /* ?wiki=wk-… — 위키 문서 링크. 문서끼리 짚은 자리를 눌렀을 때와
          남에게 보낸 주소가 같은 길로 열린다 */
       ['wiki', 'utop.wiki.open', 'wiki'],
