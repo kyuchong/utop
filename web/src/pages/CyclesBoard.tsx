@@ -888,6 +888,9 @@ export default function CyclesBoard({
     /* 탭을 눌러야 받아오게 두면 **탭 옆 숫자가 늘 0** 이다(메일 이력에서
        겪은 그것) — 사이클을 열면 바로 받는다 */
     enabled: !!open,
+    /* 결함 탭을 보는 동안은 5 초마다 — 자동 시험이 깨질 때마다 서버가
+       결함을 만드니, 보고 있는 목록이 따라 늘어야 한다 */
+    refetchInterval: tab === 'def' ? 5000 : false,
     queryFn: async () => {
       const r = await apiFetch(`/api/defects?cycle_id=${encodeURIComponent(open)}`)
       if (!r.ok) throw new Error('결함을 불러오지 못했습니다')
@@ -3175,6 +3178,9 @@ export default function CyclesBoard({
                   if (!r.ok) bad.push(id)
                 }
                 await defQ.refetch()
+                /* Defects 화면도 같은 표를 본다 — 그 캐시를 버려 두지 않으면
+                   거기서는 지운 결함이 그대로 서 있다(지적) */
+                await qc.invalidateQueries({ queryKey: ['defects'] })
                 if (bad.length) window.alert(`지우지 못한 결함이 있습니다 — ${bad.join(', ')}`)
               })()
             }}

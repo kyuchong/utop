@@ -60,6 +60,10 @@ export default function Defects({ me }: { me?: MeUser | null }) {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['defects', tab],
+    /* **들어올 때마다 새로 받는다**(지적: 사이클에서 지웠는데 여기 남아
+       있다). 결함은 사이클 화면에서도 만들어지고 지워지므로, 캐시를 그대로
+       보이면 이 화면만 옛 목록을 들고 있게 된다. */
+    refetchOnMount: 'always',
     queryFn: async () => {
       const r = await apiFetch(`/api/defects${tab ? `?status=${encodeURIComponent(tab)}` : ''}`)
       const j = (await r.json()) as { defects: DefectRec[] }
