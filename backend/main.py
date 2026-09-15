@@ -13126,6 +13126,14 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
     model = str(cyc.get("model") or "")
     version = str(cyc.get("version") or run.get("version") or "")
     extra = await _jira_defect_defaults(cyc)
+    # **보고자는 UTOP 계정**(지시) — 이 팀은 UTOP 로그인이 곧 Jira 계정이라
+    # (devums 연동) 계정 아이디를 그대로 적으면 지라로 올릴 때 그 사람이
+    # 보고자가 된다(fields.reporter = {"name": ...}).
+    # 누구냐 — **이 시험을 건 사람**이다. 실행을 만든 계정이 먼저고, 없으면
+    # 사이클을 만든 계정. 둘 다 없으면 비운다(엉뚱한 사람을 적지 않는다).
+    who = str(run.get("created_by") or cyc.get("created_by") or "").strip()
+    if who:
+        extra["reporter"] = who
     steps = [x for x in (body.get("steps") or []) if isinstance(x, dict)]
     bad = [x for x in steps if _step_is_fail(x)]
     pick = bad or steps
