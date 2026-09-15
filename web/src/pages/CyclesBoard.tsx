@@ -3162,6 +3162,22 @@ export default function CyclesBoard({
               const d = (defQ.data?.defects ?? []).find((x) => String(x.id ?? '') === id)
               if (d?.tcid) goto('tc', String(d.tcid))
             }}
+            /* 고른 줄 지우기 — 손잡이를 안 넘겨 두었더니 「삭제」 를 눌러도
+               아무 일도 안 났다(지적). 표는 부르기만 하고 **지우는 일은
+               화면이 한다**. 되돌릴 수 없으니 한 번 묻는다. */
+            onBulk={(act, ids) => {
+              if (act !== 'del' || !ids.length) return
+              if (!window.confirm(`결함 ${ids.length}건을 지웁니다.\n되돌릴 수 없습니다.`)) return
+              void (async () => {
+                const bad: string[] = []
+                for (const id of ids) {
+                  const r = await apiFetch(`/api/defects/${encodeURIComponent(id)}`, { method: 'DELETE' })
+                  if (!r.ok) bad.push(id)
+                }
+                await defQ.refetch()
+                if (bad.length) window.alert(`지우지 못한 결함이 있습니다 — ${bad.join(', ')}`)
+              })()
+            }}
             exportTitle="결함 내역"
             perPage={100}
           />
