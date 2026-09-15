@@ -13152,7 +13152,7 @@ def _step_is_fail(st: dict) -> bool:
     return False
 
 
-async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
+async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -> None:
     """**자동 시험이 깨지면 그 자리에서 결함을 만든다**(지시).
 
     사람이 「결함 만들기」 를 누르러 돌아오지 않아도 사이클 Defects 탭과
@@ -13260,14 +13260,17 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
             # 「시험내역」 은 **그 시험 항목으로 가는 주소**만 적는다(지시).
             # 사이클·모델·버전은 결함의 제 칸에 이미 있고, 자세한 것은 링크를
             # 눌러 UTOP 에서 보면 된다 — 이슈에 옮겨 적으면 둘이 어긋난다.
-            det = ""
+            base = ""
             try:
                 base = str((_load_mail_cfg() or {}).get("app_url") or "").strip().rstrip("/")
-                det = f"{base}/?tc={tcid}" if base else ""
             except Exception:
                 pass
-            if not det:
-                det = f"/?tc={tcid}"
+            # 설정이 비어 있으면 **부른 주소**라도 쓴다 — 상대 주소(/?tc=…)는
+            # 지라에서 눌러도 아무 데도 못 간다(지적)
+            base = base or str(base_url or "").strip().rstrip("/")
+            det = (
+                f"[{tcid}|{base}/?tc={tcid}]" if base else f"{tcid} (UTOP ▸ 시험 항목)"
+            )
             await db.defect_create({
                 **extra,
                 "panels": {"symptom": sym, "detail": det},
@@ -13297,7 +13300,7 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
 
 
 @app.post("/api/plan-runs/{run_id}/item")
-async def api_plan_run_item_put(run_id: str, payload: dict):
+async def api_plan_run_item_put(run_id: str, payload: dict, request: Request = None):
     """실행기가 항목 하나를 마칠 때마다 부른다.
 
     사이클 문서와 달리 **덮어쓰지 않는다** — 회차마다 한 줄이 선다.
@@ -13317,7 +13320,12 @@ async def api_plan_run_item_put(run_id: str, payload: dict):
     # 깨졌으면 결함을 만든다(지시) — 실패해도 위 저장은 이미 끝났다
     try:
         if verdict and verdict in await db._bad_verdicts():
-            await _auto_defect(run_id, tcid, body if isinstance(body, dict) else {})
+            # 결함에 적을 링크의 앞머리 — 설정(app_url)이 비었을 때 쓴다
+            try:
+                _base = str(request.base_url).strip() if request is not None else ""
+            except Exception:
+                _base = ""
+            await _auto_defect(run_id, tcid, body if isinstance(body, dict) else {}, _base)
     except Exception:
         pass
     return out

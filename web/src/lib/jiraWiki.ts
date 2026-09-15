@@ -214,6 +214,16 @@ export function wikiToHtml(txt: string): string {
       continue
     }
     let s = escH(ln)
+    /* **그림**(!구성도.png|thumbnail!) — 표기를 글자 그대로 보이면 무엇이
+       올라가는지 알 수 없다(지적). 등록할 때 붙는 파일임을 말해 준다.
+       미리보기는 아직 안 올라간 파일을 그릴 수 없으니 이름과 함께 세운다. */
+    s = s.replace(/!([^!|\s]+)(\|[^!]*)?!/g, (_m, nm: string) =>
+      `<span class="jw-img">🖼 ${escH(nm)}<em>등록할 때 첨부됩니다</em></span>`)
+    /* **링크**([보일 글|주소] · [주소]) — 시험 항목으로 가는 길이 여기 온다 */
+    s = s.replace(/\[([^\]|]+)\|(https?:\/\/[^\]]+)\]/g,
+      (_m, t: string, u: string) => `<a class="jw-a" href="${escH(u)}" target="_blank" rel="noreferrer">${escH(t)}</a>`)
+    s = s.replace(/\[(https?:\/\/[^\]]+)\]/g,
+      (_m, u: string) => `<a class="jw-a" href="${escH(u)}" target="_blank" rel="noreferrer">${escH(u)}</a>`)
     s = s.replace(/\*([^*]+)\*/g, '<b>$1</b>')
     s = s.replace(/\(\/\)/g, '<span class="jw-ok">✔</span>')
     s = s.replace(/\(x\)/g, '<span class="jw-ng">✘</span>')
