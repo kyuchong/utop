@@ -281,7 +281,10 @@
 .rd-lb > i .p { color: #16a05b; font-weight: 700; margin-right: 6px; }
 .rd-lb > i .f { color: #e34663; font-weight: 700; margin-right: 6px; }
 .rd-bar2 {
-  display: flex; height: 7px; flex: 1 1 auto; min-width: 30px;
+  /* **제 최소폭을 갖지 않는다** — 부모(.rd-barwrap)가 좁아졌는데 여기가
+     30px 를 고집하는 바람에 그만큼 삐져나와 옆 「100%」 를 덮었다(지적:
+     아직 겹친다). 얼마나 좁아질지는 부모가 정한다. */
+  display: flex; height: 7px; flex: 1 1 auto; min-width: 0;
   border-radius: 99px; overflow: hidden; background: #e1e8ea;
 }
 .rd-bar2 i { display: block; }
@@ -538,7 +541,7 @@
    자리가 모자라면 막대부터 줄어든다 — 숫자는 끝까지 남는다.
    position 은 두지 않는다: 두면 겹칠 때 막대가 글자를 덮는다(툴팁은
    이제 화면에 띄우므로 기준점이 필요 없다). */
-.rd-barwrap { display: flex; align-items: center; flex: 0 1 44px; min-width: 22px; }
+.rd-barwrap { display: flex; align-items: center; flex: 0 1 44px; min-width: 26px; overflow: hidden; }
 .rd-barwrap > .rd-bar2 { flex: 1 1 auto; }
 .rd-bartip {
   display: flex; position: fixed; transform: translateX(-50%);
