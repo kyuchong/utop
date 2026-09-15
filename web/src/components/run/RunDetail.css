@@ -541,7 +541,10 @@
    자리가 모자라면 막대부터 줄어든다 — 숫자는 끝까지 남는다.
    position 은 두지 않는다: 두면 겹칠 때 막대가 글자를 덮는다(툴팁은
    이제 화면에 띄우므로 기준점이 필요 없다). */
-.rd-barwrap { display: flex; align-items: center; flex: 0 1 44px; min-width: 26px; overflow: hidden; }
+/* 자르기는 두지 않는다 — 안쪽 막대가 제 최소폭을 버린 뒤로는 넘칠 일이
+   없고, 자르기가 남아 있으면 막대 끝이 각져 「잘린 조각」 으로 읽힌다
+   (지적: 폭이 준 게 아니라 잘린 것처럼 보인다). */
+.rd-barwrap { display: flex; align-items: center; flex: 0 1 44px; min-width: 36px; }
 .rd-barwrap > .rd-bar2 { flex: 1 1 auto; }
 .rd-bartip {
   display: flex; position: fixed; transform: translateX(-50%);
