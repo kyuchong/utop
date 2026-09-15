@@ -190,7 +190,7 @@ const escH = (s: unknown) =>
 const pre = (buf: string[]) =>
   `<pre class="jw-pre">${buf.map(escH).join('\n')}</pre>`
 
-export function wikiToHtml(txt: string): string {
+export function wikiToHtml(txt: string, imgs?: Record<string, string>): string {
   if (!txt) return ''
   const lines = String(txt).split('\n')
   const out: string[] = []
@@ -252,8 +252,14 @@ export function wikiToHtml(txt: string): string {
     /* **그림**(!구성도.png|thumbnail!) — 표기를 글자 그대로 보이면 무엇이
        올라가는지 알 수 없다(지적). 등록할 때 붙는 파일임을 말해 준다.
        미리보기는 아직 안 올라간 파일을 그릴 수 없으니 이름과 함께 세운다. */
-    s = s.replace(/!([^!|\s]+)(\|[^!]*)?!/g, (_m, nm: string) =>
-      `<span class="jw-img">🖼 ${escH(nm)}<em>등록할 때 첨부됩니다</em></span>`)
+    s = s.replace(/!([^!|\s]+)(\|[^!]*)?!/g, (_m, nm: string) => {
+      /* 창에서 붙인 그림은 **그대로 보여 준다** — 이름만 서 있으면 무엇을
+         올리는지 모른다. 아직 못 가진 그림(구성도 따위)은 이름으로. */
+      const u = imgs?.[nm]
+      return u
+        ? `<span class="jw-shot"><img src="${escH(u)}" alt="${escH(nm)}"><em>${escH(nm)}</em></span>`
+        : `<span class="jw-img">🖼 ${escH(nm)}<em>등록할 때 첨부됩니다</em></span>`
+    })
     /* **첨부**([^running-config.txt]) — 등록할 때 붙는 파일이다 */
     s = s.replace(/\[\^([^\]]+)\]/g, (_m, nm: string) =>
       `<span class="jw-img">📎 ${escH(nm)}<em>등록할 때 첨부됩니다</em></span>`)

@@ -381,3 +381,37 @@
 .jw-img em { font-style: normal; font-weight: 400; color: #8aa3ab; font-size: var(--fs-xs); }
 /* 미리보기 안의 링크 — 시험 항목으로 가는 길 */
 .jw-a { color: #1d61b5; text-decoration: underline; word-break: break-all; }
+
+/* ── 판마다 붙인 파일(지시) ────────────────────────────────────────
+   글만으로 안 되는 것들 — 화면 갈무리·로그 파일·패킷 덤프. 어느 이야기에
+   딸린 파일인지가 이슈에서 그대로 드러나도록 판마다 따로 붙인다. */
+.dfx-attach {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  border: 1px solid var(--c-border); border-radius: 6px;
+  padding: 2px 8px; font-size: var(--fs-xs); font-weight: 600;
+  color: var(--c-text-muted); background: var(--c-surface); cursor: pointer;
+}
+.dfx-attach:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.dfx-attach input { display: none; }
+.dfx-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.dfx-file {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--c-border); border-radius: 7px;
+  padding: 3px 6px 3px 4px; background: var(--c-surface-soft, #f7fafb);
+  font-size: var(--fs-xs); max-width: 260px;
+}
+.dfx-file img { width: 26px; height: 20px; object-fit: cover; border-radius: 4px; display: block; }
+.dfx-file i { font-style: normal; }
+.dfx-file b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dfx-file button {
+  border: 0; background: none; color: var(--c-text-faint); cursor: pointer;
+  font-size: 11px; padding: 0 2px; line-height: 1;
+}
+.dfx-file button:hover { color: var(--c-fail, #c0344b); }
+/* 미리보기에 실제로 그려지는 그림 — 창에서 붙인 것 */
+.jw-shot { display: inline-block; max-width: 100%; }
+.jw-shot img {
+  display: block; max-width: 100%; max-height: 320px;
+  border: 1px solid var(--c-border); border-radius: 8px; background: #fff;
+}
+.jw-shot em { display: block; font-style: normal; margin-top: 3px; font-size: var(--fs-xs); color: var(--c-text-faint); }

@@ -209,6 +209,69 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
      붙는다. 결함이 걸린 그 항목의 것이 곧 이 결함의 구성도다. */
   const tcid = item?.tcid || existing?.tcid || ''
   const [topoImg, setTopoImg] = useState('')
+  /**
+   * **판마다 붙인 파일**(지시: 이미지 붙여넣기·각 칸 파일 첨부).
+   *
+   * 글만으로는 설명이 안 되는 것들이 있다 — 화면 갈무리, 장비 로그 파일,
+   * 패킷 덤프. 붙이면 본문에 그 이름을 부르는 표기가 들어가고(그림은
+   * `!이름!`, 그 밖은 `[^이름]`), **지라에 등록할 때 함께 올라간다.**
+   *
+   * 창 안에서만 들고 있다가 등록할 때 올린다 — 구성도·running-config 와
+   * 같은 길이다. UTOP 에는 파일을 담아 둘 자리가 아직 없다.
+   */
+  const [files, setFiles] = useState<
+    Record<string, Array<{ name: string; mime: string; url: string }>>
+  >({})
+  const isImg = (m: string) => m.startsWith('image/')
+  /** 같은 이름이 둘이면 지라에서 어느 것을 부르는지 알 수 없다 — 번호를 붙인다 */
+  const uniqName = (want: string) => {
+    const taken = new Set(Object.values(files).flat().map((f) => f.name))
+    if (!taken.has(want)) return want
+    const dot = want.lastIndexOf('.')
+    const stem = dot > 0 ? want.slice(0, dot) : want
+    const ext = dot > 0 ? want.slice(dot) : ''
+    for (let i = 2; i < 99; i++) if (!taken.has(`${stem}-${i}${ext}`)) return `${stem}-${i}${ext}`
+    return `${stem}-${Date.now()}${ext}`
+  }
+  const addFiles = async (k: string, list: FileList | File[]) => {
+    const arr = [...list].slice(0, 10)
+    const read = await Promise.all(
+      arr.map(
+        (f) =>
+          new Promise<{ name: string; mime: string; url: string } | null>((done) => {
+            const r = new FileReader()
+            r.onload = () =>
+              done({
+                name: uniqName(f.name || (isImg(f.type) ? '붙여넣기.png' : '첨부파일')),
+                mime: f.type || 'application/octet-stream',
+                url: String(r.result ?? ''),
+              })
+            r.onerror = () => done(null)
+            r.readAsDataURL(f)
+          }),
+      ),
+    )
+    const ok = read.filter(Boolean) as Array<{ name: string; mime: string; url: string }>
+    if (!ok.length) return
+    setFiles((v) => ({ ...v, [k]: [...(v[k] ?? []), ...ok] }))
+    /* 본문에 **그 파일을 부르는 줄**을 잇는다 — 이름만 있고 부르는 곳이
+       없으면 지라 본문 어디에도 안 나온다 */
+    setPanels((pv) => {
+      const cur = String(pv[k] ?? '')
+      const add = ok.map((f) => (isImg(f.mime) ? `!${f.name}!` : `[^${f.name}]`)).join('\n')
+      return { ...pv, [k]: cur ? `${cur}\n${add}` : add }
+    })
+  }
+  const dropFile = (k: string, name: string) => {
+    setFiles((v) => ({ ...v, [k]: (v[k] ?? []).filter((f) => f.name !== name) }))
+    setPanels((pv) => ({
+      ...pv,
+      [k]: String(pv[k] ?? '')
+        .split('\n')
+        .filter((ln) => ln.trim() !== `!${name}!` && ln.trim() !== `[^${name}]`)
+        .join('\n'),
+    }))
+  }
   useEffect(() => {
     if (!tcid) return
     let dead = false
@@ -364,6 +427,14 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
   )
   /* 미리보기 아래에 적을 것들 — 왼쪽에서 고른 그대로 */
   const prevRows = useMemo(() => toPreviewRows(jfDefs, jfVals), [jfDefs, jfVals])
+  /** 미리보기가 그릴 수 있는 그림들 — 창에서 붙인 것만 갖고 있다 */
+  const prevImgs = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const list of Object.values(files)) for (const f of list) if (isImg(f.mime)) m[f.name] = f.url
+    if (topoImg) m['구성도.png'] = topoImg
+    return m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files, topoImg])
   const labelList = useMemo(
     () => labels.split(',').map((x) => x.trim()).filter(Boolean),
     [labels],
@@ -576,6 +647,13 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
          본문에는 이름만 부르므로(`[^running-config.txt]`), 첨부가 없으면
          이슈에 빈 이름만 남는다. 사람이 손으로 적어 넣은 글이 있으면 그것을
          쓰고 파일은 안 올린다 — 두 벌이 서로 다른 말을 하면 안 된다. */
+      /* 판마다 붙인 파일 — 본문이 이름으로 부르고 있으니 함께 올라가야 한다 */
+      for (const [, list] of Object.entries(files)) {
+        for (const f of list) {
+          const b64 = f.url.includes(',') ? f.url.split(',', 2)[1] ?? '' : f.url
+          if (b64) await attach(f.name, f.name, b64, f.mime)
+        }
+      }
       if (j.key && cfgText && !String(panels.config ?? '').trim()) {
         const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(cfgText)))
         await attach('설정 파일', 'running-config.txt', b64, 'text/plain; charset=utf-8')
@@ -673,6 +751,22 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                   <span>
                     {i + 1}. {p.label}
                   </span>
+                  <span className="sp" />
+                  {/* **파일 첨부**(지시) — 판마다 따로 붙인다. 어느 이야기에
+                      딸린 파일인지가 이슈에서 그대로 드러난다. */}
+                  {!pushed && (
+                    <label className="dfx-attach" title="이 칸에 파일을 붙입니다 — 등록할 때 함께 올라갑니다">
+                      📎 파일
+                      <input
+                        type="file"
+                        multiple
+                        onChange={(e) => {
+                          if (e.target.files?.length) void addFiles(p.k, e.target.files)
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                  )}
                   {auto && <span className="dfx-auto">자동입력</span>}
                   {auto && (
                     <button
@@ -751,7 +845,40 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     placeholder={p.ph}
                     disabled={pushed}
                     onChange={(e) => setPanel(p.k, e.target.value)}
+                    /* **그림 붙여넣기**(지시) — 화면을 갈무리해 Ctrl+V 하면
+                       이 판의 첨부가 된다. 글자만 든 붙여넣기는 그대로 둔다. */
+                    onPaste={(e) => {
+                      if (pushed) return
+                      const items = [...(e.clipboardData?.items ?? [])]
+                      const imgs = items
+                        .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
+                        .map((it) => it.getAsFile())
+                        .filter(Boolean) as File[]
+                      if (!imgs.length) return
+                      e.preventDefault()
+                      void addFiles(p.k, imgs)
+                    }}
                   />
+                )}
+                {/* 이 판에 붙인 파일 — 지라에 등록할 때 함께 올라간다 */}
+                {!!(files[p.k] ?? []).length && (
+                  <div className="dfx-files">
+                    {(files[p.k] ?? []).map((f) => (
+                      <span className="dfx-file" key={f.name}>
+                        {isImg(f.mime) ? (
+                          <img src={f.url} alt={f.name} />
+                        ) : (
+                          <i aria-hidden="true">📎</i>
+                        )}
+                        <b>{f.name}</b>
+                        {!pushed && (
+                          <button type="button" title="떼기" onClick={() => dropFile(p.k, f.name)}>
+                            ✕
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
             )
@@ -783,7 +910,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
             <div className="dfx-prevsub">
               {proj || '프로젝트 선택'} · {itype || '이슈유형'}
             </div>
-            <div className="jw" dangerouslySetInnerHTML={{ __html: wikiToHtml(wiki) }} />
+            <div className="jw" dangerouslySetInnerHTML={{ __html: wikiToHtml(wiki, prevImgs) }} />
 
             {/* 왼쪽에서 고른 칸들 — 본문이 아니라 이슈의 **속성**이라 아래에
                 따로 모은다(지시). 비어 있는 필수도 「—」 로 남겨, 등록을
