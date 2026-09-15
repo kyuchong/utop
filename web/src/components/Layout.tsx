@@ -283,6 +283,11 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           {/* 지금 UTOP 을 같이 쓰고 있는 사람(지시) — 어느 화면에 있든 보인다.
               같은 자료를 둘이 고치다 덮어쓰는 일이 잦아, 「지금 누가 들어와
               있나」 는 화면 하나가 아니라 도구 전체의 소식이다. */}
+          {/* **화면이 쓰는 자리**(지시) — 지금은 WIKI 가 「이 문서를 같이
+              보는 사람」 을 여기에 얹는다. 자료를 머리줄로 끌어올리지 않고
+              화면이 제자리에 그린다(포털) — 누가 보고 있는지는 그 화면만
+              안다. 이 자리가 차면 아래 전체 프레즌스는 숨는다(CSS). */}
+          <div id="utop-top-slot" className="app-top-slot" />
           <PresenceBar users={crowd} me={user?.name || user?.username || ''} />
           {/* 알림 — 왼쪽 메뉴 맨 아래에 있던 것을 여기로 올렸다(지시).
               소식은 어느 화면에 있든 눈에 걸려야 하는데, 메뉴 맨 아래는

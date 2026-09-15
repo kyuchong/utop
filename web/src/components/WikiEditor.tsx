@@ -28,6 +28,7 @@ import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, projectApi } from '@/api/client'
+import { createPortal } from 'react-dom'
 import PresenceBar from './PresenceBar'
 import { reqLabel, reqPk } from '@/types'
 
@@ -548,6 +549,12 @@ export default function WikiEditor({
    * 30초 안에 저절로 빠진다.
    */
   const [who, setWho] = useState<string[]>([])
+  /* 머리줄이 내준 자리 — 없으면(다른 틀에서 열렸다면) 그냥 안 그린다.
+     Layout 이 늘 먼저 서므로 첫 그림에서 이미 잡힌다. */
+  const [topSlot, setTopSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setTopSlot(document.getElementById('utop-top-slot'))
+  }, [])
   useEffect(() => {
     const aw = provider.awareness
     const read = () => {
@@ -706,10 +713,11 @@ export default function WikiEditor({
         </select>
         </span>
         <span className="sp" />
-        {/* 같이 보고 있는 사람 — 도구줄 앞, **오른쪽**에 선다(지시). 제목
-            옆에 두었더니 문서 이름과 프로젝트 사이를 갈라 놓았다. 혼자면
-            안 뜬다(PresenceBar 규칙). */}
-        <PresenceBar users={who} me={meName} />
+        {/* 같이 보고 있는 사람은 **머리줄**로 올렸다(지시) — 도구줄은
+            문서에 하는 일(가져오기·PDF·이력)로 차 있어, 소식이 그 사이에
+            끼면 단추처럼 읽혔다. 머리줄 오른쪽은 알림 종과 한 묶음이라
+            소식이 서는 자리다. 자리는 Layout 이 내주고 여기서 그린다. */}
+        {topSlot && createPortal(<PresenceBar users={who} me={meName} />, topSlot)}
         {/* 워드 가져오기 — 그대로 옮겨 온다(지시: 표·그림·표 안의 표까지).
             .docx 는 압축 파일이라 브라우저가 못 읽는다. 서버가 풀어 HTML 로
             돌려주면 편집기가 그것을 블록으로 읽는다 — 우리가 블록을 손으로
