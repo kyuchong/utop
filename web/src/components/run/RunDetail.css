@@ -268,7 +268,10 @@
    일 까닭이 없어졌고, visible 로 두면 자리가 모자랄 때 이 칸의 속이 옆
    칸(반복 배지·시작 단추) 위로 올라탄다. 폭을 얼마로 주든 이웃을 덮지
    않게 여기서 막는다. */
-.rd-lb.grow2 { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+/* 「진행」 칸은 **좌우 여백을 줄인다**(지적: 이 칸의 공백이 유난히 넓다).
+   다른 칸과 같은 16px 를 두면 라벨·막대·숫자 셋이 넓은 칸 안에서 서로
+   붙어 보인다 — 칸을 좁히고 그만큼을 막대와 숫자 사이에 준다. */
+.rd-lb.grow2 { flex: 0 1 auto; min-width: 0; overflow: hidden; padding: 0 10px; }
 /* 칸 안의 글도 안 줄어든다 — 줄어들면 「전체 2)」 의 끝이 잘린다.
    줄어들 자리는 이름이 긴 「지금 항목」 하나뿐이다. */
 .rd-lb.grow2 > i, .rd-lb.grow2 > b, .rd-lb.grow2 > em { flex: none; white-space: nowrap; }
@@ -563,7 +566,7 @@
 /* 막대를 **왼쪽으로 물린다**(지시) — 6px 만 띄우면 막대 끝과 「100%」 의
    첫 글자가 서로 닿은 것처럼 읽힌다. 라벨 쪽으로 붙이고 숫자 쪽을 넓게
    연다: 진행—막대 4px, 막대—숫자 18px. */
-.rd-lb.grow2 > .rd-barwrap { margin-left: -2px; margin-right: 12px; }
+.rd-lb.grow2 > .rd-barwrap { margin-left: -2px; margin-right: 16px; }
 .rd-barwrap > .rd-bar2 { flex: 1 1 auto; }
 .rd-bartip {
   display: flex; position: fixed; transform: translateX(-50%);
