@@ -864,7 +864,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                 {!!(files[p.k] ?? []).length && (
                   <div className="dfx-files">
                     {(files[p.k] ?? []).map((f) => (
-                      <span className="dfx-file" key={f.name}>
+                      <span className={`dfx-file${isImg(f.mime) ? ' img' : ''}`} key={f.name}>
                         {isImg(f.mime) ? (
                           <img src={f.url} alt={f.name} />
                         ) : (

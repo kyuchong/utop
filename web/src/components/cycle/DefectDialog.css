@@ -393,14 +393,33 @@
 }
 .dfx-attach:hover { border-color: var(--c-primary); color: var(--c-primary); }
 .dfx-attach input { display: none; }
-.dfx-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+/* 붙인 그림은 **그 자리에서 보여 준다**(지적: 입력칸에는 !image.png! 만
+   보인다). 입력칸은 글자만 담는 상자라 그림을 그 안에 넣을 수 없으니,
+   바로 아래에 크게 세운다 — 무엇을 붙였는지 열어 보지 않고 안다.
+   그림이 아닌 파일은 작은 칩 그대로. */
+.dfx-files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: flex-start; }
 .dfx-file {
   display: inline-flex; align-items: center; gap: 6px;
   border: 1px solid var(--c-border); border-radius: 7px;
   padding: 3px 6px 3px 4px; background: var(--c-surface-soft, #f7fafb);
   font-size: var(--fs-xs); max-width: 260px;
 }
+.dfx-file.img {
+  flex-direction: column; align-items: stretch; gap: 4px;
+  padding: 5px; max-width: 320px; position: relative;
+}
 .dfx-file img { width: 26px; height: 20px; object-fit: cover; border-radius: 4px; display: block; }
+.dfx-file.img img {
+  width: auto; height: auto; max-width: 300px; max-height: 190px;
+  object-fit: contain; border-radius: 5px; background: #fff;
+}
+.dfx-file.img b { text-align: center; }
+/* 그림 칩의 「떼기」 는 오른쪽 위 모서리에 — 그림 아래 줄을 차지하지 않게 */
+.dfx-file.img button {
+  position: absolute; top: 3px; right: 3px;
+  background: rgba(255, 255, 255, 0.92); border: 1px solid var(--c-border);
+  border-radius: 999px; width: 18px; height: 18px; display: grid; place-items: center;
+}
 .dfx-file i { font-style: normal; }
 .dfx-file b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dfx-file button {
