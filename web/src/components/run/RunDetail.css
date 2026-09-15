@@ -641,8 +641,17 @@
 /* 칸 높이는 **글줄 안에 들어갈 만큼만**. 1.16em 은 .rd-lb 의 줄 상자를
    꽉 채워 여유가 0 이었고(실측), 글꼴이 조금만 달라도 위가 잘렸다(지적).
    숫자는 어센더·디센더가 없어 1em 이면 다 들어가고, 그만큼 줄 상자에
-   여유가 생긴다. */
-.rn-d { position: relative; display: inline-block; width: 0.6em; height: 1em; overflow: hidden; vertical-align: baseline; }
+   여유가 생긴다.
+   **높이는 em 으로 둔다** — 글자 크기·확대에 따라 같이 자라야 하고, px 로
+   박아 두면 확대했을 때 칸만 그대로라 숫자가 통째로 삐져나온다(실측).
+   대신 **미는 거리**는 px 다: `--rn-h` 에 한 칸의 실제 높이를 재어 넣고
+   그 변수로 민다(지시). 퍼센트(9.0909…%)로 밀면 칸마다 소수점이 남아
+   아홉 칸쯤 내려가면 오차가 쌓여 숫자가 반 픽셀 걸친 채 흐려진다. */
+.rn-d {
+  position: relative; display: inline-block;
+  width: 0.6em; height: 1em; --rn-h: 1em;
+  overflow: hidden; vertical-align: baseline;
+}
 .rn-s {
   position: absolute; top: 0; left: 0; right: 0;
   transition: transform 420ms cubic-bezier(0.33, 1.1, 0.32, 1);
