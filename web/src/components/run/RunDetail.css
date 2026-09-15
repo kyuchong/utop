@@ -281,7 +281,7 @@
 .rd-lb > i .p { color: #16a05b; font-weight: 700; margin-right: 6px; }
 .rd-lb > i .f { color: #e34663; font-weight: 700; margin-right: 6px; }
 .rd-bar2 {
-  display: flex; height: 6px; flex: 1 1 auto; min-width: 40px;
+  display: flex; height: 7px; flex: 1 1 auto; min-width: 30px;
   border-radius: 99px; overflow: hidden; background: #e1e8ea;
 }
 .rd-bar2 i { display: block; }
@@ -532,7 +532,7 @@
    자르는데, 띠 안에 두면 그 자르기에 걸려 아무것도 안 보인다(지적). */
 /* 막대는 **짧게**(지시) — 옆에 %  숫자가 이미 서 있어 길이로 읽을 일이
    많지 않다. 자세한 수는 올려 보면 뜬다. */
-.rd-barwrap { position: relative; display: flex; align-items: center; flex: 0 0 64px; min-width: 64px; }
+.rd-barwrap { position: relative; display: flex; align-items: center; flex: 0 0 44px; min-width: 44px; }
 .rd-barwrap > .rd-bar2 { flex: 1 1 auto; }
 .rd-bartip {
   display: flex; position: fixed; transform: translateX(-50%);
