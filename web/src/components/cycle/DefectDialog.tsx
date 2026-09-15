@@ -557,17 +557,28 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
          만들어졌으므로 등록 자체를 되돌리지 않고, 무엇이 안 됐는지만
          말한다 — 사람이 Jira 에서 직접 끌어다 놓으면 된다. */
       let note = ''
-      if (j.key && topoImg && !String(panels.topo ?? '').trim()) {
+      const attach = async (what: string, filename: string, dataB64: string, mime: string) => {
         try {
-          const ar = await apiFetch(`/api/jira/issue/${encodeURIComponent(j.key)}/attach`, {
+          const ar = await apiFetch(`/api/jira/issue/${encodeURIComponent(String(j.key ?? ''))}/attach`, {
             method: 'POST',
-            body: JSON.stringify({ data: topoImg, filename: '구성도.png', mime: 'image/png' }),
+            body: JSON.stringify({ data: dataB64, filename, mime }),
           })
           const aj = (await ar.json()) as { ok?: boolean; error?: string }
-          if (!aj.ok) note = ` (구성도 첨부 실패: ${aj.error || '알 수 없음'})`
+          if (!aj.ok) note += ` (${what} 첨부 실패: ${aj.error || '알 수 없음'})`
         } catch {
-          note = ' (구성도를 첨부하지 못했습니다)'
+          note += ` (${what}을 첨부하지 못했습니다)`
         }
+      }
+      if (j.key && topoImg && !String(panels.topo ?? '').trim()) {
+        await attach('구성도', '구성도.png', topoImg, 'image/png')
+      }
+      /* **설정 파일**(지시) — 시험 당시의 show running-config 를 파일로 올린다.
+         본문에는 이름만 부르므로(`[^running-config.txt]`), 첨부가 없으면
+         이슈에 빈 이름만 남는다. 사람이 손으로 적어 넣은 글이 있으면 그것을
+         쓰고 파일은 안 올린다 — 두 벌이 서로 다른 말을 하면 안 된다. */
+      if (j.key && cfgText && !String(panels.config ?? '').trim()) {
+        const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(cfgText)))
+        await attach('설정 파일', 'running-config.txt', b64, 'text/plain; charset=utf-8')
       }
       setMsg({ kind: note ? 'err' : 'ok', text: `지라에 등록했습니다 — ${j.key}${note}` })
     } catch (e) {

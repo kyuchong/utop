@@ -162,11 +162,11 @@ export function buildDefectWiki(
       const kn = kernelFromSteps(steps)
       if (kn) body = `{noformat}\n${kn}\n{noformat}`
     }
-    /* 설정 파일 — 사람이 적은 글이 없을 때만 자동으로 채운다. 파일이 크므로
-       Jira 가 접어 주는 {code} 로 감싼다: {noformat} 은 수천 줄이 그대로
-       펼쳐져 이슈를 읽을 수가 없다. */
+    /* 설정 파일 — **파일로 붙인다**(지시). 수천 줄을 본문에 쏟으면 이슈를
+       읽을 수가 없고, Jira 가 접어 주더라도 검색·내려받기가 안 된다.
+       등록할 때 running-config.txt 로 올리고 여기서는 그 이름을 부른다. */
     if (k === 'config' && !body && opts?.config) {
-      body = `{code:title=show running-config|collapse=true}\n${opts.config}\n{code}`
+      body = '[^running-config.txt]\n시험 당시의 show running-config 입니다.'
     }
     /* 구성도 — 그림은 이슈에 첨부로 올리고 여기서는 그 이름을 부른다.
        첨부가 없으면 Jira 는 깨진 그림 자리를 보여 준다. 그래서 올리는 쪽
@@ -254,6 +254,9 @@ export function wikiToHtml(txt: string): string {
        미리보기는 아직 안 올라간 파일을 그릴 수 없으니 이름과 함께 세운다. */
     s = s.replace(/!([^!|\s]+)(\|[^!]*)?!/g, (_m, nm: string) =>
       `<span class="jw-img">🖼 ${escH(nm)}<em>등록할 때 첨부됩니다</em></span>`)
+    /* **첨부**([^running-config.txt]) — 등록할 때 붙는 파일이다 */
+    s = s.replace(/\[\^([^\]]+)\]/g, (_m, nm: string) =>
+      `<span class="jw-img">📎 ${escH(nm)}<em>등록할 때 첨부됩니다</em></span>`)
     /* **링크**([보일 글|주소] · [주소]) — 시험 항목으로 가는 길이 여기 온다 */
     s = s.replace(/\[([^\]|]+)\|(https?:\/\/[^\]]+)\]/g,
       (_m, t: string, u: string) => `<a class="jw-a" href="${escH(u)}" target="_blank" rel="noreferrer">${escH(t)}</a>`)
