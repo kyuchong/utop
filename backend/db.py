@@ -975,7 +975,10 @@ async def plan_run_item_list(run_id: str, tcid: str = "", only_bad: bool = False
             where.append(f"verdict = ANY(${len(args)}::text[])")
         else:
             where.append("false")
-    args.append(int(max(1, min(5000, limit))))
+    # 상한 5000 은 너무 낮았다 — 62 항목을 70 회 돌리면 4,340 줄이고,
+    # 3,000 에서 잘려 리포트가 항목마다 48~49 회밖에 못 세었다(지적).
+    # 이 목록은 data 를 안 읽으므로 줄이 몇 만이어도 수백 KB 다.
+    args.append(int(max(1, min(50000, limit))))
     lim = f"${len(args)}"
     args.append(int(max(0, offset)))
     off = f"${len(args)}"

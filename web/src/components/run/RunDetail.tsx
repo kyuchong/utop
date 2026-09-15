@@ -645,6 +645,13 @@ export default function RunDetail({
   /** 이 실행이 남긴 **회차 줄** — 반복 시험이면 한 항목이 여러 줄이다.
    *  장비 출력은 안 싣는다(목록용). 반복이 아니면 항목마다 한 줄뿐이라
    *  지금 화면과 똑같다. */
+  /** 리포트가 한 번에 받는 **회차 줄 수**.
+   *
+   *  3,000 이던 때, 62 항목을 70 회 돌린 실행(4,340 줄)에서 리포트가
+   *  항목마다 48~49 회밖에 못 세었다(지적). 최근 것부터 잘리므로 **앞선
+   *  회차가 통째로 빠지고**, 누적(Pass·Fail·전체)도 그만큼 모자랐다.
+   *  목록은 장비 출력(data)을 안 읽으므로 이 정도는 수백 KB 다. */
+  const RPT_LIMIT = 20000
   const runItemsQ = useQuery({
     queryKey: ['plan-run-items', runId],
     enabled: !!runId,
@@ -653,7 +660,7 @@ export default function RunDetail({
     refetchInterval: jobLive ? 3000 : false,
     refetchOnMount: 'always',
     queryFn: async () => {
-      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/items?limit=3000`)
+      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/items?limit=${RPT_LIMIT}`)
       if (!r.ok) return { items: [] as Array<{ tcid: string; round: number; verdict: string; at?: string | null }> }
       return (await r.json()) as {
         items: Array<{ tcid: string; round: number; verdict: string; at?: string | null }>
@@ -1868,6 +1875,10 @@ export default function RunDetail({
           /* 실행기가 지금 도는 회차 — 반복 줄 중 어느 것이 도는지 가린다 */
           runRoundNow={Number(job?.round) || undefined}
           roundSize={roundSize}
+          /* 상한에 닿았으면 리포트가 **말한다** — 조용히 잘리면 「70 회를
+             돌렸는데 49 회밖에 없다」 가 된다(지적). 어떤 상한을 두든
+             언젠가는 닿는다. */
+          capped={(runItemsQ.data?.items?.length ?? 0) >= RPT_LIMIT ? RPT_LIMIT : 0}
           totalRounds={lastRound}
           runRound={roundSel}
           onRunRound={(n) => {

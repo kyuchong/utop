@@ -226,8 +226,11 @@ const rstamp = (v?: string | null): string => {
 export default function RunAuto({
   items, cur, onPick, steps, stepAt, onStep, dut, runStartedAt,
   runStep, runItem, waitAt, devices, rounds, roundSize, totalRounds, runRound, onRunRound,
-  runRoundNow,
+  runRoundNow, capped = 0,
 }: {
+  /** 목록이 상한에 잘렸으면 그 수 — 0 이면 다 받았다. 잘린 것은 **오래된
+      회차**다(최신부터 받는다). 조용히 잘리면 누적이 모자란 채로 읽힌다. */
+  capped?: number
   /** 이 실행에 쌓인 회차 — 「다시 실행」 을 누를 때마다 하나씩 선다.
    *  하나뿐이면 띠를 아예 안 보여 준다(지금 화면 그대로다). */
   rounds?: Array<{
@@ -1151,7 +1154,9 @@ export default function RunAuto({
        목록에는 끝난 것만 쌓이므로, 남은 수는 여기서만 알 수 있다. */
     const ranN = doneItems.length
     const head = items.length ? `${items.length} 중 ${ranN} 진행` : ''
-    return `${head}${head ? ' · ' : ''}Pass ${tal.p} · Fail ${tal.f} · 대기 ${tal.n}`
+    /* 잘렸으면 **먼저** 말한다 — 숫자를 읽기 전에 알아야 오해가 없다 */
+    const cap = capped ? `최근 ${capped.toLocaleString('ko-KR')}줄만 · ` : ''
+    return `${cap}${head}${head ? ' · ' : ''}Pass ${tal.p} · Fail ${tal.f} · 대기 ${tal.n}`
   }
 
   /** 가장 최근 회차. 아무것도 안 고르면 늘 이것을 본다 */
