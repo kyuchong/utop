@@ -578,3 +578,18 @@
 .rd-bartip .f { color: #ff8b9e; }
 .rd-bartip em { font-style: normal; font-weight: 500; color: #9fc0c8; }
 .rd-bartip em.run { color: #eaf4f6; font-weight: 700; }
+
+/* 그림만 있는 실행 단추 — 세모 하나로 선다(지시). 글자 단추와 높이를
+   맞추되 좌우를 똑같이 줘 정사각에 가깝게 둔다. */
+.rd-btn.ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 26px; padding: 0; font-size: 12px; line-height: 1;
+}
+/* 거는 중 — 세모 자리에 도는 고리 */
+.rd-spin {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.45); border-top-color: #fff;
+  animation: rd-spin 0.7s linear infinite;
+}
+@keyframes rd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rd-spin { animation: none; } }

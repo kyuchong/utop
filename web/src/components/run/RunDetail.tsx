@@ -1545,10 +1545,11 @@ export default function RunDetail({
     <div className={`rd-live${jobState?.k === 'run' ? ' is-run' : ''}${
       jobState?.k === 'lost' ? ' is-lost' : ''
     }`}>
-        {/* 도는 중에는 **안 세운다**(지시) — 띠가 초록으로 깔리고 진행률·
-            경과가 이미 그 말을 한다. 긴 항목 이름까지 붙어 자리만 먹었다.
+        {/* 도는 중에도, **끝났을 때도** 안 세운다(지시). 띠가 초록으로 깔리고
+            진행률·경과가 이미 그 말을 하며, 「끝남」 은 이제 진행 라벨이
+            「진행 완료」 로 말한다 — 같은 말을 두 자리에서 하지 않는다.
             이상할 때만 선다: 큐 대기 · 응답 없음 · 멈춰 섬 · 실패. */}
-        {!!jobState && jobState.k !== 'run' && (
+        {!!jobState && jobState.k !== 'run' && jobState.k !== 'done' && (
           <span className={`rd-state s-${jobState.k}`} title={jobState.s}>
             <i aria-hidden="true" />
             {jobState.t}
@@ -1596,7 +1597,9 @@ export default function RunDetail({
         </span>
 
         <span className="rd-lb grow2 last">
-          <em>진행</em>
+          {/* 라벨이 **상태를 말한다**(지시) — 「끝남」 칩을 걷은 자리를 이것이
+              받는다. 아직 시작 전이면 그냥 「진행」 이다. */}
+          <em>{jobLive ? '진행 중' : stoppedAt || jobState?.k === 'done' ? '진행 완료' : '진행'}</em>
           {/* 내역(Pass·Fail·대기·전체)은 **막대에 담았다**(지시) — Test Report
               머리줄이 같은 수를 이미 적고 있어 한 줄에 같은 값이 두 번 섰다.
               막대에 마우스를 올리면 뜬다.
@@ -1778,26 +1781,40 @@ export default function RunDetail({
              곧 시작이라, 시작 시각·실행자는 그때 자동으로 박힌다.
              자동은 실행기에 걸어야 하니 그대로 선다. */
           isAuto && (
+            /* **그림만 남긴 단추**(지시) — 무엇을 하는 단추인지는 세모 하나로
+               충분하고, 「2회 반복 시작」 같은 긴 글자는 바로 왼쪽 반복 칩이
+               이미 말한다. 무슨 일이 일어나는지는 마우스를 올리면 뜬다. */
             <button
               type="button"
-              className="rd-btn go"
+              className="rd-btn go ico"
               disabled={busy}
+              aria-label={
+                busy
+                  ? '거는 중'
+                  : repeat && repeat.repeat > 1
+                    ? `${repeat.repeat}회 반복 시작`
+                    : jobDone
+                      ? '다시 실행'
+                      : '시험 시작'
+              }
               title={
-                !isAuto
-                  ? '시험을 시작합니다 — 시작 시각과 실행자를 남깁니다'
-                  : jobDone
-                    ? '같은 항목을 실행기에 다시 겁니다 — 결과는 새로 덮입니다'
-                    : '이 실행이 담은 항목을 실행기에 겁니다 — 실행기가 집어 가면 여기서 진행이 보입니다'
+                busy
+                  ? '실행기에 거는 중입니다'
+                  : `${
+                      repeat && repeat.repeat > 1
+                        ? `${repeat.repeat}회 반복 시작`
+                        : jobDone
+                          ? '다시 실행'
+                          : '시험 시작'
+                    } — ${
+                      jobDone
+                        ? '같은 항목을 실행기에 다시 겁니다. 결과는 새로 덮입니다'
+                        : '이 실행이 담은 항목을 실행기에 겁니다. 실행기가 집어 가면 여기서 진행이 보입니다'
+                    }`
               }
               onClick={() => void start()}
             >
-              {busy
-                ? '거는 중…'
-                : repeat && repeat.repeat > 1
-                  ? `▶ ${repeat.repeat}회 반복 시작`
-                  : jobDone
-                    ? '▶ 다시 실행'
-                    : '▶ 시험 시작'}
+              {busy ? <i className="rd-spin" aria-hidden="true" /> : '▶'}
             </button>
           )
         )}
