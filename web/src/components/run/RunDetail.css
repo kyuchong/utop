@@ -649,7 +649,7 @@
    아홉 칸쯤 내려가면 오차가 쌓여 숫자가 반 픽셀 걸친 채 흐려진다. */
 .rn-d {
   position: relative; display: inline-block;
-  width: 0.6em; height: 1em; --rn-h: 1em;
+  width: 0.6em; height: 1.25em; --rn-h: 1.25em;
   overflow: hidden; vertical-align: baseline;
 }
 .rn-s {
@@ -657,8 +657,8 @@
   transition: transform 420ms cubic-bezier(0.33, 1.1, 0.32, 1);
   will-change: transform;
 }
-.rn-s i { display: block; height: 1em; line-height: 1em; font-style: normal; text-align: center; }
+.rn-s i { display: block; height: 1.25em; line-height: 1.25em; font-style: normal; text-align: center; }
 /* 구분자(`:` `·` 글자)도 숫자 칸과 **같은 상자**로 — 안 맞추면 콜론이
    9px 아래로 처져 시계가 기울어 보인다(실측) */
-.rn-x { display: inline-block; height: 1em; line-height: 1em; }
+.rn-x { display: inline-block; height: 1.25em; line-height: 1.25em; }
 @media (prefers-reduced-motion: reduce) { .rn-s { transition: none; } }
