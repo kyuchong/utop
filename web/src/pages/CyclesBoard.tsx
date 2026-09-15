@@ -3121,7 +3121,7 @@ export default function CyclesBoard({
       { key: 'jira_project', label: '프로젝트 키', type: 'text', width: 96 },
       { key: 'project_name', label: '프로젝트명', type: 'text', width: 104 },
       { key: 'issue_type', label: '이슈유형', type: 'select', width: 92 },
-      { key: 'title', label: '제목', type: 'text', width: 420, fixed: true },
+      { key: 'title', label: '요약', type: 'text', width: 420, fixed: true },
       { key: 'status', label: '상태', type: 'select', width: 104 },
       { key: 'priority', label: '우선순위', type: 'select', width: 88 },
       { key: 'fix_version', label: '수정버전', type: 'text', width: 130 },

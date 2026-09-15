@@ -30,10 +30,15 @@ export const WIKI_PANELS: Array<{ k: string; title: string }> = [
   { k: 'topo', title: '2. 시험구성도' },
   { k: 'steps', title: '3. 시험절차' },
   { k: 'detail', title: '4. 시험내역' },
-  { k: 'config', title: '5. Configuration File (Config File)' },
-  { k: 'core', title: '6. Core File (Upload Core file)' },
-  { k: 'kernel', title: '7. Kernel Log & Syslog 조회' },
-  { k: 'attach', title: '8. 첨부파일' },
+  /* OS 버전 — 포맷에 빠져 있었다(지적). 어느 판에 나온 문제인지가 없으면
+     개발자가 첫 줄부터 되묻는다. 시험내역 바로 뒤에 둔다(모델·버전과 한
+     묶음). 뒤 번호가 한 칸씩 밀리지만 **열쇠는 그대로**라 이미 저장된
+     결함의 판이 비지 않는다. */
+  { k: 'osver', title: '5. OS 버전' },
+  { k: 'config', title: '6. Configuration File (Config File)' },
+  { k: 'core', title: '7. Core File (Upload Core file)' },
+  { k: 'kernel', title: '8. Kernel Log & Syslog 조회' },
+  { k: 'attach', title: '9. 첨부파일' },
 ]
 
 /** 스텝을 위키 블록으로 — 판정 표시는 Jira 가 아는 (/) (x) (?) 를 쓴다 */

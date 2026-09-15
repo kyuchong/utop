@@ -60,6 +60,7 @@ const PANELS: Array<{ k: string; label: string; ph: string; rows: number }> = [
   { k: 'topo', label: '시험구성도', ph: '구성 설명 또는 파일명', rows: 3 },
   { k: 'steps', label: '시험절차', ph: '시험 절차를 입력하세요', rows: 6 },
   { k: 'detail', label: '시험내역', ph: '플랜 / 시험 항목 / 모델 · 버전', rows: 3 },
+  { k: 'osver', label: 'OS 버전', ph: '예) E6100 v3.1.2 (2026-08-01 빌드)', rows: 2 },
   { k: 'config', label: 'Configuration File (Config File)', ph: 'running-config 또는 파일명', rows: 4 },
   { k: 'core', label: 'Core File (Upload Core file)', ph: 'core 파일 이름 · 올린 곳', rows: 3 },
   { k: 'kernel', label: 'Kernel Log & Syslog 조회', ph: 'Kernel Log / Syslog 출력', rows: 4 },
@@ -589,11 +590,12 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
               </select>
             </label>
           </div>
-          {/* 제목 — 그림의 차례대로 프로젝트·이슈유형 **아래**에 온다.
-              별표는 「비면 못 올린다」 는 뜻이다. */}
+          {/* 요약 — 그림의 차례대로 프로젝트·이슈유형 **아래**에 온다.
+              별표는 「비면 못 올린다」 는 뜻이다. Jira 가 부르는 이름이
+              「요약」 이라 여기서도 그렇게 부른다(지시: 제목 → 요약). */}
           <label className="dfx-fld wide">
             <span>
-              제목 <i className="dfx-req">*</i>
+              요약 <i className="dfx-req">*</i>
             </span>
             <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={pushed} />
           </label>
@@ -735,7 +737,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
           <div className="dfx-prevh">Jira 이슈 미리보기</div>
           <div className="dfx-prevb">
             <div className="dfx-prevtitle">
-              {title || <span className="muted">제목을 입력하세요</span>}
+              {title || <span className="muted">요약을 입력하세요</span>}
             </div>
             <div className="dfx-prevsub">
               {proj || '프로젝트 선택'} · {itype || '이슈유형'}

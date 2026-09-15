@@ -42,7 +42,7 @@ const COLS: Array<{ key: string; label: string; type?: NCol['type']; w?: number;
   { key: 'jira_project', label: '프로젝트 키', w: 96, def: true },
   { key: 'project_name', label: '프로젝트명', w: 104, def: true },
   { key: 'issue_type', label: '이슈유형', type: 'select', w: 92, def: true },
-  { key: 'title', label: '제목', w: 420, def: true },
+  { key: 'title', label: '요약', w: 420, def: true },
   { key: 'status', label: '상태', type: 'select', w: 104, def: true },
   { key: 'priority', label: '우선순위', type: 'select', w: 88, def: true },
   { key: 'fix_version', label: '수정버전', w: 130, def: true },

@@ -12976,6 +12976,26 @@ _JIRA_OPT_CACHE: dict = {}          # (프로젝트, 이슈유형) → {필드: 
 _JIRA_PRJ_NAMES: dict = {}          # 프로젝트 키 → 이름
 
 
+def _user_id_of(who: str) -> str:
+    """표시 이름·계정 아이디 어느 쪽이 와도 **계정 아이디**를 돌려준다.
+
+    일감에는 「관리자」 처럼 이름이 적히는데, Jira 보고자 칸은 계정 아이디를
+    받는다(fields.reporter.name). 못 찾으면 받은 값을 그대로 돌려준다 —
+    이미 아이디였을 수 있다."""
+    w = str(who or "").strip()
+    if not w:
+        return ""
+    try:
+        for u in (_users_load_sync().get("users") or []):
+            if str(u.get("username") or "") == w:
+                return w
+            if str(u.get("name") or "") == w:
+                return str(u.get("username") or w)
+    except Exception:
+        pass
+    return w
+
+
 async def _jira_load_project_names() -> None:
     """Jira 프로젝트 키 → 이름. 한 번 받아 두고 다시 쓴다(245 개다)."""
     if _JIRA_PRJ_NAMES:
@@ -13126,12 +13146,26 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
     model = str(cyc.get("model") or "")
     version = str(cyc.get("version") or run.get("version") or "")
     extra = await _jira_defect_defaults(cyc)
-    # **보고자는 UTOP 계정**(지시) — 이 팀은 UTOP 로그인이 곧 Jira 계정이라
-    # (devums 연동) 계정 아이디를 그대로 적으면 지라로 올릴 때 그 사람이
-    # 보고자가 된다(fields.reporter = {"name": ...}).
-    # 누구냐 — **이 시험을 건 사람**이다. 실행을 만든 계정이 먼저고, 없으면
-    # 사이클을 만든 계정. 둘 다 없으면 비운다(엉뚱한 사람을 적지 않는다).
-    who = str(run.get("created_by") or cyc.get("created_by") or "").strip()
+    # **보고자는 시험을 시작한 그 사람**이다(지시: 로그인한 계정).
+    # 이 팀은 UTOP 로그인이 곧 Jira 계정이라(devums 연동) 계정 아이디를
+    # 그대로 적으면 지라로 올릴 때 그 사람이 보고자가 된다
+    # (fields.reporter = {"name": ...}).
+    #
+    # 일감(cycle_run)의 started_by 가 「시작 단추를 누른 사람」 이다 — 실행을
+    # 만든 계정(plan_run.created_by)은 며칠 전 다른 사람일 수 있다. 다만
+    # 일감에는 **표시 이름**(관리자)이 적히므로 계정 아이디로 옮긴다.
+    who = ""
+    try:
+        async with db.pool().acquire() as c:
+            r2 = await c.fetchrow(
+                "SELECT started_by FROM cycle_run WHERE plan_run_id = $1 "
+                " AND COALESCE(started_by,'') <> '' ORDER BY id DESC LIMIT 1",
+                run_id,
+            )
+        who = _user_id_of(str((r2 or {}).get("started_by") or ""))
+    except Exception:
+        pass
+    who = who or str(run.get("created_by") or cyc.get("created_by") or "").strip()
     if who:
         extra["reporter"] = who
     steps = [x for x in (body.get("steps") or []) if isinstance(x, dict)]
@@ -13150,8 +13184,29 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
     for _ in range(3):
         did = await db.defect_next_id("")
         try:
+            # **현상**(지시) — 어떤 시험을 돌다 무엇이 어긋났는지 한 문단.
+            # 사람이 결함을 열었을 때 첫 칸이 비어 있으면 그때부터 기억을
+            # 더듬어야 한다. 깨진 스텝의 판정 근거가 곧 그 문장이다.
+            why = ""
+            for b in briefs:
+                if str(b.get("status") or "").upper().startswith("F"):
+                    why = str(b.get("reason") or "").strip()
+                    if why:
+                        break
+            first = briefs[0] if briefs else {}
+            where = str(first.get("cli") or first.get("desc") or "").strip()
+            sym = (
+                f"{version or cyc.get('name') or cid} 사이클의 자동 시험에서 "
+                f"「{name or tcid}」 항목이 부적합으로 났습니다."
+            )
+            if where:
+                sym += f"\n동작: {where}"
+            if why:
+                sym += f"\n어긋난 점: {why}"
+            sym += f"\n(시험 항목 {tcid} · 모델 {model or '—'} · 버전 {version or '—'})"
             await db.defect_create({
                 **extra,
+                "panels": {"symptom": sym},
                 "id": did,
                 # 새로 난 결함은 **New** 다(지시) — 「미해결」 탭은 닫히지
                 # 않은 것을 모두 담으므로 여기서도 보인다
