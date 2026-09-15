@@ -555,6 +555,10 @@
 /* 막대는 **늘지도 줄지도 않는다** — 크기를 못 박아 두면 옆 숫자가 밀릴
    일도, 넘쳐서 덮을 일도 없다(flex 형제는 겹치지 않는다). */
 .rd-barwrap { display: flex; align-items: center; flex: 0 0 40px; min-width: 40px; }
+/* 막대를 **왼쪽으로 물린다**(지시) — 6px 만 띄우면 막대 끝과 「100%」 의
+   첫 글자가 서로 닿은 것처럼 읽힌다. 라벨 쪽으로 붙이고 숫자 쪽을 넓게
+   연다: 진행—막대 4px, 막대—숫자 18px. */
+.rd-lb.grow2 > .rd-barwrap { margin-left: -2px; margin-right: 12px; }
 .rd-barwrap > .rd-bar2 { flex: 1 1 auto; }
 .rd-bartip {
   display: flex; position: fixed; transform: translateX(-50%);
