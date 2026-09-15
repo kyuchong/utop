@@ -802,9 +802,12 @@ button.ra-bcar:hover { background: #cfe3e8; color: #12414c; }
 /* 판정 셈 — 찾기 칸 오른쪽(지시). 제목 옆에 다 붙여 두니 「어디까지
    왔나」 와 「어떻게 나왔나」 가 한 덩이로 읽혔다. 색으로 셋을 가른다. */
 .ra-tal { display: inline-flex; align-items: center; gap: 9px; flex: none; margin-left: 10px; }
-.ra-tal > b { font-size: 11.5px; font-weight: 700; color: #6b7e85; white-space: nowrap; }
-.ra-tal > b.p { color: #16a05b; }
-.ra-tal > b.f { color: #e34663; }
+/* 판 머리는 **짙은 청록**(#2a626f)이다 — 흰 바탕에 쓰던 색을 그대로 얹으니
+   「대기」 가 바탕에 묻혔다(지적). 세 색 모두 어두운 바탕에서 읽히는
+   밝은 쪽으로 올린다. */
+.ra-tal > b { font-size: 11.5px; font-weight: 700; color: #dbeaee; white-space: nowrap; }
+.ra-tal > b.p { color: #6ee7a8; }
+.ra-tal > b.f { color: #ff9aab; }
 /* 「몇 중 몇 진행」 — 판정 셈과 한 묶음으로 오른쪽 끝에 선다(지시) */
-.ra-prog { flex: none; font-size: 11.5px; font-weight: 700; color: #4a6670; white-space: nowrap; }
+.ra-prog { flex: none; font-size: 11.5px; font-weight: 700; color: #cfe3e8; white-space: nowrap; }
 .ra-prog + .ra-tal { margin-left: 12px; }
