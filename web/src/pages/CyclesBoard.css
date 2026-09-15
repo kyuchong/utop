@@ -427,40 +427,68 @@
 /* ── 떠 있는 띠 — **지금 돌고 있습니다**(지시) ──────────────────────
    어느 탭에 있든 보인다. 남이 건 시험도 서버 상태 그대로 뜨므로,
    「같이 들어갔는데 도는 건지 분간이 안 된다」 가 없어진다. */
+/* 자리를 **아래 가운데**로 옮기고 색을 채웠다(지적: 오른쪽 구석의 흰 띠는
+   눈에 안 들어온다). 흰 바탕에 옅은 테두리는 카드와 같은 결이라 화면에
+   묻혔다 — 채운 초록에 흰 글자면 한 번에 걸린다. 구석이 아니라 가운데라야
+   시선이 지나간다. 크기도 한 급수 키웠다. */
 .cyb .cu-toast {
-  position: fixed; right: 20px; bottom: 20px; z-index: 50;
-  display: flex; align-items: center; gap: 11px;
-  border: 1px solid #bfe0cf; border-radius: 999px;
-  background: #fff; padding: 9px 14px 9px 13px;
-  box-shadow: 0 6px 22px rgba(16, 60, 44, 0.18);
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 50;
+  display: flex; align-items: center; gap: 12px;
+  border: 0; border-radius: 999px;
+  background: #15803d; padding: 11px 20px 11px 18px;
+  box-shadow: 0 10px 30px rgba(16, 60, 44, 0.34);
   font: inherit; cursor: pointer; text-align: left;
   animation: cu-toast-in 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 @keyframes cu-toast-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
-.cyb .cu-toast:hover { border-color: #16a34a; box-shadow: 0 8px 26px rgba(16, 60, 44, 0.24); }
+.cyb .cu-toast:hover { background: #166534; box-shadow: 0 12px 34px rgba(16, 60, 44, 0.42); }
+/* 점은 흰색으로 — 채운 바탕에서는 초록 점이 안 보인다 */
 .cyb .cu-toast .dot {
-  width: 9px; height: 9px; border-radius: 999px; background: #16a34a; flex: none;
-  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5);
+  width: 10px; height: 10px; border-radius: 999px; background: #fff; flex: none;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.6);
   animation: cu-toast-beat 1.4s ease-out infinite;
 }
 @keyframes cu-toast-beat {
-  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
-  70% { box-shadow: 0 0 0 9px rgba(22, 163, 74, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.6); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
 }
 .cyb .cu-toast .t { display: grid; gap: 1px; min-width: 0; }
-.cyb .cu-toast .t > b { font-size: 12.5px; font-weight: 800; color: #15803d; }
+.cyb .cu-toast .t > b { font-size: 13.5px; font-weight: 800; color: #fff; }
 .cyb .cu-toast .t > em {
-  font-style: normal; font-size: 11.5px; color: #5b7176;
-  max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-style: normal; font-size: 12px; color: #d9f2e2;
+  max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.cyb .cu-toast .go { font-size: 11.5px; font-weight: 800; color: #16a34a; flex: none; }
+.cyb .cu-toast .go {
+  font-size: 12px; font-weight: 800; color: #14532d; flex: none;
+  background: #fff; border-radius: 999px; padding: 3px 11px;
+}
 @media (prefers-reduced-motion: reduce) {
   .cyb .cu-toast { animation: none; }
   .cyb .cu-toast .dot { animation: none; }
+}
+
+/* ── 제목 옆 「시험 진행 중」 배지 ──────────────────────────────────
+   들어오자마자 눈이 닿는 자리는 제목 줄이다. 아래 띠 하나만으로는
+   「접속했는데 도는 줄 몰랐다」 가 남는다(지적). 둘이 같은 곳을 가리킨다. */
+.cyb .cyb-runbadge {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 0; border-radius: 999px; background: #15803d; color: #fff;
+  padding: 3px 11px 3px 9px; margin-left: 8px;
+  font: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer;
+  white-space: nowrap;
+}
+.cyb .cyb-runbadge:hover { background: #166534; }
+.cyb .cyb-runbadge .dot {
+  width: 7px; height: 7px; border-radius: 999px; background: #fff; flex: none;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.6);
+  animation: cu-toast-beat 1.4s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cyb .cyb-runbadge .dot { animation: none; }
 }
 
 /* 탭 옆 셈 — Pass / Fail / 전체(지시). 색으로 갈라야 셋이 한눈에 읽힌다 */
@@ -472,3 +500,27 @@
 .cyb .tabn3 > i.p { color: #16a05b; }
 .cyb .tabn3 > i.f { color: #e34663; }
 .cyb .tabn3 > u { text-decoration: none; opacity: 0.42; margin: 0 1px; }
+
+/* ── 「진행 중」 알약 ────────────────────────────────────────────────
+   목록에서 **지금 돌고 있는 사이클**을 찾는 것이 실행 칸을 보는 이유다.
+   글자로만 적혀 있을 때는 열 건 가운데 한 줄을 눈으로 훑어야 했다(지적).
+   점이 천천히 맥박해 「멈춘 표시가 아니라 지금 도는 중」 임을 말한다. */
+.cyb .cyb-runcell { display: inline-flex; align-items: center; gap: 6px; }
+.cyb .cyb-live {
+  display: inline-flex; align-items: center; gap: 5px;
+  border-radius: 999px; padding: 1px 8px;
+  background: #d9f2ef; color: #0b6f68;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.cyb .cyb-livedot {
+  width: 6px; height: 6px; border-radius: 50%; background: #0d9488; flex: none;
+  animation: cyb-pulse 1.5s ease-in-out infinite;
+}
+@keyframes cyb-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.7); }
+}
+/* 움직임을 줄여 달라는 사람에게는 점만 세워 둔다 */
+@media (prefers-reduced-motion: reduce) {
+  .cyb .cyb-livedot { animation: none; }
+}

@@ -2001,7 +2001,25 @@ export default function CyclesBoard({
                 const t = sumRuns(rs)
                 return t.total ? <StatBar t={t} pal={verdPal} slim /> : <span className="cu-m">—</span>
               }
-              if (col.key === 'runs' && !row.runs) return <span className="cu-m">—</span>
+              /* 「진행 중」 은 **눈에 걸려야 한다**(지적: 글자로만 적혀 있어
+                 안 보인다). 지금 돌고 있는 사이클을 목록에서 찾는 것이 이
+                 칸을 보는 이유다 — 알약으로 세우고 점을 맥박시킨다.
+                 자료(row.runs)는 글자 그대로 둔다: 찾기·엑셀이 그것을 쓴다. */
+              if (col.key === 'runs') {
+                if (!row.runs) return <span className="cu-m">—</span>
+                const n = liveByPlan.get(String(row.__id)) ?? 0
+                const nRun = (runsByPlan.get(String(row.__id)) ?? []).length
+                if (!n) return <span>{nRun}건</span>
+                return (
+                  <span className="cyb-runcell">
+                    {nRun}건
+                    <span className="cyb-live" title="지금 돌고 있습니다">
+                      <i className="cyb-livedot" aria-hidden="true" />
+                      진행 중{n > 1 ? ` ${n}` : ''}
+                    </span>
+                  </span>
+                )
+              }
               if (col.key === 'last' && !row.last) return <span className="cu-m">—</span>
               return undefined
             }}
@@ -3166,6 +3184,26 @@ export default function CyclesBoard({
           >
             {cidDone ? '복사됨 ✓' : String(plan.cid ?? plan.id)}
           </button>
+          {/* **제목 바로 옆**에 세운다(지적: 오른쪽 아래 띠는 눈에 안 띈다).
+              들어오자마자 눈이 닿는 자리가 여기다 — 누르면 그 실행으로 간다. */}
+          {!!liveRun && (
+            <button
+              type="button"
+              className="cyb-runbadge"
+              title="지금 돌고 있습니다 — 누르면 그 시험 화면으로 갑니다"
+              onClick={() => {
+                if (liveRun.plan_run_id) openRun(String(liveRun.plan_run_id))
+                setRunnerOn(true)
+                setWide(true)
+              }}
+            >
+              <i className="dot" aria-hidden="true" />
+              시험 진행 중
+              {Number(liveRun.total) > 0
+                ? ` ${Number(liveRun.done ?? 0)}/${Number(liveRun.total)}`
+                : ''}
+            </button>
+          )}
           {/* 사이클·버전그룹·대상 칩은 걷었다(지시) — 같은 값이 트리와
               개요 카드에 이미 있어 제목 옆에선 소음이었다 */}
           <span className="cu-sp" />
