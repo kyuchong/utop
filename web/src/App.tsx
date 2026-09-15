@@ -260,6 +260,12 @@ export default function App() {
         } else if (kind === 'ce') {
           prefSet('utop.cycle.ce', id)
           setPage('cycles')
+        } else if (kind === 'defect') {
+          /* 결함 ID 는 **결함 화면**으로(지시). 이 줄이 없어 마지막 else 로
+             떨어졌고, 그 자리는 요구사항을 여는 자리라 결함 ID 를 누르면
+             REQ-Coverage 가 열렸다(지적: 시험 항목으로 넘어간다). */
+          prefSet('utop.defect.open', id)
+          setPage('defects')
         } else if (kind === 'report') {
           // 지나간 실행을 시간순으로 보는 화면. 어느 회차에서 왔는지 남겨
           // 그 화면이 그것부터 보여 줄 수 있게 한다.
