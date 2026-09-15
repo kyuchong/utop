@@ -178,7 +178,9 @@ export default function CyclesBoard({
 
   /** 열린 사이클 — 비면 목록. 주소(?cycle=)가 정본이다 */
   const [open, setOpen] = useState(() => prefGet('utop.cycle.sel') ?? '')
-  const [tab, setTab] = useState<'info' | 'run' | 'itm' | 'ita' | 'def' | 'sum' | 'mail'>('info')
+  /* 사이클을 열면 **Status** 부터 보인다(지시) — 먼저 궁금한 것은 「무엇을
+     담았나」 가 아니라 「어디까지 됐나」 다. Info 는 한 칸 옆에 있다. */
+  const [tab, setTab] = useState<'info' | 'run' | 'itm' | 'ita' | 'def' | 'sum' | 'mail'>('run')
 
   /* **누가 이 사이클을 같이 보고 있나**(지시) — WIKI 와 같은 자리(머리줄)에
      선다. 방은 열린 사이클마다 따로다: 목록에서는 「사이클 화면」, 사이클을
@@ -214,7 +216,7 @@ export default function CyclesBoard({
   const openPlanId = (id: string) => {
     if (dirty && id !== open && !window.confirm('저장하지 않은 변경이 있습니다. 버리고 이동할까요?')) return
     setOpen(id)
-    setTab('info')
+    setTab('run')
     prefSet('utop.cycle.sel', id)
     /* 주소에는 **부여 ID(cid)** 를 비춘다(지적: cycle-178… 은 사람이 못 읽는다).
        아직 목록을 못 받았으면 안쪽 id 그대로 — 받은 뒤 다시 열면 좋아진다 */
