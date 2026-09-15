@@ -1156,7 +1156,10 @@ export default function RunAuto({
     const head = items.length ? `${items.length} 중 ${ranN} 진행` : ''
     /* 잘렸으면 **먼저** 말한다 — 숫자를 읽기 전에 알아야 오해가 없다 */
     const cap = capped ? `최근 ${capped.toLocaleString('ko-KR')}줄만 · ` : ''
-    return `${cap}${head}${head ? ' · ' : ''}Pass ${tal.p} · Fail ${tal.f} · 대기 ${tal.n}`
+    /* 판정 셈(Pass·Fail·대기)은 여기서 빼고 **찾기 칸 오른쪽**에 따로 선다
+       (지시). 제목 옆에 다 붙여 두니 한 덩이로 읽혀, 「어디까지 왔나」 와
+       「어떻게 나왔나」 가 구별되지 않았다. */
+    return `${cap}${head}`
   }
 
   /** 가장 최근 회차. 아무것도 안 고르면 늘 이것을 본다 */
@@ -1234,6 +1237,15 @@ export default function RunAuto({
                 onMouseDown={(e) => e.stopPropagation()}
                 onChange={(e) => setQ(e.target.value)}
               />
+            )}
+            {/* 판정 셈 — 찾기 칸 **오른쪽**(지시). 색으로 갈라 두면 셋을
+                한눈에 읽는다. 찾기로 목록을 좁혀도 이 수는 실행 전체다. */}
+            {id === 'tc' && (
+              <small className="ra-tal">
+                <b className="p">Pass {tal.p}</b>
+                <b className="f">Fail {tal.f}</b>
+                <b>대기 {tal.n}</b>
+              </small>
             )}
             <span className="ra-sp" />
             {id === 'tc' && (

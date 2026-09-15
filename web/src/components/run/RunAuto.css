@@ -798,3 +798,10 @@ button.ra-bcar:hover { background: #cfe3e8; color: #12414c; }
 .ra-tcsum > i.p { color: #16a05b; }
 .ra-tcsum > i.f { color: #e34663; }
 .ra-tcsum > u { text-decoration: none; opacity: 0.38; margin: 0 1px; }
+
+/* 판정 셈 — 찾기 칸 오른쪽(지시). 제목 옆에 다 붙여 두니 「어디까지
+   왔나」 와 「어떻게 나왔나」 가 한 덩이로 읽혔다. 색으로 셋을 가른다. */
+.ra-tal { display: inline-flex; align-items: center; gap: 9px; flex: none; margin-left: 10px; }
+.ra-tal > b { font-size: 11.5px; font-weight: 700; color: #6b7e85; white-space: nowrap; }
+.ra-tal > b.p { color: #16a05b; }
+.ra-tal > b.f { color: #e34663; }
