@@ -635,17 +635,21 @@
    열이 어긋난다(지적). */
 .rn {
   display: inline-flex; align-items: flex-start;
-  vertical-align: -0.18em;
+  vertical-align: -0.22em;
   font-variant-numeric: tabular-nums;
 }
-.rn-d { position: relative; display: inline-block; width: 0.6em; height: 1.16em; overflow: hidden; vertical-align: baseline; }
+/* 칸 높이는 **글줄 안에 들어갈 만큼만**. 1.16em 은 .rd-lb 의 줄 상자를
+   꽉 채워 여유가 0 이었고(실측), 글꼴이 조금만 달라도 위가 잘렸다(지적).
+   숫자는 어센더·디센더가 없어 1em 이면 다 들어가고, 그만큼 줄 상자에
+   여유가 생긴다. */
+.rn-d { position: relative; display: inline-block; width: 0.6em; height: 1em; overflow: hidden; vertical-align: baseline; }
 .rn-s {
   position: absolute; top: 0; left: 0; right: 0;
   transition: transform 420ms cubic-bezier(0.33, 1.1, 0.32, 1);
   will-change: transform;
 }
-.rn-s i { display: block; height: 1.16em; line-height: 1.16em; font-style: normal; text-align: center; }
+.rn-s i { display: block; height: 1em; line-height: 1em; font-style: normal; text-align: center; }
 /* 구분자(`:` `·` 글자)도 숫자 칸과 **같은 상자**로 — 안 맞추면 콜론이
    9px 아래로 처져 시계가 기울어 보인다(실측) */
-.rn-x { display: inline-block; height: 1.16em; line-height: 1.16em; }
+.rn-x { display: inline-block; height: 1em; line-height: 1em; }
 @media (prefers-reduced-motion: reduce) { .rn-s { transition: none; } }
