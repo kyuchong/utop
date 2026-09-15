@@ -1526,6 +1526,28 @@ export default function CyclesBoard({
   }
 
   /** 실행기를 연다 — 그 방식의 항목만, 표에 보이는 차례로 */
+  /**
+   * 「보기 →」 — **도는 실행으로 실제로 간다**(지적: 눌러도 토스트만 사라진다).
+   *
+   * 실행 판은 **항목 탭에서만 선다**(runnerCols 가 run·itm·ita 를 본다).
+   * 여태 실행기만 켜고 탭은 Info 에 둔 채여서, 판이 설 자리가 없는데
+   * 토스트만 사라졌다 — 눌러 봐야 아무 일도 안 난 것처럼 보였다.
+   *
+   * 자동이냐 수동이냐는 그 실행이 안다(RunLite.mode). 못 찾으면 자동으로
+   * 본다 — 사이클의 대부분이 자동이고, 탭은 사람이 바로 바꿀 수 있다.
+   */
+  function goLive() {
+    const rid = String(liveRun?.plan_run_id ?? '') || selRun
+    if (!rid) return
+    openRun(rid)
+    const m = String(myRuns.find((r) => r.id === rid)?.mode ?? '').trim().toUpperCase()
+    const auto = !m.startsWith('M')
+    setRunMode(auto ? 'A' : 'M')
+    setTab(auto ? 'ita' : 'itm')
+    setRunnerOn(true)
+    setWide(true)
+  }
+
   async function openRunner(mode: 'A' | 'M', focus = '') {
     /* 실행이 하나도 없으면 **여기서 뜬다**(지시: 만들기 단추를 걷었다) —
        시험을 시작하는 순간이 곧 실행이 생기는 순간이다 */
@@ -3210,11 +3232,7 @@ export default function CyclesBoard({
               type="button"
               className="cyb-runbadge"
               title="지금 돌고 있습니다 — 누르면 그 시험 화면으로 갑니다"
-              onClick={() => {
-                if (liveRun.plan_run_id) openRun(String(liveRun.plan_run_id))
-                setRunnerOn(true)
-                setWide(true)
-              }}
+              onClick={goLive}
             >
               <i className="dot" aria-hidden="true" />
               시험 진행 중
@@ -3312,11 +3330,7 @@ export default function CyclesBoard({
           type="button"
           className="cu-toast"
           title="누르면 그 시험 화면으로 갑니다"
-          onClick={() => {
-            if (liveRun.plan_run_id) openRun(String(liveRun.plan_run_id))
-            setRunnerOn(true)
-            setWide(true)
-          }}
+          onClick={goLive}
         >
           <i className="dot" aria-hidden="true" />
           <span className="t">
