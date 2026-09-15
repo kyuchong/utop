@@ -1545,17 +1545,12 @@ export default function RunDetail({
     <div className={`rd-live${jobState?.k === 'run' ? ' is-run' : ''}${
       jobState?.k === 'lost' ? ' is-lost' : ''
     }`}>
-        {/* 도는 중에도, **끝났을 때도** 안 세운다(지시). 띠가 초록으로 깔리고
-            진행률·경과가 이미 그 말을 하며, 「끝남」 은 이제 진행 라벨이
-            「진행 완료」 로 말한다 — 같은 말을 두 자리에서 하지 않는다.
-            이상할 때만 선다: 큐 대기 · 응답 없음 · 멈춰 섬 · 실패. */}
-        {!!jobState && jobState.k !== 'run' && jobState.k !== 'done' && (
-          <span className={`rd-state s-${jobState.k}`} title={jobState.s}>
-            <i aria-hidden="true" />
-            {jobState.t}
-            {'now' in jobState && jobState.now ? <u>{jobState.now}</u> : null}
-          </span>
-        )}
+        {/* 상태 칩은 **걷었다**(지시). 「끝남」 을 없앴더니 이번엔 「멈춤」 이
+            떴다 — 상태마다 다른 글자가 뜨는 칩이라, 하나를 빼도 다음 것이
+            같은 자리에 선다. 지금 상태는 진행 라벨(진행 중·진행 완료)과
+            경과·진행률이 말하고, 사람이 손을 써야 하는 「멈춰 섰습니다」 는
+            아래 큰 안내(.rd-halt)가 따로 띄운다.
+            jobState 는 남긴다 — 띠 색(is-run·is-lost)이 그것을 본다. */}
         <span className="rd-lb">
           <em>경과</em>
           <b>

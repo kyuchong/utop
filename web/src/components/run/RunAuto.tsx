@@ -1223,8 +1223,10 @@ export default function RunAuto({
             title="끌어서 원하는 자리에 붙입니다 — 가운데는 맞바꿈, 가장자리는 그쪽에 붙이기"
           >
             <b>{TITLE[id]}</b>
-            {/* 목업처럼 판마다 「무엇을 보는 중인지」 를 제목 옆에 적는다 */}
-            {!!subOf(id) && <small>· {subOf(id)}</small>}
+            {/* 목업처럼 판마다 「무엇을 보는 중인지」 를 제목 옆에 적는다.
+                Test Report 만 예외다 — 「몇 중 몇 진행」 은 판정 셈과 한
+                묶음이라 아래에서 **오른쪽 끝**에 함께 세운다(지시). */}
+            {!!subOf(id) && id !== 'tc' && <small>· {subOf(id)}</small>}
             {id === 'tc' && (
               <input
                 className="ra-find"
@@ -1238,8 +1240,12 @@ export default function RunAuto({
                 onChange={(e) => setQ(e.target.value)}
               />
             )}
-            {/* 판정 셈 — 찾기 칸 **오른쪽**(지시). 색으로 갈라 두면 셋을
-                한눈에 읽는다. 찾기로 목록을 좁혀도 이 수는 실행 전체다. */}
+            {/* 찾기 칸까지가 왼쪽 묶음 — 남는 자리는 여기가 먹고, 「몇 중 몇
+                진행」·판정 셈·「전체 N」 은 **오른쪽 끝에 붙는다**(지시). */}
+            <span className="ra-sp" />
+            {id === 'tc' && !!subOf(id) && <small className="ra-prog">{subOf(id)}</small>}
+            {/* 판정 셈 — 색으로 갈라 두면 셋을 한눈에 읽는다. 찾기로 목록을
+                좁혀도 이 수는 실행 전체다. */}
             {id === 'tc' && (
               <small className="ra-tal">
                 <b className="p">Pass {tal.p}</b>
@@ -1247,7 +1253,6 @@ export default function RunAuto({
                 <b>대기 {tal.n}</b>
               </small>
             )}
-            <span className="ra-sp" />
             {id === 'tc' && (
               <button
                 type="button"

@@ -805,3 +805,6 @@ button.ra-bcar:hover { background: #cfe3e8; color: #12414c; }
 .ra-tal > b { font-size: 11.5px; font-weight: 700; color: #6b7e85; white-space: nowrap; }
 .ra-tal > b.p { color: #16a05b; }
 .ra-tal > b.f { color: #e34663; }
+/* 「몇 중 몇 진행」 — 판정 셈과 한 묶음으로 오른쪽 끝에 선다(지시) */
+.ra-prog { flex: none; font-size: 11.5px; font-weight: 700; color: #4a6670; white-space: nowrap; }
+.ra-prog + .ra-tal { margin-left: 12px; }
