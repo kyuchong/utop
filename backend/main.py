@@ -13046,6 +13046,11 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
                 "note": "자동 시험에서 부적합이 나와 자동으로 등록했습니다.",
                 "created_by": "실행기",
             })
+            # 보고 있는 화면이 **그 자리에서** 늘어나게 알린다(지시: 실시간)
+            try:
+                asyncio.create_task(broadcast({"type": "defect_updated", "id": did, "cycle_id": cid}))
+            except Exception:
+                pass
             return
         except Exception:
             continue

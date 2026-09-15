@@ -15,6 +15,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { onWs } from '@/api/wsBus'
 import { apiFetch } from '@/api/client'
 import { goto, onGoto, reflectUrl } from '@/api/goto'
 import { prefGet, prefRemove, prefSet } from '@/lib/prefs'
@@ -888,9 +889,9 @@ export default function CyclesBoard({
     /* 탭을 눌러야 받아오게 두면 **탭 옆 숫자가 늘 0** 이다(메일 이력에서
        겪은 그것) — 사이클을 열면 바로 받는다 */
     enabled: !!open,
-    /* 결함 탭을 보는 동안은 5 초마다 — 자동 시험이 깨질 때마다 서버가
-       결함을 만드니, 보고 있는 목록이 따라 늘어야 한다 */
-    refetchInterval: tab === 'def' ? 5000 : false,
+    /* 소식(WebSocket)이 정본이고, 이 간격은 그물이다 — 소켓이 끊긴 채
+       시험이 돌면 소식이 안 온다. 탭을 보고 있으면 촘촘히, 아니면 성글게. */
+    refetchInterval: tab === 'def' ? 5000 : 20000,
     queryFn: async () => {
       const r = await apiFetch(`/api/defects?cycle_id=${encodeURIComponent(open)}`)
       if (!r.ok) throw new Error('결함을 불러오지 못했습니다')
@@ -916,6 +917,19 @@ export default function CyclesBoard({
       }
     },
   })
+  /* **결함이 생기거나 지워지면 그 자리에서 받는다**(지시: 실시간).
+     자동 시험이 깨질 때마다 서버가 결함을 만들고 소식을 쏜다 — 새로고침
+     해야 보이던 것이 이것이다. 탭 옆 숫자도 같이 따라 는다. */
+  useEffect(
+    () =>
+      onWs((m) => {
+        if (m.type !== 'defect_updated') return
+        void defQ.refetch()
+        void qc.invalidateQueries({ queryKey: ['defects'] })
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
   const myRuns = useMemo(
     () =>
       (runsByPlan.get(open) ?? []).slice().sort((a, b) =>

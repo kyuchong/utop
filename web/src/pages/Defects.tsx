@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, type MeUser, isAdminUser } from '@/api/client'
+import { onWs } from '@/api/wsBus'
 import { prefGet, prefSet } from '@/lib/prefs'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import NTable from '@/components/ntable/NTable'
@@ -71,6 +72,10 @@ export default function Defects({ me }: { me?: MeUser | null }) {
     },
     staleTime: 10_000,
   })
+
+  /* 결함 소식을 듣고 그 자리에서 다시 받는다(지시: 실시간) — 사이클
+     화면에서 만들어지거나 지워진 것이 여기에도 바로 선다. */
+  useEffect(() => onWs((m) => { if (m.type === 'defect_updated') void refetch() }), [refetch])
 
   const rows = useMemo(() => {
     const all = data ?? []
