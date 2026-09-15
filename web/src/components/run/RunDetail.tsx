@@ -1503,63 +1503,81 @@ export default function RunDetail({
               return `${p2(Math.floor(sec / 3600))}:${p2(Math.floor((sec % 3600) / 60))}:${p2(sec % 60)}`
             })()}
           </b>
-          <i
-            className="rd-when"
-            title={
-              run.started_at
-                ? `${(() => {
-                    const d = new Date(run.started_at)
-                    const p = (n: number) => String(n).padStart(2, '0')
-                    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
-                  })()} 시작`
-                : '아직 시작 안 함'
+          {(() => {
+            const hhmmss = (t: number | string | Date) => {
+              const d = t instanceof Date ? t : new Date(t)
+              const p = (n: number) => String(n).padStart(2, '0')
+              return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
             }
-          >
-            {run.started_at
-              ? `(${(() => {
-                  const d = new Date(run.started_at)
-                  const p = (n: number) => String(n).padStart(2, '0')
-                  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
-                })()} 시작)`
-              : '(아직 시작 안 함)'}
-          </i>
+            if (!run.started_at) return <i className="rd-when">(아직 시작 안 함)</i>
+            const from = hhmmss(run.started_at)
+            /* 끝났으면 **잰 시각**을, 도는 중이면 **예상**을 적는다(지시).
+               예상은 지금까지 한 만큼으로 남은 것을 나눈 셈이다 — 두 건은
+               돌아 봐야 뜻이 생긴다(한 건으로는 그 한 건의 운이 전부를
+               가린다). 남은 것이 없으면 적을 것도 없다. */
+            const done = jobLive ? Number(job?.done ?? 0) : tally.p + tally.f + tally.b
+            const total = jobLive && Number(job?.total) > 0 ? Number(job?.total) : tally.total
+            const left = Math.max(0, total - done)
+            let tail = ''
+            let tip = `${from} 시작`
+            if (stoppedAt) {
+              tail = ` · ${hhmmss(stoppedAt)} 끝`
+              tip += ` · ${hhmmss(stoppedAt)} 끝`
+            } else if (done >= 2 && left > 0) {
+              const per = (Date.now() - new Date(run.started_at).getTime()) / done
+              const eta = new Date(Date.now() + per * left)
+              tail = ` · ${hhmmss(eta)} 끝 예정`
+              const min = Math.max(1, Math.round((per * left) / 60000))
+              tip += ` · ${hhmmss(eta)} 끝 예정 (남은 ${left}건 · 약 ${min}분)`
+            }
+            return (
+              <i className="rd-when" title={tip}>
+                ({from} 시작{tail})
+              </i>
+            )
+          })()}
         </span>
 
         <span className="rd-lb grow2 last">
           <em>진행</em>
-          {/* 도는 중에는 **실행기가 세는 수**로 채운다 — 항목 판정만 보면
+          {/* 내역(Pass·Fail·대기·전체)은 **막대에 담았다**(지시) — Test Report
+              머리줄이 같은 수를 이미 적고 있어 한 줄에 같은 값이 두 번 섰다.
+              막대에 마우스를 올리면 뜬다.
+              도는 중에는 **실행기가 세는 수**로 채운다 — 항목 판정만 보면
               반복 시험에서 바가 안 움직인다(10 회를 돌아도 0%) */}
-          {jobLive && Number(job?.total) > 0 ? (
-            <span className="rd-bar2">
-              <i className="p" style={{ flexGrow: Number(job?.done ?? 0) }} />
-              <i className="n" style={{ flexGrow: Math.max(0, Number(job?.total) - Number(job?.done ?? 0)) }} />
+          <span className="rd-barwrap">
+            {jobLive && Number(job?.total) > 0 ? (
+              <span className="rd-bar2">
+                <i className="p" style={{ flexGrow: Number(job?.done ?? 0) }} />
+                <i className="n" style={{ flexGrow: Math.max(0, Number(job?.total) - Number(job?.done ?? 0)) }} />
+              </span>
+            ) : (
+              <span className="rd-bar2">
+                <i className="p" style={{ flexGrow: tally.p }} />
+                <i className="f" style={{ flexGrow: tally.f }} />
+                <i className="b" style={{ flexGrow: tally.b }} />
+                <i className="n" style={{ flexGrow: tally.n }} />
+              </span>
+            )}
+            <span className="rd-bartip" role="tooltip">
+              <b className="p">Pass {nfmt(tally.p)}</b>
+              <b className="f">Fail {nfmt(tally.f)}</b>
+              {tally.b > 0 && <b className="b">보류 {nfmt(tally.b)}</b>}
+              <b>대기 {nfmt(tally.n)}</b>
+              <em>전체 {nfmt(tally.total)}</em>
+              {jobLive && Number(job?.total) > 0 && (
+                <em className="run">
+                  {nfmt(Number(job?.done ?? 0))} / {nfmt(Number(job?.total))} 진행 중
+                </em>
+              )}
             </span>
-          ) : (
-            <span className="rd-bar2">
-              <i className="p" style={{ flexGrow: tally.p }} />
-              <i className="f" style={{ flexGrow: tally.f }} />
-              <i className="b" style={{ flexGrow: tally.b }} />
-              <i className="n" style={{ flexGrow: tally.n }} />
-            </span>
-          )}
+          </span>
           {/* 실행기가 세는 수(done/total)가 있으면 그것이 먼저다 — 반복
               시험은 항목 수만 보면 10 회를 돌아도 0% 에 머문다 */}
           {jobLive && Number(job?.total) > 0 ? (
-            <>
-              <b>{Math.round((Number(job?.done ?? 0) / Number(job?.total)) * 100)}%</b>
-              <i>
-                ({nfmt(Number(job?.done ?? 0))} / {nfmt(Number(job?.total))} 진행 중
-                {tally.f ? <span className="f"> · Fail {tally.f}</span> : null})
-              </i>
-            </>
+            <b>{Math.round((Number(job?.done ?? 0) / Number(job?.total)) * 100)}%</b>
           ) : (
-            <>
-              <b>{pct}%</b>
-              <i>
-                (<span className="p">Pass {tally.p}</span> <span className="f">Fail {tally.f}</span> 대기{' '}
-                {tally.n} · 전체 {tally.total})
-              </i>
-            </>
+            <b>{pct}%</b>
           )}
         </span>
 
