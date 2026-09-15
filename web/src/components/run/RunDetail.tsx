@@ -667,9 +667,25 @@ export default function RunDetail({
     refetchOnMount: 'always',
     queryFn: async () => {
       const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/items?limit=${RPT_LIMIT}`)
-      if (!r.ok) return { items: [] as Array<{ tcid: string; round: number; verdict: string; at?: string | null }> }
+      if (!r.ok)
+        return {
+          items: [] as Array<{
+            tcid: string
+            round: number
+            verdict: string
+            at?: string | null
+            took_ms?: number | null
+          }>,
+        }
       return (await r.json()) as {
-        items: Array<{ tcid: string; round: number; verdict: string; at?: string | null }>
+        items: Array<{
+          tcid: string
+          round: number
+          verdict: string
+          at?: string | null
+          /** 이 한 건이 실제로 걸린 시간 — 끝나는 때를 셈할 때 쓴다 */
+          took_ms?: number | null
+        }>
       }
     },
     staleTime: 3000,
@@ -835,6 +851,47 @@ export default function RunDetail({
     return t
   }, [ids, results])
   const pct = tally.total ? Math.round((tally.done / tally.total) * 100) : 0
+
+  /* ── 끝나는 때 ──────────────────────────────────────────────────
+     「경과 ÷ 끝낸 수」 로 밀던 때는 **가만히 있어도 예상이 뒤로 밀렸다**
+     (지적: 초 단위로 계속 늘어난다). 한 건이 끝나기 전까지 분자(경과)만
+     커지니 당연한 일이었다.
+
+     이제 **한 건이 실제로 걸린 시간**(plan_run_item.took_ms)에서 셈한다.
+     중앙값을 쓴다 — 평균은 유난히 오래 끈 한 건에 통째로 끌려간다.
+     그리고 끝나는 시각은 **끝낸 수가 바뀔 때만** 다시 잡는다. 매초 다시
+     재면 그 자체로 시계가 되어, 보는 사람은 늘 「밀리고 있다」 고 읽는다. */
+  /** 한 건에 대개 걸리는 시간(ms). 아직 끝난 것이 없으면 0 */
+  const perItemMs = useMemo(() => {
+    const xs = (runItemsQ.data?.items ?? [])
+      .map((x) => Number(x.took_ms ?? 0))
+      .filter((n) => n > 0)
+      .sort((a, b) => a - b)
+    if (!xs.length) return 0
+    return xs[Math.floor(xs.length / 2)] ?? 0
+  }, [runItemsQ.data])
+
+  /** 아직 안 돈 건수 — 반복 시험이면 실행기가 세는 수가 먼저다 */
+  const leftN = (() => {
+    const done = jobLive && Number(job?.total) > 0 ? Number(job?.done ?? 0) : tally.done
+    const total = jobLive && Number(job?.total) > 0 ? Number(job?.total) : tally.total
+    return Math.max(0, total - done)
+  })()
+  /** 끝나는 시각(ms). 0 이면 아직 셈할 근거가 없다 */
+  const startedAt = run?.started_at
+  const etaAt = useMemo(() => {
+    if (stoppedAt || !startedAt || leftN <= 0) return 0
+    /* 근거가 둘이다: 실제로 잰 한 건(먼저), 없으면 경과를 끝낸 수로 나눈 값.
+       뒤엣것은 두 건은 끝나야 뜻이 생긴다 — 한 건으로는 그 한 건의 운이
+       전부를 가린다. */
+    const per =
+      perItemMs ||
+      (tally.done >= 2 ? (Date.now() - new Date(startedAt).getTime()) / tally.done : 0)
+    if (!per) return 0
+    return Date.now() + per * leftN
+    // 끝낸 수(leftN)와 한 건 시간이 바뀔 때만 다시 잡는다 — 매초는 안 잰다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perItemMs, leftN, stoppedAt, startedAt])
 
   const meta = tcById.get(cur)
   /* 방식은 **실행에 적힌 값이 먼저**다(플랜에서 손으로 정한 값이 여기까지 온다).
@@ -1517,24 +1574,18 @@ export default function RunDetail({
             }
             if (!run.started_at) return <i className="rd-when">(아직 시작 안 함)</i>
             const from = hhmmss(run.started_at)
-            /* 끝났으면 **잰 시각**을, 도는 중이면 **예상**을 적는다(지시).
-               예상은 지금까지 한 만큼으로 남은 것을 나눈 셈이다 — 두 건은
-               돌아 봐야 뜻이 생긴다(한 건으로는 그 한 건의 운이 전부를
-               가린다). 남은 것이 없으면 적을 것도 없다. */
-            const done = jobLive ? Number(job?.done ?? 0) : tally.p + tally.f + tally.b
-            const total = jobLive && Number(job?.total) > 0 ? Number(job?.total) : tally.total
-            const left = Math.max(0, total - done)
+            /* 끝났으면 **잰 시각**을, 도는 중이면 **끝나는 때**를 적는다(지시).
+               셈은 위 etaAt 한 곳이 한다 — 여기서는 적기만 한다. */
             let tail = ''
             let tip = `${from} 시작`
             if (stoppedAt) {
               tail = ` · ${hhmmss(stoppedAt)} 끝`
               tip += ` · ${hhmmss(stoppedAt)} 끝`
-            } else if (done >= 2 && left > 0) {
-              const per = (Date.now() - new Date(run.started_at).getTime()) / done
-              const eta = new Date(Date.now() + per * left)
-              tail = ` · ${hhmmss(eta)} 끝 예정`
-              const min = Math.max(1, Math.round((per * left) / 60000))
-              tip += ` · ${hhmmss(eta)} 끝 예정 (남은 ${left}건 · 약 ${min}분)`
+            } else if (etaAt) {
+              tail = ` · ${hhmmss(etaAt)} 끝 예정`
+              const min = Math.max(1, Math.round((etaAt - Date.now()) / 60000))
+              const per = perItemMs ? ` · 한 건 ${(perItemMs / 1000).toFixed(1)}초` : ''
+              tip += ` · ${hhmmss(etaAt)} 끝 예정 (남은 ${leftN}건 · 약 ${min}분${per})`
             }
             return (
               <i className="rd-when" title={tip}>
