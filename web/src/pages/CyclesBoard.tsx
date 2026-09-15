@@ -2054,7 +2054,7 @@ export default function CyclesBoard({
                 return (
                   <span className="cyb-runcell">
                     {nRun}건
-                    <span className="cyb-live" title="지금 돌고 있습니다">
+                    <span className="cyb-live" title="지금 진행 중입니다">
                       <i className="cyb-livedot" aria-hidden="true" />
                       진행 중{n > 1 ? ` ${n}` : ''}
                     </span>
@@ -3231,7 +3231,7 @@ export default function CyclesBoard({
             <button
               type="button"
               className="cyb-runbadge"
-              title="지금 돌고 있습니다 — 누르면 그 시험 화면으로 갑니다"
+              title="지금 진행 중입니다 — 누르면 그 시험 화면으로 갑니다"
               onClick={goLive}
             >
               <i className="dot" aria-hidden="true" />
@@ -3321,7 +3321,7 @@ export default function CyclesBoard({
       {/* 「n명이 함께 보는 중」 은 머리줄 오른쪽에(지시) — WIKI 와 같은 자리다.
           혼자면 아무것도 안 뜬다(PresenceBar 규칙). */}
       {topSlot && createPortal(<PresenceBar users={presence.users} me={meName} />, topSlot)}
-      {/* ── **지금 돌고 있습니다** — 떠 있는 띠(지시).
+      {/* ── **시험이 진행 중입니다** — 떠 있는 띠(지시).
           어느 탭에 있든, 누가 걸었든 보인다. 서버 상태를 그대로 읽으므로
           옆자리 사람이 건 시험도 똑같이 뜬다 — 「같이 들어갔는데 도는 건지
           분간이 안 된다」 가 이것이다. 누르면 그 실행 화면으로 간다. ── */}
@@ -3334,7 +3334,7 @@ export default function CyclesBoard({
         >
           <i className="dot" aria-hidden="true" />
           <span className="t">
-            <b>시험이 돌고 있습니다</b>
+            <b>시험이 진행 중입니다</b>
             <em>
               {liveRun.item_name || liveRun.cycle_name || ''}
               {Number(liveRun.total) > 0
