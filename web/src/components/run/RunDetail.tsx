@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import RollNum from './RollNum'
 import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
@@ -1559,7 +1560,10 @@ export default function RunDetail({
               const end = stoppedAt ? new Date(stoppedAt).getTime() : Date.now()
               const sec = Math.max(0, Math.floor((end - new Date(run.started_at).getTime()) / 1000))
               const p2 = (n: number) => String(n).padStart(2, '0')
-              return `${p2(Math.floor(sec / 3600))}:${p2(Math.floor((sec % 3600) / 60))}:${p2(sec % 60)}`
+              const t = `${p2(Math.floor(sec / 3600))}:${p2(Math.floor((sec % 3600) / 60))}:${p2(sec % 60)}`
+              /* **굴러 올라간다**(지시) — 초가 바뀌는 것이 눈에 걸려야
+                 「지금 재는 중」 으로 읽힌다 */
+              return <RollNum text={t} />
             })()}
           </b>
           {(() => {
@@ -1585,7 +1589,8 @@ export default function RunDetail({
             }
             return (
               <i className="rd-when" title={tip}>
-                ({from} 시작{tail})
+                (<RollNum text={from} /> 시작
+                {tail ? <RollNum text={tail} /> : null})
               </i>
             )
           })()}
