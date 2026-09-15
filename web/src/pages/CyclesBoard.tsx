@@ -13,6 +13,7 @@
  * 만들기·담기·실행 만들기 창은 **쓰던 부품 그대로**다.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { goto, onGoto, reflectUrl } from '@/api/goto'
@@ -38,6 +39,8 @@ import AddItems from '@/components/cycle/AddItems'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
 import AssigneePicker from '@/components/AssigneePicker'
+import PresenceBar from '@/components/PresenceBar'
+import { usePresence } from '@/components/usePresence'
 import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserPeople } from '@/pages/qaBits'
 import { useVerdictsState, vDef, vGroup, vLetter } from '@/lib/verdicts'
 import type { RunLite } from '@/pages/qaBits'
@@ -175,6 +178,19 @@ export default function CyclesBoard({
   /** 열린 사이클 — 비면 목록. 주소(?cycle=)가 정본이다 */
   const [open, setOpen] = useState(() => prefGet('utop.cycle.sel') ?? '')
   const [tab, setTab] = useState<'info' | 'run' | 'itm' | 'ita' | 'def' | 'sum' | 'mail'>('info')
+
+  /* **누가 이 사이클을 같이 보고 있나**(지시) — WIKI 와 같은 자리(머리줄)에
+     선다. 방은 열린 사이클마다 따로다: 목록에서는 「사이클 화면」, 사이클을
+     열면 그 사이클이다. 옛 Cycles 화면과 **같은 이름**을 써야 두 화면에서
+     들어온 사람이 서로 보인다.
+     같은 실행을 둘이 열어 놓고 각자 판정하면 나중 사람이 앞사람 것을 조용히
+     덮는다 — 막지는 않고 누가 있는지 알린다(usePresence 의 규칙). */
+  const presence = usePresence(open ? `cycle:${open}` : 'cycle', meName)
+  /* 머리줄이 내준 자리 — Layout 이 늘 먼저 서므로 첫 그림에서 잡힌다 */
+  const [topSlot, setTopSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setTopSlot(document.getElementById('utop-top-slot'))
+  }, [])
   const [making, setMaking] = useState(false)
   const [addTo, setAddTo] = useState(false)
   const [mkRun, setMkRun] = useState(false)
@@ -3284,6 +3300,9 @@ export default function CyclesBoard({
 
   return (
     <div className="qav cyb rnb">
+      {/* 「n명이 함께 보는 중」 은 머리줄 오른쪽에(지시) — WIKI 와 같은 자리다.
+          혼자면 아무것도 안 뜬다(PresenceBar 규칙). */}
+      {topSlot && createPortal(<PresenceBar users={presence.users} me={meName} />, topSlot)}
       {/* ── **지금 돌고 있습니다** — 떠 있는 띠(지시).
           어느 탭에 있든, 누가 걸었든 보인다. 서버 상태를 그대로 읽으므로
           옆자리 사람이 건 시험도 똑같이 뜬다 — 「같이 들어갔는데 도는 건지
