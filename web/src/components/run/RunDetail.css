@@ -264,7 +264,7 @@
 /* 「진행」 은 **안 줄어든다.** 글씨를 키우면서 줄어들어 「전체 2)」 가
    잘렸고, 그러니 구분선이 글에 딱 붙어 보였다(지적).
    줄어드는 것은 이름이 긴 「지금 항목」 하나뿐이다(… 로 자른다). */
-.rd-lb.grow2 { flex: 0 0 auto; overflow: visible; }
+.rd-lb.grow2 { flex: 0 1 auto; min-width: 0; overflow: visible; }
 /* 칸 안의 글도 안 줄어든다 — 줄어들면 「전체 2)」 의 끝이 잘린다.
    줄어들 자리는 이름이 긴 「지금 항목」 하나뿐이다. */
 .rd-lb.grow2 > i, .rd-lb.grow2 > b, .rd-lb.grow2 > em { flex: none; white-space: nowrap; }
@@ -530,9 +530,15 @@
    같은 수가 한 줄에 두 번 선다(지적). 막대에 마우스를 올릴 때만 뜬다.
    툴팁은 **화면에 뜬다**(body) — 머리줄 띠가 제 높이를 지키려고 넘침을
    자르는데, 띠 안에 두면 그 자르기에 걸려 아무것도 안 보인다(지적). */
-/* 막대는 **짧게**(지시) — 옆에 %  숫자가 이미 서 있어 길이로 읽을 일이
-   많지 않다. 자세한 수는 올려 보면 뜬다. */
-.rd-barwrap { position: relative; display: flex; align-items: center; flex: 0 0 44px; min-width: 44px; }
+/* 막대는 **짧게**(지시) — 옆에 % 숫자가 이미 서 있어 길이로 읽을 일이
+   많지 않다. 자세한 수는 올려 보면 뜬다.
+   **줄어들 줄 안다**: 0 0 으로 못 박아 두었더니 머리줄이 붐빌 때(고른
+   항목 배지·반복 단추가 함께 설 때) 자리를 안 내주고 옆 글자 위로
+   올라타, 「100%」 가 막대에 가려졌다(지적: 진행률이 깨져 보인다).
+   자리가 모자라면 막대부터 줄어든다 — 숫자는 끝까지 남는다.
+   position 은 두지 않는다: 두면 겹칠 때 막대가 글자를 덮는다(툴팁은
+   이제 화면에 띄우므로 기준점이 필요 없다). */
+.rd-barwrap { display: flex; align-items: center; flex: 0 1 44px; min-width: 22px; }
 .rd-barwrap > .rd-bar2 { flex: 1 1 auto; }
 .rd-bartip {
   display: flex; position: fixed; transform: translateX(-50%);
