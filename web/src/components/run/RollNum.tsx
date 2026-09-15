@@ -15,10 +15,16 @@ function RollDigit({ d }: { d: number }) {
   const strip = useRef<HTMLSpanElement>(null)
   const val = useRef(d)
 
-  /* 처음 설 때는 애니메이션 없이 제자리에 */
+  /* 처음 설 때는 **구르지 않는다.** transition 을 켠 채로 첫 자리를 잡으면
+     0 에서 제 값까지 모든 자리가 한꺼번에 굴러 올라간다 — 화면을 열 때마다
+     숫자가 잘린 채 흐르는 것처럼 보인다(지적). 잠깐 끄고 놓은 뒤 켠다. */
   useEffect(() => {
     const el = strip.current
-    if (el) el.style.transform = `translateY(${-val.current * (100 / 11)}%)`
+    if (!el) return
+    el.style.transition = 'none'
+    el.style.transform = `translateY(${-val.current * (100 / 11)}%)`
+    void el.offsetHeight
+    el.style.transition = ''
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
