@@ -528,18 +528,16 @@
 /* ── 진행 막대에 담은 내역 ──────────────────────────────────────────
    Pass·Fail·대기·전체를 머리줄에 글자로 늘어놓으면 Test Report 머리줄과
    같은 수가 한 줄에 두 번 선다(지적). 막대에 마우스를 올릴 때만 뜬다.
-   막대 자체는 overflow:hidden 이라(둥근 끝) 감싸는 칸이 툴팁을 든다. */
+   툴팁은 **화면에 뜬다**(body) — 머리줄 띠가 제 높이를 지키려고 넘침을
+   자르는데, 띠 안에 두면 그 자르기에 걸려 아무것도 안 보인다(지적). */
 .rd-barwrap { position: relative; display: flex; align-items: center; flex: 1 1 90px; min-width: 44px; }
 .rd-barwrap > .rd-bar2 { flex: 1 1 auto; }
 .rd-bartip {
-  display: none; position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
-  z-index: 60; align-items: center; gap: 10px; white-space: nowrap;
+  display: flex; position: fixed; transform: translateX(-50%);
+  z-index: 300; align-items: center; gap: 10px; white-space: nowrap; pointer-events: none;
   background: #10333c; color: #eaf4f6; border-radius: 8px; padding: 7px 12px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28); font-size: 12px; font-weight: 600;
 }
-/* 막대에서 툴팁까지 마우스가 건너갈 수 있게 — 8px 틈이 비어 있으면 닫힌다 */
-.rd-bartip::before { content: ''; position: absolute; left: 0; right: 0; top: -8px; height: 8px; }
-.rd-barwrap:hover .rd-bartip, .rd-barwrap:focus-within .rd-bartip { display: flex; }
 .rd-bartip .p { color: #5fe0a0; }
 .rd-bartip .f { color: #ff8b9e; }
 .rd-bartip .b { color: #f5c26b; }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
@@ -373,6 +374,11 @@ export default function RunDetail({
   onClose?: () => void
 }) {
   const qc = useQueryClient()
+  /** 진행 막대 위 내역 — **떠 있는 자리(body)** 에 그린다.
+      머리줄 띠는 제 높이(40px)를 지키려고 넘침을 자르는데, 툴팁을 띠 안에
+      두면 그 자르기에 걸려 마우스를 올려도 아무것도 안 보였다(지적).
+      좌표만 받아 화면 기준으로 띄우면 어떤 자르기에도 안 걸린다. */
+  const [tipAt, setTipAt] = useState<{ x: number; y: number } | null>(null)
   const [cur, setCur] = useState('')
   const [stepAt, setStepAt] = useState(0)
   /* 판정하면 다음 항목으로 — 두 판 화면은 표에서 직접 고르므로 늘 켠다 */
@@ -1545,7 +1551,14 @@ export default function RunDetail({
               막대에 마우스를 올리면 뜬다.
               도는 중에는 **실행기가 세는 수**로 채운다 — 항목 판정만 보면
               반복 시험에서 바가 안 움직인다(10 회를 돌아도 0%) */}
-          <span className="rd-barwrap">
+          <span
+            className="rd-barwrap"
+            onMouseEnter={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              setTipAt({ x: r.left + r.width / 2, y: r.bottom + 8 })
+            }}
+            onMouseLeave={() => setTipAt(null)}
+          >
             {jobLive && Number(job?.total) > 0 ? (
               <span className="rd-bar2">
                 <i className="p" style={{ flexGrow: Number(job?.done ?? 0) }} />
@@ -1559,18 +1572,22 @@ export default function RunDetail({
                 <i className="n" style={{ flexGrow: tally.n }} />
               </span>
             )}
-            <span className="rd-bartip" role="tooltip">
-              <b className="p">Pass {nfmt(tally.p)}</b>
-              <b className="f">Fail {nfmt(tally.f)}</b>
-              {tally.b > 0 && <b className="b">보류 {nfmt(tally.b)}</b>}
-              <b>대기 {nfmt(tally.n)}</b>
-              <em>전체 {nfmt(tally.total)}</em>
-              {jobLive && Number(job?.total) > 0 && (
-                <em className="run">
-                  {nfmt(Number(job?.done ?? 0))} / {nfmt(Number(job?.total))} 진행 중
-                </em>
+            {tipAt &&
+              createPortal(
+                <span className="rd-bartip" role="tooltip" style={{ left: tipAt.x, top: tipAt.y }}>
+                  <b className="p">Pass {nfmt(tally.p)}</b>
+                  <b className="f">Fail {nfmt(tally.f)}</b>
+                  {tally.b > 0 && <b className="b">보류 {nfmt(tally.b)}</b>}
+                  <b>대기 {nfmt(tally.n)}</b>
+                  <em>전체 {nfmt(tally.total)}</em>
+                  {jobLive && Number(job?.total) > 0 && (
+                    <em className="run">
+                      {nfmt(Number(job?.done ?? 0))} / {nfmt(Number(job?.total))} 진행 중
+                    </em>
+                  )}
+                </span>,
+                document.body,
               )}
-            </span>
           </span>
           {/* 실행기가 세는 수(done/total)가 있으면 그것이 먼저다 — 반복
               시험은 항목 수만 보면 10 회를 돌아도 0% 에 머문다 */}
