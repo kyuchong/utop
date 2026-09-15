@@ -1577,7 +1577,7 @@ export default function RunDetail({
                 <span className="rd-bartip" role="tooltip" style={{ left: tipAt.x, top: tipAt.y }}>
                   <b className="p">Pass {nfmt(tally.p)}</b>
                   <b className="f">Fail {nfmt(tally.f)}</b>
-                  {tally.b > 0 && <b className="b">보류 {nfmt(tally.b)}</b>}
+                  {/* 「보류」 는 뺐다(지시) */}
                   <b>대기 {nfmt(tally.n)}</b>
                   <em>전체 {nfmt(tally.total)}</em>
                   {jobLive && Number(job?.total) > 0 && (
