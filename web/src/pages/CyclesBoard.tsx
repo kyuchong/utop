@@ -1966,6 +1966,9 @@ export default function CyclesBoard({
               else if (key === 'title') void saveNameOf(rowId, v)
             }}
             readOnlyKeys={['id', 'vg', 'customer', 'mg', 'model', 'items', 'iss', 'runs', 'last', 'stat', 'created']}
+            /* 돌고 있는 사이클은 **줄째로** 두드러진다(지시) — 알약 하나만으로는
+               스무 줄 가운데서 찾아 훑어야 한다 */
+            rowClass={(r) => ((liveByPlan.get(String(r.__id)) ?? 0) > 0 ? 'ntb-live' : '')}
             lockDefs
             idKey="id"
             titleKey="title"

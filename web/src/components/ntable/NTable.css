@@ -454,3 +454,12 @@
 /* 「풀기」 배지 — 누르면 묶기가 풀린다는 것을 빨강으로 말한다 */
 .ntb-off { margin-left: auto; flex: none; font-size: 10.5px; font-weight: 600;
            color: #c0392b; background: #fdebec; border-radius: 9px; padding: 1px 6px; }
+
+/* ── 지금 돌고 있는 줄 ──────────────────────────────────────────────
+   화면이 `rowClass` 로 붙인다(Cycles). 줄째로 옅게 칠하고 왼쪽에 초록
+   띠를 세운다 — 알약 하나만으로는 스무 줄 가운데서 찾아 훑어야 한다.
+   고른 줄(.on)·닿은 줄(:hover)이 더 급하므로 그 색이 이긴다. */
+.ntb-row.ntb-live td { background: #f1fbf4; }
+.ntb-row.ntb-live td:first-child { box-shadow: inset 3px 0 0 #16a34a; }
+.ntb-row.ntb-live:hover td { background: #e7f7ec; }
+.ntb-row.ntb-live.on td { background: #eaf6fb; }

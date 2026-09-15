@@ -84,6 +84,9 @@ export interface NTableProps {
   renderCell?: (row: NRow, col: NCol) => React.ReactNode | undefined
   /** 값이 못 고치는 칸(계산된 값 등) */
   readOnlyKeys?: string[]
+  /** 줄에 붙일 여분 클래스 — 화면이 「이 줄은 특별하다」 고 말한다
+      (Cycles 의 돌고 있는 사이클). 표는 뜻을 정하지 않는다. */
+  rowClass?: (row: NRow) => string
   /** 필드 **정의**(이름·타입·선택지·삽입·복제·삭제)를 잠근다 — 아직
       저장할 곳이 없는 화면에서 있는 척하지 않으려고(검증) */
   lockDefs?: boolean
@@ -127,7 +130,7 @@ export default function NTable(p: NTableProps) {
   const {
     columns, rows, view, onView, onColumns, onCell,
     people = [], meName, onOpen, onPeek, onNew, onBulk,
-    renderCell, readOnlyKeys = [], lockDefs,
+    renderCell, readOnlyKeys = [], lockDefs, rowClass,
     idKey = 'id', titleKey = 'title', title, busy, toolbarLeft, propsFoot, onShown,
     calcs = {}, onCalcs, perPage = 100, onPerPage,
   } = p
@@ -1246,7 +1249,11 @@ export default function NTable(p: NTableProps) {
                       <tr
                         key={r.__id}
                         className={(() => {
-                          let k = `ntb-row${checked.has(r.__id) ? ' on' : ''}`
+                          /* 화면이 「이 줄은 특별하다」 고 말할 수 있다 —
+                             지금은 Cycles 의 **돌고 있는 사이클**이 쓴다.
+                             표가 뜻을 정하지 않는다: 무엇이 특별한지는
+                             자료를 가진 화면만 안다. */
+                          let k = `ntb-row${checked.has(r.__id) ? ' on' : ''}${rowClass ? ` ${rowClass(r)}`.trimEnd() : ''}`
                           if (dragRow === r.__id) return `${k} ntb-drag`
                           if (overRow === r.__id && dragRow) {
                             /* 놓일 자리를 **위/아래 선**으로 보인다 — 행 전체를
