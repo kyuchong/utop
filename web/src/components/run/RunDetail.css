@@ -513,27 +513,25 @@
 }
 .rd-live.is-lost .rd-lb.grow2 > b,
 .rd-live.is-lost .rd-lb.grow2 > em { color: #c0344b; }
-/* 도는 중에는 **점 하나가 맥박한다**(지시: 글자가 커졌다 작아지는 것은
-   별로다). 글자는 가만히 두고 점만 숨 쉰다 — 목록의 「● 진행 중」 알약,
-   머리줄 띠의 점과 같은 결이라 앱 안에서 같은 말로 읽힌다.
-   색은 currentColor 라 도는 중엔 초록, 응답이 끊기면 빨강이 된다. */
-.rd-live.is-run .rd-lb.grow2 > em::before,
-.rd-live.is-lost .rd-lb.grow2 > em::before {
-  content: ''; display: inline-block; vertical-align: middle;
-  width: 8px; height: 8px; border-radius: 50%; background: currentColor;
-  margin: -2px 7px 0 0; flex: none;
-  animation: rd-dotbeat 1.5s ease-out infinite;
+/* 도는 중에는 **막대 위로 빛이 흐른다**(지시: C 안). 글자는 가만히 둔다 —
+   이미 초록 글자·연초록 바탕·아래 실선으로 충분히 말하고 있고, 움직임은
+   막대 하나가 맡는다. 막대가 살아 있으면 「지금 돌고 있다」 가 읽힌다.
+   응답이 끊겼을 때(is-lost)는 흐르지 않는다 — 소식이 없는데 흐르면
+   도는 중으로 잘못 읽힌다. */
+.rd-live.is-run .rd-bar2 { position: relative; }
+.rd-live.is-run .rd-bar2::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  animation: rd-shimmer 1.4s linear infinite;
 }
-/* 응답이 끊겼을 때는 더 빨리 — 그때야말로 눈이 가야 한다 */
-.rd-live.is-lost .rd-lb.grow2 > em::before { animation-duration: 1s; }
-@keyframes rd-dotbeat {
-  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
-  70% { box-shadow: 0 0 0 7px rgba(22, 163, 74, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+@keyframes rd-shimmer {
+  to { transform: translateX(100%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .rd-live.is-run .rd-lb.grow2 > em::before,
-  .rd-live.is-lost .rd-lb.grow2 > em::before { animation: none; }
+  .rd-live.is-run .rd-bar2::after { animation: none; opacity: 0; }
 }
 /* 경과 시간도 또렷하게 — 얼마나 돌았는지가 같이 궁금하다 */
 .rd-live.is-run .rd-lb > b { font-variant-numeric: tabular-nums; }
