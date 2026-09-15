@@ -13116,6 +13116,26 @@ async def _jira_defect_defaults(cycle: dict) -> dict:
     return {k: v for k, v in out.items() if v}
 
 
+_VAR_RE = __import__("re").compile(r"[\'\"]?\$\{[^}]*\}[\'\"]?")
+
+
+def _plain_ko(t: str) -> str:
+    """**스크립트 표기를 걷어낸다**(지적: 변수가 그대로 들어가면 모른다).
+
+    시험은 `${var1} == ${var2}` 처럼 제 변수로 적히지만, 결함을 읽는 사람은
+    그 시험 스크립트를 모른다. 변수와 그 둘레의 따옴표·비교 기호를 걷어내면
+    「비교 값이 동일 하지 않습니다」 같은 **사람 문장**만 남는다.
+
+    걷어낸 뒤 남는 글이 없으면 빈 문자열을 돌려준다 — 부르는 쪽이 그때는
+    다른 말(스텝 설명·시험 항목 이름)을 쓴다.
+    """
+    import re as _re
+    t = _VAR_RE.sub("", str(t or ""))
+    t = _re.sub(r"\s*(==|!=|>=|<=|=|>|<)\s*", " ", t)   # 남은 비교 기호
+    t = _re.sub(r"\s{2,}", " ", t).strip(" \t·-—,.:;")
+    return t
+
+
 def _step_is_fail(st: dict) -> bool:
     """스텝 하나가 깨졌나 — 판정 글자가 없으면 회차 안을 본다.
 
@@ -13218,8 +13238,13 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
             for b in briefs:
                 if not str(b.get("status") or "").upper().startswith("F"):
                     continue
-                what = str(b.get("desc") or b.get("cli") or "").strip()
-                why2 = str(b.get("reason") or "").strip()
+                # **사람이 쓴 설명이 먼저**다 — cli 는 스크립트라 그대로 두면
+                # 변수 표기가 결함에 실린다. 설명이 없으면 cli 에서 변수를
+                # 걷어내 보고, 그래도 남는 게 없으면 시험 항목 이름을 쓴다.
+                what = str(b.get("desc") or "").strip() or _plain_ko(str(b.get("cli") or ""))
+                if not what:
+                    what = str(name or tcid)
+                why2 = _plain_ko(str(b.get("reason") or ""))
                 # 판정 근거는 대개 한 문장이라 그대로 쓰되, 길면 앞만 남긴다
                 if len(why2) > 60:
                     why2 = why2[:60].rstrip() + "…"
