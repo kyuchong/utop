@@ -13213,8 +13213,10 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
     if who:
         extra["reporter"] = who
     steps = [x for x in (body.get("steps") or []) if isinstance(x, dict)]
-    bad = [x for x in steps if _step_is_fail(x)]
-    pick = bad or steps
+    # **절차는 통째로 담는다**(지시) — 깨진 것만 담으면 「무엇을 하다 거기서
+    # 깨졌나」 를 알 수 없어 재현이 안 된다. 어디서 깨졌는지는 스텝마다 붙는
+    # 판정이 말한다. 현상 칸은 여전히 깨진 스텝만 본다(그것이 증상이다).
+    pick = steps
     briefs = [{
         "no": steps.index(x) + 1,
         "kind": str(x.get("kind") or "cli"),
@@ -13257,23 +13259,45 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
                 if len(bits) >= 5:
                     break
             sym = ", ".join(bits) or f"{name or tcid} 부적합"
-            # 「시험내역」 은 **그 시험 항목으로 가는 주소**만 적는다(지시).
-            # 사이클·모델·버전은 결함의 제 칸에 이미 있고, 자세한 것은 링크를
-            # 눌러 UTOP 에서 보면 된다 — 이슈에 옮겨 적으면 둘이 어긋난다.
+            # 판마다 맡는 말이 다르다(지시).
+            #  · 3. 시험절차 — **그 시험 항목으로 가는 주소**. 절차 전문을
+            #    옮겨 적으면 시험이 바뀔 때 이슈만 옛말이 된다. 링크를 누르면
+            #    늘 지금 것을 본다.
+            #  · 4. 시험내역 — **무엇을 해서 무엇이 나왔나**. 「interface
+            #    status 조회 (나온 결과)」 처럼 명령과 그 답을 나란히 적는다.
             base = ""
             try:
                 base = str((_load_mail_cfg() or {}).get("app_url") or "").strip().rstrip("/")
             except Exception:
                 pass
-            # 설정이 비어 있으면 **부른 주소**라도 쓴다 — 상대 주소(/?tc=…)는
-            # 지라에서 눌러도 아무 데도 못 간다(지적)
             base = base or str(base_url or "").strip().rstrip("/")
-            det = (
-                f"[{tcid}|{base}/?tc={tcid}]" if base else f"{tcid} (UTOP ▸ 시험 항목)"
-            )
+            proc = f"[{tcid}|{base}/?tc={tcid}]" if base else f"{tcid} (UTOP ▸ 시험 항목)"
+
+            det_lines: list[str] = []
+            for b in briefs[:20]:
+                what = str(b.get("desc") or "").strip() or _plain_ko(str(b.get("cli") or ""))
+                cli = str(b.get("cli") or "").strip()
+                st2 = str(b.get("status") or "").strip()
+                head = what or cli or "(이름 없는 스텝)"
+                if st2:
+                    head += f" — {st2}"
+                det_lines.append(f"*{head}*")
+                if cli and cli != what:
+                    det_lines.append("{{" + cli + "}}")
+                out2 = str(b.get("output") or "").strip()
+                if out2:
+                    det_lines.append("{noformat}")
+                    det_lines.append(out2[:1500])
+                    det_lines.append("{noformat}")
+                why3 = _plain_ko(str(b.get("reason") or ""))
+                if why3:
+                    det_lines.append(f"→ {why3}")
+                det_lines.append("")
+            det = "\n".join(det_lines).strip() or f"{tcid} 자동 시험"
+
             await db.defect_create({
                 **extra,
-                "panels": {"symptom": sym, "detail": det},
+                "panels": {"symptom": sym, "steps": proc, "detail": det},
                 "id": did,
                 # 새로 난 결함은 **New** 다(지시) — 「미해결」 탭은 닫히지
                 # 않은 것을 모두 담으므로 여기서도 보인다

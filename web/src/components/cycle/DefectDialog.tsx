@@ -76,7 +76,7 @@ interface Props {
   onSaved: (d: DefectRec) => void
 }
 
-const isFail = (r: string) => r === 'Fail' || r === '불합격'
+/* 「깨진 스텝만 담기」 를 걷으면서 쓸 데가 없어졌다(지시: 절차는 통째로) */
 
 /** 한 스텝을 결함에 담을 모양으로 추린다 */
 interface StepBrief {
@@ -93,9 +93,12 @@ interface StepBrief {
 
 /** 항목의 깨진 스텝(없으면 전체)을 자세히 뽑는다 */
 function briefsOf(item: CycleItemLite): StepBrief[] {
+  /* **절차는 통째로 담는다**(지시). 깨진 스텝만 골라 담던 때는, 이슈를 읽는
+     사람이 「무엇을 하다 거기서 깨졌나」 를 알 수 없었다 — 앞 스텝에서 무엇을
+     켜고 무엇을 넣었는지가 빠지면 재현이 안 된다. 어디서 깨졌는지는 스텝마다
+     붙는 판정이 말한다. */
   const steps = (item.steps ?? []) as CycleStep[]
-  const bad = steps.filter((x) => isFail(stepVerdict(x as TcStep)))
-  const pick = bad.length ? bad : steps
+  const pick = steps
   return pick.map((x, i) => ({
     no: steps.indexOf(x) + 1 || i + 1,
     kind: x.kind ?? 'cli',
@@ -347,6 +350,11 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
   const wiki = useMemo(
     () =>
       buildDefectWiki(panels, briefs as WikiStep[], {
+        /* 시험절차 판이 비면 이 주소가 들어간다(지시) */
+        tcid: item?.tcid || existing?.tcid || '',
+        tcUrl: (item?.tcid || existing?.tcid)
+          ? `${window.location.origin}${window.location.pathname}?tc=${encodeURIComponent(String(item?.tcid || existing?.tcid))}`
+          : '',
         /* 그림 표시는 **첨부에 성공할 때만** 서야 하지만, 미리보기에서는
            올릴 예정임을 보여 준다 — 등록 뒤에 첨부가 따라 붙는다 */
         image: !!topoImg && !String(panels.topo ?? '').trim(),

@@ -38,6 +38,33 @@ export const WIKI_PANELS: Array<{ k: string; title: string }> = [
   { k: 'attach', title: '8. 첨부파일' },
 ]
 
+/**
+ * **시험내역** — 무엇을 해서 무엇이 나왔나(지시).
+ *
+ * 「interface status 조회」 한 줄 다음에 그때 친 명령과 장비가 뱉은 답을
+ * 붙인다. 이슈를 읽는 개발자가 알고 싶은 것은 「그래서 화면에 뭐가 떴나」 다.
+ */
+export function detailFromSteps(steps: WikiStep[]): string {
+  const L: string[] = []
+  for (const s of steps.slice(0, 20)) {
+    const what = String(s.desc ?? '').trim() || String(s.cli ?? '').trim()
+    const st = String(s.status ?? '').trim()
+    L.push(`*${what || '(이름 없는 스텝)'}${st ? ` — ${st}` : ''}*`)
+    const cli = String(s.cli ?? '').trim()
+    if (cli && cli !== what) L.push(`{{${cli}}}`)
+    const out = String(s.output ?? '').trim()
+    if (out) {
+      L.push('{noformat}')
+      L.push(out.slice(0, 1500))
+      L.push('{noformat}')
+    }
+    const why = String(s.rca ?? '').trim()
+    if (why) L.push(`→ ${why}`)
+    L.push('')
+  }
+  return L.join('\n').trim()
+}
+
 /** 스텝을 위키 블록으로 — 판정 표시는 Jira 가 아는 (/) (x) (?) 를 쓴다 */
 export function stepsToWiki(steps: WikiStep[]): string {
   const blocks = steps.map((s, i) => {
@@ -118,11 +145,19 @@ export function configFromSteps(steps: WikiStep[]): string {
 export function buildDefectWiki(
   panels: Record<string, string>,
   steps: WikiStep[],
-  opts?: { image?: boolean; config?: string },
+  opts?: { image?: boolean; config?: string; tcUrl?: string; tcid?: string },
 ): string {
   return WIKI_PANELS.map(({ k, title }) => {
     let body = String(panels[k] ?? '').trim()
-    if (k === 'steps' && !body && steps.length) body = stepsToWiki(steps)
+    /* 「3. 시험절차」 는 **그 시험 항목으로 가는 주소**다(지시). 절차 전문을
+       옮겨 적으면 시험이 바뀔 때 이슈만 옛말이 된다 — 링크를 누르면 늘 지금
+       것을 본다. */
+    if (k === 'steps' && !body && opts?.tcUrl) {
+      body = `[${opts.tcid || '시험 항목'}|${opts.tcUrl}]`
+    }
+    /* 「4. 시험내역」 은 **무엇을 해서 무엇이 나왔나**다(지시) —
+       「interface status 조회 (나온 결과)」 처럼 명령과 그 답을 나란히. */
+    if (k === 'detail' && !body && steps.length) body = detailFromSteps(steps)
     if (k === 'kernel' && !body && steps.length) {
       const kn = kernelFromSteps(steps)
       if (kn) body = `{noformat}\n${kn}\n{noformat}`
