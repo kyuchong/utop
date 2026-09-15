@@ -230,7 +230,17 @@
 
 /* ── 두 판 — 왼쪽에 적고, 오른쪽에 올라갈 모습 ──────────────────
    「등록하고 나서 열어 보니 엉뚱하더라」 를 없애는 것이 목적이다. */
-.modal.dfx.wide { max-width: 1180px; width: calc(100vw - 48px); }
+/* **창을 크게**(지시) — 왼쪽에 아홉 판을 적고 오른쪽에 올라갈 모습을
+   견주는 창이다. 1180px 로는 양쪽 다 좁아, 판마다 두세 줄만 보이고 계속
+   굴려야 했다. 화면을 거의 다 쓴다(Copy 창과 같은 결).
+   높이도 내용만큼(fit-content)이 아니라 **화면에 맞춰 세운다** — 미리보기가
+   늘 길어서, 창이 짧으면 오른쪽만 굴리게 된다. */
+.modal.dfx.wide {
+  max-width: 1860px;
+  width: calc(100vw - 28px);
+  height: 92vh;
+  max-height: 94vh;
+}
 .dfx-two { display: flex; flex: 1; min-height: 0; }
 .dfx-two > .dfx-body { flex: 1 1 50%; min-width: 0; border-right: 1px solid var(--c-border); }
 .dfx-prev {
