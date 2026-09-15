@@ -60,7 +60,6 @@ const PANELS: Array<{ k: string; label: string; ph: string; rows: number }> = [
   { k: 'topo', label: '시험구성도', ph: '구성 설명 또는 파일명', rows: 3 },
   { k: 'steps', label: '시험절차', ph: '시험 절차를 입력하세요', rows: 6 },
   { k: 'detail', label: '시험내역', ph: '플랜 / 시험 항목 / 모델 · 버전', rows: 3 },
-  { k: 'osver', label: 'OS 버전', ph: '예) E6100 v3.1.2 (2026-08-01 빌드)', rows: 2 },
   { k: 'config', label: 'Configuration File (Config File)', ph: 'running-config 또는 파일명', rows: 4 },
   { k: 'core', label: 'Core File (Upload Core file)', ph: 'core 파일 이름 · 올린 곳', rows: 3 },
   { k: 'kernel', label: 'Kernel Log & Syslog 조회', ph: 'Kernel Log / Syslog 출력', rows: 4 },

@@ -13257,13 +13257,17 @@ async def _auto_defect(run_id: str, tcid: str, body: dict) -> None:
                 if len(bits) >= 5:
                     break
             sym = ", ".join(bits) or f"{name or tcid} 부적합"
-            # 경위는 「시험내역」 이 맡는다 — 현상 칸에 섞으면 증상이 안 읽힌다
-            det = (
-                f"사이클: {version or cyc.get('name') or cid}\n"
-                f"시험 항목: {tcid} {name or ''}".rstrip() + "\n"
-                f"모델: {model or '—'} · 버전: {version or '—'}\n"
-                f"자동 시험에서 부적합으로 났습니다."
-            )
+            # 「시험내역」 은 **그 시험 항목으로 가는 주소**만 적는다(지시).
+            # 사이클·모델·버전은 결함의 제 칸에 이미 있고, 자세한 것은 링크를
+            # 눌러 UTOP 에서 보면 된다 — 이슈에 옮겨 적으면 둘이 어긋난다.
+            det = ""
+            try:
+                base = str((_load_mail_cfg() or {}).get("app_url") or "").strip().rstrip("/")
+                det = f"{base}/?tc={tcid}" if base else ""
+            except Exception:
+                pass
+            if not det:
+                det = f"/?tc={tcid}"
             await db.defect_create({
                 **extra,
                 "panels": {"symptom": sym, "detail": det},
