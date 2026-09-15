@@ -273,6 +273,49 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
   /* 이 프로젝트가 요구하는 칸들 — Jira 에게 물어 그린다(JiraFields) */
   const [jfVals, setJfVals] = useState<JiraFieldValues>({})
   const [jfDefs, setJfDefs] = useState<JiraField[]>([])
+  /** SETUP ▸ Jira 프로젝트 패널의 **결함 기본값** — 프로젝트별로 다르다 */
+  const [panelDefaults, setPanelDefaults] = useState<Record<string, Record<string, unknown>>>({})
+  useEffect(() => {
+    void (async () => {
+      const r = await apiFetch('/api/jira/config')
+      if (!r.ok) return
+      const j = (await r.json()) as {
+        panel_templates?: Record<string, { defect?: { field_defaults?: Record<string, unknown> } }>
+      }
+      const out: Record<string, Record<string, unknown>> = {}
+      for (const [k, t] of Object.entries(j.panel_templates ?? {})) {
+        const fd = t?.defect?.field_defaults
+        if (fd && Object.keys(fd).length) out[k] = fd
+      }
+      setPanelDefaults(out)
+    })()
+  }, [])
+  /**
+   * 설정해 둔 기본값을 **칸에 미리 채운다**(지시: 필드가 안 채워져 있다).
+   *
+   * 여태 이 창은 빈손으로 열렸다 — SETUP 에 우선순위·구성요소를 정해 두어도
+   * 결함마다 사람이 다시 골라야 했다. 칸의 생김새(고르는 칸인가 배열인가)는
+   * Jira 가 알려 준 뒤에야 아니, 그 목록(jfDefs)이 온 다음에 채운다.
+   *
+   * **사람이 고른 값은 안 건드린다** — 기본값은 빈 칸에만 들어간다.
+   */
+  useEffect(() => {
+    const fd = panelDefaults[proj]
+    if (!fd || !jfDefs.length) return
+    setJfVals((v) => {
+      const out = { ...v }
+      let hit = false
+      for (const f of jfDefs) {
+        const dv = fd[f.id]
+        if (dv === undefined || dv === null || dv === '') continue
+        const cur = out[f.id]
+        if (Array.isArray(cur) ? cur.length : String(cur ?? '')) continue
+        out[f.id] = f.type === 'array' ? [String(dv)] : String(dv)
+        hit = true
+      }
+      return hit ? out : v
+    })
+  }, [proj, jfDefs, panelDefaults])
   const [labels, setLabels] = useState('utop')
   const setPanel = (k: string, v: string) => setPanels((p) => ({ ...p, [k]: v }))
   /* 미리보기 = 올라갈 글. 두 곳에서 따로 만들면 화면에서 본 것과 Jira 에
