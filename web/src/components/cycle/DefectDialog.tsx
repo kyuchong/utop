@@ -768,7 +768,10 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     </label>
                   )}
                   {auto && <span className="dfx-auto">자동입력</span>}
-                  {auto && (
+                  {/* 구성도는 **고칠 것이 없다**(지적: 고치기가 안 된다) —
+                      그림이라 글로 가져올 수가 없어, 누르면 판이 비고 그림만
+                      사라졌다. 글로 적을 판(절차·로그·설정)에만 세운다. */}
+                  {auto && !autoTopo && (
                     <button
                       type="button"
                       className="dfx-edit"

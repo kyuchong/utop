@@ -82,7 +82,13 @@ export default function Defects({ me }: { me?: MeUser | null }) {
      목록이 아직 안 왔을 수 있어 id 를 들고 기다렸다가, 오면 그때 편다. */
   const [wantId, setWantId] = useState(() => {
     try {
-      return String(prefGet('utop.defect.open') ?? '')
+      /* **주소에 있을 때만 연다.** 계정에 남겨 둔 값(utop.defect.open)까지
+         읽었더니, 한 번 쓰고 버릴 값이 그대로 남아 이 화면에 들어올 때마다
+         창이 저절로 열렸다(지적: 새로고침하면 팝업이 떠 있다).
+         남아 있으면 그 자리에서 비운다 — 다음에 또 열지 않게. */
+      const fromUrl = new URLSearchParams(window.location.search).get('defect') ?? ''
+      if (String(prefGet('utop.defect.open') ?? '')) prefSet('utop.defect.open', '')
+      return fromUrl
     } catch {
       return ''
     }
