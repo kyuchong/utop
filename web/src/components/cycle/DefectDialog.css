@@ -439,3 +439,5 @@
   border: 1px solid var(--c-border); border-radius: 8px; background: #fff;
 }
 .jw-shot em { display: block; font-style: normal; margin-top: 3px; font-size: var(--fs-xs); color: var(--c-text-faint); }
+/* 자동으로 붙는 구성도 — 사람이 붙인 파일과 같은 모양이되 뗄 수 없다 */
+.dfx-file.auto { border-style: dashed; }

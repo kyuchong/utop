@@ -741,10 +741,11 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                왜 못 고치는지를 그 자리에서 말한다. */
             const autoSteps = p.k === 'steps' && briefs.length > 0
             const autoKern = p.k === 'kernel' && !!kernelFromSteps(briefs as WikiStep[])
-            const autoTopo = p.k === 'topo' && !!topoImg
             const autoCfg = p.k === 'config' && !!cfgText
             const typed = String(panels[p.k] ?? '').trim()
-            const auto = !typed && (autoSteps || autoKern || autoTopo || autoCfg)
+            /* 구성도는 **글을 자동으로 채우지 않는다** — 그림이 첨부로 붙을
+               뿐이라, 다른 판과 똑같이 빈 입력칸으로 선다(지시). */
+            const auto = !typed && (autoSteps || autoKern || autoCfg)
             return (
               <div className="dfx-panel" key={p.k}>
                 <div className="dfx-ph">
@@ -771,7 +772,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                   {/* 구성도는 **고칠 것이 없다**(지적: 고치기가 안 된다) —
                       그림이라 글로 가져올 수가 없어, 누르면 판이 비고 그림만
                       사라졌다. 글로 적을 판(절차·로그·설정)에만 세운다. */}
-                  {auto && !autoTopo && (
+                  {auto && (
                     <button
                       type="button"
                       className="dfx-edit"
@@ -784,9 +785,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                             ? stepsText(briefs)
                             : autoCfg
                               ? cfgText
-                              : autoTopo
-                                ? '' /* 그림은 글로 못 가져온다 — 설명을 적는 칸이 된다 */
-                                : kernelFromSteps(briefs as WikiStep[]),
+                              : kernelFromSteps(briefs as WikiStep[]),
                         )
                       }
                     >
@@ -794,19 +793,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     </button>
                   )}
                 </div>
-                {/* 구성도는 **그림과 글을 함께** 둔다(지시: 한글 입력 가능해야).
-                    그림은 자동으로 붙고, 그 아래 칸에 「어느 포트를 어떻게
-                    걸었는지」 같은 설명을 적는다 — 그림만으로는 안 되는 말이
-                    늘 있다. */}
-                {autoTopo && (
-                  <div className="dfx-auto-b dfx-topo">
-                    <img src={topoImg} alt="구성도" />
-                    <div className="muted small">
-                      시험항목 {tcid} 의 구성도 — 등록할 때 「구성도.png」 로 첨부됩니다
-                    </div>
-                  </div>
-                )}
-                {auto && !autoTopo ? (
+                {auto ? (
                   autoCfg ? (
                     <pre className="dfx-auto-log">{cfgText.slice(0, 4000)}</pre>
                   ) : autoSteps ? (
@@ -865,9 +852,17 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     }}
                   />
                 )}
-                {/* 이 판에 붙인 파일 — 지라에 등록할 때 함께 올라간다 */}
-                {!!(files[p.k] ?? []).length && (
+                {/* 이 판에 붙인 파일 — 지라에 등록할 때 함께 올라간다.
+                    구성도는 **자동으로 붙는 한 장**이라 같은 자리에 같은
+                    모양으로 선다(지시: 다른 판과 똑같이) — 뗄 수는 없다. */}
+                {(!!(files[p.k] ?? []).length || (p.k === 'topo' && !!topoImg)) && (
                   <div className="dfx-files">
+                    {p.k === 'topo' && !!topoImg && (
+                      <span className="dfx-file img auto" title={`시험항목 ${tcid} 의 구성도 — 등록할 때 「구성도.png」 로 첨부됩니다`}>
+                        <img src={topoImg} alt="구성도" />
+                        <b>구성도.png</b>
+                      </span>
+                    )}
                     {(files[p.k] ?? []).map((f) => (
                       <span className={`dfx-file${isImg(f.mime) ? ' img' : ''}`} key={f.name}>
                         {isImg(f.mime) ? (

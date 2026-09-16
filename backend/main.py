@@ -13282,7 +13282,16 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
                 if len(order) >= 5:
                     break
             bits = [picked[k] for k in order]
-            sym = ", ".join(bits) or f"{_re_sub_oid(name or tcid)} 부적합"
+            # **어떤 상태에서 어떤 시험을 하다 났는지**(지시) — 판정 근거만
+            # 적으면 「비교 값이 동일 하지 않습니다」 가 전부라, 무슨 시험인지
+            # 모른 채 읽게 된다. 시험 이름을 앞에 세워 문맥을 준다.
+            # 깨진 줄에 이미 그 시험 이름이 들어 있으면 두 번 적지 않는다.
+            tcname = _re_sub_oid(name or tcid)
+            body_sym = ", ".join(bits)
+            if tcname and body_sym and tcname not in body_sym:
+                sym = f"{tcname} 시험에서 {body_sym}"
+            else:
+                sym = body_sym or f"{tcname} 부적합"
 
             # **요약은 현상과 같은 말이다**(지시). 앞에 [UTOP] 을 붙여 자동으로
             # 등록한 것임을 지라에서 바로 알아보게 한다.
