@@ -3118,10 +3118,10 @@ async def defect_create(d: dict) -> dict:
             "RETURNING " + _DEFECT_COLS,
             d["id"], d.get("title"), d.get("status", "open"), d.get("severity"),
             d.get("cycle_id"), d.get("cycle_name"), d.get("tcid"), d.get("tc_name"),
-            d.get("model"), d.get("version"), json.dumps(d.get("steps") or []),
+            d.get("model"), d.get("version"), d.get("steps") or [],
             d.get("note"), d.get("jira_project"), d.get("project_name"),
             d.get("issue_type"), d.get("priority"), d.get("fix_version"),
-            d.get("component"), d.get("reporter"), json.dumps(d.get("panels") or {}),
+            d.get("component"), d.get("reporter"), d.get("panels") or {},
             d.get("jira_key"), d.get("created_by"),
         )
         return _defect_row(r)
@@ -3172,7 +3172,10 @@ async def defect_update(did: str, patch: dict):
     for k in _DEFECT_PATCH:
         if k in patch:
             if k == "panels":
-                args.append(json.dumps(patch[k] or {}))
+                # 연결에 jsonb 코덱이 걸려 있다 — 여기서 또 dumps 하면 「JSON 을
+                # 담은 문자열」 이 저장되고, 밖에서 한 번 손대는 순간 화면이
+                # 그것을 글자 사전으로 받는다(결함 하나가 그렇게 깨졌다).
+                args.append(patch[k] or {})
                 sets.append(f"{k}=${len(args)}::jsonb")
             else:
                 args.append(patch[k]); sets.append(f"{k}=${len(args)}")

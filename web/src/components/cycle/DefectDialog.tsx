@@ -307,7 +307,10 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
   const [itype, setItype] = useState(existing?.issue_type ?? 'Defect')
   const prio = existing?.priority ?? 'Major'
   const fixv = existing?.fix_version ?? cycle?.version ?? ''
-  const comp = existing?.component ?? cycle?.model ?? ''
+  /* 구성요소는 **Jira 가 아는 값**이라야 한다(PM·HW-PM·검증-PM…). 없을 때
+     모델명(E6100)을 넣던 때는, 지라에 없는 이름이 결함 표에만 남아 두 곳이
+     다른 말을 했다. 고르는 자리는 아래 Jira 칸 묶음의 「구성 요소」 다. */
+  const comp = existing?.component ?? ''
   const reporter = existing?.reporter ?? ''
   const [me, setMe] = useState(existing?.created_by ?? '')
   /**
@@ -333,9 +336,20 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
 
   /* 이슈 본문 여섯 판 — Jira 프로젝트 패널 설정과 같은 차례·같은 이름.
      번호를 붙여 두면 사람이 「3번 비었다」 고 말할 수 있다. */
-  const [panels, setPanels] = useState<Record<string, string>>(() => ({
-    ...(existing?.panels ?? {}),
-  }))
+  /* 저장된 판은 **객체**여야 한다. 한때 서버가 「JSON 을 담은 문자열」 을
+     내주는 일이 있었는데, 그대로 펼치면 {0:'{', 1:'"', …} 같은 글자 사전이
+     되어 여덟 판이 통째로 빈 채 지라에 올라갔다. 글자로 오면 풀어서 쓴다. */
+  const [panels, setPanels] = useState<Record<string, string>>(() => {
+    let p: unknown = existing?.panels ?? {}
+    for (let i = 0; i < 3 && typeof p === 'string'; i += 1) {
+      try {
+        p = JSON.parse(p)
+      } catch {
+        p = {}
+      }
+    }
+    return p && typeof p === 'object' && !Array.isArray(p) ? { ...(p as Record<string, string>) } : {}
+  })
   /* 새 결함이면 현상 칸을 요약과 **같은 글**로 채운다(지시: 둘은 같아야
      한다). 사람이 고치면 그 글이 이긴다 — 한 번만 넣는다. */
   const symSeed = useRef(false)
@@ -644,7 +658,11 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
           note += ` (${what}을 첨부하지 못했습니다)`
         }
       }
-      if (j.key && topoImg && !String(panels.topo ?? '').trim()) {
+      /* 본문이 !구성도.png! 로 부르고 있으면 **반드시** 올라가야 한다.
+         글을 적었을 때 안 올리던 때는, 지라에서 깨진 그림 자리만 남았다
+         (지적). 본문에 그 이름이 있는지로 판단한다 — 부르는 곳이 있으면
+         올리고, 없으면 올리지 않는다. */
+      if (j.key && topoImg && wiki.includes('!구성도.png')) {
         await attach('구성도', '구성도.png', topoImg, 'image/png')
       }
       /* **설정 파일**(지시) — 시험 당시의 show running-config 를 파일로 올린다.
