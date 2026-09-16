@@ -353,27 +353,6 @@
 .dfx-prevv:has(+ *) { }
 .dfx-prevf .dfx-prevv.none { color: var(--c-text-faint); }
 
-/* 구성도 자동 판 — 그림은 칸 너비에 맞추고, 세로로는 눌러 담지 않는다.
-   비율을 깨면 포트 이름이 찌그러져 무엇에 무엇이 물렸는지 못 읽는다. */
-.dfx-topo {
-  display: grid;
-  gap: 6px;
-  justify-items: center;
-  padding: 8px;
-}
-/* 구성도는 **작게**(지시: 미리보기처럼) — 판 하나가 화면을 다 먹으면 그
-   아래 여섯 판이 스크롤 밖으로 밀린다. 자세히 볼 일은 드물고, 여기서
-   확인할 것은 「어느 구성도가 올라가나」 다. */
-.dfx-topo img {
-  max-width: 100%;
-  max-height: 210px;
-  width: auto;
-  height: auto;
-  border: 1px solid var(--c-border);
-  border-radius: 6px;
-  background: #fff;
-}
-
 /* 미리보기 안의 그림 자리 — 아직 안 올라간 파일이라 그릴 수가 없다.
    표기(!구성도.png|thumbnail!)를 글자 그대로 보이면 무엇이 올라가는지
    알 수 없어(지적), 이름과 함께 「등록할 때 붙는다」 고 말해 준다. */

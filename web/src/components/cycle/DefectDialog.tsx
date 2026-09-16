@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
@@ -324,18 +324,40 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
   const comp = existing?.component ?? cycle?.model ?? ''
   const reporter = existing?.reporter ?? ''
   const [me, setMe] = useState(existing?.created_by ?? '')
-  const [title, setTitle] = useState(
-    existing?.title ??
-      `[${cycle?.model ?? ''} ${cycle?.version ?? ''}] ${item?.name || item?.tcid || ''}${
-        briefs[0] ? ` — ${briefs[0].reason || briefs[0].desc}` : ''
-      }`.trim(),
-  )
+  /**
+   * **요약 = 현상**, 머리말은 「[UTOP]」 하나뿐이다(지시).
+   *
+   * 예전에는 `[E6100 R100] 시험이름 — 까닭` 처럼 제품·버전을 앞에 달았는데,
+   * 그 둘은 결함의 제 칸(구성요소·수정버전)에 이미 있어 두 번 읽힌다.
+   * 대신 **무슨 시험을 하다 났는지**를 문장 안에 넣는다 — 까닭만 적으면
+   * 「비교 값이 동일 하지 않습니다」 가 전부라 무슨 일인지 알 수 없다.
+   * 서버가 자동으로 만드는 결함(_auto_defect)과 같은 규칙이다.
+   */
+  const autoSym = useMemo(() => {
+    const nm = String(item?.name || item?.tcid || '')
+      .replace(/\s*\(\s*OID-[^)]*\)\s*/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const bad = briefs.find((b) => b.status === 'Fail') ?? briefs[0]
+    const why = String(bad?.reason || bad?.desc || '').trim()
+    if (nm && why && !why.includes(nm)) return `${nm} 시험에서 ${why}`
+    return why || (nm ? `${nm} 부적합` : '')
+  }, [item, briefs])
+  const [title, setTitle] = useState(existing?.title ?? (autoSym ? `[UTOP] ${autoSym}` : ''))
 
   /* 이슈 본문 여섯 판 — Jira 프로젝트 패널 설정과 같은 차례·같은 이름.
      번호를 붙여 두면 사람이 「3번 비었다」 고 말할 수 있다. */
   const [panels, setPanels] = useState<Record<string, string>>(() => ({
     ...(existing?.panels ?? {}),
   }))
+  /* 새 결함이면 현상 칸을 요약과 **같은 글**로 채운다(지시: 둘은 같아야
+     한다). 사람이 고치면 그 글이 이긴다 — 한 번만 넣는다. */
+  const symSeed = useRef(false)
+  useEffect(() => {
+    if (existing || symSeed.current || !autoSym) return
+    symSeed.current = true
+    setPanels((p) => (p.symptom ? p : { ...p, symptom: autoSym }))
+  }, [existing, autoSym])
   /* 이 프로젝트가 요구하는 칸들 — Jira 에게 물어 그린다(JiraFields) */
   const [jfVals, setJfVals] = useState<JiraFieldValues>({})
   const [jfDefs, setJfDefs] = useState<JiraField[]>([])
