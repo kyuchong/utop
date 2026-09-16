@@ -634,8 +634,13 @@
    첫 자식(숫자 칸)의 아래 모서리라, 그냥 두면 숫자만 위로 떠 옆 글자와
    열이 어긋난다(지적). */
 .rn {
-  display: inline-flex; align-items: flex-start;
-  vertical-align: -0.22em;
+  /* **기준선을 글자에 맞춘다.** 여태 `vertical-align: -0.22em` 으로 눈대중
+     보정을 했는데, 그 값은 어느 글자 크기에서 맞춰 본 것이라 다른 자리에서
+     어긋났다 — 「경과」 칸은 숫자만 있어 티가 안 났고, 옆 「(15:24:04 시작
+     · … 끝)」 칸에서는 괄호·한글과 한 줄에 서면서 숫자만 위로 떴다(지적).
+     이제 칸이 제 글자 기준선을 그대로 내놓으므로(아래 clip-path) 보정이
+     필요 없다. */
+  display: inline-flex; align-items: baseline;
   font-variant-numeric: tabular-nums;
 }
 /* 칸 높이는 **글줄 안에 들어갈 만큼만**. 1.16em 은 .rd-lb 의 줄 상자를
@@ -649,8 +654,13 @@
    아홉 칸쯤 내려가면 오차가 쌓여 숫자가 반 픽셀 걸친 채 흐려진다. */
 .rn-d {
   position: relative; display: inline-block;
-  height: 1.25em; --rn-h: 1.25em;
-  overflow: hidden; vertical-align: baseline;
+  height: 1.25em; line-height: 1.25em; --rn-h: 1.25em;
+  /* **자르되 기준선은 지킨다.** overflow:hidden 을 걸면 그 상자의 기준선이
+     글자가 아니라 **아래 모서리**가 된다(CSS 규칙) — 그래서 옆 글자와
+     어긋났고, 여태 vertical-align 으로 눈대중 보정을 하고 있었다.
+     clip-path 는 똑같이 잘라 내면서 기준선을 건드리지 않는다. */
+  clip-path: inset(0);
+  vertical-align: baseline;
 }
 /* 칸 **폭은 글자가 정한다.**
    0.6em 으로 박아 두었더니 굵은 글씨에서 좌우가 잘렸다(지적: 숫자 끝이
@@ -661,11 +671,12 @@
    달라도 눈에 띄게 잘린다.
    보이지 않는 숫자 하나로 폭을 잡는다 — tabular-nums 라 어느 숫자든 같은
    폭이다. 양옆 0.5px 은 안티앨리어싱이 번지는 자리 — 글꼴이 바뀌면 이
-   ::before 도 그 글꼴로 재므로, 여유를 넉넉히 둘 까닭이 없다. */
+   ::before 도 그 글꼴로 재므로, 여유를 넉넉히 둘 까닭이 없다.
+   이 글자는 **칸의 기준선도 함께 잡는다** — 보이는 숫자(.rn-s i)와 같은
+   줄 높이라, 둘의 기준선이 정확히 겹친다. */
 .rn-d::before {
   content: '0';
   visibility: hidden;
-  display: inline-block;
   margin: 0 0.5px;
 }
 .rn-s {
