@@ -13277,17 +13277,10 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
             #   [Storm-Control] … 약 130M 로만 제어 되는 현상
             # 대괄호에 **어느 판·어느 버전**인지, 뒤에 증상을 적는다. 기존
             # UTOP 결함들도 「[E6100 R100_20260825] …」 로 그렇게 적혀 있다.
-            short = _re_sub_oid(name or tcid)
             head = " ".join([x for x in (model, version) if x])
-            first_bit = bits[0] if bits else ""
-            # 스텝 설명이 있으면 그것이 「무엇을 하다」 이고, 근거가 「무엇이
-            # 안 되는지」 다. 둘 다 없으면 시험 이름만 남는다.
-            if first_bit and short and first_bit.startswith(short):
-                body = first_bit
-            elif first_bit:
-                body = f"{short} — {first_bit}" if short else first_bit
-            else:
-                body = f"{short} 부적합"
+            # 증상 한 줄이 곧 요약이다 — 시험 이름을 앞에 또 붙이면
+            # 「A — A 실패 — 까닭」 처럼 같은 말이 세 겹이 된다(실측).
+            body = _re_sub_oid(bits[0]) if bits else f"{_re_sub_oid(name or tcid)} 부적합"
             title = f"[{head}] {body}" if head else body
             if len(title) > 150:
                 title = title[:150].rstrip() + "…"
