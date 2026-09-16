@@ -2366,14 +2366,13 @@ export default function CyclesBoard({
 
   /** 메일 이력 표 — 다른 목록과 같은 노션 표(지시) */
   const [mailCols, setMailCols] = useState<NCol[]>([
-    { key: 'at', label: '보낸 때', type: 'text', width: 130, fixed: true },
-    { key: 'who', label: '보낸이', type: 'text', width: 110 },
+    { key: 'at', label: '보낸 시간', type: 'text', width: 130, fixed: true },
+    { key: 'who', label: '보낸 사람', type: 'text', width: 110 },
     { key: 'to', label: '받는 사람', type: 'text', width: 230 },
     { key: 'cc', label: '참조', type: 'text', width: 150 },
-    { key: 'subject', label: '제목', type: 'text', width: 380 },
+    { key: 'subject', label: '제목', type: 'text', width: 420 },
     { key: 'att', label: '첨부', type: 'text', width: 70 },
     { key: 'ok', label: '결과', type: 'text', width: 80 },
-    { key: 'note', label: '한마디', type: 'text', width: 220 },
   ])
   const [mailView, setMailView] = useState<NView>({ ...EMPTY_VIEW })
 
@@ -2506,7 +2505,7 @@ export default function CyclesBoard({
       att: (m2.att ?? []).length ? `📎 ${(m2.att ?? []).length}` : '—',
       who: m2.who || '—',
       ok: m2.ok ? '보냄' : '실패',
-      note: m2.note || (m2.error ? `실패 — ${m2.error}` : ''),
+      err: m2.error ?? '',
     }))
     if (!rows.length)
       return (
@@ -2531,7 +2530,7 @@ export default function CyclesBoard({
           meName={meName}
           /* 보낸 자취는 **고칠 것이 없다** — 읽기만 한다 */
           onCell={() => {}}
-          readOnlyKeys={['at', 'to', 'cc', 'subject', 'att', 'who', 'ok', 'note']}
+          readOnlyKeys={['at', 'to', 'cc', 'subject', 'att', 'who', 'ok']}
           lockDefs
           idKey="id"
           titleKey="subject"
@@ -2540,6 +2539,37 @@ export default function CyclesBoard({
              말하고, 정작 알고 싶은 것은 무엇을 적어 보냈나다 */
           onOpen={(id) => setMailOpen((mailQ.data?.items ?? []).find((x) => String(x.id) === id) ?? null)}
           onPeek={(id) => setMailOpen((mailQ.data?.items ?? []).find((x) => String(x.id) === id) ?? null)}
+          /* **제목을 눌러 연다.** 표는 못 고치는 칸(readOnlyKeys)을 제목보다
+             먼저 처리해서, 읽기 전용으로 둔 제목에는 「열기」 단추가 아예
+             서지 않았다 — 그래서 보낸 메일을 열 길이 없었다(지적).
+             여기서 직접 그린다. 실패한 메일은 까닭도 이 자리에 적는다. */
+          renderCell={(row, col) => {
+            if (col.key === 'subject') {
+              const id = String(row.__id ?? '')
+              return (
+                <button
+                  type="button"
+                  className="cyb-mailopen"
+                  title="보낸 메일을 폅니다"
+                  onClick={() => setMailOpen((mailQ.data?.items ?? []).find((x) => String(x.id) === id) ?? null)}
+                >
+                  {String(row.subject ?? '') || '(제목 없음)'}
+                </button>
+              )
+            }
+            if (col.key === 'ok') {
+              const bad = String(row.ok ?? '') !== '보냄'
+              const why = String(row.err ?? '')
+              return bad ? (
+                <span className="cyb-mailng" title={why || '까닭이 남아 있지 않습니다'}>
+                  실패{why ? ` — ${why}` : ''}
+                </span>
+              ) : (
+                <span className="cyb-mailok">보냄</span>
+              )
+            }
+            return undefined
+          }}
         />
       </div>
     )

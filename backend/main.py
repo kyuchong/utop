@@ -9565,7 +9565,11 @@ async def cycle_mail(cycle_id: str, payload: dict, token: str = ""):
         str(payload.get("body_html") or ""),
     )
     subject = str(payload.get("subject") or "").strip() or subject
-    who = _user_from_token(token) or ""
+    # **이름만 남긴다**(지적: 보낸이에 {'id': 'admin', …} 이 그대로 보인다).
+    # _user_from_token 은 계정 **객체**를 돌려준다 — 그것을 str() 로 굳혀
+    # 넣고 있었다. 계정 기록을 통째로 담을 까닭도 없다.
+    _wu = _user_from_token(token) or {}
+    who = str(_wu.get("name") or _wu.get("username") or "") if isinstance(_wu, dict) else str(_wu)
     note = str(payload.get("note") or "").strip()
     cc = _addr_list(payload.get("cc"))
     bcc = _addr_list(payload.get("bcc"))

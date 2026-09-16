@@ -531,3 +531,12 @@
 @media (prefers-reduced-motion: reduce) {
   .cyb .cyb-livedot { animation: none; }
 }
+/* 메일 이력 — 제목을 눌러 보낸 메일을 편다(지시) */
+.cyb-mailopen {
+  display: block; max-width: 100%; border: 0; background: transparent; padding: 0;
+  font: inherit; font-size: var(--fs-sm); color: var(--c-text); text-align: left;
+  cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cyb-mailopen:hover { color: var(--c-primary); text-decoration: underline; text-underline-offset: 2px; }
+.cyb-mailok { color: var(--c-pass, #18864b); font-weight: 600; }
+.cyb-mailng { color: var(--c-fail, #cc3333); font-weight: 600; }
