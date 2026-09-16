@@ -2421,8 +2421,11 @@ export default function CyclesBoard({
       if (!j.ok) throw new Error(j.error || '요약을 만들지 못했습니다')
       const txt = String(j.summary?.text ?? '').trim()
       if (!txt) throw new Error('빈 요약이 왔습니다')
-      /* 글만 갈아 끼운다 — 블록 노트가 다시 서면서 이 글로 다시 만들어진다 */
-      stage({ description: txt, description_doc: undefined })
+      /* 글만 갈아 끼운다 — 블록 노트가 다시 서면서 이 글로 다시 만들어진다.
+         **빈 배열이어야 한다.** undefined 를 넣으면 아래 doc 계산의 ?? 가
+         옛 블록으로 되돌아가, AI 가 새 글을 받아 와도 화면은 그대로였다
+         (지적: AI 생성이 동작 안 한다). */
+      stage({ description: txt, description_doc: [] })
       setAiStamp((n) => n + 1)
     } catch (e) {
       window.alert(e instanceof Error ? e.message : String(e))
@@ -2460,7 +2463,11 @@ export default function CyclesBoard({
                 고친 것은 초안에 담기고 머리의 저장 단추가 실어 보낸다 */}
             <DescNote
               key={`${open}-${aiStamp}`}
-              doc={(draft.description_doc ?? full?.description_doc) as unknown}
+              /* 초안이 이 칸을 건드렸으면 **초안이 이긴다** — ?? 로 이으면
+                 초안이 「비웠다」 고 말한 것을 못 알아듣고 옛 블록을 되살린다 */
+              doc={
+                ('description_doc' in draft ? draft.description_doc : full?.description_doc) as unknown
+              }
               text={String((draft as Record<string, unknown>).description ?? full?.description ?? '')}
               editable
               onChange={(d, md) => stage({ description_doc: d, description: md })}
