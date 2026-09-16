@@ -3,7 +3,7 @@ import { apiFetch } from '@/api/client'
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
-import { buildDefectWiki, kernelFromSteps, wikiToHtml, type WikiStep, configFromSteps} from '@/lib/jiraWiki'
+import { buildDefectWiki, detailFromSteps, kernelFromSteps, procFromSteps, wikiToHtml, type WikiStep, configFromSteps} from '@/lib/jiraWiki'
 import AutoGrow from './AutoGrow'
 import { boardShot } from '@/components/tc/boardShot'
 import { wireShot } from '@/components/tc/wireMermaid'
@@ -35,20 +35,6 @@ export interface DefectRec {
   panels?: Record<string, string>
 }
 
-/** 깨진 스텝을 5번 판에 넣을 글로 편다 — 사람이 손보기 쉬운 평문으로 */
-function stepsText(bs: Array<{ no: number | string; desc?: string; cli?: string; status?: string; criteria?: string; reason?: string; output?: string }>): string {
-  const L: string[] = []
-  for (const b of bs) {
-    L.push(`#${b.no} ${b.desc || b.cli || ''}${b.status ? ` (${b.status})` : ''}`)
-    if (b.cli) L.push(`  명령: ${b.cli}`)
-    if (b.criteria) L.push(`  판정 기준: ${b.criteria}`)
-    if (b.reason) L.push(`  판정 근거: ${b.reason}`)
-    const out = String(b.output ?? '').trim()
-    if (out) L.push(out.split('\n').map((x) => `  ${x}`).join('\n'))
-    L.push('')
-  }
-  return L.join('\n').trimEnd()
-}
 
 /** 이슈 본문 판 — 백엔드 _DEFECT_PANELS 와 같은 차례·같은 열쇠.
  *
@@ -435,14 +421,10 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
   const wiki = useMemo(
     () =>
       buildDefectWiki(panels, briefs as WikiStep[], {
-        /* 시험절차 판이 비면 이 주소가 들어간다(지시) */
-        tcid: item?.tcid || existing?.tcid || '',
-        tcUrl: (item?.tcid || existing?.tcid)
-          ? `${window.location.origin}${window.location.pathname}?tc=${encodeURIComponent(String(item?.tcid || existing?.tcid))}`
-          : '',
-        /* 그림 표시는 **첨부에 성공할 때만** 서야 하지만, 미리보기에서는
-           올릴 예정임을 보여 준다 — 등록 뒤에 첨부가 따라 붙는다 */
-        image: !!topoImg && !String(panels.topo ?? '').trim(),
+        /* 구성도는 **글을 적어도 함께 올라간다**(지적: 텍스트를 넣으면
+           미리보기에서 그림이 사라진다). 글이 있으면 그림을 빼던 조건을
+           걷었다 — 글과 그림은 고르는 것이 아니라 함께 가는 것이다. */
+        image: !!topoImg,
         config: cfgText,
       }),
     [panels, briefs, topoImg, cfgText],
@@ -762,12 +744,13 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                자동으로 채운 판은 읽기만 하게 두고 「자동입력」 을 달아,
                왜 못 고치는지를 그 자리에서 말한다. */
             const autoSteps = p.k === 'steps' && briefs.length > 0
+            const autoDet = p.k === 'detail' && briefs.length > 0
             const autoKern = p.k === 'kernel' && !!kernelFromSteps(briefs as WikiStep[])
             const autoCfg = p.k === 'config' && !!cfgText
             const typed = String(panels[p.k] ?? '').trim()
             /* 구성도는 **글을 자동으로 채우지 않는다** — 그림이 첨부로 붙을
                뿐이라, 다른 판과 똑같이 빈 입력칸으로 선다(지시). */
-            const auto = !typed && (autoSteps || autoKern || autoCfg)
+            const auto = !typed && (autoSteps || autoDet || autoKern || autoCfg)
             return (
               <div className="dfx-panel" key={p.k}>
                 <div className="dfx-ph">
@@ -804,10 +787,12 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                         setPanel(
                           p.k,
                           autoSteps
-                            ? stepsText(briefs)
-                            : autoCfg
-                              ? cfgText
-                              : kernelFromSteps(briefs as WikiStep[]),
+                            ? procFromSteps(briefs as WikiStep[])
+                            : autoDet
+                              ? detailFromSteps(briefs as WikiStep[])
+                              : autoCfg
+                                ? cfgText
+                                : kernelFromSteps(briefs as WikiStep[]),
                         )
                       }
                     >
@@ -819,33 +804,47 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                   autoCfg ? (
                     <pre className="dfx-auto-log">{cfgText.slice(0, 4000)}</pre>
                   ) : autoSteps ? (
+                    /* **설명만 차례대로**(지시) — 명령·결과·판정은 4번이
+                       맡는다. 한 이야기를 두 판에 나눠 적으면 어느 쪽이
+                       정본인지 알 수 없다. */
+                    <ol className="dfx-auto-b dfx-proc">
+                      {briefs
+                        .filter((b) => (b.desc || b.cli || '').trim())
+                        .map((b) => (
+                          <li key={b.no}>{b.desc || b.cli}</li>
+                        ))}
+                    </ol>
+                  ) : autoDet ? (
                     <div className="dfx-auto-b">
                       {briefs.map((b) => (
                         <div key={b.no} className={`dfx-step ${b.status === 'Fail' ? 'fail' : ''}`}>
+                          {/* 이름을 붙여 적는다(지시: CLI·결과값·판정).
+                              이름이 없으면 어디까지가 장비가 뱉은 것이고
+                              어디부터가 우리 판단인지 가려 읽어야 한다.
+                              여기 보이는 것이 곧 Jira 로 나갈 글이다. */}
                           <div className="dfx-st-h">
                             <b>#{b.no}</b>
                             <span>{b.desc || b.cli}</span>
-                            <span className="sp" />
-                            {b.status && (
-                              <span
-                                className={`dfx-badge ${b.status === 'Fail' ? 'fail' : b.status === 'Pass' ? 'pass' : ''}`}
-                              >
-                                {b.status}
-                              </span>
-                            )}
                           </div>
-                          {b.cli && <pre className="dfx-cli">{b.cli}</pre>}
-                          {b.criteria && (
+                          {b.cli && (
                             <div className="dfx-meta">
-                              <span className="k">기대 결과</span> {b.criteria}
+                              <span className="k">CLI</span> <code>{b.cli}</code>
                             </div>
                           )}
-                          {b.reason && (
-                            <div className="dfx-meta">
-                              <span className="k">판정 근거</span> {b.reason}
-                            </div>
-                          )}
+                          <div className="dfx-meta">
+                            <span className="k">결과값</span>
+                            {b.output ? '' : ' （없음）'}
+                          </div>
                           {b.output && <pre className="dfx-out">{b.output.slice(0, 1200)}</pre>}
+                          <div className="dfx-meta">
+                            <span className="k">판정</span>{' '}
+                            <span
+                              className={`dfx-badge ${b.status === 'Fail' ? 'fail' : b.status === 'Pass' ? 'pass' : ''}`}
+                            >
+                              {b.status || '미실행'}
+                            </span>
+                            {b.reason ? ` — ${b.reason}` : ''}
+                          </div>
                         </div>
                       ))}
                     </div>

@@ -22,7 +22,13 @@ export interface WikiStep {
   status?: string
   /** 왜 깨졌나 — Fail 일 때만 쓴다 */
   rca?: string
+  /** 같은 뜻의 다른 이름 — 사이클 화면의 스텝은 이 이름으로 담긴다.
+      둘 다 받아 두지 않으면 창에서 만든 글에만 까닭이 빠진다. */
+  reason?: string
 }
+
+/** 깨진 까닭 — 부르는 이름이 두 가지라 한 곳에서 고른다 */
+const whyOf = (s: WikiStep): string => String(s.rca ?? s.reason ?? '').trim()
 
 /** 여덟 판 — 번호·제목은 Jira 에 그대로 나간다 */
 export const WIKI_PANELS: Array<{ k: string; title: string }> = [
@@ -39,27 +45,62 @@ export const WIKI_PANELS: Array<{ k: string; title: string }> = [
 ]
 
 /**
- * **시험내역** — 무엇을 해서 무엇이 나왔나(지시).
+ * **시험절차** — 스텝 설명만 차례대로(지시).
  *
- * 「interface status 조회」 한 줄 다음에 그때 친 명령과 장비가 뱉은 답을
- * 붙인다. 이슈를 읽는 개발자가 알고 싶은 것은 「그래서 화면에 뭐가 떴나」 다.
+ * 예전에는 시험 항목으로 가는 주소 한 줄이었다. 링크는 늘 지금 것을 보여
+ * 주지만, 이슈를 여는 사람은 대개 UTOP 계정이 없다 — 누르면 로그인 화면만
+ * 본다. 그래서 「무엇을 어떤 차례로 했나」 는 이슈 안에 적는다.
+ *
+ * 명령·출력·판정은 적지 않는다. 그건 「4. 시험내역」 이 맡는다 — 한 이야기를
+ * 두 판에 나눠 적으면 어느 쪽이 정본인지 알 수 없다.
+ */
+export function procFromSteps(steps: WikiStep[]): string {
+  const L: string[] = []
+  for (const s of steps) {
+    const what = String(s.desc ?? '').trim() || String(s.cli ?? '').trim()
+    if (!what) continue
+    L.push(`${L.length + 1}) ${what.replace(/\r?\n/g, ' ').trim()}`)
+  }
+  return L.join('\n')
+}
+
+/**
+ * **시험내역** — 친 명령·나온 값·판정(지시).
+ *
+ * 세 가지를 **이름을 붙여** 적는다. 이름 없이 늘어놓으면 어디까지가 장비가
+ * 뱉은 것이고 어디부터가 우리 판단인지 읽는 사람이 가려내야 한다.
  */
 export function detailFromSteps(steps: WikiStep[]): string {
   const L: string[] = []
+  let n = 0
   for (const s of steps.slice(0, 20)) {
     const what = String(s.desc ?? '').trim() || String(s.cli ?? '').trim()
-    const st = String(s.status ?? '').trim()
-    L.push(`*${what || '(이름 없는 스텝)'}${st ? ` — ${st}` : ''}*`)
     const cli = String(s.cli ?? '').trim()
-    if (cli && cli !== what) L.push(`{{${cli}}}`)
-    const out = String(s.output ?? '').trim()
-    if (out) {
+    const out0 = String(s.output ?? '').trim()
+    n += 1
+    /* **아무것도 없는 스텝은 적지 않는다** — 설명도 명령도 출력도 까닭도 없이
+       판정만 붙은 껍데기가 섞이는데, 그대로 적으면 「판정: FAIL」 만 덩그러니
+       선 줄이 이슈를 채운다. */
+    if (!what && !cli && !out0 && !whyOf(s)) continue
+    /* **스텝 번호를 그대로 쓴다.** 절차 판은 설명 없는 스텝을 건너뛰어 번호를
+       다시 매기므로, 여기까지 다시 매기면 두 판의 3번이 서로 다른 것을
+       가리킨다. 여기 번호는 시험 항목의 그 번호다(＃로 구분). */
+    L.push(`*#${s.no ?? n}${what ? ` ${what}` : ''}*`)
+    if (cli) L.push(`CLI: {{${cli.replace(/\r?\n/g, ' ').trim()}}}`)
+    if (out0) {
+      L.push('결과값:')
       L.push('{noformat}')
-      L.push(out.slice(0, 1500))
+      L.push(out0.slice(0, 1500))
       L.push('{noformat}')
+    } else {
+      L.push('결과값: （없음）')
     }
-    const why = String(s.rca ?? '').trim()
-    if (why) L.push(`→ ${why}`)
+    /* 판정은 **제 줄에 선다.** 스텝 이름 옆에 작게 붙여 두면 스무 줄짜리
+       출력 위에 묻혀, 무엇이 깨졌는지 눈으로 좇아야 한다. */
+    const st = String(s.status ?? '').trim()
+    const mark = /^(pass|합격)$/i.test(st) ? '(/) ' : /^(fail|불합격)$/i.test(st) ? '(x) ' : ''
+    const why = whyOf(s)
+    L.push(`판정: ${mark}${st || '미실행'}${why ? ` — ${why.replace(/\r?\n/g, ' ')}` : ''}`)
     L.push('')
   }
   return L.join('\n').trim()
@@ -92,8 +133,9 @@ export function stepsToWiki(steps: WikiStep[]): string {
     } else {
       L.push('（미실행）')
     }
-    if (s.rca && (vrd === 'Fail' || vrd === '불합격')) {
-      L.push(`{color:#c0392b}RCA: ${String(s.rca).replace(/\r?\n/g, ' ')}{color}`)
+    const why0 = whyOf(s)
+    if (why0 && (vrd === 'Fail' || vrd === '불합격')) {
+      L.push(`{color:#c0392b}RCA: ${why0.replace(/\r?\n/g, ' ')}{color}`)
     }
     return L.join('\n')
   })
@@ -145,18 +187,14 @@ export function configFromSteps(steps: WikiStep[]): string {
 export function buildDefectWiki(
   panels: Record<string, string>,
   steps: WikiStep[],
-  opts?: { image?: boolean; config?: string; tcUrl?: string; tcid?: string },
+  opts?: { image?: boolean; config?: string },
 ): string {
   return WIKI_PANELS.map(({ k, title }) => {
     let body = String(panels[k] ?? '').trim()
-    /* 「3. 시험절차」 는 **그 시험 항목으로 가는 주소**다(지시). 절차 전문을
-       옮겨 적으면 시험이 바뀔 때 이슈만 옛말이 된다 — 링크를 누르면 늘 지금
-       것을 본다. */
-    if (k === 'steps' && !body && opts?.tcUrl) {
-      body = `[${opts.tcid || '시험 항목'}|${opts.tcUrl}]`
-    }
-    /* 「4. 시험내역」 은 **무엇을 해서 무엇이 나왔나**다(지시) —
-       「interface status 조회 (나온 결과)」 처럼 명령과 그 답을 나란히. */
+    /* 「3. 시험절차」 는 **스텝 설명만 차례대로**다(지시). 시험 항목 주소
+       한 줄이던 때는, 이슈를 받은 사람이 UTOP 계정이 없어 아무 데도 못 갔다. */
+    if (k === 'steps' && !body && steps.length) body = procFromSteps(steps)
+    /* 「4. 시험내역」 은 **CLI·결과값·판정**이다(지시) */
     if (k === 'detail' && !body && steps.length) body = detailFromSteps(steps)
     if (k === 'kernel' && !body && steps.length) {
       const kn = kernelFromSteps(steps)
@@ -169,9 +207,10 @@ export function buildDefectWiki(
       body = '[^running-config.txt]\n시험 당시의 show running-config 입니다.'
     }
     /* 구성도 — 그림은 이슈에 첨부로 올리고 여기서는 그 이름을 부른다.
-       첨부가 없으면 Jira 는 깨진 그림 자리를 보여 준다. 그래서 올리는 쪽
-       (DefectDialog) 이 첨부에 성공할 때만 이 표시가 서야 한다. */
-    if (k === 'topo' && opts?.image) body = `!구성도.png|thumbnail!\n${body}`
+       **글을 적어도 그림은 그대로 선다**(지적: 텍스트를 넣으면 미리보기에서
+       그림이 사라진다). 둘은 고르는 것이 아니라 함께 가는 것이다 — 적은
+       글 다음에 그림을 둔다(왼쪽 편집칸과 같은 차례). */
+    if (k === 'topo' && opts?.image) body = body ? `${body}\n!구성도.png|thumbnail!` : '!구성도.png|thumbnail!'
     if (!body) body = '（내용 없음）'
     return `{panel:title=${title}}\n${body}\n{panel}`
   }).join('\n\n')
@@ -268,6 +307,9 @@ export function wikiToHtml(txt: string, imgs?: Record<string, string>): string {
       (_m, t: string, u: string) => `<a class="jw-a" href="${escH(u)}" target="_blank" rel="noreferrer">${escH(t)}</a>`)
     s = s.replace(/\[(https?:\/\/[^\]]+)\]/g,
       (_m, u: string) => `<a class="jw-a" href="${escH(u)}" target="_blank" rel="noreferrer">${escH(u)}</a>`)
+    /* {{명령}} — Jira 는 이것을 고정폭 글꼴로 그린다. 우리가 안 그리면
+       미리보기에만 중괄호가 그대로 보여, 올라갈 글과 달라 보인다(지적). */
+    s = s.replace(/\{\{([^}]+)\}\}/g, '<code class="jw-c">$1</code>')
     s = s.replace(/\*([^*]+)\*/g, '<b>$1</b>')
     s = s.replace(/\(\/\)/g, '<span class="jw-ok">✔</span>')
     s = s.replace(/\(x\)/g, '<span class="jw-ng">✘</span>')

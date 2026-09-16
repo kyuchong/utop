@@ -291,6 +291,13 @@
   overflow-x: auto;
 }
 /* 판정 표시 — 글자보다 색이 먼저 읽혀야 한다 */
+/* {{명령}} — Jira 가 고정폭으로 그리는 자리. 미리보기도 같게 보인다. */
+.jw-c {
+  font-family: var(--ff-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.92em; background: var(--c-surface-soft, #f1f4f6);
+  border: 1px solid var(--c-border); border-radius: 4px; padding: 0 4px;
+  word-break: break-all;
+}
 .jw-ok { color: #00875a; font-weight: 700; }
 .jw-ng { color: #de350b; font-weight: 700; }
 .jw-na { color: #ff991f; font-weight: 700; }
@@ -420,3 +427,8 @@
 .jw-shot em { display: block; font-style: normal; margin-top: 3px; font-size: var(--fs-xs); color: var(--c-text-faint); }
 /* 자동으로 붙는 구성도 — 사람이 붙인 파일과 같은 모양이되 뗄 수 없다 */
 .dfx-file.auto { border-style: dashed; }
+/* 3. 시험절차 — 스텝 설명만 차례대로(지시). 번호는 브라우저가 매긴다. */
+.dfx-proc { margin: 0; padding: 8px 8px 8px 26px; display: grid; gap: 3px; }
+.dfx-proc li { font-size: var(--fs-sm); line-height: 1.55; }
+/* 4. 시험내역 — 이름 붙은 CLI 는 한 줄로 두되 길면 감는다 */
+.dfx-meta code { font-family: var(--ff-mono, ui-monospace, monospace); font-size: var(--fs-xs); word-break: break-all; }

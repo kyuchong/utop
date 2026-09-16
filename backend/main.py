@@ -13303,38 +13303,53 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
                 title = title[:150].rstrip() + "…"
 
             # 판마다 맡는 말이 다르다(지시).
-            #  · 3. 시험절차 — **그 시험 항목으로 가는 주소**. 절차 전문을
-            #    옮겨 적으면 시험이 바뀔 때 이슈만 옛말이 된다. 링크를 누르면
-            #    늘 지금 것을 본다.
-            #  · 4. 시험내역 — **무엇을 해서 무엇이 나왔나**. 「interface
-            #    status 조회 (나온 결과)」 처럼 명령과 그 답을 나란히 적는다.
-            base = ""
-            try:
-                base = str((_load_mail_cfg() or {}).get("app_url") or "").strip().rstrip("/")
-            except Exception:
-                pass
-            base = base or str(base_url or "").strip().rstrip("/")
-            proc = f"[{tcid}|{base}/?tc={tcid}]" if base else f"{tcid} (UTOP ▸ 시험 항목)"
+            #  · 3. 시험절차 — **스텝 설명만 차례대로**. 시험 항목으로 가는
+            #    주소 한 줄이던 때는, 이슈를 받은 사람이 UTOP 계정이 없어
+            #    아무 데도 못 갔다. 무엇을 어떤 차례로 했는지는 이슈 안에 있다.
+            #  · 4. 시험내역 — **CLI·결과값·판정**. 이름을 붙여 적는다.
+            #    이름이 없으면 어디까지가 장비가 뱉은 것이고 어디부터가 우리
+            #    판단인지 읽는 사람이 가려내야 한다.
+            # 두 판이 같은 말을 나눠 갖는다 — 겹쳐 적으면 어느 쪽이 정본인지
+            # 알 수 없다.
+            proc_lines: list[str] = []
+            for b in briefs:
+                what = str(b.get("desc") or "").strip() or _plain_ko(str(b.get("cli") or ""))
+                what = " ".join(what.split())
+                if not what:
+                    continue
+                proc_lines.append(f"{len(proc_lines) + 1}) {what}")
+            proc = "\n".join(proc_lines) or f"{tcid} 자동 시험"
 
             det_lines: list[str] = []
             for b in briefs[:20]:
                 what = str(b.get("desc") or "").strip() or _plain_ko(str(b.get("cli") or ""))
-                cli = str(b.get("cli") or "").strip()
+                cli = " ".join(str(b.get("cli") or "").strip().split())
                 st2 = str(b.get("status") or "").strip()
-                head = what or cli or "(이름 없는 스텝)"
-                if st2:
-                    head += f" — {st2}"
-                det_lines.append(f"*{head}*")
-                if cli and cli != what:
-                    det_lines.append("{{" + cli + "}}")
+                out0 = str(b.get("output") or "").strip()
+                why0 = str(b.get("reason") or "").strip()
+                # **아무것도 없는 스텝은 적지 않는다.** 설명도 명령도 출력도
+                # 까닭도 없이 판정만 붙은 껍데기가 섞이는데, 그대로 적으면
+                # 「판정: FAIL」 만 덩그러니 선 줄이 이슈를 채운다.
+                if not (what or cli or out0 or why0):
+                    continue
+                head = what or cli
+                det_lines.append(f"*#{b.get('no')}{' ' + head if head else ''}*")
+                if cli:
+                    det_lines.append("CLI: {{" + cli + "}}")
                 out2 = str(b.get("output") or "").strip()
                 if out2:
+                    det_lines.append("결과값:")
                     det_lines.append("{noformat}")
                     det_lines.append(out2[:1500])
                     det_lines.append("{noformat}")
+                else:
+                    det_lines.append("결과값: （없음）")
+                # 판정은 **제 줄에 선다** — 스텝 이름 옆에 붙여 두면 스무 줄짜리
+                # 출력 위에 묻혀, 무엇이 깨졌는지 눈으로 좇아야 한다.
+                up = st2.upper()
+                mark = "(/) " if up.startswith("P") else ("(x) " if up.startswith("F") else "")
                 why3 = _plain_ko(str(b.get("reason") or ""))
-                if why3:
-                    det_lines.append(f"→ {why3}")
+                det_lines.append(f"판정: {mark}{st2 or '미실행'}" + (f" — {why3}" if why3 else ""))
                 det_lines.append("")
             det = "\n".join(det_lines).strip() or f"{tcid} 자동 시험"
 
