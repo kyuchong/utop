@@ -13,10 +13,9 @@
 .cmd-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 11px; overflow: auto; }
 
 /* 입력 묶음 — 라벨은 위, 부연은 아래 */
-/* 주소·제목 칸은 **폭을 묶는다**(지시) — 칩 몇 개에 화면 너비를 다 주면
-   글이 한쪽으로 몰려 읽기 나쁘다. 본문은 표가 들어가니 그대로 넓게 둔다. */
-.cmd-f { display: flex; flex-direction: column; gap: 4px; max-width: 680px; }
-.cmd-f.cmd-grow, .cmd-f.cmd-wide { max-width: none; }
+/* 칸은 **오른쪽 끝까지 찬다**(지시). 주소 칸만 좁혀 두었더니 본문·첨부와
+   오른쪽 선이 어긋나, 창이 반쯤 비어 보였다. 높이는 낮은 그대로 둔다. */
+.cmd-f { display: flex; flex-direction: column; gap: 4px; }
 .cmd-f > label { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 600; }
 .cmd-f > label i { font-style: normal; color: var(--c-fail, #cc3333); margin-left: 2px; }
 .cmd-hint { font-size: var(--fs-xs); color: var(--c-text-faint); }

@@ -675,7 +675,7 @@ export default function CycleMailDialog({
               />
             </div>
 
-            <div className="cmd-f cmd-wide">
+            <div className="cmd-f">
               <label>첨부 파일</label>
               {!!files.length && (
                 <ul className="cmd-att">
@@ -753,7 +753,7 @@ export default function CycleMailDialog({
             </div>
 
             {!!prev && (
-              <div className="cmd-f cmd-wide">
+              <div className="cmd-f">
                 <label>
                   미리보기 — 실제로 나갈 모습
                   <button type="button" className="cmd-lnk" onClick={() => setPrev(null)}>
