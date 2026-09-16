@@ -17525,14 +17525,32 @@ async def jira_set_description(key: str, data: dict):
     return {"ok": True}
 
 
+_JIRA_BASE_CACHE: list = []
+
+
 @app.get("/api/jira/base")
 async def jira_base():
     """지라 **주소만** 알려 준다 — 표에서 이슈로 건너뛰는 데 쓴다(지시).
 
     /api/jira/config 는 조회 계정의 토큰까지 들고 있다. 결함 표가 주소 한 줄
     쓰자고 그것을 통째로 받아 갈 이유가 없다.
+
+    **지라가 스스로 말하는 주소**(serverInfo.baseUrl)를 먼저 쓴다. 우리가
+    설정에 적은 주소는 API 를 부르는 길일 뿐이고, 사람이 브라우저로 여는
+    주소는 다를 수 있다 — 그 둘이 갈리면 링크가 엉뚱한 데로 간다.
     """
-    return {"ok": True, "url": str((_jira_cfg() or {}).get("url") or "").rstrip("/")}
+    cfg_url = str((_jira_cfg() or {}).get("url") or "").rstrip("/")
+    if _JIRA_BASE_CACHE:
+        return {"ok": True, "url": _JIRA_BASE_CACHE[0] or cfg_url}
+    url = cfg_url
+    try:
+        r, err = _jira_call("GET", "/rest/api/2/serverInfo")
+        if not err and r is not None and r.is_success:
+            url = str((r.json() or {}).get("baseUrl") or "").rstrip("/") or cfg_url
+    except Exception:
+        pass
+    _JIRA_BASE_CACHE.append(url)
+    return {"ok": True, "url": url}
 
 @app.post("/api/jira/config")
 async def jira_save_config(data: dict):
