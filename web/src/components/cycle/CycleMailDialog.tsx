@@ -414,6 +414,8 @@ export default function CycleMailDialog({
             <i className="cmd-ob">{w ? '✓' : ''}</i>
             <b>{p.name}</b>
             {!!p.rank && <span className="cmd-oprk">{p.rank}</span>}
+            {/* 자리 배지 — 팀원은 적지 않는다(거의 모두라 적어도 뜻이 없다) */}
+            {/^(담당|팀장|관리자)$/.test(p.role) && <span className="cmd-oprole">{p.role}</span>}
             <span className="cmd-opmail">{p.mail || '계정 없음'}</span>
             {!!w && <span className={`cmd-optag ${w}`}>{BOXTAG[w]}</span>}
           </button>,
@@ -672,7 +674,7 @@ export default function CycleMailDialog({
               <span className="cmd-hint">비우면 「{autoSubj || '모델 · 버전 · 시험 결과'}」 가 그대로 들어갑니다.</span>
             </div>
 
-            <div className="cmd-f">
+            <div className="cmd-f cmd-wide">
               <label>첨부 파일</label>
               {!!files.length && (
                 <ul className="cmd-att">
@@ -750,7 +752,7 @@ export default function CycleMailDialog({
             </div>
 
             {!!prev && (
-              <div className="cmd-f">
+              <div className="cmd-f cmd-wide">
                 <label>
                   미리보기 — 실제로 나갈 모습
                   <button type="button" className="cmd-lnk" onClick={() => setPrev(null)}>

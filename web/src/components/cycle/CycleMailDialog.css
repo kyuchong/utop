@@ -13,13 +13,16 @@
 .cmd-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 11px; overflow: auto; }
 
 /* 입력 묶음 — 라벨은 위, 부연은 아래 */
-.cmd-f { display: flex; flex-direction: column; gap: 5px; }
+/* 주소·제목 칸은 **폭을 묶는다**(지시) — 칩 몇 개에 화면 너비를 다 주면
+   글이 한쪽으로 몰려 읽기 나쁘다. 본문은 표가 들어가니 그대로 넓게 둔다. */
+.cmd-f { display: flex; flex-direction: column; gap: 4px; max-width: 680px; }
+.cmd-f.cmd-grow, .cmd-f.cmd-wide { max-width: none; }
 .cmd-f > label { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 600; }
 .cmd-f > label i { font-style: normal; color: var(--c-fail, #cc3333); margin-left: 2px; }
 .cmd-hint { font-size: var(--fs-xs); color: var(--c-text-faint); }
 .cmd-in {
   width: 100%; border: 1px solid var(--c-border); border-radius: var(--r-chip, 4px);
-  font: inherit; font-size: var(--fs-sm); padding: 7px 9px; outline: none; background: var(--c-surface, #fff);
+  font: inherit; font-size: var(--fs-sm); padding: 4px 8px; outline: none; background: var(--c-surface, #fff);
   color: var(--c-text);
 }
 .cmd-in:focus { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg, #e9f1ff); }
@@ -57,8 +60,8 @@
 
 /* 받는 사람 칸 — 칩 + 입력 */
 .cmd-chips {
-  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-height: 34px;
-  border: 1px solid var(--c-border); border-radius: var(--r-chip, 4px); padding: 5px 6px;
+  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 28px;
+  border: 1px solid var(--c-border); border-radius: var(--r-chip, 4px); padding: 3px 5px;
   background: var(--c-surface, #fff);
 }
 .cmd-chips:focus-within { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg, #e9f1ff); }
@@ -66,10 +69,10 @@
 .cmd-chips.tgt { border-color: #9fc2f5; background: var(--c-surface-info, #f8fbff); }
 .cmd-chips input {
   flex: 1; min-width: 130px; border: 0; outline: none; font: inherit; font-size: var(--fs-sm);
-  padding: 3px 2px; background: transparent; color: var(--c-text);
+  padding: 2px 2px; background: transparent; color: var(--c-text);
 }
 .cmd-chip {
-  display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs);
+  display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); line-height: 1.5;
   background: var(--c-primary-bg, #e9f1ff); color: var(--c-primary); border: 1px solid #c3dbff;
   border-radius: var(--r-chip, 4px); padding: 2px 4px 2px 8px;
 }
@@ -177,7 +180,10 @@
   display: flex; flex-direction: column; width: 400px; flex: none; min-height: 0;
   border-left: 1px solid var(--c-border-soft); background: var(--c-surface-alt, #f5f7f9);
 }
+/* ✕ 는 **오른쪽 끝**에(지시) — 세그먼트 바로 뒤에 붙어 있으면 창을 닫는
+   단추인지 칸을 고르는 단추인지 손이 헷갈린다 */
 .cmd-orghd { display: flex; align-items: center; gap: 10px; padding: 10px 12px 8px; }
+.cmd-orghd .modal-x { margin-left: auto; flex: none; }
 .cmd-orghd b { font-size: var(--fs-md); color: var(--c-nav-fg-strong, #0d4451); }
 .cmd-seg {
   display: inline-flex; border: 1px solid var(--c-border); border-radius: var(--r-chip, 4px);
@@ -273,6 +279,10 @@
 .cmd-op:disabled .cmd-ob { border-style: dashed; background: var(--c-surface-alt, #f5f7f9); }
 .cmd-op b { font-weight: 600; white-space: nowrap; }
 .cmd-oprk { font-size: var(--fs-xs); color: var(--c-text-muted); white-space: nowrap; }
+.cmd-oprole {
+  font-size: 10px; color: var(--c-nav-fg-strong, #0d4451); background: #e3eef1;
+  border-radius: 3px; padding: 0 4px; white-space: nowrap; flex: none;
+}
 .cmd-opmail {
   flex: 1; min-width: 0; text-align: right; font-family: var(--font-mono, monospace);
   font-size: var(--fs-xs); color: var(--c-text-faint); overflow: hidden;

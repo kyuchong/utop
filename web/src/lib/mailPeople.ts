@@ -56,6 +56,8 @@ interface AccountRaw {
   email?: string
   dept?: string
   team?: string
+  /** 관리자·담당·팀장·팀원 — 조직도에는 없고 계정에만 있다 */
+  role?: string
 }
 
 /** 조직도 + 계정을 합친 결과 */
@@ -117,7 +119,8 @@ export function joinBook(org: OrgNodeRaw | null, accs: AccountRaw[]): MailBook {
       name: nm,
       rank: rank || '',
       uid: String(acc?.username ?? ''),
-      role: role || '',
+      /* 조직도가 말하는 자리(담당)가 먼저, 없으면 계정에 적힌 역할 */
+      role: role || String(acc?.role ?? ''),
       mail: String(acc?.email ?? ''),
       path,
       key: '',
@@ -130,14 +133,33 @@ export function joinBook(org: OrgNodeRaw | null, accs: AccountRaw[]): MailBook {
   const walk = (n: OrgNodeRaw, depth: number, parent: string): MailOrg => {
     const name = String(n.name ?? '')
     const path = parent ? `${parent} › ${name}` : name
+    const lead = String(n.lead ?? '').trim()
+    /* **담당자도 고를 수 있어야 한다**(지적: 담당이 선택 안 된다).
+       조직도의 담당·그룹 계층은 사람 목록(members)이 비어 있고, 담당자는
+       조직 줄의 글자(lead)로만 적혀 있다 — 「전규종 상무대우」 처럼 이름과
+       직급이 한 줄이다. 그대로 두면 이름은 보이는데 누를 수가 없다.
+       첫 어절을 이름으로 떼어 맨 앞 사람으로 세운다(한국 이름에는 공백이
+       없다). 아래 팀에도 같은 사람이 적혀 있으면 주소가 같아, 한쪽을
+       고르면 다른 쪽도 함께 켜진다. */
+    const leadP: MailPerson[] = []
+    if (lead) {
+      const sp = lead.indexOf(' ')
+      const lnm = bareName(sp > 0 ? lead.slice(0, sp) : lead)
+      const lrk = sp > 0 ? lead.slice(sp + 1).trim() : ''
+      const already = (n.members ?? []).some((m) => bareName(String(m.name ?? '')) === lnm)
+      if (lnm && !already) leadP.push(mk(lnm, lrk, '담당', path))
+    }
     const node: MailOrg = {
       id: `g${gid++}`,
       name,
-      lead: String(n.lead ?? ''),
+      lead,
       depth,
-      members: (n.members ?? []).map((m) =>
-        mk(bareName(String(m.name ?? '')), String(m.rank ?? ''), String(m.role ?? ''), path),
-      ),
+      members: [
+        ...leadP,
+        ...(n.members ?? []).map((m) =>
+          mk(bareName(String(m.name ?? '')), String(m.rank ?? ''), String(m.role ?? ''), path),
+        ),
+      ],
       kids: (n.children ?? []).map((k) => walk(k, depth + 1, depth > 0 ? path : name)),
       mails: [],
       names: [],
@@ -186,7 +208,7 @@ export function joinBook(org: OrgNodeRaw | null, accs: AccountRaw[]): MailBook {
         name: nm,
         rank: '',
         uid: String(a.username ?? ''),
-        role: '',
+        role: String(a.role ?? ''),
         mail: String(a.email ?? ''),
         path: `조직도 밖 · ${org2}`,
         key: '',

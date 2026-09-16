@@ -3820,8 +3820,10 @@ async def api_users_mentionable(token: str = ""):
     u = _user_from_token(token)
     if not u:
         raise HTTPException(401, "로그인이 필요합니다")
+    # 역할(관리자·담당·팀장)도 함께 — 결과 메일 조직도가 배지로 세운다.
+    # 누구를 참조로 넣을지는 자리를 봐야 정한다.
     return {"users": [{"username": x.get("username"), "name": x.get("name"), "email": x.get("email", ""),
-                       "dept": x.get("dept", ""), "team": x.get("team", "")}
+                       "dept": x.get("dept", ""), "team": x.get("team", ""), "role": x.get("role", "")}
                       for x in _users_load_sync()["users"] if x.get("active", True)]}
 
 @app.get("/api/notifications")
