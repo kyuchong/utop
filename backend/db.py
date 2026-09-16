@@ -805,14 +805,23 @@ async def plan_run_item_clear(run_id: str, tcids: Optional[list] = None) -> int:
 
 
 async def cycle_mail_add(cycle_id: str, who: str, to_list: str, subject: str,
-                         note: str = "", ok: bool = True, error: str = "") -> None:
-    """결과서 메일 한 통을 기록한다 — 실패한 것도 남긴다."""
+                         note: str = "", ok: bool = True, error: str = "",
+                         cc_list: str = "", bcc_list: str = "",
+                         body_html: str = "", att: list | None = None) -> None:
+    """결과서 메일 한 통을 기록한다 — 실패한 것도 남긴다.
+
+    **본문까지 남긴다**(지시: 보낸 메일 보기). 제목만 남기던 때는 「무엇을
+    보냈더라」 를 알 길이 없어 결국 받는 사람에게 되물었다. 첨부는 이름과
+    크기만 — 파일을 DB 에 담으면 사이클 하나가 수백 MB 가 된다.
+    """
     async with pool().acquire() as c:
         await c.execute(
-            "INSERT INTO cycle_mail (cycle_id, who, to_list, subject, note, ok, error)"
-            " VALUES ($1,$2,$3,$4,$5,$6,$7)",
+            "INSERT INTO cycle_mail (cycle_id, who, to_list, subject, note, ok, error,"
+            " cc_list, bcc_list, body_html, att)"
+            " VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)",
             cycle_id, who or "", to_list or "", subject or "", note or "",
             bool(ok), (error or None),
+            cc_list or "", bcc_list or "", body_html or "", att or [],
         )
 
 
@@ -820,7 +829,8 @@ async def cycle_mail_list(cycle_id: str, limit: int = 50) -> list[dict]:
     """보낸 자취 — 새것부터."""
     async with pool().acquire() as c:
         rows = await c.fetch(
-            "SELECT id, at, who, to_list, subject, note, ok, error"
+            "SELECT id, at, who, to_list, subject, note, ok, error,"
+            "       cc_list, bcc_list, body_html, att"
             "  FROM cycle_mail WHERE cycle_id=$1 ORDER BY at DESC LIMIT $2",
             cycle_id, int(max(1, min(500, limit))),
         )
@@ -829,6 +839,13 @@ async def cycle_mail_list(cycle_id: str, limit: int = 50) -> list[dict]:
         d = dict(r)
         if d.get("at") is not None:
             d["at"] = d["at"].isoformat()
+        a = d.get("att")
+        if isinstance(a, str):
+            try:
+                a = json.loads(a)
+            except Exception:
+                a = []
+        d["att"] = a or []
         out.append(d)
     return out
 

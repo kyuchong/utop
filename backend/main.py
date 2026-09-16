@@ -2209,36 +2209,64 @@ ALLOWED_EMAIL_DOMAIN = "ubiquoss.com"
 def _allowed_email_domain(addr: str) -> bool:
     return str(addr or "").strip().lower().endswith("@" + ALLOWED_EMAIL_DOMAIN)
 
-def _send_mail(to_addrs, subject: str, body: str, html: bool = False):
-    """SMTP로 메일 발송. to_addrs: str(콤마/세미콜론 구분) 또는 list. 실패 시 예외 발생."""
+def _addr_list(v) -> list:
+    """주소를 목록으로 — 글자 한 줄이든 배열이든 같은 모양으로 받는다."""
+    if isinstance(v, str):
+        return [a.strip() for a in v.replace(";", ",").split(",") if a.strip()]
+    return [str(a).strip() for a in (v or []) if str(a or "").strip()]
+
+
+def _send_mail(to_addrs, subject: str, body: str, html: bool = False,
+               cc=None, bcc=None, files=None):
+    """SMTP로 메일 발송. to_addrs: str(콤마/세미콜론 구분) 또는 list. 실패 시 예외 발생.
+
+    **참조·숨은 참조·첨부**(지시). 숨은 참조는 머리글에 적지 않는다 — 적으면
+    받는 사람에게 보여, 숨은 참조가 아니게 된다. 보낼 주소 목록에만 넣는다.
+    첨부는 [{filename, mime, data(base64)}] 로 받는다.
+    """
     import smtplib, ssl as _ssl
     from email.message import EmailMessage
     cfg = _load_mail_cfg()
     if not cfg.get("host"):
         raise RuntimeError("SMTP 서버가 설정되지 않았습니다 (시스템 → 메일 설정)")
-    if isinstance(to_addrs, str):
-        to_list = [a.strip() for a in to_addrs.replace(";", ",").split(",") if a.strip()]
-    else:
-        to_list = [a for a in (to_addrs or []) if a]
+    to_list = _addr_list(to_addrs)
+    cc_list = _addr_list(cc)
+    bcc_list = _addr_list(bcc)
     if not to_list:
         raise RuntimeError("받는 사람이 없습니다")
     msg = EmailMessage()
     from_addr = cfg.get("from_addr") or cfg.get("username")
     msg["From"] = f'{cfg.get("from_name") or "ubiQuoss-TOP"} <{from_addr}>'
     msg["To"] = ", ".join(to_list)
+    if cc_list:
+        msg["Cc"] = ", ".join(cc_list)
     msg["Subject"] = subject
     if html:
         msg.set_content("이 메일은 HTML 형식입니다. HTML을 지원하는 클라이언트에서 열어주세요.")
         msg.add_alternative(body, subtype="html")
     else:
         msg.set_content(body)
+    # 첨부 — 본문을 다 채운 **뒤에** 붙인다(add_alternative 가 먼저 와야 한다)
+    for f in (files or []):
+        try:
+            import base64 as _b64
+            raw = str((f or {}).get("data") or "")
+            if raw.strip().startswith("data:") and "," in raw:
+                raw = raw.split(",", 1)[1]
+            blob = _b64.b64decode(raw)
+            mime = str(f.get("mime") or "application/octet-stream")
+            maj, _, sub = mime.partition("/")
+            msg.add_attachment(blob, maintype=maj or "application", subtype=sub or "octet-stream",
+                               filename=str(f.get("filename") or "attachment"))
+        except Exception as e:
+            raise RuntimeError(f"첨부 파일을 붙이지 못했습니다 — {f.get('filename', '')}: {e}")
     host = cfg["host"]; port = int(cfg.get("port") or 587); sec = str(cfg.get("security") or "starttls").lower()
     if sec == "ssl":
         ctx = _ssl.create_default_context()
         with smtplib.SMTP_SSL(host, port, timeout=20, context=ctx) as s:
             if cfg.get("username"):
                 s.login(cfg["username"], cfg.get("password") or "")
-            s.send_message(msg)
+            s.send_message(msg, to_addrs=to_list + cc_list + bcc_list)
     else:
         with smtplib.SMTP(host, port, timeout=20) as s:
             s.ehlo()
@@ -2246,7 +2274,7 @@ def _send_mail(to_addrs, subject: str, body: str, html: bool = False):
                 s.starttls(context=_ssl.create_default_context()); s.ehlo()
             if cfg.get("username"):
                 s.login(cfg["username"], cfg.get("password") or "")
-            s.send_message(msg)
+            s.send_message(msg, to_addrs=to_list + cc_list + bcc_list)
     return to_list
 
 _DEFAULT_APPROVAL_SUBJECT = "[ubiQuoss-TOP] \U0001F389 가입이 승인되었습니다"
@@ -9425,6 +9453,61 @@ async def cycle_mail_preview(cycle_id: str, note: str = "", token: str = ""):
     return {"subject": subject, "html": html}
 
 
+@app.get("/api/cycle/{cycle_id}/summary-body")
+async def cycle_summary_body(cycle_id: str, token: str = ""):
+    """메일 창이 **처음 채워 넣을 글**과 자동 제목.
+
+    사람이 Test Summary 에 이미 정리해 둔 글이 있는데, 메일 창을 빈 칸으로
+    열면 아무도 다시 쓰지 않는다 — 그 글을 그대로 들고 시작한다.
+    설명은 마크다운이라 여기서 아주 얕게만 HTML 로 옮긴다(제목·목록·빈 줄).
+    화면이 그 글을 고쳐 body_html 로 돌려주고, 보낼 때 서버가 메일 틀에 넣는다.
+    """
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    c = await db.cycle_get(cycle_id) or {}
+    md = str(c.get("description") or "").strip()
+    import re as _re
+
+    def _ln(t: str) -> str:
+        t = _h.escape(t)
+        t = _re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", t)
+        t = _re.sub(r"`([^`]+)`", r"<code>\1</code>", t)
+        return t
+
+    out: list[str] = []
+    ul = False
+    for raw in md.split("\n"):
+        t = raw.rstrip()
+        if not t.strip():
+            if ul:
+                out.append("</ul>")
+                ul = False
+            continue
+        m = _re.match(r"^(#{1,4})\s+(.*)$", t)
+        if m:
+            if ul:
+                out.append("</ul>")
+                ul = False
+            lv = min(3, max(2, len(m.group(1))))
+            out.append(f"<h{lv}>{_ln(m.group(2))}</h{lv}>")
+            continue
+        m = _re.match(r"^\s*[-*+]\s+(.*)$", t)
+        if m:
+            if not ul:
+                out.append("<ul>")
+                ul = True
+            out.append(f"<li>{_ln(m.group(1))}</li>")
+            continue
+        if ul:
+            out.append("</ul>")
+            ul = False
+        out.append(f"<p>{_ln(t)}</p>")
+    if ul:
+        out.append("</ul>")
+    subject, _ = await _cycle_mail_html(cycle_id, "", "")
+    return {"html": "\n".join(out), "subject": subject}
+
+
 @app.post("/api/cycle/{cycle_id}/mail-preview")
 async def cycle_mail_preview_post(cycle_id: str, payload: dict, token: str = ""):
     """미리보기 — **본문이 길어 주소에 못 싣는다.** GET 판은 note 한 줄용이라
@@ -9456,20 +9539,37 @@ async def cycle_mail(cycle_id: str, payload: dict, token: str = ""):
     subject = str(payload.get("subject") or "").strip() or subject
     who = _user_from_token(token) or ""
     note = str(payload.get("note") or "").strip()
+    cc = _addr_list(payload.get("cc"))
+    bcc = _addr_list(payload.get("bcc"))
+    files = [f for f in (payload.get("files") or []) if isinstance(f, dict)]
+    # 첨부는 **전체 25MB** 까지(창에서도 같은 자로 막는다). 넘기면 SMTP 가
+    # 거절하거나, 받는 쪽 메일함이 통째로 물린다.
+    tot = 0
+    for f in files:
+        tot += int(f.get("size") or 0)
+    if tot > 25 * 1024 * 1024:
+        raise HTTPException(400, "첨부가 전체 25MB를 넘습니다")
+    # 이력에 남길 첨부 — **이름과 크기만**. 파일을 DB 에 담지 않는다.
+    att = [{"name": str(f.get("filename") or ""), "size": int(f.get("size") or 0)} for f in files]
+    joined = ", ".join(_addr_list(to))
+    ccj, bccj = ", ".join(cc), ", ".join(bcc)
     try:
-        sent = _send_mail(to, subject, html, html=True)
+        sent = _send_mail(to, subject, html, html=True, cc=cc, bcc=bcc, files=files)
     except Exception as e:
         # **실패도 남긴다** — 다시 보낼지 판단하려면 시도한 자취가 있어야 한다
         try:
-            await db.cycle_mail_add(cycle_id, str(who), str(to), subject, note, False, str(e))
+            await db.cycle_mail_add(cycle_id, str(who), joined, subject, note, False, str(e),
+                                    cc_list=ccj, bcc_list=bccj, body_html=html, att=att)
         except Exception:  # noqa: BLE001
             pass
         raise HTTPException(400, f"보내지 못했습니다 — {e}")
     try:
-        await db.cycle_mail_add(cycle_id, str(who), str(sent or to), subject, note, True, "")
+        await db.cycle_mail_add(cycle_id, str(who), ", ".join(sent or _addr_list(to)),
+                                subject, note, True, "",
+                                cc_list=ccj, bcc_list=bccj, body_html=html, att=att)
     except Exception:  # noqa: BLE001
         pass  # 기록이 실패해도 메일은 이미 나갔다
-    return {"success": True, "to": sent, "subject": subject}
+    return {"success": True, "to": sent, "cc": cc, "bcc": bcc, "subject": subject}
 
 
 @app.post("/api/cycle/{cycle_id}/picked")

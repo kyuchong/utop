@@ -5,6 +5,7 @@ import { normMode, isManualTc } from '@/lib/runMode'
 import { isManualStep } from '@/components/tc/types'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch } from '@/api/client'
+import CycleMailDialog from './CycleMailDialog'
 import IdPill from '@/components/IdPill'
 import AssigneePicker from '@/components/AssigneePicker'
 import { goto, gotoHref } from '@/api/goto'
@@ -1023,7 +1024,7 @@ export default function CyclePlan({
           </>
         )}
 
-        {mail && cur && <CycleMailOne cycle={cur} onClose={() => setMail(false)} />}
+        {mail && cur && <CycleMailDialog cycle={cur} onClose={() => setMail(false)} />}
       </section>
 
       {/* ── ⑥ 러너(수동 실행) — Testiny 「Run test case」 그대로 ── */}
@@ -1342,90 +1343,3 @@ function GroupRows({
   )
 }
 
-/**
- * 결과 메일 창 — 미리보기를 먼저 보인다. 보낸 메일은 무를 수 없다.
- */
-export function CycleMailOne({ cycle, onClose }: { cycle: CycleMeta; onClose: () => void }) {
-  const [to, setTo] = useState('')
-  const [subject, setSubject] = useState('')
-  const [note, setNote] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [preview, setPreview] = useState<{ subject: string; html: string } | null>(null)
-
-  const loadPreview = async () => {
-    try {
-      const r = await apiFetch(
-        `/api/cycle/${encodeURIComponent(cycle.id)}/mail-preview?note=${encodeURIComponent(note)}`,
-      )
-      const j = (await r.json()) as { subject?: string; html?: string; detail?: string }
-      if (!r.ok) throw new Error(j.detail || '미리보기를 만들지 못했습니다')
-      setPreview({ subject: j.subject ?? '', html: j.html ?? '' })
-      if (!subject) setSubject(j.subject ?? '')
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : String(e))
-    }
-  }
-
-  const send = async () => {
-    setBusy(true)
-    setMsg('')
-    try {
-      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}/mail`, {
-        method: 'POST',
-        body: JSON.stringify({ to, subject, note }),
-      })
-      const j = (await r.json()) as { success?: boolean; to?: string[]; detail?: string }
-      if (!r.ok || !j.success) throw new Error(j.detail || '보내지 못했습니다')
-      setMsg(`보냈습니다 — ${(j.to ?? []).join(', ')}`)
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="modal-back" onMouseDown={onClose}>
-      <div className="modal cyl-mail" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <b>결과 메일 — {cycle.name || cycle.cid}</b>
-          <button className="modal-x" type="button" onClick={onClose} aria-label="닫기">
-            ×
-          </button>
-        </div>
-        <div className="modal-body">
-          <label className="fld">
-            <span>받는 사람 (콤마로 여럿)</span>
-            <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="a@co.kr, b@co.kr" autoFocus />
-          </label>
-          <label className="fld">
-            <span>제목 (비우면 자동)</span>
-            <input value={subject} onChange={(e) => setSubject(e.target.value)} />
-          </label>
-          <label className="fld">
-            <span>덧붙이는 말 (맨 위에 실림)</span>
-            <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-          </label>
-          <button type="button" className="btn" onClick={() => void loadPreview()}>
-            미리보기
-          </button>
-          {preview && (
-            <iframe className="cyl-mailprev" title="메일 미리보기" sandbox="" srcDoc={preview.html} />
-          )}
-          {msg && <div className="cyl-mailmsg">{msg}</div>}
-        </div>
-        <div className="modal-foot">
-          <span className="muted small">보낸 메일은 무를 수 없습니다 — 미리보기로 확인하세요.</span>
-          <span className="sa-sp" />
-          <button className="btn" type="button" onClick={onClose}>
-            닫기
-          </button>
-          <button className="btn cpl-teal" type="button" disabled={busy || !to.trim()} onClick={() => void send()}>
-            {busy ? '보내는 중…' : '보내기'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}

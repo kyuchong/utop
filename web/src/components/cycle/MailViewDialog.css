@@ -1,0 +1,55 @@
+/* 보낸 메일 보기 — 이름은 mvw- 로 묶는다 */
+.modal.mvw {
+  width: min(900px, 96vw);
+  max-width: none;
+  height: min(820px, 92vh);
+  display: flex;
+  flex-direction: column;
+}
+.mvw-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0; overflow: auto; }
+.mvw-subj {
+  margin: 0 0 4px;
+  font-size: var(--fs-xl, 18px);
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--c-nav-fg-strong, #0d4451);
+}
+.mvw-meta {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.mvw-k { font-size: var(--fs-xs); color: var(--c-text-faint); }
+.mvw-v {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+  min-width: 0; font-size: var(--fs-sm);
+}
+.mvw-chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs);
+  border-radius: var(--r-chip, 4px); padding: 2px 8px;
+  background: var(--c-primary-bg, #e9f1ff); color: var(--c-primary); border: 1px solid #c3dbff;
+}
+.mvw-chip.cc { background: #e0f2f6; color: #0e7490; border-color: #b9e0e9; }
+.mvw-chip.bcc { background: #eceff3; color: #3f4a55; border-color: #cfd6de; }
+.mvw-chip small { font-size: 10px; opacity: 0.75; }
+.mvw-addr { margin-left: 4px; font-family: var(--font-mono, monospace); font-size: 10px; opacity: 0.75; }
+.mvw-att {
+  display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs);
+  border: 1px solid var(--c-border-soft); border-radius: var(--r-chip, 4px);
+  padding: 2px 8px; background: var(--c-surface, #fff);
+}
+.mvw-att small { font-family: var(--font-mono, monospace); font-size: 10px; color: var(--c-text-faint); }
+.mvw-ok { font-weight: 600; color: var(--c-pass, #18864b); }
+.mvw-ng { font-weight: 600; color: var(--c-fail, #cc3333); }
+.mvw-doc {
+  flex: 1; min-height: 260px; width: 100%; margin-top: 12px;
+  border: 1px solid var(--c-border); border-radius: var(--r-box, 6px); background: #fff;
+}
+.mvw-none {
+  margin-top: 14px; padding: 24px 12px; text-align: center;
+  color: var(--c-text-faint); font-size: var(--fs-sm);
+  border: 1px dashed var(--c-border); border-radius: var(--r-box, 6px);
+}

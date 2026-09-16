@@ -852,6 +852,15 @@ CREATE TABLE IF NOT EXISTS cycle_mail (
   error      TEXT
 );
 CREATE INDEX IF NOT EXISTS cycle_mail_cyc_idx ON cycle_mail (cycle_id, at DESC);
+-- 참조·숨은 참조·본문·첨부(지시: 메일 창을 제대로 만든다).
+-- · 보낸 메일을 다시 열어 보려면 **본문**이 있어야 한다. 제목만 남기던 때는
+--   「무엇을 보냈더라」 를 알 길이 없어 결국 받는 사람에게 되물었다.
+-- · 첨부는 **이름과 크기만** 남긴다. 파일을 DB 에 담으면 사이클 하나가
+--   수백 MB 가 된다 — 무엇을 붙였는지만 알면 된다.
+ALTER TABLE cycle_mail ADD COLUMN IF NOT EXISTS cc_list   TEXT;
+ALTER TABLE cycle_mail ADD COLUMN IF NOT EXISTS bcc_list  TEXT;
+ALTER TABLE cycle_mail ADD COLUMN IF NOT EXISTS body_html TEXT;
+ALTER TABLE cycle_mail ADD COLUMN IF NOT EXISTS att       JSONB;
 
 -- ── Jira 이슈 ──────────────────────────────────────────────────
 --

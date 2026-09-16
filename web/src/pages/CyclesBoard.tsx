@@ -28,7 +28,9 @@ import RunDetail from '@/components/run/RunDetail'
 import type { RunFull } from '@/components/run/RunDetail'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IconChevron, IconPanel } from '@/components/icons'
-import { CycleMailOne } from '@/components/cycle/CyclePlan'
+import CycleMailDialog, { type MailSeed } from '@/components/cycle/CycleMailDialog'
+import { useMailBook } from '@/lib/mailPeople'
+import MailViewDialog from '@/components/cycle/MailViewDialog'
 import CycleReport from '@/components/cycle/CycleReport'
 import NTable from '@/components/ntable/NTable'
 import { JiraStatusChip, jiraIssueUrl, jiraStatusText, useJiraBase, useJiraStatus } from '@/lib/jiraStatus'
@@ -167,6 +169,12 @@ interface MailRow {
   note?: string | null
   ok?: boolean
   error?: string | null
+  /* 참조·숨은 참조·본문·첨부(지시) — 보낸 메일을 다시 열어 보려면 본문이
+     있어야 하고, 「이 메일로 다시 쓰기」 는 받는 사람까지 그대로 가져온다 */
+  cc_list?: string | null
+  bcc_list?: string | null
+  body_html?: string | null
+  att?: Array<{ name?: string; size?: number }> | null
 }
 
 export default function CyclesBoard({
@@ -424,6 +432,12 @@ export default function CyclesBoard({
   const [runMoreAt, setRunMoreAt] = useState<{ x: number; y: number } | null>(null)
   /** 실행 담당 고르개 — 요약의 세부 정보 담당 칸이 연다 */
   const [mailPlan, setMailPlan] = useState<CycleMeta | null>(null)
+  /** 「이 메일로 다시 쓰기」 가 채워 넣을 값 — 없으면 새 메일 */
+  const [mailSeed, setMailSeed] = useState<MailSeed | null>(null)
+  /** 이력에서 연 보낸 메일 한 통 */
+  const [mailOpen, setMailOpen] = useState<MailRow | null>(null)
+  /** 주소를 사람 이름으로 바꿔 보이려고 — 이력 표가 쓴다 */
+  const mailBook = useMailBook(true)
   const [repPlan, setRepPlan] = useState<CycleMeta | null>(null)
 
   /* 시험 항목 탭의 노션 표 — 열 정의는 코드가 정본, 폭·숨김·차례는 계정에.
@@ -2353,11 +2367,13 @@ export default function CyclesBoard({
   /** 메일 이력 표 — 다른 목록과 같은 노션 표(지시) */
   const [mailCols, setMailCols] = useState<NCol[]>([
     { key: 'at', label: '보낸 때', type: 'text', width: 130, fixed: true },
-    { key: 'to', label: '받는 사람', type: 'text', width: 240 },
-    { key: 'subject', label: '제목', type: 'text', width: 380 },
     { key: 'who', label: '보낸이', type: 'text', width: 110 },
+    { key: 'to', label: '받는 사람', type: 'text', width: 230 },
+    { key: 'cc', label: '참조', type: 'text', width: 150 },
+    { key: 'subject', label: '제목', type: 'text', width: 380 },
+    { key: 'att', label: '첨부', type: 'text', width: 70 },
     { key: 'ok', label: '결과', type: 'text', width: 80 },
-    { key: 'note', label: '한마디', type: 'text', width: 260 },
+    { key: 'note', label: '한마디', type: 'text', width: 220 },
   ])
   const [mailView, setMailView] = useState<NView>({ ...EMPTY_VIEW })
 
@@ -2463,12 +2479,24 @@ export default function CyclesBoard({
    * 잡는 손버릇이 그대로 통한다. */
   function renderMail() {
     if (!plan) return null
+    /** 주소를 **사람 이름**으로 — 「kcjun@…, jilee@…」 은 아무도 못 읽는다 */
+    const nameOf = (v?: string | null) => {
+      const list = String(v ?? '')
+        .split(/[,;]+/)
+        .map((x) => x.trim())
+        .filter(Boolean)
+      if (!list.length) return '—'
+      const nm = list.map((m) => mailBook.byMail[m]?.name ?? m)
+      return nm.length > 2 ? `${nm.slice(0, 2).join(', ')} 외 ${nm.length - 2}명` : nm.join(', ')
+    }
     const rows = (mailQ.data?.items ?? []).map((m2) => ({
       __id: String(m2.id),
       id: String(m2.id),
       at: stamp(m2.at),
-      to: m2.to_list || '—',
+      to: nameOf(m2.to_list),
+      cc: nameOf(m2.cc_list),
       subject: m2.subject || '(제목 없음)',
+      att: (m2.att ?? []).length ? `📎 ${(m2.att ?? []).length}` : '—',
       who: m2.who || '—',
       ok: m2.ok ? '보냄' : '실패',
       note: m2.note || (m2.error ? `실패 — ${m2.error}` : ''),
@@ -2479,7 +2507,7 @@ export default function CyclesBoard({
           <div className="cu-sec cu-card">
             <div className="cu-empty">
               <strong>아직 보낸 적이 없습니다</strong>
-              <span>머리의 「더보기 → 메일」 로 결과서를 보내면 여기에 쌓입니다.</span>
+              <span>머리의 「더보기 → ✉ 결과 메일」 로 보내면 여기에 쌓입니다.</span>
             </div>
           </div>
         </div>
@@ -2496,11 +2524,15 @@ export default function CyclesBoard({
           meName={meName}
           /* 보낸 자취는 **고칠 것이 없다** — 읽기만 한다 */
           onCell={() => {}}
-          readOnlyKeys={['at', 'to', 'subject', 'who', 'ok', 'note']}
+          readOnlyKeys={['at', 'to', 'cc', 'subject', 'att', 'who', 'ok', 'note']}
           lockDefs
           idKey="id"
           titleKey="subject"
           perPage={50}
+          /* 줄을 누르면 **그때 나간 본문**을 편다(지시) — 표는 제목까지만
+             말하고, 정작 알고 싶은 것은 무엇을 적어 보냈나다 */
+          onOpen={(id) => setMailOpen((mailQ.data?.items ?? []).find((x) => String(x.id) === id) ?? null)}
+          onPeek={(id) => setMailOpen((mailQ.data?.items ?? []).find((x) => String(x.id) === id) ?? null)}
         />
       </div>
     )
@@ -3762,12 +3794,26 @@ export default function CyclesBoard({
       )}
 
       {!!mailPlan && (
-        <CycleMailOne
+        <CycleMailDialog
           cycle={mailPlan}
+          seed={mailSeed}
           onClose={() => {
             setMailPlan(null)
+            setMailSeed(null)
             /* 방금 보낸 메일이 배지·이력에 바로 서게 — 20초 캐시를 깬다 */
             void qc.invalidateQueries({ queryKey: ['cycle-mail'] })
+          }}
+          onSent={() => void qc.invalidateQueries({ queryKey: ['cycle-mail'] })}
+        />
+      )}
+      {!!mailOpen && (
+        <MailViewDialog
+          row={mailOpen}
+          onClose={() => setMailOpen(null)}
+          onResend={(sd) => {
+            setMailOpen(null)
+            setMailSeed(sd)
+            if (plan) setMailPlan(plan)
           }}
         />
       )}

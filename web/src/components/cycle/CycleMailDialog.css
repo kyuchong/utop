@@ -1,0 +1,295 @@
+/* 결과 메일 창 — 이름은 cmd- 로 묶는다(다른 화면의 칩·트리와 겹치지 않게) */
+.modal.cmd {
+  width: min(960px, 96vw);
+  max-width: none;
+  height: min(880px, 92vh);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.15s ease;
+  position: relative;
+}
+.modal.cmd.org-on { width: min(1340px, 96vw); }
+.cmd-mid { flex: 1; min-height: 0; display: flex; }
+.cmd-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 11px; overflow: auto; }
+
+/* 입력 묶음 — 라벨은 위, 부연은 아래 */
+.cmd-f { display: flex; flex-direction: column; gap: 5px; }
+.cmd-f > label { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 600; }
+.cmd-f > label i { font-style: normal; color: var(--c-fail, #cc3333); margin-left: 2px; }
+.cmd-hint { font-size: var(--fs-xs); color: var(--c-text-faint); }
+.cmd-in {
+  width: 100%; border: 1px solid var(--c-border); border-radius: var(--r-chip, 4px);
+  font: inherit; font-size: var(--fs-sm); padding: 7px 9px; outline: none; background: var(--c-surface, #fff);
+  color: var(--c-text);
+}
+.cmd-in:focus { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg, #e9f1ff); }
+.cmd-grow { flex: 1; min-height: 160px; }
+.cmd-grow .cmd-doc { flex: 1; min-height: 0; }
+
+/* 라벨 옆 작은 글자 단추 */
+.cmd-lnk {
+  margin-left: auto; border: 0; background: transparent; font: inherit; font-size: var(--fs-xs);
+  font-weight: 500; color: var(--c-primary); cursor: pointer; padding: 2px 4px; border-radius: var(--r-chip, 4px);
+}
+.cmd-lnk + .cmd-lnk { margin-left: 0; }
+.cmd-lnk:hover { background: var(--c-primary-bg, #e9f1ff); }
+.cmd-lnk:disabled { opacity: 0.45; cursor: default; background: none; }
+.cmd-orgb {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+  border: 0; background: transparent; font: inherit; font-size: var(--fs-xs); font-weight: 500;
+  color: var(--c-primary); cursor: pointer; padding: 2px 6px; border-radius: var(--r-chip, 4px);
+}
+.cmd-orgb:hover { background: var(--c-primary-bg, #e9f1ff); }
+.cmd-orgb.on { background: var(--c-primary-bg, #e9f1ff); font-weight: 600; }
+.cmd-f > label .cmd-orgb + .cmd-lnk { margin-left: 0; }
+.cmd-pm {
+  width: 17px; height: 17px; flex: none; display: inline-grid; place-items: center; padding: 0;
+  border: 1px solid var(--c-border); border-radius: 3px; background: var(--c-surface, #fff);
+  color: var(--c-text-muted); font: inherit; font-size: 13px; line-height: 1; cursor: pointer;
+}
+.cmd-pm:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.cmd-bcchint {
+  border: 1px solid var(--c-border); background: var(--c-surface-alt, #eceff3); color: var(--c-text-muted);
+  font: inherit; font-size: var(--fs-xs); font-weight: 500; padding: 0 7px; border-radius: 9px;
+  line-height: 17px; cursor: pointer;
+}
+.cmd-bcchint:hover { border-color: var(--c-primary); color: var(--c-primary); }
+
+/* 받는 사람 칸 — 칩 + 입력 */
+.cmd-chips {
+  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-height: 34px;
+  border: 1px solid var(--c-border); border-radius: var(--r-chip, 4px); padding: 5px 6px;
+  background: var(--c-surface, #fff);
+}
+.cmd-chips:focus-within { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg, #e9f1ff); }
+/* 조직도가 지금 이 칸에 넣고 있다 — 어디로 들어가는지 눈에 보이게 */
+.cmd-chips.tgt { border-color: #9fc2f5; background: var(--c-surface-info, #f8fbff); }
+.cmd-chips input {
+  flex: 1; min-width: 130px; border: 0; outline: none; font: inherit; font-size: var(--fs-sm);
+  padding: 3px 2px; background: transparent; color: var(--c-text);
+}
+.cmd-chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs);
+  background: var(--c-primary-bg, #e9f1ff); color: var(--c-primary); border: 1px solid #c3dbff;
+  border-radius: var(--r-chip, 4px); padding: 2px 4px 2px 8px;
+}
+.cmd-chip small { font-size: 10px; opacity: 0.75; }
+.cmd-chip.cc { background: #e0f2f6; color: #0e7490; border-color: #b9e0e9; }
+.cmd-chip.bcc { background: #eceff3; color: #3f4a55; border-color: #cfd6de; }
+.cmd-chip.bad { background: #fdebec; color: var(--c-fail, #cc3333); border-color: #f3c7cb; }
+.cmd-chip button {
+  border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 12px;
+  line-height: 1; padding: 0 2px; opacity: 0.7;
+}
+.cmd-chip button:hover { opacity: 1; }
+
+/* 자동 완성 */
+.cmd-sug {
+  position: absolute; left: -1px; right: -1px; top: calc(100% + 4px); z-index: 20;
+  background: var(--c-surface, #fff); border: 1px solid var(--c-border); border-radius: var(--r-box, 6px);
+  box-shadow: 0 8px 24px rgba(19, 25, 32, 0.16); padding: 4px; max-height: 320px; overflow: auto;
+}
+.cmd-sg {
+  display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent;
+  font: inherit; font-size: var(--fs-sm); padding: 5px 8px; border-radius: var(--r-chip, 4px);
+  cursor: pointer; text-align: left; color: var(--c-text);
+}
+.cmd-sg:hover { background: var(--c-surface-alt, #f5f7f9); }
+.cmd-sg.on { background: var(--c-primary-bg, #e9f1ff); }
+.cmd-sg b { font-weight: 600; white-space: nowrap; }
+.cmd-av {
+  width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  font-size: 10px; font-weight: 700; color: #fff; background: #6b8f98;
+}
+.cmd-av.grp { border-radius: 5px; background: var(--c-nav-fg-strong, #0d4451); }
+.cmd-sgorg {
+  font-size: var(--fs-xs); color: var(--c-text-faint); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.cmd-sgmail {
+  margin-left: auto; padding-left: 8px; font-family: var(--font-mono, monospace);
+  font-size: var(--fs-xs); color: var(--c-text-faint); white-space: nowrap;
+}
+.cmd-sghint {
+  font-size: 10px; color: var(--c-text-faint); padding: 5px 8px 2px;
+  border-top: 1px solid var(--c-border-soft); margin-top: 3px;
+}
+
+/* 첨부 */
+.cmd-att { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cmd-att li {
+  display: flex; align-items: center; gap: 8px; border: 1px solid var(--c-border-soft);
+  border-radius: var(--r-chip, 4px); padding: 4px 4px 4px 5px; background: var(--c-surface, #fff);
+}
+.cmd-ext {
+  flex: none; min-width: 34px; height: 20px; padding: 0 4px; border-radius: 3px;
+  display: inline-grid; place-items: center; font-size: 9px; font-weight: 700; color: #fff;
+}
+.cmd-attnm { flex: 1; min-width: 0; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd-attsz { flex: none; font-family: var(--font-mono, monospace); font-size: var(--fs-xs); color: var(--c-text-faint); }
+.cmd-att li button {
+  flex: none; border: 0; background: transparent; color: var(--c-text-faint); cursor: pointer;
+  padding: 2px 6px; border-radius: 3px; font-size: 12px;
+}
+.cmd-att li button:hover { color: var(--c-fail, #cc3333); background: #fdebec; }
+.cmd-drop {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px;
+  padding: 12px 10px; border: 1.5px dashed var(--c-border); border-radius: var(--r-chip, 4px);
+  background: var(--c-surface, #fff); font-size: var(--fs-sm); color: var(--c-text-faint);
+  cursor: pointer; transition: background 0.12s, border-color 0.12s;
+}
+.cmd-drop.sm { justify-content: flex-start; padding: 5px 8px; }
+.cmd-drop.sm .cmd-cap { margin-left: auto; }
+.cmd-drop input { display: none; }
+.cmd-pick {
+  border: 1px solid var(--c-border); background: var(--c-surface-alt, #f5f7f9); color: var(--c-text);
+  font-size: var(--fs-xs); padding: 3px 10px; border-radius: var(--r-chip, 4px);
+}
+.cmd-drop:hover .cmd-pick { border-color: var(--c-primary); color: var(--c-primary); }
+.cmd-cap { font-size: var(--fs-xs); }
+.cmd-attmsg { font-size: var(--fs-xs); color: var(--c-fail, #cc3333); line-height: 1.5; }
+.modal.cmd.dragging .cmd-drop { border-color: var(--c-primary); background: var(--c-primary-bg, #e9f1ff); color: var(--c-primary); }
+.modal.cmd.dragging::after {
+  content: '놓으면 첨부 파일로 넣습니다'; position: absolute; inset: 52px 0 56px; z-index: 40;
+  display: grid; place-items: center; background: rgba(233, 241, 255, 0.86);
+  border: 2px dashed var(--c-primary); border-radius: var(--r-box, 6px);
+  color: var(--c-primary); font-size: var(--fs-lg); font-weight: 700; pointer-events: none;
+}
+
+/* 본문 — Test Summary 와 같은 서식 */
+.cmd-doc { min-height: 180px; overflow: auto; padding: 12px 14px; line-height: 1.7; }
+.cmd-doc h1, .cmd-doc h2, .cmd-doc h3 { margin: 16px 0 6px; font-size: var(--fs-md); font-weight: 700; }
+.cmd-doc h2:first-child, .cmd-doc h1:first-child { margin-top: 2px; }
+.cmd-doc p { margin: 0 0 7px; }
+.cmd-doc table { border-collapse: collapse; margin: 4px 0 10px; font-size: var(--fs-sm); }
+.cmd-doc th, .cmd-doc td { border: 1px solid var(--c-border-soft); padding: 5px 12px; text-align: left; }
+.cmd-doc th { background: var(--c-surface-alt, #f5f7f9); font-weight: 600; }
+.cmd-prev { width: 100%; height: 320px; border: 1px solid var(--c-border); border-radius: var(--r-box, 6px); background: #fff; }
+
+/* 아래 줄 */
+.cmd-foot { display: flex; align-items: center; gap: 8px; }
+.cmd-warn { flex: 1; min-width: 0; font-size: var(--fs-xs); color: var(--c-draft, #a97800); }
+.cmd-warn.err { color: var(--c-fail, #cc3333); }
+.cmd-warn.ok { color: var(--c-pass, #18864b); }
+
+/* ── 조직도 판 ── */
+.cmd-org {
+  display: flex; flex-direction: column; width: 400px; flex: none; min-height: 0;
+  border-left: 1px solid var(--c-border-soft); background: var(--c-surface-alt, #f5f7f9);
+}
+.cmd-orghd { display: flex; align-items: center; gap: 10px; padding: 10px 12px 8px; }
+.cmd-orghd b { font-size: var(--fs-md); color: var(--c-nav-fg-strong, #0d4451); }
+.cmd-seg {
+  display: inline-flex; border: 1px solid var(--c-border); border-radius: var(--r-chip, 4px);
+  overflow: hidden; background: var(--c-surface, #fff);
+}
+.cmd-seg button {
+  border: 0; background: transparent; font: inherit; font-size: var(--fs-xs); color: var(--c-text-muted);
+  padding: 3px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+}
+.cmd-seg button + button { border-left: 1px solid var(--c-border); }
+.cmd-seg button:hover { background: var(--c-surface-alt, #f5f7f9); }
+.cmd-seg button.on { background: var(--c-primary); color: #fff; font-weight: 600; }
+.cmd-seg button.cc.on { background: #0e7490; }
+.cmd-seg button.bcc.on { background: #56626e; }
+.cmd-seg em { font-style: normal; font-size: 10px; opacity: 0.85; }
+.cmd-orgq {
+  margin: 0 12px 6px; display: flex; align-items: center; gap: 6px;
+  border: 1px solid var(--c-border); border-radius: var(--r-chip, 4px);
+  background: var(--c-surface, #fff); padding: 0 6px 0 9px;
+}
+.cmd-orgq:focus-within { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg, #e9f1ff); }
+.cmd-orgq input {
+  flex: 1; min-width: 0; border: 0; outline: none; font: inherit; font-size: var(--fs-sm);
+  padding: 7px 0; background: transparent; color: var(--c-text);
+}
+.cmd-orgq button {
+  border: 0; background: transparent; color: var(--c-text-faint); cursor: pointer;
+  font-size: 12px; padding: 2px 5px; border-radius: 3px;
+}
+.cmd-orgq button:hover { color: var(--c-fail, #cc3333); background: var(--c-surface-alt, #f5f7f9); }
+.cmd-orgmeta {
+  display: flex; align-items: center; gap: 4px; padding: 0 12px 6px;
+  font-size: var(--fs-xs); color: var(--c-text-faint);
+}
+.cmd-orgmeta b { color: var(--c-text); }
+.cmd-orgmeta button {
+  border: 0; background: transparent; font: inherit; font-size: var(--fs-xs); color: var(--c-primary);
+  cursor: pointer; padding: 1px 4px; border-radius: 3px;
+}
+.cmd-orgmeta button:hover { background: var(--c-primary-bg, #e9f1ff); }
+.cmd-orglist {
+  flex: 1; min-height: 0; overflow: auto; background: var(--c-surface, #fff);
+  border-top: 1px solid var(--c-border-soft); padding: 4px 0 10px;
+}
+.cmd-og { display: flex; align-items: center; gap: 4px; height: 30px; padding-right: 8px; }
+.cmd-og:hover { background: var(--c-surface-alt, #f5f7f9); }
+.cmd-og.top { height: 32px; }
+.cmd-ogt {
+  flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 5px; border: 0;
+  background: transparent; font: inherit; font-size: var(--fs-sm); font-weight: 600;
+  color: var(--c-nav-fg-strong, #0d4451); cursor: pointer; padding: 0; text-align: left;
+}
+.cmd-og.top .cmd-ogt { font-size: var(--fs-md); }
+.cmd-ogt i {
+  font-style: normal; display: inline-flex; flex: none; color: var(--c-text-faint);
+  transition: transform 0.12s; font-size: 13px; width: 12px;
+}
+.cmd-ogt i.open { transform: rotate(90deg); }
+.cmd-ognm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd-ogt em {
+  font-style: normal; font-weight: 400; font-size: 10px; color: var(--c-text-faint);
+  background: var(--c-surface-alt, #f5f7f9); border-radius: 9px; padding: 0 6px; flex: none;
+}
+.cmd-oglead {
+  font-weight: 400; font-size: var(--fs-xs); color: var(--c-text-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cmd-ogall {
+  flex: none; border: 1px solid transparent; background: transparent; color: var(--c-text-faint);
+  font: inherit; font-size: var(--fs-xs); padding: 1px 7px; border-radius: var(--r-chip, 4px);
+  cursor: pointer; white-space: nowrap;
+}
+.cmd-og:hover .cmd-ogall { color: var(--c-primary); }
+.cmd-ogall:hover { border-color: #c3dbff; background: var(--c-primary-bg, #e9f1ff); }
+.cmd-ogall.on, .cmd-og:hover .cmd-ogall.on { color: var(--c-fail, #cc3333); }
+.cmd-ogall.on:hover { border-color: #f3c7cb; background: #fdebec; }
+.cmd-op {
+  display: flex; align-items: center; gap: 6px; width: 100%; height: 30px; border: 0;
+  background: transparent; font: inherit; font-size: var(--fs-sm); color: var(--c-text);
+  text-align: left; cursor: pointer; padding-right: 10px;
+}
+.cmd-op:hover { background: var(--c-primary-bg-soft, #edf5ff); }
+.cmd-op:disabled { cursor: default; color: var(--c-text-faint); }
+.cmd-op:disabled:hover { background: transparent; }
+.cmd-ob {
+  font-style: normal; flex: none; width: 15px; height: 15px; border: 1.5px solid var(--c-border);
+  border-radius: 3px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; line-height: 1; color: #fff; background: var(--c-surface, #fff);
+}
+.cmd-op.in-to .cmd-ob { background: var(--c-primary); border-color: var(--c-primary); }
+.cmd-op.in-cc .cmd-ob { background: #0e7490; border-color: #0e7490; }
+.cmd-op.in-bcc .cmd-ob { background: #56626e; border-color: #56626e; }
+.cmd-op:disabled .cmd-ob { border-style: dashed; background: var(--c-surface-alt, #f5f7f9); }
+.cmd-op b { font-weight: 600; white-space: nowrap; }
+.cmd-oprk { font-size: var(--fs-xs); color: var(--c-text-muted); white-space: nowrap; }
+.cmd-opmail {
+  flex: 1; min-width: 0; text-align: right; font-family: var(--font-mono, monospace);
+  font-size: var(--fs-xs); color: var(--c-text-faint); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.cmd-optag { flex: none; font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 5px; }
+.cmd-optag.to { background: var(--c-primary-bg, #e9f1ff); color: var(--c-primary); }
+.cmd-optag.cc { background: #e0f2f6; color: #0e7490; }
+.cmd-optag.bcc { background: #eceff3; color: #3f4a55; }
+.cmd-orgempty { padding: 28px 12px; text-align: center; color: var(--c-text-faint); font-size: var(--fs-sm); }
+.cmd-orgft {
+  padding: 7px 12px; font-size: var(--fs-xs); color: var(--c-text-faint);
+  border-top: 1px solid var(--c-border-soft); line-height: 1.5;
+}
+
+@media (max-width: 1100px) {
+  .modal.cmd.org-on .cmd-org {
+    position: absolute; left: 0; right: 0; top: 48px; bottom: 0; width: auto; z-index: 30; border-left: 0;
+  }
+}
