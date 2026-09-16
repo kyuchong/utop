@@ -13247,43 +13247,47 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
             # 「현상」 은 **증상 한 줄**이다(지시: "dwrr 비율이 맞지않는 현상,
             # Multicast 플러딩 불가" 같은 꼴). 깨진 스텝마다 「무엇이 안 된다」
             # 를 짧게 적고 쉼표로 잇는다 — 자세한 경위는 아래 판들이 맡는다.
-            bits: list[str] = []
-            for b in briefs:
-                if not str(b.get("status") or "").upper().startswith("F"):
-                    continue
-                # **사람이 쓴 설명이 먼저**다 — cli 는 스크립트라 그대로 두면
-                # 변수 표기가 결함에 실린다. 설명이 없으면 cli 에서 변수를
-                # 걷어내 보고, 그래도 남는 게 없으면 시험 항목 이름을 쓴다.
+            # **같은 시험을 두 번 적지 않는다.** 반복 시험은 회차마다 줄이
+            # 서고 「반복 시험 실패」 같은 껍데기 스텝도 끼어, 그대로 이으면
+            # 「반복 시험 실패, A 실패 — 까닭, A 실패」 가 된다(지적).
+            #  · 실제로 무엇을 했는지 아는 스텝(명령·출력이 있는 것)을 앞에.
+            #  · 같은 일을 가리키는 줄은 하나만 — 까닭이 붙은 쪽을 남긴다.
+            fails = [b for b in briefs if str(b.get("status") or "").upper().startswith("F")]
+            fails.sort(key=lambda b: 0 if (b.get("cli") or b.get("output")) else 1)
+            picked: dict[str, str] = {}
+            order: list[str] = []
+            for b in fails:
                 what = str(b.get("desc") or "").strip() or _plain_ko(str(b.get("cli") or ""))
-                if not what:
-                    what = str(name or tcid)
                 why2 = _plain_ko(str(b.get("reason") or ""))
-                # 판정 근거는 대개 한 문장이라 그대로 쓰되, 길면 앞만 남긴다
                 if len(why2) > 60:
                     why2 = why2[:60].rstrip() + "…"
-                if what and why2:
-                    bits.append(f"{what} 실패 — {why2}")
-                elif what:
-                    bits.append(f"{what} 실패")
-                elif why2:
-                    bits.append(why2)
-                if len(bits) >= 5:
+                key = _re_sub_oid(what) or why2
+                if not key:
+                    continue
+                line = (
+                    f"{_re_sub_oid(what)} 실패 — {why2}"
+                    if what and why2
+                    else (f"{_re_sub_oid(what)} 실패" if what else why2)
+                )
+                if key in picked:
+                    # 이미 있는 줄에 까닭이 없고 이번 것에 있으면 바꿔 단다
+                    if why2 and "—" not in picked[key]:
+                        picked[key] = line
+                    continue
+                picked[key] = line
+                order.append(key)
+                if len(order) >= 5:
                     break
-            sym = ", ".join(bits) or f"{name or tcid} 부적합"
+            bits = [picked[k] for k in order]
+            sym = ", ".join(bits) or f"{_re_sub_oid(name or tcid)} 부적합"
 
-            # **요약은 「무엇이 안 되는지」** 다(지시: 시험 제목 그대로가 아니라
-            # Fail 을 요약). 이 팀의 지라 결함들이 그 꼴이다 —
-            #   [SNMP] SNMP Set 을 통한 CPE Reset 시 미동작
-            #   [Storm-Control] … 약 130M 로만 제어 되는 현상
-            # 대괄호에 **어느 판·어느 버전**인지, 뒤에 증상을 적는다. 기존
-            # UTOP 결함들도 「[E6100 R100_20260825] …」 로 그렇게 적혀 있다.
+            # **요약은 현상과 같은 말이다**(지시). 앞에 [UTOP] 을 붙여 자동으로
+            # 등록한 것임을 지라에서 바로 알아보게 한다.
             head = " ".join([x for x in (model, version) if x])
-            # 증상 한 줄이 곧 요약이다 — 시험 이름을 앞에 또 붙이면
-            # 「A — A 실패 — 까닭」 처럼 같은 말이 세 겹이 된다(실측).
-            body = _re_sub_oid(bits[0]) if bits else f"{_re_sub_oid(name or tcid)} 부적합"
-            title = f"[{head}] {body}" if head else body
+            title = f"[UTOP] [{head}] {sym}" if head else f"[UTOP] {sym}"
             if len(title) > 150:
                 title = title[:150].rstrip() + "…"
+
             # 판마다 맡는 말이 다르다(지시).
             #  · 3. 시험절차 — **그 시험 항목으로 가는 주소**. 절차 전문을
             #    옮겨 적으면 시험이 바뀔 때 이슈만 옛말이 된다. 링크를 누르면
