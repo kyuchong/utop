@@ -9474,14 +9474,40 @@ async def cycle_summary_body(cycle_id: str, token: str = ""):
         t = _re.sub(r"`([^`]+)`", r"<code>\1</code>", t)
         return t
 
+    lines = md.split("\n")
     out: list[str] = []
     ul = False
-    for raw in md.split("\n"):
-        t = raw.rstrip()
+    i = 0
+    while i < len(lines):
+        t = lines[i].rstrip()
+        i += 1
         if not t.strip():
             if ul:
                 out.append("</ul>")
                 ul = False
+            continue
+        # **표는 표로**(지시: 목업처럼). 파이프 표를 글줄로 흘리면 메일에서
+        # 「| 구분 | 전체 |」 가 그대로 보인다 — 숫자를 견주라고 만든 표인데
+        # 자릿수가 어긋나 아무것도 못 읽는다.
+        if t.lstrip().startswith("|") and i < len(lines) and _re.match(
+            r"^\s*\|[\s:|-]+\|\s*$", lines[i]
+        ):
+            if ul:
+                out.append("</ul>")
+                ul = False
+            cells = lambda r: [c.strip() for c in r.strip().strip("|").split("|")]
+            head = cells(t)
+            i += 1  # 구분선
+            body = []
+            while i < len(lines) and lines[i].lstrip().startswith("|"):
+                body.append(cells(lines[i]))
+                i += 1
+            out.append("<table>")
+            out.append("<thead><tr>" + "".join(f"<th>{_ln(c)}</th>" for c in head) + "</tr></thead>")
+            out.append("<tbody>")
+            for r in body:
+                out.append("<tr>" + "".join(f"<td>{_ln(c)}</td>" for c in r) + "</tr>")
+            out.append("</tbody></table>")
             continue
         m = _re.match(r"^(#{1,4})\s+(.*)$", t)
         if m:
