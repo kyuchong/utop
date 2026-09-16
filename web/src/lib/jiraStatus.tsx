@@ -55,6 +55,14 @@ export function JiraStatusChip({
   stat?: JiraStat
   closed?: boolean
 }): React.ReactElement {
+  /* 지라에서 지워진 이슈 — 열쇠만 보여 주면 「아직 안 왔나」 로 읽힌다 */
+  if (jiraKey && stat && !stat.name && stat.cat === 'gone') {
+    return (
+      <span className="jst jst-gone" title={`${jiraKey} — 지라에 없습니다(지워졌을 수 있습니다)`}>
+        지라에 없음
+      </span>
+    )
+  }
   if (jiraKey && stat?.name) {
     const cat = stat.cat === 'done' ? 'done' : stat.cat === 'indeterminate' ? 'doing' : 'new'
     return (
@@ -76,6 +84,7 @@ export function jiraStatusText(
 ): string {
   const jk = String(d.jira_key ?? '')
   if (jk && map[jk]?.name) return map[jk]!.name
+  if (jk && map[jk]?.cat === 'gone') return '지라에 없음'
   if (jk) return jk /* 상태가 아직 안 왔다 — 「미등록」 이라 적으면 거짓이 된다 */
   return String(d.status ?? '') === 'closed' ? '닫힘' : '미등록'
 }

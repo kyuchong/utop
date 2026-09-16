@@ -22,11 +22,13 @@
 /* 지라에 있는데 상태를 아직 못 받은 동안 — 열쇠만 조용히 세운다 */
 .jst-wait { background: var(--c-surface-soft, #f1f4f6); color: var(--c-text-faint); border-color: var(--c-border); }
 .jst-none { background: var(--c-surface-soft, #f1f4f6); color: var(--c-text-faint); border-color: var(--c-border); }
+.jst-gone { background: #fdeaea; color: #a32a2a; border-color: #f5c9c9; }
 .jst-closed { background: #efe8f6; color: #5b3a8a; border-color: #ddcdf0; }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .jst-new { background: #16305c; color: #b9d3ff; border-color: #24457c; }
   :root:not([data-theme='light']) .jst-doing { background: #4a3608; color: #ffdf9e; border-color: #6b4f10; }
   :root:not([data-theme='light']) .jst-done { background: #10381f; color: #a8e6c3; border-color: #1c5533; }
+  :root:not([data-theme='light']) .jst-gone { background: #4a1c1c; color: #ffc4c4; border-color: #6b2a2a; }
   :root:not([data-theme='light']) .jst-closed { background: #2f2542; color: #d3bff0; border-color: #453563; }
 }

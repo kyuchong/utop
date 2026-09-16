@@ -30,6 +30,11 @@ export interface DefectRec {
   reporter?: string | null
   created_by?: string | null
   created_at?: string | null
+  /* 어느 사이클에서 났나 — 시험내역 머리의 빵부스러기가 이 셋을 쓴다 */
+  cycle_id?: string | null
+  cycle_name?: string | null
+  model?: string | null
+  version?: string | null
   steps?: unknown
   /** 이슈 본문 여덟 판 — 현상·시험구성도·시험절차·시험내역·Config·Core·Kernel Log·첨부파일 */
   panels?: Record<string, string>
@@ -194,6 +199,46 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
      이 시스템에 없다: 구성도는 「이 시험을 어떻게 꾸몄나」 라서 시험항목에
      붙는다. 결함이 걸린 그 항목의 것이 곧 이 결함의 구성도다. */
   const tcid = item?.tcid || existing?.tcid || ''
+  /**
+   * **빵부스러기**(지시) — 「Coverage / 111. LGUPLUS E6100 / SW / MAINT /
+   * 시험명 (E61xx-T0001)」.
+   *
+   * 열쇠만 적어 두면 그것이 어느 제품의 무슨 갈래인지 알 길이 없다. 폴더
+   * 길은 요구사항이 들고 있어(req.cat1~4) 서버에 묻는다.
+   */
+  const [crumb, setCrumb] = useState<{ name: string; path: string[] }>({ name: '', path: [] })
+  useEffect(() => {
+    if (!tcid) return
+    let dead = false
+    void (async () => {
+      try {
+        const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}/crumb`)
+        const j = (await r.json()) as { name?: string; path?: string[] }
+        if (!dead) setCrumb({ name: String(j.name ?? ''), path: j.path ?? [] })
+      } catch {
+        /* 못 물어도 결함 등록은 막지 않는다 — 머리줄만 없이 간다 */
+      }
+    })()
+    return () => {
+      dead = true
+    }
+  }, [tcid])
+  const origin = `${window.location.origin}${window.location.pathname}`
+  /** 3. 시험절차 머리 — 시험 항목으로 가는 길 */
+  const tcCrumbTxt = useMemo(() => {
+    const nm = crumb.name || item?.name || existing?.tc_name || ''
+    const parts = ['Coverage', ...crumb.path.filter(Boolean), ...(nm ? [nm] : [])]
+    return tcid ? `${parts.join(' / ')} (${tcid})` : ''
+  }, [crumb, item, existing, tcid])
+  const tcCrumbUrl = tcid ? `${origin}?tc=${encodeURIComponent(tcid)}` : ''
+  /** 4. 시험내역 머리 — 그 사이클로 가는 길 */
+  const cycId = cycle?.id || existing?.cycle_id || ''
+  const cycCrumbTxt = useMemo(() => {
+    const mv = [cycle?.model || existing?.model || '', cycle?.version || existing?.version || '']
+    const parts = ['Cycles', ...mv.filter(Boolean)]
+    return parts.length > 1 ? parts.join(' / ') : ''
+  }, [cycle, existing])
+  const cycCrumbUrl = cycId ? `${origin}?cycle=${encodeURIComponent(String(cycId))}` : ''
   const [topoImg, setTopoImg] = useState('')
   /**
    * **판마다 붙인 파일**(지시: 이미지 붙여넣기·각 칸 파일 첨부).
@@ -440,8 +485,10 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
            걷었다 — 글과 그림은 고르는 것이 아니라 함께 가는 것이다. */
         image: !!topoImg,
         config: cfgText,
+        tcCrumb: tcCrumbTxt ? (tcCrumbUrl ? `[${tcCrumbTxt}|${tcCrumbUrl}]` : tcCrumbTxt) : '',
+        cycleCrumb: cycCrumbTxt ? (cycCrumbUrl ? `[${cycCrumbTxt}|${cycCrumbUrl}]` : cycCrumbTxt) : '',
       }),
-    [panels, briefs, topoImg, cfgText],
+    [panels, briefs, topoImg, cfgText, tcCrumbTxt, tcCrumbUrl, cycCrumbTxt, cycCrumbUrl],
   )
   /* 미리보기 아래에 적을 것들 — 왼쪽에서 고른 그대로 */
   const prevRows = useMemo(() => toPreviewRows(jfDefs, jfVals), [jfDefs, jfVals])
@@ -807,10 +854,15 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                       onClick={() =>
                         setPanel(
                           p.k,
+                          /* 손으로 고칠 때도 **보이던 그대로**를 가져온다 —
+                             머리의 빵부스러기가 빠지면, 고치기를 누른 순간
+                             어느 시험인지가 사라진다. */
                           autoSteps
-                            ? procFromSteps(briefs as WikiStep[])
+                            ? (tcCrumbTxt ? `[${tcCrumbTxt}|${tcCrumbUrl}]\n\n` : '') +
+                              procFromSteps(briefs as WikiStep[])
                             : autoDet
-                              ? detailFromSteps(briefs as WikiStep[])
+                              ? (cycCrumbTxt ? `[${cycCrumbTxt}|${cycCrumbUrl}]\n\n` : '') +
+                                detailFromSteps(briefs as WikiStep[])
                               : cfgText,
                         )
                       }
@@ -826,15 +878,29 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     /* **설명만 차례대로**(지시) — 명령·결과·판정은 4번이
                        맡는다. 한 이야기를 두 판에 나눠 적으면 어느 쪽이
                        정본인지 알 수 없다. */
-                    <ol className="dfx-auto-b dfx-proc">
+                    <div className="dfx-auto-b">
+                      {/* **어느 시험인지 먼저**(지시) — 폴더 길을 칩으로 세운다 */}
+                      {!!tcCrumbTxt && (
+                        <a className="dfx-crumb" href={tcCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 시험 항목으로 갑니다">
+                          {tcCrumbTxt}
+                        </a>
+                      )}
+                      <ol className="dfx-proc">
                       {briefs
                         .filter((b) => (b.desc || b.cli || '').trim())
                         .map((b) => (
                           <li key={b.no}>{b.desc || b.cli}</li>
                         ))}
-                    </ol>
+                      </ol>
+                    </div>
                   ) : autoDet ? (
                     <div className="dfx-auto-b">
+                      {/* **어느 사이클에서 났나**(지시) */}
+                      {!!cycCrumbTxt && (
+                        <a className="dfx-crumb" href={cycCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 사이클로 갑니다">
+                          {cycCrumbTxt}
+                        </a>
+                      )}
                       {briefs.map((b) => (
                         <div key={b.no} className={`dfx-step ${b.status === 'Fail' ? 'fail' : ''}`}>
                           {/* 이름을 붙여 적는다(지시: CLI·결과값·판정).

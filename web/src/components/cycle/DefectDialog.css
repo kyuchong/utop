@@ -432,3 +432,31 @@
 .dfx-proc li { font-size: var(--fs-sm); line-height: 1.55; }
 /* 4. 시험내역 — 이름 붙은 CLI 는 한 줄로 두되 길면 감는다 */
 .dfx-meta code { font-family: var(--ff-mono, ui-monospace, monospace); font-size: var(--fs-xs); word-break: break-all; }
+/* 빵부스러기 칩 — 「어느 시험인지 / 어느 사이클인지」 를 한 줄로(지시).
+   창의 자동 블록과 미리보기가 같은 얼굴이라야, 무엇이 올라가는지 안다. */
+.dfx-crumb,
+.jw-panel-b > .jw-ln:first-child > .jw-a:only-child {
+  display: inline-block;
+  max-width: 100%;
+  margin: 8px 8px 2px;
+  padding: 3px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface-soft, #f1f4f6);
+  color: var(--c-text-2, #4a5568);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jw-panel-b > .jw-ln:first-child > .jw-a:only-child { margin: 0 0 6px; }
+.dfx-crumb:hover,
+.jw-panel-b > .jw-ln:first-child > .jw-a:only-child:hover {
+  border-color: var(--c-accent, #2f7d6d);
+  color: var(--c-accent, #2f7d6d);
+}
+/* 자동 블록 안에서는 제 자리를 차지한다 — 목록과 붙지 않게 */
+.dfx-auto-b > .dfx-crumb { margin-bottom: 0; }
+.dfx-auto-b > .dfx-proc { padding-top: 4px; }

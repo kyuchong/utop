@@ -13311,16 +13311,39 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
             #    판단인지 읽는 사람이 가려내야 한다.
             # 두 판이 같은 말을 나눠 갖는다 — 겹쳐 적으면 어느 쪽이 정본인지
             # 알 수 없다.
+            # 주소 — 이슈에서 UTOP 으로 돌아오는 길
+            base = ""
+            try:
+                base = str((_load_mail_cfg() or {}).get("app_url") or "").strip().rstrip("/")
+            except Exception:
+                pass
+            base = base or str(base_url or "").strip().rstrip("/")
+            crumb = await _tc_crumb(tcid)
+
             proc_lines: list[str] = []
+            # **어느 시험인지 먼저 밝힌다**(지시) — 폴더 길과 주소를 한 줄로.
+            proc_lines.append(_crumb_line(
+                "Coverage", crumb.get("path") or [], str(crumb.get("name") or name or ""),
+                f"{base}/?tc={tcid}" if base else "", tcid,
+            ))
+            proc_lines.append("")
             for b in briefs:
                 what = str(b.get("desc") or "").strip() or _plain_ko(str(b.get("cli") or ""))
                 what = " ".join(what.split())
                 if not what:
                     continue
-                proc_lines.append(f"{len(proc_lines) + 1}) {what}")
+                # 머리 두 줄(빵부스러기·빈 줄)은 번호에서 뺀다
+                proc_lines.append(f"{len(proc_lines) - 1}) {what}")
             proc = "\n".join(proc_lines) or f"{tcid} 자동 시험"
 
             det_lines: list[str] = []
+            # **어느 사이클에서 났는지 먼저 밝힌다**(지시) — 같은 시험이라도
+            # 어느 회차·어느 버전에서 깨졌나가 다르면 다른 이야기다.
+            det_lines.append(_crumb_line(
+                "Cycles", [x for x in (model, version) if x], "",
+                f"{base}/?cycle={cid}" if base and cid else "",
+            ))
+            det_lines.append("")
             for b in briefs[:20]:
                 what = str(b.get("desc") or "").strip() or _plain_ko(str(b.get("cli") or ""))
                 cli = " ".join(str(b.get("cli") or "").strip().split())
@@ -22011,6 +22034,55 @@ async def defect_push_jira(did: str, payload: dict = None):
     return {"ok": True, "key": key, "url": res.get("url"), "defect": upd}
 
 
+async def _tc_crumb(tcid: str) -> dict:
+    """시험 항목의 **빵부스러기** — `Coverage / 111. LGUPLUS E6100 / SW / MAINT / 시험명`.
+
+    이슈를 받는 사람은 대개 UTOP 계정이 없다. 열쇠(E61xx-T0001)만 적어 두면
+    그것이 어느 제품의 무슨 갈래인지 알 길이 없어, 「어디 시험이냐」 를 되묻는
+    메일이 한 번 더 오간다. 폴더 길을 그대로 적으면 그 물음이 사라진다.
+
+    길은 요구사항이 들고 있다(req.cat1~cat4) — 시험 항목은 요구사항에 달리고,
+    폴더는 요구사항 쪽에만 있다.
+    """
+    out = {"tcid": tcid, "name": "", "path": []}
+    if not tcid:
+        return out
+    try:
+        async with db.pool().acquire() as c:
+            r = await c.fetchrow(
+                "SELECT t.name AS tcname, c1.name AS n1, c2.name AS n2, "
+                "       c3.name AS n3, c4.name AS n4 "
+                "  FROM tc t "
+                "  LEFT JOIN req r ON r.id = t.req_id "
+                "  LEFT JOIN req_category c1 ON c1.id = r.cat1 "
+                "  LEFT JOIN req_category c2 ON c2.id = r.cat2 "
+                "  LEFT JOIN req_category c3 ON c3.id = r.cat3 "
+                "  LEFT JOIN req_category c4 ON c4.id = r.cat4 "
+                " WHERE t.tcid = $1",
+                tcid,
+            )
+        if r:
+            out["name"] = str(r["tcname"] or "")
+            out["path"] = [str(r[k] or "") for k in ("n1", "n2", "n3", "n4") if r[k]]
+    except Exception:
+        pass
+    return out
+
+
+def _crumb_line(head: str, parts: list, tail: str, url: str, tag: str = "") -> str:
+    """빵부스러기 한 줄을 위키 링크로 — 주소가 없으면 글자만 남긴다."""
+    txt = " / ".join([head, *[x for x in parts if x], *([tail] if tail else [])])
+    if tag:
+        txt += f" ({tag})"
+    return f"[{txt}|{url}]" if url else txt
+
+
+@app.get("/api/tc/{tcid}/crumb")
+async def api_tc_crumb(tcid: str):
+    """결함 창이 3. 시험절차 머리에 세울 빵부스러기."""
+    return {"ok": True, **(await _tc_crumb(tcid))}
+
+
 _JIRA_DEFSTAT_CACHE: dict = {}
 
 
@@ -22042,26 +22114,47 @@ async def defects_jira_status(keys: str = ""):
             out[k] = hit[1]
         else:
             ask.append(k)
+    def _pick(st: dict) -> dict:
+        # 지라의 갈래(new · indeterminate · done)를 그대로 받는다 — 상태
+        # 이름은 프로젝트마다 다르지만 갈래는 셋뿐이라, 칩 색을 이름이 아니라
+        # 갈래로 고를 수 있다
+        return {
+            "name": str(st.get("name") or ""),
+            "cat": str(((st.get("statusCategory") or {}).get("key")) or ""),
+        }
+
     if ask:
         jql = "key in (%s)" % ",".join(f'"{k}"' for k in ask)
         r, err = _jira_call(
             "GET", "/rest/api/2/search",
             params={"jql": jql, "fields": "status", "maxResults": len(ask)},
         )
+        got = set()
         if not err and r is not None and r.is_success:
             for it in (r.json().get("issues") or []):
                 k = str(it.get("key") or "")
-                st = ((it.get("fields") or {}).get("status") or {})
-                v = {
-                    "name": str(st.get("name") or ""),
-                    # 지라의 갈래(new · indeterminate · done)를 그대로 받는다 —
-                    # 상태 이름은 프로젝트마다 다르지만 갈래는 셋뿐이라, 칩
-                    # 색을 이름이 아니라 갈래로 고를 수 있다
-                    "cat": str(((st.get("statusCategory") or {}).get("key")) or ""),
-                }
+                v = _pick(((it.get("fields") or {}).get("status") or {}))
                 if v["name"]:
                     out[k] = v
                     _JIRA_DEFSTAT_CACHE[k] = (now, v)
+                    got.add(k)
+        # **하나가 없으면 전부 못 받는다.** 지운 이슈가 한 건만 섞여도 지라는
+        # JQL 전체를 400 으로 물린다("키가 'P88-4341'인 이슈가 존재하지
+        # 않습니다"). 그 한 건 때문에 표의 상태가 통째로 비면 안 되니, 그때는
+        # 하나씩 묻는다 — 없는 것은 없다고 적어 두고 다시 묻지 않는다.
+        rest = [k for k in ask if k not in got]
+        for k in rest[:40]:
+            r2, e2 = _jira_call("GET", f"/rest/api/2/issue/{k}", params={"fields": "status"})
+            if e2 or r2 is None:
+                continue
+            if r2.status_code == 404:
+                v = {"name": "", "cat": "gone"}
+            elif r2.is_success:
+                v = _pick(((r2.json().get("fields") or {}).get("status") or {}))
+            else:
+                continue
+            out[k] = v
+            _JIRA_DEFSTAT_CACHE[k] = (now, v)
     return {"ok": True, "statuses": out}
 
 
