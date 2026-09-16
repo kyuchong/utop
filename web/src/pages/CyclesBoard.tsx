@@ -3114,7 +3114,9 @@ export default function CyclesBoard({
   /* ── 상세: 결함 내역 — 이 사이클에 등록된 결함(지시) ── */
   /** 결함 표의 열 — **Defects 화면과 같은 한 벌**(지시).
    *  같은 자료를 두 화면이 다른 열로 보이면 어느 쪽이 정본인지 묻게 된다.
-   *  사이클 안이라 사이클·모델·버전은 뺐다 — 지금 보는 그 사이클이다. */
+   *  사이클 안이라 사이클·모델·버전은 뺐다 — 지금 보는 그 사이클이다.
+   *  수정버전·Jira 키도 걷었다(지시) — 지라에 올린 뒤에야 생기는 값이라
+   *  사이클 안에서는 늘 비어 있었다. 둘 다 Defects 화면에는 그대로 있다. */
   const defDefs = useMemo<NCol[]>(
     () => [
       { key: 'id', label: 'ID', type: 'text', width: 124, fixed: true },
@@ -3124,13 +3126,11 @@ export default function CyclesBoard({
       { key: 'title', label: '요약', type: 'text', width: 420, fixed: true },
       { key: 'status', label: '상태', type: 'select', width: 104 },
       { key: 'priority', label: '우선순위', type: 'select', width: 88 },
-      { key: 'fix_version', label: '수정버전', type: 'text', width: 130 },
       { key: 'component', label: '구성요소', type: 'select', width: 104 },
       { key: 'reporter', label: '보고자', type: 'text', width: 96 },
       { key: 'created_by', label: '등록자', type: 'text', width: 104 },
       { key: 'created_at', label: '등록일', type: 'date', width: 132 },
       { key: 'tcid', label: '시험 항목', type: 'text', width: 130 },
-      { key: 'jira_key', label: 'Jira 키', type: 'text', width: 118 },
     ],
     [],
   )

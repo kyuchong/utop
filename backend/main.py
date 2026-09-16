@@ -13119,6 +13119,17 @@ async def _jira_defect_defaults(cycle: dict) -> dict:
 _VAR_RE = __import__("re").compile(r"[\'\"]?\$\{[^}]*\}[\'\"]?")
 
 
+def _re_sub_oid(t: str) -> str:
+    """시험 이름에서 **OID 괄호를 걷는다** — 요약이 길어지는 주범이다.
+
+    `sysDescr ( OID-1.3.6.1.2.1.1 ) Get 동작 확인` → `sysDescr Get 동작 확인`.
+    OID 는 본문(시험내역)에 그대로 남으므로 요약에서는 덜어도 잃는 것이 없다.
+    """
+    import re as _re
+    out = _re.sub(r"\(\s*OID-[^)]*\)", "", str(t or ""))
+    return _re.sub(r"\s{2,}", " ", out).strip()
+
+
 def _plain_ko(t: str) -> str:
     """**스크립트 표기를 걷어낸다**(지적: 변수가 그대로 들어가면 모른다).
 
@@ -13259,6 +13270,27 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
                 if len(bits) >= 5:
                     break
             sym = ", ".join(bits) or f"{name or tcid} 부적합"
+
+            # **요약은 「무엇이 안 되는지」** 다(지시: 시험 제목 그대로가 아니라
+            # Fail 을 요약). 이 팀의 지라 결함들이 그 꼴이다 —
+            #   [SNMP] SNMP Set 을 통한 CPE Reset 시 미동작
+            #   [Storm-Control] … 약 130M 로만 제어 되는 현상
+            # 대괄호에 **어느 판·어느 버전**인지, 뒤에 증상을 적는다. 기존
+            # UTOP 결함들도 「[E6100 R100_20260825] …」 로 그렇게 적혀 있다.
+            short = _re_sub_oid(name or tcid)
+            head = " ".join([x for x in (model, version) if x])
+            first_bit = bits[0] if bits else ""
+            # 스텝 설명이 있으면 그것이 「무엇을 하다」 이고, 근거가 「무엇이
+            # 안 되는지」 다. 둘 다 없으면 시험 이름만 남는다.
+            if first_bit and short and first_bit.startswith(short):
+                body = first_bit
+            elif first_bit:
+                body = f"{short} — {first_bit}" if short else first_bit
+            else:
+                body = f"{short} 부적합"
+            title = f"[{head}] {body}" if head else body
+            if len(title) > 150:
+                title = title[:150].rstrip() + "…"
             # 판마다 맡는 말이 다르다(지시).
             #  · 3. 시험절차 — **그 시험 항목으로 가는 주소**. 절차 전문을
             #    옮겨 적으면 시험이 바뀔 때 이슈만 옛말이 된다. 링크를 누르면
@@ -13302,7 +13334,7 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
                 # 새로 난 결함은 **New** 다(지시) — 「미해결」 탭은 닫히지
                 # 않은 것을 모두 담으므로 여기서도 보인다
                 "status": "New",
-                "title": name or tcid,
+                "title": title,
                 "cycle_id": cid,
                 "cycle_name": " · ".join([x for x in (model, version) if x]),
                 "tcid": tcid,
