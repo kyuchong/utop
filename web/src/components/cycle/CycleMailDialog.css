@@ -105,11 +105,14 @@
 }
 .cmd-av.grp { border-radius: 5px; background: var(--c-nav-fg-strong, #0d4451); }
 .cmd-sgorg {
+  flex: 1; min-width: 0;
   font-size: var(--fs-xs); color: var(--c-text-faint); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
+/* 자동 완성 줄의 「받는 → 옮김」 배지 */
+.cmd-sg .cmd-optag { flex: none; }
 .cmd-sgmail {
-  margin-left: auto; padding-left: 8px; font-family: var(--font-mono, monospace);
+  padding-left: 8px; font-family: var(--font-mono, monospace);
   font-size: var(--fs-xs); color: var(--c-text-faint); white-space: nowrap;
 }
 .cmd-sghint {

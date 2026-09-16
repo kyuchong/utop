@@ -302,7 +302,10 @@ export default function CycleMailDialog({
     i: number
   } | null>(null)
   const findSug = (box: Box, q: string) => {
-    const used = new Set(BOXES.flatMap((b) => lists[b]))
+    /* **이 칸에 없으면 보인다.** 어느 칸에든 들어간 사람을 통째로 빼던
+       때는, 받는 사람에 넣은 사람을 참조 칸에서 찾으면 아무것도 안 나와
+       「선택이 안 된다」 로 보였다(지적). 고르면 이 칸으로 옮긴다. */
+    const used = new Set(lists[box])
     const gs = Object.values(orgs)
       .filter((n) => n.depth > 0 && n.name.toLowerCase().includes(q) && n.mails.some((m) => !used.has(m)))
       .slice(0, 2)
@@ -329,7 +332,9 @@ export default function CycleMailDialog({
   const pickSug = (k: number) => {
     const it = sug?.items[k]
     if (!it || !sug) return false
-    if (it.g) put(sug.box, it.g.mails, false)
+    /* 조직을 고르면 그 조직 사람을 모두 이 칸으로 — 다른 칸에 있던 사람도
+       옮긴다. 「참조로 팀 전체」 를 누르는 사람이 바라는 것은 그것이다. */
+    if (it.g) put(sug.box, it.g.mails, true)
     else if (it.p) put(sug.box, [it.p.mail], true)
     setSug(null)
     return true
@@ -352,7 +357,10 @@ export default function CycleMailDialog({
     }
     const kids = q || isOpen ? n.kids.flatMap((k) => orgRows(k, f)) : []
     if (q && !self && !mem.length && !kids.length) return []
-    const free = n.mails.filter((m) => !BOXES.some((b) => lists[b].includes(m)))
+    /* 「＋N명」 은 **이 칸에 없는 사람**을 담는다(지적: 받는 사람에 넣은
+       사람이 참조에서 안 골라진다). 다른 칸에 있던 사람도 이 칸으로
+       옮긴다 — 「참조로 팀 전체」 를 누르는 사람이 바라는 것은 그것이다. */
+    const free = n.mails.filter((m) => !lists[orgBox].includes(m))
     const mine = n.mails.filter((m) => lists[orgBox].includes(m))
     const out: React.ReactNode[] = [
       <div className={`cmd-og${n.depth === 0 ? ' top' : ''}`} key={n.id} style={{ paddingLeft: 6 + n.depth * 16 }}>
@@ -379,8 +387,8 @@ export default function CycleMailDialog({
           <button
             type="button"
             className="cmd-ogall"
-            title={`${n.name} — 아직 넣지 않은 ${free.length}명을 ${BOXNAME[orgBox]}에 넣습니다`}
-            onClick={() => put(orgBox, free, false)}
+            title={`${n.name} — ${free.length}명을 ${BOXNAME[orgBox]}에 넣습니다 (다른 칸에 있던 사람은 옮겨집니다)`}
+            onClick={() => put(orgBox, free, true)}
           >
             ＋ {free.length}명
           </button>
@@ -535,7 +543,7 @@ export default function CycleMailDialog({
                   <span className="cmd-av grp">▤</span>
                   <b>{it.g.name}</b>
                   <span className="cmd-sgorg">
-                    {it.g.mails.filter((m) => !BOXES.some((b) => lists[b].includes(m))).length}명 모두 넣기
+                    {it.g.mails.filter((m) => !lists[sug.box].includes(m)).length}명 모두 넣기
                   </span>
                 </>
               ) : (
@@ -545,6 +553,11 @@ export default function CycleMailDialog({
                   </span>
                   <b>{it.p!.name}</b>
                   {!!it.p!.rank && <span className="cmd-oprk">{it.p!.rank}</span>}
+                  {/* 다른 칸에 이미 있으면 알려 준다 — 고르면 이리로 옮겨진다 */}
+                  {(() => {
+                    const w = whereOf(it.p!.mail)
+                    return w ? <span className={`cmd-optag ${w}`}>{BOXTAG[w]} → 옮김</span> : null
+                  })()}
                   <span className="cmd-sgorg">{it.p!.path}</span>
                   <span className="cmd-sgmail">{it.p!.mail}</span>
                 </>
