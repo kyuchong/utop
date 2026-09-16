@@ -267,6 +267,9 @@
 /* ── 위키 → 화면. Jira 가 보여 줄 모양에 가깝게 ── */
 .jw-panel { margin: 10px 0; border: 1px solid var(--c-border); border-radius: 6px; overflow: hidden; }
 .jw-panel-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 7px 12px;
   background: var(--c-surface-alt, #f4f5f7);
   border-bottom: 1px solid var(--c-border);
@@ -439,7 +442,7 @@
 /* 빵부스러기 칩 — 「어느 시험인지 / 어느 사이클인지」 를 한 줄로(지시).
    창의 자동 블록과 미리보기가 같은 얼굴이라야, 무엇이 올라가는지 안다. */
 .dfx-crumb,
-.jw-panel-b > .jw-ln:first-child > .jw-a:only-child {
+.jw-panel-h > .jw-crumb {
   display: inline-block;
   max-width: 100%;
   margin: 0 0 6px;
@@ -455,9 +458,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.jw-panel-b > .jw-ln:first-child > .jw-a:only-child { margin: 0 0 6px; }
+/* 미리보기 머리의 칩 — 제목 옆에서 남는 폭만 쓰고 길면 줄임표 */
+.jw-panel-h > .jw-crumb { margin: 0; min-width: 0; flex: 0 1 auto; font-weight: 500; }
 .dfx-crumb:hover,
-.jw-panel-b > .jw-ln:first-child > .jw-a:only-child:hover {
+.jw-panel-h > .jw-crumb:hover {
   border-color: var(--c-accent, #2f7d6d);
   color: var(--c-accent, #2f7d6d);
 }

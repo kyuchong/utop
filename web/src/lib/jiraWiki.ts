@@ -243,7 +243,8 @@ export function wikiToHtml(txt: string, imgs?: Record<string, string>): string {
   let inCode = false
   let codeBuf: string[] = []
 
-  for (const ln of lines) {
+  for (let li = 0; li < lines.length; li += 1) {
+    const ln = lines[li] ?? ''
     if (/^\{noformat[^}]*\}/.test(ln) && !inCode && !inNf) {
       inNf = true
       nfBuf = []
@@ -277,7 +278,22 @@ export function wikiToHtml(txt: string, imgs?: Record<string, string>): string {
     }
     const mp = ln.match(/^\{panel:title=([^}]*)\}$/)
     if (mp) {
-      out.push(`<div class="jw-panel"><div class="jw-panel-h">${escH(mp[1])}</div><div class="jw-panel-b">`)
+      /* **빵부스러기는 판 머리에 그린다**(지적: 미리보기와 자리가 다르다).
+         지라 위키의 판 제목에는 링크를 넣을 수 없어 본문 첫 줄에 싣지만,
+         창의 편집 칸은 그것을 제목 옆 칩으로 세운다 — 두 쪽을 나란히 놓고
+         견주는 자리라 자리가 어긋나면 다른 것으로 읽힌다. 첫 줄이 링크
+         하나뿐이면 제목 줄로 끌어올리고 본문에서는 건너뛴다. */
+      const nx = lines[li + 1] ?? ''
+      const cr = nx.match(/^\[([^\]|]+)\|([^\]]+)\]$/)
+      let head = escH(mp[1])
+      if (cr) {
+        head += `<a class="jw-crumb" href="${escH(cr[2])}" target="_blank" rel="noreferrer">${escH(cr[1])}</a>`
+        li += 1
+        /* 머리로 올린 줄 뒤의 빈 줄도 함께 걷는다 — 안 그러면 본문이 한 줄
+           내려앉아, 자리를 맞추려던 일이 도로 어긋난다 */
+        if (!(lines[li + 1] ?? '').trim()) li += 1
+      }
+      out.push(`<div class="jw-panel"><div class="jw-panel-h">${head}</div><div class="jw-panel-b">`)
       continue
     }
     if (/^\{panel\}$/.test(ln.trim())) {
