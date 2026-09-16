@@ -709,9 +709,16 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
       const lost = new Set<string>()
       const attach = async (what: string, filename: string, dataB64: string, mime: string) => {
         try {
+          /* **서버에 있는 그림은 주소로 보낸다**(지적: 지라에서 이미지가 안
+             보인다). 구성도는 data URL 이 아니라 `/api/req-images/…png` 로
+             저장돼 있는데, 그 주소 글자를 base64 인 양 보내고 있었다 —
+             디코드하면 쓰레기 바이트가 되어 깨진 그림이 올라갔다. */
+          const isData = dataB64.startsWith('data:') || !dataB64.startsWith('/')
           const ar = await apiFetch(`/api/jira/issue/${encodeURIComponent(String(j.key ?? ''))}/attach`, {
             method: 'POST',
-            body: JSON.stringify({ data: dataB64, filename, mime }),
+            body: JSON.stringify(
+              isData ? { data: dataB64, filename, mime } : { src: dataB64, filename, mime },
+            ),
           })
           const aj = (await ar.json()) as { ok?: boolean; error?: string; attachments?: string[] }
           if (!aj.ok) {

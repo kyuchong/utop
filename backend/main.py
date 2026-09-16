@@ -18488,13 +18488,30 @@ async def jira_attach(key: str, data: dict):
     base = (cfg.get("url") or "").rstrip("/")
     if not base:
         return {"ok": False, "error": "Jira URL 미설정"}
-    raw = data.get("data") or ""
-    if raw.strip().startswith("data:") and "," in raw:
-        raw = raw.split(",", 1)[1]
-    try:
-        content = _b64.b64decode(raw)
-    except Exception as e:
-        return {"ok": False, "error": "이미지 디코드 실패: " + str(e)[:120]}
+    # **서버에 있는 그림은 주소로 받는다**(지적: 지라에서 이미지가 안 보인다).
+    # 구성도는 data URL 이 아니라 `/api/req-images/…png` 로 저장돼 있는데,
+    # 그 주소 글자를 base64 인 양 디코드하고 있었다. b64decode 는 모르는
+    # 글자를 조용히 버리므로 예외도 없이 **쓰레기 바이트**가 올라갔고,
+    # 지라는 깨진 그림 자리를 보여 줬다.
+    src = str(data.get("src") or "").strip()
+    if src:
+        nm = src.rsplit("/", 1)[-1].split("?", 1)[0]
+        if "/api/req-images/" not in src or not nm or "\\" in nm or nm.startswith("."):
+            return {"ok": False, "error": "붙일 수 없는 주소입니다: " + src[:120]}
+        f = REQ_IMG_DIR / nm
+        if not f.is_file():
+            return {"ok": False, "error": "그림 파일을 찾지 못했습니다: " + nm}
+        content = f.read_bytes()
+    else:
+        raw = data.get("data") or ""
+        if raw.strip().startswith("data:") and "," in raw:
+            raw = raw.split(",", 1)[1]
+        try:
+            content = _b64.b64decode(raw, validate=True)
+        except Exception as e:
+            return {"ok": False, "error": "이미지 디코드 실패: " + str(e)[:120]}
+    if not content:
+        return {"ok": False, "error": "내용이 비었습니다"}
     fn = data.get("filename") or "구성도.png"
     mime = data.get("mime") or "image/png"   # txt 첨부(running-config 등)도 지원
     h = _jira_headers(cfg)
