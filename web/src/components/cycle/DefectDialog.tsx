@@ -693,16 +693,29 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
          만들어졌으므로 등록 자체를 되돌리지 않고, 무엇이 안 됐는지만
          말한다 — 사람이 Jira 에서 직접 끌어다 놓으면 된다. */
       let note = ''
+      /** 올린 파일 — 부른 이름 → **지라에 실제로 저장된 이름** */
+      const landed = new Map<string, string>()
+      /** 못 올린 파일 — 본문에서 그 표기를 걷어 낸다 */
+      const lost = new Set<string>()
       const attach = async (what: string, filename: string, dataB64: string, mime: string) => {
         try {
           const ar = await apiFetch(`/api/jira/issue/${encodeURIComponent(String(j.key ?? ''))}/attach`, {
             method: 'POST',
             body: JSON.stringify({ data: dataB64, filename, mime }),
           })
-          const aj = (await ar.json()) as { ok?: boolean; error?: string }
-          if (!aj.ok) note += ` (${what} 첨부 실패: ${aj.error || '알 수 없음'})`
+          const aj = (await ar.json()) as { ok?: boolean; error?: string; attachments?: string[] }
+          if (!aj.ok) {
+            note += ` (${what} 첨부 실패: ${aj.error || '알 수 없음'})`
+            lost.add(filename)
+            return
+          }
+          /* **지라가 돌려준 이름**을 쓴다. 한글 이름은 서버 인코딩에 따라
+             바뀌어 저장되는 일이 있고, 그러면 본문이 부르는 이름과 어긋나
+             깨진 그림 자리만 남는다(지적: 지라에서 이미지가 안 보인다). */
+          landed.set(filename, String(aj.attachments?.[0] ?? filename) || filename)
         } catch {
           note += ` (${what}을 첨부하지 못했습니다)`
+          lost.add(filename)
         }
       }
       /* 본문이 !구성도.png! 로 부르고 있으면 **반드시** 올라가야 한다.
@@ -726,6 +739,31 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
       if (j.key && cfgText && !String(panels.config ?? '').trim()) {
         const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(cfgText)))
         await attach('설정 파일', 'running-config.txt', b64, 'text/plain; charset=utf-8')
+      }
+      /* **올린 뒤 본문을 한 번 고친다.** 그림은 이슈를 만든 다음에야 붙일 수
+         있어, 본문은 「곧 올라올 이름」 을 미리 부르고 있다. 실제로 저장된
+         이름이 다르거나 아예 못 올렸으면 그 자리를 바로잡는다 — 그러지
+         않으면 지라에 깨진 그림 자리가 남는다(지적). */
+      const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      let desc = wiki
+      for (const [want, real] of landed) {
+        if (!real || real === want) continue
+        desc = desc.replace(new RegExp(`!${esc(want)}(\\|[^!\\n]*)?!`, 'g'), `!${real}$1!`)
+        desc = desc.replace(new RegExp(`\\[\\^${esc(want)}\\]`, 'g'), `[^${real}]`)
+      }
+      for (const want of lost) {
+        desc = desc.replace(new RegExp(`^!${esc(want)}(\\|[^!\\n]*)?!\\n?`, 'gm'), '')
+        desc = desc.replace(new RegExp(`\\[\\^${esc(want)}\\]`, 'g'), `（${want} 을 붙이지 못했습니다）`)
+      }
+      if (j.key && desc !== wiki) {
+        try {
+          await apiFetch(`/api/jira/issue/${encodeURIComponent(String(j.key))}/description`, {
+            method: 'POST',
+            body: JSON.stringify({ description: desc }),
+          })
+        } catch {
+          note += ' (본문을 고치지 못했습니다 — 그림 자리가 비어 보일 수 있습니다)'
+        }
       }
       setMsg({ kind: note ? 'err' : 'ok', text: `지라에 등록했습니다 — ${j.key}${note}` })
     } catch (e) {
@@ -854,15 +892,12 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                       onClick={() =>
                         setPanel(
                           p.k,
-                          /* 손으로 고칠 때도 **보이던 그대로**를 가져온다 —
-                             머리의 빵부스러기가 빠지면, 고치기를 누른 순간
-                             어느 시험인지가 사라진다. */
+                          /* 빵부스러기는 넣지 않는다 — 판 머리가 늘 들고
+                             있고, 올릴 때 본문 맨 위에 한 번만 선다. */
                           autoSteps
-                            ? (tcCrumbTxt ? `[${tcCrumbTxt}|${tcCrumbUrl}]\n\n` : '') +
-                              procFromSteps(briefs as WikiStep[])
+                            ? procFromSteps(briefs as WikiStep[])
                             : autoDet
-                              ? (cycCrumbTxt ? `[${cycCrumbTxt}|${cycCrumbUrl}]\n\n` : '') +
-                                detailFromSteps(briefs as WikiStep[])
+                              ? detailFromSteps(briefs as WikiStep[])
                               : cfgText,
                         )
                       }
@@ -871,6 +906,19 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     </button>
                   )}
                 </div>
+                {/* **빵부스러기**(지시) — 자동이든 사람이 고친 글이든 「어느
+                    시험인지 · 어느 사이클인지」 는 늘 칸 위에 선다. 올릴
+                    때는 본문 맨 위에 같은 줄이 한 번 들어간다. */}
+                {p.k === 'steps' && !!tcCrumbTxt && (
+                  <a className="dfx-crumb" href={tcCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 시험 항목으로 갑니다">
+                    {tcCrumbTxt}
+                  </a>
+                )}
+                {p.k === 'detail' && !!cycCrumbTxt && (
+                  <a className="dfx-crumb" href={cycCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 사이클로 갑니다">
+                    {cycCrumbTxt}
+                  </a>
+                )}
                 {auto ? (
                   autoCfg ? (
                     <pre className="dfx-auto-log">{cfgText.slice(0, 4000)}</pre>
@@ -878,29 +926,15 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     /* **설명만 차례대로**(지시) — 명령·결과·판정은 4번이
                        맡는다. 한 이야기를 두 판에 나눠 적으면 어느 쪽이
                        정본인지 알 수 없다. */
-                    <div className="dfx-auto-b">
-                      {/* **어느 시험인지 먼저**(지시) — 폴더 길을 칩으로 세운다 */}
-                      {!!tcCrumbTxt && (
-                        <a className="dfx-crumb" href={tcCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 시험 항목으로 갑니다">
-                          {tcCrumbTxt}
-                        </a>
-                      )}
-                      <ol className="dfx-proc">
+                    <ol className="dfx-auto-b dfx-proc">
                       {briefs
                         .filter((b) => (b.desc || b.cli || '').trim())
                         .map((b) => (
                           <li key={b.no}>{b.desc || b.cli}</li>
                         ))}
-                      </ol>
-                    </div>
+                    </ol>
                   ) : autoDet ? (
                     <div className="dfx-auto-b">
-                      {/* **어느 사이클에서 났나**(지시) */}
-                      {!!cycCrumbTxt && (
-                        <a className="dfx-crumb" href={cycCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 사이클로 갑니다">
-                          {cycCrumbTxt}
-                        </a>
-                      )}
                       {briefs.map((b) => (
                         <div key={b.no} className={`dfx-step ${b.status === 'Fail' ? 'fail' : ''}`}>
                           {/* 이름을 붙여 적는다(지시: CLI·결과값·판정).

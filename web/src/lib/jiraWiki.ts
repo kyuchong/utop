@@ -164,6 +164,13 @@ export function configFromSteps(steps: WikiStep[]): string {
   return ''
 }
 
+/** 머리줄을 세운다 — 이미 그 줄이 있으면 그대로 둔다(두 번 적지 않게) */
+function withCrumb(body: string, crumb: string, head: string): string {
+  const first = String(body).split('\n', 1)[0] ?? ''
+  if (first.includes(`${head} /`)) return body
+  return body ? `${crumb}\n\n${body}` : crumb
+}
+
 /** 비면 「없음」 이라고 적는 판 — 자료가 없는 것이 예사인 뒤쪽 네 판(지시) */
 const NONE_PANELS = new Set(['config', 'core', 'kernel', 'attach'])
 
@@ -184,18 +191,15 @@ export function buildDefectWiki(
     let body = String(panels[k] ?? '').trim()
     /* 「3. 시험절차」 는 **스텝 설명만 차례대로**다(지시). 시험 항목 주소
        한 줄이던 때는, 이슈를 받은 사람이 UTOP 계정이 없어 아무 데도 못 갔다. */
-    if (k === 'steps' && !body && steps.length) {
-      /* **어느 시험인지 먼저 밝힌다**(지시) — 폴더 길과 주소를 한 줄로.
-         이슈를 받는 사람은 대개 UTOP 계정이 없어, 열쇠만 적어 두면 그것이
-         어느 제품의 무슨 갈래인지 알 길이 없다. */
-      body = (opts?.tcCrumb ? `${opts.tcCrumb}\n\n` : '') + procFromSteps(steps)
-    }
-    /* 「4. 시험내역」 은 **CLI·결과값·판정**이다(지시). 머리에는 어느
-       사이클에서 났는지를 둔다 — 같은 시험이라도 어느 버전에서 깨졌나가
-       다르면 다른 이야기다. */
-    if (k === 'detail' && !body && steps.length) {
-      body = (opts?.cycleCrumb ? `${opts.cycleCrumb}\n\n` : '') + detailFromSteps(steps)
-    }
+    if (k === 'steps' && !body && steps.length) body = procFromSteps(steps)
+    /* 「4. 시험내역」 은 **CLI·결과값·판정**이다(지시) */
+    if (k === 'detail' && !body && steps.length) body = detailFromSteps(steps)
+    /* **빵부스러기는 사람이 적은 글에도 선다**(지시).
+       자동으로 채울 때만 붙이던 때는, 이미 저장된 결함을 열면 머리줄이
+       없었다 — 서버가 만든 글이든 사람이 고친 글이든 「어느 시험인지」 는
+       늘 맨 위에 있어야 한다. 이미 있으면 두 번 적지 않는다. */
+    if (k === 'steps' && opts?.tcCrumb) body = withCrumb(body, opts.tcCrumb, 'Coverage')
+    if (k === 'detail' && opts?.cycleCrumb) body = withCrumb(body, opts.cycleCrumb, 'Cycles')
     /* 설정 파일 — **파일로 붙인다**(지시). 수천 줄을 본문에 쏟으면 이슈를
        읽을 수가 없고, Jira 가 접어 주더라도 검색·내려받기가 안 된다.
        등록할 때 running-config.txt 로 올리고 여기서는 그 이름을 부른다. */

@@ -5,7 +5,7 @@ import { onWs } from '@/api/wsBus'
 import { onGoto } from '@/api/goto'
 import { prefGet, prefSet } from '@/lib/prefs'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
-import { JiraStatusChip, jiraStatusText, useJiraStatus } from '@/lib/jiraStatus'
+import { JiraStatusChip, jiraIssueUrl, jiraStatusText, useJiraBase, useJiraStatus } from '@/lib/jiraStatus'
 import NTable from '@/components/ntable/NTable'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
@@ -121,6 +121,8 @@ export default function Defects({ me }: { me?: MeUser | null }) {
 
   /** 올라간 이슈들의 **지금 지라 상태** — 표의 「상태」 칸이 이것을 쓴다 */
   const jstat = useJiraStatus(useMemo(() => (data ?? []).map((d) => String(d.jira_key ?? '')), [data]))
+  /** 지라 주소 — 이슈 열쇠를 누르면 바로 그 이슈로 간다(지시) */
+  const jbase = useJiraBase()
 
   /** 노션 표가 읽는 줄 — 값은 글자로 굳혀 넘긴다(정렬·검색이 같은 것을 본다) */
   const nrows: NRow[] = useMemo(
@@ -270,6 +272,18 @@ export default function Defects({ me }: { me?: MeUser | null }) {
             onOpen={(id) => setOpen((data ?? []).find((d) => d.id === id) ?? null)}
             onPeek={(id) => setOpen((data ?? []).find((d) => d.id === id) ?? null)}
             renderCell={(row, col) => {
+              /* **이슈로 바로 건너뛴다**(지시) — 열쇠를 눈으로 읽어 지라
+                 검색창에 옮겨 치던 일을 없앤다. */
+              if (col.key === 'jira_project') {
+                const jk = String(row.jira_key ?? '')
+                const url = jiraIssueUrl(jbase, jk)
+                if (!jk || !url) return undefined
+                return (
+                  <a className="jst-link" href={url} target="_blank" rel="noreferrer" title={`지라에서 ${jk} 를 엽니다`}>
+                    {jk}
+                  </a>
+                )
+              }
               if (col.key === 'status') {
                 const jk = String(row.jira_key ?? '')
                 return (

@@ -88,3 +88,31 @@ export function jiraStatusText(
   if (jk) return jk /* 상태가 아직 안 왔다 — 「미등록」 이라 적으면 거짓이 된다 */
   return String(d.status ?? '') === 'closed' ? '닫힘' : '미등록'
 }
+
+/** 지라 주소 — 표의 이슈 열쇠를 누르면 이리로 간다(지시: 바로 확인) */
+let _jiraBase: string | null = null
+export function useJiraBase(): string {
+  const [base, setBase] = useState(_jiraBase ?? '')
+  useEffect(() => {
+    if (_jiraBase !== null) return
+    let dead = false
+    void (async () => {
+      try {
+        const r = await apiFetch('/api/jira/base')
+        const j = (await r.json()) as { url?: string }
+        _jiraBase = String(j.url ?? '')
+      } catch {
+        _jiraBase = ''
+      }
+      if (!dead) setBase(_jiraBase ?? '')
+    })()
+    return () => {
+      dead = true
+    }
+  }, [])
+  return base
+}
+
+/** 이슈 한 건으로 가는 길 — 주소를 아직 모르면 빈 글자 */
+export const jiraIssueUrl = (base: string, key: string): string =>
+  base && key ? `${base}/browse/${encodeURIComponent(key)}` : ''

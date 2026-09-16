@@ -17503,6 +17503,37 @@ async def api_defect_classify(payload: dict):
 async def jira_get_config():
     return _jira_cfg()
 
+
+@app.post("/api/jira/issue/{key}/description")
+async def jira_set_description(key: str, data: dict):
+    """올린 뒤 **본문만** 다시 쓴다.
+
+    그림은 이슈를 만든 뒤에야 붙일 수 있는데, 지라가 첨부 이름을 그대로
+    받아 준다는 보장이 없다(한글 이름은 서버 인코딩에 따라 바뀐다). 본문이
+    부르는 이름과 실제 첨부 이름이 어긋나면 **깨진 그림 자리**만 남는다
+    (지적: 지라에서 이미지가 안 보인다). 그래서 붙여 본 뒤, 실제 이름으로
+    본문을 한 번 고쳐 준다.
+    """
+    desc = str(data.get("description") or "")
+    if not desc:
+        return {"ok": False, "error": "본문이 비었습니다"}
+    r, err = _jira_call("PUT", f"/rest/api/2/issue/{key}", json={"fields": {"description": desc}})
+    if err:
+        return err
+    if r is None or not r.is_success:
+        return {"ok": False, "error": f"{getattr(r, 'status_code', '?')} · {getattr(r, 'text', '')[:300]}"}
+    return {"ok": True}
+
+
+@app.get("/api/jira/base")
+async def jira_base():
+    """지라 **주소만** 알려 준다 — 표에서 이슈로 건너뛰는 데 쓴다(지시).
+
+    /api/jira/config 는 조회 계정의 토큰까지 들고 있다. 결함 표가 주소 한 줄
+    쓰자고 그것을 통째로 받아 갈 이유가 없다.
+    """
+    return {"ok": True, "url": str((_jira_cfg() or {}).get("url") or "").rstrip("/")}
+
 @app.post("/api/jira/config")
 async def jira_save_config(data: dict):
     cur = _jira_cfg()

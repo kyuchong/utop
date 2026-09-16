@@ -31,7 +31,7 @@ import { IconChevron, IconPanel } from '@/components/icons'
 import { CycleMailOne } from '@/components/cycle/CyclePlan'
 import CycleReport from '@/components/cycle/CycleReport'
 import NTable from '@/components/ntable/NTable'
-import { JiraStatusChip, jiraStatusText, useJiraStatus } from '@/lib/jiraStatus'
+import { JiraStatusChip, jiraIssueUrl, jiraStatusText, useJiraBase, useJiraStatus } from '@/lib/jiraStatus'
 import { EMPTY_VIEW } from '@/components/ntable/types'
 import { autoColor } from '@/components/ntable/palette'
 import type { NCol, NRow, NView } from '@/components/ntable/types'
@@ -3139,6 +3139,7 @@ export default function CyclesBoard({
   const [defView, setDefView] = useState<NView>({ ...EMPTY_VIEW })
   /** 고를 값은 **지금 자료에서** — 열 정의에 박아 두면 없는 값이 목록에 선다 */
   /** 올라간 이슈들의 **지금 지라 상태** — 표의 「상태」 칸이 이것을 쓴다 */
+  const defJbase = useJiraBase()
   const defJstat = useJiraStatus(
     useMemo(() => (defQ.data?.defects ?? []).map((d) => String(d.jira_key ?? '')), [defQ.data]),
   )
@@ -3192,6 +3193,17 @@ export default function CyclesBoard({
                시험 항목으로 가는 길은 아래 「시험 항목」 칸이 맡는다. */
             onOpen={(id) => goto('defect', id)}
             renderCell={(row, col) => {
+              /* **이슈로 바로 건너뛴다**(지시) — Defects 화면과 같은 규칙 */
+              if (col.key === 'jira_project') {
+                const jk = String(row.jira_key ?? '')
+                const url = jiraIssueUrl(defJbase, jk)
+                if (!jk || !url) return undefined
+                return (
+                  <a className="jst-link" href={url} target="_blank" rel="noreferrer" title={`지라에서 ${jk} 를 엽니다`}>
+                    {jk}
+                  </a>
+                )
+              }
               if (col.key === 'status') {
                 const jk = String(row.jira_key ?? '')
                 return (

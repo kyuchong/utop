@@ -32,3 +32,10 @@
   :root:not([data-theme='light']) .jst-gone { background: #4a1c1c; color: #ffc4c4; border-color: #6b2a2a; }
   :root:not([data-theme='light']) .jst-closed { background: #2f2542; color: #d3bff0; border-color: #453563; }
 }
+/* 이슈로 건너뛰는 링크 — 표 안이라 조용하게, 가리키면 밑줄 */
+.jst-link {
+  color: var(--c-accent, #2f7d6d);
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+.jst-link:hover { text-decoration: underline; }
