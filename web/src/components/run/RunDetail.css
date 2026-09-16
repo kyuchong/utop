@@ -649,8 +649,24 @@
    아홉 칸쯤 내려가면 오차가 쌓여 숫자가 반 픽셀 걸친 채 흐려진다. */
 .rn-d {
   position: relative; display: inline-block;
-  width: 0.6em; height: 1.25em; --rn-h: 1.25em;
+  height: 1.25em; --rn-h: 1.25em;
   overflow: hidden; vertical-align: baseline;
+}
+/* 칸 **폭은 글자가 정한다.**
+   0.6em 으로 박아 두었더니 굵은 글씨에서 좌우가 잘렸다(지적: 숫자 끝이
+   조금 잘린다). 실측 — 15px 숫자 한 자의 폭은 굵기에 따라 이만큼 다르다:
+     400 → 8.33px · 700 → 8.86px · 800 → 9.14px
+   경과 시간은 800 이라 9.14px 인데 칸은 0.6em = 9.00px, 0.14px 이 모자랐다.
+   가운데 정렬이라 좌우로 0.07px 씩 갉히고, 화면 배율이나 글꼴이 조금만
+   달라도 눈에 띄게 잘린다.
+   보이지 않는 숫자 하나로 폭을 잡는다 — tabular-nums 라 어느 숫자든 같은
+   폭이다. 양옆 0.5px 은 안티앨리어싱이 번지는 자리 — 글꼴이 바뀌면 이
+   ::before 도 그 글꼴로 재므로, 여유를 넉넉히 둘 까닭이 없다. */
+.rn-d::before {
+  content: '0';
+  visibility: hidden;
+  display: inline-block;
+  margin: 0 0.5px;
 }
 .rn-s {
   position: absolute; top: 0; left: 0; right: 0;
