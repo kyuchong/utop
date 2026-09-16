@@ -13253,7 +13253,10 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
             #  · 실제로 무엇을 했는지 아는 스텝(명령·출력이 있는 것)을 앞에.
             #  · 같은 일을 가리키는 줄은 하나만 — 까닭이 붙은 쪽을 남긴다.
             fails = [b for b in briefs if str(b.get("status") or "").upper().startswith("F")]
-            fails.sort(key=lambda b: 0 if (b.get("cli") or b.get("output")) else 1)
+            # 「반복 시험 실패」 처럼 **무엇을 했는지 없는 껍데기**는, 실제로
+            # 명령을 친 스텝이 하나라도 있으면 쓰지 않는다 — 군더더기다.
+            solid = [b for b in fails if (b.get("cli") or b.get("output"))]
+            fails = solid or fails
             picked: dict[str, str] = {}
             order: list[str] = []
             for b in fails:
@@ -13264,11 +13267,11 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
                 key = _re_sub_oid(what) or why2
                 if not key:
                     continue
-                line = (
-                    f"{_re_sub_oid(what)} 실패 — {why2}"
-                    if what and why2
-                    else (f"{_re_sub_oid(what)} 실패" if what else why2)
-                )
+                import re as _re2
+                w2 = _re_sub_oid(what)
+                # 이미 「… 실패/불가/오류/미동작」 으로 끝나면 또 붙이지 않는다
+                tail = "" if _re2.search(r"(실패|불가|오류|미동작|안 ?됨|안 ?나옴)$", w2) else " 실패"
+                line = f"{w2}{tail} — {why2}" if w2 and why2 else (f"{w2}{tail}" if w2 else why2)
                 if key in picked:
                     # 이미 있는 줄에 까닭이 없고 이번 것에 있으면 바꿔 단다
                     if why2 and "—" not in picked[key]:
