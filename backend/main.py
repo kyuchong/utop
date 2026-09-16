@@ -13311,39 +13311,21 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
             #    판단인지 읽는 사람이 가려내야 한다.
             # 두 판이 같은 말을 나눠 갖는다 — 겹쳐 적으면 어느 쪽이 정본인지
             # 알 수 없다.
-            # 주소 — 이슈에서 UTOP 으로 돌아오는 길
-            base = ""
-            try:
-                base = str((_load_mail_cfg() or {}).get("app_url") or "").strip().rstrip("/")
-            except Exception:
-                pass
-            base = base or str(base_url or "").strip().rstrip("/")
-            crumb = await _tc_crumb(tcid)
-
+            # **빵부스러기는 글에 적지 않는다.** 판마다 머리에 칩으로 서고,
+            # 지라로 올릴 때 본문 맨 위에 한 번 들어간다(화면이 붙인다).
+            # 여기서 글에 섞어 두면 입력칸에 위키 표기가 그대로 보이고
+            # (지적), 주소도 실행기가 부른 내부 주소(http://api:8000)가 박혀
+            # 사람이 눌러도 아무 데도 못 간다.
             proc_lines: list[str] = []
-            # **어느 시험인지 먼저 밝힌다**(지시) — 폴더 길과 주소를 한 줄로.
-            proc_lines.append(_crumb_line(
-                "Coverage", crumb.get("path") or [], str(crumb.get("name") or name or ""),
-                f"{base}/?tc={tcid}" if base else "", tcid,
-            ))
-            proc_lines.append("")
             for b in briefs:
                 what = str(b.get("desc") or "").strip() or _plain_ko(str(b.get("cli") or ""))
                 what = " ".join(what.split())
                 if not what:
                     continue
-                # 머리 두 줄(빵부스러기·빈 줄)은 번호에서 뺀다
-                proc_lines.append(f"{len(proc_lines) - 1}) {what}")
+                proc_lines.append(f"{len(proc_lines) + 1}) {what}")
             proc = "\n".join(proc_lines) or f"{tcid} 자동 시험"
 
             det_lines: list[str] = []
-            # **어느 사이클에서 났는지 먼저 밝힌다**(지시) — 같은 시험이라도
-            # 어느 회차·어느 버전에서 깨졌나가 다르면 다른 이야기다.
-            det_lines.append(_crumb_line(
-                "Cycles", [x for x in (model, version) if x], "",
-                f"{base}/?cycle={cid}" if base and cid else "",
-            ))
-            det_lines.append("")
             for b in briefs[:20]:
                 what = str(b.get("desc") or "").strip() or _plain_ko(str(b.get("cli") or ""))
                 cli = " ".join(str(b.get("cli") or "").strip().split())

@@ -393,7 +393,17 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
         p = {}
       }
     }
-    return p && typeof p === 'object' && !Array.isArray(p) ? { ...(p as Record<string, string>) } : {}
+    const rec = p && typeof p === 'object' && !Array.isArray(p) ? { ...(p as Record<string, string>) } : {}
+    /* 한때 서버가 빵부스러기를 **글 안에** 적어 저장했다. 그대로 두면
+       입력칸에 `[Coverage / …|http://api:8000/?tc=…]` 같은 위키 표기가
+       그대로 보이고(지적), 그 주소는 실행기가 부른 내부 주소라 눌러도
+       아무 데도 못 간다. 머리 칩이 그 일을 맡으므로 첫 줄을 떼어 낸다. */
+    for (const k of ['steps', 'detail'] as const) {
+      const v = String(rec[k] ?? '')
+      if (!/^\[(?:Coverage|Cycles) \/[^\]]*\|[^\]]*\]\s*$/m.test(v.split('\n', 1)[0] ?? '')) continue
+      rec[k] = v.split('\n').slice(1).join('\n').replace(/^\s*\n/, '')
+    }
+    return rec
   })
   /* 새 결함이면 현상 칸을 요약과 **같은 글**로 채운다(지시: 둘은 같아야
      한다). 사람이 고치면 그 글이 이긴다 — 한 번만 넣는다. */
@@ -863,6 +873,19 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                   <span>
                     {i + 1}. {p.label}
                   </span>
+                  {/* **빵부스러기는 머리에**(지시) — 제목 옆에 붙어 「어느
+                      시험인지 · 어느 사이클인지」 를 말한다. 글에는 적지
+                      않는다: 입력칸에 위키 표기가 그대로 보이게 된다. */}
+                  {p.k === 'steps' && !!tcCrumbTxt && (
+                    <a className="dfx-crumb" href={tcCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 시험 항목으로 갑니다">
+                      {tcCrumbTxt}
+                    </a>
+                  )}
+                  {p.k === 'detail' && !!cycCrumbTxt && (
+                    <a className="dfx-crumb" href={cycCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 사이클로 갑니다">
+                      {cycCrumbTxt}
+                    </a>
+                  )}
                   <span className="sp" />
                   {/* **파일 첨부**(지시) — 판마다 따로 붙인다. 어느 이야기에
                       딸린 파일인지가 이슈에서 그대로 드러난다. */}
@@ -906,19 +929,6 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     </button>
                   )}
                 </div>
-                {/* **빵부스러기**(지시) — 자동이든 사람이 고친 글이든 「어느
-                    시험인지 · 어느 사이클인지」 는 늘 칸 위에 선다. 올릴
-                    때는 본문 맨 위에 같은 줄이 한 번 들어간다. */}
-                {p.k === 'steps' && !!tcCrumbTxt && (
-                  <a className="dfx-crumb" href={tcCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 시험 항목으로 갑니다">
-                    {tcCrumbTxt}
-                  </a>
-                )}
-                {p.k === 'detail' && !!cycCrumbTxt && (
-                  <a className="dfx-crumb" href={cycCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 사이클로 갑니다">
-                    {cycCrumbTxt}
-                  </a>
-                )}
                 {auto ? (
                   autoCfg ? (
                     <pre className="dfx-auto-log">{cfgText.slice(0, 4000)}</pre>

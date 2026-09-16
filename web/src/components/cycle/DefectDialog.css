@@ -311,7 +311,8 @@
 /* ── 자동으로 채워지는 판(5·6번) ────────────────────────────────
    손으로 옮겨 적게 하면 아무도 안 적고, 적더라도 옮기다 틀린다. */
 .dfx-ph { display: flex; align-items: center; gap: 8px; }
-.dfx-ph > span:first-child { flex: 1; }
+/* 제목은 제 폭만 — 남는 폭은 빵부스러기 칩이 쓴다(칩이 길면 줄임표) */
+.dfx-ph > span:first-child { flex: none; white-space: nowrap; }
 .dfx-auto {
   flex: none;
   padding: 1px 7px;
@@ -457,5 +458,5 @@
   border-color: var(--c-accent, #2f7d6d);
   color: var(--c-accent, #2f7d6d);
 }
-/* 칸 위에 한 줄로 — 머리와 칸 사이에 선다(패널 안쪽 여백을 따른다) */
-.dfx-panel > .dfx-crumb { margin: 8px 10px 0; }
+/* 머리 안에서는 제목 옆에 붙어, 남는 폭만 차지하고 길면 줄인다 */
+.dfx-ph > .dfx-crumb { margin: 0 0 0 8px; min-width: 0; flex: 0 1 auto; }
