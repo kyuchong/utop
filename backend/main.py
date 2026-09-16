@@ -12796,23 +12796,34 @@ async def pptx_render(payload: dict):
     )
 
 
+async def _model_group_of(data: dict) -> str:
+    """이 사이클의 **모델그룹** — 적혀 있으면 그대로, 없으면 모델로 찾는다.
+
+    cid 앞머리(E61xx-C0001)와 결함 ID(E6100-E61xx-001)가 **같은 자**를 써야
+    한다. 한쪽만 다른 길로 구하면 같은 사이클인데 ID 계열이 갈린다.
+    """
+    mg = str((data or {}).get("model_group") or "").strip()
+    if mg:
+        return mg
+    model = str((data or {}).get("model") or "").strip()
+    if not model:
+        return ""
+    try:
+        for it in await db.catalog_list():
+            if str(it.get("kind")) == "model" and str(it.get("name")) == model:
+                return str(it.get("model_group") or "").strip()
+    except Exception:
+        pass
+    return ""
+
+
 async def _cycle_cid_prefix(data: dict) -> tuple[str, int]:
     """cid 앞머리 — **모델그룹 기준**(E61xx-C0001), 요구사항·시험과 같은 규칙.
 
     모델그룹을 모르면(제목만 치고 만든 인라인 생성) 옛 주차 규칙으로
     떨어진다 — 앞머리를 지어내지 않는다. 나중에 모델그룹을 채우면
     ID 옮기기(SETUP)가 새 규칙으로 따라온다."""
-    mg = str((data or {}).get("model_group") or "").strip()
-    if not mg:
-        model = str((data or {}).get("model") or "").strip()
-        if model:
-            try:
-                for it in await db.catalog_list():
-                    if str(it.get("kind")) == "model" and str(it.get("name")) == model:
-                        mg = str(it.get("model_group") or "").strip()
-                        break
-            except Exception:
-                pass
+    mg = await _model_group_of(data)
     if mg:
         # 이음쇠는 **하이픈**이다. ID 옮기기(SETUP)가 요구사항·시험·플랜을
         # E61xx-R0001 · E61xx-T0001 · E61xx-C0001 로 바꿨는데 여기만 밑줄로
@@ -13375,7 +13386,8 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "",
         "output": str(x.get("output") or "")[:4000],
     } for x in pick[:40]]
     for _ in range(3):
-        did = await db.defect_next_id("")
+        _mg = await _model_group_of(cyc)
+        did = await db.defect_next_id(await db.project_name_for(_mg, model) or model, _mg)
         try:
             # **현상**(지시) — 어떤 시험을 돌다 무엇이 어긋났는지 한 문단.
             # 사람이 결함을 열었을 때 첫 칸이 비어 있으면 그때부터 기억을
@@ -22070,12 +22082,17 @@ async def defect_create_api(payload: dict, request: Request):
         who = _user_of(_token_from(request)) or ""
     except Exception:
         pass
-    # ID 는 DEF-<프로젝트키>-<순번3>. 동시에 두 건이 같은 번호를 집으면
-    # PK 가 겹치므로 그때만 번호를 다시 받아 온다.
+    # ID 는 **프로젝트명-모델그룹-순번3**(지시). 모델그룹은 사이클이 들고
+    # 있고, 프로젝트명은 그것으로 REQ-Coverage 에서 찾는다.
+    # 동시에 두 건이 같은 번호를 집으면 PK 가 겹치므로 그때만 다시 받아 온다.
+    _cy = await db.cycle_get(cid) or {}
+    _mdl = str(payload.get("model") or _cy.get("model") or "").strip()
+    _mg = str(payload.get("model_group") or "").strip() or await _model_group_of(_cy)
+    _pn = await db.project_name_for(_mg, _mdl) or _mdl
     d = None
     did = ""
     for _ in range(3):
-        did = await db.defect_next_id(str(payload.get("jira_project") or ""))
+        did = await db.defect_next_id(_pn, _mg)
         try:
             d = await db.defect_create({
                 "id": did,

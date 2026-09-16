@@ -3086,14 +3086,48 @@ async def cycle_backfill_cids() -> int:
         return n
 
 
-async def defect_next_id(project_key: str) -> str:
-    """DEF-<프로젝트키>-<순번3> — 그 프로젝트 안에서 1부터 붙는다.
+async def project_name_for(model_group: str = "", model: str = "") -> str:
+    """REQ-Coverage 의 **프로젝트명** — 결함 ID 앞머리가 쓴다(지시).
 
-    프로젝트 키를 아직 안 골랐으면 UTOP 으로 붙는다. ID 는 한 번 박히면
-    영원하다 — 나중에 키를 바꿔 달아도 ID 는 안 바뀐다(부여 ID 원칙).
+    프로젝트는 폴더 하나가 곧 하나다(req_category). 이름은 「111. LGUPLUS
+    E6100」 처럼 번호·사업자·제품이 한 줄이라, 제품 부분만 떼어 쓴다:
+      · project.model 이 적혀 있으면 그것 (E6100)
+      · 비어 있으면 폴더 이름의 **마지막 낱말** (121. LGUPLUS E5924RL → E5924RL)
+
+    찾는 자는 모델그룹이 먼저다 — 사이클이 늘 들고 있고, 프로젝트마다
+    하나씩이라 헷갈릴 일이 없다. 없으면 모델로 찾는다.
     """
-    key = (project_key or "").strip() or "UTOP"
-    prefix = f"DEF-{key}-"
+    mg = (model_group or "").strip()
+    md = (model or "").strip()
+    if not mg and not md:
+        return ""
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "SELECT COALESCE(NULLIF(p.model, ''),"
+            "       NULLIF(split_part(trim(c2.name), ' ', "
+            "              array_length(string_to_array(trim(c2.name), ' '), 1)), '')) AS nm"
+            "  FROM project p LEFT JOIN req_category c2 ON c2.id = p.cat_id"
+            " WHERE ($1 <> '' AND p.model_group = $1) OR ($2 <> '' AND p.model = $2)"
+            " ORDER BY (p.model_group = $1) DESC LIMIT 1",
+            mg, md,
+        )
+    return str((r or {}).get("nm") or "").strip()
+
+
+async def defect_next_id(project_name: str = "", model_group: str = "") -> str:
+    """**프로젝트명-모델그룹-순번3** — E6100-E61xx-001 (지시).
+
+    프로젝트명은 REQ-Coverage 의 그것이다(project_name_for). 여태는
+    `DEF-<Jira 프로젝트키>-순번` 이었는데, 결함을 만드는 때에는 지라
+    프로젝트를 아직 안 고른 일이 많아(자동 결함은 늘 그렇다) 전부 기본값
+    UTOP 으로 떨어졌고, ID 만 보고는 어느 제품 것인지 알 수 없었다.
+
+    한 조각을 모르면 그것만 뺀다(E61xx-001). 둘 다 모르면 UTOP 으로 —
+    앞머리를 지어내지 않는다. ID 는 한 번 박히면 영원하다: 나중에 프로젝트를
+    바꿔 달아도 이미 매긴 ID 는 그대로 둔다(부여 ID 원칙).
+    """
+    parts = [x for x in ((project_name or "").strip(), (model_group or "").strip()) if x]
+    prefix = ("-".join(parts) or "UTOP") + "-"
     async with pool().acquire() as c:
         rows = await c.fetch("SELECT id FROM defect WHERE id LIKE $1", prefix + "%")
     mx = 0
