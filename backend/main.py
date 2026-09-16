@@ -22011,6 +22011,60 @@ async def defect_push_jira(did: str, payload: dict = None):
     return {"ok": True, "key": key, "url": res.get("url"), "defect": upd}
 
 
+_JIRA_DEFSTAT_CACHE: dict = {}
+
+
+@app.get("/api/defects/jira-status")
+async def defects_jira_status(keys: str = ""):
+    """등록한 이슈들의 **지금 지라 상태**를 한 번에 물어 온다.
+
+    결함 표의 「상태」 는 UTOP 이 아는 값(미등록·등록함)이 아니라 **지라가
+    아는 값**이라야 한다(지시) — 개발자가 지라에서 「해결됨」 으로 옮겨도
+    UTOP 만 여태 「등록함」 이라 적고 있으면, 표를 보고 일을 나눌 수가 없다.
+
+    이슈를 하나씩 묻지 않는다. JQL `key in (…)` 한 번이면 백 건도 한 번에
+    온다 — 스무 건짜리 표에 스무 번 왕복하면 표가 늦게 뜬다.
+
+    같은 답을 60초 동안 다시 쓴다. 상태는 사람이 손으로 옮기는 값이라
+    1 분 안에 두 번 바뀌는 일이 없고, 표를 열 때마다 지라를 두드리면 지라
+    쪽에 미안한 부하가 된다.
+    """
+    want = [k.strip() for k in str(keys or "").split(",") if k.strip()][:200]
+    if not want:
+        return {"ok": True, "statuses": {}}
+    import time as _time
+    now = _time.time()
+    out: dict = {}
+    ask: list = []
+    for k in want:
+        hit = _JIRA_DEFSTAT_CACHE.get(k)
+        if hit and now - hit[0] < 60:
+            out[k] = hit[1]
+        else:
+            ask.append(k)
+    if ask:
+        jql = "key in (%s)" % ",".join(f'"{k}"' for k in ask)
+        r, err = _jira_call(
+            "GET", "/rest/api/2/search",
+            params={"jql": jql, "fields": "status", "maxResults": len(ask)},
+        )
+        if not err and r is not None and r.is_success:
+            for it in (r.json().get("issues") or []):
+                k = str(it.get("key") or "")
+                st = ((it.get("fields") or {}).get("status") or {})
+                v = {
+                    "name": str(st.get("name") or ""),
+                    # 지라의 갈래(new · indeterminate · done)를 그대로 받는다 —
+                    # 상태 이름은 프로젝트마다 다르지만 갈래는 셋뿐이라, 칩
+                    # 색을 이름이 아니라 갈래로 고를 수 있다
+                    "cat": str(((st.get("statusCategory") or {}).get("key")) or ""),
+                }
+                if v["name"]:
+                    out[k] = v
+                    _JIRA_DEFSTAT_CACHE[k] = (now, v)
+    return {"ok": True, "statuses": out}
+
+
 @app.patch("/api/defects/{did}")
 async def defect_update_api(did: str, payload: dict):
     d = await db.defect_update(did, payload)

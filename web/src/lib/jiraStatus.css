@@ -1,0 +1,32 @@
+/* 결함 표의 상태 칩 — Defects 화면과 Cycles 결함 탭이 **같은 한 벌**을 쓴다.
+   두 화면이 따로 색을 정하면 같은 「해결됨」 이 화면마다 달라 보인다.
+   이름은 jst- 로 묶는다 — 다른 화면의 칩과 겹치지 않게. */
+.jst {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid transparent;
+}
+/* 지라의 세 갈래를 그대로 쓴다 — 상태 이름은 프로젝트마다 다르지만
+   갈래는 셋뿐이라, 이름을 몰라도 색만으로 남은 일이 가려진다. */
+.jst-new { background: #e7f0ff; color: #1b4ba1; border-color: #c7dbff; }
+.jst-doing { background: #fff3d6; color: #8a5a00; border-color: #ffe0a3; }
+.jst-done { background: #e3f7ec; color: #14683c; border-color: #bce8d1; }
+/* 지라에 있는데 상태를 아직 못 받은 동안 — 열쇠만 조용히 세운다 */
+.jst-wait { background: var(--c-surface-soft, #f1f4f6); color: var(--c-text-faint); border-color: var(--c-border); }
+.jst-none { background: var(--c-surface-soft, #f1f4f6); color: var(--c-text-faint); border-color: var(--c-border); }
+.jst-closed { background: #efe8f6; color: #5b3a8a; border-color: #ddcdf0; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .jst-new { background: #16305c; color: #b9d3ff; border-color: #24457c; }
+  :root:not([data-theme='light']) .jst-doing { background: #4a3608; color: #ffdf9e; border-color: #6b4f10; }
+  :root:not([data-theme='light']) .jst-done { background: #10381f; color: #a8e6c3; border-color: #1c5533; }
+  :root:not([data-theme='light']) .jst-closed { background: #2f2542; color: #d3bff0; border-color: #453563; }
+}

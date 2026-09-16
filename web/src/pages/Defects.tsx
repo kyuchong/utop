@@ -5,6 +5,7 @@ import { onWs } from '@/api/wsBus'
 import { onGoto } from '@/api/goto'
 import { prefGet, prefSet } from '@/lib/prefs'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
+import { JiraStatusChip, jiraStatusText, useJiraStatus } from '@/lib/jiraStatus'
 import NTable from '@/components/ntable/NTable'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
@@ -39,7 +40,7 @@ function fmtDate(iso?: string | null): string {
 /** 열 — 등록 양식과 같은 차례. `def` 는 처음에 보이는 열이다. */
 const COLS: Array<{ key: string; label: string; type?: NCol['type']; w?: number; def?: boolean }> = [
   { key: 'id', label: 'ID', w: 124, def: true },
-  { key: 'jira_project', label: '프로젝트 키', w: 96, def: true },
+  { key: 'jira_project', label: '프로젝트 키', w: 112, def: true },
   { key: 'project_name', label: '프로젝트명', w: 104, def: true },
   { key: 'issue_type', label: '이슈유형', type: 'select', w: 92, def: true },
   { key: 'title', label: '요약', w: 420, def: true },
@@ -118,17 +119,27 @@ export default function Defects({ me }: { me?: MeUser | null }) {
     )
   }, [data, q])
 
+  /** 올라간 이슈들의 **지금 지라 상태** — 표의 「상태」 칸이 이것을 쓴다 */
+  const jstat = useJiraStatus(useMemo(() => (data ?? []).map((d) => String(d.jira_key ?? '')), [data]))
+
   /** 노션 표가 읽는 줄 — 값은 글자로 굳혀 넘긴다(정렬·검색이 같은 것을 본다) */
   const nrows: NRow[] = useMemo(
     () =>
       rows.map((d) => ({
         __id: String(d.id ?? ''),
         id: String(d.id ?? ''),
-        jira_project: d.jira_project ?? '',
+        /* **등록되면 그 이슈 열쇠**를 세운다(지시). 프로젝트 키(P88)는
+           올리기 전에만 뜻이 있고, 올린 뒤에 알고 싶은 것은 「어느
+           이슈였나」(P88-4341) 다. 검색·정렬도 이 값을 본다. */
+        jira_project: d.jira_key || d.jira_project || '',
         project_name: d.project_name ?? '',
         issue_type: d.issue_type ?? '',
         title: d.title || d.tc_name || '',
-        status: d.status ?? '',
+        /* **값 자체가 지라 상태**다(지시). 칩만 바꾸고 값을 open 으로 두면
+           거르기·정렬·검색이 사람이 보는 것과 다른 것을 본다. 원본은
+           status_raw 로 따로 들고 간다(닫힘 판단). */
+        status: jiraStatusText(d, jstat),
+        status_raw: d.status ?? '',
         jira_key: d.jira_key ?? '',
         priority: d.priority ?? '',
         fix_version: d.fix_version ?? '',
@@ -138,7 +149,7 @@ export default function Defects({ me }: { me?: MeUser | null }) {
         created_at: fmtDate(d.created_at),
         tcid: d.tcid ?? '',
       })),
-    [rows],
+    [rows, jstat],
   )
   const [view, setView] = useState<NView>(EMPTY_VIEW)
   const [calcs, setCalcs] = useState<Record<string, NCalc>>({})
@@ -259,15 +270,10 @@ export default function Defects({ me }: { me?: MeUser | null }) {
             onOpen={(id) => setOpen((data ?? []).find((d) => d.id === id) ?? null)}
             onPeek={(id) => setOpen((data ?? []).find((d) => d.id === id) ?? null)}
             renderCell={(row, col) => {
-              const v = String(row[col.key] ?? '')
               if (col.key === 'status') {
                 const jk = String(row.jira_key ?? '')
-                return jk ? (
-                  <span className="dfl-jira" title="Jira 이슈 키">
-                    ● {jk}
-                  </span>
-                ) : (
-                  <span className={`dfl-badge ${v}`}>{v === 'closed' ? '닫힘' : '미등록'}</span>
+                return (
+                  <JiraStatusChip jiraKey={jk} stat={jstat[jk]} closed={String(row.status_raw ?? '') === 'closed'} />
                 )
               }
               return undefined

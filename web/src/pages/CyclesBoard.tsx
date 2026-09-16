@@ -31,6 +31,7 @@ import { IconChevron, IconPanel } from '@/components/icons'
 import { CycleMailOne } from '@/components/cycle/CyclePlan'
 import CycleReport from '@/components/cycle/CycleReport'
 import NTable from '@/components/ntable/NTable'
+import { JiraStatusChip, jiraStatusText, useJiraStatus } from '@/lib/jiraStatus'
 import { EMPTY_VIEW } from '@/components/ntable/types'
 import { autoColor } from '@/components/ntable/palette'
 import type { NCol, NRow, NView } from '@/components/ntable/types'
@@ -3137,6 +3138,10 @@ export default function CyclesBoard({
   const [defCols, setDefCols] = useNCols('utop.ntb.cyc.def', defDefs)
   const [defView, setDefView] = useState<NView>({ ...EMPTY_VIEW })
   /** 고를 값은 **지금 자료에서** — 열 정의에 박아 두면 없는 값이 목록에 선다 */
+  /** 올라간 이슈들의 **지금 지라 상태** — 표의 「상태」 칸이 이것을 쓴다 */
+  const defJstat = useJiraStatus(
+    useMemo(() => (defQ.data?.defects ?? []).map((d) => String(d.jira_key ?? '')), [defQ.data]),
+  )
   const defRows = useMemo<NRow[]>(
     () =>
       (defQ.data?.defects ?? []).map((d) => ({
@@ -3144,9 +3149,16 @@ export default function CyclesBoard({
         __id: String(d.id ?? ''),
         id: String(d.id ?? ''),
         title: String(d.title || d.tc_name || ''),
+        /* **등록되면 그 이슈 열쇠**를 세운다(지시) — 프로젝트 키(P88)는
+           올리기 전에만 뜻이 있다. Defects 화면과 같은 규칙이다. */
+        jira_project: String(d.jira_key || d.jira_project || ''),
+        /* **값 자체가 지라 상태**다(지시) — 거르기·정렬이 사람이 보는 것과
+           같은 것을 보게. 원본은 status_raw 로 따로 든다(닫힘 판단). */
+        status: jiraStatusText(d, defJstat),
+        status_raw: String(d.status ?? ''),
         created_at: String(d.created_at ?? '').slice(0, 10),
       })),
-    [defQ.data],
+    [defQ.data, defJstat],
   )
   const defColsView = useMemo<NCol[]>(
     () =>
@@ -3180,6 +3192,12 @@ export default function CyclesBoard({
                시험 항목으로 가는 길은 아래 「시험 항목」 칸이 맡는다. */
             onOpen={(id) => goto('defect', id)}
             renderCell={(row, col) => {
+              if (col.key === 'status') {
+                const jk = String(row.jira_key ?? '')
+                return (
+                  <JiraStatusChip jiraKey={jk} stat={defJstat[jk]} closed={String(row.status_raw ?? '') === 'closed'} />
+                )
+              }
               if (col.key !== 'tcid') return undefined
               const tc = String(row.tcid ?? '')
               if (!tc) return <span className="cu-m">—</span>
