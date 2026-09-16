@@ -311,8 +311,11 @@
 /* ── 자동으로 채워지는 판(5·6번) ────────────────────────────────
    손으로 옮겨 적게 하면 아무도 안 적고, 적더라도 옮기다 틀린다. */
 .dfx-ph { display: flex; align-items: center; gap: 8px; }
-/* 제목은 제 폭만 — 남는 폭은 빵부스러기 칩이 쓴다(칩이 길면 줄임표) */
+/* 제목은 제 폭만 — 남는 폭은 **빈칸(.sp)** 이 먹어 오른쪽 것들을 끝으로
+   민다. 여태 제목이 flex:1 로 그 일을 겸했는데, 그 자리에 빵부스러기 칩을
+   들이면서 미는 힘이 사라져 「파일」 단추가 제목 옆에 붙어 버렸다(지적). */
 .dfx-ph > span:first-child { flex: none; white-space: nowrap; }
+.dfx-ph .sp { flex: 1 1 auto; min-width: 0; }
 .dfx-auto {
   flex: none;
   padding: 1px 7px;
@@ -458,5 +461,6 @@
   border-color: var(--c-accent, #2f7d6d);
   color: var(--c-accent, #2f7d6d);
 }
-/* 머리 안에서는 제목 옆에 붙어, 남는 폭만 차지하고 길면 줄인다 */
+/* 머리 안에서는 제목 옆에 붙어, 제 폭만 차지하되 길면 줄임표로 접는다 —
+   칩이 아무리 길어도 오른쪽 단추들을 밀어내지 않는다. */
 .dfx-ph > .dfx-crumb { margin: 0 0 0 8px; min-width: 0; flex: 0 1 auto; }

@@ -887,21 +887,6 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     </a>
                   )}
                   <span className="sp" />
-                  {/* **파일 첨부**(지시) — 판마다 따로 붙인다. 어느 이야기에
-                      딸린 파일인지가 이슈에서 그대로 드러난다. */}
-                  {!pushed && (
-                    <label className="dfx-attach" title="이 칸에 파일을 붙입니다 — 등록할 때 함께 올라갑니다">
-                      📎 파일
-                      <input
-                        type="file"
-                        multiple
-                        onChange={(e) => {
-                          if (e.target.files?.length) void addFiles(p.k, e.target.files)
-                          e.target.value = ''
-                        }}
-                      />
-                    </label>
-                  )}
                   {auto && <span className="dfx-auto">자동입력</span>}
                   {/* 구성도는 **고칠 것이 없다**(지적: 고치기가 안 된다) —
                       그림이라 글로 가져올 수가 없어, 누르면 판이 비고 그림만
@@ -927,6 +912,24 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     >
                       고치기
                     </button>
+                  )}
+                  {/* **파일 첨부**(지시) — 판마다 따로 붙인다. 어느 이야기에
+                      딸린 파일인지가 이슈에서 그대로 드러난다.
+                      자리는 **늘 오른쪽 끝**이다(지시) — 판마다 「자동입력」
+                      배지나 「고치기」 가 있고 없고에 따라 단추가 좌우로
+                      움직이면, 누르려던 손이 매번 자리를 다시 찾는다. */}
+                  {!pushed && (
+                    <label className="dfx-attach" title="이 칸에 파일을 붙입니다 — 등록할 때 함께 올라갑니다">
+                      📎 파일
+                      <input
+                        type="file"
+                        multiple
+                        onChange={(e) => {
+                          if (e.target.files?.length) void addFiles(p.k, e.target.files)
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
                   )}
                 </div>
                 {auto ? (
