@@ -13163,8 +13163,9 @@ def _step_is_fail(st: dict) -> bool:
     return False
 
 
-async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -> None:
-    """**자동 시험이 깨지면 그 자리에서 결함을 만든다**(지시).
+async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "",
+                       cycle_id: str = "", who_in: str = "") -> None:
+    """**시험이 깨지면 그 자리에서 결함을 만든다**(지시).
 
     사람이 「결함 만들기」 를 누르러 돌아오지 않아도 사이클 Defects 탭과
     Defects 화면에 바로 선다 — 둘은 같은 표(defect)를 읽으므로, 여기서
@@ -13176,10 +13177,11 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
     **결과 저장을 막지 않는다** — 결함을 못 만들어도 실행 기록은 남아야
     하므로 모든 예외를 여기서 삼킨다.
     """
-    run = await db.plan_run_get(run_id)
-    if not run:
-        return
-    cid = str(run.get("plan_id") or "").strip()
+    # 자동 시험은 실행(plan_run)을 거쳐 오고, **수동 시험은 사이클을 바로
+    # 저장한다**(지시: 수동에서 Fail 로 바꿔도 Defects 에 남아야 한다).
+    # 그래서 사이클을 두 길로 찾는다 — 실행 번호로, 또는 사이클로 바로.
+    run = await db.plan_run_get(run_id) if run_id else None
+    cid = str(cycle_id or (run or {}).get("plan_id") or "").strip()
     if not cid:
         return
     if await db.defect_by_item(cid, tcid):
@@ -13191,7 +13193,7 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
             name = str(it.get("name") or it.get("title") or "")
             break
     model = str(cyc.get("model") or "")
-    version = str(cyc.get("version") or run.get("version") or "")
+    version = str(cyc.get("version") or (run or {}).get("version") or "")
     extra = await _jira_defect_defaults(cyc)
     # **보고자는 시험을 시작한 그 사람**이다(지시: 로그인한 계정).
     # 이 팀은 UTOP 로그인이 곧 Jira 계정이라(devums 연동) 계정 아이디를
@@ -13201,26 +13203,28 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
     # 일감(cycle_run)의 started_by 가 「시작 단추를 누른 사람」 이다 — 실행을
     # 만든 계정(plan_run.created_by)은 며칠 전 다른 사람일 수 있다. 다만
     # 일감에는 **표시 이름**(관리자)이 적히므로 계정 아이디로 옮긴다.
-    who = ""
+    # 수동 판정은 **고친 사람**이 곧 보고자다 — 실행이 없으니 물어볼 데도 없다
+    who = str(who_in or "").strip()
     try:
-        async with db.pool().acquire() as c:
-            # **시간으로 고른다.** id 는 랜덤 hex 라 정렬해도 시간순이 아니다 —
-            # 그 바람에 늘 엉뚱한(옛) 일감을 집어, 누가 돌리든 보고자가 처음
-            # 돌린 사람으로 박혔다(지적: 계정과 상관없이 admin).
-            # 지금 도는 일감이 있으면 그것이 먼저다.
-            r2 = await c.fetchrow(
-                "SELECT started_by FROM cycle_run WHERE plan_run_id = $1 "
-                " AND COALESCE(started_by,'') <> '' "
-                " ORDER BY (status IN ('running','queued')) DESC, "
-                "          started_at DESC NULLS LAST, queued_at DESC NULLS LAST LIMIT 1",
-                run_id,
-            )
-        who = str((r2 or {}).get("started_by") or "").strip()
+        if not who and run_id:
+            async with db.pool().acquire() as c:
+                # **시간으로 고른다.** id 는 랜덤 hex 라 정렬해도 시간순이 아니다 —
+                # 그 바람에 늘 엉뚱한(옛) 일감을 집어, 누가 돌리든 보고자가 처음
+                # 돌린 사람으로 박혔다(지적: 계정과 상관없이 admin).
+                # 지금 도는 일감이 있으면 그것이 먼저다.
+                r2 = await c.fetchrow(
+                    "SELECT started_by FROM cycle_run WHERE plan_run_id = $1 "
+                    " AND COALESCE(started_by,'') <> '' "
+                    " ORDER BY (status IN ('running','queued')) DESC, "
+                    "          started_at DESC NULLS LAST, queued_at DESC NULLS LAST LIMIT 1",
+                    run_id,
+                )
+            who = str((r2 or {}).get("started_by") or "").strip()
     except Exception:
         pass
     # **이름으로 적는다**(지시) — 화면에서 사람이 읽는 값이다. 계정 아이디는
     # 지라로 올릴 때 그 자리에서 옮긴다(_jira_user_name).
-    who = who or _user_name_of(str(run.get("created_by") or cyc.get("created_by") or ""))
+    who = who or _user_name_of(str((run or {}).get("created_by") or cyc.get("created_by") or ""))
     if who:
         extra["reporter"] = who
     steps = [x for x in (body.get("steps") or []) if isinstance(x, dict)]
@@ -13234,7 +13238,11 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
         "desc": str(x.get("desc") or x.get("step") or ""),
         "cli": str(x.get("cli") or ""),
         "criteria": str(x.get("criteria") or ""),
-        "status": str(x.get("status") or x.get("verdict") or "FAIL"),
+        # 판정을 적는 이름이 길에 따라 다르다 — 실행기는 status·verdict,
+        # 사이클 문서(수동)는 result 다(웹 stepVerdict 와 같은 차례).
+        # **모르면 미실행**이다: 여기서 FAIL 로 메우면 사람이 손도 안 댄
+        # 스텝이 「판정: FAIL」 로 이슈에 실린다.
+        "status": str(x.get("result") or x.get("status") or x.get("verdict") or ""),
         "reason": str(x.get("reason") or ""),
         "output": str(x.get("output") or "")[:4000],
     } for x in pick[:40]]
@@ -13419,7 +13427,7 @@ async def api_plan_run_item_put(run_id: str, payload: dict, request: Request = N
 
 
 @app.post("/api/cycle/{cycle_id}")
-async def save_cycle(cycle_id: str, data: dict):
+async def save_cycle(cycle_id: str, data: dict, request: Request = None):
     # 부여 ID — 없을 때만 새로 매긴다. 한 번 박히면 영원하다…
     if not str((data or {}).get("cid") or "").strip():
         try:
@@ -13456,7 +13464,47 @@ async def save_cycle(cycle_id: str, data: dict):
                     print(f"[cycle] cid 재부여 {_cid} → {data['cid']}", flush=True)
         except Exception:
             pass
+    # **수동 시험도 결함을 남긴다**(지시: 수동에서 Fail 로 바꿔도 Cycles
+    # Defects 에 안 남는다). 자동 시험은 실행기가 항목을 마칠 때 만들지만,
+    # 수동은 사람이 판정을 바꿔 이 길로 저장한다.
+    #
+    # **새로 Fail 이 된 것만** 만든다. 저장할 때마다 Fail 항목을 훑어 만들면,
+    # 사람이 지운 결함이 다음 저장에 되살아난다 — 그래서 저장 직전의 판정을
+    # 먼저 기억해 둔다.
+    _was: dict = {}
+    try:
+        _old = await db.cycle_get(cycle_id) or {}
+        for _it in (_old.get("items") or []):
+            if isinstance(_it, dict):
+                _was[str(_it.get("tcid") or "")] = str(_it.get("result") or "")
+    except Exception:
+        pass
+
     await db.cycle_upsert(cycle_id, data)
+
+    try:
+        _bad = await db._bad_verdicts()
+        try:
+            _b = str(request.base_url).strip() if request is not None else ""
+        except Exception:
+            _b = ""
+        _by0 = str((data or {}).get("updated_by") or "").strip()
+        for _it in (data.get("items") or []):
+            if not isinstance(_it, dict):
+                continue
+            _tc = str(_it.get("tcid") or "")
+            _rs = str(_it.get("result") or "")
+            if not _tc or _rs not in _bad or _was.get(_tc, "") in _bad:
+                continue
+            # 결함 만들기가 저장을 막지 않게 뒤로 보낸다 — 한 항목이 지라
+            # 기본값을 묻는 동안 사람이 기다릴 이유가 없다.
+            asyncio.create_task(_auto_defect(
+                "", _tc, {"steps": _it.get("steps") or []}, _b,
+                cycle_id=cycle_id, who_in=_by0,
+            ))
+    except Exception:
+        pass
+
     # 누가 고쳤는지 함께 싣는다. 받는 쪽이 「내가 방금 저장한 것」 을 걸러야
     # 하고, 남이 한 것이면 이름을 말해 줘야 한다 — 플랜은 여럿이 나눠
     # 돌리는 자리라 「누가 3번을 Fail 로 바꿨나」 가 곧 알아야 할 일이다.
