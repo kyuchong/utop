@@ -667,11 +667,12 @@ export default function CycleMailDialog({
                 className="cmd-in"
                 id="cmd-sub"
                 value={subject}
+                /* 자동 제목은 **흐린 글씨로 그 자리에** 보인다 — 아래에 한 번
+                   더 적으면 같은 말이 두 줄이 된다(지시: 문구 제거) */
                 placeholder={autoSubj || '비우면 자동 제목이 들어갑니다'}
                 autoComplete="off"
                 onChange={(e) => setSubject(e.target.value)}
               />
-              <span className="cmd-hint">비우면 「{autoSubj || '모델 · 버전 · 시험 결과'}」 가 그대로 들어갑니다.</span>
             </div>
 
             <div className="cmd-f cmd-wide">
