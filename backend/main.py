@@ -13286,10 +13286,10 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "") -
 
             # **요약은 현상과 같은 말이다**(지시). 앞에 [UTOP] 을 붙여 자동으로
             # 등록한 것임을 지라에서 바로 알아보게 한다.
-            # 대괄호에는 **제품만**(지시: 사이클명 빼기). 어느 사이클인지는
-            # 결함의 제 칸과 「4. 시험내역」 링크가 말한다 — 요약에 버전까지
-            # 넣으면 정작 증상이 뒤로 밀린다.
-            title = f"[UTOP] [{model}] {sym}" if model else f"[UTOP] {sym}"
+            # 머리말은 **[UTOP] 하나뿐**이다(지시). 제품·버전은 결함의 제
+            # 칸과 「4. 시험내역」 링크가 말한다 — 요약에 넣으면 정작 증상이
+            # 뒤로 밀린다.
+            title = f"[UTOP] {sym}"
             if len(title) > 150:
                 title = title[:150].rstrip() + "…"
 

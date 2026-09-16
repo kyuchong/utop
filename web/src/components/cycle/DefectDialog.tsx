@@ -794,18 +794,20 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                     </button>
                   )}
                 </div>
-                {auto ? (
-                  autoTopo ? (
-                    /* 구성도 — 이슈에는 첨부로 올라간다. 여기서 보여 주는
-                       것은 「무엇이 올라갈지」 다: 등록하고 나서 열어 보니
-                       엉뚱한 그림이더라를 없앤다. */
-                    <div className="dfx-auto-b dfx-topo">
-                      <img src={topoImg} alt="구성도" />
-                      <div className="muted small">
-                        시험항목 {tcid} 의 구성도 — 등록할 때 「구성도.png」 로 첨부됩니다
-                      </div>
+                {/* 구성도는 **그림과 글을 함께** 둔다(지시: 한글 입력 가능해야).
+                    그림은 자동으로 붙고, 그 아래 칸에 「어느 포트를 어떻게
+                    걸었는지」 같은 설명을 적는다 — 그림만으로는 안 되는 말이
+                    늘 있다. */}
+                {autoTopo && (
+                  <div className="dfx-auto-b dfx-topo">
+                    <img src={topoImg} alt="구성도" />
+                    <div className="muted small">
+                      시험항목 {tcid} 의 구성도 — 등록할 때 「구성도.png」 로 첨부됩니다
                     </div>
-                  ) : autoCfg ? (
+                  </div>
+                )}
+                {auto && !autoTopo ? (
+                  autoCfg ? (
                     <pre className="dfx-auto-log">{cfgText.slice(0, 4000)}</pre>
                   ) : autoSteps ? (
                     <div className="dfx-auto-b">
