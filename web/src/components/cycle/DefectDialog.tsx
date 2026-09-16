@@ -3,7 +3,7 @@ import { apiFetch } from '@/api/client'
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
-import { buildDefectWiki, detailFromSteps, kernelFromSteps, procFromSteps, wikiToHtml, type WikiStep, configFromSteps} from '@/lib/jiraWiki'
+import { buildDefectWiki, detailFromSteps, procFromSteps, wikiToHtml, type WikiStep, configFromSteps} from '@/lib/jiraWiki'
 import AutoGrow from './AutoGrow'
 import { boardShot } from '@/components/tc/boardShot'
 import { wireShot } from '@/components/tc/wireMermaid'
@@ -745,12 +745,15 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                왜 못 고치는지를 그 자리에서 말한다. */
             const autoSteps = p.k === 'steps' && briefs.length > 0
             const autoDet = p.k === 'detail' && briefs.length > 0
-            const autoKern = p.k === 'kernel' && !!kernelFromSteps(briefs as WikiStep[])
+            /* 7. Kernel Log 는 **자동으로 채우지 않는다**(지시: 기본값 없음).
+               스텝의 명령과 출력을 콘솔 기록처럼 이어 붙이고 있었는데, 그건
+               커널 로그가 아니라 4. 시험내역이 이미 적는 것이다 — 같은 말이
+               두 판에 서고, 정작 dmesg·syslog 는 어디에도 없었다. */
             const autoCfg = p.k === 'config' && !!cfgText
             const typed = String(panels[p.k] ?? '').trim()
             /* 구성도는 **글을 자동으로 채우지 않는다** — 그림이 첨부로 붙을
                뿐이라, 다른 판과 똑같이 빈 입력칸으로 선다(지시). */
-            const auto = !typed && (autoSteps || autoDet || autoKern || autoCfg)
+            const auto = !typed && (autoSteps || autoDet || autoCfg)
             return (
               <div className="dfx-panel" key={p.k}>
                 <div className="dfx-ph">
@@ -790,9 +793,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                             ? procFromSteps(briefs as WikiStep[])
                             : autoDet
                               ? detailFromSteps(briefs as WikiStep[])
-                              : autoCfg
-                                ? cfgText
-                                : kernelFromSteps(briefs as WikiStep[]),
+                              : cfgText,
                         )
                       }
                     >
@@ -848,9 +849,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <pre className="dfx-auto-log">{kernelFromSteps(briefs as WikiStep[])}</pre>
-                  )
+                  ) : null
                 ) : (
                   <AutoGrow
                     value={panels[p.k] ?? ''}

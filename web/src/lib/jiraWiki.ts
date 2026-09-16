@@ -142,18 +142,6 @@ export function stepsToWiki(steps: WikiStep[]): string {
   return blocks.join('\n----\n')
 }
 
-/** 스텝의 명령과 출력을 콘솔 기록처럼 잇는다 — 7번 판의 자동 채움 */
-export function kernelFromSteps(steps: WikiStep[]): string {
-  const L: string[] = []
-  for (const s of steps) {
-    if (!s.cli) continue
-    L.push(`# ${s.cli}`)
-    const out = String(s.output ?? '').trim()
-    if (out) L.push(out)
-    L.push('')
-  }
-  return L.join('\n').trimEnd()
-}
 
 /**
  * `show running-config` 를 찍은 스텝의 출력 — 5번 판의 자동 채움.
@@ -176,6 +164,9 @@ export function configFromSteps(steps: WikiStep[]): string {
   return ''
 }
 
+/** 비면 「없음」 이라고 적는 판 — 자료가 없는 것이 예사인 뒤쪽 네 판(지시) */
+const NONE_PANELS = new Set(['config', 'core', 'kernel', 'attach'])
+
 /**
  * 여덟 판을 Jira 설명으로 편다.
  *
@@ -196,10 +187,6 @@ export function buildDefectWiki(
     if (k === 'steps' && !body && steps.length) body = procFromSteps(steps)
     /* 「4. 시험내역」 은 **CLI·결과값·판정**이다(지시) */
     if (k === 'detail' && !body && steps.length) body = detailFromSteps(steps)
-    if (k === 'kernel' && !body && steps.length) {
-      const kn = kernelFromSteps(steps)
-      if (kn) body = `{noformat}\n${kn}\n{noformat}`
-    }
     /* 설정 파일 — **파일로 붙인다**(지시). 수천 줄을 본문에 쏟으면 이슈를
        읽을 수가 없고, Jira 가 접어 주더라도 검색·내려받기가 안 된다.
        등록할 때 running-config.txt 로 올리고 여기서는 그 이름을 부른다. */
@@ -211,7 +198,12 @@ export function buildDefectWiki(
        그림이 사라진다). 둘은 고르는 것이 아니라 함께 가는 것이다 — 적은
        글 다음에 그림을 둔다(왼쪽 편집칸과 같은 차례). */
     if (k === 'topo' && opts?.image) body = body ? `${body}\n!구성도.png|thumbnail!` : '!구성도.png|thumbnail!'
-    if (!body) body = '（내용 없음）'
+    /* **5~8 은 비면 「없음」**(지시).
+       앞 네 판은 이 결함이 무엇인지 말하는 자리라 비어 있으면 「아직 안
+       적었다」 는 뜻이지만, 뒤 네 판은 「그런 자료가 없다」 가 대부분이다 —
+       코어 파일이 없는 결함이 훨씬 많다. 두 뜻을 같은 말로 적으면, 읽는
+       사람이 「빠뜨린 것인가」 를 매번 되묻게 된다. */
+    if (!body) body = NONE_PANELS.has(k) ? '없음' : '（내용 없음）'
     return `{panel:title=${title}}\n${body}\n{panel}`
   }).join('\n\n')
 }

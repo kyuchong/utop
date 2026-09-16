@@ -21897,6 +21897,11 @@ def _defect_jira_body(d: dict) -> str:
             v = str(p.get(k) or "").strip()
             if k == "steps" and not v:
                 v = _defect_steps_body(d)
+            # **뒤 네 판은 비면 「없음」**(지시) — 코어 파일이 없는 결함이
+            # 훨씬 많다. 판을 통째로 빼면 「빠뜨린 것인가」 를 되묻게 되고,
+            # 「（내용 없음）」 이라 적으면 아직 안 적은 것처럼 읽힌다.
+            if not v and k in ("config", "core", "kernel", "attach"):
+                v = "없음"
             if not v:
                 continue
             L.append("{panel:title=%d. %s}" % (i, label))
