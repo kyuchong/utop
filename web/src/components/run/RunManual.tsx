@@ -658,10 +658,11 @@ export default function RunManual({
           item={dfxItem}
           existing={null}
           onClose={() => setBug(false)}
-          onSaved={() => {
-            setBug(false)
-            onBug()
-          }}
+          /* **여기서 닫지 않는다.** 이 창은 열리자마자 UTOP 에 초안을 만들고
+             그때도 onSaved 가 불린다 — 옛 서랍처럼 「저장됐으니 닫기」 로
+             이으면 창이 뜨자마자 사라진다(지적: 순간적으로 보였다 사라진다).
+             닫기는 사람이 ✕ 나 취소로 누른다. 여기서는 목록만 새로 받는다. */
+          onSaved={() => onBug()}
         />
       )}
 
