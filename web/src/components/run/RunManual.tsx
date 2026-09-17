@@ -174,6 +174,28 @@ export default function RunManual({
 
 
   const one = items.find((x) => x.id === cur)
+  /* 결함 창에 넘길 것 — **한 번만 짓는다.** 매 렌더 새 객체를 주면 창 안의
+     계산(절차 훑기·요약 짓기)이 통째로 다시 돌고, 실행 화면은 실행 상태가
+     바뀔 때마다 다시 그려진다(지적: 결함을 누르면 창이 계속 꺼진다). */
+  const dfxCycle = useMemo(() => ({ id: planId }), [planId])
+  const dfxItem = useMemo(
+    () => ({
+      tcid: cur,
+      name: one?.title ?? '',
+      req_id: info.reqId ?? null,
+      /* 지금 화면의 절차를 그대로 넘긴다 — 판정과 실측이 붙어 있어야
+         현상·시험내역이 채워진다(DefectDialog 의 briefsOf 가 읽는다) */
+      steps: steps.map((st, i) => ({
+        desc: st.desc ?? st.t ?? '',
+        cli: st.t ?? '',
+        criteria: st.expected ?? '',
+        result: pchk[i] ?? '',
+        output: pmeta?.[i]?.act ?? '',
+        executed_at: pmeta?.[i]?.at ?? null,
+      })),
+    }),
+    [cur, one?.title, info.reqId, steps, pchk, pmeta],
+  )
   const marked = pchk.filter(Boolean).length
 
   /* ── 목록(노션 표) ── */
@@ -628,25 +650,12 @@ export default function RunManual({
           된다. 같은 DefectDialog 를 연다. */}
       {bug && (
         <DefectDialog
+          key="dfx"  /* 실행 화면이 다시 그려져도 같은 창이다 — 새로 세우면 쓰던 글이 날아간다 */
           /* 실행 화면은 **서랍**으로 연다 — 시험서를 보며 쓴다(목업).
              머리의 단추로 넓은 창으로 바꿀 수 있고, 고른 것은 계정에 남는다 */
           host="side"
-          cycle={{ id: planId }}
-          item={{
-            tcid: cur,
-            name: one?.title ?? '',
-            req_id: info.reqId ?? null,
-            /* 지금 화면의 절차를 그대로 넘긴다 — 판정과 실측이 붙어 있어야
-               현상·시험내역이 채워진다(DefectDialog 의 briefsOf 가 읽는다) */
-            steps: steps.map((st, i) => ({
-              desc: st.desc ?? st.t ?? '',
-              cli: st.t ?? '',
-              criteria: st.expected ?? '',
-              result: pchk[i] ?? '',
-              output: pmeta?.[i]?.act ?? '',
-              executed_at: pmeta?.[i]?.at ?? null,
-            })),
-          }}
+          cycle={dfxCycle}
+          item={dfxItem}
           existing={null}
           onClose={() => setBug(false)}
           onSaved={() => {

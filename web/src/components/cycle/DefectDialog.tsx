@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { apiFetch } from '@/api/client'
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
@@ -833,8 +834,19 @@ export default function DefectDialog({ host: host0, cycle, item, existing, onClo
 
   const pushed = !!defect?.jira_key
 
-  return (
-    <div className={host === 'side' ? 'dfx-sback' : 'modal-back'} onMouseDown={onClose}>
+  /* 이 창은 **body 에 붙인다.** 실행 화면 안에 그대로 두면 조상의 z-index ·
+     transform · overflow 에 갇혀, 떠 있는데도 뒤에 숨거나 잘려 보인다
+     (지적: 수동 시험에서 결함을 누르면 창이 계속 꺼진다). */
+  return createPortal(
+    <div
+      className={host === 'side' ? 'dfx-sback' : 'modal-back'}
+      /* **배경을 곧바로 눌렀을 때만** 닫는다(지적: 결함을 누르면 창이 바로
+         꺼진다). 그냥 onMouseDown={onClose} 로 두면 안쪽에서 올라온 눌림도
+         닫기로 읽혀, 열자마자 사라지는 일이 생긴다. */
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div
         className={host === 'side' ? `dfx-sheet dfx ${drwSide}` : 'modal dfx wide'}
         role="dialog"
@@ -1223,6 +1235,7 @@ export default function DefectDialog({ host: host0, cycle, item, existing, onClo
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
