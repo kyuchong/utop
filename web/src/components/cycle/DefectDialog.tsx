@@ -5,6 +5,8 @@ import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
 import { buildDefectWiki, detailFromSteps, procFromSteps, wikiToHtml, type WikiStep, configFromSteps} from '@/lib/jiraWiki'
 import AutoGrow from './AutoGrow'
+import { prefGet, prefSet } from '@/lib/prefs'
+import { DrawerSideBtns, useDrawerSide } from '@/lib/drawerSide'
 import { boardShot } from '@/components/tc/boardShot'
 import { wireShot } from '@/components/tc/wireMermaid'
 import { connParams } from '@/components/tc/device'
@@ -58,6 +60,9 @@ const PANELS: Array<{ k: string; label: string; ph: string; rows: number }> = [
 ]
 
 interface Props {
+  /** 어떤 모양으로 뜰지 — 'side' 는 화면 오른쪽 서랍(실행 화면에서 쓴다).
+   *  안 주면 가운데 창. 사람이 머리에서 바꾼 것은 계정에 남는다. */
+  host?: 'modal' | 'side'
   /** 플랜에서 열 때만 준다. Defects 목록에서 열면 없다(이미 저장된 결함이라) */
   cycle?: { id: string; model?: string | null; version?: string | null }
   item?: CycleItemLite
@@ -130,7 +135,19 @@ function briefsFromDefect(d: DefectRec | null): StepBrief[] {
  * UTOP 안에는 먼저 저장하고(항목당 하나), 「지라에 등록」 을 누를 때 실제로
  * 이슈가 생긴다 — 64건 돌려 20건 깨졌다고 이슈 20개가 한꺼번에 생기지 않게.
  */
-export default function DefectDialog({ cycle, item, existing, onClose, onSaved }: Props) {
+export default function DefectDialog({ host: host0, cycle, item, existing, onClose, onSaved }: Props) {
+  /* 서랍 ⇄ 창 — 실행 화면은 시험서를 보며 써야 해서 서랍이, 다 쓰고 Jira
+     필드를 훑을 때는 넓은 창이 낫다. 어느 쪽이 편한지는 사람마다 다르므로
+     고른 것을 계정에 남긴다(열 때의 기본값은 부른 화면이 정한다). */
+  const [host, setHost] = useState<'modal' | 'side'>(
+    () => (prefGet('utop.dfx.host') as 'modal' | 'side') || host0 || 'modal',
+  )
+  useEffect(() => {
+    prefSet('utop.dfx.host', host)
+  }, [host])
+  /* 서랍은 온 화면이 한 열쇠로 함께 움직인다 — 창마다 따로 기억하면
+     자리를 매번 다시 찾게 된다(lib/drawerSide) */
+  const [drwSide, setDrwSide] = useDrawerSide()
   const briefs = useMemo(() => (item ? briefsOf(item) : briefsFromDefect(existing)), [item, existing])
 
   /* 설정 파일을 찾을 때는 **깨진 것만이 아니라 모든 스텝**을 본다.
@@ -367,16 +384,40 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
    * 「비교 값이 동일 하지 않습니다」 가 전부라 무슨 일인지 알 수 없다.
    * 서버가 자동으로 만드는 결함(_auto_defect)과 같은 규칙이다.
    */
+  /** 깨진 스텝 — 이 결함의 **근거**로 삼을 것을 고른다(지시: 목업).
+   *
+   * 한 시험에서 여러 스텝이 깨지면 결함도 여럿으로 나누는 일이 흔한데,
+   * 여태는 늘 **첫 Fail** 의 까닭으로만 요약이 지어졌다. 두 번째 것으로
+   * 결함을 쓰려면 요약을 손으로 다시 적어야 했다.
+   * 절차 자체는 통째로 담는다 — 여기서 고르는 것은 「무엇 때문에 이 결함을
+   * 쓰는가」 뿐이다(지시: 절차는 통째로). */
+  const bads = useMemo(() => briefs.filter((b) => b.status === 'Fail' || b.status === 'Blocked'), [briefs])
+  const [pick, setPick] = useState<number[]>([])
+  /* 처음에는 깨진 것을 모두 근거로 본다 — 스텝이 늦게 도착해도 따라간다 */
+  const pickSeed = useRef(false)
+  useEffect(() => {
+    if (pickSeed.current || !bads.length) return
+    pickSeed.current = true
+    setPick(bads.map((b) => b.no))
+  }, [bads])
+  const picked = useMemo(() => {
+    const on = bads.filter((b) => pick.includes(b.no))
+    return on.length ? on : bads
+  }, [bads, pick])
+
   const autoSym = useMemo(() => {
     const nm = String(item?.name || item?.tcid || '')
       .replace(/\s*\(\s*OID-[^)]*\)\s*/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-    const bad = briefs.find((b) => b.status === 'Fail') ?? briefs[0]
+    const bad = picked[0] ?? briefs[0]
     const why = String(bad?.reason || bad?.desc || '').trim()
-    if (nm && why && !why.includes(nm)) return `${nm} 시험에서 ${why}`
-    return why || (nm ? `${nm} 부적합` : '')
-  }, [item, briefs])
+    /* 여럿을 근거로 삼았으면 몇 건인지 밝힌다 — 요약 한 줄에 다 적으면
+       읽을 수 없고, 한 건인 척하면 나머지가 묻힌다 */
+    const more = picked.length > 1 ? ` 외 ${picked.length - 1}건` : ''
+    if (nm && why && !why.includes(nm)) return `${nm} 시험에서 ${why}${more}`
+    return (why ? why + more : '') || (nm ? `${nm} 부적합` : '')
+  }, [item, briefs, picked])
   const [title, setTitle] = useState(existing?.title ?? (autoSym ? `[UTOP] ${autoSym}` : ''))
 
   /* 이슈 본문 여섯 판 — Jira 프로젝트 패널 설정과 같은 차례·같은 이름.
@@ -793,8 +834,14 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
   const pushed = !!defect?.jira_key
 
   return (
-    <div className="modal-back" onMouseDown={onClose}>
-      <div className="modal dfx wide" role="dialog" aria-modal="true" aria-label="결함 등록" onMouseDown={(e) => e.stopPropagation()}>
+    <div className={host === 'side' ? 'dfx-sback' : 'modal-back'} onMouseDown={onClose}>
+      <div
+        className={host === 'side' ? `dfx-sheet dfx ${drwSide}` : 'modal dfx wide'}
+        role="dialog"
+        aria-modal="true"
+        aria-label="결함 등록"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="modal-head">
           <b>결함 {defect ? defect.id : '등록'}</b>
           <span className="muted small">
@@ -802,10 +849,63 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
           </span>
           <span className="sp" />
           {pushed && <span className="dfx-key">● {defect?.jira_key}</span>}
+          {/* 서랍일 때만 좌·우를 고른다 — 가운데 창은 옮길 데가 없다 */}
+          {host === 'side' && <DrawerSideBtns side={drwSide} onSide={setDrwSide} cls="dfx-hb" />}
+          <button
+            className="dfx-hb"
+            type="button"
+            title={host === 'side' ? '넓은 창으로 — Jira 필드를 한눈에 봅니다' : '오른쪽 서랍으로 — 시험서를 보며 씁니다'}
+            aria-label={host === 'side' ? '넓은 창으로' : '오른쪽 서랍으로'}
+            onClick={() => setHost(host === 'side' ? 'modal' : 'side')}
+          >
+            {host === 'side' ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><rect x="7" y="7" width="10" height="10" rx="1" /></svg>
+            ) : (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M14 3v18" /><path d="M8 12h3m-1.5-1.5L11 12l-1.5 1.5" /></svg>
+            )}
+          </button>
           <button className="modal-x" type="button" onClick={onClose}>
             ✕
           </button>
         </div>
+
+        {/* 깨진 스텝 — 무엇을 근거로 이 결함을 쓰는지(지시: 목업).
+            이미 저장된 결함에는 안 보인다 — 그때의 근거는 이미 글에 박혔다. */}
+        {!existing && bads.length > 0 && (
+          <div className="dfx-picks">
+            <span className="l">근거로 삼을 스텝</span>
+            {bads.map((b) => {
+              const on = pick.includes(b.no)
+              return (
+                <button
+                  key={b.no}
+                  type="button"
+                  className={`dfx-pick${on ? ' on' : ''}`}
+                  aria-pressed={on}
+                  title={String(b.reason || b.desc || '') || `#${b.no}`}
+                  onClick={() =>
+                    setPick((v) => (v.includes(b.no) ? v.filter((x) => x !== b.no) : [...v, b.no].sort((x, y) => x - y)))
+                  }
+                >
+                  <i aria-hidden="true">{on ? '✓' : ''}</i>#{b.no}
+                  <b className={b.status === 'Fail' ? 'f' : 'b'}>{b.status}</b>
+                </button>
+              )
+            })}
+            <span className="sp" />
+            <button
+              type="button"
+              className="dfx-refill"
+              title="고른 스텝으로 요약과 현상을 다시 짓습니다 — 손으로 고친 글은 덮입니다"
+              onClick={() => {
+                setTitle(autoSym ? `[UTOP] ${autoSym}` : '')
+                setPanels((p) => ({ ...p, symptom: autoSym }))
+              }}
+            >
+              ↻ 요약·현상 다시 짓기
+            </button>
+          </div>
+        )}
 
         <div className="dfx-two">
         <div className="modal-body dfx-body">

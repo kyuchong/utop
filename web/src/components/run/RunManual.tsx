@@ -628,6 +628,9 @@ export default function RunManual({
           된다. 같은 DefectDialog 를 연다. */}
       {bug && (
         <DefectDialog
+          /* 실행 화면은 **서랍**으로 연다 — 시험서를 보며 쓴다(목업).
+             머리의 단추로 넓은 창으로 바꿀 수 있고, 고른 것은 계정에 남는다 */
+          host="side"
           cycle={{ id: planId }}
           item={{
             tcid: cur,

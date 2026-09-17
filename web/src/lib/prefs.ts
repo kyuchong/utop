@@ -33,6 +33,8 @@ const SYNC = new Set([
   // 자동 스텝 표에서 사람이 끌어 정한 칸 폭
   'utop.tc.sq.sumw', 'utop.tc.sq.dscw',
   'utop.nav.dock', 'utop.drawer.side',
+  // 결함 창을 서랍으로 볼지 넓은 창으로 볼지 — 실행 화면에서 고른 모양
+  'utop.dfx.host',
   // 담당 고르개 최근
   'utop.ass.recent',
   // 사이클에서 골라 둔 시험 항목 · 누적 그림 기간 — 계정을 따라가야

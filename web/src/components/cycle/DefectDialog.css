@@ -468,3 +468,60 @@
 /* 머리 안에서는 제목 옆에 붙어, 제 폭만 차지하되 길면 줄임표로 접는다 —
    칩이 아무리 길어도 오른쪽 단추들을 밀어내지 않는다. */
 .dfx-ph > .dfx-crumb { margin: 0 0 0 8px; min-width: 0; flex: 0 1 auto; }
+
+/* ══ 서랍으로 뜰 때 ══ (실행 화면 — 시험서를 보며 쓴다)
+   가운데 창과 **같은 몸통**을 쓴다. 바깥 껍데기만 갈아 끼운다 —
+   두 벌로 만들면 한쪽만 고쳐져 같은 결함이 두 얼굴이 된다. */
+.dfx-sback { position: fixed; inset: 0; z-index: 600; background: rgb(12 22 28 / 32%); }
+.dfx-sheet {
+  position: absolute; top: 0; bottom: 0;
+  width: min(560px, 100vw); max-width: 100vw;
+  display: flex; flex-direction: column;
+  background: var(--c-surface, #fff);
+  border-radius: 0;
+}
+.dfx-sheet.right { right: 0; box-shadow: -16px 0 40px rgb(10 20 26 / 24%); }
+.dfx-sheet.left { left: 0; box-shadow: 16px 0 40px rgb(10 20 26 / 24%); }
+/* 서랍은 좁다 — 작성과 미리보기를 나란히 두지 않고 위아래로 잇는다 */
+.dfx-sheet .dfx-two { grid-template-columns: minmax(0, 1fr); }
+/* 머리의 아이콘 단추 — ✕ 와 같은 크기·같은 결 */
+.dfx-hb {
+  display: inline-grid; place-items: center; flex: none;
+  width: 26px; height: 26px; padding: 0;
+  border: 1px solid var(--c-border, #dfe4ea); border-radius: var(--r-box, 6px);
+  background: var(--c-surface, #fff); color: var(--c-text-muted, #4d5760); cursor: pointer;
+}
+.dfx-hb:hover { border-color: var(--c-primary, #1769d2); color: var(--c-primary, #1769d2); }
+
+/* ══ 근거로 삼을 스텝 ══ (지시: 목업)
+   한 시험에서 여럿이 깨지면 결함도 나뉜다 — 무엇 때문에 이 결함을 쓰는지
+   고른다. 절차 자체는 늘 통째로 담기므로 여기서 고른다고 빠지지 않는다. */
+.dfx-picks {
+  flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 5px 6px;
+  padding: 6px 12px; border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+  background: #fffafa;
+}
+.dfx-picks .l { font-size: var(--fs-xs, 11px); color: var(--c-text-muted, #4d5760); margin-right: 2px; }
+.dfx-picks .sp { flex: 1; }
+.dfx-pick {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--c-border, #dfe4ea); border-radius: 12px;
+  background: var(--c-surface, #fff); color: var(--c-text-muted, #4d5760);
+  font: inherit; font-size: var(--fs-xs, 11px); padding: 1px 8px 1px 5px; cursor: pointer;
+}
+.dfx-pick i {
+  font-style: normal; width: 12px; height: 12px; flex: none;
+  border: 1.5px solid var(--c-border, #dfe4ea); border-radius: 3px;
+  display: inline-grid; place-items: center; font-size: 9px; line-height: 1;
+  color: #fff; background: #fff;
+}
+.dfx-pick.on { border-color: #f0b9be; color: var(--c-text, #131920); }
+.dfx-pick.on i { background: var(--c-fail, #cc3333); border-color: var(--c-fail, #cc3333); }
+.dfx-pick b { font-weight: 700; }
+.dfx-pick b.f { color: var(--c-fail, #cc3333); }
+.dfx-pick b.b { color: var(--c-draft, #a97800); }
+.dfx-refill {
+  border: 0; background: transparent; color: var(--c-primary, #1769d2);
+  font: inherit; font-size: var(--fs-xs, 11px); cursor: pointer; padding: 2px 4px; border-radius: 3px;
+}
+.dfx-refill:hover { background: var(--c-primary-bg, #e9f1ff); }
