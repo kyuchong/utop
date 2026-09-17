@@ -3201,6 +3201,9 @@ export default function CyclesBoard({
       { key: 'created_by', label: '등록자', type: 'text', width: 104 },
       { key: 'created_at', label: '등록일', type: 'date', width: 132 },
       { key: 'tcid', label: '시험 항목', type: 'text', width: 130 },
+      /* **자동·수동**(지시) — 어느 갈래에서 난 결함인지. 시험 항목 옆에
+         둔다: 어느 항목이냐와 한 묶음으로 읽힌다. */
+      { key: 'run_mode', label: '시험 방식', type: 'select', width: 92 },
     ],
     [],
   )
@@ -3227,8 +3230,16 @@ export default function CyclesBoard({
         status: jiraStatusText(d, defJstat),
         status_raw: String(d.status ?? ''),
         created_at: String(d.created_at ?? '').slice(0, 10),
+        /* 자동·수동은 **사람이 TC 에 적어 둔 타입**만 본다 — 판별은
+           lib/runMode 한 곳이다(항목 표와 같은 눈). TC 정본을 못 찾으면
+           비워 둔다: 모르는 것을 「자동」 으로 적으면 그 거짓이 거르개와
+           집계를 타고 번진다. */
+        run_mode: (() => {
+          const m = tcOf.get(String(d.tcid ?? ''))
+          return m ? (isManualTc(m) ? '수동' : '자동') : ''
+        })(),
       })),
-    [defQ.data, defJstat],
+    [defQ.data, defJstat, tcOf],
   )
   const defColsView = useMemo<NCol[]>(
     () =>
