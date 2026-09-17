@@ -177,6 +177,22 @@ interface MailRow {
   att?: Array<{ name?: string; size?: number }> | null
 }
 
+/** 자동·수동 칸 — **항목 표와 결함 표가 같은 한 벌**을 쓴다(지적: 상태가
+ *  아니라 타입이다). 두 곳에 따로 적어 두면 색이나 이름을 한쪽만 고치게
+ *  되고, 그때부터 같은 것이 같은 것으로 안 보인다.
+ *  판이 아니라 **모듈**에 둔다 — 렌더마다 새로 만들면 열 정의를 굳혀 두는
+ *  useMemo 가 첫 판의 것을 붙들고 있게 된다. */
+const RUN_COL: NCol = {
+  key: 'run',
+  label: '타입',
+  type: 'select',
+  width: 88,
+  options: [
+    { value: '자동', color: '#1769d2', icon: '▶' },
+    { value: '수동', color: '#8a949e', icon: '✎' },
+  ],
+}
+
 export default function CyclesBoard({
   me,
 }: {
@@ -456,13 +472,7 @@ export default function CyclesBoard({
     { key: 'id', label: 'ID', type: 'text', width: 124, fixed: true },
     { key: 'title', label: '제목', type: 'text', width: 340, fixed: true },
     { key: 'type', label: '유형', type: 'select', width: 96, options: [] },
-    {
-      key: 'run', label: '타입', type: 'select', width: 88,
-      options: [
-        { value: '자동', color: '#1769d2', icon: '▶' },
-        { value: '수동', color: '#8a949e', icon: '✎' },
-      ],
-    },
+    RUN_COL,
     { key: 'fail', label: '실패 이력', type: 'text', width: 110 },
     /* **시험 차례** — 이 열로 정렬해야 끌어 옮길 수 있다(정렬을 지우지
        않는다: 사람이 잡아 둔 정렬·묶기를 코드가 날리면 안 된다) */
@@ -3201,9 +3211,10 @@ export default function CyclesBoard({
       { key: 'created_by', label: '등록자', type: 'text', width: 104 },
       { key: 'created_at', label: '등록일', type: 'date', width: 132 },
       { key: 'tcid', label: '시험 항목', type: 'text', width: 130 },
-      /* **자동·수동**(지시) — 어느 갈래에서 난 결함인지. 시험 항목 옆에
-         둔다: 어느 항목이냐와 한 묶음으로 읽힌다. */
-      { key: 'run_mode', label: '시험 방식', type: 'select', width: 92 },
+      /* **자동·수동**(지시) — 어느 갈래에서 난 결함인지. 이름도 색도
+         아이콘도 **항목 표와 똑같이** 「타입」 이다(지적: 상태가 아니라
+         타입이다). 같은 것을 두 표가 다르게 부르면 같은 것인 줄 모른다. */
+      RUN_COL,
     ],
     [],
   )
@@ -3234,7 +3245,7 @@ export default function CyclesBoard({
            lib/runMode 한 곳이다(항목 표와 같은 눈). TC 정본을 못 찾으면
            비워 둔다: 모르는 것을 「자동」 으로 적으면 그 거짓이 거르개와
            집계를 타고 번진다. */
-        run_mode: (() => {
+        run: (() => {
           const m = tcOf.get(String(d.tcid ?? ''))
           return m ? (isManualTc(m) ? '수동' : '자동') : ''
         })(),
