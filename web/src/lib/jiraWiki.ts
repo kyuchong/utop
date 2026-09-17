@@ -202,7 +202,9 @@ export function buildDefectWiki(
        사람이 가장 먼저 읽는 판이 여기다 — 여기에 길이 없으면 아래 3·4번까지
        내려가야 무엇을 보던 중이었는지 안다. 한 줄에 둘을 잇는다. */
     if (k === 'symptom') {
-      const two = [opts?.tcCrumb, opts?.cycleCrumb].filter(Boolean).join(' ')
+      /* **줄을 나눈다**(지시: 저렇게 나오게) — 시험 항목 한 줄, 사이클 한 줄.
+         한 줄에 붙여 두면 긴 경로 둘이 이어져 어디서 끊기는지 안 보인다. */
+      const two = [opts?.tcCrumb, opts?.cycleCrumb].filter(Boolean).join('\n')
       if (two) body = withCrumb(body, two, 'Coverage')
     }
     if (k === 'steps' && opts?.tcCrumb) body = withCrumb(body, opts.tcCrumb, 'Coverage')
@@ -296,8 +298,11 @@ export function wikiToHtml(txt: string, imgs?: Record<string, string>): string {
          읽다가 바로 눌러 갈 수 있어야 한다(지시: 헤더 말고 글 안에). */
       const nx = lines[li + 1] ?? ''
       const cr = nx.match(/^\[([^\]|]+)\|([^\]]+)\]$/)
+      /* 링크 줄이 **잇달아 둘 이상**이면 머리로 올리지 않는다 — 1번 현상은
+         시험 항목·사이클을 두 줄로 싣고, 그것은 본문에 남아야 한다(지시). */
+      const more = /^\[[^\]|]+\|[^\]]+\]$/.test((lines[li + 2] ?? '').trim())
       let head = escH(mp[1])
-      if (cr) {
+      if (cr && !more) {
         head += `<a class="jw-crumb" href="${escH(cr[2])}" target="_blank" rel="noreferrer">${escH(cr[1])}</a>`
         li += 1
         /* 머리로 올린 줄 뒤의 빈 줄도 함께 걷는다 — 안 그러면 본문이 한 줄
