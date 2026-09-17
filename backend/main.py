@@ -13411,8 +13411,9 @@ async def _auto_defect(run_id: str, tcid: str, body: dict, base_url: str = "",
         "output": str(x.get("output") or "")[:4000],
     } for x in pick[:40]]
     for _ in range(3):
-        _mg = await _model_group_of(cyc)
-        did = await db.defect_next_id(await db.project_name_for(_mg, model) or model, _mg)
+        # ID 는 **모델그룹-DF0001**(지시). 자동 결함은 유형을 따로 안 받으니
+        # 늘 DF 다 — CR 은 사람이 유형을 골라 만든다.
+        did = await db.defect_next_id(await _model_group_of(cyc))
         try:
             # **현상**(지시) — 어떤 시험을 돌다 무엇이 어긋났는지 한 문단.
             # 사람이 결함을 열었을 때 첫 칸이 비어 있으면 그때부터 기억을
@@ -22107,17 +22108,16 @@ async def defect_create_api(payload: dict, request: Request):
         who = _user_of(_token_from(request)) or ""
     except Exception:
         pass
-    # ID 는 **프로젝트명-모델그룹-순번3**(지시). 모델그룹은 사이클이 들고
-    # 있고, 프로젝트명은 그것으로 REQ-Coverage 에서 찾는다.
+    # ID 는 **모델그룹-DF0001** · 고른 유형이 CR 이면 모델그룹-CR0001(지시).
+    # 모델그룹은 사이클이 들고 있다.
     # 동시에 두 건이 같은 번호를 집으면 PK 가 겹치므로 그때만 다시 받아 온다.
     _cy = await db.cycle_get(cid) or {}
-    _mdl = str(payload.get("model") or _cy.get("model") or "").strip()
     _mg = str(payload.get("model_group") or "").strip() or await _model_group_of(_cy)
-    _pn = await db.project_name_for(_mg, _mdl) or _mdl
+    _it = str(payload.get("issue_type") or "").strip()
     d = None
     did = ""
     for _ in range(3):
-        did = await db.defect_next_id(_pn, _mg)
+        did = await db.defect_next_id(_mg, _it)
         try:
             d = await db.defect_create({
                 "id": did,

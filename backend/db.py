@@ -3086,48 +3086,25 @@ async def cycle_backfill_cids() -> int:
         return n
 
 
-async def project_name_for(model_group: str = "", model: str = "") -> str:
-    """REQ-Coverage 의 **프로젝트명** — 결함 ID 앞머리가 쓴다(지시).
+async def defect_next_id(model_group: str = "", issue_type: str = "") -> str:
+    """**모델그룹-DF0001** · CR 이면 **모델그룹-CR0001** (지시).
 
-    프로젝트는 폴더 하나가 곧 하나다(req_category). 이름은 「111. LGUPLUS
-    E6100」 처럼 번호·사업자·제품이 한 줄이라, 제품 부분만 떼어 쓴다:
-      · project.model 이 적혀 있으면 그것 (E6100)
-      · 비어 있으면 폴더 이름의 **마지막 낱말** (121. LGUPLUS E5924RL → E5924RL)
+        E61xx-DF0001 · E61xx-CR0001
 
-    찾는 자는 모델그룹이 먼저다 — 사이클이 늘 들고 있고, 프로젝트마다
-    하나씩이라 헷갈릴 일이 없다. 없으면 모델로 찾는다.
+    요구사항·시험·사이클이 모두 모델그룹을 앞에 세운다(E61xx-R0026 ·
+    E61xx-T0001 · E61xx-C0003) — 결함만 따로 놀 까닭이 없다.
+
+    DF 와 CR 은 **번호를 따로 센다.** 한 통에 섞어 세면 DF0007 다음이
+    CR0008 이 되어, 번호만 보고는 몇 번째 결함인지 알 수 없다.
+
+    모델그룹을 모르면 앞머리 없이 DF0001 로 간다 — 앞머리를 지어내지
+    않는다. ID 는 한 번 박히면 영원하다: 나중에 유형이나 모델그룹을 바꿔
+    달아도 이미 매긴 ID 는 그대로 둔다(부여 ID 원칙).
     """
     mg = (model_group or "").strip()
-    md = (model or "").strip()
-    if not mg and not md:
-        return ""
-    async with pool().acquire() as c:
-        r = await c.fetchrow(
-            "SELECT COALESCE(NULLIF(p.model, ''),"
-            "       NULLIF(split_part(trim(c2.name), ' ', "
-            "              array_length(string_to_array(trim(c2.name), ' '), 1)), '')) AS nm"
-            "  FROM project p LEFT JOIN req_category c2 ON c2.id = p.cat_id"
-            " WHERE ($1 <> '' AND p.model_group = $1) OR ($2 <> '' AND p.model = $2)"
-            " ORDER BY (p.model_group = $1) DESC LIMIT 1",
-            mg, md,
-        )
-    return str((r or {}).get("nm") or "").strip()
-
-
-async def defect_next_id(project_name: str = "", model_group: str = "") -> str:
-    """**프로젝트명-모델그룹-순번3** — E6100-E61xx-001 (지시).
-
-    프로젝트명은 REQ-Coverage 의 그것이다(project_name_for). 여태는
-    `DEF-<Jira 프로젝트키>-순번` 이었는데, 결함을 만드는 때에는 지라
-    프로젝트를 아직 안 고른 일이 많아(자동 결함은 늘 그렇다) 전부 기본값
-    UTOP 으로 떨어졌고, ID 만 보고는 어느 제품 것인지 알 수 없었다.
-
-    한 조각을 모르면 그것만 뺀다(E61xx-001). 둘 다 모르면 UTOP 으로 —
-    앞머리를 지어내지 않는다. ID 는 한 번 박히면 영원하다: 나중에 프로젝트를
-    바꿔 달아도 이미 매긴 ID 는 그대로 둔다(부여 ID 원칙).
-    """
-    parts = [x for x in ((project_name or "").strip(), (model_group or "").strip()) if x]
-    prefix = ("-".join(parts) or "UTOP") + "-"
+    # 「개발 Defect」 도 결함 계열이다 — CR 만 따로 본다
+    tag = "CR" if "CR" in str(issue_type or "").upper() else "DF"
+    prefix = (mg + "-" if mg else "") + tag
     async with pool().acquire() as c:
         rows = await c.fetch("SELECT id FROM defect WHERE id LIKE $1", prefix + "%")
     mx = 0
@@ -3135,24 +3112,38 @@ async def defect_next_id(project_name: str = "", model_group: str = "") -> str:
         tail = r["id"][len(prefix):]
         if tail.isdigit():
             mx = max(mx, int(tail))
-    return f"{prefix}{mx + 1:03d}"
+    return f"{prefix}{mx + 1:04d}"
 
 
 async def defect_renumber_legacy() -> int:
-    """옛 무작위 ID(DEF-a1b2c3d4e5)를 DEF-<프로젝트키>-<순번> 으로 갈아 끼운다.
+    """옛 **무작위** ID(DEF-a1b2c3d4e5) 만 지금 체계로 옮긴다. (멱등)
 
-    새 형식(끝이 숫자 3자리 이상)은 건드리지 않으므로 기동 때마다 불러도
-    안전하다. 결함 ID 는 다른 표가 참조하지 않는다 — 사이클 항목은
-    cycle_id+tcid 로 결함을 찾는다.
+    여태는 「새 형식이 아닌 것」 을 모두 바꿨다. 그 탓에 ID 규칙이 바뀌면
+    새로 매긴 ID 가 다음 기동 때 옛것으로 몰려 **도로 뭉개진다** —
+    E61xx-DF0001 이 옛 패턴(DEF-…-숫자3)에 안 맞아 실제로 그럴 참이었다.
+    바꿀 것을 콕 집는다: 하이픈 없는 무작위 꼬리 하나뿐이다.
+
+    결함 ID 는 다른 표가 참조하지 않는다 — 사이클 항목은 cycle_id+tcid 로
+    결함을 찾는다. 이미 제대로 매겨진 ID 는 무슨 꼴이든 건드리지 않는다.
     """
-    pat = re.compile(r"^DEF-.+-\d{3,}$")
+    rand = re.compile(r"^DEF-[0-9a-z]{8,}$", re.I)
     async with pool().acquire() as c:
-        rows = await c.fetch("SELECT id, jira_project FROM defect ORDER BY created_at")
+        rows = await c.fetch(
+            "SELECT id, model, issue_type FROM defect ORDER BY created_at")
+    olds = [r for r in rows if rand.match(r["id"] or "")]
+    if not olds:
+        return 0
+    # 모델 → 모델그룹 (ID 앞머리). 못 찾으면 앞머리 없이 간다
+    cat = []
+    try:
+        cat = await catalog_list()
+    except Exception:
+        pass
+    mg_of = {str(x.get("name") or ""): str(x.get("model_group") or "")
+             for x in cat if str(x.get("kind")) == "model"}
     n = 0
-    for r in rows:
-        if pat.match(r["id"]):
-            continue
-        new_id = await defect_next_id(r["jira_project"])
+    for r in olds:
+        new_id = await defect_next_id(mg_of.get(str(r["model"] or ""), ""), r["issue_type"])
         async with pool().acquire() as c:
             await c.execute("UPDATE defect SET id=$1 WHERE id=$2", new_id, r["id"])
         n += 1
