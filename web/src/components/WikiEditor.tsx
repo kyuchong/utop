@@ -129,19 +129,44 @@ table, pre, .wv, img { break-inside: avoid; }
 `
 
 /**
- * 슬래시 메뉴의 **기본 블록 무리 안에** 항목 하나를 끼운다.
+ * 「/」 메뉴의 **차례와 무리**(지시).
  *
- * 그룹 이름만 같게 두고 배열 뒤에 붙이면, 메뉴가 배열 차례대로 그리면서
- * 그룹이 바뀔 때마다 머리를 새로 세운다 — 「기본 블록」 이 두 번 서고
- * 새 항목은 목록 맨 아래에 따로 앉는다(지적: /상자 가 없다).
+ * BlockNote 가 주는 차례는 제목1~3 / 제목4~6·접을수있는제목 / 기본 블록…
+ * 이라, 자주 쓰는 목록·본문이 한참 아래에 있고 「접을 수 있는」 것들은
+ * 두 무리에 흩어져 있었다. 쓰는 차례대로 다시 세운다.
+ *
+ * 이름으로 짚는다 — 사전을 ko 로 못박아 두었으므로 안정적이다. 그래도
+ * 판이 오르며 이름이 바뀔 수 있으니, **여기 없는 항목은 뒤에 그대로 둔다**
+ * (아래 orderSlash). 목록에서 빠졌다고 조용히 사라지면 안 된다.
  */
-function withBox<T extends { group?: string }>(items: T[], extra: T): T[] {
-  const g = extra.group
-  let at = -1
-  items.forEach((x, i) => {
-    if (x.group === g) at = i
-  })
-  return at < 0 ? [extra, ...items] : [...items.slice(0, at + 1), extra, ...items.slice(at + 1)]
+const SLASH_ORDER: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ['제목', ['제목1', '제목2', '제목3', '제목4', '제목5', '제목6', '본문']],
+  [
+    '기본 블록',
+    ['번호 매기기 목록', '글머리 기호 목록', '체크리스트', '인용', '코드 블록', '페이지 나누기', '구분선', '상자'],
+  ],
+  /* 접을 수 있는 것은 목록과 제목1~3 뿐이다 — 제목4~6·본문에는 그 판이 없다 */
+  ['접을 수 있는', ['접을 수 있는 목록', '접을 수 있는 제목1', '접을 수 있는 제목2', '접을 수 있는 제목3']],
+  ['고급', ['표']],
+  ['미디어', ['이미지', '비디오', '오디오', '파일']],
+  ['기타', ['이모지']],
+  ['짚기', ['REQ · TC 짚기', 'UTOP 표 끼우기']],
+]
+
+/** 위 차례대로 다시 세운다. 차례에 없는 것(요구사항·시험항목·문서처럼
+ *  글자를 쳐야 나오는 것들)은 있던 무리 그대로 뒤에 붙는다. */
+function orderSlash<T extends { title?: string; group?: string }>(items: T[]): T[] {
+  const rest = [...items]
+  const out: T[] = []
+  for (const [group, titles] of SLASH_ORDER) {
+    for (const t of titles) {
+      const i = rest.findIndex((x) => x.title === t)
+      /* 무리 이름만 갈아 끼운다. 스프레드가 만든 값은 TS 가 T 로 못 받아
+         단언한다 — 원래 항목의 다른 칸은 그대로다. */
+      if (i >= 0) out.push({ ...rest.splice(i, 1)[0], group } as T)
+    }
+  }
+  return [...out, ...rest]
 }
 
 /** 기본 조각에 「짚기」 를 더한 서식 — 편집기가 이 서식으로 글을 읽고 쓴다 */
@@ -996,12 +1021,11 @@ export default function WikiEditor({
             triggerCharacter="/"
             getItems={async (query) =>
               filterSuggestionItems(
-                [
-                  /* 「상자」 는 **기본 블록 무리 안에** 끼운다(지시) —
-                     배열 뒤에 두면 같은 그룹 이름이라도 헤더가 한 번 더
-                     생겨 목록 맨 아래에 따로 서고, 사람은 위쪽 기본 블록만
-                     보고 「없다」 고 한다. */
-                  ...withBox(getDefaultReactSlashMenuItems(editor), {
+                /* 차례는 SLASH_ORDER 가 정한다(지시) — 여기서는 항목을
+                   모으기만 한다. 배열에 놓인 자리는 뜻이 없다. */
+                orderSlash([
+                  ...getDefaultReactSlashMenuItems(editor),
+                  {
                     title: '상자',
                     subtext: '글을 상자로 감쌉니다 — 안에 담을 줄은 Tab 으로 들여씁니다',
                     group: '기본 블록',
@@ -1022,7 +1046,7 @@ export default function WikiEditor({
                         editor.nestBlock()
                       }
                     },
-                  }),
+                  },
                   {
                     title: 'REQ · TC 짚기',
                     subtext: '요구사항·시험을 눌러서 갈 수 있게 박습니다',
@@ -1041,7 +1065,7 @@ export default function WikiEditor({
                         'after',
                       ),
                   },
-                ],
+                ]),
                 query,
               )
             }
