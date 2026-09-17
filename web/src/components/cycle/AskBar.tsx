@@ -2334,7 +2334,14 @@ export default function AskBar({ devices }: Props) {
               <i aria-hidden="true">✦</i>UBIQUOSS Test Assistant
             </span>
             <h1 className="ask-hometitle">무엇을 도와드릴까요?</h1>
-            <p className="ask-homesub">말로 하면 시험을 찾고 · 만들고 · 실행합니다</p>
+            {/* 부제는 **고른 갈래를 따라간다**(지시) — 두 갈래가 하는 일이
+                다른데 한 줄로 뭉뚱그리면, 무엇을 골라야 할지는 결국 눌러
+                봐야 안다. 아래 모드 칩과 같은 말을 쓴다. */}
+            <p className="ask-homesub">
+              {mode === 'adv'
+                ? '자연어로 시험 항목을 만들고 실행합니다'
+                : '자연어로 장비를 선택하고 항목을 찾고 실행합니다'}
+            </p>
 
             {/* 입력 + 모드 — 한 상자 안이다(목업) */}
             {/* 2행 캡슐(승인) — 1행 질문 · 2행 첨부·도구·핀 칩 | 모드·음성·보내기 */}
