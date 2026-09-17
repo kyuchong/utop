@@ -164,12 +164,6 @@ export function configFromSteps(steps: WikiStep[]): string {
   return ''
 }
 
-/** 머리줄을 세운다 — 이미 그 줄이 있으면 그대로 둔다(두 번 적지 않게) */
-function withCrumb(body: string, crumb: string, head: string): string {
-  const first = String(body).split('\n', 1)[0] ?? ''
-  if (first.includes(`${head} /`)) return body
-  return body ? `${crumb}\n\n${body}` : crumb
-}
 
 /** 비면 「없음」 이라고 적는 판 — 자료가 없는 것이 예사인 뒤쪽 네 판(지시) */
 const NONE_PANELS = new Set(['config', 'core', 'kernel', 'attach'])
@@ -201,14 +195,15 @@ export function buildDefectWiki(
     /* **현상에도 어느 시험·어느 사이클인지 적는다**(지시). 이슈를 받은
        사람이 가장 먼저 읽는 판이 여기다 — 여기에 길이 없으면 아래 3·4번까지
        내려가야 무엇을 보던 중이었는지 안다. 한 줄에 둘을 잇는다. */
+    /* 길은 **1번 현상에만**, 그것도 **글 아래**에 둔다(지시).
+       위에 두면 이슈를 연 사람이 무슨 일인지 읽기 전에 긴 경로부터 만난다.
+       3·4번 머리에 달던 칩은 걷는다 — 같은 길이 세 번 나오고 있었다. */
     if (k === 'symptom') {
-      /* **줄을 나눈다**(지시: 저렇게 나오게) — 시험 항목 한 줄, 사이클 한 줄.
-         한 줄에 붙여 두면 긴 경로 둘이 이어져 어디서 끊기는지 안 보인다. */
       const two = [opts?.tcCrumb, opts?.cycleCrumb].filter(Boolean).join('\n')
-      if (two) body = withCrumb(body, two, 'Coverage')
+      if (two && !body.includes('Coverage /') && !body.includes('Cycles /')) {
+        body = body ? `${body}\n\n${two}` : two
+      }
     }
-    if (k === 'steps' && opts?.tcCrumb) body = withCrumb(body, opts.tcCrumb, 'Coverage')
-    if (k === 'detail' && opts?.cycleCrumb) body = withCrumb(body, opts.cycleCrumb, 'Cycles')
     /* 설정 파일 — **파일로 붙인다**(지시). 수천 줄을 본문에 쏟으면 이슈를
        읽을 수가 없고, Jira 가 접어 주더라도 검색·내려받기가 안 된다.
        등록할 때 running-config.txt 로 올리고 여기서는 그 이름을 부른다. */
@@ -287,28 +282,10 @@ export function wikiToHtml(txt: string, imgs?: Record<string, string>): string {
     }
     const mp = ln.match(/^\{panel:title=([^}]*)\}$/)
     if (mp) {
-      /* **빵부스러기는 판 머리에 그린다**(지적: 미리보기와 자리가 다르다).
-         지라 위키의 판 제목에는 링크를 넣을 수 없어 본문 첫 줄에 싣지만,
-         창의 편집 칸은 그것을 제목 옆 칩으로 세운다 — 두 쪽을 나란히 놓고
-         견주는 자리라 자리가 어긋나면 다른 것으로 읽힌다. 첫 줄이 링크
-         하나뿐이면 제목 줄로 끌어올리고 본문에서는 건너뛴다. */
-      /* **링크가 하나뿐일 때만** 머리로 올린다.
-         3·4번은 하나(그 판이 가리키는 곳이 하나다)라 머리에 서고, 1번 현상은
-         시험항목·사이클 **둘**이라 글 안에 남는다 — 이슈를 받은 사람이 본문을
-         읽다가 바로 눌러 갈 수 있어야 한다(지시: 헤더 말고 글 안에). */
-      const nx = lines[li + 1] ?? ''
-      const cr = nx.match(/^\[([^\]|]+)\|([^\]]+)\]$/)
-      /* 링크 줄이 **잇달아 둘 이상**이면 머리로 올리지 않는다 — 1번 현상은
-         시험 항목·사이클을 두 줄로 싣고, 그것은 본문에 남아야 한다(지시). */
-      const more = /^\[[^\]|]+\|[^\]]+\]$/.test((lines[li + 2] ?? '').trim())
-      let head = escH(mp[1])
-      if (cr && !more) {
-        head += `<a class="jw-crumb" href="${escH(cr[2])}" target="_blank" rel="noreferrer">${escH(cr[1])}</a>`
-        li += 1
-        /* 머리로 올린 줄 뒤의 빈 줄도 함께 걷는다 — 안 그러면 본문이 한 줄
-           내려앉아, 자리를 맞추려던 일이 도로 어긋난다 */
-        if (!(lines[li + 1] ?? '').trim()) li += 1
-      }
+      /* 판 머리에는 제목만 — 길은 1번 현상의 글 아래에만 둔다(지시:
+         3·4번 칩 제거). 한때 첫 줄 링크를 머리로 끌어올렸는데, 같은 길이
+         세 판에 거듭 나와 어느 것을 눌러야 할지 되레 헷갈렸다. */
+      const head = escH(mp[1])
       out.push(`<div class="jw-panel"><div class="jw-panel-h">${head}</div><div class="jw-panel-b">`)
       continue
     }

@@ -1069,16 +1069,8 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
                   {/* 현상은 머리에 안 단다 — 글 안에 들어간다(지시:
                       헤더 말고 텍스트 부분에). 지라에 올라갈 때 본문 첫 줄로
                       실리고, 미리보기도 글 안에서 보여 준다. */}
-                  {p.k === 'steps' && !!tcCrumbTxt && (
-                    <a className="dfx-crumb" href={tcCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 시험 항목으로 갑니다">
-                      {tcCrumbTxt}
-                    </a>
-                  )}
-                  {p.k === 'detail' && !!cycCrumbTxt && (
-                    <a className="dfx-crumb" href={cycCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 사이클로 갑니다">
-                      {cycCrumbTxt}
-                    </a>
-                  )}
+                  {/* 3·4번 머리의 칩은 걷었다(지시) — 같은 길이 세 판에
+                      거듭 나왔다. 길은 1번 현상의 글 아래에만 둔다. */}
                   <span className="sp" />
                   {auto && <span className="dfx-auto">자동입력</span>}
                   {/* 구성도는 **고칠 것이 없다**(지적: 고치기가 안 된다) —
