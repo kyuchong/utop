@@ -125,18 +125,18 @@ export default function CycleMailDialog({
   /** 찾는 중에 접은 조직 — 찾는 말이 바뀌면 비운다 */
   const [sclose, setSclose] = useState<Set<string>>(new Set())
 
-  /* ── 넣기·빼기 — 한 사람은 한 곳에만 ── */
-  const whereOf = (m: string): Box | '' => BOXES.find((b) => lists[b].includes(m)) ?? ''
-  const put = (box: Box, mails: string[], move: boolean) =>
+  /* ── 넣기·빼기 — **한 사람이 여러 칸에 설 수 있다**(지시) ──
+     한 곳에만 두던 때는, 받는 사람에 넣은 사람을 참조에 더하면 받는 사람에서
+     빠졌다. 공문을 돌릴 때는 같은 사람을 받는 사람으로도 참조로도 적는 일이
+     있고, 그것은 「누구에게 보냈나」 를 적어 두는 방식이다 — 화면이 막을
+     일이 아니다. 뺄 때는 그 칸에서만 뺀다. */
+  /** 이 사람이 서 있는 칸 **모두** — 칩과 조직도 표시가 이것을 쓴다 */
+  const wheresOf = (m: string): Box[] => BOXES.filter((b) => lists[b].includes(m))
+  const put = (box: Box, mails: string[]) =>
     setLists((v) => {
       const next: Record<Box, string[]> = { to: [...v.to], cc: [...v.cc], bcc: [...v.bcc] }
       mails.forEach((m) => {
-        const w = BOXES.find((b) => next[b].includes(m))
-        if (w === box) return
-        if (w) {
-          if (!move) return
-          next[w] = next[w].filter((x) => x !== m)
-        }
+        if (next[box].includes(m)) return
         next[box] = [...next[box], m]
       })
       return next
@@ -144,14 +144,7 @@ export default function CycleMailDialog({
   const toggle = (box: Box, m: string) =>
     setLists((v) => {
       const next: Record<Box, string[]> = { to: [...v.to], cc: [...v.cc], bcc: [...v.bcc] }
-      if (next[box].includes(m)) {
-        next[box] = next[box].filter((x) => x !== m)
-        return next
-      }
-      BOXES.forEach((b) => {
-        next[b] = next[b].filter((x) => x !== m)
-      })
-      next[box] = [...next[box], m]
+      next[box] = next[box].includes(m) ? next[box].filter((x) => x !== m) : [...next[box], m]
       return next
     })
   const dropMails = (box: Box, mails: string[]) =>
@@ -161,7 +154,8 @@ export default function CycleMailDialog({
       .split(/[,;\s]+/)
       .map((x) => x.trim())
       .filter(Boolean)
-      .filter((x) => !BOXES.some((b) => lists[b].includes(x)))
+      /* 이 칸에 없으면 넣는다 — 다른 칸에 있어도 상관없다(지시) */
+      .filter((x) => !lists[box].includes(x))
     if (add.length) setLists((v) => ({ ...v, [box]: [...v[box], ...add] }))
   }
 
@@ -334,8 +328,8 @@ export default function CycleMailDialog({
     if (!it || !sug) return false
     /* 조직을 고르면 그 조직 사람을 모두 이 칸으로 — 다른 칸에 있던 사람도
        옮긴다. 「참조로 팀 전체」 를 누르는 사람이 바라는 것은 그것이다. */
-    if (it.g) put(sug.box, it.g.mails, true)
-    else if (it.p) put(sug.box, [it.p.mail], true)
+    if (it.g) put(sug.box, it.g.mails)
+    else if (it.p) put(sug.box, [it.p.mail])
     setSug(null)
     return true
   }
@@ -388,7 +382,7 @@ export default function CycleMailDialog({
             type="button"
             className="cmd-ogall"
             title={`${n.name} — ${free.length}명을 ${BOXNAME[orgBox]}에 넣습니다 (다른 칸에 있던 사람은 옮겨집니다)`}
-            onClick={() => put(orgBox, free, true)}
+            onClick={() => put(orgBox, free)}
           >
             ＋ {free.length}명
           </button>
@@ -407,25 +401,34 @@ export default function CycleMailDialog({
     ]
     if (isOpen) {
       mem.forEach((p, i) => {
-        const w = whereOf(p.mail)
+        /* 체크는 **지금 고른 칸** 기준이다(지시: 받는 사람에 있어도 참조에
+           더할 수 있게). 아무 칸에나 있으면 켜던 때는, 받는 사람에 넣은
+           사람이 참조 모드에서도 이미 든 것처럼 보여 누를 수가 없었다.
+           다른 칸에 서 있다는 것은 오른쪽 배지가 말한다. */
+        const on = !!p.mail && lists[orgBox].includes(p.mail)
         out.push(
           <button
             type="button"
-            className={`cmd-op${w ? ` in-${w}` : ''}`}
+            className={`cmd-op${on ? ` in-${orgBox}` : ''}`}
             key={`${n.id}-p${i}`}
             style={{ paddingLeft: 10 + (n.depth + 1) * 16 }}
             disabled={!p.mail}
-            aria-pressed={!!w}
+            aria-pressed={on}
             title={p.mail ? `${p.path} · ${p.mail}` : '계정이 없어 메일을 받을 수 없습니다'}
             onClick={() => p.mail && toggle(orgBox, p.mail)}
           >
-            <i className="cmd-ob">{w ? '✓' : ''}</i>
+            <i className="cmd-ob">{on ? '✓' : ''}</i>
             <b>{p.name}</b>
             {!!p.rank && <span className="cmd-oprk">{p.rank}</span>}
             {/* 자리 배지 — 팀원은 적지 않는다(거의 모두라 적어도 뜻이 없다) */}
             {/^(담당|팀장|관리자)$/.test(p.role) && <span className="cmd-oprole">{p.role}</span>}
             <span className="cmd-opmail">{p.mail || '계정 없음'}</span>
-            {!!w && <span className={`cmd-optag ${w}`}>{BOXTAG[w]}</span>}
+            {/* 서 있는 칸을 모두 — 한 사람이 받는 사람이면서 참조일 수 있다 */}
+            {wheresOf(p.mail).map((b) => (
+              <span key={b} className={`cmd-optag ${b}`}>
+                {BOXTAG[b]}
+              </span>
+            ))}
           </button>,
         )
       })
@@ -553,11 +556,13 @@ export default function CycleMailDialog({
                   </span>
                   <b>{it.p!.name}</b>
                   {!!it.p!.rank && <span className="cmd-oprk">{it.p!.rank}</span>}
-                  {/* 다른 칸에 이미 있으면 알려 준다 — 고르면 이리로 옮겨진다 */}
-                  {(() => {
-                    const w = whereOf(it.p!.mail)
-                    return w ? <span className={`cmd-optag ${w}`}>{BOXTAG[w]} → 옮김</span> : null
-                  })()}
+                  {/* 다른 칸에 이미 서 있으면 알려 준다 — 골라도 거기 그대로
+                      두고 이 칸에 **더한다**(지시: 같은 사람도 넣을 수 있게) */}
+                  {wheresOf(it.p!.mail).map((b) => (
+                    <span key={b} className={`cmd-optag ${b}`}>
+                      {BOXTAG[b]}
+                    </span>
+                  ))}
                   <span className="cmd-sgorg">{it.p!.path}</span>
                   <span className="cmd-sgmail">{it.p!.mail}</span>
                 </>
@@ -815,7 +820,7 @@ export default function CycleMailDialog({
                     e.preventDefault()
                     const f = readHit()
                     if (f?.mail) {
-                      put(orgBox, [f.mail], true)
+                      put(orgBox, [f.mail])
                       setOrgQ('')
                     }
                   }}
