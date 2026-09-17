@@ -9360,89 +9360,32 @@ def _mail_safe_html(html: str) -> str:
 
 
 async def _cycle_mail_html(cycle_id: str, note: str = "", body_html: str = "") -> tuple[str, str]:
-    """(제목, HTML). 메일 클라이언트는 CSS 클래스를 못 읽는다 — 전부 인라인.
+    """(제목, HTML) — **내용 칸에 있는 것만 싣는다**(지시).
 
-    `body_html` 은 사람이 **Test Summary 에서 마크다운으로 쓴 양식**이다.
-    화면이 marked 로 HTML 을 만들고 DOMPurify 로 소독해서 보낸다(웹에 이미
-    그 두 가지가 묶여 있다 — 서버에 마크다운 변환기를 새로 들이지 않는다).
+    여태는 사람이 쓴 글 뒤에 서버가 통계 카드·항목 표·AI 총평을 덧붙였다.
+    그런데 Test Summary 글 자체가 이미 제목·총평·현황 표를 갖춘 완성된
+    보고서다 — 같은 것을 두 번 싣는 꼴이라, 받는 쪽은 어느 쪽을 읽어야
+    할지 모른다(지적: 다른 포맷도 같이 있다). 틀은 사람이 쓴 글에 맡긴다.
+
+    `body_html` 은 화면이 marked 로 만들고 DOMPurify 로 소독한 HTML 이다.
     여기서도 한 번 더 거른다: 남이 보낸 것을 그대로 메일에 싣지 않는다.
     """
     c = await db.cycle_get(cycle_id)
     if not c:
         raise HTTPException(404, "플랜을 찾을 수 없습니다")
-    grp_of = await _ru_groups()
-    items = c.get("items") or []
-    n_pass = n_fail = n_done = 0
-    rows = []
-    for it in items:
-        v = db.item_verdict(it, it.get("steps") or [])
-        g = grp_of.get(v, "neutral" if v else "none")
-        if v:
-            n_done += 1
-        if g == "pass":
-            n_pass += 1
-        elif g == "fail":
-            n_fail += 1
-        color = {"pass": "#1f7a45", "fail": "#c33"}.get(g, "#667")
-        rows.append(
-            f"<tr><td style='padding:4px 8px;border-bottom:1px solid #eee;"
-            f"font-family:Consolas,monospace;font-size:11px;color:#888'>"
-            f"{_h.escape(str(it.get('ceid') or it.get('tcid') or ''))}</td>"
-            f"<td style='padding:4px 8px;border-bottom:1px solid #eee'>"
-            f"{_h.escape(str(it.get('name') or ''))}</td>"
-            f"<td style='padding:4px 8px;border-bottom:1px solid #eee;"
-            f"font-weight:700;color:{color}'>{_h.escape(v or '미실행')}</td></tr>"
-        )
-    total = len(items)
-    rate = round(n_pass / n_done * 100) if n_done else 0
-    prog = round(n_done / total * 100) if total else 0
-    head = " · ".join(
-        x for x in (
-            str(c.get("customer") or ""), str(c.get("model") or ""),
-            str(c.get("version_group") or ""), str(c.get("version") or ""),
-        ) if x
-    )
     subject = f"[UTOP] {c.get('name') or c.get('cid') or cycle_id} 시험 결과"
-    ai = ((c.get("ai_summary") or {}).get("text") or "").strip()
-    ai_html = (
-        "<h3 style='margin:18px 0 6px;font-size:14px'>AI 총평</h3>"
-        f"<div style='white-space:pre-wrap;background:#f7f9fa;border:1px solid #e5eaee;"
-        f"border-radius:8px;padding:10px 12px;font-size:12px'>{_h.escape(ai)}</div>"
-    ) if ai else ""
     if body_html:
-        note_html = (
-            f"<div style='margin:0 0 14px;font-size:13px;line-height:1.7'>"
-            f"{_mail_safe_html(body_html)}</div>"
+        inner = _mail_safe_html(body_html)
+    elif note:
+        inner = (
+            f"<div style='background:#fff8e6;border:1px solid #eadfa8;border-radius:8px;"
+            f"padding:8px 12px;font-size:12px'>{_h.escape(note)}</div>"
         )
     else:
-        note_html = (
-            f"<div style='background:#fff8e6;border:1px solid #eadfa8;border-radius:8px;"
-            f"padding:8px 12px;margin:0 0 12px;font-size:12px'>{_h.escape(note)}</div>"
-        ) if note else ""
-    kv = "".join(
-        f"<td style='padding:8px 14px;text-align:center;border:1px solid #e5eaee'>"
-        f"<div style='font-size:20px;font-weight:800;color:{col}'>{val}</div>"
-        f"<div style='font-size:11px;color:#889'>{lab}</div></td>"
-        for lab, val, col in (
-            ("전체", total, "#123"), ("실행", n_done, "#123"),
-            ("Pass", n_pass, "#1f7a45"), ("Fail", n_fail, "#c33"),
-            ("합격률", f"{rate}%", "#1f7a45"), ("진행률", f"{prog}%", "#123"),
-        )
-    )
+        inner = ""
     html = (
-        f"<div style='font-family:Malgun Gothic,Apple SD Gothic Neo,sans-serif;color:#1a2530'>"
-        f"<h2 style='margin:0 0 2px;font-size:17px'>{_h.escape(str(c.get('name') or ''))}"
-        f" <span style='font-family:Consolas,monospace;font-size:12px;color:#889'>"
-        f"{_h.escape(str(c.get('cid') or ''))}</span></h2>"
-        f"<div style='font-size:12px;color:#556;margin:0 0 12px'>{_h.escape(head)}</div>"
-        f"{note_html}"
-        f"<table style='border-collapse:collapse;margin:0 0 16px'><tr>{kv}</tr></table>"
-        f"<table style='border-collapse:collapse;width:100%;font-size:12px'>"
-        f"<tr><th style='text-align:left;padding:4px 8px;border-bottom:2px solid #d5dde2'>ID</th>"
-        f"<th style='text-align:left;padding:4px 8px;border-bottom:2px solid #d5dde2'>항목</th>"
-        f"<th style='text-align:left;padding:4px 8px;border-bottom:2px solid #d5dde2'>결과</th></tr>"
-        f"{''.join(rows)}</table>{ai_html}"
-        f"<div style='margin-top:16px;font-size:11px;color:#99a'>ubiQuoss-TOP 자동 발송</div></div>"
+        f"<div style='font-family:Malgun Gothic,Apple SD Gothic Neo,sans-serif;"
+        f"color:#1a2530;font-size:13px;line-height:1.7'>{inner}</div>"
     )
     return subject, html
 
@@ -9453,6 +9396,68 @@ async def cycle_mail_preview(cycle_id: str, note: str = "", token: str = ""):
         raise HTTPException(401, "로그인이 필요합니다")
     subject, html = await _cycle_mail_html(cycle_id, note)
     return {"subject": subject, "html": html}
+
+
+def _blocks_to_md(doc) -> str:
+    """블록 노트(description_doc) → 마크다운. 메일 창이 글을 못 찾을 때 쓴다.
+
+    문단·제목·목록·표만 옮긴다. 메일 첫 글로 쓸 초안이라 이만하면 된다 —
+    사람이 창에서 더 고친다.
+    """
+    if isinstance(doc, str):
+        try:
+            doc = json.loads(doc)
+        except Exception:
+            return ""
+    if not isinstance(doc, list):
+        return ""
+
+    def txt(x) -> str:
+        if isinstance(x, str):
+            return x
+        if isinstance(x, list):
+            return "".join(txt(i) for i in x)
+        if isinstance(x, dict):
+            if x.get("type") == "text":
+                return str(x.get("text") or "")
+            if x.get("type") == "link":
+                return txt(x.get("content"))
+            return txt(x.get("content"))
+        return ""
+
+    out: list[str] = []
+    for b in doc:
+        if not isinstance(b, dict):
+            continue
+        kind = str(b.get("type") or "")
+        props = b.get("props") or {}
+        if kind == "table":
+            rows = ((b.get("content") or {}).get("rows")) or []
+            cells = [[txt(cl).strip() for cl in (r.get("cells") or [])] for r in rows if isinstance(r, dict)]
+            cells = [r for r in cells if r]
+            if cells:
+                out.append("| " + " | ".join(cells[0]) + " |")
+                out.append("| " + " | ".join("---" for _ in cells[0]) + " |")
+                for r in cells[1:]:
+                    out.append("| " + " | ".join(r) + " |")
+                out.append("")
+            continue
+        t = txt(b.get("content")).strip()
+        if not t:
+            out.append("")
+            continue
+        if kind == "heading":
+            lv = int(props.get("level") or 2)
+            out.append("#" * max(1, min(4, lv)) + " " + t)
+        elif kind == "bulletListItem":
+            out.append("- " + t)
+        elif kind == "numberedListItem":
+            out.append("1. " + t)
+        elif kind == "checkListItem":
+            out.append(("- [x] " if props.get("checked") else "- [ ] ") + t)
+        else:
+            out.append(t)
+    return "\n".join(out).strip()
 
 
 @app.get("/api/cycle/{cycle_id}/summary-body")
@@ -9468,6 +9473,12 @@ async def cycle_summary_body(cycle_id: str, token: str = ""):
         raise HTTPException(401, "로그인이 필요합니다")
     c = await db.cycle_get(cycle_id) or {}
     md = str(c.get("description") or "").strip()
+    # **글이 블록에만 있으면 거기서 뽑는다**(지적: 213 에서는 들어가 있는데
+    # 253 에서는 빈 칸으로 나온다). Test Summary 는 블록 노트라 정본이
+    # description_doc 이고, 마크다운(description)은 그 곁사본이다 — 곁사본이
+    # 비어 있는 사이클은 화면에는 글이 보이는데 메일 창만 텅 비었다.
+    if not md:
+        md = _blocks_to_md(c.get("description_doc"))
     import re as _re
 
     def _ln(t: str) -> str:
@@ -9504,11 +9515,15 @@ async def cycle_summary_body(cycle_id: str, token: str = ""):
             while i < len(lines) and lines[i].lstrip().startswith("|"):
                 body.append(cells(lines[i]))
                 i += 1
-            out.append("<table>")
-            out.append("<thead><tr>" + "".join(f"<th>{_ln(c)}</th>" for c in head) + "</tr></thead>")
+            _TB = "border-collapse:collapse;margin:10px 0;font-size:12px"
+            _TH = ("padding:6px 10px;border:1px solid #d5dde2;background:#f4f6f8;"
+                   "text-align:left;font-weight:700;white-space:nowrap")
+            _TD = "padding:6px 10px;border:1px solid #e5eaee"
+            out.append(f"<table style='{_TB}'>")
+            out.append("<thead><tr>" + "".join(f"<th style='{_TH}'>{_ln(c)}</th>" for c in head) + "</tr></thead>")
             out.append("<tbody>")
             for r in body:
-                out.append("<tr>" + "".join(f"<td>{_ln(c)}</td>" for c in r) + "</tr>")
+                out.append("<tr>" + "".join(f"<td style='{_TD}'>{_ln(c)}</td>" for c in r) + "</tr>")
             out.append("</tbody></table>")
             continue
         m = _re.match(r"^(#{1,4})\s+(.*)$", t)
@@ -9517,19 +9532,20 @@ async def cycle_summary_body(cycle_id: str, token: str = ""):
                 out.append("</ul>")
                 ul = False
             lv = min(3, max(2, len(m.group(1))))
-            out.append(f"<h{lv}>{_ln(m.group(2))}</h{lv}>")
+            _hs = {2: "16px 0 6px;font-size:15px", 3: "14px 0 5px;font-size:13px"}[lv]
+            out.append(f"<h{lv} style='margin:{_hs};font-weight:700'>{_ln(m.group(2))}</h{lv}>")
             continue
         m = _re.match(r"^\s*[-*+]\s+(.*)$", t)
         if m:
             if not ul:
-                out.append("<ul>")
+                out.append("<ul style='margin:6px 0;padding-left:20px'>")
                 ul = True
-            out.append(f"<li>{_ln(m.group(1))}</li>")
+            out.append(f"<li style='margin:2px 0'>{_ln(m.group(1))}</li>")
             continue
         if ul:
             out.append("</ul>")
             ul = False
-        out.append(f"<p>{_ln(t)}</p>")
+        out.append(f"<p style='margin:6px 0'>{_ln(t)}</p>")
     if ul:
         out.append("</ul>")
     subject, _ = await _cycle_mail_html(cycle_id, "", "")
@@ -9557,6 +9573,11 @@ async def cycle_mail(cycle_id: str, payload: dict, token: str = ""):
     to = payload.get("to") or ""
     if not str(to).strip():
         raise HTTPException(400, "받는 사람을 적어 주세요")
+    # **빈 메일은 막는다.** 메일 몸통은 이제 내용 칸 글이 전부다(지시) —
+    # 서버가 표를 덧붙이던 때는 비어도 뭔가 나갔지만, 지금은 진짜로 빈
+    # 메일이 날아간다.
+    if not str(payload.get("body_html") or "").strip() and not str(payload.get("note") or "").strip():
+        raise HTTPException(400, "내용을 적어 주세요 — 메일은 내용 칸에 있는 글로 나갑니다")
     if not _load_mail_cfg().get("enabled"):
         raise HTTPException(400, "메일 발송이 꺼져 있습니다 (시스템 → 메일 설정)")
     subject, html = await _cycle_mail_html(
