@@ -833,6 +833,8 @@ export default function DefectDialog({ host: host0, cycle, item, existing, onClo
   }
 
   const pushed = !!defect?.jira_key
+  /** 눌림이 배경에서 시작했나 — 배경 클릭으로 닫을지 가리는 데 쓴다 */
+  const downOnBack = useRef(false)
 
   /* 이 창은 **body 에 붙인다.** 실행 화면 안에 그대로 두면 조상의 z-index ·
      transform · overflow 에 갇혀, 떠 있는데도 뒤에 숨거나 잘려 보인다
@@ -840,11 +842,17 @@ export default function DefectDialog({ host: host0, cycle, item, existing, onClo
   return createPortal(
     <div
       className={host === 'side' ? 'dfx-sback' : 'modal-back'}
-      /* **배경을 곧바로 눌렀을 때만** 닫는다(지적: 결함을 누르면 창이 바로
-         꺼진다). 그냥 onMouseDown={onClose} 로 두면 안쪽에서 올라온 눌림도
-         닫기로 읽혀, 열자마자 사라지는 일이 생긴다. */
+      /* **누르고 뗀 곳이 둘 다 배경일 때만** 닫는다(지적: 결함을 누르면 창이
+         떴다가 곧 사라진다).
+         onMouseDown 하나로 닫던 때는 오판이 잦았다 — 눌림은 드래그·포커스
+         이동·글 고르기로도 나고, 안쪽에서 올라온 것까지 닫기로 읽혔다.
+         누름과 뗌을 함께 보면 「배경을 눌러서 닫겠다」 는 뜻일 때만 닫힌다. */
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        downOnBack.current = e.target === e.currentTarget
+      }}
+      onClick={(e) => {
+        if (downOnBack.current && e.target === e.currentTarget) onClose()
+        downOnBack.current = false
       }}
     >
       <div
