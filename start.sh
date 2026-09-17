@@ -21,12 +21,19 @@ printf '\n  UTOP\n  ====\n'
 
 # ── 0. 사전 확인 ────────────────────────────────────────────────
 step 0 "도커 확인"
-if ! docker version >/dev/null 2>&1; then
+# 서버마다 권한이 다르다 — 어떤 곳은 도커 그룹에 들어 있고, 어떤 곳은 sudo 로
+# 돌린다. 어느 쪽이든 **같은 한 줄**로 되도록 여기서 가린다.
+DC="docker compose"
+if docker version >/dev/null 2>&1; then
+    ok "Docker 실행 중"
+elif sudo -n docker version >/dev/null 2>&1 || sudo docker version >/dev/null 2>&1; then
+    DC="sudo docker compose"
+    ok "Docker 실행 중 (sudo 로)"
+else
     printf '\n  [오류] Docker 가 실행 중이 아니거나 권한이 없습니다.\n'
     printf '         sudo 없이 쓰려면: sudo usermod -aG docker $USER  (재로그인 필요)\n\n'
     exit 1
 fi
-ok "Docker 실행 중"
 
 # ── 1. 최신 소스 ────────────────────────────────────────────────
 step 1 "최신 소스 받기"
@@ -78,7 +85,7 @@ PORT="$(grep -E '^\s*WEB_PORT\s*=' .env | head -1 | sed 's/.*=\s*//' | tr -d '\r
 
 # ── 3. 빌드 + 기동 ──────────────────────────────────────────────
 step 3 "빌드 및 기동 (처음이면 몇 분 걸립니다)"
-if ! docker compose up -d --build; then
+if ! $DC up -d --build; then
     printf '\n  [오류] 기동 실패. 원인 확인:  docker compose logs api\n\n'
     exit 1
 fi
@@ -102,22 +109,22 @@ else
     # 흔한 실패 하나는 원인을 짚어준다.
     # PostgreSQL 은 POSTGRES_PASSWORD 를 볼륨 최초 생성 때만 적용한다.
     # "DB 볼륨은 이미 있는데 .env 를 새로 만든" 경우 비밀번호가 어긋나 api 가 무한 재시작한다.
-    APILOG="$(docker compose logs api --tail 50 2>&1 || true)"
+    APILOG="$($DC logs api --tail 50 2>&1 || true)"
     printf '  서버가 응답하지 않습니다.\n'
     if printf '%s' "$APILOG" | grep -qE 'InvalidPasswordError|password authentication failed'; then
         printf '\n  원인: DB 비밀번호가 맞지 않습니다.\n'
         printf '        이미 만들어진 DB 볼륨의 비밀번호와 .env 의 값이 다릅니다.\n'
         printf '        (PostgreSQL 은 볼륨을 처음 만들 때의 비밀번호를 계속 씁니다)\n\n'
         printf '  해결 1) 기존 데이터를 버려도 되면 — DB 를 지우고 다시 만든다:\n'
-        printf '           docker compose down -v\n'
+        printf "           $DC down -v\n"
         printf '           ./start.sh\n\n'
         printf '  해결 2) 데이터를 지켜야 하면 — .env 의 POSTGRES_PASSWORD 를\n'
         printf '           예전에 쓰던 값으로 되돌린 뒤 다시 실행한다.\n'
     else
-        printf '  로그 확인:  docker compose logs -f api\n'
+        printf "  로그 확인:  $DC logs -f api\n"
     fi
 fi
 
-printf '\n  정지:       docker compose down\n'
-printf '  로그:       docker compose logs -f api\n'
-printf '  데이터삭제: docker compose down -v\n\n'
+printf "\n  정지:       $DC down\n"
+printf "  로그:       $DC logs -f api\n"
+printf "  데이터삭제: $DC down -v\n\n"
