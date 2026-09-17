@@ -8860,14 +8860,6 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
    **입력 상자와 같은 폭 안에** 둔다(지적: 화면 오른쪽 끝에 가 있다).
    `align-self:flex-end` 만으로는 부모(화면 전체)의 오른쪽 끝으로 가서,
    가운데 선 760px 상자와 아무 상관 없는 자리에 떨어져 있었다. */
-.ta-modehint {
-  position: relative; z-index: 1;
-  align-self: center; width: 100%; max-width: 760px;
-  margin: 5px auto 0; padding: 0 6px;
-  text-align: right;
-  font-size: var(--fs-xs); color: var(--c-text-faint);
-}
-.ta-modehint b { color: var(--c-primary); }
 
 /* ══ Test AI — 장비 고르개를 **표로** (지시: 목업 반영) ══
    이름만 늘어놓던 목록으로는 같은 모델이 열 대씩 있는 LAB 에서 어느 것을
@@ -9034,13 +9026,15 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 
 /* ── 입력 바의 고르개 두 벌(지시: 왼쪽 Mode · 오른쪽 AI) ─────
    생김새를 한 벌로 맞춘다 — 같은 줄에서 같은 일(고르기)을 하는데 모양이
-   다르면 하나는 단추로, 하나는 딴 것으로 읽힌다. */
+   다르면 하나는 단추로, 하나는 딴 것으로 읽힌다.
+   **화살표·체크는 그림이다.** 글자(⌄ ✓)로 두면 폰트마다 크기와 자리가
+   달라지고, JSX 텍스트에 \u 로 적으면 그대로 찍힌다(지적). */
 .ta-pick { position: relative; display: inline-flex; flex: none; }
 .ta-pickb {
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: 6px;
   border: 1px solid var(--c-border, #dfe4ea); border-radius: 999px;
   background: var(--c-surface, #fff); color: var(--c-text, #131920);
-  padding: 5px 10px; font: inherit; font-size: 12.5px; font-weight: 600;
+  padding: 5px 10px 5px 12px; font: inherit; font-size: 12.5px; font-weight: 600;
   cursor: pointer; white-space: nowrap;
 }
 .ta-pickb:hover:not(:disabled) { background: var(--c-surface-2, #f7f9fa); }
@@ -9048,31 +9042,33 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ta-pickb.open { border-color: var(--c-primary, #0e7490); }
 /* 오른쪽 AI 고르개는 **테두리 없이** — 마이크·보내기와 한 덩이로 보이면
    보내기를 누르려다 여기를 누른다 */
-.ta-pickb.ai { border-color: transparent; background: none; font-weight: 500; }
+.ta-pickb.ai { border-color: transparent; background: none; font-weight: 500; padding-right: 6px; }
 .ta-pickb.ai:hover:not(:disabled) { background: var(--c-surface-2, #f7f9fa); }
-.ta-pickb .sico { font-style: normal; font-size: 11px; opacity: 0.75; }
-.ta-pickb .mdl { font-style: normal; color: var(--c-primary, #0e7490); font-size: 11.5px; }
-.ta-pickb .cv { font-style: normal; color: var(--c-text-faint, #98a2ad); font-size: 13px; line-height: 1; }
-/* 바깥을 누르면 닫힌다 — 메뉴를 열어 둔 채 딴 데를 누르면 떠 있는 채로 남는다 */
+.ta-pickb .sico { font-style: normal; font-size: 11px; opacity: 0.7; }
+.ta-pickb .mdl { font-style: normal; color: var(--c-primary, #0e7490); font-size: 12px; font-weight: 600; }
+.ta-pickb .cv { width: 13px; height: 13px; flex: none; color: var(--c-text-faint, #98a2ad); }
+
+/* 바깥을 누르면 닫힌다 — 열어 둔 채 딴 데를 누르면 떠 있는 채로 남는다 */
 .ta-pickveil { position: fixed; inset: 0; z-index: 40; }
 .ta-pickmenu {
-  position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 41;
-  min-width: 232px; display: flex; flex-direction: column; gap: 1px;
-  /* 설명이 접히면 줄이 두 층으로 늘어 무엇이 한 항목인지 흐려진다 —
-     넉넉히 열고 한 줄로 둔다(시험판에서 접히는 것을 보고 고침) */
+  position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 41;
+  min-width: 236px; display: flex; flex-direction: column; gap: 1px;
+  border: 1px solid var(--c-border-soft, #e6ebef); border-radius: 12px;
+  background: var(--c-surface, #fff); padding: 6px;
+  box-shadow: 0 12px 32px rgb(16 24 40 / 13%), 0 2px 6px rgb(16 24 40 / 5%);
+  /* 설명이 접히면 한 항목이 두 층으로 보인다 — 넉넉히 열고 한 줄로 */
   white-space: nowrap;
-  border: 1px solid var(--c-border, #dfe4ea); border-radius: 10px;
-  background: var(--c-surface, #fff); padding: 5px;
-  box-shadow: 0 10px 28px rgb(16 24 40 / 14%);
 }
 .ta-pickmenu.right { left: auto; right: 0; }
 .ta-pickit {
-  display: flex; align-items: center; gap: 7px;
-  border: 0; border-radius: 7px; background: none; color: var(--c-text, #131920);
-  padding: 7px 9px; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; min-height: 34px;
+  border: 0; border-radius: 8px; background: none; color: var(--c-text, #131920);
+  padding: 6px 10px; font: inherit; font-size: 13px; text-align: left; cursor: pointer;
 }
-.ta-pickit:hover { background: var(--c-surface-2, #f7f9fa); }
-.ta-pickit.on { background: var(--c-primary-weak, #eef6f8); }
+.ta-pickit:hover { background: var(--c-surface-2, #f5f7f9); }
+.ta-pickit .sico { font-style: normal; font-size: 11px; opacity: 0.7; flex: none; }
 .ta-pickit b { font-weight: 600; }
-.ta-pickit .sub { color: var(--c-text-faint, #98a2ad); font-size: 11.5px; white-space: nowrap; }
-.ta-pickit .ck { margin-left: auto; padding-left: 10px; font-style: normal; color: var(--c-primary, #0e7490); }
+.ta-pickit .sub { color: var(--c-text-faint, #98a2ad); font-size: 12px; }
+/* 고른 것은 **체크로만** 알린다(사진) — 줄에 바탕색까지 깔면 가리키는
+   줄과 고른 줄이 서로 다투어, 지금 어디에 손이 있는지 흐려진다 */
+.ta-pickit .ck { width: 15px; height: 15px; flex: none; margin-left: auto; color: var(--c-primary, #0e7490); }

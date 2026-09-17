@@ -2465,7 +2465,7 @@ export default function AskBar({ devices }: Props) {
                 >
                   <i className="sico" aria-hidden="true">{mode === 'basic' ? '\u25b6' : '\u270e'}</i>
                   <span className="mlb">{mode === 'basic' ? 'General' : 'Advanced'}</span>
-                  <em className="cv" aria-hidden="true">\u2304</em>
+                  <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
                 </button>
                 {modeOpen && (
                   <>
@@ -2489,7 +2489,7 @@ export default function AskBar({ devices }: Props) {
                           <i className="sico" aria-hidden="true">{ico}</i>
                           <b>{label}</b>
                           <span className="sub">{sub}</span>
-                          {mode === k && <em className="ck">\u2713</em>}
+                          {mode === k && <svg className="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
                         </button>
                       ))}
                     </span>
@@ -2516,7 +2516,7 @@ export default function AskBar({ devices }: Props) {
                   >
                     <span className="mlb">{llmNow?.name ?? 'AI 고르기'}</span>
                     {!!llmNow?.model && <em className="mdl">{llmNow.model}</em>}
-                    <em className="cv" aria-hidden="true">\u2304</em>
+                    <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
                   </button>
                   {llmOpen && (
                     <>
@@ -2534,7 +2534,7 @@ export default function AskBar({ devices }: Props) {
                           >
                             <b>{x.name}</b>
                             {!!x.model && <span className="sub">{x.model}</span>}
-                            {x.id === llmId && <em className="ck">\u2713</em>}
+                            {x.id === llmId && <svg className="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
                           </button>
                         ))}
                       </span>
@@ -2882,12 +2882,9 @@ export default function AskBar({ devices }: Props) {
               )}
             </div>
 
-            {/* 모드 안내 — 입력 상자 **밖** 오른쪽 아래(지시: 목업).
-                상자 안에 두면 흰 바탕 위 회색 글씨가 되어 입력칸의 일부로 읽힌다. */}
-            <div className="ta-modehint">
-              <b>{mode === 'basic' ? 'General' : 'Advanced'}</b> ·{' '}
-              {mode === 'basic' ? '기존 시험을 찾아 바로 실행' : '없는 시험을 새로 만들고 스텝을 정함'}
-            </div>
+            {/* 모드 안내는 걷었다(지시) — 고르개가 같은 말을 이미 하고,
+                부제도 갈래를 따라 바뀐다. 한 화면에서 같은 말이 세 번 나면
+                어느 것이 지금 상태인지 되레 헷갈린다. */}
 
             {/* 오프너 — 눌러서 무엇을 시킬 수 있는지 안다 */}
             <div className="ask-ops">
