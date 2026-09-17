@@ -1640,10 +1640,13 @@ async def ai_nl_criteria(payload: dict):
         "   **틀린 기준보다 빈 기준이 낫다.**",
         "i 는 준 값을 그대로 돌려준다. JSON만 출력한다.",
     ])
+    # **화면이 고른 AI 로 부른다**(지시: 입력 바에서 AI 를 고른다). 안 고르면
+    # 빈 값이라 여느 때처럼 용도·기본값이 정한다.
     content, err = await _ai_chat(
         [{"role": "system", "content": sys_p},
          {"role": "user", "content": json.dumps(rows, ensure_ascii=False)}],
-        max_tokens=900, json_schema=schema)
+        max_tokens=900, json_schema=schema,
+        llm_id=str((payload or {}).get("llm") or "").strip())
     if err:
         return {"ok": False, "error": err}
     obj = _nl_json_any(content) or {}
@@ -2025,10 +2028,12 @@ async def ai_nl_plan(payload: dict):
     else:
         user_p += "\n지시: %s" % text
 
+    # **화면이 고른 AI 로 부른다**(지시) — 안 고르면 여느 때처럼 기본값
     content, err = await _ai_chat(
         [{"role": "system", "content": sys_p},
          {"role": "user", "content": user_p}],
-        max_tokens=1200, json_schema=schema)
+        max_tokens=1200, json_schema=schema,
+        llm_id=str((payload or {}).get("llm") or "").strip())
     if err:
         return {"ok": False, "error": err}
     obj = _nl_json_any(content)

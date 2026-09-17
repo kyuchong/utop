@@ -246,6 +246,34 @@ export default function AskBar({ devices }: Props) {
    *  · 고급 = 없는 시험을 말로 새로 짓는다 — 여태 이 화면이 하던 일이다.
    * 고른 갈래는 기억한다.
    */
+  /* ── 쓸 AI ──(지시: 우측 하단에서 고른다)
+     여태는 설정에 박아 둔 기본 LLM 하나로만 돌았다. 같은 물음이라도 큰 모델과
+     작은 모델의 답이 다른데, 바꾸려면 SETUP 까지 가야 했다. 고른 것은 계정에
+     남고, 물음을 보낼 때 함께 실린다(서버가 그 LLM 으로 부른다). */
+  const [llms, setLlms] = useState<{ id: string; name: string; model?: string }[]>([])
+  const [llmId, setLlmId] = useState(() => prefGet('utop.ai.llm') ?? '')
+  const [llmOpen, setLlmOpen] = useState(false)
+  const [modeOpen, setModeOpen] = useState(false)
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await apiFetch('/api/llms')
+        const j = (await r.json()) as { llms?: { id: string; name: string; model?: string; status?: string }[] }
+        const on = (j.llms ?? []).filter((x) => (x.status ?? 'active') === 'active')
+        setLlms(on)
+        /* 고른 것이 지워졌으면 첫 번째로 — 없는 AI 를 붙들고 있으면 서버가
+           기본값으로 돌면서도 화면은 딴 이름을 보여 준다 */
+        setLlmId((cur) => (cur && on.some((x) => x.id === cur) ? cur : (on[0]?.id ?? '')))
+      } catch {
+        /* 못 받아도 물음은 보낼 수 있다 — 서버가 기본 LLM 으로 돈다 */
+      }
+    })()
+  }, [])
+  useEffect(() => {
+    if (llmId) prefSet('utop.ai.llm', llmId)
+  }, [llmId])
+  const llmNow = llms.find((x) => x.id === llmId)
+
   const [mode, setMode] = useState<'basic' | 'adv'>(() =>
     prefGet('utop.ai.mode') === 'basic' ? 'basic' : 'adv',
   )
@@ -871,6 +899,7 @@ export default function AskBar({ devices }: Props) {
         method: 'POST',
         body: JSON.stringify({
           probe: true,
+          llm: llmId,
           /* 서버는 ip 로 읽는다 — connParams 는 host 로 준다. 그대로 보내면
              「장비 정보가 없습니다」 로 조용히 되돌아온다(실제로 그랬다). */
           device: { ...connParams(dev), ip: connParams(dev).host },
@@ -1116,6 +1145,7 @@ export default function AskBar({ devices }: Props) {
         body: JSON.stringify({
           text: say,
           model: picked?.model ?? '',
+          llm: llmId,
           ...(draft
             ? { steps: draft.steps, title: draft.name, purpose: draft.object }
             : {}),
@@ -2414,34 +2444,104 @@ export default function AskBar({ devices }: Props) {
                   </>
                 )}
               </span>
-              {/* 모드 — **세그먼트 토글**(지시: 목업). 드롭다운이던 것을 바꿨다:
-                  둘 중 하나뿐이라 목록을 열 것이 없고, 지금 어느 쪽인지가 한눈에
-                  보여야 한다. 알약이 미끄러져 옮겨가 바뀐 것을 알린다. */}
-              <span className="ta-modes" data-mode={mode === 'basic' ? 'General' : 'Advanced'}>
-                <span className="ta-thumb" aria-hidden="true" />
-                {(
-                  [
-                    ['basic', 'General', '\u25b6', 'General \u2014 이미 만들어진 시험 항목을 찾아 그대로 실행합니다 \u00b7 명령을 몰라도 됩니다'],
-                    ['adv', 'Advanced', '\u270e', 'Advanced \u2014 없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다 \u00b7 장비를 아는 사람이'],
-                  ] as const
-                ).map(([k, label, ico, tip]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    className={`ta-mode${mode === k ? ' on' : ''}`}
-                    disabled={exEdit}
-                    title={tip}
-                    aria-pressed={mode === k}
-                    onClick={() => setMode(k)}
-                  >
-                    <i className="sico" aria-hidden="true">{ico}</i>
-                    <span className="mlb">{label}</span>
-                  </button>
-                ))}
+              {/* 모드 — **드롭다운**(지시). 세그먼트 토글이던 것을 되돌린다:
+                  오른쪽 끝에 AI 고르개가 서면서 두 고르개의 생김새가 같아야
+                  한 벌로 읽힌다. 지금 무엇인지는 단추에 그대로 적는다. */}
+              <span className="ta-pick">
+                <button
+                  type="button"
+                  className={`ta-pickb${modeOpen ? ' open' : ''}`}
+                  disabled={exEdit}
+                  title={
+                    mode === 'basic'
+                      ? 'General — 이미 만들어진 시험 항목을 찾아 그대로 실행합니다 · 명령을 몰라도 됩니다'
+                      : 'Advanced — 없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다 · 장비를 아는 사람이'
+                  }
+                  aria-expanded={modeOpen}
+                  onClick={() => {
+                    setModeOpen((v) => !v)
+                    setLlmOpen(false)
+                  }}
+                >
+                  <i className="sico" aria-hidden="true">{mode === 'basic' ? '\u25b6' : '\u270e'}</i>
+                  <span className="mlb">{mode === 'basic' ? 'General' : 'Advanced'}</span>
+                  <em className="cv" aria-hidden="true">\u2304</em>
+                </button>
+                {modeOpen && (
+                  <>
+                    <span className="ta-pickveil" onClick={() => setModeOpen(false)} />
+                    <span className="ta-pickmenu">
+                      {(
+                        [
+                          ['basic', 'General', '\u25b6', '있는 시험을 찾아 바로 실행'],
+                          ['adv', 'Advanced', '\u270e', '없는 시험을 새로 만들어 실행'],
+                        ] as const
+                      ).map(([k, label, ico, sub]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          className={`ta-pickit${mode === k ? ' on' : ''}`}
+                          onClick={() => {
+                            setMode(k)
+                            setModeOpen(false)
+                          }}
+                        >
+                          <i className="sico" aria-hidden="true">{ico}</i>
+                          <b>{label}</b>
+                          <span className="sub">{sub}</span>
+                          {mode === k && <em className="ck">\u2713</em>}
+                        </button>
+                      ))}
+                    </span>
+                  </>
+                )}
               </span>
               {/* 빈 공간은 **모드 뒤**다(지시: 모드는 ＋ 옆). 앞에 두면 모드가
                   오른쪽 끝으로 밀려 마이크·보내기와 한 덩이로 읽힌다. */}
               <span className="ask-rsp" />
+              {/* 쓸 AI — **오른쪽 끝**(지시). 마이크·보내기 바로 앞이라
+                  「무엇으로 답하는가」 가 보내는 손과 한자리에 있다. */}
+              {llms.length > 0 && (
+                <span className="ta-pick ta-ai">
+                  <button
+                    type="button"
+                    className={`ta-pickb ai${llmOpen ? ' open' : ''}`}
+                    disabled={exEdit}
+                    title={`이 물음에 답할 AI — 지금은 ${llmNow?.name ?? '기본'}${llmNow?.model ? ` (${llmNow.model})` : ''}`}
+                    aria-expanded={llmOpen}
+                    onClick={() => {
+                      setLlmOpen((v) => !v)
+                      setModeOpen(false)
+                    }}
+                  >
+                    <span className="mlb">{llmNow?.name ?? 'AI 고르기'}</span>
+                    {!!llmNow?.model && <em className="mdl">{llmNow.model}</em>}
+                    <em className="cv" aria-hidden="true">\u2304</em>
+                  </button>
+                  {llmOpen && (
+                    <>
+                      <span className="ta-pickveil" onClick={() => setLlmOpen(false)} />
+                      <span className="ta-pickmenu right">
+                        {llms.map((x) => (
+                          <button
+                            key={x.id}
+                            type="button"
+                            className={`ta-pickit${x.id === llmId ? ' on' : ''}`}
+                            onClick={() => {
+                              setLlmId(x.id)
+                              setLlmOpen(false)
+                            }}
+                          >
+                            <b>{x.name}</b>
+                            {!!x.model && <span className="sub">{x.model}</span>}
+                            {x.id === llmId && <em className="ck">\u2713</em>}
+                          </button>
+                        ))}
+                      </span>
+                    </>
+                  )}
+                </span>
+              )}
               <button
                 className={`ask-tb mic${listening ? ' rec' : ''}`}
                 type="button"
