@@ -645,3 +645,35 @@
 /* 변경이 없을 때 — 회색으로 가라앉아 있다가, 초록이 되면 눈에 잡힌다 */
 .rls-cdot.idle { border-color: var(--c-border); background: var(--c-surface); color: var(--c-text-muted); font-weight: 400; }
 .rls-cdot.idle:hover { background: #f4f6f6; color: var(--c-text); }
+
+/* ── 바닥 줄(지시: Defects 의 그 줄을 여기에도) ──────────────
+   몇 건인지·한 쪽에 몇 줄인지·몇 쪽인지. 목록 밖이라 굴려도 안 사라지고,
+   2열이 세로 flex 라 줄이 적어도 늘 바닥에 붙어 있다. */
+.rls-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  padding: 0 10px;
+  border-top: 1px solid var(--c-border-soft, #dfe4ea);
+  background: var(--c-surface, #fff);
+  border-radius: 0 0 var(--r-box, 6px) var(--r-box, 6px);
+  font-size: 12px;
+  color: var(--c-text-soft, #667);
+  white-space: nowrap;
+}
+.rls-fdim { color: var(--c-text-faint, #98a2ad); }
+.rls-fpg { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.rls-fpg + .rls-fpg { margin-left: 0; }
+.rls-fpg select {
+  border: 1px solid var(--c-border, #dfe4ea); border-radius: 5px;
+  padding: 2px 4px; font: inherit; font-size: 12px;
+  background: var(--c-surface, #fff); color: var(--c-text, #131920);
+}
+.rls-fpg button {
+  border: 1px solid var(--c-border, #dfe4ea); border-radius: 5px;
+  background: var(--c-surface, #fff); color: var(--c-text, #131920);
+  padding: 1px 7px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.rls-fpg button:disabled { color: var(--c-text-faint, #b6bec8); cursor: default; }

@@ -814,6 +814,23 @@ export default function Releases() {
   )
   const curStat = stat.get(selVer) ?? { n: 0, tc: 0, at: '' }
 
+  /* ── 바닥 줄(지시: Defects 의 그 줄이 여기엔 없다) ──
+     이슈가 289건인 빌드도 있는데 여태 한 번에 다 그렸다. 줄 수를 고르고
+     쪽을 넘긴다. 줄 수는 보기 설정이라 계정에 남는다. */
+  const [per, setPer] = useState(() => Number(prefGet('utop.rls.per') ?? 50) || 50)
+  const [page, setPage] = useState(1)
+  const pageN = Math.max(1, Math.ceil(curRows.length / per))
+  /* 버전·거르개가 바뀌면 첫 쪽으로 — 3쪽을 보다 1건짜리 버전으로 옮기면
+     빈 화면이 뜬다 */
+  useEffect(() => {
+    setPage(1)
+  }, [selVer, fType, fStat])
+  const pageRows = useMemo(() => curRows.slice((page - 1) * per, page * per), [curRows, page, per])
+  const shownTc = useMemo(
+    () => pageRows.reduce((a, it) => a + (tcMap.get(`${selVer}|${String(it.key ?? '')}`)?.length ?? 0), 0),
+    [pageRows, tcMap, selVer],
+  )
+
   /* 고른 버전이 사라졌거나(치웠거나 프로젝트를 바꿨거나) 아직 없으면 —
      맨 위 버전을 잡아 준다. 2열이 비어 있으면 「고장났다」 로 읽힌다. */
   useEffect(() => {
@@ -1227,7 +1244,7 @@ export default function Releases() {
                 </span>
               </div>
             ) : (
-              curRows.map((it) => (
+              pageRows.map((it) => (
                 <IssueRow
                   key={`${selVer}|${String(it.key ?? '')}`}
                   it={it}
@@ -1249,6 +1266,39 @@ export default function Releases() {
               ))
             )}
           </div>
+          {/* **바닥 줄**(지시: Defects 의 그 줄을 여기에도) — 몇 건인지,
+              한 쪽에 몇 줄인지, 몇 쪽인지. 목록 밖이라 굴려도 안 사라진다. */}
+          {!!selVer && (
+            <div className="rls-foot">
+              {curRows.length}건
+              {curRows.length !== curStat.n && <span className="rls-fdim">／거른 뒤</span>}
+              <span className="rls-fdim">· 이 쪽 TC {shownTc}</span>
+              <span className="rls-fpg">
+                <span>줄 수</span>
+                <select
+                  value={per}
+                  title="한 쪽에 보여 줄 줄 수"
+                  onChange={(e) => {
+                    const n = Number(e.target.value) || 50
+                    setPer(n)
+                    setPage(1)
+                    prefSet('utop.rls.per', String(n))
+                  }}
+                >
+                  {[25, 50, 75, 100].map((n) => (
+                    <option key={n} value={n}>{n}개</option>
+                  ))}
+                </select>
+              </span>
+              {pageN > 1 && (
+                <span className="rls-fpg">
+                  <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
+                  {page} / {pageN}
+                  <button type="button" disabled={page >= pageN} onClick={() => setPage(page + 1)}>›</button>
+                </span>
+              )}
+            </div>
+          )}
         </section>
       </div>
 

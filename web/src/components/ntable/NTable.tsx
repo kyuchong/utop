@@ -1432,6 +1432,14 @@ export default function NTable(p: NTableProps) {
                 </td>
               </tr>
             )}
+            {/* **바닥을 채우는 빈 줄**(지시: 계산·건수 줄이 화면 하단에
+                있어야 한다). 줄이 적으면 표가 짧아 계산 줄이 화면 한가운데
+                떠 있었다 — 카드는 화면 아래까지 서 있는데 그 안에서만 붕
+                떠, 어디까지가 표인지 읽히지 않았다. 이 줄이 남는 높이를
+                먹어 계산 줄을 바닥으로 민다. 눌리지도, 세어지지도 않는다. */}
+            <tr className="ntb-fillrow" aria-hidden="true">
+              <td colSpan={vis.length + 2} />
+            </tr>
           </tbody>
           {/* 열마다 아래에서 센다(지시) — 누르면 무엇을 셀지 고른다 */}
           <tfoot>

@@ -37,8 +37,21 @@
 /* 표 */
 /* 가로 넘침은 **바깥 판**이 맡는다 — 여기서 overflow 를 잡으면 그것이
    스크롤 상자가 되어 머리줄 고정(sticky)이 바깥 스크롤에 안 붙는다. */
-.ntb-wrap { overflow: visible; margin-top: 9px; }
-.ntb-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; }
+/* 표가 **화면 아래까지 선다**(지시) — 줄이 적어도 계산·건수 줄은 바닥에
+   붙어 있다. 부모가 높이를 안 주는 화면에서는 min-height:100% 가 0 기준이라
+   아무 일도 일어나지 않는다(여태 모습 그대로). */
+.ntb { display: flex; flex-direction: column; min-height: 100%; }
+.ntb-wrap {
+  overflow: visible; margin-top: 9px;
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+}
+.ntb-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; height: 100%; }
+/* 남는 높이를 먹어 계산 줄을 바닥으로 미는 빈 줄 — 테두리도 바탕도 없다.
+   **줄에 height:100% 를 줘야 한다.** 표에만 100% 를 주면 브라우저가 남는
+   높이를 모든 줄에 나눠 줘서, 열두 줄짜리 표가 성기게 늘어난다. */
+.ntb-fillrow { height: 100%; }
+.ntb-fillrow td { padding: 0; border: 0; background: none; }
+.ntb-fillrow:hover td { background: none; }
 /* 머리줄은 굴려도 남는다(지적: 내려야 무슨 칸인지 안 보인다) */
 .ntb-tbl th {
   text-align: left; padding: 0; border-bottom: 1px solid var(--ntb-line);
