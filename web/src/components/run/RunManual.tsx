@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { apiFetch } from '@/api/client'
+import DefectDialog from '@/components/cycle/DefectDialog'
 import { TcPop } from '@/pages/ReqTc'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { DrawerSideBtns, useDrawerSide } from '@/lib/drawerSide'
@@ -621,14 +621,30 @@ export default function RunManual({
         </section>
       </div>
 
+      {/* **결함 창은 한 벌이다**(지시: 목업). 여기만 제목·중요도·설명 세 칸짜리
+          서랍을 따로 쓰고 있었다 — 같은 결함인데 사이클 Defects 탭에서 열면
+          여덟 판·Jira 필드·미리보기가 있고, 실행 중에 열면 없었다. 지라에 올릴
+          것을 실행 화면에서는 못 채우니 시험을 멈추고 탭으로 건너가 다시 쓰게
+          된다. 같은 DefectDialog 를 연다. */}
       {bug && (
-        <BugDrawer
-          runId={runId}
-          planId={planId}
-          tcid={cur}
-          title={one?.title ?? ''}
-          step=""
-          expected=""
+        <DefectDialog
+          cycle={{ id: planId }}
+          item={{
+            tcid: cur,
+            name: one?.title ?? '',
+            req_id: info.reqId ?? null,
+            /* 지금 화면의 절차를 그대로 넘긴다 — 판정과 실측이 붙어 있어야
+               현상·시험내역이 채워진다(DefectDialog 의 briefsOf 가 읽는다) */
+            steps: steps.map((st, i) => ({
+              desc: st.desc ?? st.t ?? '',
+              cli: st.t ?? '',
+              criteria: st.expected ?? '',
+              result: pchk[i] ?? '',
+              output: pmeta?.[i]?.act ?? '',
+              executed_at: pmeta?.[i]?.at ?? null,
+            })),
+          }}
+          existing={null}
           onClose={() => setBug(false)}
           onSaved={() => {
             setBug(false)
@@ -773,112 +789,6 @@ export default function RunManual({
           onClose={() => setPeek(null)}
         />
       )}
-    </div>
-  )
-}
-
-function BugDrawer({
-  runId, planId, tcid, title, step, expected, onClose, onSaved,
-}: {
-  runId: string
-  planId: string
-  tcid: string
-  title: string
-  step: string
-  expected: string
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const [t, setT] = useState(`[${tcid}] ${title}`)
-  const [sev, setSev] = useState('Major')
-  const [desc, setDesc] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  const save = async () => {
-    setBusy(true)
-    try {
-      const r = await apiFetch('/api/defects', {
-        method: 'POST',
-        body: JSON.stringify({
-          cycle_id: planId,
-          tcid,
-          tc_name: title,
-          title: t.trim() || `[${tcid}] ${title}`,
-          severity: sev,
-          note: [step, expected ? `기대: ${expected}` : '', desc].filter(Boolean).join('\n'),
-        }),
-      })
-      if (!r.ok) throw new Error('결함을 만들지 못했습니다')
-      onSaved()
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : '결함을 만들지 못했습니다')
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="rm-ovl" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="rm-drawer" role="dialog" aria-modal="true" aria-label="결함 등록">
-        <header>
-          <div>
-            <b>🐞 결함 등록</b>
-            <div className="rm-muted">깨진 절차의 값이 미리 채워집니다</div>
-          </div>
-          <button type="button" className="rm-x" onClick={onClose}>
-            ×
-          </button>
-        </header>
-        <div className="rm-dbody">
-          <div className="rm-auto">
-            <div className="rm-il">시험 정보</div>
-            <div className="rm-ctx">
-              <span>실행</span>
-              <b>{runId}</b>
-              <span>시험 항목</span>
-              <b>
-                {tcid} · {title}
-              </b>
-              {step && (
-                <>
-                  <span>절차</span>
-                  <b>{step}</b>
-                </>
-              )}
-              {expected && (
-                <>
-                  <span>기대 결과</span>
-                  <b>{expected}</b>
-                </>
-              )}
-            </div>
-          </div>
-          <label className="rm-fg">
-            <span>제목</span>
-            <input value={t} onChange={(e) => setT(e.target.value)} />
-          </label>
-          <label className="rm-fg">
-            <span>중요도</span>
-            <select value={sev} onChange={(e) => setSev(e.target.value)}>
-              {['Critical', 'Major', 'Minor'].map((k) => (
-                <option key={k}>{k}</option>
-              ))}
-            </select>
-          </label>
-          <label className="rm-fg">
-            <span>추가 설명</span>
-            <textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
-          </label>
-        </div>
-        <footer>
-          <span className="rm-sp" />
-          <button type="button" className="rm-btn" onClick={onClose}>
-            취소
-          </button>
-          <button type="button" className="rm-btn pri" disabled={busy} onClick={() => void save()}>
-            결함 등록
-          </button>
-        </footer>
-      </div>
     </div>
   )
 }
