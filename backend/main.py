@@ -3006,15 +3006,9 @@ LLM_PURPOSES: dict[str, dict] = {
     "cycle_summary": {
         "label": "Cycle-Test Summary",
         "hint": "플랜 실행 › 시험 진행 요약의 AI 요약을 씁니다.",
-        "system": (
-            "당신은 네트워크 장비 시험(QA) 결과 분석 전문가다. 주어진 회차 결과를 "
-            "근거로 한국어 Markdown 보고서를 쓴다.\n"
-            "규칙:\n"
-            "1) 총평 한 문단 — 이 버전을 내보내도 되는가에 답한다.\n"
-            "2) 전체·수동·자동 현황을 표로.\n"
-            "3) 깨진 항목은 무엇이 왜 깨졌는지 묶어서 적는다. 스텝 번호를 밝힌다.\n"
-            "4) 결과에 없는 것은 쓰지 않는다 — 미실행은 미실행이라고 적는다."
-        ),
+        # 인사말·맺음말·시험 표는 **코드가** 붙인다(숫자와 이름을 지어내지 않게).
+        # 여기 적는 것은 그 사이에 들어갈 **문장의 말투**뿐이다. 비우면 기본 규칙.
+        "system": "",
     },
     # ── 지식 ──────────────────────────────────────────────────
     "kai_answer": {
@@ -15848,7 +15842,11 @@ def _cycle_result_ctx(cycle, fails_detail=True):
                 continue
             fd.append(f"\n■ FAIL: {it.get('tcid','')} {it.get('name','')}")
             for i, s in enumerate(it.get("steps") or [], 1):
-                if not isinstance(s, dict) or str(s.get("result") or "").strip().upper() not in ("FAIL", "불합격"):
+                # 판정은 **_step_verdict 한 곳**으로 — 여태 이 줄만 옛 칸(result)을
+                # 봤다. 실행기는 status·repeatResult 에 적으므로 실자료에 result 는
+                # 한 건도 없고, 그래서 Fail 이 208 스텝이어도 [Fail 상세] 가 통째로
+                # 비어 나갔다. 근거를 못 받은 채 「Fail 분석」 을 시키면 지어낸다.
+                if not isinstance(s, dict) or _step_verdict(s) != "FAIL":
                     continue
                 fd.append(f"  - Step{i} {s.get('desc','')} / CLI `{s.get('cli','')}` / 기대({s.get('type','')}): {s.get('criteria','')}")
                 out = str(s.get("output") or "").strip()
@@ -15857,6 +15855,233 @@ def _cycle_result_ctx(cycle, fails_detail=True):
         if fd:
             head += "\n\n[Fail 상세]" + "\n".join(fd)
     return head
+
+# ── Test Summary 보고서 — 표는 **서버가 만든다** ──
+#
+# 숫자가 든 표를 LLM 에게 맡기면 지어낸다. Pass/Fail 은 저장할 때 이미 세어 둔
+# 값(data_summary)이 정본이므로, 표는 그 값으로 코드가 짜고 LLM 에게는 **문장만**
+# 맡긴다(지시: 시험 표 넣고 문구는 이런 형태로).
+#
+# 표는 반드시 **바깥 파이프로 감싼 GFM 파이프 표**다. 셀 병합(2단 머리)은 쓰지
+# 않는다 — 화면(BlockNote)에서는 살지만 메일 변환기에서 태그가 글자로 새어 나온다.
+# 그래서 「RFP」 아래 Total/Pass/Fail 같은 2단 머리는 한 줄로 편다.
+
+# 맺음말은 늘 같은 문장이다 — 사람이 쓰는 그대로 코드가 붙인다(지시)
+_RP_TAIL = ("자세한 시험 결과 및 이슈 내역은 아래 참고 부탁 드리며, "
+            "시험 항목에 대해서는 첨부 파일에 정리하였습니다.")
+
+# 옛 기본 프롬프트. 설정에 이 값이 **그대로** 저장돼 있으면 사람이 적은 것이
+# 아니라 화면이 기본값을 저장한 것이라, 새 형식과 부딪치지 않게 안 쓴다.
+_OLD_CYCLE_SUMMARY_SYS = (
+    "당신은 네트워크 장비 시험(QA) 결과 분석 전문가다. 주어진 회차 결과를 "
+    "근거로 한국어 Markdown 보고서를 쓴다.\n"
+    "규칙:\n"
+    "1) 총평 한 문단 — 이 버전을 내보내도 되는가에 답한다.\n"
+    "2) 전체·수동·자동 현황을 표로.\n"
+    "3) 깨진 항목은 무엇이 왜 깨졌는지 묶어서 적는다. 스텝 번호를 밝힌다.\n"
+    "4) 결과에 없는 것은 쓰지 않는다 — 미실행은 미실행이라고 적는다."
+)
+
+
+def _rp_squash(t) -> str:
+    """공백만 다른 글은 같은 글로 본다 — 저장값이 옛 기본값인지 가릴 때 쓴다"""
+    return re.sub(r"\s+", "", str(t or ""))
+
+
+def _bare_name(who) -> str:
+    """표시 이름에서 꼬리를 뗀다 — 「장수완(검증)_종합시험팀」 → 「장수완」"""
+    return re.split(r"[(\[_]", str(who or ""))[0].replace(" ", "").strip()
+
+
+def _yymd(d) -> str:
+    """2026-09-11 → 26/09/11 — 보고서가 쓰는 꼴"""
+    x = str(d or "")[:10]
+    return f"{x[2:4]}/{x[5:7]}/{x[8:10]}" if len(x) == 10 and x[4] == "-" else ""
+
+
+def _md_table(head, rows, left=()) -> str:
+    """GFM 파이프 표. 바깥 파이프로 감싸야 화면·메일 **양쪽**이 표로 읽는다.
+
+    `left` 에 넣은 칸은 왼쪽으로 붙인다 — 시험 항목 이름처럼 긴 글은 가운데로
+    맞추면 눈이 줄을 못 따라간다. 숫자 칸은 가운데가 읽기 좋다.
+    """
+    if not rows:
+        return ""
+    al = [":---" if (i == 0 or i in left) else ":---:" for i in range(len(head))]
+    out = ["| " + " | ".join(str(h) for h in head) + " |",
+           "| " + " | ".join(al) + " |"]
+    for r in rows:
+        out.append("| " + " | ".join("" if c is None else str(c) for c in r) + " |")
+    return "\n".join(out)
+
+
+def _rp_rate(t) -> str:
+    return f"{round(t['pass'] * 100 / t['total'], 1)}%" if t["total"] else "-"
+
+
+def _rp_tally(items, verdict) -> dict:
+    """항목 목록을 센다. 판정 함수를 받아 **목록 경로와 상세 경로를 한 규칙으로** 센다.
+
+    목록(data_summary)은 저장할 때 세어 둔 `_verdict`(Pass/Fail)를, 상세(items)는
+    `_item_verdict`(PASS/FAIL)를 쓴다 — 대소문자가 달라 한 곳에서 맞춘다.
+    """
+    t = {"total": 0, "pass": 0, "fail": 0, "none": 0}
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        t["total"] += 1
+        v = str(verdict(it) or "").strip().upper()
+        if v == "PASS":
+            t["pass"] += 1
+        elif v == "FAIL":
+            t["fail"] += 1
+        else:
+            t["none"] += 1
+    return t
+
+
+def _rp_span(meta) -> str:
+    """시험일 — **실제로 돌린 날**의 처음~끝. 한 번도 안 돌렸으면 만든 날.
+
+    사이클의 start_date·end_date 는 사람이 손으로 채우는 칸이라 대개 비어 있고,
+    updated_at 은 어떤 쓰기에도 오늘로 덮여 회차마다 「오늘 끝났다」가 된다.
+    항목에 남은 실행 시각만이 실제로 시험한 날을 말한다.
+    """
+    ds = sorted({
+        str(it.get("executed_at") or "")[:10]
+        for it in (meta.get("items") or [])
+        if isinstance(it, dict) and it.get("executed_at")
+    })
+    ds = [d for d in ds if len(d) == 10]
+    if ds:
+        a, b = _yymd(ds[0]), _yymd(ds[-1])
+        return a if a == b else f"{a} ~ {b}"
+    return _yymd(meta.get("_created_at_pg")) or "-"
+
+
+async def _cycle_report_tables(cycle, cycle_id) -> str:
+    """이 회차의 보고서 표 — 회차 비교 · 시험 결과 현황 · Fail 현황.
+
+    셋 다 **있는 자료만** 쓴다. 회차가 하나뿐이면 비교표는 안 낸다(비교할 것이
+    없는 표를 한 줄로 내면 읽는 사람이 나머지 회차가 지워진 줄 안다).
+    """
+    out = []
+
+    # 1) 버전별 비교 — 같은 모델그룹의 회차를 **만든 차례대로**
+    #    updated_at 으로 세우면 안 된다: 요약을 한 번 저장할 때마다 순서가 바뀐다.
+    try:
+        metas = await db.cycle_list_meta()
+    except Exception:
+        metas = []
+    mg = str(cycle.get("model_group") or "").strip()
+    mdl = str(cycle.get("model") or "").strip()
+
+    def _same(m):
+        if mg and str(m.get("model_group") or "").strip() == mg:
+            return True
+        return bool(mdl) and str(m.get("model") or "").strip() == mdl
+
+    kin = sorted([m for m in metas if _same(m)], key=lambda m: str(m.get("_created_at_pg") or ""))
+    if len(kin) > 1:
+        rows = []
+        for i, m in enumerate(kin, 1):
+            t = _rp_tally(m.get("items") or [], lambda it: it.get("_verdict") or it.get("result"))
+            # 이번 회차는 굵게 — 여러 줄 가운데 어느 것이 이번 것인지 한눈에
+            cur = str(m.get("id") or "") == str(cycle_id)
+            def b(x, _c=cur):
+                return f"**{x}**" if _c else str(x)
+            rows.append([
+                b(i), b(m.get("version_group") or "-"), b(m.get("version") or m.get("name") or "-"),
+                b(_rp_span(m)), b(t["total"]), b(t["pass"]), b(t["fail"]), b(t["none"]), b(_rp_rate(t)),
+            ])
+        out.append("## 버전별 비교 시험 결과 요약\n\n" + _md_table(
+            ["No", "버전그룹", "Version Name", "시험일", "Total", "Pass", "Fail", "미실행", "통과율"], rows))
+
+    # 2) 시험 결과 현황 — 합계·수동·자동
+    items = [x for x in (cycle.get("items") or []) if isinstance(x, dict)]
+
+    def _is_auto(it):
+        st = [x for x in (it.get("steps") or []) if isinstance(x, dict)]
+        return any(not db.is_manual_step(x) for x in st)
+
+    if items:
+        rows = []
+        for label, sub in (("합계", items),
+                           ("수동", [x for x in items if not _is_auto(x)]),
+                           ("자동", [x for x in items if _is_auto(x)])):
+            if label != "합계" and not sub:
+                continue
+            t = _rp_tally(sub, _item_verdict)
+            rows.append([f"**{label}**" if label == "합계" else label,
+                         t["total"], t["pass"], t["fail"], t["none"], _rp_rate(t)])
+        out.append("## 시험 결과 현황\n\n" + _md_table(
+            ["구분", "Total", "Pass", "Fail", "미실행", "통과율"], rows))
+
+    # 3) Fail 현황.
+    #
+    # 등록된 결함이 있으면 **그것이 표의 주인**이다(보고서의 「Fail issues 현황」).
+    # 아직 아무것도 안 올렸으면 깨진 항목을 몇 줄만 보인다 — Fail 이 수십 건일 때
+    # 전부 실으면 표가 보고서를 덮는다.
+    fails = [it for it in items if _item_verdict(it) == "FAIL"]
+    if fails:
+        try:
+            defs = await db.defect_list(cycle_id=str(cycle_id), limit=300)
+        except Exception:
+            defs = []
+        by_tc = {}
+        for d in (defs or []):
+            k = str(d.get("tcid") or "")
+            if k and k not in by_tc:
+                by_tc[k] = d
+        ver = str(cycle.get("version") or "-")
+
+        def _cut(t, n=44):
+            t = str(t or "-").strip()
+            return t if len(t) <= n else t[: n - 1] + "…"
+
+        if by_tc:
+            rows = []
+            for i, it in enumerate(fails, 1):
+                d = by_tc.get(str(it.get("tcid") or ""))
+                if not d:
+                    continue
+                rows.append([len(rows) + 1, d.get("jira_key") or d.get("id") or "-",
+                             _cut(d.get("title") or it.get("name")), it.get("tcid") or "-", ver])
+            if rows:
+                out.append("## Fail issues 현황\n\n" + _md_table(
+                    ["No", "이슈", "내용", "TC ID", "발생 Version"], rows, left=(1, 2, 3)))
+            rest = len(fails) - len(rows)
+            if rest > 0:
+                out.append(f"※ 위 이슈 밖에 Fail 로 남은 항목이 {rest}건 있습니다.")
+        else:
+            cap = 10
+            rows = [[i, it.get("tcid") or "-", _cut(it.get("name")), ver]
+                    for i, it in enumerate(fails[:cap], 1)]
+            body = _md_table(["No", "TC ID", "시험 항목", "발생 Version"], rows, left=(1, 2))
+            if len(fails) > cap:
+                body += f"\n\n※ Fail {len(fails)}건 중 {cap}건만 실었습니다. 나머지는 항목 표에서 보십시오."
+            out.append("## Fail 항목\n\n" + body)
+
+    return "\n\n".join(out)
+
+
+def _cycle_greet(user, cycle) -> str:
+    """인사말 첫 줄 — **코드가 짓는다.** LLM 에게 맡기면 이름을 지어낸다.
+
+    이름은 계정에, 팀은 조직도에 있다(계정의 dept 는 Jira 꼬리에서 뽑은 값이라
+    「검증팀」 처럼 틀린 이름이 된다 — 조직도가 정본이다).
+    """
+    raw = str((user or {}).get("name") or (user or {}).get("username") or "")
+    who = _bare_name(raw) or _bare_name(cycle.get("assignee") or cycle.get("updated_by") or "")
+    team = ""
+    try:
+        team = str((_org_where(raw) or {}).get("team") or "")
+    except Exception:
+        pass
+    if who and team:
+        return f"안녕하세요, {team} {who} 입니다."
+    return f"안녕하세요, {who} 입니다." if who else "안녕하세요."
+
 
 async def _cycle_ai_summary(cycle_id, llm_id: str = ""):
     """Gemma로 Cycle 요약 생성 → cycle 의 ai_summary 에 저장."""
@@ -15905,19 +16130,45 @@ async def _cycle_ai_summary(cycle_id, llm_id: str = ""):
     )
     ctx = ("[제품 정보] " + _pinfo + "\n"
            + "[전체·수동·자동 집계]\n" + "\n".join(_tline(k) for k in ("전체", "수동", "자동")) + "\n\n" + ctx)
-    # 이 글의 말투·차례는 설정(용도별 프롬프트 · Cycle-Test Summary)이 정한다.
-    # 비워 두면 아래 기본 규칙을 그대로 쓴다.
+    # 이 글의 말투는 설정(용도별 프롬프트 · Cycle-Test Summary)이 정한다.
+    #
+    # 다만 **옛 기본값이 그대로 저장돼 있으면 안 쓴다.** 그 값은 사람이 적은 것이
+    # 아니라 화면이 기본값을 그대로 저장한 것이고, 내용이 「표로 정리하라」 라서
+    # 새 형식(표는 서버가 만든다)과 정면으로 부딪친다.
     _slot = _prompt_of("cycle_summary").get("system") or ""
+    if _rp_squash(_slot) == _rp_squash(_OLD_CYCLE_SUMMARY_SYS):
+        _slot = ""
     sys_p = _slot + "\n" if _slot else ""
-    sys_p += ("너는 네트워크 장비 시험(QA) 결과 분석 전문가다. 아래 Test Cycle 실행 결과를 근거로 한국어 Markdown 분석 보고서를 작성한다. "
-             "보고서 첫 줄에 제품 정보(제조사·제품군·제품명·버전)를 한 줄로 쓰고, "
-             "구성: ## 총평(2~3문장 — 이 제품·버전 회차의 품질 판단) / ## 전체·수동·자동 현황(집계를 표로 정리하고 눈에 띄는 점 1~2문장) / "
-             "## Fail 분석(항목별 원인 추정과 근거 — 출력·판정기준 인용) / ## 권고사항(재시험·설정확인 등 구체적으로). "
-             "결과에 없는 내용은 추측하지 말고, Fail이 없으면 Fail 분석은 '해당 없음'으로 쓴다.")
+    sys_p += ("너는 네트워크 장비 시험(QA) 결과를 사내에 공유하는 **메일 본문**을 쓴다. "
+              "아래 결과만 근거로 한국어로 짧게 쓴다.\n"
+              "**표를 만들지 마라** — 시험 결과 표는 네 글 아래에 이미 붙는다. "
+              "**인사말도 쓰지 마라** — 첫 줄은 이미 붙어 있다. 머리(##)도 붙이지 마라.\n"
+              "두 문단만 쓴다:\n"
+              "1) 무엇을 돌렸는지 한 줄 — 「{제품명} 신규 OS({버전명}) 자동화 시험 결과 공유 드립니다.」 꼴.\n"
+              "2) 결과 한두 줄 — Fail 이 없으면 「이전 버전 대비 특이사항 확인되지 않았습니다.」, "
+              "있으면 「자동화 시험 진행 결과 이슈 N건(무엇이 깨졌는지 짧게) 확인되었습니다.」 꼴. "
+              "미실행이 많으면 그 사실도 한 마디 적는다.\n"
+              "건수는 **주어진 숫자만** 쓴다. 지어내지 마라. 군더더기 없이 사무적으로.")
     ans, err = await _ai_chat([{"role": "system", "content": sys_p}, {"role": "user", "content": ctx}],
-                              max_tokens=1600, llm_id=llm_id, purpose="cycle_summary")
+                              max_tokens=700, llm_id=llm_id, purpose="cycle_summary")
     if err:
         return None, err
+
+    # ── 글 조립: 인사말·맺음말·표는 **코드가** 붙인다 ──
+    #
+    # 이름도 건수도 LLM 에게 맡기면 지어낸다. 누가 눌렀는지는 미들웨어가 심어 둔
+    # 세션으로 알고, 표는 저장할 때 세어 둔 값으로 짠다.
+    try:
+        _acct = _user_from_token("")
+    except Exception:
+        _acct = None
+    body = (ans or "").strip()
+    # LLM 이 인사말이나 표를 또 냈으면 걷는다 — 코드가 붙인 것과 겹친다
+    body = re.sub(r"^\s*안녕하[세십][요시][^\n]*\n+", "", body)
+    body = re.sub(r"(?m)^\s*\|.*\|\s*$\n?", "", body).strip()
+    _tables = await _cycle_report_tables(cycle, cycle_id)
+    ans = "\n\n".join(x for x in [_cycle_greet(_acct, cycle), body, _RP_TAIL, _tables] if x)
+
     llm = _ai_llm(llm_id) or {}
     cycle = await db.cycle_get(cycle_id)   # 재로드(요약 생성 동안의 변경 보존)
     cycle["ai_summary"] = {"text": ans, "at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "model": llm.get("model", "")}
