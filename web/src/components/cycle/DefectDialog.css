@@ -525,3 +525,12 @@
   font: inherit; font-size: var(--fs-xs, 11px); cursor: pointer; padding: 2px 4px; border-radius: 3px;
 }
 .dfx-refill:hover { background: var(--c-primary-bg, #e9f1ff); }
+
+/* 창이 터졌을 때 보이는 자리 — 글을 그대로 옮겨 적을 수 있게 고른 글꼴로 */
+.dfx-errbox {
+  margin: 8px 0 0; padding: 10px 12px; max-height: 40vh; overflow: auto;
+  border: 1px solid var(--c-border, #dfe4ea); border-radius: var(--r-box, 6px);
+  background: var(--c-surface-alt, #f5f7f9); color: var(--c-fail, #cc3333);
+  font-family: var(--font-mono, Consolas, monospace); font-size: var(--fs-xs, 11px);
+  line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+}

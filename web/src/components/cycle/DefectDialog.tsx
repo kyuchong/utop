@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { apiFetch } from '@/api/client'
 import { stepVerdict, type TcStep } from '@/components/tc/types'
@@ -136,7 +136,48 @@ function briefsFromDefect(d: DefectRec | null): StepBrief[] {
  * UTOP 안에는 먼저 저장하고(항목당 하나), 「지라에 등록」 을 누를 때 실제로
  * 이슈가 생긴다 — 64건 돌려 20건 깨졌다고 이슈 20개가 한꺼번에 생기지 않게.
  */
-export default function DefectDialog({ host: host0, cycle, item, existing, onClose, onSaved }: Props) {
+/**
+ * 창이 터져도 **사라지지 않게** 막는다.
+ *
+ * 여태는 창 안에서 예외가 나면 React 가 그 가지를 통째로 걷어냈다 — 사람
+ * 눈에는 「눌렀더니 떴다가 곧 사라진다」 로 보이고, 무엇이 잘못됐는지는
+ * 아무 데도 남지 않는다(지적). 터진 자리를 창 안에 적어 둔다: 쓰던 글은
+ * 잃지만, 왜 그런지는 알 수 있고 닫기는 사람이 누른다.
+ */
+class DefectBoundary extends Component<{ onClose: () => void; children: ReactNode }, { err: string }> {
+  state = { err: '' }
+  static getDerivedStateFromError(e: unknown) {
+    return { err: e instanceof Error ? `${e.name}: ${e.message}` : String(e) }
+  }
+  render() {
+    if (!this.state.err) return this.props.children
+    return (
+      <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && this.props.onClose()}>
+        <div className="modal dfx" role="dialog" aria-modal="true" aria-label="결함 창 오류">
+          <div className="modal-head">
+            <b>결함 창을 열지 못했습니다</b>
+            <span className="sp" />
+            <button className="modal-x" type="button" onClick={this.props.onClose}>✕</button>
+          </div>
+          <div className="modal-body">
+            <p className="muted small">아래 글을 그대로 알려 주시면 고칠 수 있습니다.</p>
+            <pre className="dfx-errbox">{this.state.err}</pre>
+          </div>
+        </div>
+      </div>
+    )
+  }
+}
+
+export default function DefectDialog(props: Props) {
+  return (
+    <DefectBoundary onClose={props.onClose}>
+      <DefectDialogInner {...props} />
+    </DefectBoundary>
+  )
+}
+
+function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSaved }: Props) {
   /* 서랍 ⇄ 창 — 실행 화면은 시험서를 보며 써야 해서 서랍이, 다 쓰고 Jira
      필드를 훑을 때는 넓은 창이 낫다. 어느 쪽이 편한지는 사람마다 다르므로
      고른 것을 계정에 남긴다(열 때의 기본값은 부른 화면이 정한다). */
