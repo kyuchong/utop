@@ -22126,6 +22126,17 @@ async def defect_create_api(payload: dict, request: Request):
     _cy = await db.cycle_get(cid) or {}
     _mg = str(payload.get("model_group") or "").strip() or await _model_group_of(_cy)
     _it = str(payload.get("issue_type") or "").strip()
+    # **어느 Jira 프로젝트인지 서버가 정해 준다**(지적: Jira 이슈 필드가 안
+    # 나온다). 화면은 사람이 고르기 전까지 빈 값을 보내는데, 프로젝트가
+    # 없으면 그 프로젝트가 요구하는 칸(우선순위·사업자·이슈단계…)을 물어볼
+    # 데가 없어 창이 그 자리를 통째로 비워 둔다. 자동 결함은 이미 이 길로
+    # 정하고 있었다 — 사람이 만드는 결함만 빠져 있었다.
+    _dflt = {}
+    if not str(payload.get("jira_project") or "").strip():
+        try:
+            _dflt = await _jira_defect_defaults(_cy) or {}
+        except Exception:
+            _dflt = {}          # Jira 가 안 붙어 있어도 결함은 만들어져야 한다
     d = None
     did = ""
     for _ in range(3):
@@ -22144,9 +22155,9 @@ async def defect_create_api(payload: dict, request: Request):
                 "steps": payload.get("steps") or [],
                 "note": payload.get("note"),
                 # 이슈 등록 칸 — 프로젝트 키·프로젝트명·이슈유형·우선순위·수정버전·구성요소·보고자
-                "jira_project": payload.get("jira_project"),
+                "jira_project": payload.get("jira_project") or _dflt.get("jira_project"),
                 "project_name": payload.get("project_name"),
-                "issue_type": payload.get("issue_type"),
+                "issue_type": payload.get("issue_type") or _dflt.get("issue_type"),
                 "priority": payload.get("priority"),
                 "fix_version": payload.get("fix_version"),
                 "component": payload.get("component"),

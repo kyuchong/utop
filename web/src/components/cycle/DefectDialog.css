@@ -501,38 +501,6 @@
 }
 .dfx-hb:hover { border-color: var(--c-primary, #1769d2); color: var(--c-primary, #1769d2); }
 
-/* ══ 근거로 삼을 스텝 ══ (지시: 목업)
-   한 시험에서 여럿이 깨지면 결함도 나뉜다 — 무엇 때문에 이 결함을 쓰는지
-   고른다. 절차 자체는 늘 통째로 담기므로 여기서 고른다고 빠지지 않는다. */
-.dfx-picks {
-  flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 5px 6px;
-  padding: 6px 12px; border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
-  background: #fffafa;
-}
-.dfx-picks .l { font-size: var(--fs-xs, 11px); color: var(--c-text-muted, #4d5760); margin-right: 2px; }
-.dfx-picks .sp { flex: 1; }
-.dfx-pick {
-  display: inline-flex; align-items: center; gap: 5px;
-  border: 1px solid var(--c-border, #dfe4ea); border-radius: 12px;
-  background: var(--c-surface, #fff); color: var(--c-text-muted, #4d5760);
-  font: inherit; font-size: var(--fs-xs, 11px); padding: 1px 8px 1px 5px; cursor: pointer;
-}
-.dfx-pick i {
-  font-style: normal; width: 12px; height: 12px; flex: none;
-  border: 1.5px solid var(--c-border, #dfe4ea); border-radius: 3px;
-  display: inline-grid; place-items: center; font-size: 9px; line-height: 1;
-  color: #fff; background: #fff;
-}
-.dfx-pick.on { border-color: #f0b9be; color: var(--c-text, #131920); }
-.dfx-pick.on i { background: var(--c-fail, #cc3333); border-color: var(--c-fail, #cc3333); }
-.dfx-pick b { font-weight: 700; }
-.dfx-pick b.f { color: var(--c-fail, #cc3333); }
-.dfx-pick b.b { color: var(--c-draft, #a97800); }
-.dfx-refill {
-  border: 0; background: transparent; color: var(--c-primary, #1769d2);
-  font: inherit; font-size: var(--fs-xs, 11px); cursor: pointer; padding: 2px 4px; border-radius: 3px;
-}
-.dfx-refill:hover { background: var(--c-primary-bg, #e9f1ff); }
 
 /* 창이 터졌을 때 보이는 자리 — 글을 그대로 옮겨 적을 수 있게 고른 글꼴로 */
 .dfx-errbox {
