@@ -542,3 +542,14 @@
   font-family: var(--font-mono, Consolas, monospace); font-size: var(--fs-xs, 11px);
   line-height: 1.6; white-space: pre-wrap; word-break: break-word;
 }
+
+/* 서랍 가장자리 — 끌어서 폭을 바꾼다(목업의 dx-grip).
+   실행 화면의 rm-sash · 판 사이 resizer 와 같은 손잡이다. */
+.dfx-grip { position: absolute; top: 0; bottom: 0; width: 10px; z-index: 3; cursor: ew-resize; touch-action: none; }
+.dfx-sheet.right .dfx-grip { left: -5px; }
+.dfx-sheet.left .dfx-grip { right: -5px; }
+.dfx-grip::after {
+  content: ''; position: absolute; left: 3px; top: 50%; width: 4px; height: 56px; margin-top: -28px;
+  border-radius: 2px; background: transparent; transition: background .1s;
+}
+.dfx-grip:hover::after, .dfx-grip.on::after { background: var(--c-primary, #1769d2); }

@@ -6,7 +6,7 @@ import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
 import { buildDefectWiki, detailFromSteps, procFromSteps, wikiToHtml, type WikiStep, configFromSteps} from '@/lib/jiraWiki'
 import AutoGrow from './AutoGrow'
-import { prefGet, prefSet } from '@/lib/prefs'
+import { prefGet, prefRemove, prefSet } from '@/lib/prefs'
 import { DrawerSideBtns, useDrawerSide } from '@/lib/drawerSide'
 import { boardShot } from '@/components/tc/boardShot'
 import { wireShot } from '@/components/tc/wireMermaid'
@@ -190,6 +190,37 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
   /* 서랍은 온 화면이 한 열쇠로 함께 움직인다 — 창마다 따로 기억하면
      자리를 매번 다시 찾게 된다(lib/drawerSide) */
   const [drwSide, setDrwSide] = useDrawerSide()
+  /** 끌어 맞춘 서랍 폭(px). 0 이면 기본값. 다른 판 폭과 같이 계정에 남는다 */
+  const [sheetW, setSheetW] = useState(() => Number(prefGet('utop.dfx.w') ?? '') || 0)
+  const gripRef = useRef<HTMLDivElement>(null)
+  /** 가장자리를 끌어 폭을 바꾼다(목업의 dx-grip). 두 번 누르면 처음 폭으로 */
+  const onGrip = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const el = e.currentTarget
+    el.classList.add('on')
+    try {
+      el.setPointerCapture(e.pointerId)
+    } catch {
+      /* 못 잡아도 끌기는 된다 — 창 밖으로 나가면 놓칠 뿐이다 */
+    }
+    const mv = (ev: PointerEvent) => {
+      /* 오른쪽 서랍은 오른끝에서, 왼쪽 서랍은 왼끝에서 잰다 */
+      const raw = drwSide === 'left' ? ev.clientX : window.innerWidth - ev.clientX
+      setSheetW(Math.round(Math.min(window.innerWidth - 40, Math.max(420, raw))))
+    }
+    const up = () => {
+      el.removeEventListener('pointermove', mv)
+      el.removeEventListener('pointerup', up)
+      el.removeEventListener('pointercancel', up)
+      el.classList.remove('on')
+    }
+    el.addEventListener('pointermove', mv)
+    el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
+  }
+  useEffect(() => {
+    if (sheetW) prefSet('utop.dfx.w', String(sheetW))
+  }, [sheetW])
   const briefs = useMemo(() => (item ? briefsOf(item) : briefsFromDefect(existing)), [item, existing])
 
   /* 설정 파일을 찾을 때는 **깨진 것만이 아니라 모든 스텝**을 본다.
@@ -898,11 +929,28 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
     >
       <div
         className={host === 'side' ? `dfx-sheet dfx ${drwSide}` : 'modal dfx wide'}
+        style={host === 'side' && sheetW ? { width: sheetW } : undefined}
         role="dialog"
         aria-modal="true"
         aria-label="결함 등록"
         onMouseDown={(e) => e.stopPropagation()}
       >
+        {/* 가장자리를 끌어 폭을 바꾼다(목업) — 두 번 누르면 처음 폭 */}
+        {host === 'side' && (
+          <div
+            ref={gripRef}
+            className="dfx-grip"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="창 폭 조절"
+            title="끌어서 폭 조절 · 두 번 누르면 처음 폭"
+            onPointerDown={onGrip}
+            onDoubleClick={() => {
+              setSheetW(0)
+              prefRemove('utop.dfx.w')
+            }}
+          />
+        )}
         <div className="modal-head">
           <b>결함 {defect ? defect.id : '등록'}</b>
           <span className="muted small">

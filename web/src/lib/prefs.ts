@@ -43,6 +43,8 @@ const SYNC = new Set([
   // 끌어 맞춘 판·칸 폭(Resizer)
   'rqtcSideW', 'tcLogW', 'utop.ai.seqw', 'utop.cycle.execSideW', 'utop.tc.listW', 'utop.tc.seqW2',
   'utop.rls.w1',
+  // 결함 창(서랍)을 끌어 맞춘 폭
+  'utop.dfx.w',
   // Releases 바닥 줄에서 고른 한 쪽 줄 수 — 계정을 따라가야 자리를 옮겨
   // 앉아도 같은 쪽 크기로 열린다
   'utop.rls.per',
