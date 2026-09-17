@@ -2285,6 +2285,10 @@ export default function RunDetail({
           }}
           planId={String(run.plan_id ?? '')}
           runId={runId}
+          /* 결함 창이 **사이클로 가는 길**을 이것으로 짓는다 — 안 넘기면
+             그 길이 빠져, 이슈를 받은 사람이 어느 사이클인지 못 찾는다 */
+          cycModel={String(plan?.model ?? meta?.model ?? '')}
+          cycVer={String(plan?.version ?? run.version ?? '')}
           onBug={() => void qc.invalidateQueries({ queryKey: ['plan-run', runId] })}
           /* 목록에서 항목을 통째로 판정한다 — 절차가 없는 항목의 유일한 길 */
           /* 고른 줄에 한 판정을 한 번에(지시: 체크한 줄만) */

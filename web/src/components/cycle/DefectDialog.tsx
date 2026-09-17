@@ -325,11 +325,37 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
   const tcCrumbUrl = tcid ? `${origin}?tc=${encodeURIComponent(tcid)}` : ''
   /** 4. 시험내역 머리 — 그 사이클로 가는 길 */
   const cycId = cycle?.id || existing?.cycle_id || ''
+  /* 모델·버전을 못 받았으면 **사이클에서 읽어 온다**(지적: 사이클 URL 이
+     안 들어간다). 이 둘이 없으면 아래에서 길이 통째로 빈 값이 되고, 그러면
+     이슈를 받은 사람이 어느 사이클이었는지 찾을 데가 없다. 부르는 화면마다
+     무엇을 넘기는지가 다르므로, 창이 스스로 채운다. */
+  const [cycMV, setCycMV] = useState<{ model: string; version: string } | null>(null)
+  useEffect(() => {
+    const have = cycle?.model || existing?.model || cycle?.version || existing?.version
+    if (!cycId || have) return
+    let dead = false
+    void (async () => {
+      try {
+        const r = await apiFetch(`/api/cycle/${encodeURIComponent(String(cycId))}`)
+        if (!r.ok) return
+        const j = (await r.json()) as { model?: string; version?: string }
+        if (!dead) setCycMV({ model: String(j.model ?? ''), version: String(j.version ?? '') })
+      } catch {
+        /* 못 읽으면 길 없이 간다 — 결함 등록이 이것 때문에 막히면 안 된다 */
+      }
+    })()
+    return () => {
+      dead = true
+    }
+  }, [cycId, cycle, existing])
   const cycCrumbTxt = useMemo(() => {
-    const mv = [cycle?.model || existing?.model || '', cycle?.version || existing?.version || '']
+    const mv = [
+      cycle?.model || existing?.model || cycMV?.model || '',
+      cycle?.version || existing?.version || cycMV?.version || '',
+    ]
     const parts = ['Cycles', ...mv.filter(Boolean)]
     return parts.length > 1 ? parts.join(' / ') : ''
-  }, [cycle, existing])
+  }, [cycle, existing, cycMV])
   const cycCrumbUrl = cycId ? `${origin}?cycle=${encodeURIComponent(String(cycId))}` : ''
   const [topoImg, setTopoImg] = useState('')
   /**

@@ -77,7 +77,8 @@ export interface MMeta {
 }
 
 export default function RunManual({
-  items, cur, onPick, steps, pchk, pmeta, onStep, onAct, onShot, onShotDel, info, planId, runId, onBug,
+  items, cur, onPick, steps, pchk, pmeta, onStep, onAct, onShot, onShotDel, info, planId, runId,
+  cycModel, cycVer, onBug,
   onVerdicts, onClearRuns, keys, stale,
 }: {
   items: MItem[]
@@ -104,6 +105,10 @@ export default function RunManual({
   }
   planId: string
   runId: string
+  /** 이 사이클의 모델·버전 — 결함 창이 **사이클로 가는 길**을 이것으로 짓는다.
+   *  없으면 그 길이 통째로 빠져, 이슈를 받은 사람이 어느 사이클인지 못 찾는다. */
+  cycModel?: string
+  cycVer?: string
   onBug: () => void
   /** 목록에서 항목을 통째로 판정할 때 — 절차가 없는 항목의 유일한 길 */
   /** 고른 줄 여럿에 한 판정을 한 번에 */
@@ -177,7 +182,10 @@ export default function RunManual({
   /* 결함 창에 넘길 것 — **한 번만 짓는다.** 매 렌더 새 객체를 주면 창 안의
      계산(절차 훑기·요약 짓기)이 통째로 다시 돌고, 실행 화면은 실행 상태가
      바뀔 때마다 다시 그려진다(지적: 결함을 누르면 창이 계속 꺼진다). */
-  const dfxCycle = useMemo(() => ({ id: planId }), [planId])
+  const dfxCycle = useMemo(
+    () => ({ id: planId, model: cycModel ?? null, version: cycVer ?? null }),
+    [planId, cycModel, cycVer],
+  )
   const dfxItem = useMemo(
     () => ({
       tcid: cur,
