@@ -29,6 +29,7 @@ import type { RunFull } from '@/components/run/RunDetail'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IconChevron, IconPanel } from '@/components/icons'
 import CycleMailDialog, { type MailSeed } from '@/components/cycle/CycleMailDialog'
+import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useMailBook } from '@/lib/mailPeople'
 import MailViewDialog from '@/components/cycle/MailViewDialog'
 import CycleReport from '@/components/cycle/CycleReport'
@@ -911,6 +912,9 @@ export default function CyclesBoard({
   })
   const full = fullQ.data
   /** 이 사이클의 결함 — 결함 내역 탭이 읽는다 */
+  /** 지금 고치고 있는 결함 — 사이클 안에서 바로 연다(지시: 이슈를 누르면
+   *  바로 수정. 여태는 Defects 화면으로 건너뛰어 사이클 맥락을 잃었다) */
+  const [defEdit, setDefEdit] = useState<DefectRec | null>(null)
   const defQ = useQuery({
     queryKey: ['cycle-defects', open],
     /* 탭을 눌러야 받아오게 두면 **탭 옆 숫자가 늘 0** 이다(메일 이력에서
@@ -3278,11 +3282,14 @@ export default function CyclesBoard({
             lockDefs
             idKey="id"
             titleKey="title"
-            /* **ID 는 Defects 화면의 그 결함으로**(지시) — 다른 표와 같은
-               규칙이다: ID 를 누르면 그것의 제집으로 간다. 결함을 고치고
-               지라로 올리는 일은 거기서 한다.
+            /* **여기서 바로 고친다**(지시). 여태는 Defects 화면으로
+               건너뛰었는데, 그러면 보던 사이클을 잃고 돌아오는 길도 없다.
+               결함 창은 어디서 열든 같은 한 벌이라 그 자리에서 열면 된다.
                시험 항목으로 가는 길은 아래 「시험 항목」 칸이 맡는다. */
-            onOpen={(id) => goto('defect', id)}
+            onOpen={(id) => {
+              const d = (defQ.data?.defects ?? []).find((x) => String(x.id) === id)
+              if (d) setDefEdit(d as DefectRec)
+            }}
             renderCell={(row, col) => {
               /* **이슈로 바로 건너뛴다**(지시) — Defects 화면과 같은 규칙 */
               if (col.key === 'jira_project') {
@@ -3850,6 +3857,16 @@ export default function CyclesBoard({
             </button>
           </div>
         </>
+      )}
+
+      {/* 결함 고치기 — 사이클 안에서 연다. 목록 화면과 같은 창이라
+          지라로 올리는 일까지 여기서 끝난다. */}
+      {!!defEdit && (
+        <DefectDialog
+          existing={defEdit}
+          onClose={() => setDefEdit(null)}
+          onSaved={() => void defQ.refetch()}
+        />
       )}
 
       {!!mailPlan && (

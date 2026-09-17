@@ -22156,7 +22156,9 @@ async def defect_create_api(payload: dict, request: Request):
                 "note": payload.get("note"),
                 # 이슈 등록 칸 — 프로젝트 키·프로젝트명·이슈유형·우선순위·수정버전·구성요소·보고자
                 "jira_project": payload.get("jira_project") or _dflt.get("jira_project"),
-                "project_name": payload.get("project_name"),
+                # 프로젝트명도 채운다(지적: 수동은 안 채워진다) — 화면은
+                # 프로젝트 목록이 늦게 오면 이름을 못 찾는다.
+                "project_name": payload.get("project_name") or _dflt.get("project_name"),
                 "issue_type": payload.get("issue_type") or _dflt.get("issue_type"),
                 # 우선순위·구성요소도 설정이 아는 값으로(지적: 수동만 400).
                 # 자동 결함은 이미 이 값으로 채워지는데 사람이 만드는 결함만
@@ -22276,10 +22278,37 @@ async def defect_push_jira(did: str, payload: dict = None):
     fields = {}
     fv = payload.get("fix_version") or d.get("fix_version")
     if fv:
-        fields["fixVersions"] = [{"name": fv}]
+        # **지라가 아는 이름일 때만 싣는다**(지적: 400 — 버전 이름
+        # 'R100_2026_09_14'(은)는 유효하지 않습니다).
+        # 우리 수정버전은 사이클 버전명(R100_2026_09_14)인데 지라의 버전은
+        # 빌드 이름(E6100.r100.FE_260911.bin)이라 서로 다른 말이다. 모르는
+        # 이름을 그대로 실으면 지라가 이슈를 통째로 거절한다 — 결함을 못
+        # 올리느니 그 칸만 비우고 올린다. 사람이 창에서 골라 넣으면 된다.
+        known: set[str] = set()
+        try:
+            vr, verr = _jira_call("GET", f"/rest/api/2/project/{proj}/versions")
+            if not verr and vr is not None and vr.is_success:
+                known = {str(x.get("name") or "") for x in (vr.json() or [])}
+        except Exception:
+            known = set()   # 못 물어보면 여태처럼 그대로 싣는다(아래 not known)
+        if not known or fv in known:
+            fields["fixVersions"] = [{"name": fv}]
+        else:
+            print(f"[jira] 수정버전 '{fv}' 은 {proj} 에 없어 빼고 올립니다", flush=True)
     comp = payload.get("component") or d.get("component")
     if comp:
-        fields["components"] = [{"name": comp}]
+        # 구성요소도 같은 함정이다 — 지라에 없는 이름이면 이슈가 통째로 막힌다
+        kc: set[str] = set()
+        try:
+            cr, cerr = _jira_call("GET", f"/rest/api/2/project/{proj}/components")
+            if not cerr and cr is not None and cr.is_success:
+                kc = {str(x.get("name") or "") for x in (cr.json() or [])}
+        except Exception:
+            kc = set()
+        if not kc or comp in kc:
+            fields["components"] = [{"name": comp}]
+        else:
+            print(f"[jira] 구성요소 '{comp}' 은 {proj} 에 없어 빼고 올립니다", flush=True)
     rep = payload.get("reporter") or d.get("reporter")
     if rep:
         # 결함에는 **이름**으로 적혀 있다(화면에서 읽는 값) — Jira 의 reporter

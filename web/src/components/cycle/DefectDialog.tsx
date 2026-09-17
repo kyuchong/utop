@@ -685,6 +685,9 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
     }
     const p = projects.find((x) => x.key === proj)
     if (p && p.name) setProjName(p.name)
+    /* 목록이 **늦게 와도** 채운다 — 창을 열자마자 서버가 프로젝트를 정해
+       주는데, 그때 이 목록은 아직 오는 중이라 이름을 못 찾았다(지적: 수동은
+       프로젝트명이 안 채워진다). 아래 effect 가 목록이 온 뒤 다시 본다. */
     void (async () => {
       try {
         /* 이슈유형만 물으면 된다 — 수정버전·구성요소 칸은 「이슈 칸 더 보기」
@@ -922,6 +925,14 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
       setBusy('')
     }
   }
+
+  /* 프로젝트 목록이 온 뒤 이름을 다시 찾는다 — 위 effect 는 proj 가 바뀔
+     때만 돌아, 목록이 나중에 도착하면 빈 채로 남았다 */
+  useEffect(() => {
+    if (!proj || projName) return
+    const p = projects.find((x) => x.key === proj)
+    if (p?.name) setProjName(p.name)
+  }, [proj, projects, projName])
 
   /** 아직 안 채운 **필수 칸** — 이것이 있으면 지라가 400 으로 거절한다.
    *  여태는 단추가 프로젝트만 보고 열려 있어, 눌러서 400 을 받고서야 알았다
