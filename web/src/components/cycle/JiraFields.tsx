@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import './JiraFields.css'
+import { prefGet, prefSet } from '@/lib/prefs'
 
 /**
  * 이 프로젝트·이슈유형이 **실제로 요구하는 칸**을 Jira 에게 물어 그린다.
@@ -163,18 +164,118 @@ export default function JiraFields({
 
   const set = (id: string, v: unknown) => onChange({ ...value, [id]: v })
 
+  /* 어떤 칸을 보일지 — **프로젝트마다 따로** 기억한다(칸 구성이 프로젝트마다
+     다르다). 계정을 따라다녀, 자리를 옮겨 앉아도 쓰던 대로 열린다. */
+  const [fcOpen, setFcOpen] = useState(false)
+  const pkey = `utop.jf.pick.${project}`
+  const [pick, setPick] = useState<{ mode: 'all' | 'custom'; on: Set<string> }>(() => {
+    try {
+      const raw = prefGet(pkey)
+      if (!raw) return { mode: 'all', on: new Set<string>() }
+      const j = JSON.parse(raw) as { mode?: string; on?: string[] }
+      return { mode: j.mode === 'custom' ? 'custom' : 'all', on: new Set(j.on ?? []) }
+    } catch {
+      return { mode: 'all', on: new Set<string>() }
+    }
+  })
+  /* 프로젝트가 바뀌면 그 프로젝트의 기억으로 갈아 낀다 */
+  useEffect(() => {
+    try {
+      const raw = prefGet(`utop.jf.pick.${project}`)
+      const j = raw ? (JSON.parse(raw) as { mode?: string; on?: string[] }) : null
+      setPick({ mode: j?.mode === 'custom' ? 'custom' : 'all', on: new Set(j?.on ?? []) })
+    } catch {
+      setPick({ mode: 'all', on: new Set<string>() })
+    }
+  }, [project])
+  const pickFirst = useRef(true)
+  useEffect(() => {
+    if (pickFirst.current) {
+      pickFirst.current = false
+      return
+    }
+    prefSet(pkey, JSON.stringify({ mode: pick.mode, on: [...pick.on] }))
+  }, [pick, pkey])
+
   if (!project || !issuetype) return null
   if (busy) return <div className="jf-note">Jira 칸 불러오는 중…</div>
   if (err) return <div className="jf-note bad">칸을 못 읽었습니다 — {err}</div>
   if (!fields.length) return null
 
+  /* 보이는 칸만 그린다 — 필수는 늘 보인다(아래 useFieldPick) */
+  const shown = fields.filter((f) => f.required || pick.mode === 'all' || pick.on.has(f.id))
+  const opt = fields.filter((f) => !f.required)
+
   return (
     <div className="jf">
       <div className="jf-h">
-        Jira 필드 ({fields.length}개)
+        Jira 필드 ({shown.length}
+        {shown.length !== fields.length ? `/${fields.length}` : ''}개)
         <span className="jf-req">· * 필수</span>
+        <span className="sp" />
+        {/* **필드 구성**(지시: 목업). Jira 가 주는 칸이 스무 개를 넘는 프로젝트가
+            있는데, 늘 적는 것은 그중 몇이다. 필수는 늘 보인다 — 숨겨 두고
+            「왜 못 올리지」 를 겪게 할 수는 없다. */}
+        {opt.length > 0 && (
+          <span className="jf-fc">
+            <button
+              type="button"
+              className="jf-fcb"
+              aria-expanded={fcOpen}
+              onClick={() => setFcOpen((v) => !v)}
+              title="어떤 칸을 보일지 고릅니다 — 필수는 늘 보입니다"
+            >
+              ⚙ 필드 구성
+            </button>
+            {fcOpen && (
+              <>
+                <span className="jf-fcveil" onClick={() => setFcOpen(false)} />
+                <span className="jf-fcpop" role="dialog" aria-label="표시할 필드">
+                  <span className="jf-fch">
+                    <b>표시할 필드</b>
+                    <span className="sp" />
+                    <span className="jf-seg" role="group">
+                      {(['all', 'custom'] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          className={pick.mode === m ? 'on' : ''}
+                          aria-pressed={pick.mode === m}
+                          onClick={() => setPick({ ...pick, mode: m })}
+                        >
+                          {m === 'all' ? '모든' : '고른 것만'}
+                        </button>
+                      ))}
+                    </span>
+                  </span>
+                  <span className="jf-fcl">
+                    {opt.map((f) => (
+                      <label key={f.id}>
+                        <input
+                          type="checkbox"
+                          checked={pick.mode === 'all' || pick.on.has(f.id)}
+                          disabled={pick.mode === 'all'}
+                          onChange={(e) => {
+                            const on = new Set(pick.on)
+                            if (e.target.checked) on.add(f.id)
+                            else on.delete(f.id)
+                            setPick({ ...pick, on })
+                          }}
+                        />
+                        <span>{f.name || f.id}</span>
+                      </label>
+                    ))}
+                  </span>
+                  <span className="jf-fcf">
+                    필수 칸은 늘 보입니다. 「고른 것만」 을 고르면 체크한 칸만 보입니다.
+                  </span>
+                </span>
+              </>
+            )}
+          </span>
+        )}
       </div>
-      {fields.map((f) => (
+      {shown.map((f) => (
         <One key={f.id} f={f} v={value[f.id]} set={set} disabled={disabled} project={project} />
       ))}
     </div>

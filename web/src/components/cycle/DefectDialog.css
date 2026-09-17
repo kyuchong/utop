@@ -553,3 +553,6 @@
   border-radius: 2px; background: transparent; transition: background .1s;
 }
 .dfx-grip:hover::after, .dfx-grip.on::after { background: var(--c-primary, #1769d2); }
+
+/* 머리줄 오른쪽 단추 묶음 — 창을 넓혀도 ✕ 곁을 떠나지 않는다 */
+.dfx-hbs { display: inline-flex; align-items: center; gap: 6px; flex: none; margin-left: auto; }

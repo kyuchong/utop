@@ -7,7 +7,7 @@ import './DefectDialog.css'
 import { buildDefectWiki, detailFromSteps, procFromSteps, wikiToHtml, type WikiStep, configFromSteps} from '@/lib/jiraWiki'
 import AutoGrow from './AutoGrow'
 import { prefGet, prefRemove, prefSet } from '@/lib/prefs'
-import { DrawerSideBtns, useDrawerSide } from '@/lib/drawerSide'
+import { useDrawerSide } from '@/lib/drawerSide'
 import { boardShot } from '@/components/tc/boardShot'
 import { wireShot } from '@/components/tc/wireMermaid'
 import { connParams } from '@/components/tc/device'
@@ -189,7 +189,9 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
   }, [host])
   /* 서랍은 온 화면이 한 열쇠로 함께 움직인다 — 창마다 따로 기억하면
      자리를 매번 다시 찾게 된다(lib/drawerSide) */
-  const [drwSide, setDrwSide] = useDrawerSide()
+  /* 좌·우 단추는 걷었다(지시) — 서랍이 붙는 쪽은 온 화면이 쓰는 그 열쇠를
+     그대로 따른다. 실행 화면의 요구사항 서랍에서 옮기면 여기도 따라간다. */
+  const [drwSide] = useDrawerSide()
   /** 끌어 맞춘 서랍 폭(px). 0 이면 기본값. 다른 판 폭과 같이 계정에 남는다 */
   const [sheetW, setSheetW] = useState(() => Number(prefGet('utop.dfx.w') ?? '') || 0)
   const gripRef = useRef<HTMLDivElement>(null)
@@ -958,8 +960,9 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
           </span>
           <span className="sp" />
           {pushed && <span className="dfx-key">● {defect?.jira_key}</span>}
-          {/* 서랍일 때만 좌·우를 고른다 — 가운데 창은 옮길 데가 없다 */}
-          {host === 'side' && <DrawerSideBtns side={drwSide} onSide={setDrwSide} cls="dfx-hb" />}
+          {/* 오른쪽 단추는 **한 묶음**이다(지적: 창을 넓히면 ✕ 와 멀어진다).
+              따로 두면 사이에 빈자리가 끼어, 폭을 늘릴수록 벌어진다. */}
+          <span className="dfx-hbs">
           <button
             className="dfx-hb"
             type="button"
@@ -976,6 +979,7 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
           <button className="modal-x" type="button" onClick={onClose}>
             ✕
           </button>
+          </span>
         </div>
 
         {/* 깨진 스텝 — 무엇을 근거로 이 결함을 쓰는지(지시: 목업).
