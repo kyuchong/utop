@@ -115,3 +115,31 @@
 .jf-fcl input { accent-color: var(--c-primary, #0052cc); margin: 0; flex: none; }
 .jf-fcl input:disabled + span { opacity: .55; }
 .jf-fcf { font-size: 10px; line-height: 1.5; color: var(--c-text-faint, #6b778c); }
+
+/* ══ 한 줄에 이름·입력 ══ (지시: Jira 「이슈 만들기」 창처럼)
+   여태는 이름이 위, 입력이 아래로 쌓여 스무 칸이 세로로 길게 늘어졌다.
+   Jira 가 쓰는 배치를 그대로 쓴다 — 지라를 아는 사람이 같은 자리를 본다.
+
+   라벨은 1열, **나머지는 몇 개든 2열**에 쌓는다. 설명줄이 붙는 칸이 있어
+   자식 수가 일정하지 않은데, 자리를 자동 배치에 맡기면 그런 칸만 어긋난다. */
+.jf-f {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 4px;
+  align-items: start;
+}
+.jf-f > * { grid-column: 2; min-width: 0; }
+.jf-f > .jf-lb {
+  grid-column: 1; grid-row: 1;
+  text-align: right; padding-top: 7px;
+  font-size: var(--fs-sm, 12px); font-weight: 500; line-height: 1.35;
+  color: var(--c-text-muted, #5e6c84); word-break: keep-all; overflow-wrap: anywhere;
+}
+.jf-star { color: var(--c-fail, #de350b); font-weight: 700; margin-left: 3px; }
+/* 좁으면 여느 때처럼 위아래로 — 116px 를 떼고 나면 입력이 너무 좁다 */
+@media (max-width: 720px) {
+  .jf-f { grid-template-columns: minmax(0, 1fr); }
+  .jf-f > * { grid-column: 1; }
+  .jf-f > .jf-lb { grid-column: 1; text-align: left; padding: 0 0 2px; }
+}

@@ -298,7 +298,11 @@ function One({
   const label = (
     <div className={`jf-lb${f.required ? ' req' : ''}`}>
       {f.name || f.id}
-      {f.required ? ' *' : ''}
+      {f.required && (
+        <span className="jf-star" title="필수">
+          *
+        </span>
+      )}
     </div>
   )
   const isArr = f.type === 'array'

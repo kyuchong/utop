@@ -198,6 +198,13 @@ export function buildDefectWiki(
        자동으로 채울 때만 붙이던 때는, 이미 저장된 결함을 열면 머리줄이
        없었다 — 서버가 만든 글이든 사람이 고친 글이든 「어느 시험인지」 는
        늘 맨 위에 있어야 한다. 이미 있으면 두 번 적지 않는다. */
+    /* **현상에도 어느 시험·어느 사이클인지 적는다**(지시). 이슈를 받은
+       사람이 가장 먼저 읽는 판이 여기다 — 여기에 길이 없으면 아래 3·4번까지
+       내려가야 무엇을 보던 중이었는지 안다. 한 줄에 둘을 잇는다. */
+    if (k === 'symptom') {
+      const two = [opts?.tcCrumb, opts?.cycleCrumb].filter(Boolean).join(' ')
+      if (two) body = withCrumb(body, two, 'Coverage')
+    }
     if (k === 'steps' && opts?.tcCrumb) body = withCrumb(body, opts.tcCrumb, 'Coverage')
     if (k === 'detail' && opts?.cycleCrumb) body = withCrumb(body, opts.cycleCrumb, 'Cycles')
     /* 설정 파일 — **파일로 붙인다**(지시). 수천 줄을 본문에 쏟으면 이슈를
@@ -284,10 +291,15 @@ export function wikiToHtml(txt: string, imgs?: Record<string, string>): string {
          견주는 자리라 자리가 어긋나면 다른 것으로 읽힌다. 첫 줄이 링크
          하나뿐이면 제목 줄로 끌어올리고 본문에서는 건너뛴다. */
       const nx = lines[li + 1] ?? ''
-      const cr = nx.match(/^\[([^\]|]+)\|([^\]]+)\]$/)
+      /* 링크가 **둘 이상**일 수도 있다(현상은 시험항목·사이클을 함께 단다) */
+      const crs = /^(?:\[[^\]|]+\|[^\]]+\]\s*)+$/.test(nx.trim())
+        ? [...nx.matchAll(/\[([^\]|]+)\|([^\]]+)\]/g)]
+        : []
       let head = escH(mp[1])
-      if (cr) {
-        head += `<a class="jw-crumb" href="${escH(cr[2])}" target="_blank" rel="noreferrer">${escH(cr[1])}</a>`
+      if (crs.length) {
+        head += crs
+          .map((c) => `<a class="jw-crumb" href="${escH(c[2])}" target="_blank" rel="noreferrer">${escH(c[1])}</a>`)
+          .join('')
         li += 1
         /* 머리로 올린 줄 뒤의 빈 줄도 함께 걷는다 — 안 그러면 본문이 한 줄
            내려앉아, 자리를 맞추려던 일이 도로 어긋난다 */
