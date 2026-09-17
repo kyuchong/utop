@@ -302,7 +302,11 @@
    !important 는 순서 때문이다 — 패키지 규칙(.bn-mantine .bn-suggestion-menu)
    과 자릿수가 같아, 어느 CSS 가 먼저 실리느냐에 따라 이겼다 졌다 한다. */
 .bn-suggestion-menu {
-  max-height: min(340px, 55vh) !important;
+  /* 한 번에 더 많이 보이게(지시) — 340px 는 일곱 줄쯤이라 「기본 블록」
+     중간에서 이미 잘렸다. 620px 면 열세 줄, 스물일곱 중 절반이 든다.
+     vh 쪽은 남긴다: 이 제한이 없어 화면 아래쪽에서 열면 상자가 창 밖으로
+     넘어가고, 아래 항목은 굴려도 창에 가려 영영 못 골랐다. */
+  max-height: min(620px, 76vh) !important;
   overflow-y: auto !important;
   /* 메뉴 끝까지 굴렸을 때 그 뒤 문서가 따라 굴러가지 않게 */
   overscroll-behavior: contain;
