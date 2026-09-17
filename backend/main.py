@@ -211,6 +211,18 @@ active_connections: list[WebSocket] = []
 # 유틸
 # ───────────────────────────────────────────
 def load_json(path: Path) -> dict:
+    """없는 파일은 **빈 것**으로 읽는다.
+
+    save_json 은 상위 폴더를 만들어 주는데 읽는 쪽에는 방비가 없어, 아직 한
+    번도 저장한 적 없는 자료를 읽으면 500 이 났다 — 장비를 한 대도 등록하지
+    않은 서버에서 /api/devices 가 통째로 터졌고(지적: 결함 창이 뜨자마자
+    사라진다), 그 창은 열리면서 장비 목록을 읽는다.
+
+    글이 깨진 파일은 **그대로 터뜨린다.** 그건 자료가 있는데 못 읽는 것이라,
+    조용히 빈 것으로 읽으면 다음 저장이 멀쩡한 자료를 덮어쓴다.
+    """
+    if not path.exists():
+        return {}
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
