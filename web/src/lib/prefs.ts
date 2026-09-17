@@ -33,8 +33,7 @@ const SYNC = new Set([
   // 자동 스텝 표에서 사람이 끌어 정한 칸 폭
   'utop.tc.sq.sumw', 'utop.tc.sq.dscw',
   'utop.nav.dock', 'utop.drawer.side',
-  // 결함 창을 서랍으로 볼지 넓은 창으로 볼지 — 실행 화면에서 고른 모양
-  'utop.dfx.host',
+
   // 담당 고르개 최근
   'utop.ass.recent',
   // 사이클에서 골라 둔 시험 항목 · 누적 그림 기간 — 계정을 따라가야
@@ -52,7 +51,8 @@ const SYNC = new Set([
 /* 열쇠가 미리 안 정해지는 것들 — 표의 열마다 폭·숨김 열쇠가 생긴다.
    SYNC 는 정확히 맞는 열쇠만 봐서 utop.ntb.* 가 서버로 못 갔다(검증). */
 /* 열쇠가 프로젝트마다 생기는 것 — Jira 필드 구성(utop.jf.pick.<프로젝트>) */
-const SYNC_PRE = ['utop.ntb.', 'utop.jf.pick.']
+/* 결함 창 모양은 **부른 화면마다** 따로다 — utop.dfx.host.side · .modal */
+const SYNC_PRE = ['utop.ntb.', 'utop.jf.pick.', 'utop.dfx.host.']
 const isSync = (k: string) => SYNC.has(k) || SYNC_PRE.some((p) => k.startsWith(p))
 /** 이 PC 거울에 있는 동기화 대상 열쇠 전부 — 접두어 것까지 */
 const mirrorKeys = (): string[] => {

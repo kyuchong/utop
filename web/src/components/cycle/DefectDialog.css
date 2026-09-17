@@ -524,3 +524,9 @@
 
 /* 머리줄 오른쪽 단추 묶음 — 창을 넓혀도 ✕ 곁을 떠나지 않는다 */
 .dfx-hbs { display: inline-flex; align-items: center; gap: 6px; flex: none; margin-left: auto; }
+
+/* 아직 안 채운 필수 칸 — 「지라에 등록」 이 왜 잠겼는지 그 자리에서 말한다 */
+.dfx-missreq {
+  font-size: var(--fs-xs, 11px); color: var(--c-fail, #cc3333);
+  max-width: 44ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

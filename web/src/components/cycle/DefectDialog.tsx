@@ -181,12 +181,21 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
   /* 서랍 ⇄ 창 — 실행 화면은 시험서를 보며 써야 해서 서랍이, 다 쓰고 Jira
      필드를 훑을 때는 넓은 창이 낫다. 어느 쪽이 편한지는 사람마다 다르므로
      고른 것을 계정에 남긴다(열 때의 기본값은 부른 화면이 정한다). */
+  /* 열쇠를 **부른 화면마다** 나눈다(지적: Defects 는 팝업이었는데 수동 시험과
+     똑같아졌다). 한 열쇠로 기억하던 때는 실행 화면에서 서랍으로 바꾸면
+     Defects 목록까지 서랍으로 열렸다 — 거긴 옆에 볼 것이 없어 팝업이 맞다. */
+  const hostKey = `utop.dfx.host.${host0 ?? 'modal'}`
   const [host, setHost] = useState<'modal' | 'side'>(
-    () => (prefGet('utop.dfx.host') as 'modal' | 'side') || host0 || 'modal',
+    () => (prefGet(hostKey) as 'modal' | 'side') || host0 || 'modal',
   )
+  const hostFirst = useRef(true)
   useEffect(() => {
-    prefSet('utop.dfx.host', host)
-  }, [host])
+    if (hostFirst.current) {
+      hostFirst.current = false
+      return
+    }
+    prefSet(hostKey, host)
+  }, [host, hostKey])
   /* 서랍은 온 화면이 한 열쇠로 함께 움직인다 — 창마다 따로 기억하면
      자리를 매번 다시 찾게 된다(lib/drawerSide) */
   /* 좌·우 단추는 걷었다(지시) — 서랍이 붙는 쪽은 온 화면이 쓰는 그 열쇠를
@@ -914,6 +923,14 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
     }
   }
 
+  /** 아직 안 채운 **필수 칸** — 이것이 있으면 지라가 400 으로 거절한다.
+   *  여태는 단추가 프로젝트만 보고 열려 있어, 눌러서 400 을 받고서야 알았다
+   *  (지적: 수동 시험은 등록이 안 되고 400 이 난다). 누르기 전에 말해 준다. */
+  const missReq = useMemo(() => {
+    const empty = (v: unknown) => (Array.isArray(v) ? v.length === 0 : v == null || v === '')
+    return jfDefs.filter((f) => f.required && empty(jfVals[f.id])).map((f) => f.name || f.id)
+  }, [jfDefs, jfVals])
+
   const pushed = !!defect?.jira_key
   /** 눌림이 배경에서 시작했나 — 배경 클릭으로 닫을지 가리는 데 쓴다 */
   const downOnBack = useRef(false)
@@ -1291,10 +1308,25 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
             </button>
           ) : (
             <>
+              {missReq.length > 0 && (
+                <span className="dfx-missreq" role="status">
+                  필수: {missReq.join(', ')}
+                </span>
+              )}
               <button className="btn" type="button" disabled={!!busy || !defect} onClick={() => void patchFields()}>
                 {busy === 'save' ? '저장 중…' : '변경 저장'}
               </button>
-              <button className="btn primary" type="button" disabled={!!busy || !proj || !defect} onClick={() => void push()}>
+              <button
+                className="btn primary"
+                type="button"
+                disabled={!!busy || !proj || !defect || missReq.length > 0}
+                title={
+                  missReq.length
+                    ? `아직 안 채운 필수 칸이 있습니다 — ${missReq.join(', ')}`
+                    : '지라 이슈로 올립니다'
+                }
+                onClick={() => void push()}
+              >
                 {busy === 'push' ? '지라 등록 중…' : '지라에 등록'}
               </button>
             </>

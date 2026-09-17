@@ -22158,9 +22158,12 @@ async def defect_create_api(payload: dict, request: Request):
                 "jira_project": payload.get("jira_project") or _dflt.get("jira_project"),
                 "project_name": payload.get("project_name"),
                 "issue_type": payload.get("issue_type") or _dflt.get("issue_type"),
-                "priority": payload.get("priority"),
+                # 우선순위·구성요소도 설정이 아는 값으로(지적: 수동만 400).
+                # 자동 결함은 이미 이 값으로 채워지는데 사람이 만드는 결함만
+                # 비어 있었고, 비면 지라가 필수라며 거절한다.
+                "priority": payload.get("priority") or _dflt.get("priority"),
                 "fix_version": payload.get("fix_version"),
-                "component": payload.get("component"),
+                "component": payload.get("component") or _dflt.get("component"),
                 "reporter": payload.get("reporter"),
                 "panels": payload.get("panels") or {},
                 "created_by": who,
