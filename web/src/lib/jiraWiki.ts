@@ -290,16 +290,15 @@ export function wikiToHtml(txt: string, imgs?: Record<string, string>): string {
          창의 편집 칸은 그것을 제목 옆 칩으로 세운다 — 두 쪽을 나란히 놓고
          견주는 자리라 자리가 어긋나면 다른 것으로 읽힌다. 첫 줄이 링크
          하나뿐이면 제목 줄로 끌어올리고 본문에서는 건너뛴다. */
+      /* **링크가 하나뿐일 때만** 머리로 올린다.
+         3·4번은 하나(그 판이 가리키는 곳이 하나다)라 머리에 서고, 1번 현상은
+         시험항목·사이클 **둘**이라 글 안에 남는다 — 이슈를 받은 사람이 본문을
+         읽다가 바로 눌러 갈 수 있어야 한다(지시: 헤더 말고 글 안에). */
       const nx = lines[li + 1] ?? ''
-      /* 링크가 **둘 이상**일 수도 있다(현상은 시험항목·사이클을 함께 단다) */
-      const crs = /^(?:\[[^\]|]+\|[^\]]+\]\s*)+$/.test(nx.trim())
-        ? [...nx.matchAll(/\[([^\]|]+)\|([^\]]+)\]/g)]
-        : []
+      const cr = nx.match(/^\[([^\]|]+)\|([^\]]+)\]$/)
       let head = escH(mp[1])
-      if (crs.length) {
-        head += crs
-          .map((c) => `<a class="jw-crumb" href="${escH(c[2])}" target="_blank" rel="noreferrer">${escH(c[1])}</a>`)
-          .join('')
+      if (cr) {
+        head += `<a class="jw-crumb" href="${escH(cr[2])}" target="_blank" rel="noreferrer">${escH(cr[1])}</a>`
         li += 1
         /* 머리로 올린 줄 뒤의 빈 줄도 함께 걷는다 — 안 그러면 본문이 한 줄
            내려앉아, 자리를 맞추려던 일이 도로 어긋난다 */

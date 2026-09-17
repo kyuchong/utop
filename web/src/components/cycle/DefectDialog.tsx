@@ -1040,18 +1040,9 @@ function DefectDialogInner({ host: host0, cycle, item, existing, onClose, onSave
                   {/* **빵부스러기는 머리에**(지시) — 제목 옆에 붙어 「어느
                       시험인지 · 어느 사이클인지」 를 말한다. 글에는 적지
                       않는다: 입력칸에 위키 표기가 그대로 보이게 된다. */}
-                  {/* 현상에는 **둘 다** — 이슈를 받은 사람이 가장 먼저 읽는
-                      판이라, 여기에 길이 없으면 3·4번까지 내려가야 한다(지시) */}
-                  {p.k === 'symptom' && !!tcCrumbTxt && (
-                    <a className="dfx-crumb" href={tcCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 시험 항목으로 갑니다">
-                      {tcCrumbTxt}
-                    </a>
-                  )}
-                  {p.k === 'symptom' && !!cycCrumbTxt && (
-                    <a className="dfx-crumb" href={cycCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 사이클로 갑니다">
-                      {cycCrumbTxt}
-                    </a>
-                  )}
+                  {/* 현상은 머리에 안 단다 — 글 안에 들어간다(지시:
+                      헤더 말고 텍스트 부분에). 지라에 올라갈 때 본문 첫 줄로
+                      실리고, 미리보기도 글 안에서 보여 준다. */}
                   {p.k === 'steps' && !!tcCrumbTxt && (
                     <a className="dfx-crumb" href={tcCrumbUrl || undefined} target="_blank" rel="noreferrer" title="이 시험 항목으로 갑니다">
                       {tcCrumbTxt}
