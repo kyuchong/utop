@@ -23,6 +23,7 @@ import { ViewSpec } from './wikiView'
 import { BoxSpec } from './wikiBox'
 import ListButtons, { BlockKindSelect } from './wikiListButtons'
 import BnSideMenuCentered from './BnSideMenuCentered'
+import CellBgButton from './CellBgButton'
 import { ko } from '@blocknote/core/locales'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
@@ -1012,6 +1013,9 @@ export default function WikiEditor({
                     b.key !== 'unnestBlockButton',
                 )}
                 <ListButtons />
+                {/* 칸 배경 — 툴바의 배경색은 **글자** 배경이라 셀을 드래그해도
+                    글자에만 칠해진다(지적). 칸을 칠하는 길은 이것뿐이다. */}
+                <CellBgButton />
               </FormattingToolbar>
             )}
           />

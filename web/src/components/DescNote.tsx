@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useCreateBlockNote } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
+import { FormattingToolbar, FormattingToolbarController, getFormattingToolbarItems } from '@blocknote/react'
 import { ko } from '@blocknote/core/locales'
 import type { PartialBlock } from '@blocknote/core'
 import { apiFetch } from '@/api/client'
 import { THEME } from './WikiEditor'
 import BnSideMenuCentered from './BnSideMenuCentered'
+import CellBgButton from './CellBgButton'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
 
@@ -116,12 +118,24 @@ export default function DescNote({
       /* 기본 손잡이는 끄고 **줄 중앙 맞춤판**으로 바꿔 단다(지적) —
          나머지 기본 UI(툴바·슬래시 메뉴)는 그대로 산다 */
       sideMenu={false}
+      /* 툴바를 우리가 낸다 — 기본 것 그대로에 **칸 배경**만 더한다(지적:
+         표를 드래그해 색을 골라도 글자에만 칠해진다). 기본 항목을 손으로
+         옮겨 적지 않는다: 판이 오르며 항목이 늘면 그것도 따라온다. */
+      formattingToolbar={false}
       onChange={() => {
         if (!onChange || seeding.current) return
         onChange(editor.document as unknown[], editor.blocksToMarkdownLossy(editor.document))
       }}
     >
       <BnSideMenuCentered />
+      <FormattingToolbarController
+        formattingToolbar={() => (
+          <FormattingToolbar>
+            {getFormattingToolbarItems()}
+            <CellBgButton />
+          </FormattingToolbar>
+        )}
+      />
     </BlockNoteView>
   )
 }
