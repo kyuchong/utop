@@ -446,7 +446,6 @@ export default function CyclesBoard({
   const [repCfg, setRepCfg] = useState<RepeatCfg | null>(null)
   const [runFocus, setRunFocus] = useState('')
   const [wide, setWide] = useState(false)
-  const [runMoreAt, setRunMoreAt] = useState<{ x: number; y: number } | null>(null)
   /** 실행 담당 고르개 — 요약의 세부 정보 담당 칸이 연다 */
   const [mailPlan, setMailPlan] = useState<CycleMeta | null>(null)
   /** 「이 메일로 다시 쓰기」 가 채워 넣을 값 — 없으면 새 메일 */
@@ -2527,7 +2526,7 @@ export default function CyclesBoard({
           <div className="cu-sec cu-card">
             <div className="cu-empty">
               <strong>아직 보낸 적이 없습니다</strong>
-              <span>머리의 「더보기 → ✉ 결과 메일」 로 보내면 여기에 쌓입니다.</span>
+              <span>머리의 「✉ 결과 메일」 로 보내면 여기에 쌓입니다.</span>
             </div>
           </div>
         </div>
@@ -3450,16 +3449,13 @@ export default function CyclesBoard({
           {/* ⋯ 는 걷었다(지시) — 복제·고치기·CSV·지우기·실행 만들기는
               목록에서 줄을 골랐을 때 아래 선택 바가 맡는다 */}
           <div className="cu-hdbtns">
-            {/* 실행 더보기 — 결과 메일·고객사 결과서·실행 하나 더(지시: 상단 오른쪽) */}
-            <button
-              type="button"
-              className="btn small"
-              onClick={(e) => {
-                const rc = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                setRunMoreAt({ x: Math.max(8, rc.right - 180), y: rc.bottom + 4 })
-              }}
-            >
-              더보기 ▾
+            {/* **밖으로 꺼냈다**(지시) — 「더보기」 안에 둘뿐이라, 누를 때마다
+                메뉴를 한 번 더 열어야 했다. 자주 쓰는 둘은 머리에 바로 세운다. */}
+            <button type="button" className="btn small" disabled={!plan} onClick={() => plan && setMailPlan(plan)}>
+              ✉ 결과 메일
+            </button>
+            <button type="button" className="btn small" disabled={!plan} onClick={() => plan && setRepPlan(plan)}>
+              ▤ 고객사 결과서
             </button>
           </div>
         </div>
@@ -3829,35 +3825,6 @@ export default function CyclesBoard({
           </>
         )
       })()}
-
-      {/* 실행 더보기 — 실행 하나짜리 일들 */}
-      {!!runMoreAt && (
-        <>
-          <span className="qa-moreovl" role="presentation" onClick={() => setRunMoreAt(null)} />
-          <div className="qa-menu" role="menu" style={{ left: runMoreAt.x, top: runMoreAt.y }}>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setRunMoreAt(null)
-                if (plan) setMailPlan(plan)
-              }}
-            >
-              ✉ 결과 메일
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setRunMoreAt(null)
-                if (plan) setRepPlan(plan)
-              }}
-            >
-              ▤ 고객사 결과서
-            </button>
-          </div>
-        </>
-      )}
 
       {/* 결함 고치기 — 사이클 안에서 연다. 목록 화면과 같은 창이라
           지라로 올리는 일까지 여기서 끝난다. */}
