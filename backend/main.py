@@ -11078,10 +11078,44 @@ async def transfer_import(payload: dict):
 
     if "req" in parts:
         n = 0
-        for c in parts["req"].get("categories") or []:
-            if c.get("id") and c.get("name"):
-                await db.cat_upsert(str(c["id"]), str(c["name"]), c.get("parent_id"),
-                                    int(c.get("sort_order") or 0))
+        # 분류는 **부모 먼저** 넣는다.
+        #
+        # 파일에 실린 차례는 트리 차례가 아니다. 자식이 먼저 오면 외래키
+        # (req_category.parent_id) 가 막아 **가져오기가 통째로 500 으로 멈춘다**
+        # (지적: 데이터 가져오기 했는데 500). 게다가 여기만 try 가 없어서 한 줄이
+        # 걸리면 뒤따르는 요구사항·시험항목까지 한꺼번에 못 들어갔다.
+        #
+        # 부모가 파일에도 DB 에도 없는 고아는 **뿌리로 올려서라도 살린다** — 분류
+        # 하나 때문에 옮기던 자료 전부를 잃는 것보다 낫다. 무엇이 그랬는지는 알린다.
+        _cats = [c for c in (parts["req"].get("categories") or []) if c.get("id") and c.get("name")]
+        try:
+            _have = {str(x.get("id") or "") for x in (await db.cat_list() or [])}
+        except Exception:
+            _have = set()
+        _left, _orphans = list(_cats), []
+        while _left:
+            _wave = [c for c in _left
+                     if not c.get("parent_id") or str(c.get("parent_id")) in _have]
+            _cut = False
+            if not _wave:                      # 남은 것은 전부 부모를 못 찾는다
+                _wave, _cut = _left, True
+            for c in _wave:
+                _pid = c.get("parent_id") or None
+                if _cut and _pid and str(_pid) not in _have:
+                    _orphans.append(f'{c.get("name")}({c.get("id")})')
+                    _pid = None
+                try:
+                    await db.cat_upsert(str(c["id"]), str(c["name"]), _pid,
+                                        int(c.get("sort_order") or 0))
+                    _have.add(str(c["id"]))
+                except Exception as e:
+                    done.setdefault("_errors", []).append(f'분류 {c.get("id")}: {e}')
+            _ids = {id(c) for c in _wave}
+            _left = [c for c in _left if id(c) not in _ids]
+        if _orphans:
+            done.setdefault("_errors", []).append(
+                "상위 분류를 못 찾아 최상위로 올린 분류: " + ", ".join(_orphans[:20])
+                + (f" 외 {len(_orphans) - 20}건" if len(_orphans) > 20 else ""))
         for r in parts["req"].get("reqs") or []:
             rid = str(r.get("id") or "").strip()
             if not rid:
