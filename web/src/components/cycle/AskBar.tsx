@@ -883,10 +883,13 @@ export default function AskBar({ devices }: Props) {
    * 이 랩의 기존 TC 중 가까운 것을 찾아 두었다가, 누르면 고른 장비 모델에
    * 맞춰 포트 표기까지 바꿔 초안으로 앉힌다.
    */
-  const findLike = async (q: string, dev?: Device): Promise<number> => {
+  const findLike = async (
+    q: string,
+    dev?: Device,
+  ): Promise<Array<{ tcid: string; name: string; model?: string; steps?: number }>> => {
     if (!q.trim()) {
       setLike([])
-      return 0
+      return []
     }
     try {
       const picked = dev ?? usable.find((x) => x.id === devId)
@@ -900,11 +903,173 @@ export default function AskBar({ devices }: Props) {
       /* 다섯까지 본다(목업) — 셋만 보이면 넷째·다섯째에 있던 정답을 못 만난다 */
       const items = b.ok && Array.isArray(b.items) ? b.items.slice(0, 5) : []
       setLike(items)
-      return items.length
+      return items
     } catch {
       setLike([])
-      return 0
+      return []
     }
+  }
+
+  /* ── 단순 두 단계(승인: 목업) ──────────────────────────────────────────
+   * 고르개 창을 먼저 띄우지 않는다. 대화 안에 **추천 한 장 + 후보 몇 줄 +
+   * 전체 열기** 만 세운다 — 대부분의 질문은 추천을 누르는 것으로 끝나고,
+   * 큰 창(상태 칸·표)은 「전체 열기」 를 눌렀을 때만 나온다.
+   */
+
+  /* 「찾는 중…」 말풍선(지시: 스피너가 돌아가는 게 보였으면).
+     **진짜 기다리는 동안만** 돈다 — 항목 찾기는 서버가 말을 점수 매기는
+     실제 호출이고, 장비 쪽은 점유(누가 쓰는 중인지)를 새로 읽는 동안이다.
+     답이 오면 이 말풍선은 걷히고 그 자리에 결과가 선다. */
+  const sayThink = (txt: string) =>
+    setMsgs((v) => [
+      ...v,
+      {
+        who: 'a',
+        html: `<p class="ln"><span class="ask-think"><i class="ask-spin" aria-hidden="true"></i>${hesc(txt)}</span></p>`,
+      },
+    ])
+  const unThink = () =>
+    setMsgs((v) => v.filter((m) => !(m.who === 'a' && m.html.includes('ask-think'))))
+
+  /** 장비 하나의 상태 — 고르개 창의 판정을 요약한 것(통신 + 점유) */
+  const devStat = (d: Device) => {
+    const on = (proto: string) => {
+      const a = (d.access ?? []).find((x) => String(x.protocol ?? '').toLowerCase() === proto)
+      return !!a && a.enabled !== false && a.last_status === 'ok'
+    }
+    const cli = on('telnet') || on('ssh') || on('console')
+    const snmp = on('snmp')
+    if (!String(d.ip ?? '').trim() || (!cli && !snmp)) return { k: 'no' as const, label: '사용 불가' }
+    const lk = lockBy.get(String(d.id))
+    if (lk) return { k: 'busy' as const, label: `사용중 — ${lk.who}` }
+    if (cli && snmp) return { k: 'ok' as const, label: '사용 가능' }
+    return { k: 'part' as const, label: '일부 연결' }
+  }
+
+  /** 1단계 말풍선 — 비어 있는 장비 한 대를 추천하고, 나머지는 줄로 */
+  const sayDevBlock = (cands: Device[], m0: string) => {
+    const ord = { ok: 0, part: 1, busy: 2, no: 3 } as const
+    const sorted = [...cands].sort((a, b) => ord[devStat(a).k] - ord[devStat(b).k])
+    const hero = sorted[0]
+    const heroSt = hero ? devStat(hero) : null
+    const canHero = !!hero && (heroSt!.k === 'ok' || heroSt!.k === 'part')
+    const row = (d: Device) => {
+      const st = devStat(d)
+      const dead = st.k === 'busy' || st.k === 'no'
+      const nm = hesc(String(d.model || d.name || d.ip))
+      return (
+        `<span class="ask-inrow${dead ? ' dis' : ' js-devpick'}" data-id="${hesc(String(d.id))}">` +
+        `<span class="nm"><b>${nm}</b></span><i>${hesc(String(d.ip ?? ''))}</i>` +
+        `<em class="st ${st.k}">● ${hesc(st.label)}</em></span>`
+      )
+    }
+    const rows = sorted.slice(canHero ? 1 : 0, canHero ? 4 : 3).map(row).join('')
+    const head = m0
+      ? `${hesc(m0)} 이(가) ${cands.length}대 있습니다${canHero ? ' — 비어 있는 이것으로 할까요?' : ' — 지금 비어 있는 것이 없습니다.'}`
+      : '어느 장비에서 돌릴까요?'
+    const heroHtml = canHero && hero
+      ? `<span class="ask-inhero js-devpick" data-id="${hesc(String(hero.id))}">` +
+        `<span class="tt"><b class="nm">${hesc(String(hero.model || hero.name || ''))}</b>` +
+        `<i>${hesc(String(hero.ip ?? ''))}</i>` +
+        `<em class="st ${heroSt!.k}">● ${hesc(heroSt!.label)}</em></span>` +
+        `<span class="ask-inbtn">이 장비로</span></span>`
+      : ''
+    say(
+      'a',
+      `<p class="ln"><b>1단계 · 장비</b> — ${head}</p>` +
+        `<div class="ask-inb">${heroHtml}${rows}` +
+        `<span class="ask-inmore">다른 장비면 → <button type="button" class="ask-inlnk js-pickdev">전체 장비 열기</button></span></div>`,
+    )
+  }
+
+  /** 2단계 말풍선 — 말과 가장 가까운 항목 한 건을 추천하고, 나머지는 줄로 */
+  const sayTcBlock = (
+    items: Array<{ tcid: string; name: string; model?: string; steps?: number }>,
+  ) => {
+    const meta = (id: string) => tcAll.find((t) => t.tcid === id)
+    const pill = (id: string): [string, string] => {
+      const v = String(meta(id)?.status ?? '').toLowerCase()
+      return v === 'pass' ? ['pass', 'Pass'] : v === 'fail' ? ['fail', 'Fail'] : ['none', '미실행']
+    }
+    const hero = items[0]!
+    const hm = meta(hero.tcid)
+    const [hk, hl] = pill(hero.tcid)
+    const man = /manual|수동/i.test(String(hm?.type ?? ''))
+    const nStep = Number(hero.steps || hm?.steps || 0)
+    const rows = items
+      .slice(1, 4)
+      .map((x) => {
+        const [k, l] = pill(x.tcid)
+        return (
+          `<span class="ask-inrow js-tcpick" data-tcid="${hesc(x.tcid)}" data-model="${hesc(String(x.model ?? ''))}">` +
+          `<s class="ask-indot ${k}"></s><span class="nm">${hesc(x.name)}</span>` +
+          `<em class="st ${k}">${l}</em></span>`
+        )
+      })
+      .join('')
+    say(
+      'a',
+      '<p class="ln"><b>2단계 · 시험 항목</b> — 말씀하신 건 이것 같습니다.</p>' +
+        `<div class="ask-inb"><span class="ask-inhero js-tcpick" data-tcid="${hesc(hero.tcid)}" data-model="${hesc(String(hero.model ?? ''))}">` +
+        `<span class="tt"><code>${hesc(hero.tcid)}</code>` +
+        `<em class="st pill ${hk}">${hk === 'none' ? '미실행' : `지난번 ${hl}`}</em>` +
+        `<i>${man ? '수동' : '자동'}${nStep ? ` · ${nStep}스텝` : ''}</i></span>` +
+        `<b class="nm">${hesc(hero.name)}</b>` +
+        `<span class="ask-inbtn">이걸로 절차 만들기</span></span>` +
+        rows +
+        `<span class="ask-inmore">여기 없으면 → <button type="button" class="ask-inlnk js-picktc">전체 목록 열기</button></span></div>`,
+    )
+  }
+
+  /** 장비가 정해진 뒤 — 항목 추천으로 잇는다. 못 찾으면 그때만 큰 표를 연다 */
+  const stepTc = async (d: Device, q: string) => {
+    /* 「전체 목록 열기」 로 빠질 때를 위해 표를 미리 좁혀 둔다 */
+    setTcOnlyModel(true)
+    setTcFind('')
+    setTcPick(new Set())
+    const f0 = foldOf(q, String(d.model ?? ''))
+    setTcFold(f0)
+    setQFold(f0)
+    setTcOpen(openFor(f0))
+    sayThink('말씀과 가까운 시험 항목을 찾는 중…')
+    const items = await findLike(q, d)
+    unThink()
+    if (!items.length) {
+      say('a', '<p class="ln">말씀과 가까운 항목을 못 찾았습니다 — 목록에서 골라 주세요.</p>')
+      setLikeAsk(true)
+      return
+    }
+    sayTcBlock(items)
+  }
+
+  /** 대화 속 추천에서 장비를 골랐다 */
+  const pickInlineDev = (id: string) => {
+    const d = usable.find((x) => x.id === id)
+    if (!d) return
+    const nm = String(d.model || d.name || d.ip)
+    setDevId(d.id)
+    setTDev(nm)
+    setAskModel(String(d.model ?? ''))
+    if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+    setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d.ip} 확정` }])
+    setFlowVals(
+      [
+        { k: '모델', v: String(d.model ?? '') },
+        { k: '대상', v: String(d.ip ?? '') },
+      ].filter((x) => x.v),
+    )
+    say('a', `<p class="ln"><b>${hesc(nm)} (${hesc(String(d.ip ?? ''))})</b> 로 정했습니다.</p>`)
+    void stepTc(d, asked || text)
+  }
+
+  /** 대화 속 추천에서 항목을 골랐다 — 바로 3단계 */
+  const pickInlineTc = (tcid: string, model: string) => {
+    if (adopting) return
+    say(
+      'a',
+      `<p class="ln"><b>${hesc(tcid)}</b> 으로 정했습니다 — <b>3단계 · 절차 만들기</b> 를 시작합니다.</p>`,
+    )
+    void (mode === 'basic' ? takeTc(tcid, undefined, model) : adopt(tcid))
   }
 
   /**
@@ -1573,7 +1738,6 @@ export default function AskBar({ devices }: Props) {
         setFlowAt(0)
         return
       }
-      await findLike(said, undefined)
       if (cands.length === 1 && cands[0]) {
         const d0 = cands[0]
         setDevId(d0.id)
@@ -1584,38 +1748,30 @@ export default function AskBar({ devices }: Props) {
         ])
         say(
           'a',
-          `<p class="ln"><b>${hesc(String(d0.model || d0.name || ''))} (${hesc(String(d0.ip ?? ''))})</b> 로 정했습니다 — 쓸 수 있는 장비가 한 대뿐입니다.<br>` +
-            '<b>2단계 · 시험 항목 고르기</b> 로 넘어갑니다.</p>',
+          `<p class="ln"><b>${hesc(String(d0.model || d0.name || ''))} (${hesc(String(d0.ip ?? ''))})</b> 로 정했습니다 — 쓸 수 있는 장비가 한 대뿐입니다.</p>`,
         )
         setFlowVals([
           { k: '모델', v: String(d0.model ?? '') },
           { k: '대상', v: d0.ip },
         ])
-        setTcOnlyModel(true)
-        setTcFind('')
-        setTcPick(new Set())
-        const f0 = foldOf(said, m0)
-        setTcFold(f0)
-        setQFold(f0)
-        setTcOpen(openFor(f0))
-        setLikeAsk(true)
+        await stepTc(d0, said)
         return
       }
       setFlowLog((v) => [
         ...v,
         { s: 1, t: m0 ? `${m0} 이(가) ${cands.length}대 — 어느 장비로 할지 고릅니다` : '어느 장비로 할지 고릅니다' },
       ])
-      say(
-        'a',
-        '<p class="ln"><b>1단계 · 장비 고르기</b><br>' +
-          '어느 장비에서 돌릴지 먼저 정해 주세요. 고른 장비로 <b>돌릴 수 있는 시험만</b> 추려서 보여 드립니다.</p>' +
-          '<button type="button" class="btnsm js-pickdev">📟 장비 고르기</button>',
-      )
-      /* **칩으로 여는 그 고르개**를 그대로 쓴다(지적: 질문 후 장비 선택부터
-         맞는 게 없다). 여태 질문 흐름만 다른 창(구역·랙 트리)을 띄워서, 같은
-         일을 하는 화면이 둘이었고 상태 탭도 묶음도 거기엔 없었다. */
+      /* 창을 먼저 띄우지 않는다(승인: 단순안) — 추천 한 장과 후보 몇 줄이면
+         대부분 끝난다. 점유를 새로 읽는 동안 스피너가 돈다(지시). */
       afterDevRef.current = 'tc'
-      setDevOpen(true)
+      sayThink('쓸 수 있는 장비를 찾는 중…')
+      try {
+        await lockQ.refetch()
+      } catch {
+        /* 점유를 못 읽어도 장비는 보여 준다 */
+      }
+      unThink()
+      sayDevBlock(cands, m0)
       return
     }
 
@@ -2598,11 +2754,21 @@ export default function AskBar({ devices }: Props) {
                    글 속에 심은 단추라 한 자리에서 받는다 */
                 onClick={(e) => {
                   const t = e.target as HTMLElement
+                  /* 추천 카드·후보 줄 — 누르면 그 자리에서 정해진다(승인: 단순안) */
+                  const dv = t.closest('.js-devpick') as HTMLElement | null
+                  if (dv) {
+                    pickInlineDev(dv.dataset.id || '')
+                    return
+                  }
+                  const tc = t.closest('.js-tcpick') as HTMLElement | null
+                  if (tc) {
+                    pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
+                    return
+                  }
+                  /* 「전체 열기」 — 그때만 큰 고르개가 나온다 */
                   if (t.closest('.js-pickdev')) {
-                    setPickSel(devId || usable[0]?.id || '')
-                    setPickLab('')
-                    setPickRack('')
-                    setPickDev({ model: askModel, cands: usable })
+                    afterDevRef.current = 'tc'
+                    setDevOpen(true)
                   } else if (t.closest('.js-picktc')) setLikeAsk(true)
                 }}
               >
@@ -3149,17 +3315,9 @@ export default function AskBar({ devices }: Props) {
                                       if (afterDevRef.current === 'tc') {
                                         afterDevRef.current = ''
                                         setAskModel(String(d.model ?? ''))
-                                        setTcOnlyModel(true)
-                                        setTcFind('')
-                                        setTcPick(new Set())
-                                        say(
-                                          'a',
-                                          '<p class="ln"><b>2단계 · 시험 항목 고르기</b><br>' +
-                                            `<b>${hesc(nm)}</b> 에서 돌릴 수 있는 항목만 추려 두었습니다. ` +
-                                            '목록에서 하나를 고르면 바로 절차를 짓습니다.</p>' +
-                                            '<button type="button" class="btnsm js-picktc">🔍 시험 항목 고르기</button>',
-                                        )
-                                        window.setTimeout(() => setLikeAsk(true), 220)
+                                        /* 표를 또 띄우지 않는다(승인: 단순안) —
+                                           추천 한 장으로 잇고, 못 찾을 때만 표가 나온다 */
+                                        void stepTc(d, asked)
                                       }
                                     }
                                     /* 상태가 바뀌는 자리에 묶음 머리를 세운다 — 「사용 가능 3대」.
