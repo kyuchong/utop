@@ -41,6 +41,10 @@
 .rpt-body {
   flex: 1;
   min-height: 0;
+  /* **flex 자식은 제 내용보다 작아지지 않는다**(min-width 기본이 auto). 장이
+     998px 이라 목록이 옆에 서는 순간 몸통이 안 줄고 팝업 밖으로 밀려 가로
+     스크롤이 생겼다(지적: 슬라이드가 밀려 있다). 0 으로 풀어야 줄어든다. */
+  min-width: 0;
   overflow: auto;
   padding: 18px 22px;
   background: var(--c-surface-alt);

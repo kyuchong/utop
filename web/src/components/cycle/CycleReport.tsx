@@ -460,10 +460,13 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
                   className="rpt-frame"
                   title={`${i + 1}장`}
                   sandbox=""
+                  /* 장은 배율로 딱 맞춰 그리므로 막대가 설 까닭이 없다 —
+                     그래도 서면 한 자락이 잘려 보인다(지적) */
+                  scrolling="no"
                   style={{ width: Math.round(1280 * scale), height: Math.round(720 * scale) }}
                   srcDoc={
                     '<!doctype html><meta charset="utf-8">' +
-                    '<style>html,body{margin:0;padding:0;background:#fff}' +
+                    '<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}' +
                     '.p{width:1280px;height:720px;padding:24px 30px;box-sizing:border-box;' +
                     `overflow:hidden;transform:scale(${scale});transform-origin:top left;` +
                     "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
