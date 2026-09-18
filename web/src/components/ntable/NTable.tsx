@@ -109,6 +109,8 @@ export interface NTableProps {
       기본은 꺼 둔다: 줄을 골라 내보내는 길(bulk)이 이미 있고, 화면마다 내보내기
       규칙이 달라 함부로 세우면 엉뚱한 것이 나간다. */
   showExport?: boolean
+  /** 「가져오기」 를 내보내기 **바로 오른쪽**에 세운다. 주면 서고, 안 주면 없다. */
+  onImport?: () => void
   /** 속성 창에서 **열을 복제**할 수 있게 한다(같은 타입·선택지로 하나 더).
       1~12월처럼 닮은 열을 여럿 만드는 자유 표에서만 켠다. */
   canDupCol?: boolean
@@ -979,6 +981,16 @@ export default function NTable(p: NTableProps) {
               onClick={() => void exportXlsx(checked.size ? [...checked] : shown.map((r) => String(r.__id)))}
             >
               ⬇ 내보내기
+            </button>
+          )}
+          {p.onImport && (
+            <button
+              type="button"
+              className="ntb-tb"
+              title="엑셀·노션에서 복사해 붙여넣거나 CSV 파일로 채웁니다"
+              onClick={() => p.onImport?.()}
+            >
+              ⬆ 가져오기
             </button>
           )}
           {onNew && (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -168,13 +168,25 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
    * 여기서 막아야 할 것은 **제 자손 밑으로 넣는 것**뿐이다: 그러면 트리에서
    * 두 쪽이 서로를 부모로 삼아 문서가 통째로 사라진 것처럼 보인다.
    */
-  const [drag, setDrag] = useState<string | null>(null)
-  const [over, setOver] = useState<string | null>(null)
+  /* **상태(useState)로 끌면 안 된다.**
+   *
+   * 아래 Tree 는 렌더 안에서 만드는 인라인 부품이라, 상태가 바뀌면 React 가 그것을
+   * **새 부품으로 보고 트리를 통째로 다시 만든다.** 끌기 시작에서 상태를 건드리는
+   * 순간 DOM 이 갈려 드래그가 끊기고, dragend 도 안 와서 끌던 표시만 남는다 —
+   * 그러면 아무것도 눌리지 않는다(지적: 드래그하면 다른 메뉴가 안 눌린다).
+   * 그래서 끌기 동안에는 **다시 그리지 않는다**: 값은 ref 에 담고 놓을 자리
+   * 표시는 DOM 클래스를 직접 붙였다 뗀다.
+   */
+  const dragId = useRef<string | null>(null)
 
   const isDesc = (root: string, id: string): boolean =>
     (kids.get(root) ?? []).some((k) => k.id === id || isDesc(k.id, id))
 
-  const canDrop = (to: string) => !!drag && drag !== to && !isDesc(drag, to)
+  const canDrop = (to: string) => {
+    const d = dragId.current
+    return !!d && d !== to && !isDesc(d, to)
+  }
+  const mark = (el: HTMLElement | null, on: boolean) => el?.classList.toggle('drop', on)
 
   const move = async (id: string, to: string | null) => {
     await apiFetch(`/api/wiki/${encodeURIComponent(id)}`, {
@@ -183,6 +195,38 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
     })
     await listQ.refetch()
   }
+
+  /* 끌기 손잡이 — 줄마다 같은 것을 붙인다 */
+  const dragProps = (id: string) => ({
+    draggable: true,
+    onDragStart: (e: DragEvent<HTMLDivElement>) => {
+      dragId.current = id
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/plain', '')
+    },
+    onDragEnd: (e: DragEvent<HTMLDivElement>) => {
+      dragId.current = null
+      /* 놓을 자리 표시가 어딘가 남아 있을 수 있다 — 한 번에 걷는다 */
+      e.currentTarget
+        .closest('.wk-tree')
+        ?.querySelectorAll('.wk-row.drop')
+        .forEach((x) => x.classList.remove('drop'))
+    },
+    onDragOver: (e: DragEvent<HTMLDivElement>) => {
+      if (!canDrop(id)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      mark(e.currentTarget, true)
+    },
+    onDragLeave: (e: DragEvent<HTMLDivElement>) => mark(e.currentTarget, false),
+    onDrop: (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      mark(e.currentTarget, false)
+      const from = dragId.current
+      dragId.current = null
+      if (from && from !== id && !isDesc(from, id)) void move(from, id)
+    },
+  })
 
   const Tree = ({ parent, depth }: { parent: string; depth: number }) => (
     <>
@@ -194,33 +238,9 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
           return (
             <div key={p.id}>
               <div
-                className={`wk-row${openId === p.id ? ' on' : ''}${over === p.id ? ' drop' : ''}`}
+                className={`wk-row${openId === p.id ? ' on' : ''}`}
                 style={{ paddingLeft: 6 + depth * 14 }}
-                draggable
-                onDragStart={(e) => {
-                  setDrag(p.id)
-                  e.dataTransfer.effectAllowed = 'move'
-                  /* 글자가 통째로 편집기에 떨어지는 것을 막는다 */
-                  e.dataTransfer.setData('text/plain', '')
-                }}
-                onDragEnd={() => {
-                  setDrag(null)
-                  setOver(null)
-                }}
-                onDragOver={(e) => {
-                  if (!canDrop(p.id)) return
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                  if (over !== p.id) setOver(p.id)
-                }}
-                onDragLeave={() => setOver((o) => (o === p.id ? null : o))}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const from = drag
-                  setDrag(null)
-                  setOver(null)
-                  if (from && canDrop(p.id)) void move(from, p.id)
-                }}
+                {...dragProps(p.id)}
                 onClick={() => setOpenId(p.id)}
                 /* 가리키는 순간 본문을 미리 받는다(지시: 더 빨리) — 누를
                    때는 이미 손에 있어 기다림이 없다 */

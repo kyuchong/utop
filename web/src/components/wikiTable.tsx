@@ -45,6 +45,7 @@ export function newTableId(): string {
 
 function TableBody({ tid }: { tid: string }) {
   const qc = useQueryClient()
+  const [imp, setImp] = useState(false)
   const key = ['wiki-tbl', tid]
   const people = useUserPeople()
 
@@ -125,6 +126,14 @@ function TableBody({ tid }: { tid: string }) {
   if (q.isError) return <div className="wtb-msg">표를 읽지 못했습니다.</div>
 
   return (
+    <>
+      {imp && (
+        <Importer
+          tid={tid}
+          onDone={() => qc.invalidateQueries({ queryKey: key })}
+          onClose={() => setImp(false)}
+        />
+      )}
     <NTable
       columns={colsView}
       rows={rows}
@@ -142,6 +151,8 @@ function TableBody({ tid }: { tid: string }) {
       bulk={[{ k: 'csv', label: '내보내기' }, { k: 'del', label: '삭제', danger: true }]}
       /* 줄을 안 골라도 통째로 내려받는 단추(지시) */
       showExport
+      /* 가져오기는 **내보내기 바로 오른쪽**에 선다(지시) — 짝이라 나란히 있어야 한다 */
+      onImport={() => setImp(true)}
       /* 닮은 열을 여럿 만드는 표라 복제가 필요하다(지시: 열·필드 복사) */
       canDupCol
       onBulk={(a, ids) => {
@@ -154,6 +165,7 @@ function TableBody({ tid }: { tid: string }) {
       exportTitle={d?.title || '표'}
       perPage={100}
     />
+    </>
   )
 }
 
@@ -320,11 +332,6 @@ export const TableSpec = createReactBlockSpec(
      */
     render: ({ block, editor }) => {
       const p = block.props as Props
-      /* 블록 하나에 창 하나 — 표마다 따로 열린다 */
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      const [imp, setImp] = useState(false)
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      const qc = useQueryClient()
       return (
         /* 편집기가 이 안의 글쇠를 가로채면 표에서 글을 못 친다 —
            블록을 글 아닌 것으로 못박고 글쇠·붙여넣기를 여기서 멈춘다 */
@@ -333,6 +340,13 @@ export const TableSpec = createReactBlockSpec(
           contentEditable={false}
           onKeyDown={(e) => e.stopPropagation()}
           onPaste={(e) => e.stopPropagation()}
+          /* 표 안에서 줄을 끄는 것이 **편집기로 새면** 편집기가 그것을 블록 옮기기로
+             가로채, 끌기가 끝나지 않고 글자만 흐려진 채 아무것도 안 눌린다(지적).
+             여기서 멈춘다 — 표 안의 끌기는 표가 알아서 한다. */
+          onDragStart={(e) => e.stopPropagation()}
+          onDragOver={(e) => e.stopPropagation()}
+          onDrop={(e) => e.stopPropagation()}
+          onDragEnd={(e) => e.stopPropagation()}
         >
           <div className="wtb-top">
             <input
@@ -341,19 +355,8 @@ export const TableSpec = createReactBlockSpec(
               placeholder="표 이름"
               onChange={(e) => editor.updateBlock(block, { props: { ...p, title: e.target.value } })}
             />
-            {p.tid && (
-              <button type="button" className="wtb-imb" onClick={() => setImp(true)}>
-                ⬆ 가져오기
-              </button>
-            )}
+
           </div>
-          {imp && p.tid && (
-            <Importer
-              tid={p.tid}
-              onDone={() => qc.invalidateQueries({ queryKey: ['wiki-tbl', p.tid] })}
-              onClose={() => setImp(false)}
-            />
-          )}
           {p.tid ? (
             <TableBody tid={p.tid} />
           ) : (
