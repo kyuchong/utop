@@ -3007,8 +3007,20 @@ LLM_PURPOSES: dict[str, dict] = {
         "label": "Cycle-Test Summary",
         "hint": "플랜 실행 › 시험 진행 요약의 AI 요약을 씁니다.",
         # 인사말·맺음말·시험 표는 **코드가** 붙인다(숫자와 이름을 지어내지 않게).
-        # 여기 적는 것은 그 사이에 들어갈 **문장의 말투**뿐이다. 비우면 기본 규칙.
-        "system": "",
+        # 여기 적는 것은 그 사이에 들어갈 **본문 두 문단**의 규칙이다.
+        # 비우면 이 기본값으로 내려앉는다(_prompt_of).
+        "system": (
+            "너는 네트워크 장비 시험(QA) 결과를 사내에 공유하는 **메일 본문**을 쓴다. "
+            "아래 결과만 근거로 한국어로 짧게 쓴다.\n"
+            "**표를 만들지 마라** — 시험 결과 표는 네 글 아래에 이미 붙는다. "
+            "**인사말도 쓰지 마라** — 첫 줄은 이미 붙어 있다. 머리(##)도 붙이지 마라.\n"
+            "두 문단만 쓴다:\n"
+            "1) 무엇을 돌렸는지 한 줄 — 「{제품명} 신규 OS({버전명}) 자동화 시험 결과 공유 드립니다.」 꼴.\n"
+            "2) 결과 한두 줄 — Fail 이 없으면 「이전 버전 대비 특이사항 확인되지 않았습니다.」, "
+            "있으면 「자동화 시험 진행 결과 이슈 N건(무엇이 깨졌는지 짧게) 확인되었습니다.」 꼴. "
+            "미실행이 많으면 그 사실도 한 마디 적는다.\n"
+            "건수는 **주어진 숫자만** 쓴다. 지어내지 마라. 군더더기 없이 사무적으로."
+        ),
     },
     # ── 지식 ──────────────────────────────────────────────────
     "kai_answer": {
@@ -14810,6 +14822,35 @@ def _embed_save():
     except Exception:
         pass
 @app.on_event("startup")
+async def _prompt_migrate():
+    """옛 Cycle-Test Summary 프롬프트를 걷는다.
+
+    설정 화면이 기본값을 그대로 저장해 둔 값이라 **사람이 적은 글이 아니다**(옛
+    기본값과 글자 하나 다르지 않다). 그런데 내용이 「전체·수동·자동 현황을 표로」 라서
+    새 형식(표는 서버가 만들고 LLM 은 본문 문장만 쓴다)과 정면으로 부딪치고, 화면에는
+    옛 글이 보이는데 실제 동작은 새 규칙이라 「설정한 대로 안 나온다」 로 읽힌다(지적).
+
+    지우면 _prompt_of 가 새 기본값으로 내려앉아 **화면과 동작이 같아진다.**
+    사람이 한 글자라도 고쳐 둔 값은 건드리지 않는다.
+    """
+    try:
+        if not PROMPTS_FILE.exists():
+            return
+        pj = load_json(PROMPTS_FILE) or {}
+        pp = dict(pj.get("purposes") or {})
+        cs = dict(pp.get("cycle_summary") or {})
+        if not cs or _rp_squash(cs.get("system")) != _rp_squash(_OLD_CYCLE_SUMMARY_SYS):
+            return
+        cs["system"] = ""
+        pp["cycle_summary"] = cs
+        pj["purposes"] = pp
+        save_json(PROMPTS_FILE, pj)
+        print("[startup] 옛 Cycle-Test Summary 프롬프트를 걷었습니다 — 기본값을 씁니다", flush=True)
+    except Exception as _e:
+        print(f"[startup] 프롬프트 정리 건너뜀: {_e}", flush=True)
+
+
+@app.on_event("startup")
 async def _db_init():
     """PostgreSQL 커넥션 풀 초기화 (필수 — 이후 모든 데이터 접근이 db.* 로 감).
     정리·백필 작업은 서버 기동을 막지 않도록 백그라운드로 미룸."""
@@ -16508,25 +16549,17 @@ async def _cycle_ai_summary(cycle_id, llm_id: str = ""):
     )
     ctx = ("[제품 정보] " + _pinfo + "\n"
            + "[전체·수동·자동 집계]\n" + "\n".join(_tline(k) for k in ("전체", "수동", "자동")) + "\n\n" + ctx)
-    # 이 글의 말투는 설정(용도별 프롬프트 · Cycle-Test Summary)이 정한다.
-    #
-    # 다만 **옛 기본값이 그대로 저장돼 있으면 안 쓴다.** 그 값은 사람이 적은 것이
-    # 아니라 화면이 기본값을 그대로 저장한 것이고, 내용이 「표로 정리하라」 라서
-    # 새 형식(표는 서버가 만든다)과 정면으로 부딪친다.
+    # 이 글의 규칙은 **설정이 정본**이다 —
+    # SETUP › AI › 용도별 프롬프트 › Cycle-Test Summary.
+    # 코드에 박아 두면 사람이 화면에서 보지도 고치지도 못한다(지적). 비우면
+    # _prompt_of 가 LLM_PURPOSES 의 기본값으로 내려앉는다.
     _slot = _prompt_of("cycle_summary").get("system") or ""
     if _rp_squash(_slot) == _rp_squash(_OLD_CYCLE_SUMMARY_SYS):
-        _slot = ""
-    sys_p = _slot + "\n" if _slot else ""
-    sys_p += ("너는 네트워크 장비 시험(QA) 결과를 사내에 공유하는 **메일 본문**을 쓴다. "
-              "아래 결과만 근거로 한국어로 짧게 쓴다.\n"
-              "**표를 만들지 마라** — 시험 결과 표는 네 글 아래에 이미 붙는다. "
-              "**인사말도 쓰지 마라** — 첫 줄은 이미 붙어 있다. 머리(##)도 붙이지 마라.\n"
-              "두 문단만 쓴다:\n"
-              "1) 무엇을 돌렸는지 한 줄 — 「{제품명} 신규 OS({버전명}) 자동화 시험 결과 공유 드립니다.」 꼴.\n"
-              "2) 결과 한두 줄 — Fail 이 없으면 「이전 버전 대비 특이사항 확인되지 않았습니다.」, "
-              "있으면 「자동화 시험 진행 결과 이슈 N건(무엇이 깨졌는지 짧게) 확인되었습니다.」 꼴. "
-              "미실행이 많으면 그 사실도 한 마디 적는다.\n"
-              "건수는 **주어진 숫자만** 쓴다. 지어내지 마라. 군더더기 없이 사무적으로.")
+        # 옛 기본값이 그대로 저장돼 있으면 **사람이 적은 것이 아니다** — 화면이
+        # 기본값을 저장한 것이고, 내용이 「표로 정리하라」 라서 새 형식(표는 서버가
+        # 만든다)과 부딪친다. 새 기본값으로 본다.
+        _slot = str((LLM_PURPOSES.get("cycle_summary") or {}).get("system") or "")
+    sys_p = _slot
     ans, err = await _ai_chat([{"role": "system", "content": sys_p}, {"role": "user", "content": ctx}],
                               max_tokens=700, llm_id=llm_id, purpose="cycle_summary")
     if err:
