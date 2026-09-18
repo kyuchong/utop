@@ -391,6 +391,23 @@ export default function WikiEditor({
       // 메뉴·말풍선을 한국어로 — 「/」 를 쳤을 때 나오는 이름들이다
       dictionary: ko,
       schema: SCHEMA,
+      /**
+       * **표 손잡이를 진짜로 끈다.**
+       *
+       * 아래 BlockNoteView 의 `tableHandles={false}` 는 **그리는 것만** 끈다.
+       * 터뜨리는 것은 그 밑의 ProseMirror 확장이고, 그것은 스키마에 표가 있으면
+       * **무조건** 등록되어 pmView.dom·window 에 마우스 손잡이를 건다.
+       *
+       * 그 손잡이는 마우스 아래 요소가 TD·TH 이기만 하면 제 표의 칸으로 보고
+       * `block.content.rows[0]` 을 읽는다. 데이터베이스 블록이 그리는 것도 진짜
+       * <td> 라서, 그 블록에는 content 가 없어 누르고 떼는 한 번에
+       *   Uncaught TypeError: Cannot read properties of undefined (reading 'rows')
+       * 로 터진다 — 화면이 먹통이 되고 새로고침해야 풀린다(지적, 콘솔로 확정).
+       *
+       * `sideMenu={false}` 가 그 플러그인을 못 끄는 것과 같은 함정이다.
+       * 대가: 글 속의 보통 표에서도 행·열 손잡이가 사라진다.
+       */
+      disableExtensions: ['tableHandles'],
       /* 긴 글 붙여넣기(지시: Test Summary 처럼 블록으로) — 메모장·터미널
          에서 복사하면 클립보드에 text/plain 만 있는데, 그때 마크다운이
          해석되지 않아 「## 제목」 이 글자 그대로 한 줄글로 들어갔다(실측).
