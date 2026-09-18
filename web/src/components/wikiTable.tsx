@@ -139,7 +139,7 @@ function TableBody({ tid }: { tid: string }) {
         void post('/rows', seed ? { seed: { [seed.key]: seed.value } } : {})
       }
       /* 엑셀은 기본 목록에 있던 것을 되살린다 — 내가 덮어써서 사라졌다 */
-      bulk={[{ k: 'csv', label: '엑셀' }, { k: 'del', label: '삭제', danger: true }]}
+      bulk={[{ k: 'csv', label: '내보내기' }, { k: 'del', label: '삭제', danger: true }]}
       /* 줄을 안 골라도 통째로 내려받는 단추(지시) */
       showExport
       /* 닮은 열을 여럿 만드는 표라 복제가 필요하다(지시: 열·필드 복사) */
@@ -209,7 +209,7 @@ function hue(v: string): string {
 }
 
 /**
- * 자료 들이기 — **붙여넣기**나 CSV 파일로.
+ * 가져오기 — **붙여넣기**나 CSV 파일로.
  *
  * 노션·엑셀에서 234줄을 손으로 옮겨 칠 수는 없다. 첫 줄을 열 이름으로 보고,
  * 이름이 같은 열에 맞춘다. 없는 이름은 열을 새로 만든다.
@@ -247,7 +247,7 @@ function Importer({ tid, onDone, onClose }: { tid: string; onDone: () => void; o
     <div className="wtb-back" onMouseDown={onClose}>
       <div className="wtb-imp" onMouseDown={(e) => e.stopPropagation()}>
         <div className="wtb-imph">
-          <b>자료 들이기</b>
+          <b>가져오기</b>
           <span className="sp" />
           <button type="button" className="btn small" onClick={onClose}>✕</button>
         </div>
@@ -289,7 +289,7 @@ function Importer({ tid, onDone, onClose }: { tid: string; onDone: () => void; o
             disabled={busy || grid.length < 2}
             onClick={() => void go()}
           >
-            {busy ? '들이는 중…' : `${body.length}줄 들이기`}
+            {busy ? '가져오는 중…' : `${body.length}줄 가져오기`}
           </button>
         </div>
       </div>
@@ -343,7 +343,7 @@ export const TableSpec = createReactBlockSpec(
             />
             {p.tid && (
               <button type="button" className="wtb-imb" onClick={() => setImp(true)}>
-                ⬆ 자료 들이기
+                ⬆ 가져오기
               </button>
             )}
           </div>

@@ -83,18 +83,20 @@
 .wk-row .sp { flex: 1; }
 .wk-caret {
   flex: none;
-  width: 20px;
-  height: 20px;
+  /* 눌러야 하는 것치고 작았다(지적) — 손가락이 빗나가면 폴더가 열리는 대신
+     문서가 열린다 */
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
   background: transparent;
-  color: var(--c-text-muted);
+  color: var(--c-text);
   cursor: pointer;
   transition: transform 0.12s;
 }
-.wk-caret svg { width: 14px; height: 14px; }
+.wk-caret svg { width: 17px; height: 17px; }
 .wk-caret.open { transform: rotate(90deg); }
 .wk-caret:disabled { opacity: 0.2; cursor: default; }
 .wk-ico { flex: none; display: inline-flex; }
@@ -644,3 +646,11 @@
 /* 슬래시 메뉴의 「상자」 그림 — 기본 항목 아이콘과 같은 크기로 */
 .wbx-mico { display: inline-flex; align-items: center; justify-content: center;
             width: 18px; height: 18px; font-size: 15px; line-height: 1; }
+
+/* 끌어 옮기는 중 — **놓으면 이 폴더 밑으로 들어간다**는 표시.
+   테두리만으로는 줄 높이가 흔들려 글자가 튀므로 안쪽 그림자로 그린다. */
+.wk-row.drop {
+  background: var(--c-primary-bg);
+  box-shadow: inset 0 0 0 2px var(--c-primary);
+  border-radius: 6px;
+}

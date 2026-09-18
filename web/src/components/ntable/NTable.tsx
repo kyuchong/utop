@@ -975,10 +975,10 @@ export default function NTable(p: NTableProps) {
             <button
               type="button"
               className="ntb-tb"
-              title="지금 보이는 줄을 엑셀로 내려받습니다"
+              title="지금 보이는 줄을 엑셀 파일로 내보냅니다"
               onClick={() => void exportXlsx(checked.size ? [...checked] : shown.map((r) => String(r.__id)))}
             >
-              ⬇ 엑셀
+              ⬇ 내보내기
             </button>
           )}
           {onNew && (

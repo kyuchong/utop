@@ -162,6 +162,28 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
   const hit = (p: Page): boolean =>
     p.title.toLowerCase().includes(n) || (kids.get(p.id) ?? []).some(hit)
 
+  /* ── 폴더 끌어 옮기기(지시) ──
+   *
+   * 서버는 이미 받는다(PATCH /api/wiki/{id} 의 parent_id — 「자리 옮기기」).
+   * 여기서 막아야 할 것은 **제 자손 밑으로 넣는 것**뿐이다: 그러면 트리에서
+   * 두 쪽이 서로를 부모로 삼아 문서가 통째로 사라진 것처럼 보인다.
+   */
+  const [drag, setDrag] = useState<string | null>(null)
+  const [over, setOver] = useState<string | null>(null)
+
+  const isDesc = (root: string, id: string): boolean =>
+    (kids.get(root) ?? []).some((k) => k.id === id || isDesc(k.id, id))
+
+  const canDrop = (to: string) => !!drag && drag !== to && !isDesc(drag, to)
+
+  const move = async (id: string, to: string | null) => {
+    await apiFetch(`/api/wiki/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ parent_id: to }),
+    })
+    await listQ.refetch()
+  }
+
   const Tree = ({ parent, depth }: { parent: string; depth: number }) => (
     <>
       {(kids.get(parent) ?? [])
@@ -172,8 +194,33 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
           return (
             <div key={p.id}>
               <div
-                className={`wk-row${openId === p.id ? ' on' : ''}`}
+                className={`wk-row${openId === p.id ? ' on' : ''}${over === p.id ? ' drop' : ''}`}
                 style={{ paddingLeft: 6 + depth * 14 }}
+                draggable
+                onDragStart={(e) => {
+                  setDrag(p.id)
+                  e.dataTransfer.effectAllowed = 'move'
+                  /* 글자가 통째로 편집기에 떨어지는 것을 막는다 */
+                  e.dataTransfer.setData('text/plain', '')
+                }}
+                onDragEnd={() => {
+                  setDrag(null)
+                  setOver(null)
+                }}
+                onDragOver={(e) => {
+                  if (!canDrop(p.id)) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  if (over !== p.id) setOver(p.id)
+                }}
+                onDragLeave={() => setOver((o) => (o === p.id ? null : o))}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const from = drag
+                  setDrag(null)
+                  setOver(null)
+                  if (from && canDrop(p.id)) void move(from, p.id)
+                }}
                 onClick={() => setOpenId(p.id)}
                 /* 가리키는 순간 본문을 미리 받는다(지시: 더 빨리) — 누를
                    때는 이미 손에 있어 기다림이 없다 */
