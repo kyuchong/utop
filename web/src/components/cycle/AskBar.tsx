@@ -969,7 +969,7 @@ export default function AskBar({ devices }: Props) {
       : '어느 장비에서 돌릴까요?'
     const heroHtml = canHero && hero
       ? `<span class="ask-inhero js-devpick" data-id="${hesc(String(hero.id))}">` +
-        `<span class="tt"><b class="nm">${hesc(String(hero.model || hero.name || ''))}</b>` +
+        `<span class="ask-intt"><b class="nm">${hesc(String(hero.model || hero.name || ''))}</b>` +
         `<i>${hesc(String(hero.ip ?? ''))}</i>` +
         `<em class="st ${heroSt!.k}">● ${hesc(heroSt!.label)}</em></span>` +
         `<span class="ask-inbtn">이 장비로</span></span>`
@@ -1011,7 +1011,7 @@ export default function AskBar({ devices }: Props) {
       'a',
       '<p class="ln"><b>2단계 · 시험 항목</b> — 말씀하신 건 이것 같습니다.</p>' +
         `<div class="ask-inb"><span class="ask-inhero js-tcpick" data-tcid="${hesc(hero.tcid)}" data-model="${hesc(String(hero.model ?? ''))}">` +
-        `<span class="tt"><code>${hesc(hero.tcid)}</code>` +
+        `<span class="ask-intt"><code>${hesc(hero.tcid)}</code>` +
         `<em class="st pill ${hk}">${hk === 'none' ? '미실행' : `지난번 ${hl}`}</em>` +
         `<i>${man ? '수동' : '자동'}${nStep ? ` · ${nStep}스텝` : ''}</i></span>` +
         `<b class="nm">${hesc(hero.name)}</b>` +

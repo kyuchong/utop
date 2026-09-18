@@ -9474,15 +9474,17 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   transition: box-shadow .12s;
 }
 .ask-inhero:hover { box-shadow: 0 4px 14px rgb(23 105 210 / 16%); }
-.ask-inhero .tt { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.ask-inhero .tt code {
+/* 머리줄 이름은 ask-intt — 맨몸 .tt 는 TcTraffic.css 가 이미 쓰고 있어
+   (이 사고를 여기서 실제로 겪었다) 겹치면 카드가 세로로 쌓인다 */
+.ask-inhero .ask-intt { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ask-inhero .ask-intt code {
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
   color: var(--c-primary);
 }
-.ask-inhero .tt i { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.ask-inhero .ask-intt i { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
 .ask-inhero > .nm,
-.ask-inhero .tt .nm { font-size: 15px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-inhero .ask-intt .nm { font-size: 15px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ask-inbtn {
   align-self: flex-start;
   padding: 6px 14px;
