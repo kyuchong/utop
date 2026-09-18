@@ -340,13 +340,10 @@ export const TableSpec = createReactBlockSpec(
           contentEditable={false}
           onKeyDown={(e) => e.stopPropagation()}
           onPaste={(e) => e.stopPropagation()}
-          /* 표 안에서 줄을 끄는 것이 **편집기로 새면** 편집기가 그것을 블록 옮기기로
-             가로채, 끌기가 끝나지 않고 글자만 흐려진 채 아무것도 안 눌린다(지적).
-             여기서 멈춘다 — 표 안의 끌기는 표가 알아서 한다. */
+          /* 표 안의 끌기가 **편집기로 새지 않게** 시작만 막는다.
+             처음에는 drop·dragend 까지 막았는데, 그러면 표 자신의 끌기도 끝을 못 봐서
+             열을 옮기지도 못하고 화면이 먹통이 됐다(지적) — 끝나는 신호는 지나가야 한다. */
           onDragStart={(e) => e.stopPropagation()}
-          onDragOver={(e) => e.stopPropagation()}
-          onDrop={(e) => e.stopPropagation()}
-          onDragEnd={(e) => e.stopPropagation()}
         >
           <div className="wtb-top">
             <input
