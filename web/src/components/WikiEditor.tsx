@@ -1069,6 +1069,15 @@ export default function WikiEditor({
                   },
                   {
                     title: '데이터베이스',
+                    /* 아이콘이 없으면 그 줄만 글자가 왼쪽으로 붙어 줄이 어긋난다
+                       (지적: 아이콘이 없다). 기본 항목들과 같은 자리에 세운다. */
+                    icon: (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <ellipse cx="12" cy="6" rx="7.5" ry="3" stroke="currentColor" strokeWidth="1.6" />
+                        <path d="M4.5 6v6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3V6" stroke="currentColor" strokeWidth="1.6" />
+                        <path d="M4.5 12v6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3v-6" stroke="currentColor" strokeWidth="1.6" />
+                      </svg>
+                    ),
                     subtext: '열을 만들고 값을 채우는 표 — 거르기·정렬·합계가 됩니다',
                     /* 바로 위 「표」 옆에 세운다(지시) — 둘 다 표라서 나란히 있어야
                        무엇이 다른지 견주어 고른다. 「짚기」 에 두었더니 한참 아래였다. */

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -168,25 +168,22 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
    * 여기서 막아야 할 것은 **제 자손 밑으로 넣는 것**뿐이다: 그러면 트리에서
    * 두 쪽이 서로를 부모로 삼아 문서가 통째로 사라진 것처럼 보인다.
    */
-  /* **상태(useState)로 끌면 안 된다.**
+  /* **끌어 옮기기는 두지 않는다.**
    *
-   * 아래 Tree 는 렌더 안에서 만드는 인라인 부품이라, 상태가 바뀌면 React 가 그것을
-   * **새 부품으로 보고 트리를 통째로 다시 만든다.** 끌기 시작에서 상태를 건드리는
-   * 순간 DOM 이 갈려 드래그가 끊기고, dragend 도 안 와서 끌던 표시만 남는다 —
-   * 그러면 아무것도 눌리지 않는다(지적: 드래그하면 다른 메뉴가 안 눌린다).
-   * 그래서 끌기 동안에는 **다시 그리지 않는다**: 값은 ref 에 담고 놓을 자리
-   * 표시는 DOM 클래스를 직접 붙였다 뗀다.
+   * 두 번 고쳐 봤지만 끝나지 않는다 — 편집기(BlockNote)가 문서 전체에 드래그
+   * 손잡이를 걸어 두어, 트리에서 시작한 끌기가 편집기 위를 지나는 순간 그쪽이
+   * 가로챈다. dragend 가 안 오니 브라우저의 끌기 판이 살아 있고, 그 뒤로는
+   * 아무것도 눌리지 않아 새로고침해야 한다(지적). 편집기의 그 손잡이를 끄면
+   * 문서 안에서 블록을 못 옮기게 되므로 맞바꿀 것이 아니다.
+   *
+   * 대신 **줄의 ⋯ 메뉴에서 옮긴다.** 폴더가 수십 개면 끌어 옮기기보다 빠르기도 하다.
    */
-  const dragId = useRef<string | null>(null)
-
   const isDesc = (root: string, id: string): boolean =>
     (kids.get(root) ?? []).some((k) => k.id === id || isDesc(k.id, id))
 
-  const canDrop = (to: string) => {
-    const d = dragId.current
-    return !!d && d !== to && !isDesc(d, to)
-  }
-  const mark = (el: HTMLElement | null, on: boolean) => el?.classList.toggle('drop', on)
+  /** 이 문서를 옮길 수 있는 곳 — 제 자손 밑으로 넣으면 트리에서 사라진다 */
+  const moveTargets = (id: string) =>
+    pages.filter((x) => x.id !== id && !isDesc(id, x.id))
 
   const move = async (id: string, to: string | null) => {
     await apiFetch(`/api/wiki/${encodeURIComponent(id)}`, {
@@ -196,37 +193,6 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
     await listQ.refetch()
   }
 
-  /* 끌기 손잡이 — 줄마다 같은 것을 붙인다 */
-  const dragProps = (id: string) => ({
-    draggable: true,
-    onDragStart: (e: DragEvent<HTMLDivElement>) => {
-      dragId.current = id
-      e.dataTransfer.effectAllowed = 'move'
-      e.dataTransfer.setData('text/plain', '')
-    },
-    onDragEnd: (e: DragEvent<HTMLDivElement>) => {
-      dragId.current = null
-      /* 놓을 자리 표시가 어딘가 남아 있을 수 있다 — 한 번에 걷는다 */
-      e.currentTarget
-        .closest('.wk-tree')
-        ?.querySelectorAll('.wk-row.drop')
-        .forEach((x) => x.classList.remove('drop'))
-    },
-    onDragOver: (e: DragEvent<HTMLDivElement>) => {
-      if (!canDrop(id)) return
-      e.preventDefault()
-      e.dataTransfer.dropEffect = 'move'
-      mark(e.currentTarget, true)
-    },
-    onDragLeave: (e: DragEvent<HTMLDivElement>) => mark(e.currentTarget, false),
-    onDrop: (e: DragEvent<HTMLDivElement>) => {
-      e.preventDefault()
-      mark(e.currentTarget, false)
-      const from = dragId.current
-      dragId.current = null
-      if (from && from !== id && !isDesc(from, id)) void move(from, id)
-    },
-  })
 
   const Tree = ({ parent, depth }: { parent: string; depth: number }) => (
     <>
@@ -240,7 +206,6 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
               <div
                 className={`wk-row${openId === p.id ? ' on' : ''}`}
                 style={{ paddingLeft: 6 + depth * 14 }}
-                {...dragProps(p.id)}
                 onClick={() => setOpenId(p.id)}
                 /* 가리키는 순간 본문을 미리 받는다(지시: 더 빨리) — 누를
                    때는 이미 손에 있어 기다림이 없다 */
@@ -383,6 +348,36 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
             <button type="button" role="menuitem" onClick={() => { setMenu(null); void rename(menuPage) }}>
               ✎ 이름 바꾸기
             </button>
+            <div className="wk-menusep" />
+            {/* **옮기기** — 끌어 옮기기는 편집기가 가로채 끝나지 않아서 두지 않는다.
+                폴더가 수십 개면 여기서 고르는 편이 빠르기도 하다. */}
+            <div className="wk-menuh">옮기기</div>
+            <div className="wk-menuprjs">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null)
+                  if (menuPage.parent_id) void move(menuPage.id, null)
+                }}
+              >
+                {menuPage.parent_id ? '' : '✓ '}맨 위로
+              </button>
+              {moveTargets(menuPage.id).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null)
+                    if (menuPage.parent_id !== t.id) void move(menuPage.id, t.id)
+                  }}
+                >
+                  {menuPage.parent_id === t.id ? '✓ ' : ''}
+                  {t.title || '(이름 없음)'}
+                </button>
+              ))}
+            </div>
             <div className="wk-menusep" />
             <div className="wk-menuh">프로젝트 지정</div>
             <div className="wk-menuprjs">
