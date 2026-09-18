@@ -423,6 +423,10 @@ export default function AskBar({ devices }: Props) {
       열 머리 드롭다운에도 같은 거르개가 있지만, 가장 자주 쓰는 거르개가
       메뉴 속에 묻혀 있으면 두 번 눌러야 닿는다(목업: 탭으로 낸다). */
   const [devTab, setDevTab] = useState<'all' | 'ok' | 'busy' | 'part' | 'no'>('all')
+  /* 장비를 고른 **뒤에** 이어서 할 일. 질문 흐름에서 고르개를 열었으면
+     고르자마자 2단계(항목 고르기)로 이어져야 한다 — 창만 닫히고 멈추면
+     사람이 다음에 무엇을 눌러야 할지 모른다. */
+  const afterDevRef = useRef<'' | 'tc'>('')
   /* 장비 고르개 — **표**로 고른다(지시: 목업). 이름만 늘어놓던 목록으로는
      같은 모델이 열 대씩 있는 LAB 에서 어느 것을 고를지 알 수가 없었다.
      LAB·사업자·벤더·모델그룹으로 거르고, 연결 상태를 보고 짚는다. */
@@ -1607,10 +1611,11 @@ export default function AskBar({ devices }: Props) {
           '어느 장비에서 돌릴지 먼저 정해 주세요. 고른 장비로 <b>돌릴 수 있는 시험만</b> 추려서 보여 드립니다.</p>' +
           '<button type="button" class="btnsm js-pickdev">📟 장비 고르기</button>',
       )
-      setPickSel(cands.find((d) => d.id === devId)?.id ?? cands[0]?.id ?? '')
-      setPickLab('')
-      setPickRack('')
-      setPickDev({ model: m0, cands })
+      /* **칩으로 여는 그 고르개**를 그대로 쓴다(지적: 질문 후 장비 선택부터
+         맞는 게 없다). 여태 질문 흐름만 다른 창(구역·랙 트리)을 띄워서, 같은
+         일을 하는 화면이 둘이었고 상태 탭도 묶음도 거기엔 없었다. */
+      afterDevRef.current = 'tc'
+      setDevOpen(true)
       return
     }
 
@@ -3125,8 +3130,32 @@ export default function AskBar({ devices }: Props) {
                                     const pick = () => {
                                       if (dead) return
                                       setTDev(nm)
+                                      /* **실제로 이 장비로 돌린다** — 여태 칩 글자만
+                                         바꾸고 devId 는 안 잡아서, 칩에는 장비가 적혔는데
+                                         실행은 다른 장비로 가거나 아예 못 갔다. */
+                                      setDevId(d.id)
                                       if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
                                       setDevOpen(false)
+                                      say(
+                                        'a',
+                                        `<p class="ln"><b>${hesc(nm)} (${hesc(String(d.ip ?? ''))})</b> 로 정했습니다.</p>`,
+                                      )
+                                      /* 질문 흐름에서 열었으면 그대로 2단계로 잇는다 */
+                                      if (afterDevRef.current === 'tc') {
+                                        afterDevRef.current = ''
+                                        setAskModel(String(d.model ?? ''))
+                                        setTcOnlyModel(true)
+                                        setTcFind('')
+                                        setTcPick(new Set())
+                                        say(
+                                          'a',
+                                          '<p class="ln"><b>2단계 · 시험 항목 고르기</b><br>' +
+                                            `<b>${hesc(nm)}</b> 에서 돌릴 수 있는 항목만 추려 두었습니다. ` +
+                                            '목록에서 하나를 고르면 바로 절차를 짓습니다.</p>' +
+                                            '<button type="button" class="btnsm js-picktc">🔍 시험 항목 고르기</button>',
+                                        )
+                                        window.setTimeout(() => setLikeAsk(true), 220)
+                                      }
                                     }
                                     /* 상태가 바뀌는 자리에 묶음 머리를 세운다 — 「사용 가능 3대」.
                                        스무 대가 한 벌로 늘어서면 쓸 수 있는 것이 몇인지 세어야 한다. */
