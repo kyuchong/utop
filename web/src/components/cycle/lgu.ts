@@ -498,6 +498,16 @@ const headerRow = (tc: LguTc) =>
   '</tr>'
 
 /** 1장 — 시험 절차 */
+/*
+ * 칸 높이 194px 의 근거 — **재어서 맞춘 값이다.**
+ *
+ * 장은 1280×720 이고 안쪽(padding 24 위아래)은 672px 인데, 쪽번호·법적 문구
+ * (pageFoot)까지 더한 내용이 702px 이었다 — 30px 넘쳐 「비고(특이사항)」 아래가
+ * 잘렸다(지적). 210 을 쓰던 두 칸에서 16px 씩 걷어 32px 을 비웠다.
+ *
+ * 이 값을 다시 만질 때는 **재고 고쳐라.** 브라우저에서 buildSlides 로 장을 만들어
+ * 1280×720 판에 넣고 안쪽 scrollHeight 를 재면 넘치는지 바로 나온다.
+ */
 export function page1(tc: LguTc, range: [number, number]): string {
   const blocks = methodBlocks(tc)
   const method =
@@ -516,13 +526,13 @@ export function page1(tc: LguTc, range: [number, number]): string {
     val(
       tc.spec ? nl(tc.spec) : '<span style="color:#9aa0b8;">(미작성)</span>',
       4,
-      'vertical-align:top;height:210px;line-height:1.55;overflow:hidden;',
+      'vertical-align:top;height:194px;line-height:1.55;overflow:hidden;',
     ) +
     val(topo, 2, 'vertical-align:top;overflow:hidden;') +
     '</tr>' +
     '<tr>' + th('시험 방법', 4) + th('시험 결과', 2) + '</tr>' +
     '<tr>' +
-    val(method, 4, 'vertical-align:top;height:210px;line-height:1.55;overflow:hidden;') +
+    val(method, 4, 'vertical-align:top;height:194px;line-height:1.55;overflow:hidden;') +
     val(
       '<div style="text-align:center;font-weight:700;color:#333;padding-top:80px;">뒷면 참조</div>',
       2,
@@ -595,7 +605,7 @@ export function page2(tc: LguTc, range: [number, number]): string {
     pageHead('시 험 결 과') +
     `<table style="width:100%;border-collapse:collapse;border:${BD};table-layout:fixed;">${COLG}${headerRow(tc)}` +
     '<tr>' + th('시험 결과', 6) + '</tr>' +
-    '<tr>' + val(body, 6, 'vertical-align:top;height:470px;max-height:470px;overflow:hidden;') + '</tr>' +
+    '<tr>' + val(body, 6, 'vertical-align:top;height:430px;max-height:430px;overflow:hidden;') + '</tr>' +
     '<tr>' + lbl('비고<br>(특이사항)', 2) + val(tc.remark ? nl(tc.remark) : '', 4, 'height:44px;vertical-align:top;') + '</tr>' +
     '</table>'
   )
