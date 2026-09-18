@@ -2326,12 +2326,20 @@ def _send_mail(to_addrs, subject: str, body: str, html: bool = False,
         except Exception as e:
             raise RuntimeError(f"첨부 파일을 붙이지 못했습니다 — {f.get('filename', '')}: {e}")
     host = cfg["host"]; port = int(cfg.get("port") or 587); sec = str(cfg.get("security") or "starttls").lower()
+    # 보낼 주소는 **한 번씩만**. 같은 사람이 받는 사람이자 참조일 수 있는데(지시),
+    # 그대로 두면 RCPT 를 두 번 보내게 된다. 메일은 주소당 한 통이다.
+    rcpt, _seen = [], set()
+    for a in to_list + cc_list + bcc_list:
+        if a.lower() not in _seen:
+            _seen.add(a.lower())
+            rcpt.append(a)
+    refused = {}
     if sec == "ssl":
         ctx = _ssl.create_default_context()
         with smtplib.SMTP_SSL(host, port, timeout=20, context=ctx) as s:
             if cfg.get("username"):
                 s.login(cfg["username"], cfg.get("password") or "")
-            s.send_message(msg, to_addrs=to_list + cc_list + bcc_list)
+            refused = s.send_message(msg, to_addrs=rcpt) or {}
     else:
         with smtplib.SMTP(host, port, timeout=20) as s:
             s.ehlo()
@@ -2339,7 +2347,22 @@ def _send_mail(to_addrs, subject: str, body: str, html: bool = False,
                 s.starttls(context=_ssl.create_default_context()); s.ehlo()
             if cfg.get("username"):
                 s.login(cfg["username"], cfg.get("password") or "")
-            s.send_message(msg, to_addrs=to_list + cc_list + bcc_list)
+            refused = s.send_message(msg, to_addrs=rcpt) or {}
+    # **일부만 거절당하면 조용히 성공한다** — send_message 는 전부 거절일 때만
+    # 예외를 던지고, 일부는 거절 목록을 **돌려줄 뿐**이다. 그 값을 버리고 있어서
+    # 사내 주소는 나가고 바깥 주소(gmail 등)만 막혀도 화면은 「보냈다」 였다(지적).
+    if refused:
+        def _why(v):
+            c, m = (v if isinstance(v, tuple) and len(v) == 2 else (0, v))
+            if isinstance(m, bytes):
+                m = m.decode("utf-8", "replace")
+            return f"{c} {str(m or '').strip()[:70]}".strip()
+        bad = "; ".join(f"{a} → {_why(v)}" for a, v in refused.items())
+        okn = len([a for a in rcpt if a not in refused])
+        raise RuntimeError(
+            f"받는 메일 서버가 거절한 주소가 있습니다 — {bad}"
+            + (f" (나머지 {okn}곳으로는 보냈습니다)" if okn else "")
+        )
     return to_list
 
 _DEFAULT_APPROVAL_SUBJECT = "[ubiQuoss-TOP] \U0001F389 가입이 승인되었습니다"
