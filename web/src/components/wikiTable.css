@@ -32,3 +32,15 @@
   color: var(--c-text-faint);
   font-size: var(--fs-sm);
 }
+
+/* **고른 블록 표시를 끈다.**
+ *
+ * 편집기는 고른 블록 위에 ::after 로 파란 덮개를 씌운다
+ * (background #64a0ff14 + inset 0 0 0 4px #64a0ff4d). 글 블록에서는 「여기가
+ * 골랐다」 는 뜻이 되지만, 표는 통째로 우리가 그리는 판이라 칸을 누를 때마다
+ * 표 둘레가 파래진다(지적). 표 안에서는 NTable 이 제 방식으로 고른 줄을
+ * 알려 주므로 이 덮개는 할 일이 없다.
+ */
+.wtb::after {
+  display: none !important;
+}
