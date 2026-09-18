@@ -3097,18 +3097,23 @@ export default function AskBar({ devices }: Props) {
                                   ['part', '일부 연결'],
                                   ['no', '사용 불가'],
                                 ] as const
-                              ).map(([k, label]) => (
-                                <button
-                                  key={k}
-                                  type="button"
-                                  className={`ask-dmtab${devTab === k ? ' on' : ''}`}
-                                  data-f={k}
-                                  onClick={() => setDevTab(k)}
-                                >
-                                  {label}
-                                  <i>{k === 'all' ? base.length : base.filter((d) => readyOf(d).k === k).length}</i>
-                                </button>
-                              ))}
+                              ).map(([k, label]) => {
+                                const n = k === 'all' ? base.length : base.filter((d) => readyOf(d).k === k).length
+                                return (
+                                  <button
+                                    key={k}
+                                    type="button"
+                                    className={`ask-dmtab${devTab === k ? ' on' : ''}${n === 0 ? ' zero' : ''}`}
+                                    data-f={k}
+                                    aria-pressed={devTab === k}
+                                    title={`${label} ${n}대`}
+                                    onClick={() => setDevTab(k)}
+                                  >
+                                    <i>{n}</i>
+                                    <span>{label}</span>
+                                  </button>
+                                )
+                              })}
                             </span>
                             <span className="ask-dmbody">
                               <span className="ask-dmlist">
