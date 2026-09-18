@@ -7772,17 +7772,26 @@ async def run_cli_stream(payload: dict):
                 # 반복의 SNMP 도, 남의 요청도, health 까지 멎는다(지적: 반복이 많은
                 # 시험이 엄청 느리거나 멈춘다). 48회 반복이면 그 멈춤이 48번 쌓인다.
                 # 스레드로 밀어내면 기다리는 동안에도 서버는 계속 돈다.
-                if payload.get("require_session"):
-                    conn = ent.get("conn")
-                    if conn is None:
-                        try:
-                            conn = await asyncio.to_thread(_ensure_conn, ent, params)
-                        except Exception as _re0s:
-                            yield _sse({"err": "세션이 열려 있지 않습니다 — 자동 재접속 실패: " + _conn_fail_msg(params, _re0s)}); yield _sse({"done": True}); return
-                    ent["ts"] = _t.time()
-                    await asyncio.to_thread(_force_enable, conn, params, ent)
-                else:
+                # **살아 있는지 보고 쓴다** — 세션을 쓰는 길도 마찬가지다.
+                #
+                # 여태는 `conn` 이 None 이 아니면 그대로 썼다. 장비를 reload 하면
+                # 파이썬 객체는 그대로 남고 **소켓만 죽는다.** None 이 아니므로
+                # _ensure_conn 의 생존 확인(find_prompt)과 유휴 재접속이 통째로
+                # 건너뛰어지고, 아래 write_channel 이 23ms 만에
+                # 「[Errno 32] Broken pipe」 로 떨어졌다(지적: 원래는 재연결했다).
+                #
+                # 두 길이 **같은 함수**를 쓰게 한다 — 규칙이 두 벌이면 한쪽만 고쳐진다.
+                _before_s = ent.get("conn")
+                try:
                     conn = await asyncio.to_thread(_ensure_conn, ent, params)
+                except Exception as _re0s:
+                    yield _sse({"err": "세션이 열려 있지 않습니다 — 자동 재접속 실패: " + _conn_fail_msg(params, _re0s)}); yield _sse({"done": True}); return
+                ent["ts"] = _t.time()
+                if payload.get("require_session"):
+                    await asyncio.to_thread(_force_enable, conn, params, ent)
+                if conn is not _before_s and _before_s is not None:
+                    # 갈아탔음을 알린다 — 재접속하면 설정 문맥·paging 이 초기화된다
+                    yield _sse({"note": "연결이 끊겨 있어 다시 붙었습니다"})
                 ent["ts"] = _t.time()
                 bp = (getattr(conn, "base_prompt", "") or "").strip().rstrip("#>$ ").split("(")[0].strip()
                 if not bp:

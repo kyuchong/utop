@@ -166,6 +166,8 @@ async function readSse(
     pr?: string
     o?: string
     err?: string
+    /** 연결이 끊겨 다시 붙었다 — 알려야 할 일이지 잘못은 아니다 */
+    note?: string
     done?: boolean
     alive?: boolean
   }) => void,
@@ -1489,6 +1491,10 @@ async function runOne(
         }
         acc += chunk
         flush(acc)
+      } else if (e.note) {
+        /* 연결이 끊겨 다시 붙었다 — 설정 문맥·paging 이 초기화되므로 알려야 한다
+           (장비를 reload 한 뒤 다음 스텝에서 흔히 일어난다) */
+        ctx.onLog({ i, text: String(e.note), kind: 'warn' })
       } else if (e.err) {
         err = e.err
       }
