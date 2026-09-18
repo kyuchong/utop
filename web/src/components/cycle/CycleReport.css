@@ -30,10 +30,10 @@
    16:9 슬라이드를 실제 크기(1280×720)로 그린 뒤 줄여서 보여 준다. 그래야
    화면에서 본 것과 파일이 같다. */
 .modal.rpt {
-  /* 장은 높이에 맞춰지므로 모달 폭을 다 쓰지 못한다 —
-     양옆이 빈 채로 넓기만 해서 줄였다 */
-  width: 86vw;
-  max-width: 1560px;
+  /* 왼쪽에 장 목록이 서면서 몸통이 좁아졌다 — 목록을 키우면서 장도 크게 보이려면
+     바탕이 넓어야 한다(지적: 목록을 넓히고 장은 꽉 차게). */
+  width: 94vw;
+  max-width: 1900px;
   height: 94vh;
   display: flex;
   flex-direction: column;
@@ -46,7 +46,8 @@
      스크롤이 생겼다(지적: 슬라이드가 밀려 있다). 0 으로 풀어야 줄어든다. */
   min-width: 0;
   overflow: auto;
-  padding: 18px 22px;
+  /* 여백을 줄여 장을 키운다(지적: 여백이 많다) */
+  padding: 12px 14px;
   background: var(--c-surface-alt);
 }
 /*
@@ -61,7 +62,7 @@
 .rpt-wrap {
   position: relative;
   /* 크기는 화면 폭에서 계산해 인라인으로 준다 */
-  margin: 0 auto 16px;
+  margin: 0 auto 12px;
   background: #fff;
   /* --c-border-strong 은 어디에도 정의된 적이 없다 — 값이 없으면 CSS 는 그 줄을
      통째로 버리므로 장 테두리가 여태 안 그려졌다 */
@@ -94,7 +95,7 @@
   display: flex;
 }
 .rpt-side {
-  width: 212px;
+  width: 268px;
   flex: none;
   overflow: auto;
   padding: 8px;

@@ -54,7 +54,7 @@ interface TcExtra {
  * 쓰기 때문에 화면에서 센 장수와 파일의 장수가 어긋나지 않는다.
  */
 /** 목록 그림의 폭 — 16:9 라 높이는 여기서 나온다 */
-const THUMB_W = 176
+const THUMB_W = 206
 
 /**
  * 장 목록의 **작은 그림** — 파워포인트의 그 판이다(지시).
@@ -124,10 +124,10 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
     const el = bodyRef.current
     if (!el) return
     const fit = () => {
-      const w = el.clientWidth - 44 // 좌우 여백
+      const w = el.clientWidth - 30 // 좌우 여백(CSS padding 14 × 2 와 맞춘다)
       // 높이에도 맞춘다. 폭에만 맞췄더니 큰 화면에서 장의 아래가 잘려
       // 「전체가 보이지 않는」 상태가 됐다 — 한 장은 통째로 보여야 한다.
-      const h = el.clientHeight - 40
+      const h = el.clientHeight - 26
       if (w > 0 && h > 0) {
         setScale(Math.max(0.4, Math.min(1.4, Math.min(w / 1280, h / 720))))
       }
@@ -272,7 +272,7 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
   const tags = useMemo(() => (tcs.length ? slideTags(tcs) : []), [tcs])
   /* 한 장이 차지하는 높이(여백 포함) — 목록에서 뛰는 셈과 스크롤에서 지금 장을
      알아내는 셈이 **같은 값**을 써야 한 장씩 어긋나지 않는다 */
-  const oneH = Math.round(720 * scale) + 16
+  const oneH = Math.round(720 * scale) + 12
   const sideRef = useRef<HTMLDivElement>(null)
   const goSlide = (i: number) => {
     bodyRef.current?.scrollTo({ top: i * oneH, behavior: 'smooth' })
