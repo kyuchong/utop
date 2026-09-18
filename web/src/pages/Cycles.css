@@ -9329,3 +9329,17 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-dmgrp.no { color: var(--c-fail); }
 
 .dmlg.busy { background: var(--c-draft); }
+
+/* ── 장비 고르개를 목업의 **세 칸**으로 ────────────────────────────────
+   LAB·사업자·벤더·모델그룹까지 일곱 칸이면 이름과 IP 가 눌려 읽기 어렵다.
+   그 넷은 **검색이 이미 받는다**(이름·IP·LAB·사업자·벤더·모델그룹을 한 번에
+   훑는다) — 화면에서는 걷고 찾기로 남긴다. */
+.ask-devmenu.big .ask-dmhdr,
+.ask-devmenu.big .ask-dmi {
+  grid-template-columns: minmax(220px, 1fr) 180px 104px;
+  gap: 18px;
+}
+.ask-devmenu.big .dv-lab,
+.ask-devmenu.big .dv-cu,
+.ask-devmenu.big .dv-vd,
+.ask-devmenu.big .dv-gp { display: none; }

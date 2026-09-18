@@ -2895,7 +2895,13 @@ export default function AskBar({ devices }: Props) {
                         /* 탭 개수는 **탭을 빼고** 센다 — 「연결됨」 을 고른 채로
                            세면 다른 탭이 늘 0 이 되어 고를 수가 없다 */
                         const base = devices.filter((d) => pass(d))
+                        /* **쓸 수 있는 것부터**(지시: 목업) — LAB 순으로만 세우면
+                           못 쓰는 장비가 맨 위에 서서, 고를 수 있는 것을 찾아 스무
+                           줄을 내려가야 한다. */
+                        const kOrd: Record<string, number> = { ok: 0, part: 1, busy: 2, no: 3 }
                         const rows = base.filter((d) => devTab === 'all' || readyOf(d).k === devTab).sort((a, b) => {
+                          const kk = (kOrd[readyOf(a).k] ?? 9) - (kOrd[readyOf(b).k] ?? 9)
+                          if (kk) return kk
                           const l = String(a.lab ?? '').localeCompare(String(b.lab ?? ''), 'ko')
                           if (l) return l
                           const o = String(a.operator ?? '').localeCompare(String(b.operator ?? ''), 'ko')
