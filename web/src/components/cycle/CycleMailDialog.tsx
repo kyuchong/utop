@@ -289,6 +289,9 @@ export default function CycleMailDialog({
   }
 
   /* ── 자동 완성 ── */
+  /* 칸마다의 입력 상자 — 고른 뒤 **친 글자를 지우려면** 그 상자를 알아야 한다.
+     값을 state 로 들고 있지 않은 칸이라(칩이 정본) DOM 을 직접 비운다. */
+  const inpRef = useRef<Partial<Record<Box, HTMLInputElement | null>>>({})
   const [sug, setSug] = useState<{
     box: Box
     q: string
@@ -331,6 +334,10 @@ export default function CycleMailDialog({
     if (it.g) put(sug.box, it.g.mails)
     else if (it.p) put(sug.box, [it.p.mail])
     setSug(null)
+    /* 친 글자를 지운다 — 칩으로 들어갔는데 글자가 남아 있으면 다음에 Enter 를
+       쳤을 때 그 글자가 **주소인 줄 알고** 한 번 더 들어간다(지적: 유지된다). */
+    const inp = inpRef.current[sug.box]
+    if (inp) inp.value = ''
     return true
   }
 
@@ -482,6 +489,9 @@ export default function CycleMailDialog({
         )
       })}
       <input
+        ref={(el) => {
+          inpRef.current[box] = el
+        }}
         placeholder={lists[box].length ? '' : PH[box]}
         autoComplete="off"
         spellCheck={false}
