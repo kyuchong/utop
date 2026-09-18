@@ -2579,129 +2579,9 @@ export default function AskBar({ devices }: Props) {
                   </>
                 )}
               </span>
-              {/* 모드 — **드롭다운**(지시). 세그먼트 토글이던 것을 되돌린다:
-                  오른쪽 끝에 AI 고르개가 서면서 두 고르개의 생김새가 같아야
-                  한 벌로 읽힌다. 지금 무엇인지는 단추에 그대로 적는다. */}
-              <span className="ta-pick">
-                <button
-                  type="button"
-                  className={`ta-pickb${modeOpen ? ' open' : ''}`}
-                  disabled={exEdit}
-                  title={
-                    mode === 'basic'
-                      ? 'General — 이미 만들어진 시험 항목을 찾아 그대로 실행합니다 · 명령을 몰라도 됩니다'
-                      : 'Advanced — 없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다 · 장비를 아는 사람이'
-                  }
-                  aria-expanded={modeOpen}
-                  onClick={() => {
-                    setModeOpen((v) => !v)
-                    setLlmOpen(false)
-                  }}
-                >
-                  <i className="sico" aria-hidden="true">{mode === 'basic' ? '\u25b6' : '\u270e'}</i>
-                  <span className="mlb">{mode === 'basic' ? 'General' : 'Advanced'}</span>
-                  <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-                </button>
-                {modeOpen && (
-                  <>
-                    <span className="ta-pickveil" onClick={() => setModeOpen(false)} />
-                    <span className="ta-pickmenu">
-                      {(
-                        [
-                          ['basic', 'General', '\u25b6', '있는 시험을 찾아 바로 실행'],
-                          ['adv', 'Advanced', '\u270e', '없는 시험을 새로 만들어 실행'],
-                        ] as const
-                      ).map(([k, label, ico, sub]) => (
-                        <button
-                          key={k}
-                          type="button"
-                          className={`ta-pickit${mode === k ? ' on' : ''}`}
-                          onClick={() => {
-                            setMode(k)
-                            setModeOpen(false)
-                          }}
-                        >
-                          <i className="sico" aria-hidden="true">{ico}</i>
-                          <b>{label}</b>
-                          <span className="sub">{sub}</span>
-                          {mode === k && <svg className="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
-                        </button>
-                      ))}
-                    </span>
-                  </>
-                )}
-              </span>
-              {/* 빈 공간은 **모드 뒤**다(지시: 모드는 ＋ 옆). 앞에 두면 모드가
-                  오른쪽 끝으로 밀려 마이크·보내기와 한 덩이로 읽힌다. */}
-              <span className="ask-rsp" />
-              {/* 쓸 AI — **오른쪽 끝**(지시). 마이크·보내기 바로 앞이라
-                  「무엇으로 답하는가」 가 보내는 손과 한자리에 있다. */}
-              {llms.length > 0 && (
-                <span className="ta-pick ta-ai">
-                  <button
-                    type="button"
-                    className={`ta-pickb ai${llmOpen ? ' open' : ''}`}
-                    disabled={exEdit}
-                    title={`이 물음에 답할 AI — 지금은 ${llmNow?.name ?? '기본'}${llmNow?.model ? ` (${llmNow.model})` : ''}`}
-                    aria-expanded={llmOpen}
-                    onClick={() => {
-                      setLlmOpen((v) => !v)
-                      setModeOpen(false)
-                    }}
-                  >
-                    <span className="mlb">{llmNow?.name ?? 'AI 고르기'}</span>
-                    {!!llmNow?.model && <em className="mdl">{llmNow.model}</em>}
-                    <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-                  </button>
-                  {llmOpen && (
-                    <>
-                      <span className="ta-pickveil" onClick={() => setLlmOpen(false)} />
-                      <span className="ta-pickmenu right">
-                        {llms.map((x) => (
-                          <button
-                            key={x.id}
-                            type="button"
-                            className={`ta-pickit${x.id === llmId ? ' on' : ''}`}
-                            onClick={() => {
-                              setLlmId(x.id)
-                              setLlmOpen(false)
-                            }}
-                          >
-                            <b>{x.name}</b>
-                            {!!x.model && <span className="sub">{x.model}</span>}
-                            {x.id === llmId && <svg className="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
-                          </button>
-                        ))}
-                      </span>
-                    </>
-                  )}
-                </span>
-              )}
-              <button
-                className={`ask-tb mic${listening ? ' rec' : ''}`}
-                type="button"
-                title={listening ? '듣는 중 — 누르면 멈춥니다' : '음성으로 묻기'}
-                disabled={exEdit}
-                onClick={micToggle}
-              >
-                {listening ? '🔴' : '🎤'}
-              </button>
-              <button
-                className={`ask-send2${text.trim() && !exEdit ? ' on' : ''}`}
-                type="button"
-                title="보내기 (Enter)"
-                disabled={exEdit || !text.trim()}
-                onClick={() => void submit()}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M5 12h13M13 6l6 6-6 6" />
-                </svg>
-              </button>
-              </div>
-
-              {/* **도구 칩은 제 줄에**(지시: 목업). 입력줄에 같이 두면 핀을 두세 개만
-                  꽂아도 모드·마이크·보내기가 밀린다. 마우스를 올리면 ✕ 가 나와 그
-                  자리에서 뺀다 — 빼려고 ⚙ 을 다시 열지 않아도 된다. */}
+              {/* **도구 칩은 ＋ 바로 옆**(지시: 목업 입력창). 아래 줄로 내리면
+                  ＋ 와 칩이 갈라져 「무엇을 켜 두었나」 가 한눈에 안 들어온다.
+                  핀이 많아 넘치면 줄이 접힌다 — 모드·마이크·보내기는 안 밀린다. */}
               <div className="ask-r3">
                 {pins.map((k) => {
                   const t = TOOLDEF.find(([x]) => x === k)
@@ -2785,6 +2665,126 @@ export default function AskBar({ devices }: Props) {
                   </button>
                 )}
               </div>
+              {/* 빈 공간은 **모드 뒤**다(지시: 모드는 ＋ 옆). 앞에 두면 모드가
+                  오른쪽 끝으로 밀려 마이크·보내기와 한 덩이로 읽힌다. */}
+              <span className="ask-rsp" />
+              {/* 모드 — **드롭다운**(지시). 세그먼트 토글이던 것을 되돌린다:
+                  오른쪽 끝에 AI 고르개가 서면서 두 고르개의 생김새가 같아야
+                  한 벌로 읽힌다. 지금 무엇인지는 단추에 그대로 적는다. */}
+              <span className="ta-pick">
+                <button
+                  type="button"
+                  className={`ta-pickb${modeOpen ? ' open' : ''}`}
+                  disabled={exEdit}
+                  title={
+                    mode === 'basic'
+                      ? 'General — 이미 만들어진 시험 항목을 찾아 그대로 실행합니다 · 명령을 몰라도 됩니다'
+                      : 'Advanced — 없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다 · 장비를 아는 사람이'
+                  }
+                  aria-expanded={modeOpen}
+                  onClick={() => {
+                    setModeOpen((v) => !v)
+                    setLlmOpen(false)
+                  }}
+                >
+                  <i className="sico" aria-hidden="true">{mode === 'basic' ? '\u25b6' : '\u270e'}</i>
+                  <span className="mlb">{mode === 'basic' ? 'General' : 'Advanced'}</span>
+                  <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+                {modeOpen && (
+                  <>
+                    <span className="ta-pickveil" onClick={() => setModeOpen(false)} />
+                    <span className="ta-pickmenu">
+                      {(
+                        [
+                          ['basic', 'General', '\u25b6', '있는 시험을 찾아 바로 실행'],
+                          ['adv', 'Advanced', '\u270e', '없는 시험을 새로 만들어 실행'],
+                        ] as const
+                      ).map(([k, label, ico, sub]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          className={`ta-pickit${mode === k ? ' on' : ''}`}
+                          onClick={() => {
+                            setMode(k)
+                            setModeOpen(false)
+                          }}
+                        >
+                          <i className="sico" aria-hidden="true">{ico}</i>
+                          <b>{label}</b>
+                          <span className="sub">{sub}</span>
+                          {mode === k && <svg className="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
+                        </button>
+                      ))}
+                    </span>
+                  </>
+                )}
+              </span>
+              {/* 쓸 AI — **오른쪽 끝**(지시). 마이크·보내기 바로 앞이라
+                  「무엇으로 답하는가」 가 보내는 손과 한자리에 있다. */}
+              {llms.length > 0 && (
+                <span className="ta-pick ta-ai">
+                  <button
+                    type="button"
+                    className={`ta-pickb ai${llmOpen ? ' open' : ''}`}
+                    disabled={exEdit}
+                    title={`이 물음에 답할 AI — 지금은 ${llmNow?.name ?? '기본'}${llmNow?.model ? ` (${llmNow.model})` : ''}`}
+                    aria-expanded={llmOpen}
+                    onClick={() => {
+                      setLlmOpen((v) => !v)
+                      setModeOpen(false)
+                    }}
+                  >
+                    <span className="mlb">{llmNow?.name ?? 'AI 고르기'}</span>
+                    {!!llmNow?.model && <em className="mdl">{llmNow.model}</em>}
+                    <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                  </button>
+                  {llmOpen && (
+                    <>
+                      <span className="ta-pickveil" onClick={() => setLlmOpen(false)} />
+                      <span className="ta-pickmenu right">
+                        {llms.map((x) => (
+                          <button
+                            key={x.id}
+                            type="button"
+                            className={`ta-pickit${x.id === llmId ? ' on' : ''}`}
+                            onClick={() => {
+                              setLlmId(x.id)
+                              setLlmOpen(false)
+                            }}
+                          >
+                            <b>{x.name}</b>
+                            {!!x.model && <span className="sub">{x.model}</span>}
+                            {x.id === llmId && <svg className="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
+                          </button>
+                        ))}
+                      </span>
+                    </>
+                  )}
+                </span>
+              )}
+              <button
+                className={`ask-tb mic${listening ? ' rec' : ''}`}
+                type="button"
+                title={listening ? '듣는 중 — 누르면 멈춥니다' : '음성으로 묻기'}
+                disabled={exEdit}
+                onClick={micToggle}
+              >
+                {listening ? '🔴' : '🎤'}
+              </button>
+              <button
+                className={`ask-send2${text.trim() && !exEdit ? ' on' : ''}`}
+                type="button"
+                title="보내기 (Enter)"
+                disabled={exEdit || !text.trim()}
+                onClick={() => void submit()}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h13M13 6l6 6-6 6" />
+                </svg>
+              </button>
+              </div>
+
 
               {/* 장비 고르개 — **표로 고른다**(지시: 목업).
                   이름만 늘어놓으면 같은 모델이 열 대씩 있는 LAB 에서 어느 것을
@@ -3164,7 +3164,7 @@ export default function AskBar({ devices }: Props) {
                     <i>
                       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
                     </i>
-                    있는 시험 실행
+                    기존 항목 실행
                   </span>
                   <span className="ask-cd t2">
                     <i>
@@ -3177,12 +3177,6 @@ export default function AskBar({ devices }: Props) {
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-8M21 19H3" /></svg>
                     </i>
                     결과 분석
-                  </span>
-                  <span className="ask-cd t4">
-                    <i>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
-                    </i>
-                    지식 검색
                   </span>
                 </div>
               </div>
