@@ -2326,20 +2326,34 @@ def _send_mail(to_addrs, subject: str, body: str, html: bool = False,
         except Exception as e:
             raise RuntimeError(f"첨부 파일을 붙이지 못했습니다 — {f.get('filename', '')}: {e}")
     host = cfg["host"]; port = int(cfg.get("port") or 587); sec = str(cfg.get("security") or "starttls").lower()
-    # 보낼 주소는 **한 번씩만**. 같은 사람이 받는 사람이자 참조일 수 있는데(지시),
-    # 그대로 두면 RCPT 를 두 번 보내게 된다. 메일은 주소당 한 통이다.
-    rcpt, _seen = [], set()
-    for a in to_list + cc_list + bcc_list:
-        if a.lower() not in _seen:
-            _seen.add(a.lower())
-            rcpt.append(a)
-    refused = {}
+    # **받는 사람 · 참조 · 숨은 참조를 각각 따로 보낸다**(지시).
+    #
+    # 한 사람이 받는 사람이면서 참조이면 그 사람은 **두 통**을 받는다 — 참조로 온
+    # 것을 따로 확인하려고 그렇게 넣기 때문이다. 머리글(To·Cc)은 세 번 다 똑같이
+    # 두므로 받는 쪽에서는 여느 메일과 다르지 않게 보인다. 한 묶음 안의 중복만
+    # 걷는다(같은 칸에 같은 주소를 두 번 적은 경우).
+    _bundles = [g for g in (to_list, cc_list, bcc_list) if g]
+    refused: dict = {}
+    rcpt: list = []
+
+    def _deliver(s):
+        for g in _bundles:
+            seen, one = set(), []
+            for a in g:
+                if a.lower() not in seen:
+                    seen.add(a.lower())
+                    one.append(a)
+            if not one:
+                continue
+            rcpt.extend(one)
+            refused.update(s.send_message(msg, to_addrs=one) or {})
+
     if sec == "ssl":
         ctx = _ssl.create_default_context()
         with smtplib.SMTP_SSL(host, port, timeout=20, context=ctx) as s:
             if cfg.get("username"):
                 s.login(cfg["username"], cfg.get("password") or "")
-            refused = s.send_message(msg, to_addrs=rcpt) or {}
+            _deliver(s)
     else:
         with smtplib.SMTP(host, port, timeout=20) as s:
             s.ehlo()
@@ -2347,7 +2361,7 @@ def _send_mail(to_addrs, subject: str, body: str, html: bool = False,
                 s.starttls(context=_ssl.create_default_context()); s.ehlo()
             if cfg.get("username"):
                 s.login(cfg["username"], cfg.get("password") or "")
-            refused = s.send_message(msg, to_addrs=rcpt) or {}
+            _deliver(s)
     # **일부만 거절당하면 조용히 성공한다** — send_message 는 전부 거절일 때만
     # 예외를 던지고, 일부는 거절 목록을 **돌려줄 뿐**이다. 그 값을 버리고 있어서
     # 사내 주소는 나가고 바깥 주소(gmail 등)만 막혀도 화면은 「보냈다」 였다(지적).
