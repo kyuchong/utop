@@ -40,6 +40,7 @@ import ListButtons, { BlockKindSelect } from './wikiListButtons'
 import BnSideMenuCentered from './BnSideMenuCentered'
 import { TableSpec, newTableId } from './wikiTable'
 import { patchCellBg } from './cellBg'
+import { IconPanel } from './icons'
 import { ko } from '@blocknote/core/locales'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
@@ -306,6 +307,8 @@ export default function WikiEditor({
   project,
   me = '',
   onSaved,
+  sideFolded,
+  onFoldSide,
 }: {
   id: string
   title: string
@@ -314,6 +317,10 @@ export default function WikiEditor({
   /** 나 — 접속자 표시와 「내가 방금 저장한 것」 가려내기에 쓴다 */
   me?: string
   onSaved?: () => void
+  /** 문서 목록 판이 지금 접혀 있나 — 단추 그림과 말이 이것을 따른다 */
+  sideFolded?: boolean
+  /** 접기 단추를 낼지 — 안 주면 단추를 세우지 않는다 */
+  onFoldSide?: () => void
 }) {
   const [ready, setReady] = useState(false)
   /* 변경 이력 — 저장할 때마다 한 줄씩 쌓인다. 되돌릴 수 있어야 사람이 마음
@@ -755,6 +762,20 @@ export default function WikiEditor({
   return (
     <div className="wke">
       <div className="wke-head">
+        {/* 문서 목록 접기 — REQ-COVERAGE 2열의 그 단추와 **같은 것**(지시).
+            제목보다 앞에 선다: 화면을 넓히는 일은 문서에 하는 일(가져오기·
+            PDF·이력)과 결이 달라 오른쪽 무리에 섞이면 안 보인다. */}
+        {!!onFoldSide && (
+          <button
+            type="button"
+            className="wke-foldb"
+            title={sideFolded ? '문서 목록 펴기' : '문서 목록 접기'}
+            aria-label={sideFolded ? '문서 목록 펴기' : '문서 목록 접기'}
+            onClick={onFoldSide}
+          >
+            <IconPanel open={sideFolded} />
+          </button>
+        )}
         <b className="wke-title">{title || '(이름 없음)'}</b>
         {/* 이 문서가 **어느 프로젝트 것인가**(지시).
             만들 때의 프로젝트가 그냥 박히고 끝이면, 「전체」 로 두고 쓴 문서는

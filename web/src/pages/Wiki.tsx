@@ -85,6 +85,9 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
   const [w1, setW1] = useResizableWidth('utop.ntb.wiki.w1', 280, 200, 560)
   const gridRef = useRef<HTMLDivElement>(null)
   /** 줄의 ⋯ 메뉴 — +·✎·× 를 줄에 늘어놓았더니 잘못 눌렀다(지적) */
+  /* 문서 목록 판 접기(지시: REQ-COVERAGE 의 그 단추와 같은 것).
+     표가 열 스무 개를 넘으면 1열이 차지한 300px 이 아깝다. */
+  const [foldSide, setFoldSide] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null)
   const menuPage = menu ? pages.find((p) => p.id === menu.id) : undefined
 
@@ -289,7 +292,12 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
   )
 
   return (
-    <div className="wk" ref={gridRef} style={{ gridTemplateColumns: `${w1}px minmax(0, 1fr)` }}>
+    <div
+      className={`wk${foldSide ? ' folded' : ''}`}
+      ref={gridRef}
+      style={foldSide ? undefined : { gridTemplateColumns: `${w1}px minmax(0, 1fr)` }}
+    >
+      {!foldSide && (
       <aside className="panel wk-side">
         {/* 새 문서는 제목 줄 오른쪽(지시) — 줄 하나가 통째로 준다 */}
         <div className="wk-head">
@@ -344,6 +352,7 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
           />
         </div>
       </aside>
+      )}
 
       <section className="panel wk-main">
         {!cur ? (
@@ -354,6 +363,8 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
             id={cur.id}
             title={cur.title}
             project={cur.project}
+            sideFolded={foldSide}
+            onFoldSide={() => setFoldSide((v) => !v)}
             me={me?.name || me?.username || ''}
             onSaved={() => void listQ.refetch()}
           />
