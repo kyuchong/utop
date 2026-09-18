@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type PointerEvent as RPtr } from 'react'
 import { autoColor, paintOfAny } from './palette'
 import { apiFetch } from '@/api/client'
 import { useIsAdmin } from './useAdmin'
@@ -135,6 +135,65 @@ const BULK = [
   { k: 'del', label: '삭제', danger: true },
 ]
 
+/**
+ * 끌어 옮기기 — **HTML5 끌기(draggable)를 쓰지 않는다.**
+ *
+ * 위키 문서 안에서는 이 표가 편집기(ProseMirror) 안에 들어앉는데, 편집기는
+ * 제 판 위의 dragstart·drop 을 **제가 붙인 native 리스너로 가로챈다.** 그래서
+ * 끌기는 시작되는데 dragend 가 우리에게 오지 않고, 「지금 끄는 중」 상태가
+ * 영영 남는다 — 글자가 흐려진 채 아무것도 안 눌리는 그 증상이다(지적: 먹통).
+ *
+ * 포인터 이벤트에는 편집기가 손댈 곳이 없다. 게다가 setPointerCapture 로
+ * 잡아 두면 up·cancel 이 **반드시** 우리에게 돌아오므로 상태가 남을 수 없다.
+ * 덤으로 손가락으로도 끌 수 있다.
+ *
+ * 누르기와 끌기는 안 싸운다 — 5px 넘게 움직여야 끌기로 친다.
+ */
+function usePtrDrag(o: {
+  /** 손가락 아래에서 찾을 것 — 예: 'th[data-ck]' */
+  sel: string
+  onStart: (key: string) => void
+  onOver: (el: HTMLElement, e: { clientX: number }) => void
+  onDrop: () => void
+  onCancel: () => void
+}) {
+  const st = useRef<{ x: number; y: number; key: string; on: boolean } | null>(null)
+  /** 방금 끈 것인가 — 끌고 났을 때 뒤따라 오는 click 을 삼키려고 본다 */
+  const moved = useRef(false)
+  const fin = (el: HTMLElement, id: number, drop: boolean) => {
+    const on = st.current?.on
+    st.current = null
+    try { el.releasePointerCapture(id) } catch { /* 이미 풀렸다 */ }
+    if (on) (drop ? o.onDrop : o.onCancel)()
+  }
+  return {
+    moved,
+    down(e: RPtr<HTMLElement>, key: string, can = true) {
+      if (!can || e.button !== 0) return
+      st.current = { x: e.clientX, y: e.clientY, key, on: false }
+      moved.current = false
+    },
+    move(e: RPtr<HTMLElement>) {
+      const s = st.current
+      if (!s) return
+      if (!s.on) {
+        if (Math.abs(e.clientX - s.x) + Math.abs(e.clientY - s.y) < 5) return
+        s.on = true
+        moved.current = true
+        try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* 지원 안 함 */ }
+        o.onStart(s.key)
+      }
+      /* 붙잡고 있으니 move 는 계속 손잡이로만 온다 — 지금 어느 칸 위인지는
+         좌표로 직접 찾는다 */
+      const t = document.elementFromPoint(e.clientX, e.clientY)
+      const hit = t ? (t.closest(o.sel) as HTMLElement | null) : null
+      if (hit) o.onOver(hit, e)
+    },
+    up(e: RPtr<HTMLElement>) { fin(e.currentTarget, e.pointerId, true) },
+    cancel(e: RPtr<HTMLElement>) { fin(e.currentTarget, e.pointerId, false) },
+  }
+}
+
 export default function NTable(p: NTableProps) {
   const {
     columns, rows, view, onView, onColumns, onCell,
@@ -205,6 +264,45 @@ export default function NTable(p: NTableProps) {
     cur.splice(to + (at.after ? 1 : 0), 0, mv)
     onColumns(cur)
   }
+  /* ── 행 끌어 옮기기 ── */
+  const dropRow = () => {
+    const ids = flatRef.current.map((x) => String(x.__id))
+    const from = ids.indexOf(String(dragRow))
+    const to = ids.indexOf(String(overRow))
+    setDragRow(null)
+    setOverRow(null)
+    if (from < 0 || to < 0 || from === to) return
+    const arr = ids.slice()
+    const [mv] = arr.splice(from, 1)
+    arr.splice(to, 0, mv!)
+    p.onReorder?.(arr)
+  }
+
+  /** 열 머리를 잡아 좌우로 */
+  const colDrag = usePtrDrag({
+    sel: 'th[data-ck]',
+    onStart: (k) => { setMenuAt(null); setDragCol(k) },
+    onOver: (el, e) => {
+      const k = el.getAttribute('data-ck') || ''
+      const r2 = el.getBoundingClientRect()
+      const after = e.clientX > r2.left + r2.width / 2
+      setOverCol((q) => (q?.key === k && q.after === after ? q : { key: k, after }))
+    },
+    onDrop: () => dropCol(),
+    onCancel: () => { setDragCol(null); setOverCol(null) },
+  })
+  /** 줄 손잡이를 잡아 위아래로 */
+  const rowDrag = usePtrDrag({
+    sel: 'tr[data-rid]',
+    onStart: (k) => setDragRow(k),
+    onOver: (el) => {
+      const k = el.getAttribute('data-rid') || ''
+      setOverRow((q) => (q === k ? q : k))
+    },
+    onDrop: () => dropRow(),
+    onCancel: () => { setDragRow(null); setOverRow(null) },
+  })
+
   /* 첫 알림은 삼킨다(지적: 탭만 바꿔도 「고른 항목 저장됨」 이 울린다) —
      마운트 직후의 알림은 부모가 준 initSelected 를 그대로 돌려주는
      메아리다. 부모는 이미 아는 값이고, 사람이 체크한 것이 아니다. */
@@ -1125,43 +1223,23 @@ export default function NTable(p: NTableProps) {
                           : 'ntb-cover-l'
                         : undefined
                     }
-                    onDragOver={
-                      dragCol
-                        ? (e) => {
-                            e.preventDefault()
-                            const r2 = e.currentTarget.getBoundingClientRect()
-                            const after = e.clientX > r2.left + r2.width / 2
-                            if (overCol?.key !== c.key || overCol.after !== after)
-                              setOverCol({ key: c.key, after })
-                          }
-                        : undefined
-                    }
-                    onDrop={
-                      dragCol
-                        ? (e) => {
-                            e.preventDefault()
-                            dropCol()
-                          }
-                        : undefined
-                    }
+                    /* 끌기는 포인터로 한다 — 손가락 아래의 열은 이 표로 찾는다 */
+                    data-ck={c.key}
                   >
                     <button
                       type="button"
                       title={c.label}
                       className={`ntb-hb${menuAt?.key === c.key ? ' on' : ''}${c.headIcon ? ' ico' : ''}${dragCol === c.key ? ' drag' : ''}`}
                       /* **열 머리를 잡아 끈다**(지시) — 누르면 메뉴, 끌면 이동.
-                         브라우저가 몇 픽셀 움직여야 끌기로 치므로 둘이 안 싸운다 */
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = 'move'
-                        setMenuAt(null)
-                        setDragCol(c.key)
-                      }}
-                      onDragEnd={() => {
-                        setDragCol(null)
-                        setOverCol(null)
-                      }}
+                         5px 넘게 움직여야 끌기로 치므로 둘이 안 싸운다 */
+                      onPointerDown={(e) => colDrag.down(e, c.key)}
+                      onPointerMove={colDrag.move}
+                      onPointerUp={colDrag.up}
+                      onPointerCancel={colDrag.cancel}
                       onClick={(e) => {
+                        /* 끌고 난 뒤 따라오는 누르기는 삼킨다 — 안 그러면
+                           열을 옮길 때마다 메뉴가 열린다 */
+                        if (colDrag.moved.current) { colDrag.moved.current = false; return }
                         const b = e.currentTarget.getBoundingClientRect()
                         setMenuAt(menuAt?.key === c.key ? null : { key: c.key, x: b.left, y: b.bottom + 4 })
                       }}
@@ -1296,38 +1374,15 @@ export default function NTable(p: NTableProps) {
                           }
                           return k
                         })()}
-                        onDragOver={
-                          canDrag && dragRow
-                            ? (e) => {
-                                e.preventDefault()
-                                if (overRow !== r.__id) setOverRow(String(r.__id))
-                              }
-                            : undefined
-                        }
-                        onDrop={
-                          canDrag && dragRow
-                            ? (e) => {
-                                e.preventDefault()
-                                const ids = flatRef.current.map((x) => String(x.__id))
-                                const from = ids.indexOf(String(dragRow))
-                                const to = ids.indexOf(String(r.__id))
-                                setDragRow(null)
-                                setOverRow(null)
-                                if (from < 0 || to < 0 || from === to) return
-                                const arr = ids.slice()
-                                const [mv] = arr.splice(from, 1)
-                                arr.splice(to, 0, mv!)
-                                p.onReorder?.(arr)
-                              }
-                            : undefined
-                        }
+                        /* 끌기는 포인터로 — 손가락 아래의 줄은 이 표로 찾는다 */
+                        data-rid={String(r.__id)}
                       >
                         <td className="ntb-gp">
                           <div className="ntb-gpin">
                             {!!p.onReorder && (
                               <span
                                 className={`ntb-grip${canDrag ? '' : ' off'}`}
-                                draggable={canDrag}
+
                                 title={
                                   canDrag
                                     ? '끌어서 시험 차례를 바꿉니다'
@@ -1351,18 +1406,10 @@ export default function NTable(p: NTableProps) {
                                           sorts: [{ key: p.reorderKey ?? '', dir: 'asc' }],
                                         })
                                 }
-                                onDragStart={(e) => {
-                                  if (!canDrag) {
-                                    e.preventDefault()
-                                    return
-                                  }
-                                  e.dataTransfer.effectAllowed = 'move'
-                                  setDragRow(String(r.__id))
-                                }}
-                                onDragEnd={() => {
-                                  setDragRow(null)
-                                  setOverRow(null)
-                                }}
+                                onPointerDown={(e) => rowDrag.down(e, String(r.__id), canDrag)}
+                                onPointerMove={rowDrag.move}
+                                onPointerUp={rowDrag.up}
+                                onPointerCancel={rowDrag.cancel}
                               >
                                 ⠿
                               </span>

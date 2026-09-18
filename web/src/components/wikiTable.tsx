@@ -161,7 +161,12 @@ function TableBody({ tid }: { tid: string }) {
         if (a === 'del') void post('/rows', { ids }, 'DELETE')
       }}
       onReorder={(ids) => void post('/rows', { order: ids })}
-      titleKey={cols[0]?.key}
+      /* **첫 열을 제목 열로 못박지 않는다**(지적: 부서는 고르는 칸인데 글자를
+         입력하게 되어 있다). 제목 열은 제 유형을 무시하고 늘 글자 상자로 열리고
+         「(제목 없음)」·「열기」 를 달고 나온다 — 여는 상세 화면이 없는 이 표에서는
+         죽은 단추이고, 첫 열을 「부서(선택)」 로 바꾸면 고를 수가 없어진다.
+         빈 이름을 주어 어느 열도 제목 취급을 받지 않게 한다. */
+      titleKey=""
       exportTitle={d?.title || '표'}
       perPage={100}
     />
