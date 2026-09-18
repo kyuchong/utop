@@ -94,8 +94,15 @@ fi
 step 4 "서버가 응답할 때까지 대기"
 URL="http://localhost:${PORT}"
 READY=0
+# 뜨는 중에는 **조용히 기다린다.**
+#
+# 갓 올라온 nginx 는 첫 두드림에서 연결을 끊는다. -S 를 켜 두면 그 한 번이
+# 「Recv failure: 상대편이 연결을 끊음」 으로 화면에 새어, 바로 아래 「준비 완료」
+# 와 나란히 선다 — 잘 된 것인데 볼 때마다 멈칫하게 된다(지적).
+# 기다리는 동안 점을 찍어 살아 있음을 보이고, 정말 안 뜨면 아래에서 원인을 짚는다.
 for _ in $(seq 1 60); do
-    if curl -fsS -o /dev/null --max-time 3 "$URL"; then READY=1; break; fi
+    if curl -fs -o /dev/null --max-time 3 "$URL" 2>/dev/null; then READY=1; break; fi
+    printf '.'
     sleep 2
 done
 
