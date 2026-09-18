@@ -885,3 +885,34 @@ CREATE INDEX IF NOT EXISTS jira_issue_upd_idx ON jira_issue (updated DESC);
 -- 통째로 들어 있으면 data->>'summary' 가 영영 안 맞아 검색이 조용히 빈다.
 -- 넣는 쪽은 고쳤고, 이미 들어간 것만 한 번 펴 준다(고쳐진 행은 안 걸린다).
 UPDATE jira_issue SET data = (data #>> '{}')::jsonb WHERE jsonb_typeof(data) = 'string';
+
+-- ══════════════════════════════════════════════════════════════════
+-- 위키 문서 안의 **표** (노션식 데이터베이스)
+--
+-- 문서에는 표의 열쇠(id)만 남기고 열·행은 여기 둔다. 문서에 통째로 담으면
+-- 칸 하나를 고칠 때마다 문서 전체가 다시 저장되고(행 500 이면 저장 한 번에
+-- 15만 자가 wiki_rev 에 영구 누적된다), 저장하는 사람이 한 명뿐이라 남이
+-- 지운 행이 낡은 창에서 되살아난다.
+--
+-- 칸 하나 고치기 = wiki_table_row 한 줄 UPDATE 다.
+-- ══════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS wiki_table (
+  id         TEXT PRIMARY KEY,                    -- 블록 props.tid 와 같은 값
+  page_id    TEXT NOT NULL DEFAULT '',            -- 어느 문서에 꽂혔나(고아 찾기)
+  title      TEXT NOT NULL DEFAULT '',
+  cols       JSONB NOT NULL DEFAULT '[]'::jsonb,  -- NCol[] — 이름·타입·폭·숨김·선택지
+  calcs      JSONB NOT NULL DEFAULT '{}'::jsonb,  -- 열쇠 → 집계 종류
+  view       JSONB NOT NULL DEFAULT '{}'::jsonb,  -- 찾기·거르기·정렬·묶기
+  updated_by TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS wiki_table_row (
+  tid        TEXT NOT NULL,
+  rid        TEXT NOT NULL,
+  ord        INTEGER NOT NULL DEFAULT 0,
+  data       JSONB NOT NULL DEFAULT '{}'::jsonb,  -- {열쇠: 값} — 값은 늘 문자열
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (tid, rid)
+);
+CREATE INDEX IF NOT EXISTS wiki_table_row_tid_idx ON wiki_table_row (tid, ord);
+CREATE INDEX IF NOT EXISTS wiki_table_page_idx ON wiki_table (page_id);

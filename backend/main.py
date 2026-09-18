@@ -10771,6 +10771,12 @@ def _wiki_plain(body) -> str:
                 out.append(" ".join(
                     str(x) for x in ("UTOP 표", p.get("view"), p.get("cycle"), p.get("project")) if x
                 ))
+            # 문서 안의 **표**도 같은 사정이다 — 열·행은 서버에 있어 블록에는
+            # 열쇠뿐이다. 표 이름만 남긴다(행 내용까지 담으면 문서 찾기가 표
+            # 한 장에 파묻힌다).
+            if v.get("type") == "utopTable":
+                p = v.get("props") or {}
+                out.append(" ".join(str(x) for x in ("표", p.get("title")) if x))
             for x in v.values():
                 walk(x)
         elif isinstance(v, list):
@@ -23286,3 +23292,101 @@ try:
     print("[startup] 자연어 시험(nl_test) 붙음 — /api/ai/nl-* · /api/ai/examples", flush=True)
 except Exception as _nl_e:  # pragma: no cover - 기동 로그로만 알린다
     print(f"[startup] 자연어 시험(nl_test) 못 붙임: {_nl_e}", flush=True)
+
+
+# ══════════════════════════════════════════════════════════════════
+# 위키 문서 안의 표 (노션식 데이터베이스)
+#
+# 문서에는 표의 열쇠만 남고 열·행은 서버에 있다. 그래야 칸 하나를 고칠 때
+# 문서 전체가 다시 저장되지 않고, 두 사람이 다른 칸을 고쳐도 서로 안 덮는다.
+# ══════════════════════════════════════════════════════════════════
+def _wtbl_who(token: str = "") -> str:
+    u = _user_from_token(token) or {}
+    return str(u.get("name") or u.get("username") or "") if isinstance(u, dict) else ""
+
+
+async def _wtbl_ping(tid: str, who: str) -> None:
+    """남의 창도 곧바로 따라오게 — 알림 실패가 저장을 되돌리지는 않는다"""
+    try:
+        await broadcast({"type": "wiki_table_updated", "tid": tid, "user": who})
+    except Exception:
+        pass
+
+
+@app.get("/api/wiki-table/{tid}")
+async def wiki_table_get(tid: str, token: str = ""):
+    """표 한 벌. **없으면 그 자리에서 만든다** — 블록이 처음 그려질 때 404 를 안 보게."""
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    head = await db.wtbl_get(tid)
+    if head is None:
+        await db.wtbl_head(tid, who=_wtbl_who(token))
+        head = await db.wtbl_get(tid) or {}
+    return {
+        "id": tid,
+        "title": head.get("title") or "",
+        "cols": head.get("cols") or [],
+        "calcs": head.get("calcs") or {},
+        "view": head.get("view") or {},
+        "rows": await db.wtbl_rows(tid),
+    }
+
+
+@app.post("/api/wiki-table/{tid}/head")
+async def wiki_table_head(tid: str, payload: dict, token: str = ""):
+    """이름·열·집계·보기 — 보낸 것만 고친다(안 보낸 칸은 그대로)."""
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    p = payload or {}
+    await db.wtbl_head(
+        tid,
+        page_id=str(p.get("page_id") or ""),
+        title=p.get("title"),
+        cols=p.get("cols"),
+        calcs=p.get("calcs"),
+        view=p.get("view"),
+        who=_wtbl_who(token),
+    )
+    await _wtbl_ping(tid, _wtbl_who(token))
+    return {"ok": True}
+
+
+@app.post("/api/wiki-table/{tid}/cell")
+async def wiki_table_cell(tid: str, payload: dict, token: str = ""):
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    p = payload or {}
+    rid = str(p.get("rid") or "").strip()
+    key = str(p.get("key") or "").strip()
+    if not rid or not key:
+        raise HTTPException(400, "줄과 칸을 알려 주세요")
+    await db.wtbl_cell(tid, rid, key, str(p.get("value") or ""))
+    await _wtbl_ping(tid, _wtbl_who(token))
+    return {"ok": True}
+
+
+@app.post("/api/wiki-table/{tid}/rows")
+async def wiki_table_rows(tid: str, payload: dict, token: str = ""):
+    """줄 더하기({seed}) 또는 차례 바꾸기({order: [rid…]})."""
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    p = payload or {}
+    order = p.get("order")
+    if isinstance(order, list) and order:
+        await db.wtbl_reorder(tid, order)
+        await _wtbl_ping(tid, _wtbl_who(token))
+        return {"ok": True}
+    rid = str(p.get("rid") or "") or f"r{int(_t.time() * 1000)}{_secrets.token_hex(3)}"
+    seed = p.get("seed")
+    await db.wtbl_row_new(tid, rid, seed if isinstance(seed, dict) else None)
+    await _wtbl_ping(tid, _wtbl_who(token))
+    return {"ok": True, "rid": rid}
+
+
+@app.delete("/api/wiki-table/{tid}/rows")
+async def wiki_table_rows_del(tid: str, payload: dict, token: str = ""):
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    n = await db.wtbl_row_del(tid, (payload or {}).get("ids") or [])
+    await _wtbl_ping(tid, _wtbl_who(token))
+    return {"ok": True, "deleted": n}

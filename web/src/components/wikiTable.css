@@ -1,0 +1,34 @@
+/* 문서 안의 표 — **제 이름(wtb-)을 쓴다.**
+ *
+ * 표 알맹이는 ntable 이 제 CSS 를 스스로 들여온다. 여기는 껍데기 여백뿐이다.
+ * 이름이 겹치면 다른 화면이 조용히 망가지므로 접두어를 나눠 쓰지 않는다.
+ */
+.wtb {
+  margin: 10px 0;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  /* 열이 많으면 문서 폭을 넘는다 — 문서가 아니라 **표가** 옆으로 흐른다 */
+  overflow-x: auto;
+}
+.wtb-top {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px 0;
+}
+.wtb-name {
+  flex: 1;
+  border: 0;
+  background: none;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--c-text);
+  padding: 2px 4px;
+  outline: none;
+}
+.wtb-name::placeholder { color: var(--c-text-faint); font-weight: 400; }
+.wtb-msg {
+  padding: 18px 12px;
+  color: var(--c-text-faint);
+  font-size: var(--fs-sm);
+}

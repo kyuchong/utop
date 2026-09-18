@@ -23,6 +23,7 @@ import { ViewSpec } from './wikiView'
 import { BoxSpec } from './wikiBox'
 import ListButtons, { BlockKindSelect } from './wikiListButtons'
 import BnSideMenuCentered from './BnSideMenuCentered'
+import { TableSpec, newTableId } from './wikiTable'
 import { patchCellBg } from './cellBg'
 import { ko } from '@blocknote/core/locales'
 import '@blocknote/core/fonts/inter.css'
@@ -81,6 +82,9 @@ html, body { height: auto !important; margin: 0 !important; background: #fff !im
 
 /* 고르기 칸·손잡이는 종이에서 할 일이 없다 */
 .wv-pick, .bn-side-menu, .bn-formatting-toolbar, select, button { display: none !important; }
+/* **다만 표의 칸은 남긴다.** 표는 ID·제목 칸을 단추로 그리므로, 위에서 단추를
+   통째로 숨기면 그 칸들이 종이에서 빈 채로 나간다. */
+.ntb-cellb { display: inline !important; }
 
 /* 제목은 **태그로** 집는다. 클래스 이름으로 집었더니 그 이름이 늘 붙는 게
    아니어서, 바깥 크기(26px)는 먹고 안쪽 h1 은 그 2배로 남았다. */
@@ -153,7 +157,7 @@ const SLASH_ORDER: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['접을 수 있는', ['접을 수 있는 목록', '접을 수 있는 제목1', '접을 수 있는 제목2', '접을 수 있는 제목3']],
   ['미디어', ['이미지', '비디오', '오디오', '파일']],
   ['기타', ['이모지']],
-  ['짚기', ['REQ · TC 짚기', 'UTOP 표 끼우기']],
+  ['짚기', ['표 만들기', 'REQ · TC 짚기', 'UTOP 표 끼우기']],
 ]
 
 /** 위 차례대로 다시 세운다. 차례에 없는 것(요구사항·시험항목·문서처럼
@@ -177,7 +181,7 @@ const SCHEMA = BlockNoteSchema.create({
   inlineContentSpecs: { ...defaultInlineContentSpecs, ref: RefSpec },
   /* 「살아 있는 표」(질의를 담는 블록) 와 **상자**(지시: Test Summary
      설명 칸 같은 블록) */
-  blockSpecs: { ...defaultBlockSpecs, utopView: ViewSpec(), utopBox: BoxSpec() },
+  blockSpecs: { ...defaultBlockSpecs, utopView: ViewSpec(), utopBox: BoxSpec(), utopTable: TableSpec() },
 })
 
 /**
@@ -1062,6 +1066,19 @@ export default function WikiEditor({
                     group: '짚기',
                     /* 「@」 를 대신 쳐 준다 — 짚는 길이 둘이면 하나는 잊힌다 */
                     onItemClick: () => editor.insertInlineContent('@'),
+                  },
+                  {
+                    title: '표 만들기',
+                    subtext: '열을 만들고 값을 채우는 표 — 거르기·정렬·합계가 됩니다',
+                    group: '짚기',
+                    /* 열쇠는 **넣는 이 자리에서** 짓는다. 그리는 쪽에서 지으면
+                       다시 그릴 때마다 새 표가 되어 앞서 적은 것이 사라진다 */
+                    onItemClick: () =>
+                      editor.insertBlocks(
+                        [{ type: 'utopTable', props: { tid: newTableId() } } as unknown as PartialBlock],
+                        editor.getTextCursorPosition().block,
+                        'after',
+                      ),
                   },
                   {
                     title: 'UTOP 표 끼우기',

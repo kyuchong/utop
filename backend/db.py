@@ -3234,3 +3234,109 @@ async def defect_update(did: str, patch: dict):
 async def defect_delete(did: str) -> bool:
     async with pool().acquire() as c:
         return (await c.execute("DELETE FROM defect WHERE id=$1", did)).endswith(" 1")
+
+
+# ══════════════════════════════════════════════════════════════════
+# 위키 문서 안의 표 (노션식)
+#
+# 문서에는 열쇠만 남기고 열·행은 여기 둔다 — 까닭은 db/schema.sql 주석 참고.
+# **jsonb 는 dumps 하지 않는다.** 이 커넥션에 코덱이 걸려 있어 한 번 더 감싸면
+# JSONB 안에 문자열이 통째로 들어가고, 그러면 data->>'부서' 가 영영 안 맞는다.
+# ══════════════════════════════════════════════════════════════════
+async def wtbl_get(tid: str) -> Optional[dict]:
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "SELECT id, page_id, title, cols, calcs, view FROM wiki_table WHERE id=$1", tid
+        )
+        return dict(r) if r else None
+
+
+async def wtbl_head(tid: str, *, page_id: str = "", title: Optional[str] = None,
+                    cols=None, calcs=None, view=None, who: str = "") -> None:
+    """표 머리(이름·열·집계·보기) 저장. 없으면 만든다."""
+    async with pool().acquire() as c:
+        await c.execute(
+            """
+            INSERT INTO wiki_table (id, page_id, title, cols, calcs, view, updated_by)
+            VALUES ($1, $2, COALESCE($3,''), COALESCE($4,'[]'::jsonb),
+                    COALESCE($5,'{}'::jsonb), COALESCE($6,'{}'::jsonb), $7)
+            ON CONFLICT (id) DO UPDATE SET
+              page_id    = CASE WHEN EXCLUDED.page_id <> '' THEN EXCLUDED.page_id
+                                ELSE wiki_table.page_id END,
+              title      = COALESCE($3, wiki_table.title),
+              cols       = COALESCE($4, wiki_table.cols),
+              calcs      = COALESCE($5, wiki_table.calcs),
+              view       = COALESCE($6, wiki_table.view),
+              updated_by = $7,
+              updated_at = now()
+            """,
+            tid, page_id, title, cols, calcs, view, who,
+        )
+
+
+async def wtbl_rows(tid: str) -> list[dict]:
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT rid, ord, data FROM wiki_table_row WHERE tid=$1 ORDER BY ord, rid", tid
+        )
+        out = []
+        for r in rows:
+            d = dict(r["data"] or {})
+            d["__id"] = r["rid"]
+            out.append(d)
+        return out
+
+
+async def wtbl_cell(tid: str, rid: str, key: str, value: str) -> None:
+    """칸 하나만 고친다 — 표 전체를 다시 쓰지 않는다."""
+    async with pool().acquire() as c:
+        await c.execute(
+            "UPDATE wiki_table_row SET data = jsonb_set(data, ARRAY[$3], to_jsonb($4::text)),"
+            " updated_at = now() WHERE tid=$1 AND rid=$2",
+            tid, rid, key, str(value or ""),
+        )
+
+
+async def wtbl_row_new(tid: str, rid: str, data: Optional[dict] = None) -> None:
+    async with pool().acquire() as c:
+        nxt = await c.fetchval(
+            "SELECT COALESCE(max(ord), 0) + 1 FROM wiki_table_row WHERE tid=$1", tid
+        )
+        await c.execute(
+            "INSERT INTO wiki_table_row (tid, rid, ord, data) VALUES ($1,$2,$3,COALESCE($4,'{}'::jsonb))"
+            " ON CONFLICT (tid, rid) DO NOTHING",
+            tid, rid, int(nxt or 1), data,
+        )
+
+
+async def wtbl_row_del(tid: str, ids: list) -> int:
+    if not ids:
+        return 0
+    async with pool().acquire() as c:
+        r = await c.execute(
+            "DELETE FROM wiki_table_row WHERE tid=$1 AND rid = ANY($2::text[])",
+            tid, [str(x) for x in ids],
+        )
+        try:
+            return int(str(r).rsplit(" ", 1)[-1])
+        except Exception:
+            return 0
+
+
+async def wtbl_reorder(tid: str, ids: list) -> None:
+    """끌어서 바꾼 차례를 굳힌다 — 화면이 보낸 차례가 곧 ord 다."""
+    if not ids:
+        return
+    async with pool().acquire() as c:
+        async with c.transaction():
+            for i, rid in enumerate(ids, 1):
+                await c.execute(
+                    "UPDATE wiki_table_row SET ord=$3 WHERE tid=$1 AND rid=$2", tid, str(rid), i
+                )
+
+
+async def wtbl_drop(tid: str) -> None:
+    async with pool().acquire() as c:
+        async with c.transaction():
+            await c.execute("DELETE FROM wiki_table_row WHERE tid=$1", tid)
+            await c.execute("DELETE FROM wiki_table WHERE id=$1", tid)

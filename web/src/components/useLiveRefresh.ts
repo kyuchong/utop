@@ -10,6 +10,8 @@ interface Msg {
   id?: string
   cycle_id?: string
   user?: string
+  /** 문서 안의 표 열쇠 */
+  tid?: string
 }
 
 /**
@@ -30,6 +32,12 @@ interface Msg {
  */
 function invalidate(qc: QueryClient, m: Msg) {
   const t = m.type ?? ''
+
+  // ── 문서 안의 표 — 남이 고친 칸이 곧바로 내 화면에도 온다
+  if (t === 'wiki_table_updated') {
+    if (m.tid) void qc.invalidateQueries({ queryKey: ['wiki-tbl', m.tid] })
+    return
+  }
 
   // ── 시험
   if (t === 'tc_updated' || t === 'tc_deleted') {
