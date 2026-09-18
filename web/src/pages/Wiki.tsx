@@ -352,7 +352,7 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
             {/* **옮기기** — 끌어 옮기기는 편집기가 가로채 끝나지 않아서 두지 않는다.
                 폴더가 수십 개면 여기서 고르는 편이 빠르기도 하다. */}
             <div className="wk-menuh">옮기기</div>
-            <div className="wk-menuprjs">
+            <div className="wk-menuprjs wk-menumv">
               <button
                 type="button"
                 role="menuitem"
