@@ -9549,3 +9549,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   font-size: var(--fs-md);
 }
 .ask-msgs .ask-think .ask-spin { width: 14px; height: 14px; flex: none; }
+
+/* Test AI 스텝 표의 가로 줄 선(지적: 없다) — 선은 있었지만 #dde3e9 는
+   「있는 줄 모르는」 색이었다. 이 화면에서만 한 단 진하게 올린다. */
+.ask-two .sq { --sq-line: #c6ced6; }

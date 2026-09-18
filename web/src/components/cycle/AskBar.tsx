@@ -554,12 +554,6 @@ export default function AskBar({ devices }: Props) {
   /** 판정 색은 **설정이 정본**이다 — 여기서 초록·빨강을 따로 박으면
       설정을 바꿔도 이 띠만 옛 색으로 남는다 */
   const resDefs = useResults()
-  /** 작업 흐름 레일을 펴 두었나 — 좁은 화면에서 250~330px 를 물고 있는데
-      접을 길이 없었다(지적). 계정에 남는다. */
-  const [railOpen, setRailOpen] = useState(() => prefGet('utop.ai.rail') !== '0')
-  useEffect(() => {
-    prefSet('utop.ai.rail', railOpen ? '1' : '0')
-  }, [railOpen])
   const logRef = useRef<HTMLElement | null>(null)
   const seqRef = useRef<HTMLElement | null>(null)
   /** 명령어 캡쳐 — 세부 칸을 통째로 바꾼다(Coverage 와 같은 자리) */
@@ -572,8 +566,7 @@ export default function AskBar({ devices }: Props) {
   /** 한 일 한 줄 — `s` 는 **어느 단계의 일인가**.
    *  이걸 안 달면 모든 줄이 1단계(장비 선택) 밑에 쌓여 지금 어디를 하는지
    *  알 수 없다(지적). */
-  const [flowLogRaw, setFlowLogRaw] = useState<Array<{ s: number; t: string }>>([])
-  const flowLog = flowLogRaw
+  const [, setFlowLogRaw] = useState<Array<{ s: number; t: string }>>([])
   /** 흐름을 적는 곳은 여기 하나 — 적는 즉시 flowRef 도 따라간다 */
   const setFlowLog = (
     up: Array<{ s: number; t: string }> | ((v: Array<{ s: number; t: string }>) => Array<{ s: number; t: string }>),
@@ -584,8 +577,7 @@ export default function AskBar({ devices }: Props) {
       return n
     })
   const valsRef = useRef<Array<{ k: string; v: string }>>([])
-  const [flowValsRaw, setFlowValsRaw] = useState<Array<{ k: string; v: string }>>([])
-  const flowVals = flowValsRaw
+  const [, setFlowValsRaw] = useState<Array<{ k: string; v: string }>>([])
   const setFlowVals = (
     up: Array<{ k: string; v: string }> | ((v: Array<{ k: string; v: string }>) => Array<{ k: string; v: string }>),
   ) =>
@@ -595,7 +587,7 @@ export default function AskBar({ devices }: Props) {
       return n
     })
   /** 지금 도는 단계 (0 = 안 돎) — 흐름 칸이 이걸로 「진행 중」 을 보인다 */
-  const [flowAt, setFlowAt] = useState(0)
+  const [, setFlowAt] = useState(0)
   /** 이 대화의 id — 최근 목록에 남길 때 쓴다 */
   const [chatId, setChatId] = useState('')
   /** 절차를 짓는 동안 「지금 무엇을 하는 중인가」 — 「생성 중」 만 띄우면
@@ -693,34 +685,12 @@ export default function AskBar({ devices }: Props) {
   /* 「고른 장비 것만」 은 **켜 두는 것이 기본**이다(지시). 꺼져 있어서
      E4020-48T 를 골랐는데 E6100·U9532H 항목이 그대로 떴다. */
   const [tcOnlyModel, setTcOnlyModel] = useState(true)
-  /** 접어 둔 단계 — 다 끝난 단계는 접어 치울 수 있다 */
-  const [fold, setFold] = useState<Set<number>>(new Set())
   /** 랙 자리(구역·랙) — 어느 장비인지 고를 때 자리로 가른다 */
   const [rackMap, setRackMap] = useState<Map<string, { lab: string; rack: string; pos?: number }>>(
     new Map(),
   )
 
   const usable = devices.filter((d) => d.role !== '계측기')
-
-  /**
-   * 작업 흐름 — 이 시험이 어느 단계를 거치나.
-   *
-   * 옮겨 온 화면이 늘 다섯 단계로 말한다(장비 선택 · 포트 연결 · 트래픽 설정 ·
-   * 트래픽 확인 · 생성 완료). 트래픽이 없는 시험은 가운데 셋을 건너뛰므로,
-   * **건너뛴 까닭까지** 함께 적는다 — 왜 안 하는지 모르면 빠진 것처럼 보인다.
-   */
-  const wantsTraffic = (q: string) =>
-    /트래픽|계측기|손실|대역|rate|bps|throughput|스트림|부하/i.test(q)
-  const stages = (q: string, made: boolean) => {
-    const tr = wantsTraffic(q)
-    return [
-      { n: 1, name: '장비 선택', skip: '' },
-      { n: 2, name: '포트 연결', skip: tr ? '' : '한 대만 보는 시험이라 건너뜁니다' },
-      { n: 3, name: '트래픽 설정', skip: tr ? '' : '트래픽이 없어 건너뜁니다' },
-      { n: 4, name: '트래픽 확인', skip: tr ? '' : '트래픽이 없어 건너뜁니다' },
-      { n: 5, name: '생성 완료', skip: '', done: made },
-    ]
-  }
 
   /*
    * 시험 항목 창이 열리면 골라 둔 마디로 굴린다.
@@ -2188,7 +2158,6 @@ export default function AskBar({ devices }: Props) {
   const curDev = usable.find((d) => d.id === devId)
   const devName = curDev?.name || curDev?.model || '장비'
   const devIp = curDev?.ip ?? ''
-  const flow = stages(asked || text || draft?.name || '', !!draft)
 
   return (
     /* 세 칸 + 아래 입력줄 — 옮겨 온 화면의 짜임을 우리 꼴(panel·btn·토큰)로 다시 그렸다.
@@ -2208,18 +2177,6 @@ export default function AskBar({ devices }: Props) {
             </span>
             {asked && <span className="ask-top-q" title={asked}>{asked}</span>}
             <span className="sp" />
-            {/* **레일 여닫기**(지시: ▤ AI 작업). 첫 화면의 도구줄(.ask-hometools)
-                에 두면 절대 안 보인다 — 그 칸은 통째로 「일이 시작되기 전」 조건
-                안이라 일이 시작되면 사라진다. 늘 누르던 자리인 이 줄에 세운다. */}
-            <button
-              className={`btn small${railOpen ? ' on' : ''}`}
-              type="button"
-              aria-pressed={railOpen}
-              title={railOpen ? '작업 흐름 접기' : '작업 흐름 펴기'}
-              onClick={() => setRailOpen((v) => !v)}
-            >
-              ▤ AI 작업
-            </button>
             <button
               className="btn small"
               type="button"
@@ -2375,192 +2332,7 @@ export default function AskBar({ devices }: Props) {
         <div className="ask-cols">
           {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
           {/* 작업 흐름 — 아직 아무 일도 없으면 빈 판이라 첫 화면을 좁힐 뿐이다 */}
-          {(draft || making) && railOpen && (
-          <section className="ask-rail">
-            <div className="ask-rail-head">
-              <b>작업 흐름</b>
-              {/* 지금 어느 시험을 만지는 중인지 — 머리만 봐서는 몰랐다(지적) */}
-              {!!tcOf(draft) && <em className="ask-rail-tc">{tcOf(draft)}</em>}
-              <em className="muted small">
-                {flowAt > 0
-                  ? `${flowAt}단계 진행 중`
-                  : draft
-                    ? '절차 준비됨'
-                    : '대기 중'}
-              </em>
-              <button
-                type="button"
-                className="ask-rail-x"
-                title="접기 — 위쪽 「▤ AI 작업」 으로 다시 폅니다"
-                aria-label="작업 흐름 접기"
-                onClick={() => setRailOpen(false)}
-              >
-                ✕
-              </button>
-            </div>
-            {/* 질문하기 전에는 안내만. 물어보면 그때부터 **한 일**이 쌓이고,
-                만들어지면 그 기록이 그대로 남는다(지적). */}
-            {flowLog.length === 0 ? (
-              <p className="ask-rail-say muted small">
-                흐름은 항상 5단계입니다 — 장비 선택 · 포트 연결 · 트래픽 설정 · 트래픽 확인 ·
-                생성 완료.
-                <br />
-                무엇을 시험할지 적으면 여기에 진행 상황이 쌓입니다.
-              </p>
-            ) : (
-              <div className="ask-stages">
-                {flow.map((st) => {
-                  const first = st.n === 1
-                  const last = st.n === 5
-                  /* 이 단계가 지금 어떤가 — 도는 중·끝남·건너뜀·아직.
-                     한꺼번에 다 켜 두면 어디까지 왔는지 알 수 없다(지적). */
-                  const state = st.skip
-                    ? 'skip'
-                    : flowAt === st.n
-                      ? 'run'
-                      : last
-                        ? draft
-                          ? 'done'
-                          : 'wait'
-                        : first
-                          ? flowAt > 1 || draft || flowVals.length > 0
-                            ? 'done'
-                            : 'run'
-                          : 'wait'
-                  const on = state === 'done' || state === 'run'
-                  /* 이 단계의 일만 골라 온다 — 줄마다 단계를 달아 두었다 */
-                  const mine = flowLog.filter((l) => l.s === st.n)
-                  /* 마지막 줄이 「…중…」 이면 그게 지금 도는 일이다.
-                     그 줄만 살아 움직이고, 나머지는 ✔ 로 굳는다. */
-                  const runAt = mine.length - 1
-                  const running = state === 'run' && (mine[runAt]?.t ?? '').endsWith('중…')
-                  const body = last && plan5 ? true : mine.length > 0
-                  const folded = fold.has(st.n)
-                  return (
-                    <div
-                      key={st.n}
-                      className={`ask-stage ${state}${on ? ' on' : ''}`}
-                    >
-                      <div className="ask-stagehd">
-                        <i>{state === 'done' ? '✔' : st.n}</i>
-                        <b>{st.name}</b>
-                        <span className="sp" />
-                        {state === 'skip' && <em className="ask-stageskip">건너뜀</em>}
-                        {state === 'run' && <em className="ask-stagerun">● 진행 중</em>}
-                        {state === 'done' && !body && <em className="ask-stagedone">완료</em>}
-                        {state === 'done' && body && (
-                          <button
-                            type="button"
-                            className="ask-stagefold"
-                            onClick={() =>
-                              setFold((v) => {
-                                const n2 = new Set(v)
-                                if (n2.has(st.n)) n2.delete(st.n)
-                                else n2.add(st.n)
-                                return n2
-                              })
-                            }
-                          >
-                            {folded ? '펴기' : '접기'}
-                          </button>
-                        )}
-                      </div>
-                      {st.skip ? (
-                        <div className="ask-stagesay">{st.skip}</div>
-                      ) : folded || !body ? null : (
-                        <div className="ask-stagebody">
-                          {/* ✔ 줄은 한 자리에 모은다. 가져오며 바꾼 것도 「한 일」
-                              이다 — 정한 값을 사이에 끼우면 ✔ 가 두 토막이 난다
-                              (지적). */}
-                          {(mine.length > 0 || (last && rev > 0 && notes5.length > 0)) && (
-                            <>
-                              <div className="ask-stagesay">한 일</div>
-                              {/* 끝난 줄 → 굳은 사실 → **도는 줄은 맨 아래.**
-                                  가운데 끼면 다음 일이 벌써 끝난 것처럼 읽힌다 */}
-                              <ul className="ask-did">
-                                {mine.map((l, k) =>
-                                  running && k === runAt ? null : (
-                                    <li key={k}>
-                                      <i>✔</i>
-                                      <span>{l.t}</span>
-                                    </li>
-                                  ),
-                                )}
-                                {last &&
-                                  notes5.slice(0, rev).map((n, k) => (
-                                    <li key={`n${k}`}>
-                                      <i>✔</i>
-                                      <span>{n}</span>
-                                    </li>
-                                  ))}
-                                {running && (
-                                  <li className="now">
-                                    <i />
-                                    <span>{genSay || mine[runAt]?.t}</span>
-                                  </li>
-                                )}
-                              </ul>
-                            </>
-                          )}
-                          {first && flowVals.length > 0 && (
-                            <>
-                              <div className="ask-stagesay">정한 값</div>
-                              {flowVals.map((v) => (
-                                <div className="ask-val" key={v.k}>
-                                  <i>{v.k}</i>
-                                  <code>{v.v}</code>
-                                </div>
-                              ))}
-                            </>
-                          )}
-                          {/* 5단계는 만들어진 것을 그대로 편다 — 무엇이 몇 개
-                              나왔고 어떤 명령이 들었는지 여기서 다 보인다 */}
-                          {last && plan5 && (
-                            <>
-                              <div className="ask-stagesay">정한 값</div>
-                              <div className="ask-fact">
-                                절차 <b>{plan5.steps.length}스텝</b> · 판정 기준{' '}
-                                <b>{plan5.steps.filter((x) => (x.criteria ?? '').trim()).length}개</b>
-                              </div>
-                              <div className="ask-fact">
-                                단계 <b>{flow.filter((f2) => !f2.skip).length}개 사용</b> ·{' '}
-                                {flow.filter((f2) => !!f2.skip).length}개 건너뜀
-                              </div>
-                              {done5 && rev > notes5.length && (
-                                <>
-                                  <div className="ask-stagesay">
-                                    만든 스텝 {Math.min(rev - notes5.length, plan5.steps.length)}
-                                    {rev < revTotal ? ` / ${plan5.steps.length}` : '개'}
-                                  </div>
-                                  <ol className="ask-mini">
-                                    {plan5.steps.slice(0, rev - notes5.length).map((x, k) => (
-                                      <li key={k}>
-                                        <i>{k + 1}</i>
-                                        <code>
-                                          {x.cli ||
-                                            x.oid ||
-                                            (x.kind === 'diff'
-                                              ? `${x.cmpLeft ?? ''} ${x.cmpOp || '=='} ${x.cmpRight ?? ''}`.trim()
-                                              : '') ||
-                                            x.desc ||
-                                            '—'}
-                                        </code>
-                                      </li>
-                                    ))}
-                                  </ol>
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </section>
-          )}
+          {/* 작업 흐름 레일은 걷었다(지시: 필요 없어) — 한 일은 대화 말풍선이 이미 말한다 */}
 
           <div className={`ask-canvaswrap${draft ? ' plan' : ''}`}>
           <main className={`ask-canvas${draft ? ' plan' : ''}${busy ? ' busy' : ''}`}>
@@ -3649,6 +3421,9 @@ export default function AskBar({ devices }: Props) {
                              머리줄을 켜면 묶음마다 서고 전부 sticky 라
                              스크롤할 때 서로 겹친다 */
                           head={false}
+                          /* 판정◎·결과서▤·로그☰ 칸은 걷는다(지시) — 이 화면엔
+                             결과서도 판정 편집도 없어 늘 죽은 칸이었다 */
+                          slim
                           steps={seqSteps.slice(from, to)}
                           selected={stepAt >= from && stepAt < to ? stepAt - from : -1}
                           onSelect={(i) => setStepAt(from + i)}

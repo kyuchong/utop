@@ -48,6 +48,9 @@ interface Props {
    * 고쳐진다 — 옛 화면이 그렇게 틀렸다.
    */
   hide?: (s: TcStep) => boolean
+  /** 판정◎ · 결과서▤ · 로그☰ 세 칸을 걷은 홀쭉한 표(지시: Test AI).
+      그 화면에는 결과서도 판정 편집도 없어 세 칸이 늘 죽은 칸이었다. */
+  slim?: boolean
   /** 「＋스텝」 에 내놓을 종류 고르기 — SETUP 의 TC Step Action */
   addKinds?: (k: string) => boolean
   /** 이 스텝만 실행 */
@@ -96,6 +99,7 @@ export default function TcSequence({
   picked,
   onPick,
   hide,
+  slim = false,
   addKinds,
   onRun,
   readOnly = false,
@@ -410,7 +414,7 @@ export default function TcSequence({
 
   return (
     <div
-      className={`sq${readOnly ? ' sq-ro' : ''}`}
+      className={`sq${readOnly ? ' sq-ro' : ''}${slim ? ' slim' : ''}`}
       style={
         {
           /* 판정을 **번호 옆**에 둔다(지시·합의). 서른 줄에서 「어디서
@@ -426,7 +430,8 @@ export default function TcSequence({
              그 최소폭을 밀어올려 명령 칸만 커진다 — 재 보니 194 : 134 로
              벌어졌다. 0 으로 두면 걸침이 열 폭에 끼어들지 못한다. */
           '--sq-cols': [
-            '26px 30px 30px 30px 30px 40px 60px 190px',
+            /* slim — 판정◎·결과서▤·로그☰ 세 칸(30px×3)이 빠진다 */
+            slim ? '26px 30px 40px 60px 190px' : '26px 30px 30px 30px 30px 40px 60px 190px',
             sumW ? `minmax(0, ${sumW}px)` : 'minmax(0, 1fr)',
             dscW ? `minmax(${dscW}px, 1fr)` : 'minmax(0, 1fr)',
           ].join(' '),
@@ -461,6 +466,8 @@ export default function TcSequence({
                 )}
               </span>
               <span title="이 줄만 실행">▶</span>
+              {!slim && (
+              <>
               <span title="판정 기준이 걸린 줄">◎</span>
               {/* PPTX 아이콘(지시) — 동그라미로는 무엇을 고르는 칸인지
                   알 수 없었다. 결과서 장표를 뜻하는 그림으로 세운다. */}
@@ -511,6 +518,8 @@ export default function TcSequence({
                   <path d="M2.6 4.2h10.8M2.6 7.3h10.8M2.6 10.4h7.2M2.6 13.5h4.8" />
                 </svg>
               </span>
+              </>
+              )}
               <span title="세션 — 어느 장비로 나가나">⇄</span>
               <span title="스텝 번호">№</span>
               <span title="동작 — 이 줄이 하는 일">⚙</span>
@@ -671,6 +680,8 @@ export default function TcSequence({
                 {/* **판정 기준이 걸린 줄**(지시) — 이 칸은 본디 ⋯ 였는데,
                     그 판이 하던 세션·대기는 오른쪽 판이 이미 한다.
                     무엇이 판정을 내는 줄인지가 훨씬 자주 찾는 것이다. */}
+                {!slim && (
+                <>
                 <span className="sq-judc">
                   {ruleN(s) > 0 && (
                     <i className="sq-jud" title={`판정 기준 ${ruleN(s)}개`}>
@@ -707,6 +718,8 @@ export default function TcSequence({
                     onChange={() => onPatch?.(i, { log: !stepLogOn(s) })}
                   />
                 </span>
+                </>
+                )}
                 {/* ▶ 와 ⋯ 은 **각각 제 칸**이다(지시: 제목이 없다).
                     한 칸에 둘을 넣으면 머리줄에 제목을 하나밖에 못 달고,
                 {/* 상태 기호(✔·✖·○)는 뺐다 — 줄 끝의 PASS·FAIL 글자와 같은

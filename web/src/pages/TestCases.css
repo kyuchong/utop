@@ -3976,6 +3976,8 @@ html .tc-split > .tc-content {
    글이 서는 자리(명령·내용 ~ 절차 설명)부터 통짜 한 줄로 쓴다. */
 /* 실행 로그 칸이 하나 늘어 글 자리는 9열부터다(승인) */
 .sq-row.note > .sq-sum { grid-column: 9 / -1; border-right: 0; }
+/* slim(Test AI) 은 판정·결과서·로그 세 칸이 빠져 열이 일곱이다 — 걸침도 당긴다 */
+.sq.slim .sq-row.note > .sq-sum { grid-column: 6 / -1; }
 .sq-row.note > .sq-dsc { display: none; }
 
 /* 좁은 칸들에도 세로선(지시). 끝 칸(결과)만 뺀다 — 표 테두리가 그 자리다 */
