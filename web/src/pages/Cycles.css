@@ -9072,3 +9072,19 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* 고른 것은 **체크로만** 알린다(사진) — 줄에 바탕색까지 깔면 가리키는
    줄과 고른 줄이 서로 다투어, 지금 어디에 손이 있는지 흐려진다 */
 .ta-pickit .ck { width: 15px; height: 15px; flex: none; margin-left: auto; color: var(--c-primary, #0e7490); }
+
+/* ── Test AI · 고른 줄 띠 ────────────────────────────────────────────────
+   Coverage 의 .sq-bulk 와 **같은 일**을 하지만 이 화면 전용이다. 이름을
+   나누는 까닭: Cycles.css 는 9천 줄이라 맨몸 이름을 더하면 이웃 화면이
+   조용히 망가진다(이 파일에서 이미 겪었다). */
+.ask-sqbulk {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border-top: 1px solid var(--c-border-soft, var(--c-border));
+  background: var(--c-primary-bg-soft, var(--c-primary-bg));
+}
+.ask-sqbulk b { font-size: var(--fs-sm); margin-right: 4px; }
+.ask-sqbulk .sp { flex: 1; }

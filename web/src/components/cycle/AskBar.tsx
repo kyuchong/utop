@@ -17,6 +17,7 @@ import { Fragment } from 'react'
 import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTerminal from '@/components/tc/TcTerminal'
+import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IconCli } from '@/components/icons'
 import type { StepKind, TcStep } from '@/components/tc/types'
@@ -286,6 +287,12 @@ export default function AskBar({ devices }: Props) {
   const [ran, setRan] = useState<TcStep[] | null>(null)
   /** 여러 줄 고르기 — Coverage 목록 부품이 쓴다 */
   const [picked, setPicked] = useState<Set<number>>(new Set())
+  /* **실행 로그** — 여태 버리고 있었다(onLog 가 빈 함수였다). 장비가 실제로
+     무엇을 뱉었는지 원문을 못 보면, 판정이 틀렸을 때 까닭을 확인할 길이 없다
+     (지적). Coverage 화면에는 있는데 이 화면만 없었다. */
+  const [logs, setLogs] = useState<LogLine[]>([])
+  const [logOnly, setLogOnly] = useState(false)
+  const logN = useRef(0)
   const [at, setAt] = useState(-1)
   const [running, setRunning] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
@@ -476,6 +483,9 @@ export default function AskBar({ devices }: Props) {
   }
   /** 스텝 목록 폭 — Coverage 와 같은 조절바(목업) */
   const [seqW, setSeqW] = useResizableWidth('utop.ai.seqw', 560, 340, 1000)
+  /** 실행 로그 판 폭 — 판이 셋이 되었으므로 이것도 잡을 수 있어야 한다 */
+  const [logW, setLogW] = useResizableWidth('utop.ai.logw', 330, 240, 720)
+  const logRef = useRef<HTMLElement | null>(null)
   const seqRef = useRef<HTMLElement | null>(null)
   /** 명령어 캡쳐 — 세부 칸을 통째로 바꾼다(Coverage 와 같은 자리) */
   const [termOpen, setTermOpen] = useState(false)
@@ -780,13 +790,14 @@ export default function AskBar({ devices }: Props) {
     try {
       const picked = dev ?? usable.find((x) => x.id === devId)
       const r = await apiFetch(
-        `/api/ai/nl-tc-like?text=${encodeURIComponent(q.trim())}&model=${encodeURIComponent(picked?.model ?? '')}`,
+        `/api/ai/nl-tc-like?text=${encodeURIComponent(q.trim())}&model=${encodeURIComponent(picked?.model ?? '')}&limit=5`,
       )
       const b = (await r.json()) as {
         ok?: boolean
         items?: Array<{ tcid: string; name: string; model?: string; steps?: number }>
       }
-      const items = b.ok && Array.isArray(b.items) ? b.items.slice(0, 3) : []
+      /* 다섯까지 본다(목업) — 셋만 보이면 넷째·다섯째에 있던 정답을 못 만난다 */
+      const items = b.ok && Array.isArray(b.items) ? b.items.slice(0, 5) : []
       setLike(items)
       return items.length
     } catch {
@@ -1619,6 +1630,9 @@ export default function AskBar({ devices }: Props) {
     /* 「일반」 갈래는 원본을 그대로 넘긴다 — 옮겨 적는 순간 무언가 빠진다 */
     const steps: TcStep[] = toTcSteps(draft)
     setRan(steps.slice())
+    /* 새로 돌리면 앞 판 로그는 지운다 — 섞이면 어느 실행의 응답인지 모른다 */
+    setLogs([])
+    logN.current = 0
     setRunning(true)
     setAt(-1)
     try {
@@ -1634,7 +1648,35 @@ export default function AskBar({ devices }: Props) {
             setRan(steps.slice())
           },
           onAt: setAt,
-          onLog: () => {},
+          onLog: (l) => {
+            const at = new Date()
+            setLogs((prev) => {
+              const line: LogLine = {
+                n: ++logN.current,
+                i: l.i,
+                kind: l.kind,
+                label: l.label,
+                text: l.text,
+                round: l.round,
+                tick: l.tick,
+                /* 날짜까지 적는다 — 시·분·초만 두면 어제 것인지 방금 것인지
+                   갈리지 않는다(Coverage 와 같은 꼴) */
+                at: `${String(at.getFullYear()).slice(2)}/${String(at.getMonth() + 1).padStart(2, '0')}/${String(at.getDate()).padStart(2, '0')} ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}:${String(at.getSeconds()).padStart(2, '0')}`,
+              }
+              /* 제자리에서 갱신되는 줄(Wait 의 남은 시간)은 **맨 끝일 때만**
+                 갈아 끼운다 — 로그 전체를 뒤지면 지난 실행의 대기 줄을 찾아
+                 덮어써서 로그가 뒤섞인다 */
+              const last = prev.length - 1
+              if (l.tick && last >= 0 && prev[last]!.tick === l.tick) {
+                const cp = prev.slice()
+                cp[last] = { ...line, n: prev[last]!.n }
+                return cp
+              }
+              /* 폭주 막이 — 100회 반복이면 수천 줄이 된다 */
+              const next = [...prev, line]
+              return next.length > 4000 ? next.slice(next.length - 4000) : next
+            })
+          },
           signal: ac.signal,
         },
         typeof only === 'number' ? only : typeof from === 'number' ? from : 0,
@@ -1894,16 +1936,25 @@ export default function AskBar({ devices }: Props) {
             <button
               className="btn small"
               type="button"
-              title="첫 화면으로 돌아갑니다 — 만든 절차는 버려집니다"
+              title="첫 화면으로 돌아갑니다 — 만든 절차와 물어본 말이 버려집니다"
               onClick={() => {
                 setDraft(null)
                 setBuilt(null)
                 setRan(null)
                 setAsked('')
                 setErr('')
+                /* **이번 판의 찌꺼기까지 비운다**(지적: 눌러도 앞의 것이 남는다).
+                   흐름 기록·고른 스텝·물어본 글이 남으면 다음 물음이 그 위에서
+                   굴러간다. 다만 고른 장비(devId)와 켠 도구(tOn)는 **남긴다** —
+                   그 둘은 계정 설정을 따라가는 값이라, 여기서 비우면 「내 설정이
+                   사라졌다」 가 된다. */
+                setFlowLogRaw([])
+                setPicked(new Set())
+                setLike([])
+                setText('')
               }}
             >
-              처음으로
+              ↺ 처음으로
             </button>
           </div>
         )}
@@ -1976,6 +2027,19 @@ export default function AskBar({ devices }: Props) {
           >
             ▭ {curDev ? `${curDev.model || curDev.name || ''} · ${curDev.ip}` : '장비를 고르세요'}
           </button>
+          {/* **여기부터**(지시) — 가운데서 깨졌을 때 처음부터 다시 돌리지 않게.
+              엔진은 이미 구간을 받는다(run(only, from, to)), 단추만 없었다. */}
+          {!running && stepAt > 0 && (
+            <button
+              className="btn small"
+              type="button"
+              disabled={!draft.steps.length || !devId}
+              title={`고른 ${stepAt + 1}번 줄부터 끝까지 돌립니다`}
+              onClick={() => void run(undefined, stepAt)}
+            >
+              ▶ 여기부터
+            </button>
+          )}
           {running ? (
             <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
               ⏹ 멈추기
@@ -1987,7 +2051,8 @@ export default function AskBar({ devices }: Props) {
               disabled={!draft.steps.length || !devId}
               onClick={() => void run()}
             >
-              ▷ 시험 시작
+              {/* 다 돌린 뒤에도 「시험 시작」 이면 끝났는지 아직인지 모른다(지적) */}
+              {ran && ran.some((x) => x && (x.status || x.repeatResult)) ? '▷ 다시 시험' : '▷ 시험 시작'}
             </button>
           )}
           {ran && !running && (
@@ -2382,7 +2447,11 @@ export default function AskBar({ devices }: Props) {
                 className="ask-askin2"
                 value={text}
                 disabled={exEdit}
-                placeholder={'UBIQUOSS Test Assistant'}
+                placeholder={
+                  mode === 'adv'
+                    ? '만들 시험을 설명하세요 — 대상 장비, 스텝, 판정 기준'
+                    : 'UBIQUOSS Test Assistant'
+                }
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.nativeEvent.isComposing) return
@@ -3196,6 +3265,28 @@ export default function AskBar({ devices }: Props) {
                         </div>
                       )
                     })()}
+                    {/* **고른 줄 띠**(지시) — 체크는 그려지는데 그 다음에 누를
+                        단추가 없어서 여러 줄 고르기가 아무 일도 안 했다.
+                        목록 **아래**에 둔다: 위에 두면 띠가 서는 순간 방금 누른
+                        칸이 손 밑에서 아래로 달아난다. */}
+                    {picked.size > 0 && (
+                      <div className="ask-sqbulk">
+                        <b>스텝 {picked.size}개</b>
+                        <span className="sp" />
+                        <button
+                          className="btn small primary"
+                          type="button"
+                          disabled={running || !devId}
+                          title="고른 줄 중 첫 줄부터 끝까지 돌립니다"
+                          onClick={() => void run(undefined, Math.min(...picked))}
+                        >
+                          ▶ 고른 것만
+                        </button>
+                        <button className="btn small" type="button" onClick={() => setPicked(new Set())}>
+                          해제
+                        </button>
+                      </div>
+                    )}
                   </section>
 
                   <Resizer
@@ -3255,6 +3346,39 @@ export default function AskBar({ devices }: Props) {
                         loopVar={loopVarAt(seqSteps, stepAt)}
                       />
                     )}
+                  </section>
+
+                  {/* ── 셋째 칸 · 실행 로그 ─────────────────────────────────
+                      장비가 실제로 무엇을 뱉었는지 **원문**을 보는 자리다.
+                      여태 이 화면만 로그를 버리고 있어서, 판정이 틀렸을 때
+                      까닭을 확인할 길이 없었다(지적).
+
+                      부품은 Coverage 가 쓰는 RunLog 를 그대로 쓴다 — 머리줄도
+                      빈 문구도 그 안에 이미 있다. 새로 짓지 않는다. */}
+                  {/* 이 판은 **오른쪽 끝**에 붙어 있으므로 폭이 거꾸로다 —
+                      손잡이를 왼쪽으로 끌수록 넓어진다. Resizer 는 늘
+                      `clientX - origin` 을 주므로 기준을 이 판의 오른쪽 모서리로
+                      잡고 부호를 뒤집는다. 화면 폭으로 셈하면 오른쪽에 여백이
+                      있을 때 손잡이와 판이 어긋난다. */}
+                  <Resizer
+                    label="실행 로그 폭 조절"
+                    onResize={(x) => setLogW(-x)}
+                    getOrigin={() => logRef.current?.getBoundingClientRect().right ?? 0}
+                  />
+                  <section
+                    className="panel tc-logcol"
+                    style={{ flexBasis: logW, width: logW }}
+                    ref={logRef}
+                  >
+                    <RunLog
+                      lines={logs}
+                      only={logOnly}
+                      onOnly={setLogOnly}
+                      onClear={() => setLogs([])}
+                      onPick={(i) => {
+                        if (i >= 0) setStepAt(i)
+                      }}
+                    />
                   </section>
                 </div>
               </div>
