@@ -1575,6 +1575,8 @@ export default function RunDetail({
             if (!run.started_at) return <i className="rd-when">(아직 시작 안 함)</i>
             const from = hhmmss(run.started_at)
             /* 끝났으면 **잰 시각**을, 도는 중이면 **끝나는 때**를 적는다(지시).
+               말은 「종료」·「종료 예정」 으로 맞춘다 — 한쪽만 고치면 같은 자리에
+               번갈아 서는 두 말이 어긋난다(지시: 끝 예정 → 종료 예정).
                셈은 위 etaAt 한 곳이 한다 — 여기서는 적기만 한다. */
             /* **숫자만** 굴린다 — 한글까지 굴림 상자에 넣으면 글꼴 높이가
                달라 글자가 숫자보다 처진다(지적: 열이 안 맞는다). */
@@ -1583,14 +1585,14 @@ export default function RunDetail({
             let tip = `${from} 시작`
             if (stoppedAt) {
               tailAt = hhmmss(stoppedAt)
-              tailWord = '끝'
-              tip += ` · ${tailAt} 끝`
+              tailWord = '종료'
+              tip += ` · ${tailAt} 종료`
             } else if (etaAt) {
               tailAt = hhmmss(etaAt)
-              tailWord = '끝 예정'
+              tailWord = '종료 예정'
               const min = Math.max(1, Math.round((etaAt - Date.now()) / 60000))
               const per = perItemMs ? ` · 한 건 ${(perItemMs / 1000).toFixed(1)}초` : ''
-              tip += ` · ${tailAt} 끝 예정 (남은 ${leftN}건 · 약 ${min}분${per})`
+              tip += ` · ${tailAt} 종료 예정 (남은 ${leftN}건 · 약 ${min}분${per})`
             }
             return (
               <i className="rd-when" title={tip}>
@@ -1738,7 +1740,7 @@ export default function RunDetail({
             걸렸는지 눈으로 알 수 없으면 누르기 전에 확신이 안 선다. 여기서
             몇 회·실패하면 무엇을 할지를 말하고, ✕ 로 바로 푼다. */}
         {/* 걸어 둔 조건 — **한 알로** 묶는다(지적: 배지가 둘이라 어수선하다).
-            고른 수와 반복 횟수를 한 줄로 말하고, ✕ 로 한꺼번에 푼다. */}
+            선택 수와 반복 횟수를 한 줄로 말하고, ✕ 로 한꺼번에 푼다. */}
         {(!!pickedN || (isAuto && !!repeat && repeat.repeat > 1)) && (
           <span
             className="rd-rep"
@@ -1758,7 +1760,7 @@ export default function RunDetail({
               .join('\n')}
           >
             <b>
-              {pickedN ? `고른 ${pickedN}개` : ''}
+              {pickedN ? `선택 ${pickedN}개` : ''}
               {pickedN && repeat && repeat.repeat > 1 ? ' · ' : ''}
               {isAuto && repeat && repeat.repeat > 1 ? `${repeat.repeat}회 반복` : ''}
             </b>
