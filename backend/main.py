@@ -23431,12 +23431,153 @@ async def wiki_table_rows_del(tid: str, payload: dict, token: str = ""):
     return {"ok": True, "deleted": n}
 
 
+# ── 엑셀 읽기 ───────────────────────────────────────────────────────────────
+# xlsx 는 **zip 안의 xml** 이다. 그래서 읽는 데 꾸러미가 필요 없다 —
+# 이 서버에는 openpyxl 도 pandas 도 없고(requirements 확인), 망이 막힌 곳에
+# 설치하러 가는 것보다 표준 라이브러리로 읽는 편이 확실하다.
+
+_XL_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+
+
+def _xl_col(ref: str) -> int:
+    """칸 이름 → 자리. A1 → 0, AB12 → 27"""
+    n = 0
+    for ch in ref:
+        if not ch.isalpha():
+            break
+        n = n * 26 + (ord(ch.upper()) - 64)
+    return n - 1
+
+
+def _xl_txt(v) -> str:
+    """엑셀 칸 값 → 글자. 사람이 엑셀에서 보던 대로 적는다."""
+    import datetime as _dt      # 이 이름은 이 파일의 전역에 없다(자리마다 따로 들인다)
+    if v is None:
+        return ""
+    if isinstance(v, bool):
+        return "예" if v else "아니오"
+    if isinstance(v, _dt.datetime):
+        return v.strftime("%Y-%m-%d") if (v.hour, v.minute, v.second) == (0, 0, 0) else v.strftime("%Y-%m-%d %H:%M")
+    if isinstance(v, _dt.date):
+        return v.strftime("%Y-%m-%d")
+    if isinstance(v, float) and v == int(v):
+        return str(int(v))      # 3.0 은 3 으로 — 엑셀이 정수도 실수로 준다
+    return str(v)
+
+
+def _xlsx_grid(raw: bytes) -> list[list[str]]:
+    """엑셀 한 통 → 줄·칸. 첫 장만 읽는다.
+
+    openpyxl 이 있으면 그것으로 읽는다 — **날짜 때문이다.** 엑셀은 날짜를
+    45000 같은 날수로 담고 「보이는 꼴」 은 서식에 따로 둔다. 손으로 풀면 그
+    숫자가 그대로 나온다.
+
+    다만 openpyxl 은 지금 markitdown 이 딸려 들여온 것이라(requirements 에
+    제 이름으로 적혀 있지 않다) 언제 사라져도 이상하지 않다. 그때를 위해 손으로
+    푸는 길을 남겨 둔다 — xlsx 는 zip 안의 xml 이라 꾸러미 없이도 읽힌다.
+    """
+    try:
+        import io as _io
+        from openpyxl import load_workbook  # noqa: PLC0415
+    except Exception:
+        return _xlsx_grid_zip(raw)
+
+    wb = load_workbook(_io.BytesIO(raw), read_only=True, data_only=True)
+    try:
+        ws = wb[wb.sheetnames[0]]
+        grid = [[_xl_txt(v) for v in row] for row in ws.iter_rows(values_only=True)]
+    finally:
+        wb.close()
+    return _xl_trim(grid)
+
+
+def _xl_trim(grid: list[list[str]]) -> list[list[str]]:
+    """끝에 붙은 빈 줄을 떼고 오른쪽 빈 칸을 줄인다 — 엑셀 끝에 흔히 붙는다."""
+    for r in grid:
+        while r and not str(r[-1]).strip():
+            r.pop()
+    while grid and not any(str(x).strip() for x in grid[-1]):
+        grid.pop()
+    return grid
+
+
+def _xlsx_grid_zip(raw: bytes) -> list[list[str]]:
+    """꾸러미 없이 손으로 푼다 — zip 안의 xml."""
+    import io as _io
+    import zipfile as _zf
+    from xml.etree import ElementTree as _ET
+
+    z = _zf.ZipFile(_io.BytesIO(raw))
+    names = z.namelist()
+
+    # 글자는 한곳에 모아 두고 칸은 번호로 가리킨다(sharedStrings)
+    shared: list[str] = []
+    if "xl/sharedStrings.xml" in names:
+        for si in _ET.fromstring(z.read("xl/sharedStrings.xml")):
+            shared.append("".join(t.text or "" for t in si.iter(_XL_NS + "t")))
+
+    sheets = sorted(n for n in names if re.match(r"xl/worksheets/sheet\d+\.xml$", n))
+    if not sheets:
+        return []
+    root = _ET.fromstring(z.read(sheets[0]))
+
+    grid: list[list[str]] = []
+    for r in root.iter(_XL_NS + "row"):
+        cells: dict[int, str] = {}
+        for c in r.findall(_XL_NS + "c"):
+            t = c.get("t")
+            v = c.find(_XL_NS + "v")
+            if t == "s":
+                txt = shared[int(v.text)] if v is not None and v.text else ""
+            elif t == "inlineStr":
+                txt = "".join(x.text or "" for x in c.iter(_XL_NS + "t"))
+            else:
+                txt = (v.text or "") if v is not None else ""
+                # 엑셀은 0.5 를 0.5 로, 3 을 3 으로 주지만 가끔 3.0 으로 준다
+                if txt and re.fullmatch(r"-?\d+\.0+", txt):
+                    txt = txt.split(".")[0]
+            if txt:
+                cells[_xl_col(c.get("r", "A"))] = txt
+        grid.append([cells.get(i, "") for i in range(max(cells) + 1)] if cells else [])
+
+    return _xl_trim(grid)
+
+
+@app.post("/api/xlsx-read")
+async def xlsx_read(file: UploadFile = File(...)):
+    """올린 엑셀을 **글자 판**으로 돌려준다.
+
+    화면은 이미 붙여넣은 글(탭으로 갈린 것)을 다룰 줄 안다. 그러니 엑셀도
+    같은 모양으로 바꿔 주면 미리보기·열 맞추기·「모두 지우고」 가 전부 그대로
+    돌아간다 — 들이는 길을 둘로 만들지 않는다.
+
+    지적: 엑셀을 고르면 자료가 깨졌다. 그때껏 화면이 파일을 **글자로** 읽고
+    있었는데, xlsx 는 압축된 덩어리라 그대로 읽으면 알아볼 수 없는 것이 된다.
+    """
+    raw = await file.read()
+    if len(raw) > 20 * 1024 * 1024:
+        raise HTTPException(400, "파일이 너무 큽니다(20MB 까지)")
+    if raw[:2] != b"PK":
+        raise HTTPException(400, "엑셀(.xlsx) 파일이 아닙니다 — 옛 .xls 는 xlsx 로 저장해 주세요")
+    try:
+        grid = _xlsx_grid(raw)
+    except Exception as e:
+        raise HTTPException(400, f"엑셀을 읽지 못했습니다: {e}")
+    if not grid:
+        raise HTTPException(400, "빈 장입니다")
+    w = max(len(r) for r in grid)
+    tsv = "\n".join("\t".join((r + [""] * w)[:w]) for r in grid)
+    return {"ok": True, "rows": len(grid), "cols": w, "tsv": tsv}
+
+
 @app.post("/api/wiki-table/{tid}/import")
 async def wiki_table_import(tid: str, payload: dict, token: str = ""):
     """엑셀·노션에서 받은 자료를 통째로 들인다.
 
-    {header: [이름…], rows: [[값…]…], replace: bool}
-    머리줄 이름으로 있는 열에 맞추고, 없는 이름은 열을 새로 만든다.
+    {header: [이름…], rows: [[값…]…], replace: bool, mapping: [{key|label|skip}…]}
+
+    mapping 이 오면 **그것이 정본이다** — 화면의 짝짓기 팝업에서 사람이 고른
+    것이다. 안 오면 머리줄 이름으로 맞추고 없는 이름은 열을 새로 만든다.
     """
     if not _user_from_token(token):
         raise HTTPException(401, "로그인이 필요합니다")
@@ -23449,6 +23590,10 @@ async def wiki_table_import(tid: str, payload: dict, token: str = ""):
         raise HTTPException(400, "들일 줄이 없습니다")
     if len(rows) > 5000:
         raise HTTPException(400, f"한 번에 5000줄까지 들입니다 (받은 것 {len(rows)}줄)")
-    out = await db.wtbl_import(tid, header, rows, bool(p.get("replace")))
+    mp = p.get("mapping")
+    out = await db.wtbl_import(
+        tid, header, rows, bool(p.get("replace")),
+        mp if isinstance(mp, list) else None,
+    )
     await _wtbl_ping(tid, _wtbl_who(token))
     return {"ok": True, **out}

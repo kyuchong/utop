@@ -3343,7 +3343,19 @@ async def wtbl_drop(tid: str) -> None:
             await c.execute("DELETE FROM wiki_table WHERE id=$1", tid)
 
 
-async def wtbl_import(tid: str, header: list, rows: list, replace: bool = False) -> dict:
+def _lbl_norm(s: str) -> str:
+    """열 이름 맞추기용 꼴. 빈칸을 떼고 숫자는 값으로 본다 — 「01월」=「1월」.
+
+    숫자를 int 로 한 번 돌리는 것이 안전하다: 앞의 0 만 정규식으로 떼려 들면
+    「100」 이 「10」 이 되는 수가 있다.
+    """
+    t = re.sub(r"\s+", "", str(s or ""))
+    t = re.sub(r"\d+", lambda m: str(int(m.group())), t)
+    return t.lower()
+
+
+async def wtbl_import(tid: str, header: list, rows: list, replace: bool = False,
+                      mapping: list | None = None) -> dict:
     """엑셀·노션에서 내려받은 것을 통째로 들인다.
 
     머리줄(header)의 이름으로 **있는 열에 맞춘다.** 없는 이름은 열을 새로 만든다 —
@@ -3355,22 +3367,48 @@ async def wtbl_import(tid: str, header: list, rows: list, replace: bool = False)
     head = await wtbl_get(tid) or {}
     cols = list(head.get("cols") or [])
     by_label = {str(c.get("label") or "").strip(): c for c in cols}
+    # 「01월」 과 「1월」 은 **같은 칸**이다 — 엑셀에서 받은 이름이 한 글자 다르다고
+    # 열을 하나 더 만들면, 열두 달이 스물넷이 된다(엑셀은 1월, 표는 01월).
+    by_loose = {_lbl_norm(k): v for k, v in by_label.items()}
 
-    # 머리줄 → 열쇠. 없는 이름은 열을 만든다.
-    keys: list[str] = []
-    made = 0
-    for i, h in enumerate(header):
-        name = str(h or "").strip() or f"열{i + 1}"
-        cur = by_label.get(name)
-        if cur:
-            keys.append(str(cur.get("key")))
-            continue
+    have = {str(c.get("key")) for c in cols}
+
+    def _make(name: str, i: int) -> str:
+        """없는 열을 새로 세운다 — 열쇠는 새로 짓고 이름은 받은 그대로."""
+        nonlocal made
         k = f"cf_{int(_time.time() * 1000)}_{i}"
         col = {"key": k, "label": name, "type": "text", "width": 120}
         cols.append(col)
+        have.add(k)
         by_label[name] = col
-        keys.append(k)
+        by_loose[_lbl_norm(name)] = col
         made += 1
+        return k
+
+    # 머리줄 → 열쇠. None 이면 그 칸은 들이지 않는다.
+    keys: list[str | None] = []
+    made = 0
+    if mapping:
+        # **사람이 짝지어 준 것이 정본이다**(지시: 팝업에서 필드를 맞추게 해 달라).
+        # 이름이 조금만 달라도 자동 맞추기는 어긋나는데, 그 결과가 「열이 스물넷이
+        # 되었다」 로 나타나면 되돌리기가 번거롭다. 화면에서 고른 대로 넣는다.
+        for i, h in enumerate(header):
+            m = mapping[i] if i < len(mapping) and isinstance(mapping[i], dict) else None
+            if m is None or m.get("skip"):
+                keys.append(None)
+                continue
+            k = str(m.get("key") or "")
+            if k and k in have:
+                keys.append(k)
+                continue
+            name = str(m.get("label") or h or "").strip() or f"열{i + 1}"
+            keys.append(_make(name, i))
+    else:
+        # 짝이 안 왔으면 이름으로 맞춘다(옛 부름 자리를 위해 남겨 둔다)
+        for i, h in enumerate(header):
+            name = str(h or "").strip() or f"열{i + 1}"
+            cur = by_label.get(name) or by_loose.get(_lbl_norm(name))
+            keys.append(str(cur.get("key")) if cur else _make(name, i))
 
     async with pool().acquire() as c:
         async with c.transaction():
@@ -3393,6 +3431,8 @@ async def wtbl_import(tid: str, header: list, rows: list, replace: bool = False)
                 n += 1
                 data = {}
                 for i, k in enumerate(keys):
+                    if not k:
+                        continue      # 「들이지 않음」 으로 고른 칸
                     v = str(r[i]).strip() if i < len(r) and r[i] is not None else ""
                     if v:
                         data[k] = v

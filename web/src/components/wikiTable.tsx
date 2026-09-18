@@ -1,6 +1,6 @@
 import { createReactBlockSpec } from '@blocknote/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import NTable from './ntable/NTable'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from './ntable/types'
@@ -130,6 +130,7 @@ function TableBody({ tid }: { tid: string }) {
       {imp && (
         <Importer
           tid={tid}
+          cols={cols}
           onDone={() => qc.invalidateQueries({ queryKey: key })}
           onClose={() => setImp(false)}
         />
@@ -231,14 +232,107 @@ function hue(v: string): string {
  * 노션·엑셀에서 234줄을 손으로 옮겨 칠 수는 없다. 첫 줄을 열 이름으로 보고,
  * 이름이 같은 열에 맞춘다. 없는 이름은 열을 새로 만든다.
  */
-function Importer({ tid, onDone, onClose }: { tid: string; onDone: () => void; onClose: () => void }) {
+/** 「들이지 않음」 · 「새 칸으로」 — 열쇠와 안 겹치게 앞에 표를 붙인다 */
+const MAP_SKIP = '\u0000skip'
+const MAP_NEW = '\u0000new'
+
+/**
+ * 이름 맞추기용 꼴. 빈칸을 떼고 숫자는 값으로 본다 — 「01월」 = 「1월」.
+ *
+ * 엑셀은 1월, 표는 01월로 쓰는 일이 흔하다. 한 글자 다르다고 딴 칸으로 보면
+ * 열두 달이 스물넷이 된다. 서버의 _lbl_norm 과 **같은 규칙**이어야 한다.
+ */
+const mnorm = (s: string) =>
+  s.replace(/\s+/g, '').replace(/\d+/g, (m) => String(parseInt(m, 10))).toLowerCase()
+
+function Importer({
+  tid, cols, onDone, onClose,
+}: {
+  tid: string
+  cols: NCol[]
+  onDone: () => void
+  onClose: () => void
+}) {
   const [text, setText] = useState('')
   const [replace, setReplace] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [fname, setFname] = useState('')
   const grid = useMemo(() => parseTable(text), [text])
   const head = grid[0] ?? []
   const body = grid.slice(1)
+
+  /** 엑셀 열 → 표의 칸. 자리(index) → 열쇠 · MAP_NEW · MAP_SKIP */
+  const [map, setMap] = useState<string[]>([])
+
+  /** 이름이 같으면 그 칸, 비슷하면 그 칸, 아니면 새로 */
+  const guess = useMemo(
+    () => (label: string) => {
+      const t = label.trim()
+      if (!t) return MAP_SKIP
+      const exact = cols.find((c) => String(c.label || '').trim() === t)
+      if (exact) return exact.key
+      const n = mnorm(t)
+      const loose = cols.find((c) => mnorm(String(c.label || '')) === n)
+      return loose ? loose.key : MAP_NEW
+    },
+    [cols],
+  )
+
+  /* 머리줄이 바뀌면 짝을 새로 추천한다 — 사람이 고친 것은 그때까지 지킨다 */
+  const sig = head.join('\u0001')
+  useEffect(() => {
+    setMap(head.map(guess))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig])
+
+  /** 한 칸에 두 열을 넣으면 뒤엣것만 남는다 — 미리 말해 준다 */
+  const dup = useMemo(() => {
+    const seen = new Map<string, number>()
+    const bad = new Set<number>()
+    map.forEach((m, i) => {
+      if (m === MAP_NEW || m === MAP_SKIP) return
+      const f = seen.get(m)
+      if (f !== undefined) { bad.add(f); bad.add(i) } else seen.set(m, i)
+    })
+    return bad
+  }, [map])
+
+  const nTake = map.filter((m) => m !== MAP_SKIP).length
+  const nNew = map.filter((m) => m === MAP_NEW).length
+
+  /**
+   * 고른 파일을 글로 바꿔 넣는다.
+   *
+   * 엑셀(.xlsx)은 **압축된 덩어리**라 글자로 읽으면 알아볼 수 없는 것이 그대로
+   * 들어간다(지적: 가져오기 하면 자료가 깨진다). 서버가 풀어서 탭으로 갈린 글로
+   * 돌려주면 아래 미리보기·짝짓기가 전부 그대로 돌아간다 — 길을 둘로 만들지 않는다.
+   */
+  const pick = async (f: File) => {
+    setMsg('')
+    setFname(f.name)
+    if (/\.xls$/i.test(f.name)) {
+      setMsg('옛 엑셀(.xls)은 못 읽습니다 — 엑셀에서 「다른 이름으로 저장 → .xlsx」 로 바꿔 주세요')
+      return
+    }
+    if (!/\.xlsx$/i.test(f.name)) {
+      setText(await f.text())
+      return
+    }
+    setBusy(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', f)
+      const r = await apiFetch('/api/xlsx-read', { method: 'POST', body: fd })
+      const j = (await r.json()) as { ok?: boolean; tsv?: string; detail?: string }
+      if (!r.ok || !j.ok) throw new Error(j.detail || '엑셀을 읽지 못했습니다')
+      setText(j.tsv || '')
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const go = async () => {
     if (!head.length || !body.length) return
@@ -247,7 +341,17 @@ function Importer({ tid, onDone, onClose }: { tid: string; onDone: () => void; o
     try {
       const r = await apiFetch(`/api/wiki-table/${encodeURIComponent(tid)}/import`, {
         method: 'POST',
-        body: JSON.stringify({ header: head, rows: body, replace }),
+        body: JSON.stringify({
+          header: head,
+          rows: body,
+          replace,
+          mapping: head.map((h, i) => {
+            const m = map[i] ?? MAP_NEW
+            if (m === MAP_SKIP) return { skip: true }
+            if (m === MAP_NEW) return { label: h }
+            return { key: m }
+          }),
+        }),
       })
       const j = (await r.json()) as { ok?: boolean; rows?: number; cols_added?: number; detail?: string }
       if (!r.ok || !j.ok) throw new Error(j.detail || '들이지 못했습니다')
@@ -268,34 +372,88 @@ function Importer({ tid, onDone, onClose }: { tid: string; onDone: () => void; o
           <span className="sp" />
           <button type="button" className="btn small" onClick={onClose}>✕</button>
         </div>
+
         <p className="wtb-impp">
-          엑셀·노션에서 <b>복사해 붙여넣거나</b> CSV 파일을 고르세요.
-          <br />첫 줄은 <b>열 이름</b>으로 봅니다 — 같은 이름의 열에 채우고, 없는 이름은 열을 새로 만듭니다.
+          엑셀·노션에서 <b>복사해 붙여넣거나</b>, <b>엑셀(.xlsx)</b>·CSV 파일을 고르세요.
+          <br />첫 줄은 <b>열 이름</b>으로 봅니다.
         </p>
         <input
           type="file"
-          accept=".csv,.tsv,.txt,text/csv"
+          accept=".xlsx,.csv,.tsv,.txt,text/csv"
           onChange={(e) => {
             const f = e.target.files?.[0]
-            if (!f) return
-            void f.text().then(setText)
+            if (f) void pick(f)
           }}
         />
-        <textarea
-          className="wtb-impt"
-          value={text}
-          placeholder={'여기에 붙여넣으세요\n\n이름\t부서\t1월\n장수완\tQA팀\t0.5'}
-          onChange={(e) => setText(e.target.value)}
-        />
-        {grid.length > 1 && (
-          <div className="wtb-impi">
-            줄 <b>{body.length}</b>개 · 열 <b>{head.length}</b>개 — {head.slice(0, 6).join(' · ')}
-            {head.length > 6 ? ' …' : ''}
-          </div>
+
+        {/* 자료를 아직 안 받았을 때만 붙여넣기 상자를 크게 연다 — 받고 나면
+            자리를 짝짓기에 내준다(229줄이 들어온 판에 원문을 볼 일은 드물다) */}
+        {grid.length < 2 ? (
+          <textarea
+            className="wtb-impt"
+            value={text}
+            placeholder={'여기에 붙여넣으세요\n\n이름\t부서\t1월\n장수완\tQA팀\t0.5'}
+            onChange={(e) => setText(e.target.value)}
+          />
+        ) : (
+          <>
+            <div className="wtb-impi">
+              {!!fname && <b>{fname}</b>} 줄 <b>{body.length}</b>개 · 열 <b>{head.length}</b>개
+              {' — 들일 칸 '}<b>{nTake}</b>개{nNew ? `(새 칸 ${nNew}개)` : ''}
+              <span className="sp" />
+              <button type="button" className="btn small" onClick={() => setMap(head.map(guess))}>
+                자동으로 다시 맞추기
+              </button>
+              <button type="button" className="btn small" onClick={() => { setText(''); setFname('') }}>
+                다시 고르기
+              </button>
+            </div>
+
+            {/* ── 칸 맞추기(지시) ─────────────────────────────────────────
+                이름이 조금만 달라도 자동 맞추기는 어긋난다. 어긋난 채로 들이면
+                열이 두 배가 되는데 되돌리기가 번거로우니, **넣기 전에** 사람이
+                보고 고치게 한다. 첫 줄 값을 같이 보여 준다 — 이름만으로는 어느
+                칸인지 헷갈리는 열이 있다. */}
+            <div className="wtb-map">
+              <div className="wtb-maph">
+                <span>엑셀 열</span><span>첫 줄 값</span><span>표의 칸</span>
+              </div>
+              <div className="wtb-mapb">
+                {head.map((h, i) => (
+                  <div className={`wtb-mapr${dup.has(i) ? ' dup' : ''}`} key={i}>
+                    <span className="wtb-mapn" title={h}>{h || <i>(이름 없음)</i>}</span>
+                    <span className="wtb-mapv" title={body[0]?.[i] || ''}>
+                      {body[0]?.[i] || <i>–</i>}
+                    </span>
+                    <select
+                      className="wtb-maps"
+                      value={map[i] ?? MAP_NEW}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setMap((q) => { const n = q.slice(); n[i] = v; return n })
+                      }}
+                    >
+                      <option value={MAP_NEW}>＋ 새 칸으로 만들기</option>
+                      <option value={MAP_SKIP}>— 들이지 않음</option>
+                      {cols.map((c) => (
+                        <option key={c.key} value={c.key}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {dup.size > 0 && (
+              <div className="wtb-impw">
+                같은 칸에 두 열을 넣으면 <b>뒤엣것만 남습니다</b> — 붉은 줄을 고쳐 주세요.
+              </div>
+            )}
+          </>
         )}
+
         <label className="wtb-impc">
           <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
-          있던 줄을 **모두 지우고** 채웁니다
+          있던 줄을 <b>모두 지우고</b> 채웁니다
         </label>
         {!!msg && <div className="wtb-impe">{msg}</div>}
         <div className="wtb-impb">
@@ -303,7 +461,7 @@ function Importer({ tid, onDone, onClose }: { tid: string; onDone: () => void; o
           <button
             type="button"
             className="btn small primary"
-            disabled={busy || grid.length < 2}
+            disabled={busy || grid.length < 2 || nTake === 0}
             onClick={() => void go()}
           >
             {busy ? '가져오는 중…' : `${body.length}줄 가져오기`}

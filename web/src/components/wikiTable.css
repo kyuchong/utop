@@ -77,7 +77,8 @@
   justify-content: center;
 }
 .wtb-imp {
-  width: 560px;
+  /* 짝짓기 판이 세 칸이라 560 으로는 고름표가 짓눌린다 */
+  width: 680px;
   max-width: 92vw;
   background: var(--c-surface);
   border-radius: 10px;
@@ -102,3 +103,58 @@
 .wtb-impc { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: var(--fs-sm); }
 .wtb-impe { margin-top: 8px; color: var(--c-fail); font-size: var(--fs-sm); }
 .wtb-impb { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+/* ── 칸 맞추기(지시: 팝업에서 필드를 매핑하게) ──────────────────────────
+   자료가 들어오면 붙여넣기 상자 자리를 이 판이 넘겨받는다. 열이 스무 개
+   남짓이라 판이 길어지므로 여기서만 구른다 — 팝업 전체가 구르면 「가져오기」
+   단추가 화면 밖으로 밀린다. */
+.wtb-map {
+  margin-top: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.wtb-maph,
+.wtb-mapr {
+  display: grid;
+  /* 이름 · 첫 줄 값 · 고름표 — 값은 참고라 가장 좁다 */
+  grid-template-columns: 1fr 96px 1.1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 8px;
+}
+.wtb-maph {
+  background: var(--c-app-bg);
+  border-bottom: 1px solid var(--c-border);
+  font-size: 11px;
+  color: var(--c-text-muted);
+}
+.wtb-mapb { max-height: 300px; overflow-y: auto; }
+.wtb-mapr + .wtb-mapr { border-top: 1px solid var(--c-border-light, var(--c-border)); }
+.wtb-mapr.dup { background: color-mix(in srgb, var(--c-fail) 9%, transparent); }
+.wtb-mapn,
+.wtb-mapv {
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wtb-mapv { color: var(--c-text-muted); font-family: var(--font-mono); font-size: 11px; }
+.wtb-mapn i,
+.wtb-mapv i { color: var(--c-text-muted); font-style: normal; }
+.wtb-maps {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  /* 고름표 안의 글자색을 못박는다 — 칩 안에서 색을 안 적으면 어떤 브라우저는
+     바탕만 칠하고 글자는 흰색으로 남겨 안 보인다 */
+  color: var(--c-text);
+  font-size: var(--fs-sm);
+}
+.wtb-maps option { color: var(--c-text); background: var(--c-surface); }
+.wtb-impi .sp { flex: 1; }
+.wtb-impi { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wtb-impw { margin-top: 8px; font-size: var(--fs-sm); color: var(--c-fail); }
