@@ -23,6 +23,8 @@ const KEY = process.env.RUNNER_KEY || ''
 const NAME = process.env.RUNNER_NAME || 'runner'
 /** 일감이 없을 때 얼마나 있다가 다시 묻나 */
 const IDLE_MS = Number(process.env.RUNNER_IDLE_MS || 2000)
+/** 동시에 몇 건까지 도나 — 장비가 다른 플랜은 서로 기다릴 필요가 없다 */
+const JOBS = Math.max(1, Number(process.env.RUNNER_JOBS || 4) || 1)
 /** 진행을 얼마나 자주 올리나. 너무 잦으면 DB 를 두들기고, 뜸하면 화면이 멎어 보인다 */
 /* 모아 두는 시간. 700ms 는 **한 묶음이 통째로 튀어나오게** 했다 —
    회차가 150ms 마다 도니 다섯 회차가 한꺼번에 올라온다(지적: 한 번에 팍).
@@ -745,12 +747,30 @@ async function main(): Promise<void> {
 
   let loggedIn = false
   let quiet = 0
+  /*
+   * 자리가 남으면 **다음 일감도 집는다.**
+   *
+   * 전에는 하나를 끝까지 돌리고서야 다음을 집었다. 그래서 장비가 다른
+   * 플랜 둘을 걸어도 뒤엣것은 「실행 서버가 집기를 기다립니다」 인 채로
+   * 앞엣것이 몇 시간이고 끝나기만 기다렸다 — 장비 A 시험이 장비 B 를
+   * 막을 이유가 없다. 같은 플랜을 동시에 두 번 돌리는 것은 서버가 걸
+   * 때부터 막는다(/api/runs 409 — 결과가 서로 덮인다). **같은 장비**를
+   * 쓰는 두 플랜을 같이 거는 것까지는 안 막아 준다 — 그건 거는 사람이
+   * 가른다(명령이 섞이는 게 아니라 세션이 따로 붙지만, 설정을 서로
+   * 건드리는 시험이면 결과가 뒤엉킨다).
+   */
+  const active = new Set<Promise<void>>()
   for (;;) {
     try {
       if (!loggedIn) {
         await login()
         loggedIn = true
         log('대기 중 — 걸린 일감이 없습니다')
+      }
+      if (active.size >= JOBS) {
+        // 자리가 다 찼다 — 하나가 끝나면 바로 다음을 집는다
+        await Promise.race(active)
+        continue
       }
       const r = await call('/api/runner/claim', { worker: NAME })
       const run = r.run as Run | null
@@ -759,16 +779,19 @@ async function main(): Promise<void> {
         await sleep(IDLE_MS)
         continue
       }
-      try {
-        await doRun(run)
-      } catch (e) {
-        log('실행 중 오류', String(e))
-        await call(`/api/runner/${run.id}/finish`, {
-          status: 'failed',
-          error: String(e).slice(0, 500),
-          logs: [{ i: -1, kind: 'fail', text: `실행이 멈췄습니다 — ${String(e)}` }],
-        }).catch(() => undefined)
-      }
+      const job: Promise<void> = doRun(run)
+        .catch(async (e) => {
+          log('실행 중 오류', String(e))
+          await call(`/api/runner/${run.id}/finish`, {
+            status: 'failed',
+            error: String(e).slice(0, 500),
+            logs: [{ i: -1, kind: 'fail', text: `실행이 멈췄습니다 — ${String(e)}` }],
+          }).catch(() => undefined)
+        })
+        .finally(() => {
+          active.delete(job)
+        })
+      active.add(job)
     } catch (e) {
       // 토큰이 만료됐거나 API 가 잠깐 내려간 것일 수 있다. 다시 로그인한다.
       // 잠깐 끊긴 것까지 매번 찍으면 로그가 오류로 도배된다.

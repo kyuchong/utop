@@ -99,6 +99,8 @@ services:
       API_BASE: ${RUNNER_API_BASE:-http://api:8000}
       RUNNER_KEY: ${RUNNER_KEY:-}
       RUNNER_NAME: ${RUNNER_NAME:-runner}
+      # 동시에 몇 건까지 도나 — 장비가 다른 플랜은 같이 돈다
+      RUNNER_JOBS: ${RUNNER_JOBS:-4}
       TZ: ${TZ:-Asia/Seoul}
 
 volumes:
