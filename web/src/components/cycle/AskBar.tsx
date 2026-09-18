@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState , type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState , type CSSProperties } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
@@ -362,10 +362,45 @@ export default function AskBar({ devices }: Props) {
   /** 고른 대상 장비(모델) */
   const [tDev, setTDev] = useState('')
   const [devOpen, setDevOpen] = useState(false)
+  /* ── 장비 점유(지시: 목업의 「사용중」) ────────────────────────────
+     남이 이미 잡고 있는 장비를 골라 실행을 걸 수 있었다. 통신이 되는지만 보고
+     「누가 쓰는 중인지」 를 아예 몰랐기 때문이다. 자원 잠금은 서버에 이미
+     있다(resource_lock) — 읽어서 상태에 섞는다. */
+  const lockQ = useQuery({
+    queryKey: ['locks'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/locks')
+      if (!r.ok) return { locks: [] }
+      return (await r.json()) as {
+        locks?: Array<{
+          resource_id: string
+          locked_by?: string
+          locked_name?: string
+          cycle_name?: string
+          cycle_cid?: string
+          note?: string
+        }>
+      }
+    },
+    /* 30초면 넉넉하다 — 고르개를 열 때마다 새로 읽는 것이 더 중요하다 */
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  })
+  const lockBy = useMemo(() => {
+    const m = new Map<string, { who: string; what: string }>()
+    for (const l of lockQ.data?.locks ?? []) {
+      m.set(String(l.resource_id), {
+        who: String(l.locked_name || l.locked_by || '다른 사람'),
+        what: String(l.cycle_cid || l.cycle_name || l.note || '').trim(),
+      })
+    }
+    return m
+  }, [lockQ.data])
+
   /** 장비 고르개의 상태 탭 — 전체 · 연결됨 · 점검 · 연결안됨.
       열 머리 드롭다운에도 같은 거르개가 있지만, 가장 자주 쓰는 거르개가
       메뉴 속에 묻혀 있으면 두 번 눌러야 닿는다(목업: 탭으로 낸다). */
-  const [devTab, setDevTab] = useState<'all' | 'ok' | 'part' | 'no'>('all')
+  const [devTab, setDevTab] = useState<'all' | 'ok' | 'busy' | 'part' | 'no'>('all')
   /* 장비 고르개 — **표**로 고른다(지시: 목업). 이름만 늘어놓던 목록으로는
      같은 모델이 열 대씩 있는 LAB 에서 어느 것을 고를지 알 수가 없었다.
      LAB·사업자·벤더·모델그룹으로 거르고, 연결 상태를 보고 짚는다. */
@@ -2816,16 +2851,32 @@ export default function AskBar({ devices }: Props) {
                           }
                           return { T: g('telnet'), S: g('ssh'), C: g('console'), N: g('snmp') }
                         }
-                        /* T/S/C/N 을 **하나로 묶은 판정** — 줄마다 넷을 읽게 하지 않는다 */
+                        /* T/S/C/N 을 **하나로 묶고 점유까지 섞은 판정**(지시: 목업).
+                           「연결됨/점검/연결안됨」 은 통신만 말할 뿐이라, 남이 쓰는
+                           장비를 골라 실행을 걸 수 있었다. 말도 목업대로 바꾼다 —
+                           사람이 알고 싶은 것은 「붙나」 가 아니라 「지금 쓸 수 있나」 다. */
                         const readyOf = (d: Device) => {
                           const L = linkOf(d)
                           const cli = [L.T, L.S, L.C].some((v) => v === 'on')
                           const snmp = L.N === 'on'
                           if (!String(d.ip ?? '').trim())
-                            return { k: 'no', label: '연결안됨', why: 'IP 미설정' }
-                          if (cli && snmp) return { k: 'ok', label: '연결됨', why: '' }
-                          if (!cli && !snmp) return { k: 'no', label: '연결안됨', why: '접속 불가' }
-                          return { k: 'part', label: '점검', why: !snmp ? 'SNMP 미연결' : 'CLI 접속 불가' }
+                            return { k: 'no', label: '사용 불가능', why: 'IP 미설정' }
+                          if (!cli && !snmp) return { k: 'no', label: '사용 불가능', why: '통신 불가' }
+                          /* 통신이 되더라도 **남이 잡고 있으면 못 쓴다** */
+                          const lk = lockBy.get(String(d.id))
+                          if (lk)
+                            return {
+                              k: 'busy',
+                              label: '사용중',
+                              why: `UTOP에서 사용 중 — ${lk.who}${lk.what ? ` 가 ${lk.what} 실행 중` : ' 가 쓰는 중'}`,
+                            }
+                          if (cli && snmp) return { k: 'ok', label: '사용 가능', why: '' }
+                          /* 반만 붙는 장비 — 쓸 수는 있지만 못 도는 시험이 있다 */
+                          return {
+                            k: 'part',
+                            label: '일부 연결',
+                            why: !snmp ? 'SNMP 미등록 — SNMP 시험은 못 돌립니다' : 'CLI 접속 불가',
+                          }
                         }
                         const q = devQ.trim().toLowerCase()
                         const pass = (d: Device, skip?: string) =>
@@ -2956,9 +3007,10 @@ export default function AskBar({ devices }: Props) {
                               {(
                                 [
                                   ['all', '전체'],
-                                  ['ok', '연결됨'],
-                                  ['part', '점검'],
-                                  ['no', '연결안됨'],
+                                  ['ok', '사용 가능'],
+                                  ['busy', '사용중'],
+                                  ['part', '일부 연결'],
+                                  ['no', '사용 불가'],
                                 ] as const
                               ).map(([k, label]) => (
                                 <button
@@ -2979,28 +3031,50 @@ export default function AskBar({ devices }: Props) {
                                   {COLS.map(([k, label, cls]) => hf(k, label, cls, opts(k)))}
                                   <b className="dv-nm">모델명</b>
                                   <span className="dv-ip">IP</span>
-                                  {hf('ready', '연결 상태', 'dv-ready hd', ['연결됨', '점검', '연결안됨'])}
+                                  {hf('ready', '상태', 'dv-ready hd', ['사용 가능', '사용중', '일부 연결', '사용 불가능'])}
                                 </span>
                                 {rows.length ? (
-                                  rows.map((d) => {
+                                  rows.map((d, ri) => {
                                     const nm = String(d.model || d.name || d.ip)
                                     const L = linkOf(d)
                                     const R = readyOf(d)
                                     const noip = !String(d.ip ?? '').trim()
+                                    /* **못 고르는 줄**(지시: 목업) — 남이 쓰는 중이거나
+                                       아예 안 붙는 장비를 골라 실행을 걸 수 있었다. */
+                                    const dead = R.k === 'busy' || R.k === 'no'
+                                    const pick = () => {
+                                      if (dead) return
+                                      setTDev(nm)
+                                      if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+                                      setDevOpen(false)
+                                    }
+                                    /* 상태가 바뀌는 자리에 묶음 머리를 세운다 — 「사용 가능 3대」.
+                                       스무 대가 한 벌로 늘어서면 쓸 수 있는 것이 몇인지 세어야 한다. */
+                                    const prevK = ri > 0 ? readyOf(rows[ri - 1]!).k : ''
+                                    const head =
+                                      R.k !== prevK ? (
+                                        <span className={`ask-dmgrp ${R.k}`} key={`g-${R.k}`}>
+                                          {R.label}
+                                          <i>{rows.filter((x) => readyOf(x).k === R.k).length}대</i>
+                                        </span>
+                                      ) : null
                                     return (
+                                      <Fragment key={d.id}>
+                                      {head}
                                       <span
-                                        key={d.id}
                                         role="menuitem"
-                                        tabIndex={0}
-                                        className={`ask-dmi${tDev === nm ? ' on' : ''}`}
-                                        onClick={() => {
-                                          setTDev(nm)
-                                          if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
-                                          setDevOpen(false)
+                                        tabIndex={dead ? -1 : 0}
+                                        aria-disabled={dead || undefined}
+                                        className={`ask-dmi${tDev === nm ? ' on' : ''}${
+                                          R.k === 'busy' ? ' busy' : ''
+                                        }${dead ? ' dis' : ''}`}
+                                        onClick={pick}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            pick()
+                                          }
                                         }}
-                                        onKeyDown={(e) =>
-                                          e.key === 'Enter' && (setTDev(nm), setDevOpen(false))
-                                        }
                                       >
                                         <span className="dv-lab">{d.lab || '—'}</span>
                                         <span className="dv-cu">{d.operator || '—'}</span>
@@ -3048,6 +3122,7 @@ export default function AskBar({ devices }: Props) {
                                           </span>
                                         </span>
                                       </span>
+                                      </Fragment>
                                     )
                                   })
                                 ) : (
@@ -3058,14 +3133,14 @@ export default function AskBar({ devices }: Props) {
                               </span>
                             </span>
                             <span className="ask-dmlegend2">
-                              <b>연결 상태</b> = T/S/C/N 을 묶은 결과 (올리면 각각)
+                              <b>상태</b> = 통신(T/S/C/N) + UTOP 사용 여부 (올리면 자세히)
                               <span className="sp" />
                               {/* `lg` 는 **로그인 화면이 쓰는 이름**이었다(Login.css 의
                                   `.lg { min-height: 100vh }`). min-height 는 height 를 이겨서,
                                   7px 짜리 색 점이 화면 높이만큼 늘어나 목록을 0 으로 눌렀다. */}
-                              <i className="dmlg ok" />연결됨
-                              <i className="dmlg part" />점검
-                              <i className="dmlg no" />연결안됨
+                              <i className="dmlg ok" />사용 가능
+                              <i className="dmlg busy" />사용중
+                              <i className="dmlg no" />사용 불가능
                             </span>
                           </>
                         )

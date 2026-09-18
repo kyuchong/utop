@@ -9294,3 +9294,38 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   min-width: 0;
 }
 .ask-rsp { flex: 1; min-width: 12px; }
+
+/* 사용중 — 통신은 되지만 남이 잡고 있는 장비. 「못 씀」(붉은색)과 달라야 한다:
+   기다리면 쓸 수 있는 것과 아예 못 붙는 것은 다른 일이다. */
+.ask-dmtab[data-f='busy'].on { background: var(--c-draft); border-color: var(--c-draft); }
+.dv-ready.busy .rd-chip { background: #fdf1d8; border-color: #e8c98a; color: var(--c-draft); }
+.ask-dmi.busy { background: #fffaf0; border-color: #f0dcb4; }
+.ask-dmi.busy:hover { border-color: #e8c98a; box-shadow: none; }
+/* 못 고르는 줄 — 눌러도 아무 일 없으면 고장으로 읽힌다, 손 모양으로 미리 말한다 */
+.ask-dmi.dis { background: var(--c-surface-alt); cursor: not-allowed; opacity: .7; }
+.ask-dmi.dis:hover { border-color: var(--c-border-soft, var(--c-border)); box-shadow: none; }
+/* 상태별 묶음 머리 — 「사용 가능 3대」 */
+.ask-dmgrp {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 2px 7px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+.ask-dmgrp::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ask-dmgrp i { font-style: normal; font-weight: 600; font-size: var(--fs-sm); color: var(--c-text-faint); }
+.ask-dmgrp.ok { color: var(--c-pass); }
+.ask-dmgrp.busy { color: var(--c-draft); }
+.ask-dmgrp.part { color: var(--c-draft); }
+.ask-dmgrp.no { color: var(--c-fail); }
+
+.dmlg.busy { background: var(--c-draft); }
