@@ -2228,6 +2228,43 @@ def _addr_list(v) -> list:
     return [str(a).strip() for a in (v or []) if str(a or "").strip()]
 
 
+def _mail_inline_images(html: str):
+    """본문의 `/api/req-images/…` 그림을 **메일에 실어** cid 로 바꾼다.
+
+    메일에서는 상대 주소가 열리지 않는다(지적: Test Summary 에는 구성도가 보이는데
+    받은 메일에는 제목만 있다). 절대 주소로 바꿔도 사내망 밖에서는 못 보고, 대부분의
+    메일 프로그램이 외부 그림을 기본으로 막는다 — 파일을 함께 담는 것이 확실하다.
+
+    (바뀐 HTML, [(cid, 바이트, 파일명)…]) 를 돌려준다.
+    """
+    found: list = []
+    seen: dict = {}
+
+    def rep(m):
+        name = str(m.group(2) or "")
+        # 폴더 밖으로 나가는 이름은 받지 않는다
+        if not name or "/" in name or "\\" in name or name.startswith("."):
+            return m.group(0)
+        if name in seen:
+            return f'src="cid:{seen[name]}"'
+        try:
+            fp = REQ_IMG_DIR / name
+            if not fp.exists() or not fp.is_file():
+                return m.group(0)
+            blob = fp.read_bytes()
+        except Exception:
+            return m.group(0)
+        if not blob:
+            return m.group(0)
+        cid = _hashlib.md5(name.encode("utf-8")).hexdigest()[:20]
+        seen[name] = cid
+        found.append((cid, blob, name))
+        return f'src="cid:{cid}"'
+
+    out = re.sub(r'src=(["\'])/api/req-images/([^"\'?#]+)\1', rep, str(html or ""))
+    return out, found
+
+
 def _send_mail(to_addrs, subject: str, body: str, html: bool = False,
                cc=None, bcc=None, files=None):
     """SMTP로 메일 발송. to_addrs: str(콤마/세미콜론 구분) 또는 list. 실패 시 예외 발생.
@@ -2254,8 +2291,24 @@ def _send_mail(to_addrs, subject: str, body: str, html: bool = False,
         msg["Cc"] = ", ".join(cc_list)
     msg["Subject"] = subject
     if html:
+        body, _inline = _mail_inline_images(body)
         msg.set_content("이 메일은 HTML 형식입니다. HTML을 지원하는 클라이언트에서 열어주세요.")
         msg.add_alternative(body, subtype="html")
+        # 그림은 **HTML 조각에** 붙여야 multipart/related 가 되어 본문 안에서 보인다.
+        # 바깥(msg)에 붙이면 그냥 첨부파일이 되어 본문에는 깨진 그림만 남는다.
+        if _inline:
+            _hp = msg.get_payload()[-1]
+            for _cid, _blob, _nm in _inline:
+                _sub = (_nm.rsplit(".", 1)[-1] if "." in _nm else "png").lower()
+                if _sub in ("jpg", "jpe"):
+                    _sub = "jpeg"
+                if _sub not in ("png", "jpeg", "gif", "webp", "bmp", "svg+xml"):
+                    _sub = "png"
+                try:
+                    _hp.add_related(_blob, maintype="image", subtype=_sub, cid=f"<{_cid}>",
+                                    filename=_nm)
+                except Exception:
+                    pass
     else:
         msg.set_content(body)
     # 첨부 — 본문을 다 채운 **뒤에** 붙인다(add_alternative 가 먼저 와야 한다)
