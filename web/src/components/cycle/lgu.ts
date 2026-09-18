@@ -481,10 +481,10 @@ const pageHead = (ttl: string) =>
 /** 바닥 — 양식의 법적 문구와 쪽번호. 흐름 안에 둔다 —
     절대배치로 띄웠더니 내용이 길면 표 위를 줄이 가로질렀다. */
 const pageFoot = (no: number) =>
-  `<div style="margin-top:10px;">` +
+  `<div style="margin-top:4px;">` +
   `<div style="text-align:right;font-size:12px;color:#111;margin-bottom:2px;">${no}</div>` +
   `<div style="border-top:3px solid #111;"></div><div style="border-top:1.4px solid #111;margin-top:2px;"></div>` +
-  `<div style="font-size:9.5px;color:#333;margin-top:4px;">본 문서는 LG U+이 모든 지적재산권을 소유하고 있사오니, 해당 문서를 무단으로 전재/복사/변조/재배포 하지 마시기 바라며, 이를 위반할 경우 모든 법적 책임은 귀사에 있음을 알려드립니다</div>` +
+  `<div style="font-size:9.5px;color:#333;margin-top:2px;">본 문서는 LG U+이 모든 지적재산권을 소유하고 있사오니, 해당 문서를 무단으로 전재/복사/변조/재배포 하지 마시기 바라며, 이를 위반할 경우 모든 법적 책임은 귀사에 있음을 알려드립니다</div>` +
   `</div>`
 
 const headerRow = (tc: LguTc) =>
@@ -499,14 +499,14 @@ const headerRow = (tc: LguTc) =>
 
 /** 1장 — 시험 절차 */
 /*
- * 칸 높이 194px 의 근거 — **재어서 맞춘 값이다.**
+ * **칸 높이(210·470)는 내용이 정한 값이다 — 함부로 줄이지 마라.**
  *
- * 장은 1280×720 이고 안쪽(padding 24 위아래)은 672px 인데, 쪽번호·법적 문구
- * (pageFoot)까지 더한 내용이 702px 이었다 — 30px 넘쳐 「비고(특이사항)」 아래가
- * 잘렸다(지적). 210 을 쓰던 두 칸에서 16px 씩 걷어 32px 을 비웠다.
+ * 쪽 나눔은 px 이 아니라 줄 수로 한다(METHOD_MAX 11 · RESULT_MAX 24). 칸을 줄이면
+ * 그 줄이 칸에 안 들어가 overflow:hidden 에 잘린다 — 한 번 그렇게 줄였다가 되돌렸다.
  *
- * 이 값을 다시 만질 때는 **재고 고쳐라.** 브라우저에서 buildSlides 로 장을 만들어
- * 1280×720 판에 넣고 안쪽 scrollHeight 를 재면 넘치는지 바로 나온다.
+ * 장이 720px 을 넘치면 **여백에서 걷는다**(미리보기 판의 세로 padding, pageFoot 의
+ * 윗여백). 재는 법: 브라우저에서 buildSlides 로 장을 만들어 1280×720 판에 넣고
+ * 안쪽 scrollHeight 를 보면 넘치는지 바로 나온다.
  */
 export function page1(tc: LguTc, range: [number, number]): string {
   const blocks = methodBlocks(tc)
@@ -526,13 +526,13 @@ export function page1(tc: LguTc, range: [number, number]): string {
     val(
       tc.spec ? nl(tc.spec) : '<span style="color:#9aa0b8;">(미작성)</span>',
       4,
-      'vertical-align:top;height:194px;line-height:1.55;overflow:hidden;',
+      'vertical-align:top;height:210px;line-height:1.55;overflow:hidden;',
     ) +
     val(topo, 2, 'vertical-align:top;overflow:hidden;') +
     '</tr>' +
     '<tr>' + th('시험 방법', 4) + th('시험 결과', 2) + '</tr>' +
     '<tr>' +
-    val(method, 4, 'vertical-align:top;height:194px;line-height:1.55;overflow:hidden;') +
+    val(method, 4, 'vertical-align:top;height:210px;line-height:1.55;overflow:hidden;') +
     val(
       '<div style="text-align:center;font-weight:700;color:#333;padding-top:80px;">뒷면 참조</div>',
       2,
@@ -605,7 +605,7 @@ export function page2(tc: LguTc, range: [number, number]): string {
     pageHead('시 험 결 과') +
     `<table style="width:100%;border-collapse:collapse;border:${BD};table-layout:fixed;">${COLG}${headerRow(tc)}` +
     '<tr>' + th('시험 결과', 6) + '</tr>' +
-    '<tr>' + val(body, 6, 'vertical-align:top;height:430px;max-height:430px;overflow:hidden;') + '</tr>' +
+    '<tr>' + val(body, 6, 'vertical-align:top;height:470px;max-height:470px;overflow:hidden;') + '</tr>' +
     '<tr>' + lbl('비고<br>(특이사항)', 2) + val(tc.remark ? nl(tc.remark) : '', 4, 'height:44px;vertical-align:top;') + '</tr>' +
     '</table>'
   )

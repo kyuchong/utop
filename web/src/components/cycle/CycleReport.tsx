@@ -95,7 +95,7 @@ function SlideThumb({ html, w, h }: { html: string; w: number; h: number }) {
           srcDoc={
             '<!doctype html><meta charset="utf-8">' +
             '<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}' +
-            '.p{width:1280px;height:720px;padding:24px 30px;box-sizing:border-box;' +
+            '.p{width:1280px;height:720px;padding:4px 30px;box-sizing:border-box;' +
             `overflow:hidden;transform:scale(${k});transform-origin:top left;` +
             "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
             `<div class="p">${html}</div>`
@@ -467,7 +467,7 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
                   srcDoc={
                     '<!doctype html><meta charset="utf-8">' +
                     '<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}' +
-                    '.p{width:1280px;height:720px;padding:24px 30px;box-sizing:border-box;' +
+                    '.p{width:1280px;height:720px;padding:4px 30px;box-sizing:border-box;' +
                     `overflow:hidden;transform:scale(${scale});transform-origin:top left;` +
                     "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
                     `<div class="p">${html}</div>`

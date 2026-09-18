@@ -78,7 +78,9 @@
 .rpt-page {
   width: 1280px;
   height: 720px;
-  padding: 24px 30px;
+  /* 세로 여백을 좁게 — 쪽번호·법적 문구까지 720px 안에 들어와야 한다(지적:
+     아래 선과 쪽번호가 안 보인다). 원본 양식도 위아래가 좁다. */
+  padding: 4px 30px;
   box-sizing: border-box;
   overflow: hidden;
   font-family: 'Malgun Gothic', AppleGothic, sans-serif;
