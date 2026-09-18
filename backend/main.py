@@ -9630,6 +9630,24 @@ def _blocks_to_html(doc) -> str:
             close_ul()
             out.append(table_html(b))
             continue
+        if kind == "image":
+            # **그림을 버리지 않는다.** 구성도를 붙여 넣어도 메일 창에서는 사라지고
+            # 있었다 — 그림 블록은 content 가 비어 있어 아래 「빈 줄이면 건너뛰기」
+            # 에 걸렸다. 주소는 /api/req-images/… 꼴이고 그 길은 로그인 없이 열린다.
+            close_ul()
+            url = str(props.get("url") or "").strip()
+            if url:
+                cap = _h.escape(str(props.get("caption") or ""))
+                try:
+                    pw = int(props.get("previewWidth") or 0)
+                except Exception:
+                    pw = 0
+                wa = f' width="{pw}"' if pw > 0 else ""
+                out.append(f'<img src="{_h.escape(url, quote=True)}" alt="{cap}"{wa}'
+                           f' style="max-width:100%;height:auto">')
+                if cap:
+                    out.append(f'<div style="font-size:11px;color:#667;margin:2px 0 8px">{cap}</div>')
+            continue
         body = inline(b.get("content"))
         if kind in ("bulletListItem", "numberedListItem", "checkListItem"):
             if not ul_open:
@@ -9740,6 +9758,19 @@ async def cycle_summary_body(cycle_id: str, token: str = ""):
             for r in body:
                 out.append("<tr>" + "".join(f"<td style='{_TD}'>{_ln(c)}</td>" for c in r) + "</tr>")
             out.append("</tbody></table>")
+            continue
+        # 그림 한 줄 — ![구성도](/api/req-images/…)
+        #
+        # 이 길(마크다운)로 오면 그림 문법을 아무도 안 읽어 「![구성도](…)」 가
+        # 글자 그대로 메일에 실렸다. 보고서에 구성도를 붙이면서 드러난 구멍이다.
+        mi = _re.match(r"^!\[([^\]]*)\]\(([^)\s]+)\)\s*$", t.strip())
+        if mi:
+            if ul:
+                out.append("</ul>")
+                ul = False
+            _alt = _h.escape(mi.group(1))
+            _src = _h.escape(mi.group(2), quote=True)
+            out.append(f'<img src="{_src}" alt="{_alt}" style="max-width:100%;height:auto">')
             continue
         m = _re.match(r"^(#{1,4})\s+(.*)$", t)
         if m:
@@ -16202,16 +16233,213 @@ def _rp_span(meta) -> str:
     return _yymd(meta.get("_created_at_pg")) or "-"
 
 
-async def _cycle_report_tables(cycle, cycle_id) -> str:
-    """이 회차의 보고서 표 — 회차 비교 · 시험 결과 현황 · Fail 현황.
+def _rp_number(secs) -> str:
+    """살아남은 절에만 1..N 을 다시 매긴다.
 
-    셋 다 **있는 자료만** 쓴다. 회차가 하나뿐이면 비교표는 안 낸다(비교할 것이
-    없는 표를 한 줄로 내면 읽는 사람이 나머지 회차가 지워진 줄 안다).
+    자료가 없는 절은 **번호째** 뺀다 — 빈 표를 내면 「시험을 안 했다」 로 읽히고,
+    번호가 뛰면 「무엇이 지워졌다」 로 읽힌다.
+    머리는 `##`·`###` 두 단만 쓴다. 화면도 메일도 그 아래로는 깎아 버린다.
     """
-    out = []
+    out, n = [], 0
+    for s in secs:
+        if not s or not str(s[1] or "").strip():
+            continue
+        n += 1
+        out.append(f"## {n}. {s[0]}\n\n{str(s[1]).strip()}")
+    return "\n\n".join(out)
 
-    # 1) 버전별 비교 — 같은 모델그룹의 회차를 **만든 차례대로**
-    #    updated_at 으로 세우면 안 된다: 요약을 한 번 저장할 때마다 순서가 바뀐다.
+
+def _rp_is_auto(it) -> bool:
+    st = [x for x in (it.get("steps") or []) if isinstance(x, dict)]
+    return any(not db.is_manual_step(x) for x in st)
+
+
+def _rp_split(items):
+    """자동·수동으로 가른다 — 지금 자료로 **믿을 수 있는 유일한 묶음**이다.
+
+    보고서 양식은 RFP·표준Config·IPv6·Aging 으로 가르지만, 그 분류를 담은 칸이
+    시험항목에 없다(이름·스텝·요구사항 어디에도 없음을 확인했다). 없는 축으로
+    표를 만들면 숫자가 지어낸 값이 된다.
+    """
+    return [("자동", [x for x in items if _rp_is_auto(x)]),
+            ("수동", [x for x in items if not _rp_is_auto(x)])]
+
+
+def _rp_sec_sched(items):
+    """시험 일정 — 사람이 정한 일정은 어디에도 없다. **실제로 돌린 날**로 적는다."""
+    rows = []
+    for label, sub in _rp_split(items):
+        if not sub:
+            continue
+        rows.append([label, _rp_span({"items": sub}), f"{len(sub)}건"])
+    if not rows:
+        return None
+    return ("시험 일정", _md_table(["구분", "기간", "항목"], rows, left=(1,)))
+
+
+def _rp_sec_owner(cycle, items, runs):
+    """시험담당자 — 실행 기록이 주인이다. 없으면 항목에 남은 실행자, 그다음 맡은 이."""
+    cnt: dict = {}
+    for r in (runs or []):
+        w = _bare_name(r.get("started_by"))
+        if w:
+            cnt[w] = cnt.get(w, 0) + 1
+    if not cnt:
+        for it in items:
+            w = _bare_name(it.get("executed_by"))
+            if w:
+                cnt[w] = cnt.get(w, 0) + 1
+    if not cnt:
+        w = _bare_name(cycle.get("assignee") or cycle.get("updated_by"))
+        if w:
+            cnt[w] = 1
+    if not cnt:
+        return None
+    rows = [[w, f"{n}건"] for w, n in sorted(cnt.items(), key=lambda x: -x[1])]
+    return ("시험담당자", _md_table(["담당자", "실행"], rows, left=(1,)))
+
+
+def _rp_progress(t) -> str:
+    """진행률 — 돌린 것 / 전체. **통과율과 다른 값이다**(통과율은 붙은 것 / 전체)."""
+    if not t["total"]:
+        return "-"
+    return f"{round((t['total'] - t['none']) * 100 / t['total'], 1)}%"
+
+
+def _rp_sec_progress_body(cycle, cycle_id, items, kin):
+    """시험 진행 내역 — 어느 회차인지 밝히고, 현황과 회차별 이력을 붙인다."""
+    parts = []
+    tot = _rp_tally(items, _item_verdict)
+    cid = str(cycle.get("cid") or "").strip() or str(cycle_id)
+    nm = str(cycle.get("name") or cycle.get("version") or "").strip()
+    parts.append(
+        f"- Test Cycle : **{cid}**" + (f" ({nm})" if nm else "")
+        + f"\n- 진행률 : **{_rp_progress(tot)}** ({tot['total'] - tot['none']}/{tot['total']}건)"
+        + f" · Pass {tot['pass']} · Fail {tot['fail']} · 미실행 {tot['none']}"
+    )
+    # 현황 — 합계·자동·수동
+    rows = []
+    for label, sub in [("합계", items)] + [(a, b) for a, b in _rp_split(items) if b]:
+        t = _rp_tally(sub, _item_verdict)
+        rows.append([f"**{label}**" if label == "합계" else label,
+                     t["total"], t["pass"], t["fail"], t["none"], _rp_progress(t), _rp_rate(t)])
+    if rows:
+        parts.append("### 시험 결과 현황\n\n" + _md_table(
+            ["구분", "Total", "Pass", "Fail", "미실행", "진행률", "통과율"], rows))
+    # 버전별 실행 이력 — 회차가 하나뿐이면 견줄 것이 없어 내지 않는다
+    if len(kin) > 1:
+        vrows = []
+        for i, m in enumerate(kin, 1):
+            t = _rp_tally(m.get("items") or [], lambda it: it.get("_verdict") or it.get("result"))
+            cur = str(m.get("id") or "") == str(cycle_id)
+
+            def b(x, _c=cur):
+                return f"**{x}**" if _c else str(x)
+
+            vrows.append([b(i), b(m.get("version_group") or "-"),
+                          b(m.get("version") or m.get("name") or "-"), b(_rp_span(m)),
+                          b(t["total"]), b(t["pass"]), b(t["fail"]), b(t["none"]), b(_rp_rate(t))])
+        parts.append("### 버전별 실행 이력\n\n" + _md_table(
+            ["No", "버전그룹", "Version Name", "시험일", "Total", "Pass", "Fail", "미실행", "통과율"],
+            vrows, left=(2,)))
+    return ("시험 진행 내역", "\n\n".join(parts))
+
+
+async def _rp_sec_issue(cycle, cycle_id, items):
+    """이슈내역 — 등록된 결함이 주인. 없으면 깨진 항목을 몇 줄만.
+
+    「문제유형」(「[05]조회오류」 꼴)은 결함에 칸이 없다. 지라에서 받아 둔 이슈
+    (jira_issue.data.probtype)에만 있어 이슈 키로 이어 붙인다.
+    「상태」도 결함의 것은 우리 쪽 흐름(open·New·pushed)이라 지라의 ASSIGN·CLOSED 와
+    다르다 — 이어 붙인 지라 이슈가 있으면 그쪽 상태를 적는다.
+    """
+    try:
+        defs = await db.defect_list(cycle_id=str(cycle_id), limit=300)
+    except Exception:
+        defs = []
+    ver = str(cycle.get("version") or "-")
+
+    def _cut(t, n=48):
+        t = str(t or "-").strip()
+        return t if len(t) <= n else t[: n - 1] + "…"
+
+    if defs:
+        keys = [str(d.get("jira_key") or "").strip() for d in defs]
+        keys = [k for k in keys if k]
+        extra: dict = {}
+        if keys:
+            try:
+                async with db.pool().acquire() as _c:
+                    for r in await _c.fetch(
+                        "SELECT key, data->>'probtype' AS probtype, data->>'status' AS status "
+                        "FROM jira_issue WHERE key = ANY($1::text[])", keys):
+                        extra[str(r["key"])] = {"probtype": r["probtype"] or "",
+                                                "status": r["status"] or ""}
+            except Exception:
+                extra = {}
+        rows = []
+        for d in defs:
+            k = str(d.get("jira_key") or "").strip()
+            x = extra.get(k) or {}
+            rows.append([len(rows) + 1, k or str(d.get("id") or "-"), _cut(d.get("title")),
+                         d.get("issue_type") or "-", x.get("probtype") or "-",
+                         x.get("status") or d.get("status") or "-",
+                         d.get("version") or ver])
+        return ("이슈내역", _md_table(
+            ["No", "UMS", "이슈내용", "이슈유형", "문제유형", "상태", "발생 Version"],
+            rows, left=(1, 2, 3, 4, 5)))
+
+    fails = [it for it in items if _item_verdict(it) == "FAIL"]
+    if not fails:
+        return None
+    cap = 10
+    rows = [[i, it.get("tcid") or "-", _cut(it.get("name")), ver]
+            for i, it in enumerate(fails[:cap], 1)]
+    body = _md_table(["No", "TC ID", "시험 항목", "발생 Version"], rows, left=(1, 2))
+    if len(fails) > cap:
+        body += f"\n\n※ Fail {len(fails)}건 중 {cap}건만 실었습니다. 아직 이슈로 올린 것이 없습니다."
+    return ("이슈내역 — 아직 등록된 이슈 없음", body)
+
+
+async def _rp_sec_topo(items):
+    """시험구성도 — 시험항목에 붙여 둔 그림을 가져온다.
+
+    구성도는 시험항목(TC)에만 있고 사이클에는 없다. 이 회차가 쓴 항목들의 그림 중
+    **가장 많이 쓰인 것**을 대표로 싣는다. 하나도 없으면 이 절을 통째로 뺀다.
+    """
+    tcids = [str(it.get("tcid") or "") for it in items if it.get("tcid")]
+    if not tcids:
+        return None
+    try:
+        async with db.pool().acquire() as c:
+            rows = await c.fetch(
+                "SELECT data->>'topo_img' AS img, count(*) AS n FROM tc "
+                "WHERE tcid = ANY($1::text[]) AND COALESCE(data->>'topo_img','') <> '' "
+                "GROUP BY 1 ORDER BY 2 DESC LIMIT 1", list(set(tcids)))
+    except Exception:
+        return None
+    if not rows:
+        return None
+    img = str(rows[0]["img"] or "").strip()
+    if not img:
+        return None
+    return ("시험구성도", f"![구성도]({img})")
+
+
+async def _cycle_report_tables(cycle, cycle_id) -> str:
+    """보고서 본체 — **번호 매긴 절들.**
+
+    양식은 「일정 · 담당자 · 진행 내역 · 이슈내역 · 구성도」 차례다(지시). 자료가
+    없는 절은 번호째 뺀다 — 빈 표를 내면 시험을 안 한 것으로 읽힌다.
+    """
+    items = [x for x in (cycle.get("items") or []) if isinstance(x, dict)]
+    try:
+        runs = await db.run_recent(str(cycle_id), 300)
+    except Exception:
+        runs = []
+
+    # 같은 모델그룹의 회차를 **만든 차례대로**. updated_at 으로 세우면 안 된다 —
+    # 요약을 한 번 저장할 때마다 순서가 바뀐다.
     try:
         metas = await db.cycle_list_meta()
     except Exception:
@@ -16225,91 +16453,19 @@ async def _cycle_report_tables(cycle, cycle_id) -> str:
         return bool(mdl) and str(m.get("model") or "").strip() == mdl
 
     kin = sorted([m for m in metas if _same(m)], key=lambda m: str(m.get("_created_at_pg") or ""))
-    if len(kin) > 1:
-        rows = []
-        for i, m in enumerate(kin, 1):
-            t = _rp_tally(m.get("items") or [], lambda it: it.get("_verdict") or it.get("result"))
-            # 이번 회차는 굵게 — 여러 줄 가운데 어느 것이 이번 것인지 한눈에
-            cur = str(m.get("id") or "") == str(cycle_id)
-            def b(x, _c=cur):
-                return f"**{x}**" if _c else str(x)
-            rows.append([
-                b(i), b(m.get("version_group") or "-"), b(m.get("version") or m.get("name") or "-"),
-                b(_rp_span(m)), b(t["total"]), b(t["pass"]), b(t["fail"]), b(t["none"]), b(_rp_rate(t)),
-            ])
-        out.append("## 버전별 비교 시험 결과 요약\n\n" + _md_table(
-            ["No", "버전그룹", "Version Name", "시험일", "Total", "Pass", "Fail", "미실행", "통과율"], rows))
 
-    # 2) 시험 결과 현황 — 합계·수동·자동
-    items = [x for x in (cycle.get("items") or []) if isinstance(x, dict)]
-
-    def _is_auto(it):
-        st = [x for x in (it.get("steps") or []) if isinstance(x, dict)]
-        return any(not db.is_manual_step(x) for x in st)
-
-    if items:
-        rows = []
-        for label, sub in (("합계", items),
-                           ("수동", [x for x in items if not _is_auto(x)]),
-                           ("자동", [x for x in items if _is_auto(x)])):
-            if label != "합계" and not sub:
-                continue
-            t = _rp_tally(sub, _item_verdict)
-            rows.append([f"**{label}**" if label == "합계" else label,
-                         t["total"], t["pass"], t["fail"], t["none"], _rp_rate(t)])
-        out.append("## 시험 결과 현황\n\n" + _md_table(
-            ["구분", "Total", "Pass", "Fail", "미실행", "통과율"], rows))
-
-    # 3) Fail 현황.
-    #
-    # 등록된 결함이 있으면 **그것이 표의 주인**이다(보고서의 「Fail issues 현황」).
-    # 아직 아무것도 안 올렸으면 깨진 항목을 몇 줄만 보인다 — Fail 이 수십 건일 때
-    # 전부 실으면 표가 보고서를 덮는다.
-    fails = [it for it in items if _item_verdict(it) == "FAIL"]
-    if fails:
-        try:
-            defs = await db.defect_list(cycle_id=str(cycle_id), limit=300)
-        except Exception:
-            defs = []
-        by_tc = {}
-        for d in (defs or []):
-            k = str(d.get("tcid") or "")
-            if k and k not in by_tc:
-                by_tc[k] = d
-        ver = str(cycle.get("version") or "-")
-
-        def _cut(t, n=44):
-            t = str(t or "-").strip()
-            return t if len(t) <= n else t[: n - 1] + "…"
-
-        if by_tc:
-            rows = []
-            for i, it in enumerate(fails, 1):
-                d = by_tc.get(str(it.get("tcid") or ""))
-                if not d:
-                    continue
-                rows.append([len(rows) + 1, d.get("jira_key") or d.get("id") or "-",
-                             _cut(d.get("title") or it.get("name")), it.get("tcid") or "-", ver])
-            if rows:
-                out.append("## Fail issues 현황\n\n" + _md_table(
-                    ["No", "이슈", "내용", "TC ID", "발생 Version"], rows, left=(1, 2, 3)))
-            rest = len(fails) - len(rows)
-            if rest > 0:
-                out.append(f"※ 위 이슈 밖에 Fail 로 남은 항목이 {rest}건 있습니다.")
-        else:
-            cap = 10
-            rows = [[i, it.get("tcid") or "-", _cut(it.get("name")), ver]
-                    for i, it in enumerate(fails[:cap], 1)]
-            body = _md_table(["No", "TC ID", "시험 항목", "발생 Version"], rows, left=(1, 2))
-            if len(fails) > cap:
-                body += f"\n\n※ Fail {len(fails)}건 중 {cap}건만 실었습니다. 나머지는 항목 표에서 보십시오."
-            out.append("## Fail 항목\n\n" + body)
-
-    return "\n\n".join(out)
+    secs = [
+        _rp_sec_sched(items),
+        _rp_sec_owner(cycle, items, runs),
+        _rp_sec_progress_body(cycle, cycle_id, items, kin),
+        await _rp_sec_issue(cycle, cycle_id, items),
+        await _rp_sec_topo(items),
+    ]
+    return _rp_number(secs)
 
 
-def _cycle_greet(user, cycle) -> str:
-    """인사말 첫 줄 — **코드가 짓는다.** LLM 에게 맡기면 이름을 지어낸다.
+def _rp_who(user, cycle) -> tuple[str, str]:
+    """이 글을 쓴 사람의 (이름, 팀) — 인사말과 맺음말이 **같은 값**을 써야 한다.
 
     이름은 계정에, 팀은 조직도에 있다(계정의 dept 는 Jira 꼬리에서 뽑은 값이라
     「검증팀」 처럼 틀린 이름이 된다 — 조직도가 정본이다).
@@ -16321,9 +16477,21 @@ def _cycle_greet(user, cycle) -> str:
         team = str((_org_where(raw) or {}).get("team") or "")
     except Exception:
         pass
+    return who, team
+
+
+def _cycle_greet(user, cycle) -> str:
+    """인사말 — **코드가 짓는다.** LLM 에게 맡기면 이름을 지어낸다."""
+    who, team = _rp_who(user, cycle)
     if who and team:
         return f"안녕하세요, {team} {who} 입니다."
     return f"안녕하세요, {who} 입니다." if who else "안녕하세요."
+
+
+def _cycle_sign(user, cycle) -> str:
+    """맺음말 — 보고서 **맨 끝**이다(지시: 감사합니다 / -홍길동 드림-)."""
+    who, _ = _rp_who(user, cycle)
+    return "감사합니다.\n\n-" + who + " 드림-" if who else "감사합니다."
 
 
 async def _cycle_ai_summary(cycle_id, llm_id: str = ""):
@@ -16410,7 +16578,13 @@ async def _cycle_ai_summary(cycle_id, llm_id: str = ""):
     body = re.sub(r"^\s*안녕하[세십][요시][^\n]*\n+", "", body)
     body = re.sub(r"(?m)^\s*\|.*\|\s*$\n?", "", body).strip()
     _tables = await _cycle_report_tables(cycle, cycle_id)
-    ans = "\n\n".join(x for x in [_cycle_greet(_acct, cycle), body, _RP_TAIL, _tables] if x)
+    ans = "\n\n".join(x for x in [
+        _cycle_greet(_acct, cycle),      # 인사말
+        body,                            # 본문 — LLM 이 쓴 두 문단
+        _RP_TAIL,                        # 「자세한 내역은 아래 참고…」
+        _tables,                         # 번호 매긴 절들
+        _cycle_sign(_acct, cycle),       # 맺음말
+    ] if x)
 
     llm = _ai_llm(llm_id) or {}
     cycle = await db.cycle_get(cycle_id)   # 재로드(요약 생성 동안의 변경 보존)
