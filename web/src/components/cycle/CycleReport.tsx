@@ -53,6 +53,59 @@ interface TcExtra {
  * 미리보기는 HTML 로, 저장은 PptxGenJS 로 한다. 둘이 같은 쪽 나누기를
  * 쓰기 때문에 화면에서 센 장수와 파일의 장수가 어긋나지 않는다.
  */
+/** 목록 그림의 폭 — 16:9 라 높이는 여기서 나온다 */
+const THUMB_W = 176
+
+/**
+ * 장 목록의 **작은 그림** — 파워포인트의 그 판이다(지시).
+ *
+ * 284장을 한꺼번에 그리면 iframe 이 568개가 되어 팝업이 뜨지도 못한다. 그래서
+ * **눈에 들어올 때 그린다**(IntersectionObserver). 한 번 그린 것은 그대로 둔다 —
+ * 스크롤을 오갈 때마다 다시 그리면 깜빡인다.
+ */
+function SlideThumb({ html, w, h }: { html: string; w: number; h: number }) {
+  const box = useRef<HTMLSpanElement>(null)
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    const el = box.current
+    if (!el || on) return
+    /* 조금 미리 그려 둔다 — 스크롤이 닿는 순간 빈 칸이 보이지 않게 */
+    const io = new IntersectionObserver(
+      (es) => {
+        if (es.some((e) => e.isIntersecting)) {
+          setOn(true)
+          io.disconnect()
+        }
+      },
+      { root: el.closest('.rpt-side'), rootMargin: '300px 0px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [on])
+  const k = w / 1280
+  return (
+    <span className="rpt-th" ref={box} style={{ width: w, height: h }}>
+      {on && (
+        <iframe
+          className="rpt-thf"
+          title=""
+          sandbox=""
+          scrolling="no"
+          style={{ width: w, height: h }}
+          srcDoc={
+            '<!doctype html><meta charset="utf-8">' +
+            '<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}' +
+            '.p{width:1280px;height:720px;padding:24px 30px;box-sizing:border-box;' +
+            `overflow:hidden;transform:scale(${k});transform-origin:top left;` +
+            "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
+            `<div class="p">${html}</div>`
+          }
+        />
+      )}
+    </span>
+  )
+}
+
 export default function CycleReport({ cycleId, model, version, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -365,17 +418,12 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
                   key={i}
                   className={`rpt-sl${cur === i + 1 ? ' on' : ''}`}
                   onClick={() => goSlide(i)}
-                  title={`${t.tcid} ${t.name}`}
+                  title={`${t.tcid} · ${t.kind}${t.parts > 1 ? ` ${t.part}/${t.parts}` : ''}\n${t.name}`}
                 >
                   <span className="rpt-sn">{i + 1}</span>
-                  <span className="rpt-st">
-                    <b>{t.tcid || '—'}</b>
-                    <i>
-                      {t.kind}
-                      {t.parts > 1 ? ` ${t.part}/${t.parts}` : ''}
-                    </i>
-                    <em>{t.name}</em>
-                  </span>
+                  <SlideThumb html={slides[i] ?? ''} w={THUMB_W} h={Math.round((THUMB_W * 720) / 1280)} />
+                  {/* 장들이 서로 닮아 그림만으로는 못 가린다 — 시험 ID 한 줄을 남긴다 */}
+                  <span className="rpt-sc">{t.tcid || '—'}</span>
                 </button>
               ))}
             </div>
