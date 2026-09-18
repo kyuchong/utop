@@ -997,6 +997,19 @@ export default function WikiEditor({
           formattingToolbar={false}
           /* 손잡이(＋⠿)는 줄 중앙 맞춤판으로(지적: 제목마다 위치가 다름) */
           sideMenu={false}
+          /* **표 손잡이를 끈다.**
+           *
+           * 편집기의 표 손잡이는 마우스가 <table> 위에 오면 그 블록을 찾아 크기를
+           * 잰다(content.rows). 그런데 데이터베이스 블록이 그리는 표도 <table> 이라
+           * 제 표로 착각하고, 그 블록에는 content 가 없어서
+           *   Uncaught TypeError: Cannot read properties of undefined (reading 'rows')
+           * 로 터진다. 예외가 나면 그 뒤 이벤트 처리가 죽어 **화면이 먹통**이 된다
+           * (지적: 필드 클릭하니 먹통 · 새로고침해야 눌린다).
+           *
+           * 블록별로 끌 수는 없어 편집기 전체에서 끈다. 글 속의 보통 표는 손잡이
+           * 없이도 Tab 으로 줄을 늘리고 「/」 로 다시 만들 수 있다 — 먹통과 바꿀 것이
+           * 아니다. */
+          tableHandles={false}
           onChange={() => {
             if (!ready) return
             dirty.current = true
