@@ -7432,14 +7432,23 @@ def run_cli(payload: dict):
                 # 다만 유휴 정리(_CONN_IDLE_SEC 초과)로 서버 측 conn이 사라진 경우, 프론트의
                 # _procSessOpen 은 여전히 세션 있다고 판단하고 있으므로 자동 재접속을 시도.
                 # 재접속 실패 시에만 no_session 반환.
-                conn = ent.get("conn")
-                _auto_reconn = False
-                if conn is None:
-                    try:
-                        conn = _ensure_conn(ent, params)
-                        _auto_reconn = True
-                    except Exception as _re0:
-                        return {"ok": False, "error": "세션이 열려 있지 않습니다 — 먼저 Session Open 스텝을 실행하세요 · 자동 재접속 실패: " + _conn_fail_msg(params, _re0), "no_session": True, "outputs": []}
+                # **살아 있는지 보고 쓴다.**
+                #
+                # 여태는 `conn` 이 None 이 아니면 그대로 썼다. 그런데 장비가 reload
+                # 되면 파이썬 객체는 그대로 남고 **소켓만 죽는다** — None 이 아니므로
+                # 확인도 재연결도 없이 바로 보내고, 다음 명령이 23ms 만에
+                # 「[Errno 32] Broken pipe」 로 떨어졌다(지적: 원래는 재연결했다).
+                #
+                # _ensure_conn 이 바로 그 일을 한다: 쉰 지 얼마 안 됐으면 find_prompt
+                # 로 살았는지 보고, 죽었거나 오래 쉬었으면 끊고 새로 잡는다.
+                _before = ent.get("conn")
+                try:
+                    conn = _ensure_conn(ent, params)
+                except Exception as _re0:
+                    return {"ok": False, "error": "세션이 열려 있지 않습니다 — 먼저 Session Open 스텝을 실행하세요 · 자동 재접속 실패: " + _conn_fail_msg(params, _re0), "no_session": True, "outputs": []}
+                # 새 연결로 갈아탔으면 화면에 알린다 — 사람이 「왜 설정이 사라졌지」 를
+                # 겪지 않게(재접속하면 설정 문맥·paging 이 초기화된다)
+                _auto_reconn = conn is not _before
                 ent["ts"] = _t.time()
                 _force_enable(conn, params, ent)  # 안전망: 세션이 아직 User EXEC(>)면 enable 재시도 (paging 은 세션당 1회)
                 if _auto_reconn:
