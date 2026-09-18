@@ -9343,3 +9343,80 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-devmenu.big .dv-cu,
 .ask-devmenu.big .dv-vd,
 .ask-devmenu.big .dv-gp { display: none; }
+
+/* ══ Test AI · 대화 ═══════════════════════════════════════════════════
+   물어본 말과 AI 가 정한 것이 쌓이는 자리. 한 번 물으면 제목·부제·오프너·
+   「하는 일」 카드가 물러나고 이 판이 그 자리를 넘겨받는다(목업).
+
+   이름을 .ask-msgs 안에 가둔 까닭: .msg 를 맨몸으로 쓰면 이 9천 줄짜리
+   파일의 이웃(.cs-mmsg 등)이 조용히 망가진다. */
+.ask-home.chat .ask-aibadge,
+.ask-home.chat .ask-hometitle,
+.ask-home.chat .ask-homesub,
+.ask-home.chat .ask-opsh,
+.ask-home.chat .ask-ops,
+.ask-home.chat .ask-cando { display: none; }
+.ask-home.chat .ask-homewrap {
+  justify-content: flex-start;
+  padding-top: 28px;
+  padding-bottom: 18px;
+}
+.ask-home.chat .ask-askbox2 { margin-top: 0; flex: none; }
+.ask-msgs {
+  width: min(1100px, 100%);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 2px 14px;
+  text-align: left;
+}
+.ask-msgs .msg { margin-bottom: 18px; }
+.ask-msgs .msg.u { display: flex; justify-content: flex-end; }
+.ask-msgs .msg.u b {
+  max-width: 62%;
+  padding: 11px 16px;
+  border-radius: 16px 16px 4px 16px;
+  background: var(--c-primary);
+  color: #fff;
+  font-weight: 500;
+  font-size: var(--fs-lg);
+  line-height: 1.55;
+}
+.ask-msgs .msg.a { display: flex; gap: 12px; }
+.ask-msgs .msg.a .av {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font-size: 16px;
+  border: 1px solid rgb(23 105 210 / 18%);
+}
+.ask-msgs .msg.a .bd {
+  flex: 1;
+  min-width: 0;
+  padding-top: 4px;
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+  color: var(--c-text);
+}
+.ask-msgs .ln { margin: 2px 0 11px; }
+.ask-msgs .ln b { color: var(--c-primary); }
+/* 말풍선 안의 작은 단추 — 「📟 장비 고르기」 처럼 그 자리에서 잇는 길 */
+.ask-msgs .btnsm {
+  flex: none;
+  height: 26px;
+  padding: 0 11px;
+  border: 1px solid var(--c-primary);
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: var(--c-primary);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+.ask-msgs .btnsm:hover { background: var(--c-primary); color: #fff; }

@@ -397,6 +397,28 @@ export default function AskBar({ devices }: Props) {
     return m
   }, [lockQ.data])
 
+  /* ── 대화(지적: 질문 후 장비 선택부터 맞는 게 없다) ──────────────────
+     여태 이 화면은 첫 화면 → 만드는 중 → 절차 판 **셋을 갈아 끼우는** 꼴이라
+     물어본 말과 AI 가 무엇을 정했는지가 쌓이는 자리가 없었다. 한 줄짜리
+     「물어본 말」 만 머리에 남아서, 여러 번 되물으며 좁혀 갈 수가 없었다.
+
+     말풍선을 쌓는다 — 내 말은 오른쪽, AI 말은 ✦ 를 단 왼쪽. 단계(장비 →
+     항목 → 절차)도 이 줄에 실어, 지금 어디쯤인지 늘 보이게 한다. */
+  const [msgs, setMsgs] = useState<Array<{ who: 'u' | 'a'; html: string }>>([])
+  const msgsRef = useRef<HTMLDivElement>(null)
+  /** 남이 지은 글(장비 이름·항목 제목)을 html 에 실을 때 — 꺾쇠를 막는다 */
+  const hesc = (t: string) =>
+    String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  /** 말풍선 한 줄 — html 은 우리가 짓는 글이라 그대로 싣는다 */
+  const say = (who: 'u' | 'a', html: string) => setMsgs((v) => [...v, { who, html }])
+  /* 새 줄이 붙으면 아래로 따라간다 — 사람이 위로 올려 읽는 중이면 그대로 둔다 */
+  useEffect(() => {
+    const el = msgsRef.current
+    if (!el) return
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    if (near) el.scrollTop = el.scrollHeight
+  }, [msgs])
+
   /** 장비 고르개의 상태 탭 — 전체 · 연결됨 · 점검 · 연결안됨.
       열 머리 드롭다운에도 같은 거르개가 있지만, 가장 자주 쓰는 거르개가
       메뉴 속에 묻혀 있으면 두 번 눌러야 닿는다(목업: 탭으로 낸다). */
@@ -1514,6 +1536,9 @@ export default function AskBar({ devices }: Props) {
     // 안 보낸 것처럼 보인다(지적). 그만두거나 어긋나면 되돌려 놓는다.
     setText('')
     setAsked(said)
+    /* 물어본 말은 **오른쪽 말풍선**으로 남는다(지시: 목업) — 한 줄짜리 머리글로만
+       남기면 여러 번 되물으며 좁혀 갈 때 앞에 무엇을 물었는지 사라진다. */
+    say('u', raw0)
     setFlowLog([{ s: 1, t: `요청의 말을 읽었습니다 — "${said.slice(0, 40)}"` }])
     setFlowVals([])
     setFitNotes([])
@@ -1553,6 +1578,11 @@ export default function AskBar({ devices }: Props) {
           ...v,
           { s: 1, t: `보낼 장비 ${d0.ip} 확정 (한 대뿐)` },
         ])
+        say(
+          'a',
+          `<p class="ln"><b>${hesc(String(d0.model || d0.name || ''))} (${hesc(String(d0.ip ?? ''))})</b> 로 정했습니다 — 쓸 수 있는 장비가 한 대뿐입니다.<br>` +
+            '<b>2단계 · 시험 항목 고르기</b> 로 넘어갑니다.</p>',
+        )
         setFlowVals([
           { k: '모델', v: String(d0.model ?? '') },
           { k: '대상', v: d0.ip },
@@ -1571,6 +1601,12 @@ export default function AskBar({ devices }: Props) {
         ...v,
         { s: 1, t: m0 ? `${m0} 이(가) ${cands.length}대 — 어느 장비로 할지 고릅니다` : '어느 장비로 할지 고릅니다' },
       ])
+      say(
+        'a',
+        '<p class="ln"><b>1단계 · 장비 고르기</b><br>' +
+          '어느 장비에서 돌릴지 먼저 정해 주세요. 고른 장비로 <b>돌릴 수 있는 시험만</b> 추려서 보여 드립니다.</p>' +
+          '<button type="button" class="btnsm js-pickdev">📟 장비 고르기</button>',
+      )
       setPickSel(cands.find((d) => d.id === devId)?.id ?? cands[0]?.id ?? '')
       setPickLab('')
       setPickRack('')
@@ -2042,6 +2078,7 @@ export default function AskBar({ devices }: Props) {
                 setPicked(new Set())
                 setLike([])
                 setText('')
+                setMsgs([])
               }}
             >
               ↺ 처음으로
@@ -2441,7 +2478,10 @@ export default function AskBar({ devices }: Props) {
           제목 · 입력칸(모드 고르개가 그 안에) · 오프너 셋.
           관리자는 ⚙ 로 오프너를 이 자리에서 고친다. */}
       {!draft && !making && (
-        <div className={`ask-home${exEdit ? ' editing' : ''}`} data-theme={theme}>
+        <div
+          className={`ask-home${exEdit ? ' editing' : ''}${msgs.length ? ' chat' : ''}`}
+          data-theme={theme}
+        >
           {exEdit && <span className="ask-edbadge">오프너 편집 모드</span>}
           <div className="ask-hometools">
             {!exEdit && (
@@ -2541,6 +2581,40 @@ export default function AskBar({ devices }: Props) {
 
             {/* 입력 + 모드 — 한 상자 안이다(목업) */}
             {/* 2행 캡슐(승인) — 1행 질문 · 2행 첨부·도구·핀 칩 | 모드·음성·보내기 */}
+            {/* ── 대화 ─────────────────────────────────────────────────
+                물어본 말과 AI 가 정한 것이 여기 쌓인다. 첫 화면에서는 안 보이고
+                (msgs 가 비어 있다) 한 번 물으면 제목·부제·오프너 자리를 이 판이
+                넘겨받는다 — 목업 그대로다. */}
+            {msgs.length > 0 && (
+              <div
+                className="ask-msgs"
+                ref={msgsRef}
+                /* 말풍선 안의 「📟 장비 고르기」·「🔍 시험 항목 고르기」 —
+                   글 속에 심은 단추라 한 자리에서 받는다 */
+                onClick={(e) => {
+                  const t = e.target as HTMLElement
+                  if (t.closest('.js-pickdev')) {
+                    setPickSel(devId || usable[0]?.id || '')
+                    setPickLab('')
+                    setPickRack('')
+                    setPickDev({ model: askModel, cands: usable })
+                  } else if (t.closest('.js-picktc')) setLikeAsk(true)
+                }}
+              >
+                {msgs.map((m, i) =>
+                  m.who === 'u' ? (
+                    <div className="msg u" key={i}>
+                      <b>{m.html}</b>
+                    </div>
+                  ) : (
+                    <div className="msg a" key={i}>
+                      <span className="av" aria-hidden="true">✦</span>
+                      <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
             <div className="ask-askbox2 two">
               <div className="ask-r1">
               <input
@@ -3958,6 +4032,12 @@ export default function AskBar({ devices }: Props) {
                       ].filter((x) => x.v),
                     )
                     setPickDev(null)
+                    /* 무엇으로 정했는지 대화에 남긴다(지시: 목업) — 창이 닫히고
+                       나면 어느 장비로 갔는지 화면 어디에도 안 남았다. */
+                    say(
+                      'a',
+                      `<p class="ln"><b>${hesc(String(d2?.model || d2?.name || ''))} (${hesc(String(d2?.ip ?? ''))})</b> 로 정했습니다.</p>`,
+                    )
                     /* 항목을 먼저 고른 뒤 장비를 물은 것이면 그 항목으로 잇는다(지시) */
                     if (afterPick) {
                       const ap = afterPick
@@ -3969,6 +4049,13 @@ export default function AskBar({ devices }: Props) {
                       void makePlan(asked, d2)
                       return
                     }
+                    say(
+                      'a',
+                      '<p class="ln"><b>2단계 · 시험 항목 고르기</b><br>' +
+                        `<b>${hesc(String(d2?.model || d2?.name || ''))}</b> 에서 돌릴 수 있는 항목만 추려 두었습니다. ` +
+                        '목록에서 하나를 고르면 바로 절차를 짓습니다.</p>' +
+                        '<button type="button" class="btnsm js-picktc">🔍 시험 항목 고르기</button>',
+                    )
                     setAskModel(String(d2?.model ?? pickDev.model ?? ''))
                     setTcOnlyModel(true)
                     void findLike(asked, d2).then(() => {
@@ -4311,6 +4398,12 @@ export default function AskBar({ devices }: Props) {
                             onClick={() => {
                               if (adopting) return
                               setLikeAsk(false)
+                              /* 무엇으로 정했는지 남기고 3단계로(지시: 목업) */
+                              say(
+                                'a',
+                                `<p class="ln"><b>${hesc(x.tcid)}</b> 으로 정했습니다 — ${hesc(x.name)}.<br>` +
+                                  '<b>3단계 · 절차 만들기</b> 를 시작합니다.</p>',
+                              )
                               /* 일반 = 있는 것을 그대로, 고급 = 이 장비에 맞춰 옮겨 짓기 */
                               void (mode === 'basic'
                                 ? takeTc(x.tcid, undefined, x.model)
