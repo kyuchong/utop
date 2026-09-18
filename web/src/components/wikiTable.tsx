@@ -43,7 +43,7 @@ export function newTableId(): string {
   return `wt${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 }
 
-function TableBody({ tid, editable }: { tid: string; editable: boolean }) {
+function TableBody({ tid }: { tid: string }) {
   const qc = useQueryClient()
   const key = ['wiki-tbl', tid]
   const people = useUserPeople()
@@ -150,8 +150,6 @@ function TableBody({ tid, editable }: { tid: string; editable: boolean }) {
         if (a === 'del') void post('/rows', { ids }, 'DELETE')
       }}
       onReorder={(ids) => void post('/rows', { order: ids })}
-      /* 읽기 전용 문서에서는 열 정의를 잠근다 — 값도 NTable 이 함께 막는다 */
-      lockDefs={!editable}
       titleKey={cols[0]?.key}
       exportTitle={d?.title || '표'}
       perPage={100}
@@ -308,9 +306,20 @@ export const TableSpec = createReactBlockSpec(
     content: 'none',
   },
   {
+    /**
+     * **`isEditable` 로 가리지 않는다.**
+     *
+     * BlockNote 의 `isEditable` 은 편집기(_tiptapEditor)가 아직 붙기 전이면 그냥
+     * **false 를 돌려준다.** 블록이 처음 그려지는 순간이 그때라, 「복제」·「들이기」 를
+     * 그 값으로 가리면 안 그려지고 — 편집기가 붙은 뒤에도 **블록을 다시 그리지
+     * 않으므로** 영영 없는 상태로 남는다(지적: 열 복제가 또 없다).
+     *
+     * 위키는 읽기 전용으로 여는 길이 없다(BlockNoteView 에 editable 을 아예 넘기지
+     * 않는다). 못 고쳐야 하는 때는 **PDF 로 굽는 중**뿐이고 그때는 CSS 가 단추를
+     * 통째로 숨긴다. 그러니 가릴 것이 없다.
+     */
     render: ({ block, editor }) => {
       const p = block.props as Props
-      const editable = editor.isEditable
       /* 블록 하나에 창 하나 — 표마다 따로 열린다 */
       // eslint-disable-next-line react-hooks/rules-of-hooks
       const [imp, setImp] = useState(false)
@@ -330,10 +339,9 @@ export const TableSpec = createReactBlockSpec(
               className="wtb-name"
               value={p.title}
               placeholder="표 이름"
-              readOnly={!editable}
               onChange={(e) => editor.updateBlock(block, { props: { ...p, title: e.target.value } })}
             />
-            {editable && p.tid && (
+            {p.tid && (
               <button type="button" className="wtb-imb" onClick={() => setImp(true)}>
                 ⬆ 자료 들이기
               </button>
@@ -347,7 +355,7 @@ export const TableSpec = createReactBlockSpec(
             />
           )}
           {p.tid ? (
-            <TableBody tid={p.tid} editable={editable} />
+            <TableBody tid={p.tid} />
           ) : (
             <div className="wtb-msg">표 열쇠가 없습니다 — 블록을 지우고 다시 넣어 주세요.</div>
           )}
