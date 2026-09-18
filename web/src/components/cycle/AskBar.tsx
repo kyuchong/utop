@@ -2735,8 +2735,10 @@ export default function AskBar({ devices }: Props) {
                       setModeOpen(false)
                     }}
                   >
+                    {/* **이름만 세운다**(목업). 모델 번호까지 달면 「Local LLM
+                        gemma-4-31b-it」 처럼 길어져 입력줄의 절반을 먹는다 —
+                        모델은 풍선말과 고름표 안에서 본다. */}
                     <span className="mlb">{llmNow?.name ?? 'AI 고르기'}</span>
-                    {!!llmNow?.model && <em className="mdl">{llmNow.model}</em>}
                     <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
                   </button>
                   {llmOpen && (
