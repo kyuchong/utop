@@ -340,10 +340,28 @@ export const TableSpec = createReactBlockSpec(
           contentEditable={false}
           onKeyDown={(e) => e.stopPropagation()}
           onPaste={(e) => e.stopPropagation()}
-          /* 표 안의 끌기가 **편집기로 새지 않게** 시작만 막는다.
-             처음에는 drop·dragend 까지 막았는데, 그러면 표 자신의 끌기도 끝을 못 봐서
-             열을 옮기지도 못하고 화면이 먹통이 됐다(지적) — 끝나는 신호는 지나가야 한다. */
-          onDragStart={(e) => e.stopPropagation()}
+          /**
+           * **이 판을 끌 수 없게 못박는다.**
+           *
+           * contentEditable={false} 인 덩어리는 브라우저가 통째로 끌 수 있는 것으로
+           * 본다. 그래서 칸을 누르고 손이 조금만 움직여도 **표 블록이 들려** 끌기가
+           * 시작되고, 그 끌기가 끝나지 못해 그 뒤로 아무것도 안 눌렸다(지적: 필드
+           * 클릭하니 먹통 · 새로고침해야 한다). 표 안의 열·행 손잡이는 제 draggable
+           * 을 따로 가지므로 이것과 무관하게 그대로 끌린다.
+           */
+          draggable={false}
+          /**
+           * **놓기를 편집기보다 먼저 가로챈다.**
+           *
+           * 편집기(ProseMirror)는 제 DOM 에 네이티브로 놓기를 듣고 있어, 표 안에서
+           * 놓아도 그것을 「블록을 옮겨 달라」 로 읽고 **문서를 고쳐 버린다** — 그러면
+           * 블록이 다시 그려져 표가 하려던 열 옮기기가 사라진다.
+           *
+           * 캡처 단계는 편집기의 귀보다 **먼저** 온다. 여기서 preventDefault 만 해 두면
+           * 편집기는 「누가 이미 처리했다」 로 보고 스스로 물러나고(defaultPrevented),
+           * 전파는 끊지 않으므로 표의 놓기 처리는 그대로 돈다.
+           */
+          onDropCapture={(e) => e.preventDefault()}
         >
           <div className="wtb-top">
             <input
