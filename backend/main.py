@@ -9466,6 +9466,201 @@ def _blocks_to_md(doc) -> str:
     return "\n".join(out).strip()
 
 
+
+
+# BlockNote 가 쓰는 색 이름 → 실제 색. **그 판의 CSS 에서 그대로 떠 왔다.**
+# 메일에는 CSS 를 실을 수 없어(대부분의 메일 프로그램이 <style> 을 지운다) 색을
+# 그 자리에 박아야 한다. 우리가 색을 새로 고르면 화면과 메일이 달라 보인다.
+_BN_BG = {
+    "gray": "#ebeced", "brown": "#e9e5e3", "red": "#fbe4e4", "orange": "#f6e9d9",
+    "yellow": "#fbf3db", "green": "#ddedea", "blue": "#ddebf1", "purple": "#eae4f2",
+    "pink": "#f4dfeb",
+}
+_BN_FG = {
+    "gray": "#9b9a97", "brown": "#64473a", "red": "#e03e3e", "orange": "#d9730d",
+    "yellow": "#dfab01", "green": "#4d6461", "blue": "#0b6e99", "purple": "#6940a5",
+    "pink": "#ad1a72",
+}
+
+
+def _blocks_to_html(doc) -> str:
+    """블록 노트(description_doc) → HTML. **서식을 살려서.**
+
+    마크다운을 거치면 칸 배경과 글자색이 사라진다 — 마크다운에 그 문법이 없다.
+    표 줄에 색을 칠해 두었는데 메일 창에서는 안 보인다는 지적이 그것이다.
+    정본은 블록이므로 여기서 바로 HTML 로 옮긴다.
+
+    빈 글이면 빈 문자열을 돌려준다 — 부른 쪽이 옛 마크다운 길로 되돌아간다.
+    """
+    if isinstance(doc, str):
+        try:
+            doc = json.loads(doc)
+        except Exception:
+            return ""
+    if not isinstance(doc, list) or not doc:
+        return ""
+
+    def style_of(st) -> str:
+        """글자 하나에 걸린 꾸밈 → style 속성 값"""
+        css = []
+        bg = str((st or {}).get("backgroundColor") or "")
+        fg = str((st or {}).get("textColor") or "")
+        if bg and bg != "default":
+            css.append("background-color:" + _BN_BG.get(bg, bg))
+        if fg and fg != "default":
+            css.append("color:" + _BN_FG.get(fg, fg))
+        return ";".join(css)
+
+    def inline(x) -> str:
+        if isinstance(x, str):
+            return _h.escape(x)
+        if isinstance(x, list):
+            return "".join(inline(i) for i in x)
+        if not isinstance(x, dict):
+            return ""
+        kind = str(x.get("type") or "")
+        if kind == "link":
+            inner = inline(x.get("content"))
+            href = _h.escape(str(x.get("href") or ""), quote=True)
+            return f'<a href="{href}">{inner}</a>' if href else inner
+        if kind and kind != "text":
+            return inline(x.get("content"))
+        s = _h.escape(str(x.get("text") or ""))
+        if not s:
+            return ""
+        st = x.get("styles") or {}
+        if st.get("code"):
+            s = f"<code>{s}</code>"
+        if st.get("bold"):
+            s = f"<b>{s}</b>"
+        if st.get("italic"):
+            s = f"<i>{s}</i>"
+        if st.get("underline"):
+            s = f"<u>{s}</u>"
+        if st.get("strike"):
+            s = f"<s>{s}</s>"
+        cs = style_of(st)
+        return f'<span style="{cs}">{s}</span>' if cs else s
+
+    def props_css(props, base=()) -> str:
+        """블록·칸에 **통째로** 걸린 꾸밈 → style 값.
+
+        글자 하나하나가 아니라 문단·제목·칸 자체에 색을 칠할 수 있다(BlockNote 는
+        그것을 props 에 담는다). 이것을 빼면 문단에 칠한 색이 메일에서 사라진다.
+        """
+        css = list(base)
+        bg = str((props or {}).get("backgroundColor") or "")
+        if bg and bg != "default":
+            css.append("background-color:" + _BN_BG.get(bg, bg))
+        fg = str((props or {}).get("textColor") or "")
+        if fg and fg != "default":
+            css.append("color:" + _BN_FG.get(fg, fg))
+        al = str((props or {}).get("textAlignment") or "")
+        if al in ("center", "right", "justify"):
+            css.append("text-align:" + al)
+        return ";".join(x for x in css if x)
+
+    def bgcolor_attr(props) -> str:
+        """옛 메일 프로그램(특히 Outlook)은 style 을 흘려버린다 — bgcolor 도 같이 준다"""
+        bg = str((props or {}).get("backgroundColor") or "")
+        if not bg or bg == "default":
+            return ""
+        return f' bgcolor="{_BN_BG.get(bg, bg)}"'
+
+    _TB = "border-collapse:collapse;margin:10px 0;font-size:12px"
+    _CELL = "padding:6px 10px;border:1px solid #e5eaee"
+    _HEAD = "background:#f4f6f8;font-weight:700;white-space:nowrap"
+
+    def table_html(b) -> str:
+        content = b.get("content")
+        if not isinstance(content, dict):
+            return ""
+        rows = content.get("rows") or []
+        try:
+            head_n = int(content.get("headerRows") or 0)
+        except Exception:
+            head_n = 0
+        # 머리줄을 안 밝혔으면 첫 줄을 머리로 본다 — 마크다운 표에서 오던 글과
+        # 같은 모양이 되도록(그쪽은 첫 줄이 늘 머리다).
+        if not head_n and rows:
+            head_n = 1
+        out = [f'<table style="{_TB}">']
+        for ri, r in enumerate(rows):
+            if not isinstance(r, dict):
+                continue
+            is_head = ri < head_n
+            out.append("<tr>")
+            for cl in (r.get("cells") or []):
+                props = cl.get("props") if isinstance(cl, dict) else None
+                props = props or {}
+                # 칸에 칠한 색이 머리 바탕(_HEAD)보다 뒤에 온다 — 사람이 일부러
+                # 칠한 것이 이겨야 한다.
+                base = [_CELL, _HEAD] if is_head else [_CELL]
+                cs = props_css(props, base)
+                span = bgcolor_attr(props)
+                for k, at in (("colspan", "colspan"), ("rowspan", "rowspan")):
+                    try:
+                        v = int(props.get(k) or 1)
+                    except Exception:
+                        v = 1
+                    if v > 1:
+                        span += f' {at}="{v}"'
+                body = inline(cl.get("content") if isinstance(cl, dict) else cl) or "&nbsp;"
+                tag = "th" if is_head else "td"
+                out.append(f'<{tag} style="{cs}"{span}>{body}</{tag}>')
+            out.append("</tr>")
+        out.append("</table>")
+        return "".join(out)
+
+    out: list[str] = []
+    ul_open = False
+
+    def close_ul():
+        nonlocal ul_open
+        if ul_open:
+            out.append("</ul>")
+            ul_open = False
+
+    for b in doc:
+        if not isinstance(b, dict):
+            continue
+        kind = str(b.get("type") or "")
+        props = b.get("props") or {}
+        if kind == "table":
+            close_ul()
+            out.append(table_html(b))
+            continue
+        body = inline(b.get("content"))
+        if kind in ("bulletListItem", "numberedListItem", "checkListItem"):
+            if not ul_open:
+                out.append('<ul style="margin:6px 0;padding-left:20px">')
+                ul_open = True
+            mark = ""
+            if kind == "checkListItem":
+                mark = "☑ " if props.get("checked") else "☐ "
+            out.append(f'<li style="{props_css(props)}">{mark}{body}</li>')
+            continue
+        close_ul()
+        if not body.strip():
+            continue
+        # 문단·제목에도 **통째로** 색을 칠할 수 있다. 이것을 빼면 문단에 칠해 둔
+        # 색이 메일에서만 사라진다(실제로 그렇게 저장된 글이 이미 있다).
+        if kind == "heading":
+            try:
+                lv = int(props.get("level") or 2)
+            except Exception:
+                lv = 2
+            lv = min(3, max(2, lv))
+            hs = {2: "margin:16px 0 6px;font-size:15px", 3: "margin:14px 0 5px;font-size:13px"}[lv]
+            cs = props_css(props, [hs, "font-weight:700"])
+            out.append(f'<h{lv} style="{cs}"{bgcolor_attr(props)}>{body}</h{lv}>')
+        else:
+            cs = props_css(props, ["margin:6px 0"])
+            out.append(f'<p style="{cs}"{bgcolor_attr(props)}>{body}</p>')
+    close_ul()
+    return "".join(out)
+
+
 @app.get("/api/cycle/{cycle_id}/summary-body")
 async def cycle_summary_body(cycle_id: str, token: str = ""):
     """메일 창이 **처음 채워 넣을 글**과 자동 제목.
@@ -9478,11 +9673,25 @@ async def cycle_summary_body(cycle_id: str, token: str = ""):
     if not _user_from_token(token):
         raise HTTPException(401, "로그인이 필요합니다")
     c = await db.cycle_get(cycle_id) or {}
+
+    # **블록이 있으면 블록에서 바로 옮긴다.**
+    #
+    # 정본은 description_doc 이고 마크다운(description)은 그 곁사본이다. 마크다운을
+    # 거치면 **칸 배경과 글자색이 사라진다** — 마크다운에 그 문법이 없다. 표 줄에
+    # 색을 칠해 두었는데 메일 창에서는 안 보인다는 지적이 그것이다.
+    #
+    # AI 생성 직후처럼 블록이 비고 마크다운에만 글이 있을 때가 있어(그쪽은
+    # description_doc 을 빈 배열로 둔다), 블록이 비면 아래 옛 길로 내려간다.
+    _direct = _blocks_to_html(c.get("description_doc"))
+    if _direct:
+        # 제목은 **아래 길과 같은 곳**에서 얻는다 — 설정(메일 제목 틀)을 따라야
+        # 한다. 여기서 따로 지으면 블록이 있을 때만 제목이 달라진다.
+        _subj, _ = await _cycle_mail_html(cycle_id, "", "")
+        return {"html": _direct, "subject": _subj}
+
     md = str(c.get("description") or "").strip()
-    # **글이 블록에만 있으면 거기서 뽑는다**(지적: 213 에서는 들어가 있는데
-    # 253 에서는 빈 칸으로 나온다). Test Summary 는 블록 노트라 정본이
-    # description_doc 이고, 마크다운(description)은 그 곁사본이다 — 곁사본이
-    # 비어 있는 사이클은 화면에는 글이 보이는데 메일 창만 텅 비었다.
+    # 글이 블록에만 있으면 거기서 뽑는다(지적: 213 에서는 들어가 있는데 253 에서는
+    # 빈 칸으로 나온다) — 위 블록 길이 막혔을 때의 마지막 보루다.
     if not md:
         md = _blocks_to_md(c.get("description_doc"))
     import re as _re

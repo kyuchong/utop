@@ -23,6 +23,9 @@ export interface MailPerson {
   path: string
   /** 찾기용 — 이름·직급·아이디·주소·조직을 한 줄로 이어 소문자로 */
   key: string
+  /** 같은 이름의 계정이 둘 이상이라 **누구인지 가릴 수 없다**.
+      주소를 못 넣는 것은 계정이 없어서가 아니므로 화면이 달리 말해야 한다. */
+  dup?: boolean
 }
 export interface MailOrg {
   id: string
@@ -40,9 +43,16 @@ export interface MailOrg {
   count: number
 }
 
-/** 계정 이름의 꼬리를 뗀다 — 「강경묵(생산)」·「이승훈_기술」 → 「강경묵」 */
+/**
+ * 이름의 꼬리를 뗀다 — 「강경묵(생산)」·「이승훈_기술」 → 「강경묵」.
+ *
+ * **끝에 붙은 숫자도 뗀다.** 조직도는 같은 이름이 둘이면 「이승훈1」·「이승훈2」
+ * 처럼 숫자로 가른다. 그 숫자를 안 떼면 계정의 「이승훈(검증)」 과 영영 못 만나,
+ * 계정이 버젓이 있는 사람이 조직도에서 「계정 없음」 으로 나온다(지적).
+ * 한국 이름은 숫자로 끝나지 않으므로 잘못 뗄 일이 없다.
+ */
 export const bareName = (v: string): string =>
-  (String(v ?? '').split(/[(（_]/, 1)[0] ?? '').trim()
+  (String(v ?? '').split(/[(（_]/, 1)[0] ?? '').trim().replace(/\d+$/, '')
 
 interface OrgNodeRaw {
   name?: string
@@ -98,14 +108,29 @@ export function useMailBook(on: boolean): MailBook {
 }
 
 export function joinBook(org: OrgNodeRaw | null, accs: AccountRaw[]): MailBook {
-  /* 계정을 **이름으로** 찾을 수 있게 모아 둔다. 같은 이름이 둘이면 주소가
-     있는 쪽을 남긴다 — 메일을 못 받는 계정은 고를 수 없으니 쓸모가 없다. */
+  /* 계정을 **이름으로** 찾을 수 있게 모아 둔다.
+   *
+   * 같은 이름의 계정이 둘 이상이면 **아무 쪽도 쓰지 않는다.** 여태는 먼저 온
+   * 쪽을 남겼는데, 조직도에는 누가 누구인지 가릴 단서가 없다(이름과 직급뿐이고
+   * 주소 칸이 아예 없다). 그대로 두면 「이승훈」 두 사람 중 엉뚱한 쪽으로 메일이
+   * 나간다 — 못 넣는 것보다 나쁘다. 그 자리는 화면이 「동명이인」 이라고 밝히고
+   * 사람이 주소를 직접 넣게 한다. */
   const byName = new Map<string, AccountRaw>()
+  const dup = new Set<string>()
   accs.forEach((a) => {
     const k = bareName(String(a.name || a.username || ''))
     if (!k) return
     const cur = byName.get(k)
-    if (!cur || (!cur.email && a.email)) byName.set(k, a)
+    if (!cur) {
+      byName.set(k, a)
+      return
+    }
+    /* 주소가 없는 계정은 셈에서 뺀다 — 어차피 고를 수 없어 헷갈릴 일이 없다 */
+    if (!cur.email) {
+      byName.set(k, a)
+      return
+    }
+    if (a.email) dup.add(k)
   })
 
   const people: MailPerson[] = []
@@ -113,7 +138,8 @@ export function joinBook(org: OrgNodeRaw | null, accs: AccountRaw[]): MailBook {
   let gid = 0
 
   const mk = (nm: string, rank: string, role: string, path: string): MailPerson => {
-    const acc = byName.get(nm)
+    const twin = dup.has(nm)
+    const acc = twin ? undefined : byName.get(nm)
     if (acc) used.add(String(acc.username || ''))
     const p: MailPerson = {
       name: nm,
@@ -124,6 +150,7 @@ export function joinBook(org: OrgNodeRaw | null, accs: AccountRaw[]): MailBook {
       mail: String(acc?.email ?? ''),
       path,
       key: '',
+      dup: twin,
     }
     p.key = [p.name, p.rank, p.uid, p.mail, path].join('\n').toLowerCase()
     people.push(p)

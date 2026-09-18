@@ -414,7 +414,13 @@ export default function CycleMailDialog({
             style={{ paddingLeft: 10 + (n.depth + 1) * 16 }}
             disabled={!p.mail}
             aria-pressed={on}
-            title={p.mail ? `${p.path} · ${p.mail}` : '계정이 없어 메일을 받을 수 없습니다'}
+            title={
+              p.mail
+                ? `${p.path} · ${p.mail}`
+                : p.dup
+                  ? '같은 이름의 계정이 둘이라 누구인지 가릴 수 없습니다 — 위 칸에 주소를 직접 넣어 주세요'
+                  : '계정이 없어 메일을 받을 수 없습니다'
+            }
             onClick={() => p.mail && toggle(orgBox, p.mail)}
           >
             <i className="cmd-ob">{on ? '✓' : ''}</i>
@@ -422,7 +428,9 @@ export default function CycleMailDialog({
             {!!p.rank && <span className="cmd-oprk">{p.rank}</span>}
             {/* 자리 배지 — 팀원은 적지 않는다(거의 모두라 적어도 뜻이 없다) */}
             {/^(담당|팀장|관리자)$/.test(p.role) && <span className="cmd-oprole">{p.role}</span>}
-            <span className="cmd-opmail">{p.mail || '계정 없음'}</span>
+            {/* 주소가 없는 까닭을 **갈라서** 말한다 — 여태 셋을 모두 「계정 없음」
+                이라 적어, 계정이 버젓이 있는 사람까지 없는 것처럼 보였다(지적) */}
+            <span className="cmd-opmail">{p.mail || (p.dup ? '동명이인' : '계정 없음')}</span>
             {/* 서 있는 칸을 모두 — 한 사람이 받는 사람이면서 참조일 수 있다 */}
             {wheresOf(p.mail).map((b) => (
               <span key={b} className={`cmd-optag ${b}`}>
