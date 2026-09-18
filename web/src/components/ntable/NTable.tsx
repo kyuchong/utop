@@ -498,9 +498,14 @@ export default function NTable(p: NTableProps) {
 
   /** 이 열로 **묶을 수 있나** — 값이 겹쳐야 덩어리가 생긴다.
       줄마다 다른 값(ID·제목)으로 묶으면 한 줄짜리 덩어리만 잔뜩 선다.
-      숨긴 열도 뺀다 — 표에 없는 열로 묶이면 왜 갈렸는지 알 수 없다. */
+      숨긴 열도 뺀다 — 표에 없는 열로 묶이면 왜 갈렸는지 알 수 없다.
+
+      **fixed 는 보지 않는다**(지적: 인원으로 묶을 수가 없다). fixed 의 뜻은
+      「지우거나 유형을 못 바꾸는 열」 이지 「값이 줄마다 다른 열」 이 아니다.
+      ID·Key 라면 아래 값 겹침 조건이 이미 걸러 내고, 인원처럼 겹치는 값이면
+      묶을 수 있어야 한다. 거르기·정렬도 fixed 를 안 보는데 묶기만 봤다. */
   const canGroup = (c: NCol) => {
-    if (c.hidden || c.fixed) return false
+    if (c.hidden) return false
     const d = valueStat.get(c.key)?.size ?? 0
     if (d < 2) return false
     return c.type === 'select' || c.type === 'multiselect' || c.type === 'person' || d < rows.length

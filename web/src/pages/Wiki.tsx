@@ -119,6 +119,29 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
     if (parent) setShut((s) => new Set([...s].filter((x) => x !== parent)))
   }
 
+  /**
+   * 문서를 통째로 벤다 — **안에 든 표까지, 하위 문서까지.**
+   *
+   * 블록에는 표의 열쇠만 담기므로 문서만 베끼면 벤 것과 원본이 같은 표를 가리킨다
+   * (한쪽을 고치면 양쪽이 바뀐다). 서버가 표를 새로 떠서 열쇠를 바꿔 끼운다 —
+   * 「26년 것을 베껴 27년을 만든다」 가 이래야 된다.
+   */
+  const dup = async (p: Page) => {
+    const t = window.prompt('벤 문서의 이름', `${p.title} (복사)`)?.trim()
+    if (!t) return
+    const r = await apiFetch(`/api/wiki/${encodeURIComponent(p.id)}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify({ title: t, deep: true }),
+    })
+    const j = (await r.json()) as { ok?: boolean; id?: string; pages?: number; detail?: string }
+    if (!r.ok || !j.ok) {
+      window.alert(j.detail || '베끼지 못했습니다')
+      return
+    }
+    await listQ.refetch()
+    if (j.id) setOpenId(j.id)
+  }
+
   const rename = async (p: Page) => {
     const t = window.prompt('문서 이름', p.title)?.trim()
     if (!t || t === p.title) return
@@ -347,6 +370,9 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
             </button>
             <button type="button" role="menuitem" onClick={() => { setMenu(null); void rename(menuPage) }}>
               ✎ 이름 바꾸기
+            </button>
+            <button type="button" role="menuitem" onClick={() => { setMenu(null); void dup(menuPage) }}>
+              ⧉ 복제
             </button>
             <div className="wk-menusep" />
             {/* **옮기기** — 끌어 옮기기는 편집기가 가로채 끝나지 않아서 두지 않는다.

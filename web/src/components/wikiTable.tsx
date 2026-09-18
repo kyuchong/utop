@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import NTable from './ntable/NTable'
+import NViews, { type ViewBody, type ViewDef } from './ntable/NViews'
+import { useIsAdmin, useMeName } from './ntable/useAdmin'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from './ntable/types'
 import { useUserPeople } from '@/pages/qaBits'
 import './wikiTable.css'
@@ -34,7 +36,7 @@ interface Head {
 
 /** 처음 세울 때의 열 — 사람이 바로 고칠 수 있으니 뜻만 통하면 된다 */
 const FIRST_COLS: NCol[] = [
-  { key: 'c1', label: '이름', type: 'text', width: 160, fixed: true },
+  { key: 'c1', label: '이름', type: 'text', width: 160 },
   { key: 'c2', label: '구분', type: 'select', width: 120, options: [] },
   { key: 'c3', label: '메모', type: 'text', width: 260 },
 ]
@@ -46,6 +48,17 @@ export function newTableId(): string {
 function TableBody({ tid }: { tid: string }) {
   const qc = useQueryClient()
   const [imp, setImp] = useState(false)
+  /* ── 보기 탭(지적: 탭 기능이 없다) ─────────────────────────────────
+     결함·사이클·시험항목 화면이 쓰는 그 부품을 그대로 단다. 탭은 **열을
+     보이게/숨기게·폭·차례**만 담는다(거르기·정렬은 탭에 안 매인다).
+
+     탭이 담는 것을 서버의 열 정의에 쓰지 않는 까닭: 열 정의는 **모두가 같이**
+     보는 것이고 탭은 **사람마다** 다르다. 내가 열을 숨겼다고 남의 화면에서도
+     사라지면 안 된다. 그래서 탭이 주는 것은 화면에서만 덧입힌다. */
+  const [nvId, setNvId] = useState('')
+  const [nvBody, setNvBody] = useState<ViewBody | null>(null)
+  const isAdmin = useIsAdmin()
+  const meName = useMeName()
   const key = ['wiki-tbl', tid]
   const people = useUserPeople()
 
@@ -107,7 +120,13 @@ function TableBody({ tid }: { tid: string }) {
   /* 선택지는 **자료에서 뽑는다** — 값이 늘 때마다 열 설정을 고치지 않게 */
   const colsView = useMemo(
     () =>
-      cols.map((c) => {
+      cols.map((co) => {
+        /* **못 박힌 열을 푼다.**
+           fixed 는 「지우거나 유형을 못 바꾸는 열」 이라는 뜻인데, 여기는 사람이
+           제 표를 만드는 곳이라 첫 열만 특별할 까닭이 없다(지적: 부서로 바꾸려는데
+           안 된다 · 인원으로 묶을 수가 없다). 예전에 만든 표에는 이미 박혀 있어
+           읽을 때 푼다. */
+        const c = co.fixed ? { ...co, fixed: false } : co
         if (c.type !== 'select' && c.type !== 'multiselect') return c
         if (c.options && c.options.length) return c
         const vals = new Set<string>()
@@ -120,6 +139,31 @@ function TableBody({ tid }: { tid: string }) {
         return { ...c, options: [...vals].map((v) => ({ value: v, color: hue(v) })) }
       }),
     [cols, rows],
+  )
+
+  /** 고른 탭을 덧입힌 열 — 탭이 없으면 그대로 */
+  const colsShown = useMemo(() => {
+    if (!nvBody) return colsView
+    const hid = new Set(nvBody.hidden ?? [])
+    const w = nvBody.widths ?? {}
+    const out = colsView.map((c) => ({ ...c, hidden: hid.has(c.key), width: w[c.key] ?? c.width }))
+    const ord = nvBody.order
+    if (ord?.length) {
+      const at = new Map(ord.map((k, n) => [k, n]))
+      /* 탭이 모르는 열(탭을 만든 뒤에 생긴 열)은 뒤에 그대로 둔다 */
+      out.sort((a, b) => (at.get(a.key) ?? 1e6) - (at.get(b.key) ?? 1e6))
+    }
+    return out
+  }, [colsView, nvBody])
+
+  /** 지금 열 상태 — 탭을 새로 만들거나 고칠 때 이것이 담긴다 */
+  const nBody: ViewBody = useMemo(
+    () => ({
+      hidden: colsShown.filter((c) => c.hidden).map((c) => c.key),
+      widths: Object.fromEntries(colsShown.filter((c) => c.width).map((c) => [c.key, c.width!])),
+      order: colsShown.map((c) => c.key),
+    }),
+    [colsShown],
   )
 
   if (q.isLoading) return <div className="wtb-msg">표를 읽는 중…</div>
@@ -136,7 +180,7 @@ function TableBody({ tid }: { tid: string }) {
         />
       )}
     <NTable
-      columns={colsView}
+      columns={colsShown}
       rows={rows}
       view={d?.view ?? EMPTY_VIEW}
       onView={(v) => head.mutate({ view: v })}
@@ -167,6 +211,20 @@ function TableBody({ tid }: { tid: string }) {
          「(제목 없음)」·「열기」 를 달고 나온다 — 여는 상세 화면이 없는 이 표에서는
          죽은 단추이고, 첫 열을 「부서(선택)」 로 바꾸면 고를 수가 없어진다.
          빈 이름을 주어 어느 열도 제목 취급을 받지 않게 한다. */
+      /* 보기 탭은 표마다 따로 — 한 문서에 표가 둘이면 탭도 둘이다 */
+      toolbarLeft={
+        <NViews
+          scope={`wtbl:${tid}`}
+          curId={nvId}
+          onPick={(v: ViewDef | null) => {
+            setNvId(v?.id ?? '')
+            setNvBody(v?.body ?? null)
+          }}
+          current={nBody}
+          meName={meName}
+          isAdmin={isAdmin}
+        />
+      }
       titleKey=""
       exportTitle={d?.title || '표'}
       perPage={100}

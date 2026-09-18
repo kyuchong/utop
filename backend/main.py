@@ -11359,6 +11359,146 @@ async def wiki_save(pid: str, payload: dict, request: Request):
     return {"ok": True, "id": pid}
 
 
+def _wiki_tids(body) -> list[str]:
+    """문서 안에 꽂힌 표의 열쇠를 모은다(하위 블록까지)."""
+    out: list[str] = []
+
+    def walk(ns):
+        for n in ns or []:
+            if not isinstance(n, dict):
+                continue
+            if n.get("type") == "utopTable":
+                t = str((n.get("props") or {}).get("tid") or "")
+                if t:
+                    out.append(t)
+            walk(n.get("children"))
+
+    walk(body if isinstance(body, list) else [])
+    return out
+
+
+def _wiki_swap_tids(body, mp: dict) -> None:
+    """표 열쇠를 새것으로 바꿔 끼운다(제자리)."""
+
+    def walk(ns):
+        for n in ns or []:
+            if not isinstance(n, dict):
+                continue
+            if n.get("type") == "utopTable":
+                pr = dict(n.get("props") or {})
+                t = str(pr.get("tid") or "")
+                if t in mp:
+                    pr["tid"] = mp[t]
+                    n["props"] = pr
+            walk(n.get("children"))
+
+    walk(body if isinstance(body, list) else [])
+
+
+def _new_id(pre: str) -> str:
+    import secrets as _sc
+    import time as _tm          # 전역에 없다 — 이 파일은 자리마다 따로 들인다
+    return f"{pre}-{int(_tm.time() * 1000)}-{_sc.token_hex(3)}"
+
+
+async def _wtbl_clone(c, src: str, dst: str, page_id: str) -> None:
+    """표 한 벌을 통째로 뜬다 — 칸 정의도 줄도."""
+    r = await c.fetchrow("SELECT title, cols, calcs, view FROM wiki_table WHERE id=$1", src)
+    if not r:
+        return
+    await c.execute(
+        "INSERT INTO wiki_table (id, page_id, title, cols, calcs, view) VALUES ($1,$2,$3,$4,$5,$6)"
+        " ON CONFLICT (id) DO NOTHING",
+        dst, page_id, r["title"], r["cols"], r["calcs"], r["view"],
+    )
+    # 줄 열쇠(rid)는 그대로 둔다 — 기본키가 (tid, rid) 라 표가 다르면 안 부딪친다
+    await c.execute(
+        "INSERT INTO wiki_table_row (tid, rid, ord, data)"
+        " SELECT $2, rid, ord, data FROM wiki_table_row WHERE tid=$1",
+        src, dst,
+    )
+
+
+@app.post("/api/wiki/{pid}/duplicate")
+async def wiki_duplicate(pid: str, payload: dict, request: Request):
+    """문서를 통째로 베낀다 — **안에 든 표까지.**
+
+    블록에는 표의 열쇠(tid)만 담긴다. 그래서 문서만 베끼면 벤 것과 원본이 **같은
+    표**를 가리켜, 한쪽에서 칸을 고치면 다른 쪽도 바뀐다. 「26년 것을 베껴 27년을
+    만든다」 가 안 되는 것이다. 표도 새로 떠서 열쇠를 바꿔 끼운다.
+
+    하위 문서도 함께 벤다(deep) — 폴더를 베꼈는데 속이 비어 있으면 벤 것이 아니다.
+    """
+    s = getattr(request.state, "user", None)
+    who = (s or {}).get("username") or ""
+    p = payload or {}
+    deep = bool(p.get("deep", True))
+
+    async with db.pool().acquire() as c:
+        root = await c.fetchrow(
+            "SELECT id, project, parent_id, title, body, ord FROM wiki_page WHERE id=$1", pid)
+        if not root:
+            raise HTTPException(404, "문서를 찾을 수 없습니다")
+
+        # 벨 문서들 — 뿌리부터 너비 우선으로
+        todo = [dict(root)]
+        pages = [dict(root)]
+        if deep:
+            while todo:
+                cur = todo.pop(0)
+                kids = await c.fetch(
+                    "SELECT id, project, parent_id, title, body, ord FROM wiki_page"
+                    " WHERE parent_id=$1 ORDER BY ord, title", cur["id"])
+                for k in kids:
+                    d = dict(k)
+                    pages.append(d)
+                    todo.append(d)
+        if len(pages) > 300:
+            raise HTTPException(400, f"문서가 너무 많습니다({len(pages)}개) — 300개까지 벱니다")
+
+        newid = {pg["id"]: _new_id("wk") for pg in pages}
+        title = str(p.get("title") or "").strip() or f"{root['title']} (복사)"
+
+        async with c.transaction():
+            # 벤 것은 원본 **바로 뒤**에 세운다 — 맨 끝에 서면 어디 갔는지 찾는다
+            await c.execute(
+                "UPDATE wiki_page SET ord = ord + 1"
+                " WHERE parent_id IS NOT DISTINCT FROM $1 AND project=$2 AND ord > $3",
+                root["parent_id"], root["project"], int(root["ord"] or 0),
+            )
+            for pg in pages:
+                body = pg["body"]
+                if isinstance(body, str):
+                    body = json.loads(body or "[]")
+                body = json.loads(json.dumps(body))      # 원본과 끊는다
+
+                # 표를 새로 뜨고 열쇠를 바꿔 끼운다
+                nid = newid[pg["id"]]
+                mp = {t: _new_id("wt") for t in _wiki_tids(body)}
+                for src, dst in mp.items():
+                    await _wtbl_clone(c, src, dst, nid)
+                if mp:
+                    _wiki_swap_tids(body, mp)
+
+                is_root = pg["id"] == root["id"]
+                await c.execute(
+                    "INSERT INTO wiki_page (id, project, parent_id, title, body, plain, ord,"
+                    " created_by, updated_by) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$8)",
+                    nid, pg["project"],
+                    root["parent_id"] if is_root else newid.get(pg["parent_id"]),
+                    title if is_root else pg["title"],
+                    json.dumps(body, ensure_ascii=False), _wiki_plain(body),
+                    int(root["ord"] or 0) + 1 if is_root else int(pg["ord"] or 0),
+                    who,
+                )
+
+    try:
+        asyncio.create_task(broadcast({"type": "wiki_updated", "id": newid[root["id"]], "user": who}))
+    except Exception:
+        pass
+    return {"ok": True, "id": newid[root["id"]], "pages": len(pages)}
+
+
 @app.patch("/api/wiki/{pid}")
 async def wiki_patch(pid: str, payload: dict):
     """자리 옮기기·이름 바꾸기 — 본문은 안 건드린다(지난 판도 안 남긴다)."""
