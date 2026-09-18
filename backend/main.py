@@ -7350,9 +7350,19 @@ def _ensure_conn(ent, params):
     if conn is not None:
         if now - ent.get("ts", 0.0) < _CONN_IDLE_SEC:
             try:
-                conn.find_prompt()  # 생존 확인 (가벼움)
-                ent["ts"] = now
-                return conn
+                # **프롬프트가 아니라 소켓을 본다.**
+                #
+                # find_prompt 는 「#」·「>」 를 찾는다. 그런데 `reload` 를 보낸 직후
+                # 장비는 `Are you sure? [y/n]` 을 띄우고 답을 기다린다 — 프롬프트가
+                # 안 나오니 예외가 나고, **살아 있는 세션을 죽었다고 보고** 새로 잡게
+                # 된다. 그러면 바로 다음에 보내는 `y` 가 새 세션으로 가서
+                # 「% invalid input」 이 된다(지적: 이어서 입력이 안 된다).
+                #
+                # is_alive 는 소켓만 본다 — 장비가 무엇을 묻고 있든 상관없다.
+                _alive = getattr(conn, "is_alive", None)
+                if _alive is None or _alive():
+                    ent["ts"] = now
+                    return conn
             except Exception:
                 pass
         try:
@@ -7450,7 +7460,9 @@ def run_cli(payload: dict):
                 # 겪지 않게(재접속하면 설정 문맥·paging 이 초기화된다)
                 _auto_reconn = conn is not _before
                 ent["ts"] = _t.time()
-                _force_enable(conn, params, ent)  # 안전망: 세션이 아직 User EXEC(>)면 enable 재시도 (paging 은 세션당 1회)
+                # enable 확인은 **새로 붙었을 때만** — 스텝마다 부르면 그때 보내는 개행이
+                # `reload` 확인(「Are you sure? [y/n]」)을 삼킨다. 새 연결은 _ensure_conn 이
+                # 이미 enable 을 마치고 돌려준다.
                 if _auto_reconn:
                     payload["_auto_reconn_notice"] = True
             else:
@@ -7787,11 +7799,20 @@ async def run_cli_stream(payload: dict):
                 except Exception as _re0s:
                     yield _sse({"err": "세션이 열려 있지 않습니다 — 자동 재접속 실패: " + _conn_fail_msg(params, _re0s)}); yield _sse({"done": True}); return
                 ent["ts"] = _t.time()
-                if payload.get("require_session"):
-                    await asyncio.to_thread(_force_enable, conn, params, ent)
-                if conn is not _before_s and _before_s is not None:
-                    # 갈아탔음을 알린다 — 재접속하면 설정 문맥·paging 이 초기화된다
-                    yield _sse({"note": "연결이 끊겨 있어 다시 붙었습니다"})
+                if conn is not _before_s:
+                    # **새로 붙었을 때만** enable 을 확인한다.
+                    #
+                    # 여태는 스텝마다 불렀다. 그런데 _force_enable 은 먼저 개행을 보내고
+                    # 프롬프트를 기다리다 못 찾으면 `enable` 을 쏜다 — `reload` 뒤
+                    # 「Are you sure? [y/n]」 을 기다리는 중이면 그 개행이 확인을 삼키고
+                    # `enable` 이 답으로 들어가, 이어서 보낸 `y` 가 「% invalid input」
+                    # 이 된다(지적: 한 스텝에 reload·y 를 함께 쓰면 되는데 스텝을 나누면
+                    # 안 된다 — 나누면 그 사이에 이것이 끼어들기 때문이다).
+                    #
+                    # 새 연결은 _ensure_conn 이 이미 enable 을 마치고 돌려주므로 여기서
+                    # 또 부를 일도 없다. 남겨 두는 것은 쓰던 세션이 아닌지 가리는 뜻뿐이다.
+                    if _before_s is not None:
+                        yield _sse({"note": "연결이 끊겨 있어 다시 붙었습니다"})
                 ent["ts"] = _t.time()
                 bp = (getattr(conn, "base_prompt", "") or "").strip().rstrip("#>$ ").split("(")[0].strip()
                 if not bp:
