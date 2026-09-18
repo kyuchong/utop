@@ -362,6 +362,10 @@ export default function AskBar({ devices }: Props) {
   /** 고른 대상 장비(모델) */
   const [tDev, setTDev] = useState('')
   const [devOpen, setDevOpen] = useState(false)
+  /** 장비 고르개의 상태 탭 — 전체 · 연결됨 · 점검 · 연결안됨.
+      열 머리 드롭다운에도 같은 거르개가 있지만, 가장 자주 쓰는 거르개가
+      메뉴 속에 묻혀 있으면 두 번 눌러야 닿는다(목업: 탭으로 낸다). */
+  const [devTab, setDevTab] = useState<'all' | 'ok' | 'part' | 'no'>('all')
   /* 장비 고르개 — **표**로 고른다(지시: 목업). 이름만 늘어놓던 목록으로는
      같은 모델이 열 대씩 있는 LAB 에서 어느 것을 고를지 알 수가 없었다.
      LAB·사업자·벤더·모델그룹으로 거르고, 연결 상태를 보고 짚는다. */
@@ -594,6 +598,9 @@ export default function AskBar({ devices }: Props) {
       chain: string[]
       /** 보여 줄 자리 이름 */
       path: string[]
+      /** 이 항목이 딸린 요구사항 — 표에 적는다 */
+      reqid: string
+      reqtitle: string
     }>
   >([])
   /** Coverage 와 같은 트리 — 마디 하나 */
@@ -741,6 +748,7 @@ export default function AskBar({ devices }: Props) {
         const catById = new Map(cats.map((c) => [c.id, c]))
         const chainOf = new Map<string, string[]>()   // req 키 → 마디 사슬
         const nameOf = new Map<string, string[]>()    // req 키 → 자리 이름
+        const reqOf = new Map<string, { id: string; title: string }>()   // req 키 → 번호·제목
         const nodes: Array<{ id: string; name: string; kind: 'cat' | 'req'; depth: number; parent: string; sort: number }> = []
         const seen = new Set<string>()
         const putCat = (id: string): number => {
@@ -772,6 +780,13 @@ export default function AskBar({ devices }: Props) {
             if (!k2) continue
             chainOf.set(k2, [...ids, ...(leaf ? [rid] : [])])
             nameOf.set(k2, names)
+            /* 항목 줄에 **어느 요구사항 것인지** 적으려면 번호와 제목이 필요하다.
+               트리를 세우며 이미 다 읽은 자료라 따로 부를 것이 없다(지적: 무엇을
+               고르는지 판단할 근거가 화면에 없다). */
+            reqOf.set(k2, {
+              id: String(r3.reqid ?? '').trim(),
+              title: String(r3.title ?? '').trim(),
+            })
           }
         }
         nodes.sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name))
@@ -788,6 +803,8 @@ export default function AskBar({ devices }: Props) {
               steps: Number(t._cli_count ?? 0),
               chain: chainOf.get(String(t.req_id ?? '')) ?? [],
               path: nameOf.get(String(t.req_id ?? '')) ?? [],
+              reqid: reqOf.get(String(t.req_id ?? ''))?.id ?? '',
+              reqtitle: reqOf.get(String(t.req_id ?? ''))?.title ?? '',
             }))
             // 스텝이 없는 항목은 가져와도 빈 절차다 — 고를 수 없게 둔다
             .filter((t) => t.tcid && t.steps > 0),
@@ -2822,7 +2839,10 @@ export default function AskBar({ devices }: Props) {
                           String(ip || '')
                             .split('.')
                             .map((n) => Number(n) || 0)
-                        const rows = devices.filter((d) => pass(d)).sort((a, b) => {
+                        /* 탭 개수는 **탭을 빼고** 센다 — 「연결됨」 을 고른 채로
+                           세면 다른 탭이 늘 0 이 되어 고를 수가 없다 */
+                        const base = devices.filter((d) => pass(d))
+                        const rows = base.filter((d) => devTab === 'all' || readyOf(d).k === devTab).sort((a, b) => {
                           const l = String(a.lab ?? '').localeCompare(String(b.lab ?? ''), 'ko')
                           if (l) return l
                           const o = String(a.operator ?? '').localeCompare(String(b.operator ?? ''), 'ko')
@@ -2914,6 +2934,42 @@ export default function AskBar({ devices }: Props) {
                                   고르지 않음
                                 </button>
                               )}
+                              {/* 덮개를 정확히 눌러야만 닫히던 것(지적) — 닫는
+                                  자리를 눈에 보이게 둔다. ESC 도 받는다. */}
+                              <button
+                                type="button"
+                                className="ask-dmx"
+                                title="닫기 (ESC)"
+                                aria-label="닫기"
+                                onClick={() => setDevOpen(false)}
+                              >
+                                ✕
+                              </button>
+                            </span>
+                            {/* ── 상태 탭(지시: 목업) ─────────────────────────
+                                지금 붙을 수 있는 장비만 보는 것이 가장 잦은 일이다.
+                                개수를 함께 적어 「연결된 게 없다」 를 열어 보기 전에
+                                알게 한다. */}
+                            <span className="ask-dmtabs">
+                              {(
+                                [
+                                  ['all', '전체'],
+                                  ['ok', '연결됨'],
+                                  ['part', '점검'],
+                                  ['no', '연결안됨'],
+                                ] as const
+                              ).map(([k, label]) => (
+                                <button
+                                  key={k}
+                                  type="button"
+                                  className={`ask-dmtab${devTab === k ? ' on' : ''}`}
+                                  data-f={k}
+                                  onClick={() => setDevTab(k)}
+                                >
+                                  {label}
+                                  <i>{k === 'all' ? base.length : base.filter((d) => readyOf(d).k === k).length}</i>
+                                </button>
+                              ))}
                             </span>
                             <span className="ask-dmbody">
                               <span className="ask-dmlist">
@@ -3021,7 +3077,18 @@ export default function AskBar({ devices }: Props) {
                 부제도 갈래를 따라 바뀐다. 한 화면에서 같은 말이 세 번 나면
                 어느 것이 지금 상태인지 되레 헷갈린다. */}
 
-            {/* 오프너 — 눌러서 무엇을 시킬 수 있는지 안다 */}
+            {/* 오프너 — 눌러서 무엇을 시킬 수 있는지 안다.
+                머리를 다는 까닭: 줄만 늘어놓으면 「이미 한 말」 인지 「눌러 보는
+                보기」 인지 갈리지 않는다(목업). 고치는 중에는 편집 배지가 그
+                몫을 하므로 달지 않는다. */}
+            {!exEdit && examples.some((x) => x.q.trim() && !exHide.includes(x.q)) && (
+              <div className="ask-opsh">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+                </svg>
+                Suggested
+              </div>
+            )}
             <div className="ask-ops">
               {exEdit
                 ? examples.map((x, i) => (
@@ -3894,7 +3961,7 @@ export default function AskBar({ devices }: Props) {
               <input
                 autoFocus
                 value={tcFind}
-                placeholder="항목 이름 · TC 번호 · 모델로 찾기"
+                placeholder="항목 이름 · TC 번호 · REQ · 모델로 찾기"
                 onChange={(e) => setTcFind(e.target.value)}
               />
               {/* 고른 장비 것만 보기 — 켜 두는 것이 기본이다(지시). 다른 모델
@@ -3921,11 +3988,15 @@ export default function AskBar({ devices }: Props) {
                 return String(t.model ?? '').trim().toLowerCase() === myModel
               }
               const q = tcFind.trim().toLowerCase()
-              const hit = (x: { tcid: string; name: string; model: string }) =>
+              /* REQ 는 **있을 때만** 본다 — 이 거르개는 비슷한 항목 목록(reqid 가
+                 없는 꼴)에도 쓰여서, 못 박아 읽으면 타입이 어긋난다 */
+              const hit = (x: { tcid: string; name: string; model: string; reqid?: string; reqtitle?: string }) =>
                 !q ||
                 x.name.toLowerCase().includes(q) ||
                 x.tcid.toLowerCase().includes(q) ||
-                x.model.toLowerCase().includes(q)
+                x.model.toLowerCase().includes(q) ||
+                (x.reqid ?? '').toLowerCase().includes(q) ||
+                (x.reqtitle ?? '').toLowerCase().includes(q)
               const mine = tcAll.filter((x) => forMe(x) && hit(x))
               /* 마디마다 그 **아래 전부**를 센다 — 폴더를 골라도 걸리게 */
               const cnt = new Map<string, number>()
@@ -4129,9 +4200,16 @@ export default function AskBar({ devices }: Props) {
                               }
                             />
                           </th>
+                          {/* **무엇을 고르는지 판단할 근거**를 줄에 싣는다(지적).
+                              이름·모델만 있으면 어느 요구사항 것인지, 돌린 적은
+                              있는지, 손으로 하는 시험인지 모르는 채 골라야 한다. */}
+                          <th className="tc-req">REQ</th>
+                          <th className="tc-id">TC ID</th>
                           <th>이름</th>
                           <th>모델그룹</th>
                           <th>모델명</th>
+                          <th className="tc-st">상태</th>
+                          <th className="tc-kd">타입</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -4142,7 +4220,7 @@ export default function AskBar({ devices }: Props) {
                             {!myModel &&
                               (ri === 0 || (rows[ri - 1]?.model ?? '') !== (x.model ?? '')) && (
                                 <tr className="ask-tcgrp">
-                                  <td colSpan={4}>
+                                  <td colSpan={8}>
                                     {x.model?.trim() || '공용 — 어느 장비로도 씁니다'}
                                     <i>
                                       {rows.filter((y) => (y.model ?? '') === (x.model ?? '')).length}건
@@ -4176,12 +4254,47 @@ export default function AskBar({ devices }: Props) {
                                 }
                               />
                             </td>
+                            <td className="tc-req">
+                              {x.reqid ? (
+                                <>
+                                  <b className="tc-reqid">{x.reqid}</b>
+                                  {!!x.reqtitle && (
+                                    <i className="tc-reqnm" title={x.reqtitle}>
+                                      {x.reqtitle}
+                                    </i>
+                                  )}
+                                </>
+                              ) : (
+                                <i className="tc-none">–</i>
+                              )}
+                            </td>
+                            <td className="tc-id">{x.tcid}</td>
                             <td>
                               <b>{x.name}</b>
                               <i>{x.steps}</i>
                             </td>
                             <td>{x.mgroup || '공용'}</td>
                             <td>{x.model || '–'}</td>
+                            <td className="tc-st">
+                              {(() => {
+                                /* 돌린 적이 있나 — 색은 Pass/Fail 만 못박고 나머지는
+                                   「미실행」 한 가지로 둔다(설정의 판정 이름이 늘어도
+                                   이 칸이 거짓말하지 않게) */
+                                const v = String(x.status || '').toLowerCase()
+                                const k = v === 'pass' ? 'pass' : v === 'fail' ? 'fail' : 'none'
+                                return (
+                                  <span className={`tc-last ${k}`}>
+                                    {k === 'none' ? '미실행' : v === 'pass' ? 'Pass' : 'Fail'}
+                                  </span>
+                                )
+                              })()}
+                            </td>
+                            <td className="tc-kd">
+                              {(() => {
+                                const man = /manual|수동/i.test(String(x.type || ''))
+                                return <i className={`tc-kind ${man ? 'man' : 'auto'}`}>{man ? '수동' : '자동'}</i>
+                              })()}
+                            </td>
                           </tr>
                           </Fragment>
                         ))}

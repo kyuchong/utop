@@ -8235,41 +8235,82 @@ a.bc-cur:hover { text-decoration: underline; }
   .ask-sky > i { animation: none; }
 }
 
-/* 오프너 — 보는 때는 알약 칩 한 줄(A안), 고치는 때는 세로 목록 그대로.
-   칩은 내용만큼만 넓어야 하므로 stretch 를 푼다. */
+/* 오프너 — **세로 목록**(지시: 목업 첫 화면 그대로).
+ *
+ * 한동안 알약 칩 한 줄로 두었는데(A안), 문구가 길면 「E6100 인터페이스 1번
+ * shutdown 반복 시험 3회」 같은 줄이 통째로 잘려 무엇을 시키는 것인지 읽히지
+ * 않았다. 세로로 세우면 한 줄이 한 문장을 다 문다.
+ *
+ * 네 줄만 보이고 나머지는 굴러 올라온다 — 열두 개를 다 펴면 「하는 일」 카드가
+ * 화면 밖으로 밀린다. 스크롤막대는 감춘다(줄마다 칸이 맞아 있으면 막대가 되레
+ * 어수선하다). */
 .ask-ops {
   width: 100%;
   max-width: 760px;
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding-left: 56px;          /* 입력 캡슐의 ＋ 자리에 글머리를 맞춘다 */
+  max-height: calc(38px * 4);
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: y mandatory;
 }
-.ask-home.editing .ask-ops { max-width: 640px; flex-direction: column; gap: 8px; }
-.ask-oprow { position: relative; display: flex; align-items: stretch; }
+.ask-ops::-webkit-scrollbar { display: none; }
+.ask-home.editing .ask-ops {
+  max-width: 640px;
+  max-height: none;
+  overflow: visible;
+  padding-left: 0;
+  gap: 8px;
+}
+/* 「⚡ Suggested」 머리 — 이 줄들이 **눌러 보는 보기**임을 알려 준다 */
+.ask-opsh {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  max-width: 760px;
+  margin-bottom: 3px;
+  padding-left: 68px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--c-text-faint);
+}
+.ask-opsh svg { width: 12px; height: 12px; }
+.ask-oprow { position: relative; display: flex; align-items: stretch; scroll-snap-align: start; }
 .ask-op {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  height: 38px;
   text-align: left;
-  padding: 10px 30px 10px 16px;
-  background: var(--c-surface);
-  border: 1px solid #e0eaec;
-  border-radius: 999px;
+  padding: 0 30px 0 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
   cursor: pointer;
-  color: #33474f;
-  font: inherit;
-  font-size: 13.5px;
-  box-shadow: 0 3px 12px rgb(13 59 70 / 5%);
-  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
-}
-.ask-op:hover {
-  border-color: #0f766e;
   color: var(--c-text);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgb(13 59 70 / 9%);
+  font: inherit;
+  font-size: var(--fs-md);
+  transition: background 0.12s;
+}
+.ask-op:hover { background: rgb(19 25 32 / 5%); }
+/* 줄마다 조금씩 늦게 떨어진다 — 한꺼번에 나타나면 목록이 아니라 덩어리로 읽힌다 */
+.ask-home:not(.editing) .ask-oprow { animation: ask-wf 0.42s ease-out backwards; }
+.ask-home:not(.editing) .ask-oprow:nth-child(2) { animation-delay: 0.06s; }
+.ask-home:not(.editing) .ask-oprow:nth-child(3) { animation-delay: 0.12s; }
+.ask-home:not(.editing) .ask-oprow:nth-child(4) { animation-delay: 0.18s; }
+.ask-home:not(.editing) .ask-oprow:nth-child(5) { animation-delay: 0.24s; }
+.ask-home:not(.editing) .ask-oprow:nth-child(6) { animation-delay: 0.3s; }
+.ask-home:not(.editing) .ask-oprow:nth-child(n + 7) { animation-delay: 0.36s; }
+@keyframes ask-wf {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: none; }
 }
 .ask-op-tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ask-op-ic {
@@ -9123,3 +9164,118 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   font-size: 12px;
 }
 .ask-rail-x:hover { background: var(--c-surface-alt); color: var(--c-text); }
+
+/* 고치는 줄은 상자꼴을 지킨다 — 글상자 테두리가 없으면 어디를 누를지 모른다 */
+.ask-home.editing .ask-op { height: auto; padding: 10px 30px 10px 16px; }
+/* 움직임을 줄여 달라고 한 사람에게는 줄 떨어뜨리기도 끈다 */
+@media (prefers-reduced-motion: reduce) {
+  .ask-home .ask-oprow { animation: none; }
+}
+
+/* ── Test AI · 항목 고르개 표의 새 칸 ────────────────────────────────────
+   무엇을 고르는지 판단할 근거를 줄에 싣는다 — 어느 요구사항 것인지, 돌린 적은
+   있는지, 손으로 하는 시험인지. 좁은 칸은 폭을 못박아 이름 칸을 뺏지 않는다. */
+.ask-likemodal th.tc-req, .ask-likemodal td.tc-req { width: 210px; max-width: 210px; }
+.ask-likemodal th.tc-id,  .ask-likemodal td.tc-id  { width: 116px; white-space: nowrap; }
+.ask-likemodal th.tc-st,  .ask-likemodal td.tc-st  { width: 74px; }
+.ask-likemodal th.tc-kd,  .ask-likemodal td.tc-kd  { width: 58px; }
+.ask-likemodal td.tc-id {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--c-primary);
+}
+.ask-likemodal td.tc-req { min-width: 0; }
+.tc-reqid {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-muted);
+}
+.tc-reqnm {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+.tc-none { font-style: normal; color: var(--c-idle); }
+/* 돌린 결과 — 알약 하나로 「해 봤나」 를 말한다 */
+.tc-last {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tc-last.pass { background: #e9f7ef; color: var(--c-pass); }
+.tc-last.fail { background: #fdeaea; color: var(--c-fail); }
+.tc-last.none { background: var(--c-surface-alt); color: var(--c-idle); }
+/* 자동인가 손으로 하는가 — 손으로 하는 시험은 눌러도 안 돈다 */
+.tc-kind {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tc-kind.auto { background: var(--c-primary-bg); color: var(--c-primary); }
+.tc-kind.man  { background: #f3f0e6; color: var(--c-draft); }
+
+/* ── Test AI · 장비 고르개 상태 탭 ──────────────────────────────────────
+   지금 붙을 수 있는 장비만 보는 것이 가장 잦은 일인데, 그 거르개가 열 머리
+   드롭다운 속에 묻혀 두 번 눌러야 닿았다. 탭으로 꺼내고 개수를 적는다 —
+   「연결된 게 없다」 를 열어 보기 전에 알게 한다. */
+.ask-dmtabs {
+  display: flex;
+  gap: 6px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--c-border-soft, var(--c-border));
+  background: var(--c-surface);
+}
+.ask-dmtab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--c-border-soft, var(--c-border));
+  border-radius: 999px;
+  background: var(--c-surface);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-muted);
+}
+.ask-dmtab i {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
+}
+.ask-dmtab:hover { border-color: var(--c-border); }
+/* 고른 탭은 **그 상태의 색**으로 찬다 — 초록을 골랐는데 파랗게 켜지면
+   무엇을 보고 있는지 색이 거짓말을 한다 */
+.ask-dmtab.on { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+.ask-dmtab.on i { background: rgb(255 255 255 / 25%); color: #fff; }
+.ask-dmtab[data-f='ok'].on   { background: var(--c-pass);  border-color: var(--c-pass); }
+.ask-dmtab[data-f='part'].on { background: var(--c-draft); border-color: var(--c-draft); }
+.ask-dmtab[data-f='no'].on   { background: var(--c-fail);  border-color: var(--c-fail); }
+/* 닫기 — 덮개를 정확히 눌러야만 닫히던 것을 눈에 보이게 */
+.ask-dmx {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius);
+  color: var(--c-text-faint);
+  font-size: 12px;
+}
+.ask-dmx:hover { background: var(--c-surface-alt); color: var(--c-text); }
