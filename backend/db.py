@@ -10,6 +10,7 @@ PostgreSQL 커넥션 풀 + 공통 CRUD 헬퍼.
 """
 from __future__ import annotations
 import os, json, re, hashlib
+import time as _time
 import datetime as _dt
 from typing import Any, Optional
 from pathlib import Path
@@ -3340,3 +3341,63 @@ async def wtbl_drop(tid: str) -> None:
         async with c.transaction():
             await c.execute("DELETE FROM wiki_table_row WHERE tid=$1", tid)
             await c.execute("DELETE FROM wiki_table WHERE id=$1", tid)
+
+
+async def wtbl_import(tid: str, header: list, rows: list, replace: bool = False) -> dict:
+    """엑셀·노션에서 내려받은 것을 통째로 들인다.
+
+    머리줄(header)의 이름으로 **있는 열에 맞춘다.** 없는 이름은 열을 새로 만든다 —
+    그래야 「노션에서 받은 CSV 를 그대로 올린다」 가 된다. 열쇠는 새로 짓되 사람이
+    보는 이름은 받은 그대로 둔다.
+
+    234줄을 한 줄씩 넣으면 요청이 234번이라, 한 트랜잭션에 몰아 넣는다.
+    """
+    head = await wtbl_get(tid) or {}
+    cols = list(head.get("cols") or [])
+    by_label = {str(c.get("label") or "").strip(): c for c in cols}
+
+    # 머리줄 → 열쇠. 없는 이름은 열을 만든다.
+    keys: list[str] = []
+    made = 0
+    for i, h in enumerate(header):
+        name = str(h or "").strip() or f"열{i + 1}"
+        cur = by_label.get(name)
+        if cur:
+            keys.append(str(cur.get("key")))
+            continue
+        k = f"cf_{int(_time.time() * 1000)}_{i}"
+        col = {"key": k, "label": name, "type": "text", "width": 120}
+        cols.append(col)
+        by_label[name] = col
+        keys.append(k)
+        made += 1
+
+    async with pool().acquire() as c:
+        async with c.transaction():
+            if replace:
+                await c.execute("DELETE FROM wiki_table_row WHERE tid=$1", tid)
+                base = 0
+            else:
+                base = int(await c.fetchval(
+                    "SELECT COALESCE(max(ord), 0) FROM wiki_table_row WHERE tid=$1", tid) or 0)
+            if made:
+                await c.execute(
+                    "INSERT INTO wiki_table (id, cols) VALUES ($1, $2)"
+                    " ON CONFLICT (id) DO UPDATE SET cols=$2, updated_at=now()",
+                    tid, cols,
+                )
+            n = 0
+            for r in rows:
+                if not any(str(x or "").strip() for x in r):
+                    continue          # 빈 줄은 거른다 — 엑셀 끝에 흔히 붙는다
+                n += 1
+                data = {}
+                for i, k in enumerate(keys):
+                    v = str(r[i]).strip() if i < len(r) and r[i] is not None else ""
+                    if v:
+                        data[k] = v
+                await c.execute(
+                    "INSERT INTO wiki_table_row (tid, rid, ord, data) VALUES ($1,$2,$3,$4)",
+                    tid, f"i{int(_time.time() * 1000)}_{base + n}", base + n, data,
+                )
+    return {"rows": n, "cols_added": made}

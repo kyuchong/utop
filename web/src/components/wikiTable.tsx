@@ -1,6 +1,6 @@
 import { createReactBlockSpec } from '@blocknote/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import NTable from './ntable/NTable'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from './ntable/types'
@@ -159,11 +159,144 @@ function TableBody({ tid, editable }: { tid: string; editable: boolean }) {
   )
 }
 
+/**
+ * 붙여넣은 글 → 줄·칸.
+ *
+ * 엑셀·노션에서 **복사**하면 탭으로 갈린 글이 오고, **CSV 로 내려받으면** 쉼표다.
+ * 탭이 한 줄에라도 있으면 탭으로 가른다 — 쉼표는 값 안에 흔히 들어 있어
+ * (「이재익, 김인겸」) 잘못 가르면 칸이 밀린다.
+ *
+ * 따옴표 안의 쉼표·줄바꿈은 값으로 본다(엑셀이 그렇게 내보낸다).
+ */
+export function parseTable(text: string): string[][] {
+  const t = String(text || '').replace(/\r\n?/g, '\n').replace(/\n+$/, '')
+  if (!t) return []
+  const sep = t.includes('\t') ? '\t' : ','
+  const out: string[][] = []
+  let row: string[] = []
+  let cur = ''
+  let q = false
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i]
+    if (q) {
+      if (ch === '"') {
+        if (t[i + 1] === '"') {
+          cur += '"'
+          i++
+        } else q = false
+      } else cur += ch
+      continue
+    }
+    if (ch === '"') q = true
+    else if (ch === sep) {
+      row.push(cur)
+      cur = ''
+    } else if (ch === '\n') {
+      row.push(cur)
+      out.push(row)
+      row = []
+      cur = ''
+    } else cur += ch
+  }
+  row.push(cur)
+  out.push(row)
+  return out.map((r) => r.map((x) => x.trim()))
+}
+
 /** 값마다 고르게 도는 색 — 견본 표가 쓰는 그 셈 */
 function hue(v: string): string {
   let n = 0
   for (const c of v) n = (n * 31 + c.charCodeAt(0)) >>> 0
   return `hsl(${n % 360} 62% 42%)`
+}
+
+/**
+ * 자료 들이기 — **붙여넣기**나 CSV 파일로.
+ *
+ * 노션·엑셀에서 234줄을 손으로 옮겨 칠 수는 없다. 첫 줄을 열 이름으로 보고,
+ * 이름이 같은 열에 맞춘다. 없는 이름은 열을 새로 만든다.
+ */
+function Importer({ tid, onDone, onClose }: { tid: string; onDone: () => void; onClose: () => void }) {
+  const [text, setText] = useState('')
+  const [replace, setReplace] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const grid = useMemo(() => parseTable(text), [text])
+  const head = grid[0] ?? []
+  const body = grid.slice(1)
+
+  const go = async () => {
+    if (!head.length || !body.length) return
+    setBusy(true)
+    setMsg('')
+    try {
+      const r = await apiFetch(`/api/wiki-table/${encodeURIComponent(tid)}/import`, {
+        method: 'POST',
+        body: JSON.stringify({ header: head, rows: body, replace }),
+      })
+      const j = (await r.json()) as { ok?: boolean; rows?: number; cols_added?: number; detail?: string }
+      if (!r.ok || !j.ok) throw new Error(j.detail || '들이지 못했습니다')
+      onDone()
+      onClose()
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="wtb-back" onMouseDown={onClose}>
+      <div className="wtb-imp" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="wtb-imph">
+          <b>자료 들이기</b>
+          <span className="sp" />
+          <button type="button" className="btn small" onClick={onClose}>✕</button>
+        </div>
+        <p className="wtb-impp">
+          엑셀·노션에서 <b>복사해 붙여넣거나</b> CSV 파일을 고르세요.
+          <br />첫 줄은 <b>열 이름</b>으로 봅니다 — 같은 이름의 열에 채우고, 없는 이름은 열을 새로 만듭니다.
+        </p>
+        <input
+          type="file"
+          accept=".csv,.tsv,.txt,text/csv"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (!f) return
+            void f.text().then(setText)
+          }}
+        />
+        <textarea
+          className="wtb-impt"
+          value={text}
+          placeholder={'여기에 붙여넣으세요\n\n이름\t부서\t1월\n장수완\tQA팀\t0.5'}
+          onChange={(e) => setText(e.target.value)}
+        />
+        {grid.length > 1 && (
+          <div className="wtb-impi">
+            줄 <b>{body.length}</b>개 · 열 <b>{head.length}</b>개 — {head.slice(0, 6).join(' · ')}
+            {head.length > 6 ? ' …' : ''}
+          </div>
+        )}
+        <label className="wtb-impc">
+          <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+          있던 줄을 **모두 지우고** 채웁니다
+        </label>
+        {!!msg && <div className="wtb-impe">{msg}</div>}
+        <div className="wtb-impb">
+          <button type="button" className="btn small" onClick={onClose}>닫기</button>
+          <button
+            type="button"
+            className="btn small primary"
+            disabled={busy || grid.length < 2}
+            onClick={() => void go()}
+          >
+            {busy ? '들이는 중…' : `${body.length}줄 들이기`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export const TableSpec = createReactBlockSpec(
@@ -178,6 +311,11 @@ export const TableSpec = createReactBlockSpec(
     render: ({ block, editor }) => {
       const p = block.props as Props
       const editable = editor.isEditable
+      /* 블록 하나에 창 하나 — 표마다 따로 열린다 */
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const [imp, setImp] = useState(false)
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const qc = useQueryClient()
       return (
         /* 편집기가 이 안의 글쇠를 가로채면 표에서 글을 못 친다 —
            블록을 글 아닌 것으로 못박고 글쇠·붙여넣기를 여기서 멈춘다 */
@@ -195,7 +333,19 @@ export const TableSpec = createReactBlockSpec(
               readOnly={!editable}
               onChange={(e) => editor.updateBlock(block, { props: { ...p, title: e.target.value } })}
             />
+            {editable && p.tid && (
+              <button type="button" className="wtb-imb" onClick={() => setImp(true)}>
+                ⬆ 자료 들이기
+              </button>
+            )}
           </div>
+          {imp && p.tid && (
+            <Importer
+              tid={p.tid}
+              onDone={() => qc.invalidateQueries({ queryKey: ['wiki-tbl', p.tid] })}
+              onClose={() => setImp(false)}
+            />
+          )}
           {p.tid ? (
             <TableBody tid={p.tid} editable={editable} />
           ) : (

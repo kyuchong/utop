@@ -23390,3 +23390,26 @@ async def wiki_table_rows_del(tid: str, payload: dict, token: str = ""):
     n = await db.wtbl_row_del(tid, (payload or {}).get("ids") or [])
     await _wtbl_ping(tid, _wtbl_who(token))
     return {"ok": True, "deleted": n}
+
+
+@app.post("/api/wiki-table/{tid}/import")
+async def wiki_table_import(tid: str, payload: dict, token: str = ""):
+    """엑셀·노션에서 받은 자료를 통째로 들인다.
+
+    {header: [이름…], rows: [[값…]…], replace: bool}
+    머리줄 이름으로 있는 열에 맞추고, 없는 이름은 열을 새로 만든다.
+    """
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    p = payload or {}
+    header = [str(x or "") for x in (p.get("header") or [])]
+    rows = [list(r) for r in (p.get("rows") or []) if isinstance(r, (list, tuple))]
+    if not header:
+        raise HTTPException(400, "머리줄(열 이름)이 없습니다")
+    if not rows:
+        raise HTTPException(400, "들일 줄이 없습니다")
+    if len(rows) > 5000:
+        raise HTTPException(400, f"한 번에 5000줄까지 들입니다 (받은 것 {len(rows)}줄)")
+    out = await db.wtbl_import(tid, header, rows, bool(p.get("replace")))
+    await _wtbl_ping(tid, _wtbl_who(token))
+    return {"ok": True, **out}

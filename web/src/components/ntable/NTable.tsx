@@ -1820,26 +1820,6 @@ export default function NTable(p: NTableProps) {
               >
                 ↑
               </button>
-              {p.canDupCol && !lockDefs && (
-                /* **열 복제** — 1~12월처럼 닮은 열을 여럿 만들 때, 타입과 선택지를
-                   그대로 베껴 바로 옆에 하나 더 세운다. 열쇠는 새로 지어야 한다
-                   (같으면 두 열이 같은 값을 보게 된다). */
-                <button
-                  type="button"
-                  className="ntb-mv"
-                  title="이 열을 복제"
-                  onClick={() => {
-                    const n = [...columns]
-                    let k = `${c.key}_2`
-                    let t = 2
-                    while (n.some((x) => x.key === k)) k = `${c.key}_${++t}`
-                    n.splice(i + 1, 0, { ...c, key: k, label: `${c.label} 복사`, fixed: false })
-                    onColumns(n)
-                  }}
-                >
-                  ⧉
-                </button>
-              )}
               <button
                 type="button"
                 className="ntb-mv"
@@ -1856,6 +1836,27 @@ export default function NTable(p: NTableProps) {
               </button>
               {(() => { const I = TYPE_ICON[c.type]; return <I /> })()}
               <span className="l">{c.label}</span>
+              {p.canDupCol && !lockDefs && (
+                /* **열 복제** — 1~12월처럼 닮은 열을 여럿 만들 때, 타입·선택지·폭을
+                   그대로 베껴 바로 옆에 하나 더 세운다. 열쇠는 새로 짓는다(같으면
+                   두 열이 같은 값을 보게 된다). 흐린 ↑↓ 옆에 두면 못 찾는다 —
+                   이름 옆에 글자로 세운다. */
+                <button
+                  type="button"
+                  className="ntb-dup"
+                  title={`${c.label} 을(를) 복제합니다`}
+                  onClick={() => {
+                    const n = [...columns]
+                    let k = `${c.key}_2`
+                    let t = 2
+                    while (n.some((x) => x.key === k)) k = `${c.key}_${++t}`
+                    n.splice(i + 1, 0, { ...c, key: k, label: `${c.label} 복사`, fixed: false })
+                    onColumns(n)
+                  }}
+                >
+                  복제
+                </button>
+              )}
               <button
                 type="button"
                 className={`ntb-tg${c.hidden ? ' off' : ''}`}

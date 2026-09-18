@@ -44,3 +44,62 @@
 .wtb::after {
   display: none !important;
 }
+
+/* 표는 **글보다 넓게.**
+ *
+ * 편집기가 좌우로 54px 씩 여백을 두는데, 글은 그래야 읽기 좋지만 표는 칸이
+ * 많아 그만큼 잘린다(지시: 가로폭을 최대한 쓰자). 그 여백만큼 되민다.
+ * 좁은 화면에서는 .wtb 의 overflow-x 가 받아 준다.
+ */
+.wtb {
+  margin-left: -46px;
+  margin-right: -46px;
+}
+
+/* 자료 들이기 */
+.wtb-imb {
+  flex: none;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.wtb-imb:hover { background: var(--c-surface-alt); }
+.wtb-back {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(17, 24, 33, 0.38);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wtb-imp {
+  width: 560px;
+  max-width: 92vw;
+  background: var(--c-surface);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+.wtb-imph { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.wtb-imph .sp { flex: 1; }
+.wtb-impp { font-size: var(--fs-sm); color: var(--c-text-muted); margin: 0 0 10px; line-height: 1.6; }
+.wtb-impt {
+  width: 100%;
+  height: 180px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  resize: vertical;
+}
+.wtb-impi { margin-top: 6px; font-size: var(--fs-sm); color: var(--c-text); }
+.wtb-impc { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: var(--fs-sm); }
+.wtb-impe { margin-top: 8px; color: var(--c-fail); font-size: var(--fs-sm); }
+.wtb-impb { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
