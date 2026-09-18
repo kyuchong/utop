@@ -9088,3 +9088,38 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 }
 .ask-sqbulk b { font-size: var(--fs-sm); margin-right: 4px; }
 .ask-sqbulk .sp { flex: 1; }
+
+/* 고른 것이 있는 칩 — 켜짐(.on)과 **다른 뜻**이다. 켜짐은 「이 도구를 쓴다」,
+   고름은 「무엇을 골랐다」. 같은 색이면 장비를 고르기 전과 후가 구분되지 않는다. */
+.ask-chip.sel {
+  border-color: var(--c-primary);
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+}
+.ask-chip.sel .chx { background: var(--c-primary); }
+
+/* 레일 머리의 TC 번호 · 접기 — 지금 어느 시험을 만지는 중인지는 머리에 있어야
+   한다(레일 안을 끝까지 읽어 알아내게 하지 않는다) */
+.ask-rail-tc {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-style: normal;
+  font-weight: 700;
+}
+.ask-rail-x {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  border-radius: var(--radius);
+  color: var(--c-text-faint);
+  font-size: 12px;
+}
+.ask-rail-x:hover { background: var(--c-surface-alt); color: var(--c-text); }

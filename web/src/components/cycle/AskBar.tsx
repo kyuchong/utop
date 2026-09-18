@@ -20,7 +20,8 @@ import TcTerminal from '@/components/tc/TcTerminal'
 import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IconCli } from '@/components/icons'
-import type { StepKind, TcStep } from '@/components/tc/types'
+import { stepNumbers, stepVerdict, type StepKind, type TcStep } from '@/components/tc/types'
+import { useResults } from '@/pages/Cycles'
 import type { Device } from '@/pages/Devices'
 
 interface DraftStep {
@@ -485,6 +486,28 @@ export default function AskBar({ devices }: Props) {
   const [seqW, setSeqW] = useResizableWidth('utop.ai.seqw', 560, 340, 1000)
   /** 실행 로그 판 폭 — 판이 셋이 되었으므로 이것도 잡을 수 있어야 한다 */
   const [logW, setLogW] = useResizableWidth('utop.ai.logw', 330, 240, 720)
+  /** 판정 색은 **설정이 정본**이다 — 여기서 초록·빨강을 따로 박으면
+      설정을 바꿔도 이 띠만 옛 색으로 남는다 */
+  const resDefs = useResults()
+  /* **ESC 로 닫는다**(지적) — 장비 고르개는 덮개를 정확히 눌러야만 닫혔다.
+     실수로 열면 빠져나오는 길이 하나뿐이었다. */
+  useEffect(() => {
+    if (!devOpen && !likeAsk) return
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (devOpen) setDevOpen(false)
+      else setLikeAsk(false)
+    }
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [devOpen, likeAsk])
+
+  /** 작업 흐름 레일을 펴 두었나 — 좁은 화면에서 250~330px 를 물고 있는데
+      접을 길이 없었다(지적). 계정에 남는다. */
+  const [railOpen, setRailOpen] = useState(() => prefGet('utop.ai.rail') !== '0')
+  useEffect(() => {
+    prefSet('utop.ai.rail', railOpen ? '1' : '0')
+  }, [railOpen])
   const logRef = useRef<HTMLElement | null>(null)
   const seqRef = useRef<HTMLElement | null>(null)
   /** 명령어 캡쳐 — 세부 칸을 통째로 바꾼다(Coverage 와 같은 자리) */
@@ -1601,6 +1624,9 @@ export default function AskBar({ devices }: Props) {
    */
   /** 목록에 그릴 스텝 — 돌린 뒤에는 결과가 담긴 것을 쓴다 */
   const seqSteps: TcStep[] = ran?.length ? ran : draft ? toTcSteps(draft) : []
+  /* 표가 매긴 스텝 번호 — 상태 띠와 로그가 **같은 번호**를 적어야 한다.
+     따로 세면 「스텝 5」 를 눌러 놓고 표에서는 1.1 을 찾게 된다(지적). */
+  const stripNos = stepNumbers(seqSteps, (x) => x.kind === 'manual')
 
   /** ＋ 스텝 — 초안 끝에 한 줄 붙인다 */
   const addStep = (k: StepKind) => {
@@ -1933,6 +1959,18 @@ export default function AskBar({ devices }: Props) {
             </span>
             {asked && <span className="ask-top-q" title={asked}>{asked}</span>}
             <span className="sp" />
+            {/* **레일 여닫기**(지시: ▤ AI 작업). 첫 화면의 도구줄(.ask-hometools)
+                에 두면 절대 안 보인다 — 그 칸은 통째로 「일이 시작되기 전」 조건
+                안이라 일이 시작되면 사라진다. 늘 누르던 자리인 이 줄에 세운다. */}
+            <button
+              className={`btn small${railOpen ? ' on' : ''}`}
+              type="button"
+              aria-pressed={railOpen}
+              title={railOpen ? '작업 흐름 접기' : '작업 흐름 펴기'}
+              onClick={() => setRailOpen((v) => !v)}
+            >
+              ▤ AI 작업
+            </button>
             <button
               className="btn small"
               type="button"
@@ -2087,10 +2125,12 @@ export default function AskBar({ devices }: Props) {
         <div className="ask-cols">
           {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
           {/* 작업 흐름 — 아직 아무 일도 없으면 빈 판이라 첫 화면을 좁힐 뿐이다 */}
-          {(draft || making) && (
+          {(draft || making) && railOpen && (
           <section className="ask-rail">
             <div className="ask-rail-head">
               <b>작업 흐름</b>
+              {/* 지금 어느 시험을 만지는 중인지 — 머리만 봐서는 몰랐다(지적) */}
+              {!!tcOf(draft) && <em className="ask-rail-tc">{tcOf(draft)}</em>}
               <em className="muted small">
                 {flowAt > 0
                   ? `${flowAt}단계 진행 중`
@@ -2098,6 +2138,15 @@ export default function AskBar({ devices }: Props) {
                     ? '절차 준비됨'
                     : '대기 중'}
               </em>
+              <button
+                type="button"
+                className="ask-rail-x"
+                title="접기 — 위쪽 「▤ AI 작업」 으로 다시 폅니다"
+                aria-label="작업 흐름 접기"
+                onClick={() => setRailOpen(false)}
+              >
+                ✕
+              </button>
             </div>
             {/* 질문하기 전에는 안내만. 물어보면 그때부터 **한 일**이 쌓이고,
                 만들어지면 그 기록이 그대로 남는다(지적). */}
@@ -2641,12 +2690,23 @@ export default function AskBar({ devices }: Props) {
                   const t = TOOLDEF.find(([x]) => x === k)
                   if (!t) return null
                   const [key, emo, nm, d] = t
+                  /* 고른 것이 있으면 **고른 것만** 지운다(지적). 여태 ✕ 는
+                     언제나 도구를 통째로 뺐다 — 고른 장비만 지우려고 눌렀다가
+                     칩 자체가 사라져 다시 ⚙ 에서 꽂아야 했다. */
+                  const chose = key === 'dev' ? !!tDev : key === 'find' ? tcPick.size > 0 : false
                   const off = (
                     <i
                       className="chx"
-                      title="도구 빼기"
+                      title={chose ? '고른 것 지우기' : '도구 빼기'}
                       onClick={(e) => {
                         e.stopPropagation()
+                        if (chose) {
+                          if (key === 'dev') {
+                            setTDev('')
+                            setDevId('')
+                          } else setTcPick(new Set())
+                          return
+                        }
                         setPins((prev) => prev.filter((x) => x !== key))
                         setTOn((prev) => {
                           const nx = new Set(prev)
@@ -2663,11 +2723,13 @@ export default function AskBar({ devices }: Props) {
                       <button
                         key={key}
                         type="button"
-                        className={`ask-chip${tDev ? ' on' : ''}`}
+                        className={`ask-chip${tDev ? ' on sel' : ''}`}
                         title={d}
                         onClick={() => setDevOpen((v) => !v)}
                       >
-                        {emo} {tDev || nm}
+                        {/* 모델명만 보이면 같은 모델이 열 대인 LAB 에서 어느
+                            것을 골랐는지 모른다 — IP 까지 적는다 */}
+                        {emo} {tDev ? `${tDev}${curDev?.ip ? ` (${curDev.ip})` : ''}` : nm}
                         {off}
                       </button>
                     )
@@ -2675,7 +2737,7 @@ export default function AskBar({ devices }: Props) {
                     <button
                       key={key}
                       type="button"
-                      className={`ask-chip${tOn.has(key) ? ' on' : ''}`}
+                      className={`ask-chip${tOn.has(key) ? ' on' : ''}${key === 'find' && tcPick.size ? ' sel' : ''}`}
                       title={key === 'find' ? `${d} \u00b7 눌러서 항목을 고릅니다` : d}
                       onClick={() => {
                         flipTool(key)
@@ -2686,7 +2748,11 @@ export default function AskBar({ devices }: Props) {
                         if (key === 'find' && !tOn.has(key)) setLikeAsk(true)
                       }}
                     >
-                      {emo} {nm}
+                      {/* 몇 건을 골랐는지 칩에서 바로 보인다(지적) */}
+                      {emo}{' '}
+                      {key === 'find' && tcPick.size
+                        ? `${[...tcPick][0]}${tcPick.size > 1 ? ` 외 ${tcPick.size - 1}건` : ''}`
+                        : nm}
                       {off}
                     </button>
                   )
@@ -3316,6 +3382,45 @@ export default function AskBar({ devices }: Props) {
                       </button>
                       )}
                     </div>
+                    {/* ── 스텝 상태 띠(지시) ────────────────────────────────
+                        스텝이 수십 개면 어디까지 돌았고 어디서 깨졌는지 표를
+                        끝까지 긁어야 안다. 부품(.sc-strip)은 Coverage 가 쓰는
+                        그것이고 CSS 도 이미 있다 — 새로 짓지 않는다.
+
+                        번호는 **표가 매긴 것**을 그대로 쓴다. 여기서 i+1 로 새로
+                        세면 주석이 번호를 안 먹는 표와 어긋나, 「스텝 5」 를 눌러
+                        놓고 표에서는 1.1 을 찾게 된다. */}
+                    {!termOpen && seqSteps.length > 1 && (
+                      <div className="sc-strip tc-strip">
+                        <span className="sc-strip-lab">스텝</span>
+                        {seqSteps.map((s2, i) => {
+                          const no = stripNos[i] || ''
+                          const v = stepVerdict((ran?.[i] ?? s2) as TcStep)
+                          const def = resDefs.find((r) => r.v === v)
+                          const done = !!ran?.[i]?.executed_at || !!ran?.[i]?.output
+                          const now = i === at
+                          const cls = now ? 'now' : def ? 'def' : v ? 'part' : done ? 'ran' : ''
+                          const sty =
+                            !now && def?.color
+                              ? { background: def.color, borderColor: def.color, color: def.fg || '#fff' }
+                              : undefined
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              style={sty}
+                              className={`sc-seg ${cls}${i === stepAt ? ' on' : ''}`}
+                              title={`스텝 ${no || '주석'} · ${
+                                now ? '진행 중' : def?.label || v || (done ? '실행함(판정 없음)' : '미실행')
+                              }`}
+                              onClick={() => setStepAt(i)}
+                            >
+                              {no || '·'}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                     {termOpen && devId && mode !== 'basic' ? (
                       <TcTerminal
                         sessions={[devId]}
@@ -3372,6 +3477,9 @@ export default function AskBar({ devices }: Props) {
                   >
                     <RunLog
                       lines={logs}
+                      /* 번호는 **표가 매긴 것**을 쓴다 — 로그가 1,2,3 으로 새로
+                         세면 표의 1.3.1 을 찾을 길이 없다 */
+                      nos={stripNos}
                       only={logOnly}
                       onOnly={setLogOnly}
                       onClear={() => setLogs([])}

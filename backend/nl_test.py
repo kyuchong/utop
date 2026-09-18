@@ -104,7 +104,13 @@ _TC_SYN_GROUPS = (("시스템", "system"), ("메모리", "memory"), ("버전", "
                   ("백업", "backup"), ("주소", "address"), ("이름", "name"),
                   ("링크", "link"), ("통계", "counter", "statistics"),
                   ("대역", "bandwidth"), ("제한", "limit"), ("정책", "policy"),
-                  ("우선순위", "priority"), ("차단", "block"), ("인증", "auth"))
+                  ("우선순위", "priority"), ("차단", "block"), ("인증", "auth"),
+                  # 「SNMP 로 …」 라고 물으면 제목이 OID 로만 적힌 항목이 점수에서
+                  # 빠져 후보에 안 떴다(지적). 붙임표는 낱말 쪼개기가 이미 지우므로
+                  # 「oid-」 가 아니라 「oid」 로 적는다.
+                  ("snmp", "oid"),
+                  # 포트·인터페이스도 같은 것을 가리키는 말이다
+                  ("포트", "port"), ("인터페이스", "interface", "if"))
 
 _TC_SYN = {w: [x for x in g if x != w] for g in _TC_SYN_GROUPS for w in g}
 
