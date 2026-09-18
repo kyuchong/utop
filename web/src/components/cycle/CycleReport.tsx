@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import { buildSlides, meterTableText, type LguStep, type LguTc } from './lgu'
+import { buildSlides, slideTags, meterTableText, type LguStep, type LguTc } from './lgu'
 import { saveLguPptx } from './lguPptx'
 import { saveTplPptx } from './tplPptx'
 import { wireShot } from '@/components/tc/wireMermaid'
@@ -215,6 +215,20 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
   }, [items, tcQ.data, drawn, devQ.data])
 
   const slides = useMemo(() => (tcs.length ? buildSlides(tcs) : []), [tcs])
+  /* 장 목록에 적을 이름표 — 장을 만드는 곳과 **같은 차례**로 나온다 */
+  const tags = useMemo(() => (tcs.length ? slideTags(tcs) : []), [tcs])
+  /* 한 장이 차지하는 높이(여백 포함) — 목록에서 뛰는 셈과 스크롤에서 지금 장을
+     알아내는 셈이 **같은 값**을 써야 한 장씩 어긋나지 않는다 */
+  const oneH = Math.round(720 * scale) + 16
+  const sideRef = useRef<HTMLDivElement>(null)
+  const goSlide = (i: number) => {
+    bodyRef.current?.scrollTo({ top: i * oneH, behavior: 'smooth' })
+  }
+  /* 스크롤로 장이 바뀌면 목록도 따라간다 — 284장이면 지금 장이 목록 밖에 있다 */
+  useEffect(() => {
+    const el = sideRef.current?.querySelector<HTMLElement>('.rpt-sl.on')
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [cur])
 
   /**
    * 저장 — **고객사가 준 pptx 를 채운다.**
@@ -339,13 +353,39 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
           </button>
         </div>
 
+        <div className="rpt-main">
+          {/* 왼쪽 장 목록 — 파워포인트의 그 자리다(지시). 284장을 훑어 찾을 수
+              있어야 한다. 그림을 다시 그리면 iframe 이 두 배가 되므로 **이름표**로
+              세운다 — 시험 ID 와 이름이면 무엇을 찾는지 충분하다. */}
+          {!loading && tags.length > 0 && (
+            <div className="rpt-side" ref={sideRef}>
+              {tags.map((t, i) => (
+                <button
+                  type="button"
+                  key={i}
+                  className={`rpt-sl${cur === i + 1 ? ' on' : ''}`}
+                  onClick={() => goSlide(i)}
+                  title={`${t.tcid} ${t.name}`}
+                >
+                  <span className="rpt-sn">{i + 1}</span>
+                  <span className="rpt-st">
+                    <b>{t.tcid || '—'}</b>
+                    <i>
+                      {t.kind}
+                      {t.parts > 1 ? ` ${t.part}/${t.parts}` : ''}
+                    </i>
+                    <em>{t.name}</em>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         <div
           className="rpt-body"
           ref={bodyRef}
           onScroll={(e) => {
             const el = e.currentTarget
-            const one = Math.round(720 * scale) + 16
-            setCur(Math.min(slides.length, Math.max(1, Math.round(el.scrollTop / one) + 1)))
+            setCur(Math.min(slides.length, Math.max(1, Math.round(el.scrollTop / oneH) + 1)))
           }}
         >
           {loading ? (
@@ -368,9 +408,6 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
                 key={i}
                 style={{ width: Math.round(1280 * scale), height: Math.round(720 * scale) }}
               >
-                <span className="rpt-no">
-                  {i + 1} / {slides.length}
-                </span>
                 <iframe
                   className="rpt-frame"
                   title={`${i + 1}장`}
@@ -390,6 +427,7 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
           ) : (
             <div className="empty">사이클에 시험 항목이 없습니다.</div>
           )}
+        </div>
         </div>
       </div>
     </div>

@@ -602,6 +602,40 @@ export function page2(tc: LguTc, range: [number, number]): string {
 }
 
 /** 이 사이클의 슬라이드 전부 — 순서대로 HTML */
+/** 장 하나의 이름표 — 왼쪽 장 목록이 쓴다 */
+export interface SlideTag {
+  tcid: string
+  name: string
+  /** 「시험 절차」 쪽인가 「시험 결과」 쪽인가 */
+  kind: '절차' | '결과'
+  /** 한 시험이 여러 장으로 나뉠 때 그 안에서 몇 번째인가 (1 이면 안 적는다) */
+  part: number
+  parts: number
+}
+
+/**
+ * 장마다의 이름표를 **buildSlides 와 같은 차례로** 만든다.
+ *
+ * 장 목록에 「1장·2장」 만 적으면 284장 가운데 무엇을 찾는지 알 수 없다. 만드는
+ * 곳이 하나여야 차례가 어긋나지 않으므로 아래 buildSlides 와 **같은 루프**를 돈다.
+ */
+export function slideTags(tcs: LguTc[]): SlideTag[] {
+  const out: SlideTag[] = []
+  for (const tc of tcs) {
+    const r = slideRanges(tc)
+    const tcid = String(tc.tcid ?? '')
+    const name = String(tc.name ?? '')
+    r.method.forEach((_, i) =>
+      out.push({ tcid, name, kind: '절차', part: i + 1, parts: r.method.length }),
+    )
+    r.result.forEach((_, i) =>
+      out.push({ tcid, name, kind: '결과', part: i + 1, parts: r.result.length }),
+    )
+  }
+  return out
+}
+
+
 export function buildSlides(tcs: LguTc[]): string[] {
   const out: string[] = []
   for (const tc of tcs) {
