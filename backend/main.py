@@ -16277,28 +16277,6 @@ def _rp_sec_sched(items):
     return ("시험 일정", _md_table(["구분", "기간", "항목"], rows, left=(1,)))
 
 
-def _rp_sec_owner(cycle, items, runs):
-    """시험담당자 — 실행 기록이 주인이다. 없으면 항목에 남은 실행자, 그다음 맡은 이."""
-    cnt: dict = {}
-    for r in (runs or []):
-        w = _bare_name(r.get("started_by"))
-        if w:
-            cnt[w] = cnt.get(w, 0) + 1
-    if not cnt:
-        for it in items:
-            w = _bare_name(it.get("executed_by"))
-            if w:
-                cnt[w] = cnt.get(w, 0) + 1
-    if not cnt:
-        w = _bare_name(cycle.get("assignee") or cycle.get("updated_by"))
-        if w:
-            cnt[w] = 1
-    if not cnt:
-        return None
-    rows = [[w, f"{n}건"] for w, n in sorted(cnt.items(), key=lambda x: -x[1])]
-    return ("시험담당자", _md_table(["담당자", "실행"], rows, left=(1,)))
-
-
 def _rp_progress(t) -> str:
     """진행률 — 돌린 것 / 전체. **통과율과 다른 값이다**(통과율은 붙은 것 / 전체)."""
     if not t["total"]:
@@ -16389,16 +16367,9 @@ async def _rp_sec_issue(cycle, cycle_id, items):
             ["No", "UMS", "이슈내용", "이슈유형", "문제유형", "상태", "발생 Version"],
             rows, left=(1, 2, 3, 4, 5)))
 
-    fails = [it for it in items if _item_verdict(it) == "FAIL"]
-    if not fails:
-        return None
-    cap = 10
-    rows = [[i, it.get("tcid") or "-", _cut(it.get("name")), ver]
-            for i, it in enumerate(fails[:cap], 1)]
-    body = _md_table(["No", "TC ID", "시험 항목", "발생 Version"], rows, left=(1, 2))
-    if len(fails) > cap:
-        body += f"\n\n※ Fail {len(fails)}건 중 {cap}건만 실었습니다. 아직 이슈로 올린 것이 없습니다."
-    return ("이슈내역 — 아직 등록된 이슈 없음", body)
+    # 올린 이슈가 없으면 **이 절을 통째로 뺀다**(지시). 깨진 항목을 이슈인 양
+    # 늘어놓으면 「이슈 47건」 으로 읽힌다 — 아직 이슈가 아니라 Fail 일 뿐이다.
+    return None
 
 
 async def _rp_sec_topo(items):
@@ -16433,10 +16404,6 @@ async def _cycle_report_tables(cycle, cycle_id) -> str:
     없는 절은 번호째 뺀다 — 빈 표를 내면 시험을 안 한 것으로 읽힌다.
     """
     items = [x for x in (cycle.get("items") or []) if isinstance(x, dict)]
-    try:
-        runs = await db.run_recent(str(cycle_id), 300)
-    except Exception:
-        runs = []
 
     # 같은 모델그룹의 회차를 **만든 차례대로**. updated_at 으로 세우면 안 된다 —
     # 요약을 한 번 저장할 때마다 순서가 바뀐다.
@@ -16456,7 +16423,7 @@ async def _cycle_report_tables(cycle, cycle_id) -> str:
 
     secs = [
         _rp_sec_sched(items),
-        _rp_sec_owner(cycle, items, runs),
+        # 시험담당자 절은 두지 않는다 — 인사말이 이미 누가 쓴 글인지 말한다(지시)
         _rp_sec_progress_body(cycle, cycle_id, items, kin),
         await _rp_sec_issue(cycle, cycle_id, items),
         await _rp_sec_topo(items),
