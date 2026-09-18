@@ -489,19 +489,6 @@ export default function AskBar({ devices }: Props) {
   /** 판정 색은 **설정이 정본**이다 — 여기서 초록·빨강을 따로 박으면
       설정을 바꿔도 이 띠만 옛 색으로 남는다 */
   const resDefs = useResults()
-  /* **ESC 로 닫는다**(지적) — 장비 고르개는 덮개를 정확히 눌러야만 닫혔다.
-     실수로 열면 빠져나오는 길이 하나뿐이었다. */
-  useEffect(() => {
-    if (!devOpen && !likeAsk) return
-    const esc = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      if (devOpen) setDevOpen(false)
-      else setLikeAsk(false)
-    }
-    window.addEventListener('keydown', esc)
-    return () => window.removeEventListener('keydown', esc)
-  }, [devOpen, likeAsk])
-
   /** 작업 흐름 레일을 펴 두었나 — 좁은 화면에서 250~330px 를 물고 있는데
       접을 길이 없었다(지적). 계정에 남는다. */
   const [railOpen, setRailOpen] = useState(() => prefGet('utop.ai.rail') !== '0')
@@ -573,6 +560,19 @@ export default function AskBar({ devices }: Props) {
   const [pickRack, setPickRack] = useState('')
   /** 시험 항목 고르는 창 — Coverage 의 항목 중에서 고른다 */
   const [likeAsk, setLikeAsk] = useState(false)
+  /* **ESC 로 닫는다**(지적) — 장비 고르개는 덮개를 정확히 눌러야만 닫혔다.
+     실수로 열면 빠져나오는 길이 하나뿐이었다. */
+  useEffect(() => {
+    if (!devOpen && !likeAsk) return
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (devOpen) setDevOpen(false)
+      else setLikeAsk(false)
+    }
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [devOpen, likeAsk])
+
   /** 그 창의 찾기 글자 */
   const [tcFind, setTcFind] = useState('')
   /**
