@@ -138,8 +138,15 @@ function TableBody({ tid, editable }: { tid: string; editable: boolean }) {
       onNew={(seed) =>
         void post('/rows', seed ? { seed: { [seed.key]: seed.value } } : {})
       }
-      bulk={[{ k: 'del', label: '삭제', danger: true }]}
+      /* 엑셀은 기본 목록에 있던 것을 되살린다 — 내가 덮어써서 사라졌다 */
+      bulk={[{ k: 'csv', label: '엑셀' }, { k: 'del', label: '삭제', danger: true }]}
+      /* 줄을 안 골라도 통째로 내려받는 단추(지시) */
+      showExport
+      /* 닮은 열을 여럿 만드는 표라 복제가 필요하다(지시: 열·필드 복사) */
+      canDupCol
       onBulk={(a, ids) => {
+        /* csv 는 NTable 이 제 방식(/api/export/xlsx)으로 낸다 — 여기서 가로채면
+           우리가 엑셀을 다시 만들어야 한다 */
         if (a === 'del') void post('/rows', { ids }, 'DELETE')
       }}
       onReorder={(ids) => void post('/rows', { order: ids })}

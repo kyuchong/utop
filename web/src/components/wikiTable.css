@@ -5,8 +5,8 @@
  */
 .wtb {
   margin: 10px 0;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
+  /* 테두리를 두르지 않는다(지적) — 표가 제 머리줄·칸선을 이미 그리고 있어
+     상자를 한 겹 더 씌우면 글 사이에서 덩어리져 보인다 */
   background: var(--c-surface);
   /* 열이 많으면 문서 폭을 넘는다 — 문서가 아니라 **표가** 옆으로 흐른다 */
   overflow-x: auto;

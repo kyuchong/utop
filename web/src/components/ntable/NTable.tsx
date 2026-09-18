@@ -105,6 +105,13 @@ export interface NTableProps {
   /** 거르고 세운 뒤의 줄 차례 — 부르는 쪽이 그 차례로 시험을 돌린다 */
   onShown?: (ids: string[]) => void
   /** 열마다 아래에서 세는 것 — 고르면 바로 저장된다 */
+  /** 툴바에 「엑셀」 을 세운다 — 줄을 안 골라도 **보이는 것 전부**를 내려받는다.
+      기본은 꺼 둔다: 줄을 골라 내보내는 길(bulk)이 이미 있고, 화면마다 내보내기
+      규칙이 달라 함부로 세우면 엉뚱한 것이 나간다. */
+  showExport?: boolean
+  /** 속성 창에서 **열을 복제**할 수 있게 한다(같은 타입·선택지로 하나 더).
+      1~12월처럼 닮은 열을 여럿 만드는 자유 표에서만 켠다. */
+  canDupCol?: boolean
   calcs?: Record<string, NCalc>
   onCalcs?: (v: Record<string, NCalc>) => void
   /** 한 쪽에 보여 줄 줄 수 */
@@ -962,6 +969,18 @@ export default function NTable(p: NTableProps) {
           >
             <IcHide /> 속성
           </button>
+          {p.showExport && (
+            /* 고른 줄이 있으면 그것만, 없으면 **지금 보이는 줄 전부**(거른 결과
+               그대로다 — 화면과 파일이 다르면 어느 쪽이 맞는지 알 수 없다) */
+            <button
+              type="button"
+              className="ntb-tb"
+              title="지금 보이는 줄을 엑셀로 내려받습니다"
+              onClick={() => void exportXlsx(checked.size ? [...checked] : shown.map((r) => String(r.__id)))}
+            >
+              ⬇ 엑셀
+            </button>
+          )}
           {onNew && (
             <button type="button" className="ntb-new" onClick={() => onNew()}>
               ＋ 새로 만들기
@@ -1801,6 +1820,26 @@ export default function NTable(p: NTableProps) {
               >
                 ↑
               </button>
+              {p.canDupCol && !lockDefs && (
+                /* **열 복제** — 1~12월처럼 닮은 열을 여럿 만들 때, 타입과 선택지를
+                   그대로 베껴 바로 옆에 하나 더 세운다. 열쇠는 새로 지어야 한다
+                   (같으면 두 열이 같은 값을 보게 된다). */
+                <button
+                  type="button"
+                  className="ntb-mv"
+                  title="이 열을 복제"
+                  onClick={() => {
+                    const n = [...columns]
+                    let k = `${c.key}_2`
+                    let t = 2
+                    while (n.some((x) => x.key === k)) k = `${c.key}_${++t}`
+                    n.splice(i + 1, 0, { ...c, key: k, label: `${c.label} 복사`, fixed: false })
+                    onColumns(n)
+                  }}
+                >
+                  ⧉
+                </button>
+              )}
               <button
                 type="button"
                 className="ntb-mv"
