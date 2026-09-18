@@ -10,6 +10,21 @@ import {
   getFormattingToolbarItems,
 } from '@blocknote/react'
 import { BlockNoteView, lightDefaultTheme } from '@blocknote/mantine'
+
+/**
+ * 지금 손이 우리 표(데이터베이스) 안에 있는가.
+ *
+ * 표는 편집기 안에 들어앉아 있지만 편집기의 글이 아니다. 그런데 칸을 고치면
+ * 편집기는 제 글을 고르는 줄 알고 글꼴 도구줄을 내민다. 포커스와 선택 둘 다
+ * 본다 — 칸에 따라 글상자가 설 때도 있고 단추만 눌릴 때도 있다.
+ */
+function inWikiTable(): boolean {
+  const a = document.activeElement
+  if (a instanceof Element && a.closest('.wtb')) return true
+  const n = window.getSelection()?.anchorNode
+  const el = n instanceof Element ? n : n?.parentElement
+  return !!el?.closest('.wtb')
+}
 import {
   BlockNoteSchema,
   defaultBlockSpecs,
@@ -1042,6 +1057,13 @@ export default function WikiEditor({
               맨 끝이라 목록과 멀어 「없다」 로 읽힌다(지적). */}
           <FormattingToolbarController
             formattingToolbar={() => (
+              /* **표 안에서는 띄우지 않는다**(지적: 붉은 상자가 왜 있나).
+                 표 칸을 고치면 편집기가 「글을 고르는 중」 으로 착각해 글머리표·
+                 번호·체크상자를 내미는데, 표에는 쓸 데가 없고 자리도 문서 제목
+                 옆이라 엉뚱하다. 손이 표 안에 있으면 빈 것을 돌려준다. */
+              inWikiTable() ? (
+                <></>
+              ) : (
               <FormattingToolbar>
                 {/* 종류 고름표는 우리 것을 쓴다 — 기본 것은 여러 줄을
                     골라도 첫 줄만 바꾼다(지적). 들여쓰기 둘도 빼고 아래
@@ -1056,6 +1078,7 @@ export default function WikiEditor({
                 )}
                 <ListButtons />
               </FormattingToolbar>
+              )
             )}
           />
           {/* 「/」 — 기본 블록들에 「REQ · TC 짚기」 를 더한다. 그 항목은
