@@ -1360,15 +1360,11 @@ export default function AskBar({ devices }: Props) {
       setFlowAt(0)
       void keepChat(d2.name, d2, picked?.ip ?? '')
       setLike([])
-      /* 목업처럼 — 절차를 실은 뒤 대화에 **실행 확인 카드**를 세운다(지시).
-         오른쪽 판이 절차를 쥐고, 여기서 눌러 실행한다. */
+      /* 절차를 실었다 — 실행은 **오른쪽 아티팩트 판**에서 한다(지시).
+         대화는 어디를 보라고만 알려 준다. */
       say(
         'a',
-        `<div class="ask-confirm"><div class="ask-confirm-h">이대로 실행합니다 — 확인해 주세요</div>` +
-          `<div class="ask-confirm-r"><span class="k">장비</span><span><b>${hesc(String(picked?.model || picked?.name || ''))}</b> <span class="mono">${hesc(String(picked?.ip ?? ''))}</span></span></div>` +
-          `<div class="ask-confirm-r"><span class="k">항목</span><span><b>${hesc(tcName)}</b> <span class="mono">${hesc(tcid)}</span></span></div>` +
-          `<div class="ask-confirm-r"><span class="k">절차</span><span>${raw.length}스텝</span></div>` +
-          `<div class="ask-confirm-a"><button type="button" class="ask-cbtn pri js-runtc">▶ 실행</button><button type="button" class="ask-cbtn js-cancelrun">그만두기</button></div></div>`,
+        `<p class="ln"><b>${hesc(tcName)}</b> 절차 ${raw.length}스텝을 오른쪽 판에 실었습니다 — 확인하고 <b>▷ 시험 시작</b> 을 누르면 실행됩니다.</p>`,
       )
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
@@ -2205,17 +2201,6 @@ export default function AskBar({ devices }: Props) {
         const tc = t.closest('.js-tcpick') as HTMLElement | null
         if (tc) {
           pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
-          return
-        }
-        /* 실행 확인 카드(목업) — 대화에서 바로 실행하거나 그만둔다 */
-        if (t.closest('.js-runtc')) {
-          if (running || !draft || !devId) return
-          say('a', '<p class="ln">실행을 시작합니다 — 오른쪽 판에서 진행과 판정을 확인하세요.</p>')
-          void run()
-          return
-        }
-        if (t.closest('.js-cancelrun')) {
-          say('a', '<p class="ln">알겠습니다 — 실행하지 않았습니다. 다시 물어보면 이어서 합니다.</p>')
           return
         }
         /* 「전체 열기」 — 그때만 큰 고르개가 나온다 */
@@ -3466,7 +3451,12 @@ export default function AskBar({ devices }: Props) {
             <section className="railsec" data-sec="steps">
               <div className="railsec-b">
                 <div className="tc-inner">
-                  <section className="panel tc-seqcol" style={{ flexBasis: seqW }} ref={seqRef}>
+                  <section
+                    className="panel tc-seqcol"
+                    /* 편집기를 숨기는 일반 갈래에서는 절차 목록이 판을 채운다 */
+                    style={mode === 'basic' ? { flex: '1 1 auto', minWidth: 0 } : { flexBasis: seqW }}
+                    ref={seqRef}
+                  >
                     <div className="tc-title">
                       {/* 한 건이면 번호를 세우고, 여러 건이면 「고른 시험 n건」
                           한 마디로 족하다(지시) */}
@@ -3637,6 +3627,11 @@ export default function AskBar({ devices }: Props) {
                     )}
                   </section>
 
+                  {/* 일반 갈래(기존 항목 실행)에서는 **편집기 열(tc-detcol)을
+                      통째로 숨긴다**(지시: tc 화면이 나오면 안 돼) — 절차 목록과
+                      실행 로그(세부 내역) 두 칸만 남긴다. Advanced 는 그대로. */}
+                  {mode !== 'basic' && (
+                  <>
                   <Resizer
                     label="스텝 목록 폭 조절"
                     onResize={setSeqW}
@@ -3647,7 +3642,6 @@ export default function AskBar({ devices }: Props) {
                     <div className="tc-colh">
                       <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
                       <span className="sp" />
-                      {mode !== 'basic' && (
                       <button
                         className={`btn tc-dots tc-termbtn${termOpen ? ' on' : ''}`}
                         type="button"
@@ -3662,7 +3656,6 @@ export default function AskBar({ devices }: Props) {
                       >
                         <IconCli />
                       </button>
-                      )}
                     </div>
                     {/* ── 스텝 상태 띠(지시) ────────────────────────────────
                         스텝이 수십 개면 어디까지 돌았고 어디서 깨졌는지 표를
@@ -3703,7 +3696,7 @@ export default function AskBar({ devices }: Props) {
                         })}
                       </div>
                     )}
-                    {termOpen && devId && mode !== 'basic' ? (
+                    {termOpen && devId ? (
                       <TcTerminal
                         sessions={[devId]}
                         devById={new Map(devices.map((d) => [d.id, d]))}
@@ -3729,11 +3722,13 @@ export default function AskBar({ devices }: Props) {
                         onRemove={() => removeTcStep(stepAt)}
                         onDuplicate={() => dupTcStep(stepAt)}
                         onRun={running || !devId ? undefined : () => void run(stepAt)}
-                        readOnly={mode === 'basic'}
+                        readOnly={false}
                         loopVar={loopVarAt(seqSteps, stepAt)}
                       />
                     )}
                   </section>
+                  </>
+                  )}
 
                   {/* ── 셋째 칸 · 실행 로그 ─────────────────────────────────
                       장비가 실제로 무엇을 뱉었는지 **원문**을 보는 자리다.

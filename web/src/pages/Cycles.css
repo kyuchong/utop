@@ -9452,16 +9452,6 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   padding: 6px 2px 14px;
   text-align: left;
 }
-/* ── 실행 확인 카드(목업) — 항목 선택 뒤 대화에 서고, 여기서 실행한다 ── */
-.ask-msgs .ask-confirm { margin-top: 8px; border: 1px solid var(--c-border-soft); border-radius: 10px; overflow: hidden; }
-.ask-msgs .ask-confirm-h { padding: 8px 12px; font-weight: 700; font-size: 13px; background: var(--c-surface-2); border-bottom: 1px solid var(--c-border-soft); }
-.ask-msgs .ask-confirm-r { display: flex; gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--c-border-soft); font-size: 13px; }
-.ask-msgs .ask-confirm-r .k { flex: 0 0 48px; color: var(--c-text-muted); font-size: 12px; }
-.ask-msgs .ask-confirm-r .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 12px; color: var(--c-text-muted); }
-.ask-msgs .ask-confirm-a { display: flex; gap: 8px; padding: 10px 12px; }
-.ask-msgs .ask-cbtn { border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-surface); padding: 6px 16px; font-weight: 600; font-size: 13px; cursor: pointer; color: var(--c-text); }
-.ask-msgs .ask-cbtn.pri { background: var(--c-primary); color: #fff; border-color: transparent; }
-.ask-msgs .ask-cbtn:hover { filter: brightness(1.05); }
 .ask-msgs .msg { margin-bottom: 18px; }
 .ask-msgs .msg.u { display: flex; justify-content: flex-end; }
 .ask-msgs .msg.u b {
