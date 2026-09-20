@@ -1037,7 +1037,7 @@ export default function AskBar({ devices }: Props) {
     if (adopting) return
     say(
       'a',
-      `<p class="ln"><b>${hesc(tcid)}</b> 으로 정했습니다 — <b>3단계 · 절차 만들기</b> 를 시작합니다.</p>`,
+      `<p class="ln"><b>${hesc(tcid)}</b> 으로 정했습니다 — 절차를 준비합니다.</p>`,
     )
     void (mode === 'basic' ? takeTc(tcid, undefined, model) : adopt(tcid))
   }
@@ -1360,6 +1360,16 @@ export default function AskBar({ devices }: Props) {
       setFlowAt(0)
       void keepChat(d2.name, d2, picked?.ip ?? '')
       setLike([])
+      /* 목업처럼 — 절차를 실은 뒤 대화에 **실행 확인 카드**를 세운다(지시).
+         오른쪽 판이 절차를 쥐고, 여기서 눌러 실행한다. */
+      say(
+        'a',
+        `<div class="ask-confirm"><div class="ask-confirm-h">이대로 실행합니다 — 확인해 주세요</div>` +
+          `<div class="ask-confirm-r"><span class="k">장비</span><span><b>${hesc(String(picked?.model || picked?.name || ''))}</b> <span class="mono">${hesc(String(picked?.ip ?? ''))}</span></span></div>` +
+          `<div class="ask-confirm-r"><span class="k">항목</span><span><b>${hesc(tcName)}</b> <span class="mono">${hesc(tcid)}</span></span></div>` +
+          `<div class="ask-confirm-r"><span class="k">절차</span><span>${raw.length}스텝</span></div>` +
+          `<div class="ask-confirm-a"><button type="button" class="ask-cbtn pri js-runtc">▶ 실행</button><button type="button" class="ask-cbtn js-cancelrun">그만두기</button></div></div>`,
+      )
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
       setText(asked)
@@ -1928,6 +1938,21 @@ export default function AskBar({ devices }: Props) {
         typeof only === 'number',
         to,
       )
+      /* 목업처럼 — 대화가 열려 있고 **전체 실행**이면 끝에 판정 요약 한 줄을
+         남긴다. 자세한 스텝 로그·판정은 오른쪽 판에 그대로 있다. */
+      if (msgs.length && only === undefined && from === undefined) {
+        const done = steps.filter((s) => s && (s.repeatResult || s.status)).length
+        const pass = steps.filter(
+          (s) => String(s?.repeatResult ?? s?.status ?? '').toLowerCase() === 'pass',
+        ).length
+        const fail = steps.filter(
+          (s) => String(s?.repeatResult ?? s?.status ?? '').toLowerCase() === 'fail',
+        ).length
+        say(
+          'a',
+          `<p class="ln">끝났습니다 — <b class="status pass">PASS ${pass}</b>${fail ? ` · <b class="status fail">FAIL ${fail}</b>` : ''} <span class="muted">(${done}/${steps.length} 스텝)</span> · 자세한 로그·판정은 오른쪽 판에 있습니다.</p>`,
+        )
+      }
     } finally {
       setRunning(false)
       setAt(-1)
@@ -2180,6 +2205,17 @@ export default function AskBar({ devices }: Props) {
         const tc = t.closest('.js-tcpick') as HTMLElement | null
         if (tc) {
           pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
+          return
+        }
+        /* 실행 확인 카드(목업) — 대화에서 바로 실행하거나 그만둔다 */
+        if (t.closest('.js-runtc')) {
+          if (running || !draft || !devId) return
+          say('a', '<p class="ln">실행을 시작합니다 — 오른쪽 판에서 진행과 판정을 확인하세요.</p>')
+          void run()
+          return
+        }
+        if (t.closest('.js-cancelrun')) {
+          say('a', '<p class="ln">알겠습니다 — 실행하지 않았습니다. 다시 물어보면 이어서 합니다.</p>')
           return
         }
         /* 「전체 열기」 — 그때만 큰 고르개가 나온다 */
