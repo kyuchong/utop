@@ -1,0 +1,597 @@
+<title>Test AI 시험 콘솔</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f2f5f9; --panel:#ffffff; --panel2:#f7fafd;
+  --ink:#1e2a38; --sub:#5c6d80; --line:#d7dfe9; --line2:#c3cedb;
+  --accent:#2f6bde; --accent-ink:#ffffff; --accent-soft:#e9f0fc; --accent-line:#b9cdf2;
+  --ok:#177a48; --ok-soft:#e2f3e9; --busy:#a06a0a; --busy-soft:#faf0da;
+  --bad:#bf3f2e; --bad-soft:#fae8e5; --off:#8494a6; --off-soft:#eef2f6;
+  --term-bg:#0f1721; --term-ink:#c8d6e5; --term-dim:#5d7186; --term-ok:#54c98a; --term-bad:#ef8b7c;
+  --shadow:0 10px 30px rgba(30,42,56,.10);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1520; --panel:#182130; --panel2:#131b28;
+    --ink:#e6edf5; --sub:#96a5b8; --line:#2a3648; --line2:#3a4a60;
+    --accent:#6b97ee; --accent-ink:#0e1a30; --accent-soft:#1d2c48; --accent-line:#33507f;
+    --ok:#4cc588; --ok-soft:#15301f; --busy:#e0a83f; --busy-soft:#33270f;
+    --bad:#ef7f6d; --bad-soft:#3a1d17; --off:#7385998f; --off-soft:#1c2634;
+    --term-bg:#0a111b; --shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1520; --panel:#182130; --panel2:#131b28;
+  --ink:#e6edf5; --sub:#96a5b8; --line:#2a3648; --line2:#3a4a60;
+  --accent:#6b97ee; --accent-ink:#0e1a30; --accent-soft:#1d2c48; --accent-line:#33507f;
+  --ok:#4cc588; --ok-soft:#15301f; --busy:#e0a83f; --busy-soft:#33270f;
+  --bad:#ef7f6d; --bad-soft:#3a1d17; --off:#7385998f; --off-soft:#1c2634;
+  --term-bg:#0a111b; --shadow:0 10px 30px rgba(0,0,0,.4);
+}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:14px/1.55 "IBM Plex Sans KR",-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+}
+.app{max-width:860px; min-height:100%; margin:0 auto; display:flex; flex-direction:column; padding-inline:16px}
+button{font:inherit; color:inherit; cursor:pointer}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+
+/* ── 머리 ── */
+.hd{display:flex; align-items:center; gap:10px; padding:14px 2px 12px; border-bottom:1px solid var(--line)}
+.hd .logo{width:30px; height:30px; border-radius:8px; background:var(--accent); color:var(--accent-ink);
+  display:grid; place-items:center; font-weight:700; font-size:13px; letter-spacing:.5px}
+.hd h1{margin:0; font-size:16px; font-weight:700}
+.hd .sub{color:var(--sub); font-size:12px}
+.hd .mock{margin-left:auto; font-size:11px; color:var(--busy); background:var(--busy-soft);
+  border:1px solid transparent; padding:2px 9px; border-radius:99px; letter-spacing:.4px}
+
+/* ── 대화 ── */
+#chat{flex:1; display:flex; flex-direction:column; gap:14px; padding:18px 0 10px}
+.msg{display:flex; gap:10px; max-width:100%}
+.msg .who{flex:0 0 28px; width:28px; height:28px; border-radius:50%; display:grid; place-items:center;
+  font-size:11px; font-weight:700; margin-top:2px}
+.msg.ai .who{background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent-line)}
+.msg.me{flex-direction:row-reverse}
+.msg.me .who{background:var(--off-soft); color:var(--sub); border:1px solid var(--line)}
+.bub{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 14px; max-width:640px; box-shadow:var(--shadow)}
+.msg.me .bub{background:var(--accent); color:var(--accent-ink); border-color:transparent}
+.bub .note{color:var(--sub); font-size:12px; margin-top:4px}
+.thinking{display:flex; align-items:center; gap:8px; color:var(--sub)}
+.spin{width:14px; height:14px; border:2px solid var(--line2); border-top-color:var(--accent); border-radius:50%; animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){ .spin{animation-duration:2.4s} }
+
+/* 의도 요약 칩 */
+.intent{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+.intent .t{font-size:12px; padding:2px 9px; border-radius:99px; background:var(--panel2); border:1px solid var(--line); color:var(--sub)}
+.intent .t b{color:var(--ink); font-weight:500}
+
+/* ── 추천 카드 + 후보 줄 (장비·항목 공통 꼴) ── */
+.pick{margin-top:10px; display:flex; flex-direction:column; gap:6px}
+.hero{display:flex; align-items:center; gap:10px; text-align:left; width:100%;
+  background:var(--accent-soft); border:1.5px solid var(--accent-line); border-radius:10px; padding:10px 12px}
+.hero:hover{border-color:var(--accent)}
+.hero .rec{font-size:10px; font-weight:700; letter-spacing:.6px; color:var(--accent);
+  border:1px solid var(--accent-line); border-radius:4px; padding:1px 5px; flex:none}
+.hero .nm{font-weight:700}
+.hero .meta{color:var(--sub); font-size:12px; margin-top:1px}
+.hero .go{margin-left:auto; flex:none; color:var(--accent); font-weight:700}
+.cand{display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+  background:none; border:1px solid transparent; border-radius:8px; padding:5px 12px; color:var(--sub); font-size:13px}
+.cand:not([disabled]):hover{border-color:var(--line); background:var(--panel2)}
+.cand[disabled]{cursor:default; opacity:.75}
+.cand .nm{color:var(--ink)}
+.cand[disabled] .nm{color:var(--sub)}
+.more{font-size:12px; color:var(--sub); padding:2px 12px}
+.inlnk{background:none; border:none; padding:0; color:var(--accent); text-decoration:underline; font-size:12px}
+
+/* 상태 점·알약 */
+.dot{width:8px; height:8px; border-radius:50%; flex:none}
+.dot.ready{background:var(--ok)} .dot.busy{background:var(--busy)} .dot.down{background:var(--bad)} .dot.part{background:var(--off)}
+.pill{font-size:11px; padding:1px 8px; border-radius:99px; white-space:nowrap}
+.pill.ready{background:var(--ok-soft); color:var(--ok)}
+.pill.busy{background:var(--busy-soft); color:var(--busy)}
+.pill.down{background:var(--bad-soft); color:var(--bad)}
+.pill.pass{background:var(--ok-soft); color:var(--ok)}
+.pill.fail{background:var(--bad-soft); color:var(--bad)}
+.pill.none{background:var(--off-soft); color:var(--sub)}
+.pill.auto{background:var(--accent-soft); color:var(--accent)}
+.pill.man{background:var(--off-soft); color:var(--sub)}
+
+/* ── 실행 확인 카드 ── */
+.confirm{margin-top:10px; border:1px solid var(--line); border-radius:10px; overflow:hidden}
+.confirm .rw{display:flex; gap:10px; padding:7px 12px; border-top:1px solid var(--line); background:var(--panel2)}
+.confirm .rw:first-child{border-top:none}
+.confirm .k{flex:0 0 64px; color:var(--sub); font-size:12px; padding-top:1px}
+.actions{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap}
+.btn{border-radius:8px; border:1px solid var(--line2); background:var(--panel); padding:7px 16px; font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent); color:var(--accent-ink); border-color:transparent; font-weight:700}
+.btn.pri:hover{filter:brightness(1.06)}
+
+/* ── 실행(스텝 표 + 터미널) ── */
+.run{margin-top:10px}
+.steps{border:1px solid var(--line); border-radius:10px; overflow:hidden}
+.step{display:flex; align-items:center; gap:9px; padding:7px 11px; border-top:1.5px solid var(--line); background:var(--panel)}
+.step:first-child{border-top:none}
+.step .no{flex:0 0 20px; color:var(--sub); font-size:12px; text-align:right}
+.kind{flex:0 0 74px; text-align:center; font-size:10.5px; font-weight:600; letter-spacing:.3px;
+  border-radius:5px; padding:2px 0; background:var(--off-soft); color:var(--sub)}
+.kind.snmp{background:var(--accent-soft); color:var(--accent)}
+.kind.judge{background:var(--busy-soft); color:var(--busy)}
+.step .desc{flex:1; min-width:0}
+.step .oid{color:var(--sub); font-size:11.5px}
+.step .st{flex:0 0 44px; text-align:center; font-size:13px}
+.step .st .ok{color:var(--ok); font-weight:700}
+.step .st .bad{color:var(--bad); font-weight:700}
+.step.wait{opacity:.55}
+.term{margin-top:8px; background:var(--term-bg); color:var(--term-ink); border-radius:10px;
+  padding:10px 12px; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px; line-height:1.6;
+  max-height:180px; overflow:auto}
+.term .dim{color:var(--term-dim)} .term .g{color:var(--term-ok)} .term .r{color:var(--term-bad)}
+.verdict{display:flex; align-items:center; gap:10px; margin-top:10px; border-radius:10px; padding:10px 14px; font-weight:700}
+.verdict.pass{background:var(--ok-soft); color:var(--ok)}
+.verdict.fail{background:var(--bad-soft); color:var(--bad)}
+.verdict .d{font-weight:400; font-size:12px; margin-left:auto; opacity:.85}
+
+/* ── 절차 초안(생성 갈래) ── */
+.draft{margin-top:10px; border:1.5px dashed var(--accent-line); border-radius:10px; overflow:hidden}
+.draft .cap{display:flex; align-items:center; gap:8px; background:var(--accent-soft); padding:8px 12px; font-weight:700; font-size:13px}
+.draft .cap .tag{font-size:10px; font-weight:700; letter-spacing:.6px; color:var(--accent); border:1px solid var(--accent-line); border-radius:4px; padding:1px 5px}
+.draft .step{background:var(--panel)}
+.crit{display:flex; align-items:center; gap:8px; padding:9px 12px; border-top:1.5px solid var(--line); background:var(--panel2)}
+.crit label{flex:none; font-size:12px; color:var(--busy); font-weight:700}
+.crit input{flex:1; min-width:0; font:inherit; font-size:13px; color:var(--ink);
+  background:var(--panel); border:1px solid var(--line2); border-radius:6px; padding:5px 9px}
+.crit input:focus{outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent}
+
+/* ── 입력줄 ── */
+.foot{position:sticky; bottom:0; background:var(--bg); padding:10px 0 14px; border-top:1px solid var(--line)}
+.chips{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px}
+.chip{font-size:12px; border-radius:99px; border:1px solid var(--line2); background:var(--panel); color:var(--sub); padding:4px 12px}
+.chip:hover{border-color:var(--accent); color:var(--accent)}
+.inrow{display:flex; gap:8px}
+#q{flex:1; min-width:0; font:inherit; color:var(--ink); background:var(--panel);
+  border:1px solid var(--line2); border-radius:10px; padding:10px 14px}
+#q:focus{outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent}
+#send{border:none; border-radius:10px; background:var(--accent); color:var(--accent-ink); font-weight:700; padding:0 20px}
+
+/* ── 전체 열기 창(장비·항목) ── */
+.ovl{position:fixed; inset:0; background:rgba(15,21,32,.45); display:grid; place-items:center; padding:16px; z-index:9}
+.dlg{background:var(--panel); border:1px solid var(--line); border-radius:14px; width:min(680px,100%);
+  max-height:min(560px,90vh); display:flex; flex-direction:column; box-shadow:var(--shadow)}
+.dlg .dh{display:flex; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid var(--line); font-weight:700}
+.dlg .dh .x{margin-left:auto; background:none; border:none; color:var(--sub); font-size:17px; line-height:1}
+.dlg .body{overflow:auto}
+.dlg table{width:100%; border-collapse:collapse; font-size:13px; min-width:520px}
+.dlg .body{overflow-x:auto}
+.dlg th{position:sticky; top:0; background:var(--panel2); text-align:left; color:var(--sub); font-size:11.5px;
+  font-weight:600; padding:7px 12px; border-bottom:1px solid var(--line); white-space:nowrap}
+.dlg td{padding:8px 12px; border-bottom:1px solid var(--line)}
+.dlg tr.sel{cursor:pointer}
+.dlg tr.sel:hover td{background:var(--accent-soft)}
+.dlg tr.mute td{color:var(--sub)}
+.dlg .srch{margin:10px 16px 2px; display:flex}
+.dlg .srch input{flex:1; font:inherit; color:var(--ink); background:var(--panel2);
+  border:1px solid var(--line); border-radius:8px; padding:7px 11px}
+</style>
+
+<div class="app">
+  <div class="hd">
+    <div class="logo">AI</div>
+    <div>
+      <h1>Test AI 시험 콘솔</h1>
+      <div class="sub">자연어로 묻고 · 항목을 찾고 · 없으면 절차를 짓는다</div>
+    </div>
+    <span class="mock">목업 · 데이터는 예시</span>
+  </div>
+
+  <div id="chat" aria-live="polite"></div>
+
+  <div class="foot">
+    <div class="chips" id="chips">
+      <button class="chip" data-q="E6100 SNMP 시험 해줘">E6100 SNMP 시험 해줘</button>
+      <button class="chip" data-q="E6100 LLDP 인접 장비 확인 시험 해줘">E6100 LLDP 인접 장비 확인 (항목 없음 → 절차 생성)</button>
+      <button class="chip" data-q="E7500 Ping 시험 해줘">E7500 Ping 시험 해줘</button>
+    </div>
+    <div class="inrow">
+      <input id="q" type="text" placeholder="예) E6100 SNMP 시험 해줘" autocomplete="off">
+      <button id="send">보내기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ───────────────────────── 예시 데이터 ───────────────────────── */
+const DEVICES = [
+  { id:'d1', name:'E6100 #2',     model:'E6100', ip:'10.1.32.12', st:'ready' },
+  { id:'d2', name:'E6100 #1',     model:'E6100', ip:'10.1.32.11', st:'busy', who:'김OO · 플랜 #214' },
+  { id:'d3', name:'E6100 #3',     model:'E6100', ip:'10.1.32.13', st:'down', why:'통신 안 됨' },
+  { id:'d4', name:'E7500 #1',     model:'E7500', ip:'10.1.35.21', st:'ready' },
+  { id:'d5', name:'E7500 #2',     model:'E7500', ip:'10.1.35.22', st:'busy', who:'박OO · 수동 점검' },
+  { id:'d6', name:'E5000-POE #1', model:'E5000', ip:'10.1.31.05', st:'ready' },
+];
+const ST = { ready:['ready','사용 가능'], busy:['busy','사용중'], down:['down','사용 불가능'] };
+
+const ITEMS = [
+  { id:'TC-1042', name:'SNMP 기본 정보 조회 (sysDescr·sysUpTime·sysName)', cat:'관리 > SNMP', kw:['snmp'], auto:true, steps:6, last:'PASS' },
+  { id:'TC-1043', name:'SNMP ifTable 인터페이스 상태 걷기',                cat:'관리 > SNMP', kw:['snmp','iftable'], auto:true, steps:14, last:'PASS' },
+  { id:'TC-1044', name:'SNMP v2c Trap 수신 확인 (linkDown/linkUp)',        cat:'관리 > SNMP', kw:['snmp','trap'], auto:true, steps:11, last:'FAIL' },
+  { id:'TC-0871', name:'Ping 도달성 확인 (관리 VLAN)',                      cat:'기본 > 도달성', kw:['ping','icmp'], auto:true, steps:4,  last:'PASS' },
+  { id:'TC-0912', name:'OSPF 인접 관계 확립 확인',                          cat:'L3 > OSPF',   kw:['ospf'], auto:false, steps:9, last:'—' },
+];
+
+/* 항목별 실행 스텝 — 목업이라 대표 하나(TC-1042)만 자세히, 나머지는 이걸 돌려 쓴다 */
+const RUN_1042 = [
+  { kind:'cli',      desc:'장비 접속 · SNMP 설정 확인', cli:'show snmp community', log:['ssh admin@{ip} … 접속됨','E6100# show snmp community','community  public  (ro)'] },
+  { kind:'snmp_get', desc:'sysDescr.0 조회',   oid:'1.3.6.1.2.1.1.1.0', log:['snmpget -v2c -c public {ip} sysDescr.0','SNMPv2-MIB::sysDescr.0 = "E6100 SW v2.4.1"'] },
+  { kind:'snmp_get', desc:'sysUpTime.0 조회',  oid:'1.3.6.1.2.1.1.3.0', log:['snmpget … sysUpTime.0','DISMAN…::sysUpTime.0 = 41d 03:12:55'] },
+  { kind:'snmp_get', desc:'sysName.0 조회',    oid:'1.3.6.1.2.1.1.5.0', log:['snmpget … sysName.0','SNMPv2-MIB::sysName.0 = "{name}"'] },
+  { kind:'diff',     desc:'CLI hostname ↔ sysName 값 비교', log:['좌: "{name}"  우: "{name}"  → 같음'] },
+  { kind:'judge',    desc:'판정 — sysDescr 에 "E6100" 포함 · 값 비교 일치', log:['기준 2건 모두 충족'] , judge:true },
+];
+
+/* LLDP — 항목이 없어서 AI 가 지어 주는 절차 초안 */
+const DRAFT_LLDP = {
+  name: 'LLDP 인접 장비 확인',
+  criteria: 'lldp neighbor 표에 인접 장비가 1대 이상 보인다',
+  steps: [
+    { kind:'cli',      desc:'LLDP 동작 상태 확인', cli:'show lldp',           log:['E6100# show lldp','LLDP: enabled  tx-interval 30s'] },
+    { kind:'cli',      desc:'인접 장비 표 조회',   cli:'show lldp neighbor',  log:['E6100# show lldp neighbor','ge1  E7500-LAB  ge24  120s'] },
+    { kind:'snmp_get', desc:'lldpStatsRemTablesInserts 조회', oid:'1.0.8802.1.1.2.1.2.2.0', log:['snmpget … lldpStatsRemTablesInserts.0 = 1'] },
+    { kind:'wait',     desc:'재광고 주기 대기 (30초)', log:['wait 30s … (목업이라 바로 지나감)'] },
+    { kind:'cli',      desc:'인접 표 재조회 · 유지 확인', cli:'show lldp neighbor', log:['ge1  E7500-LAB  ge24  120s  → 유지됨'] },
+    { kind:'judge',    desc:'판정 — 합격 기준 확인', judge:true, log:['neighbor 1건 ≥ 1  → 충족'] },
+  ],
+};
+
+/* ───────────────────────── 대화 그리기 ───────────────────────── */
+const chat = document.getElementById('chat');
+const q = document.getElementById('q');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const scrollEnd = () => requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
+
+function bubble(role, html){
+  const m = document.createElement('div');
+  m.className = 'msg ' + role;
+  m.innerHTML = `<div class="who">${role==='ai'?'AI':'나'}</div><div class="bub">${html}</div>`;
+  chat.appendChild(m); scrollEnd();
+  return m.querySelector('.bub');
+}
+const meSay = t => bubble('me', esc(t));
+const aiSay = h => bubble('ai', h);
+function aiThink(text){
+  const b = bubble('ai', `<div class="thinking"><span class="spin"></span>${esc(text)}</div>`);
+  return { replace(html){ b.innerHTML = html; scrollEnd(); return b; } };
+}
+const after = (ms, fn) => setTimeout(fn, ms);
+
+/* ───────────────────────── 흐름 상태 ───────────────────────── */
+let flow = null;   // { model, kw, items, device, item, draft }
+
+function parse(text){
+  const low = text.toLowerCase();
+  const m = low.match(/e\s*-?\s*(5000|6100|7500)/);
+  const model = m ? 'E' + m[1] : null;
+  const KWS = ['snmp','trap','iftable','ping','icmp','ospf','lldp','vlan','stp','qos','poe'];
+  const kw = KWS.filter(k => low.includes(k));
+  return { model, kw };
+}
+
+function start(text){
+  meSay(text);
+  q.value = '';
+  const { model, kw } = parse(text);
+  if (!kw.length){
+    aiSay(`무슨 시험인지 못 알아들었습니다. <b>SNMP·Ping·OSPF·LLDP</b> 같은 말을 넣어 주세요.
+      <div class="note">예) "E6100 SNMP 시험 해줘"</div>`);
+    return;
+  }
+  flow = { model, kw, items: [], device: null, item: null, draft: null };
+
+  const t = aiThink('시험 항목을 찾는 중…');
+  after(900, () => {
+    /* ① 기존 시험 항목 찾기 */
+    flow.items = ITEMS
+      .map(it => ({ it, sc: it.kw.filter(k => kw.includes(k)).length }))
+      .filter(x => x.sc > 0).sort((a,b) => b.sc - a.sc).map(x => x.it);
+
+    const chipRow = `<div class="intent">
+        <span class="t">모델 <b>${flow.model ?? '미지정'}</b></span>
+        <span class="t">키워드 <b>${kw.map(k=>k.toUpperCase()).join(' · ')}</b></span>
+        <span class="t">항목 <b>${flow.items.length ? flow.items.length + '건 찾음' : '없음 → 절차 생성'}</b></span>
+      </div>`;
+
+    if (flow.items.length)
+      t.replace(`요청을 이렇게 읽었습니다.${chipRow}
+        <div class="note">등록된 시험 항목 ${flow.items.length}건이 맞아 보입니다 — 먼저 장비부터 정하겠습니다.</div>`);
+    else
+      t.replace(`요청을 이렇게 읽었습니다.${chipRow}
+        <div class="note">맞는 항목이 없어 <b>절차를 새로 지어</b> 돌립니다 — 그래도 장비는 먼저 필요합니다.</div>`);
+
+    after(500, askDevice);
+  });
+}
+
+/* ── 1단계 · 장비 — 비어 있는 한 대 추천 + 후보 줄 + 전체 열기 ── */
+function askDevice(){
+  const t = aiThink('장비 점유 상태를 읽는 중…');
+  after(800, () => {
+    const pool = flow.model ? DEVICES.filter(d => d.model === flow.model) : DEVICES;
+    const hero = pool.find(d => d.st === 'ready');
+    const rest = pool.filter(d => d !== hero);
+    const b = t.replace(`${esc(flow.model ?? '장비')} ${pool.length}대가 있습니다${hero ? ' — 비어 있는 이것으로 할까요?' : ' — 지금 비어 있는 것이 없습니다.'}
+      <div class="pick"></div>`);
+    const box = b.querySelector('.pick');
+
+    if (hero){
+      const h = document.createElement('button');
+      h.className = 'hero';
+      h.innerHTML = `<span class="rec">추천</span><span class="dot ready"></span>
+        <span><span class="nm">${esc(hero.name)}</span>
+        <div class="meta"><span class="mono">${hero.ip}</span> · 사용 가능</div></span><span class="go">선택 →</span>`;
+      h.onclick = () => pickDevice(hero);
+      box.appendChild(h);
+    }
+    rest.forEach(d => {
+      const c = document.createElement('button');
+      c.className = 'cand';
+      const usable = d.st === 'ready';
+      if (!usable) c.disabled = true;
+      c.innerHTML = `<span class="dot ${d.st}"></span><span class="nm">${esc(d.name)}</span>
+        <span class="mono" style="font-size:11.5px">${d.ip}</span>
+        <span class="pill ${ST[d.st][0]}" style="margin-left:auto">${ST[d.st][1]}${d.who ? ' — ' + esc(d.who) : ''}${d.why ? ' · ' + esc(d.why) : ''}</span>`;
+      if (usable) c.onclick = () => pickDevice(d);
+      box.appendChild(c);
+    });
+    const more = document.createElement('div');
+    more.className = 'more';
+    more.innerHTML = `다른 장비면 → <button class="inlnk">전체 장비 열기</button>`;
+    more.querySelector('button').onclick = () => openDeviceDlg();
+    box.appendChild(more);
+    scrollEnd();
+  });
+}
+
+function pickDevice(d){
+  flow.device = d;
+  meSay(`${d.name} (${d.ip}) 로 할게`);
+  after(400, () => flow.items.length ? askItem() : offerDraft());
+}
+
+/* ── 2단계 · 항목 — 가장 가까운 한 건 추천 + 후보 줄 + 전체 열기 ── */
+function askItem(){
+  const t = aiThink('말과 가까운 항목을 고르는 중…');
+  after(800, () => {
+    const [hero, ...rest] = flow.items;
+    const b = t.replace(`이 항목이 가장 가깝습니다 — 이걸로 할까요?<div class="pick"></div>`);
+    const box = b.querySelector('.pick');
+
+    const h = document.createElement('button');
+    h.className = 'hero';
+    h.innerHTML = `<span class="rec">추천</span>
+      <span><span class="nm">${esc(hero.name)}</span>
+      <div class="meta"><span class="mono">${hero.id}</span> · ${esc(hero.cat)} · ${hero.auto?'자동':'수동'} · ${hero.steps}스텝 · 지난 결과 ${hero.last}</div></span>
+      <span class="go">선택 →</span>`;
+    h.onclick = () => pickItem(hero);
+    box.appendChild(h);
+
+    rest.forEach(it => {
+      const c = document.createElement('button');
+      c.className = 'cand';
+      c.innerHTML = `<span class="nm">${esc(it.name)}</span>
+        <span class="pill ${it.auto?'auto':'man'}">${it.auto?'자동':'수동'}</span>
+        <span class="pill ${it.last==='PASS'?'pass':it.last==='FAIL'?'fail':'none'}" style="margin-left:auto">지난 ${it.last}</span>`;
+      c.onclick = () => pickItem(it);
+      box.appendChild(c);
+    });
+    const more = document.createElement('div');
+    more.className = 'more';
+    more.innerHTML = `여기 없으면 → <button class="inlnk">전체 목록 열기</button>`;
+    more.querySelector('button').onclick = () => openItemDlg();
+    box.appendChild(more);
+    scrollEnd();
+  });
+}
+
+function pickItem(it){
+  flow.item = it;
+  meSay(`"${it.name}" 으로`);
+  after(400, confirmRun);
+}
+
+/* ── 3단계 · 실행 확인 → 실행 ── */
+function confirmRun(){
+  const it = flow.item, d = flow.device;
+  const b = aiSay(`이대로 실행합니다 — 확인해 주세요.
+    <div class="confirm">
+      <div class="rw"><span class="k">장비</span><span><b>${esc(d.name)}</b> <span class="mono" style="font-size:12px">${d.ip}</span></span></div>
+      <div class="rw"><span class="k">항목</span><span><b>${esc(it.name)}</b> <span class="mono" style="font-size:12px">${it.id}</span></span></div>
+      <div class="rw"><span class="k">파라미터</span><span class="mono" style="font-size:12px">community=public · version=v2c · port=161</span></div>
+    </div>
+    <div class="actions"><button class="btn pri">▶ 실행</button><button class="btn">그만두기</button></div>`);
+  const [run, cancel] = b.querySelectorAll('.btn');
+  run.onclick = () => { run.disabled = cancel.disabled = true; execute(RUN_1042, it.name); };
+  cancel.onclick = () => { run.disabled = cancel.disabled = true; aiSay('알겠습니다 — 실행하지 않았습니다. 다시 물어보면 이어서 합니다.'); };
+}
+
+/* 스텝 표 한 판을 그린다 (실행·초안 공용) */
+function stepTable(steps, wait){
+  const wrap = document.createElement('div');
+  wrap.className = 'steps';
+  steps.forEach((s, i) => {
+    const r = document.createElement('div');
+    r.className = 'step' + (wait ? ' wait' : '');
+    const kindCls = s.kind.startsWith('snmp') ? 'snmp' : s.judge ? 'judge' : '';
+    const kindLbl = s.judge ? '판정' : s.kind === 'cli' ? 'CLI' : s.kind === 'wait' ? 'WAIT' : s.kind === 'diff' ? 'DIFF' : s.kind.toUpperCase();
+    r.innerHTML = `<span class="no">${i+1}</span><span class="kind ${kindCls}">${kindLbl}</span>
+      <span class="desc">${esc(s.desc)}${s.oid ? ` <span class="oid mono">${s.oid}</span>` : ''}${s.cli ? ` <span class="oid mono">${esc(s.cli)}</span>` : ''}</span>
+      <span class="st"></span>`;
+    wrap.appendChild(r);
+  });
+  return wrap;
+}
+
+/* 실행 목업 — 스텝이 차례로 돌고 터미널에 로그가 흐른다 */
+function execute(steps, title){
+  const b = aiSay(`<b>${esc(title)}</b> — ${esc(flow.device.name)} 에서 실행 중
+    <div class="run"></div>`);
+  const run = b.querySelector('.run');
+  const table = stepTable(steps, true);
+  run.appendChild(table);
+  const term = document.createElement('div');
+  term.className = 'term';
+  term.innerHTML = `<div class="dim"># ${new Date().toLocaleTimeString('ko-KR')} 실행 시작 — ${flow.device.ip}</div>`;
+  run.appendChild(term);
+  scrollEnd();
+
+  const rows = [...table.children];
+  const t0 = Date.now();
+  let i = 0;
+  (function next(){
+    if (i >= steps.length){
+      const v = document.createElement('div');
+      v.className = 'verdict pass';
+      v.innerHTML = `✓ PASS <span style="font-weight:400">— ${steps.length}/${steps.length} 스텝 통과</span>
+        <span class="d">${((Date.now()-t0)/1000).toFixed(1)}s · 결과는 사이클에 적혔습니다 (목업)</span>`;
+      run.appendChild(v);
+      aiSay(`끝났습니다 — <b>PASS</b>. 같은 장비로 다른 시험을 이어서 하거나, 아래 입력창에 새로 물어보세요.`);
+      scrollEnd();
+      return;
+    }
+    const s = steps[i], r = rows[i];
+    r.classList.remove('wait');
+    r.querySelector('.st').innerHTML = '<span class="spin" style="display:inline-block"></span>';
+    scrollEnd();
+    after(500 + Math.random()*450, () => {
+      r.querySelector('.st').innerHTML = '<span class="ok">✓</span>';
+      (s.log||[]).forEach(l => {
+        const line = document.createElement('div');
+        const txt = l.replaceAll('{ip}', flow.device.ip).replaceAll('{name}', flow.device.name.replace(/\s/g,'-'));
+        line.innerHTML = (s.judge ? '<span class="g">' : txt.startsWith('snmpget')||txt.startsWith('ssh') ? '<span class="dim">$ ' : '<span>') + esc(txt) + '</span>';
+        term.appendChild(line);
+      });
+      term.scrollTop = term.scrollHeight;
+      i++; next();
+    });
+  })();
+}
+
+/* ── 갈래 ② · 항목이 없다 → 절차 생성 ── */
+function offerDraft(){
+  const b = aiSay(`등록된 항목 중에 맞는 것이 없습니다.
+    <div class="note">키워드 <b>${flow.kw.map(k=>k.toUpperCase()).join(' · ')}</b> 로 검색 — 0건</div>
+    <div class="actions"><button class="btn pri">✳ 절차 새로 생성</button><button class="btn">전체 목록 열기</button></div>`);
+  const [gen, all] = b.querySelectorAll('.btn');
+  gen.onclick = () => { gen.disabled = all.disabled = true; makeDraft(); };
+  all.onclick = () => openItemDlg(true);
+}
+
+function makeDraft(){
+  const t = aiThink('절차를 짓는 중 — MIB·명령 사전을 뒤지고 있습니다…');
+  after(1400, () => {
+    const d = DRAFT_LLDP;
+    flow.draft = d;
+    const b = t.replace(`절차 초안입니다 — <b>합격 기준</b>은 사람이 확정해야 저장됩니다.
+      <div class="draft">
+        <div class="cap"><span class="tag">생성됨</span>${esc(d.name)} <span style="font-weight:400;color:var(--sub);font-size:12px">· ${d.steps.length}스텝</span></div>
+      </div>
+      <div class="actions"><button class="btn pri">저장하고 실행</button><button class="btn">항목으로 저장만</button></div>`);
+    const box = b.querySelector('.draft');
+    box.appendChild(stepTable(d.steps, false));
+    const crit = document.createElement('div');
+    crit.className = 'crit';
+    crit.innerHTML = `<label for="crit-in">합격 기준</label><input id="crit-in" value="${esc(d.criteria)}">`;
+    box.appendChild(crit);
+
+    const [go, saveOnly] = b.querySelectorAll('.actions .btn');
+    const grabCrit = () => { d.criteria = crit.querySelector('input').value.trim() || d.criteria; };
+    go.onclick = () => {
+      grabCrit(); go.disabled = saveOnly.disabled = true;
+      meSay('저장하고 바로 실행해');
+      aiSay(`<b>TC-1101 · ${esc(d.name)}</b> 으로 저장했습니다 (분류: 관리 > LLDP · 자동).
+        <div class="note">합격 기준 — ${esc(d.criteria)}</div>`);
+      after(600, () => execute(d.steps, d.name));
+    };
+    saveOnly.onclick = () => {
+      grabCrit(); go.disabled = saveOnly.disabled = true;
+      meSay('일단 항목으로만 저장해');
+      aiSay(`<b>TC-1101 · ${esc(d.name)}</b> 으로 저장했습니다. 시험 목록에서 언제든 돌릴 수 있습니다.`);
+    };
+    scrollEnd();
+  });
+}
+
+/* ───────────────────────── 전체 열기 창들 ───────────────────────── */
+function dialog(title, bodyEl){
+  const ovl = document.createElement('div');
+  ovl.className = 'ovl';
+  ovl.innerHTML = `<div class="dlg" role="dialog" aria-label="${esc(title)}">
+      <div class="dh">${esc(title)}<button class="x" aria-label="닫기">✕</button></div>
+    </div>`;
+  ovl.querySelector('.dlg').appendChild(bodyEl);
+  const close = () => ovl.remove();
+  ovl.querySelector('.x').onclick = close;
+  ovl.addEventListener('click', e => { if (e.target === ovl) close(); });
+  document.body.appendChild(ovl);
+  return close;
+}
+
+function openDeviceDlg(){
+  const body = document.createElement('div');
+  body.className = 'body';
+  const rows = DEVICES.map(d => {
+    const usable = d.st === 'ready';
+    return `<tr class="${usable ? 'sel' : 'mute'}" data-id="${d.id}">
+      <td><b>${esc(d.name)}</b></td><td>${d.model}</td><td class="mono">${d.ip}</td>
+      <td><span class="pill ${ST[d.st][0]}">${ST[d.st][1]}</span></td>
+      <td>${esc(d.who ?? d.why ?? '')}</td></tr>`;
+  }).join('');
+  body.innerHTML = `<table><thead><tr><th>장비</th><th>모델</th><th>IP</th><th>상태</th><th>비고</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const close = dialog('전체 장비', body);
+  body.querySelectorAll('tr.sel').forEach(tr => tr.onclick = () => {
+    close(); pickDevice(DEVICES.find(d => d.id === tr.dataset.id));
+  });
+}
+
+function openItemDlg(fromEmpty){
+  const body = document.createElement('div');
+  body.className = 'body';
+  const draw = f => ITEMS.filter(it => !f || (it.name + it.cat + it.id).toLowerCase().includes(f)).map(it =>
+    `<tr class="sel" data-id="${it.id}">
+      <td class="mono" style="font-size:12px">${it.id}</td><td><b>${esc(it.name)}</b></td>
+      <td style="white-space:nowrap">${esc(it.cat)}</td>
+      <td><span class="pill ${it.auto?'auto':'man'}">${it.auto?'자동':'수동'}</span></td>
+      <td>${it.steps}</td>
+      <td><span class="pill ${it.last==='PASS'?'pass':it.last==='FAIL'?'fail':'none'}">${it.last}</span></td></tr>`).join('')
+    || `<tr><td colspan="6" style="color:var(--sub)">맞는 항목이 없습니다.</td></tr>`;
+  body.innerHTML = `<div class="srch"><input type="text" id="item-srch" placeholder="이름·분류·번호로 찾기"></div>
+    <table><thead><tr><th>번호</th><th>항목</th><th>분류</th><th>방식</th><th>스텝</th><th>지난 결과</th></tr></thead>
+    <tbody>${draw('')}</tbody></table>`;
+  const close = dialog('전체 시험 항목', body);
+  const tbody = body.querySelector('tbody');
+  const bind = () => body.querySelectorAll('tr.sel').forEach(tr => tr.onclick = () => {
+    close();
+    const it = ITEMS.find(x => x.id === tr.dataset.id);
+    if (fromEmpty){ flow.items = [it]; }
+    pickItem(it);
+  });
+  bind();
+  body.querySelector('input').oninput = e => { tbody.innerHTML = draw(e.target.value.trim().toLowerCase()); bind(); };
+}
+
+/* ───────────────────────── 입력 ───────────────────────── */
+document.getElementById('send').onclick = () => { if (q.value.trim()) start(q.value.trim()); };
+q.addEventListener('keydown', e => { if (e.key === 'Enter' && q.value.trim()) start(q.value.trim()); });
+document.getElementById('chips').addEventListener('click', e => {
+  const c = e.target.closest('.chip');
+  if (c) start(c.dataset.q);
+});
+
+/* 첫 화면 — 무엇을 하는 물건인지 인사말이 말해 준다 */
+aiSay(`안녕하세요, <b>Test AI</b> 입니다. 하고 싶은 시험을 말로 알려 주세요.
+  <div class="note">① 등록된 시험 항목을 찾아 <b>장비 선택 → 항목 선택 → 실행</b> 으로 잇고,<br>
+  ② 맞는 항목이 없으면 <b>절차를 새로 지어</b> 기준 확인 후 저장·실행합니다.</div>
+  <div class="note">아래 예시 칩을 눌러 두 갈래를 모두 볼 수 있습니다.</div>`);
+</script>
