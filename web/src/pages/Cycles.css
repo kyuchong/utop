@@ -5020,6 +5020,56 @@ table.tb td.k {
   padding: 12px 20px 0;
   background: var(--c-app-bg);
 }
+/* ── 작업 화면 두 판(지시: 클로드처럼) — 왼쪽 대화 · 오른쪽 절차/실행 판 ──
+   초안이 열려도 대화가 남는다. 왼쪽 칸이 말풍선과 입력줄을 쥐고,
+   오른쪽 canvaswrap 이 슬롯 줄(도구줄)부터 절차·로그까지 통째로 쥔다. */
+.ask-cols.work { gap: 0; padding: 0; }
+.ask-cols.work > .ask-chatcol {
+  flex: 0 0 clamp(300px, 28%, 400px);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--c-border-soft);
+  background: var(--c-surface);
+}
+.ask-chatcol > .ask-msgs {
+  width: auto;
+  padding: 14px 16px 6px;
+}
+.ask-chatcol > .ask-chatempty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+}
+.ask-chatcol > .ask-askbar {
+  flex: none;
+  padding: 10px 12px 14px;
+  border-top: 1px solid var(--c-border-soft);
+}
+.ask-chatcol > .ask-askbar .ask-askbox { margin: 0; }
+/* 지금 어느 단계인가 — 머리줄의 한 마디 */
+.ask-stagebdg {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 12%, transparent);
+  border-radius: 99px;
+  padding: 2px 10px;
+}
+.ask-stagebdg.run { color: var(--c-warn, #a06a0a); background: color-mix(in srgb, var(--c-warn, #a06a0a) 14%, transparent); }
+/* 좁으면 위아래로 — 대화가 위, 판이 아래 */
+@media (max-width: 980px) {
+  .ask-cols.work { flex-direction: column; }
+  .ask-cols.work > .ask-chatcol {
+    flex: 0 0 auto;
+    max-height: 40%;
+    border-right: none;
+    border-bottom: 1px solid var(--c-border-soft);
+  }
+}
 /* 작업 흐름 — 판 하나 */
 .ask-cols > .ask-rail {
   width: 290px;

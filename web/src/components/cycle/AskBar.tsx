@@ -2159,6 +2159,51 @@ export default function AskBar({ devices }: Props) {
   const devName = curDev?.name || curDev?.model || '장비'
   const devIp = curDev?.ip ?? ''
 
+  /* ── 대화 말풍선 판 — 첫 화면과 작업 화면(왼쪽 칸)이 **같은 것**을 쓴다.
+     작업 화면(초안·실행)으로 넘어가도 대화가 사라지지 않아야 한다(지시:
+     클로드처럼 — 왼쪽 대화 · 오른쪽 아티팩트 판). 렌더는 늘 한쪽뿐이라
+     msgsRef 도 같이 쓴다. */
+  const chatMsgs = (
+    <div
+      className="ask-msgs"
+      ref={msgsRef}
+      /* 말풍선 안의 「📟 장비 고르기」·「🔍 시험 항목 고르기」 —
+         글 속에 심은 단추라 한 자리에서 받는다 */
+      onClick={(e) => {
+        const t = e.target as HTMLElement
+        /* 추천 카드·후보 줄 — 누르면 그 자리에서 정해진다(승인: 단순안) */
+        const dv = t.closest('.js-devpick') as HTMLElement | null
+        if (dv) {
+          pickInlineDev(dv.dataset.id || '')
+          return
+        }
+        const tc = t.closest('.js-tcpick') as HTMLElement | null
+        if (tc) {
+          pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
+          return
+        }
+        /* 「전체 열기」 — 그때만 큰 고르개가 나온다 */
+        if (t.closest('.js-pickdev')) {
+          afterDevRef.current = 'tc'
+          setDevOpen(true)
+        } else if (t.closest('.js-picktc')) setLikeAsk(true)
+      }}
+    >
+      {msgs.map((m, i) =>
+        m.who === 'u' ? (
+          <div className="msg u" key={i}>
+            <b>{m.html}</b>
+          </div>
+        ) : (
+          <div className="msg a" key={i}>
+            <span className="av" aria-hidden="true">✦</span>
+            <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
+          </div>
+        ),
+      )}
+    </div>
+  )
+
   return (
     /* 세 칸 + 아래 입력줄 — 옮겨 온 화면의 짜임을 우리 꼴(panel·btn·토큰)로 다시 그렸다.
        왼쪽 기록 · 가운데 작업 흐름 · 오른쪽 캔버스, 입력은 흐름부터 오른쪽 끝까지. */
@@ -2174,6 +2219,16 @@ export default function AskBar({ devices }: Props) {
             <b className="ask-top-t">AI 자연어 시험</b>
             <span className={`ask-top-b${mode === 'adv' ? ' adv' : ''}`}>
               {mode === 'adv' ? 'Advanced AI Assistant' : 'General AI Assistant'}
+            </span>
+            {/* 지금 어느 단계인가 — 오른쪽 판이 무엇을 보여 주는 중인지 한 마디 */}
+            <span className={`ask-stagebdg${running ? ' run' : ''}`}>
+              {!draft && making
+                ? '절차 생성 중'
+                : running
+                  ? '실행 중'
+                  : (ran ?? []).some((r) => r && (r.repeatResult || r.status))
+                    ? '결과'
+                    : '절차'}
             </span>
             {asked && <span className="ask-top-q" title={asked}>{asked}</span>}
             <span className="sp" />
@@ -2203,6 +2258,57 @@ export default function AskBar({ devices }: Props) {
             </button>
           </div>
         )}
+        <div className={`ask-cols${draft || making ? ' work' : ''}`}>
+          {/* 작업 흐름 레일은 걷었다(지시: 필요 없어) — 한 일은 대화 말풍선이 이미 말한다 */}
+
+          {/* ── 왼쪽 · 대화 칸(지시: 클로드처럼) ─────────────────────────
+              초안이 열려도 대화는 남는다 — 질의응답·진행은 여기서 오가고,
+              절차·실행·로그 같은 자세한 것은 오른쪽 판이 쥔다.
+              입력줄도 이 칸 바닥이다: 「일반」 은 다시 찾는 말,
+              「Advanced」 는 지금 절차를 고치는 말(submit 이 이미 가른다). */}
+          {(draft || making) && (
+            <aside className="ask-chatcol">
+              {msgs.length > 0 ? (
+                chatMsgs
+              ) : (
+                <div className="ask-chatempty muted small">묻고 답한 것이 여기에 남습니다</div>
+              )}
+              <div className="ask-askbar">
+                <div className="ask-askbox">
+                  <input
+                    className="ask-in"
+                    value={text}
+                    placeholder={
+                      draft && mode === 'basic'
+                        ? '다른 시험을 찾으려면 적으세요 — 예) E6100 SNMP'
+                        : draft
+                          ? '고칠 것을 말하세요 — 예) 부하를 50%로 올려줘'
+                          : mode === 'basic'
+                            ? '무엇을 시험할지 적으면 등록된 시험에서 찾아 드립니다'
+                            : '무엇을 시험할지 한국어로 적으세요 — 없는 시험을 새로 짓습니다'
+                    }
+                    onChange={(e) => setText(e.target.value)}
+                    onBlur={() => void findLike(text)}
+                    onKeyDown={(e) => {
+                      if (e.nativeEvent.isComposing) return
+                      if (e.key === 'Enter') void submit()
+                    }}
+                  />
+                  <button
+                    className="ask-send"
+                    type="button"
+                    title="보내기 (Enter)"
+                    disabled={busy || !text.trim()}
+                    onClick={() => void submit()}
+                  >
+                    {busy ? '…' : '➤'}
+                  </button>
+                </div>
+              </div>
+            </aside>
+          )}
+
+          <div className={`ask-canvaswrap${draft ? ' plan' : ''}`}>
         {/* 슬롯 줄 — 목업처럼 **머리 바로 아래**, 판들 바깥이다.
             판 안에 있으면 세 판의 머리 높이가 어긋난다(지적). */}
         {draft && (
@@ -2329,12 +2435,6 @@ export default function AskBar({ devices }: Props) {
           </button>
         </div>
         )}
-        <div className="ask-cols">
-          {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
-          {/* 작업 흐름 — 아직 아무 일도 없으면 빈 판이라 첫 화면을 좁힐 뿐이다 */}
-          {/* 작업 흐름 레일은 걷었다(지시: 필요 없어) — 한 일은 대화 말풍선이 이미 말한다 */}
-
-          <div className={`ask-canvaswrap${draft ? ' plan' : ''}`}>
           <main className={`ask-canvas${draft ? ' plan' : ''}${busy ? ' busy' : ''}`}>
             {/* 고치는 동안 뜨는 표 — **일하는 자리 한가운데**(지시).
                 판마다 띄우면 둘로 보이고, 한쪽에만 띄우면 왼쪽으로 쏠린다. */}
@@ -2518,46 +2618,7 @@ export default function AskBar({ devices }: Props) {
                 물어본 말과 AI 가 정한 것이 여기 쌓인다. 첫 화면에서는 안 보이고
                 (msgs 가 비어 있다) 한 번 물으면 제목·부제·오프너 자리를 이 판이
                 넘겨받는다 — 목업 그대로다. */}
-            {msgs.length > 0 && (
-              <div
-                className="ask-msgs"
-                ref={msgsRef}
-                /* 말풍선 안의 「📟 장비 고르기」·「🔍 시험 항목 고르기」 —
-                   글 속에 심은 단추라 한 자리에서 받는다 */
-                onClick={(e) => {
-                  const t = e.target as HTMLElement
-                  /* 추천 카드·후보 줄 — 누르면 그 자리에서 정해진다(승인: 단순안) */
-                  const dv = t.closest('.js-devpick') as HTMLElement | null
-                  if (dv) {
-                    pickInlineDev(dv.dataset.id || '')
-                    return
-                  }
-                  const tc = t.closest('.js-tcpick') as HTMLElement | null
-                  if (tc) {
-                    pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
-                    return
-                  }
-                  /* 「전체 열기」 — 그때만 큰 고르개가 나온다 */
-                  if (t.closest('.js-pickdev')) {
-                    afterDevRef.current = 'tc'
-                    setDevOpen(true)
-                  } else if (t.closest('.js-picktc')) setLikeAsk(true)
-                }}
-              >
-                {msgs.map((m, i) =>
-                  m.who === 'u' ? (
-                    <div className="msg u" key={i}>
-                      <b>{m.html}</b>
-                    </div>
-                  ) : (
-                    <div className="msg a" key={i}>
-                      <span className="av" aria-hidden="true">✦</span>
-                      <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
+            {msgs.length > 0 && chatMsgs}
             <div className="ask-askbox2 two">
               <div className="ask-r1">
               <input
@@ -3683,43 +3744,8 @@ export default function AskBar({ devices }: Props) {
 
           </div>
         </div>
-          {/* 입력줄은 **캔버스 칸 안에** 떠 있다(지시) — 작업 흐름까지 걸치고
-              위에 실선을 그으면 칸이 각져 보인다. 여백과 그림자로 띄운다. */}
-          {/* 아래 고정 입력줄 — 일이 시작된 뒤에만. 첫 화면에는 큰 입력이 따로 있다 */}
-          {(draft || making) && (
-          <div className="ask-askbar">
-          <div className="ask-askbox">
-            <input
-              className="ask-in"
-              value={text}
-              placeholder={
-                draft && mode === 'basic'
-                  ? '다른 시험을 찾으려면 적으세요 — 예) E6100 SNMP'
-                  : draft
-                  ? '고칠 것을 말하세요 — 예) 부하를 50%로 올려줘'
-                  : mode === 'basic'
-                    ? '무엇을 시험할지 적으면 등록된 시험에서 찾아 드립니다'
-                    : '무엇을 시험할지 한국어로 적으세요 — 없는 시험을 새로 짓습니다'
-              }
-              onChange={(e) => setText(e.target.value)}
-              onBlur={() => void findLike(text)}
-              onKeyDown={(e) => {
-                if (e.nativeEvent.isComposing) return
-                if (e.key === 'Enter') void submit()
-              }}
-            />
-            <button
-              className="ask-send"
-              type="button"
-              title="보내기 (Enter)"
-              disabled={busy || !text.trim()}
-              onClick={() => void submit()}
-            >
-              {busy ? '…' : '➤'}
-            </button>
-          </div>
-          </div>
-          )}
+          {/* 아래 고정 입력줄은 **왼쪽 대화 칸으로 옮겼다**(지시: 클로드처럼) —
+              입력은 대화 밑에 있어야 「대화로 시키고 오른쪽에서 본다」 가 된다. */}
       </div>
 
       {/* ⓪ 어느 모델의 시험인가 — 항목보다 먼저 고른다(지시) */}
