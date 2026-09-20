@@ -20,7 +20,7 @@ import TcTerminal from '@/components/tc/TcTerminal'
 import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IconCli } from '@/components/icons'
-import { stepNumbers, stepVerdict, type StepKind, type TcStep } from '@/components/tc/types'
+import { stepNumbers, stepSummary, stepVerdict, type StepKind, type TcStep } from '@/components/tc/types'
 import { useResults } from '@/pages/Cycles'
 import type { Device } from '@/pages/Devices'
 
@@ -2180,6 +2180,43 @@ export default function AskBar({ devices }: Props) {
   const devName = curDev?.name || curDev?.model || '장비'
   const devIp = curDev?.ip ?? ''
 
+  /** 목업식 실행 판의 스텝 배지 — 종류를 짧은 말로(SNMP·CLI·판정…) */
+  const kindBadge = (k?: string): { label: string; cls: string } => {
+    switch (k) {
+      case 'cli':
+        return { label: 'CLI', cls: 'cli' }
+      case 'snmp_get':
+      case 'snmp_set':
+      case 'snmp_trap':
+        return { label: 'SNMP', cls: 'snmp' }
+      case 'ping':
+        return { label: 'PING', cls: 'net' }
+      case 'wait':
+        return { label: 'WAIT', cls: 'wait' }
+      case 'diff':
+        return { label: 'DIFF', cls: 'judge' }
+      case 'if':
+      case 'else':
+      case 'elif':
+      case 'switch':
+        return { label: 'IF', cls: 'ctrl' }
+      case 'for':
+      case 'loop':
+        return { label: 'FOR', cls: 'ctrl' }
+      case 'instrument':
+        return { label: '계측', cls: 'inst' }
+      case 'comment':
+      case 'message':
+        return { label: '주석', cls: 'note' }
+      case 'manual':
+        return { label: '수동', cls: 'man' }
+      case 'model':
+        return { label: '모델', cls: 'note' }
+      default:
+        return { label: (k || 'CLI').toUpperCase().slice(0, 5), cls: 'cli' }
+    }
+  }
+
   /* ── 대화 말풍선 판 — 첫 화면과 작업 화면(왼쪽 칸)이 **같은 것**을 쓴다.
      작업 화면(초안·실행)으로 넘어가도 대화가 사라지지 않아야 한다(지시:
      클로드처럼 — 왼쪽 대화 · 오른쪽 아티팩트 판). 렌더는 늘 한쪽뿐이라
@@ -3435,7 +3472,105 @@ export default function AskBar({ devices }: Props) {
 
       {err && <div className="ask-err">{err}</div>}
 
-      {draft && (
+      {/* ── 일반 갈래 · 목업식 실행 판(지시: tc 화면이 나오면 안 돼) ──────────
+          기존 항목을 고르면 **편집기(Coverage TC 부품)를 쓰지 않고** 읽기전용
+          절차 + 진행 막대 + 터미널 로그 + 판정만 보여 준다. 실행은 위 도구줄의
+          ▷ 시험 시작 으로 하고, 여기서 진행·세부가 흐른다. */}
+      {draft && mode === 'basic' && (
+        <div className="ask-run">
+          <div className="ask-run-card">
+            <div className="ask-run-cap">
+              <b>실행 절차</b>
+              <span className="muted small">
+                · {seqSteps.length}스텝{devName ? ` · ${devName}${devIp ? ` (${devIp})` : ''}` : ''}
+              </span>
+              <span className="sp" />
+              {(() => {
+                const done = (ran ?? []).filter((r) => r && (r.repeatResult || r.status)).length
+                if (running) return <span className="muted small">실행 중 {Math.max(done, at + 1)}/{seqSteps.length}</span>
+                if (done) return <span className="muted small">{done}/{seqSteps.length}</span>
+                return null
+              })()}
+            </div>
+            {(running || (ran ?? []).some((r) => r && (r.repeatResult || r.status))) && (
+              <div className="ask-run-prog">
+                <i
+                  style={{
+                    width: `${Math.round(
+                      ((ran ?? []).filter((r) => r && (r.repeatResult || r.status)).length /
+                        Math.max(1, seqSteps.length)) *
+                        100,
+                    )}%`,
+                  }}
+                />
+              </div>
+            )}
+            <div className="ask-run-steps">
+              {seqSteps.map((s, i) => {
+                const no = stripNos[i] || ''
+                const badge = kindBadge(s.kind)
+                const summ = stepSummary(s)
+                const desc = (s.step || '').trim() || summ
+                const v = stepVerdict((ran?.[i] ?? s) as TcStep)
+                const now = i === at
+                return (
+                  <div className={`ask-run-step${now ? ' now' : ''}`} key={i}>
+                    <span className="no">{no || '·'}</span>
+                    <span className={`kb ${badge.cls}`}>{badge.label}</span>
+                    <span className="desc">
+                      {desc}
+                      {summ && summ !== desc ? <span className="mono"> {summ}</span> : null}
+                    </span>
+                    <span className="st">
+                      {now ? (
+                        <i className="ask-spin" aria-hidden="true" />
+                      ) : v === 'PASS' ? (
+                        <b className="ok">✓</b>
+                      ) : v === 'FAIL' ? (
+                        <b className="bad">✕</b>
+                      ) : (
+                        ''
+                      )}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="ask-run-term">
+            {logs.length === 0 ? (
+              <div className="dim"># ▷ 시험 시작 을 누르면 장비 응답이 여기에 흐릅니다</div>
+            ) : (
+              logs.map((l) => (
+                <div key={l.n}>
+                  {l.i != null && stripNos[l.i] ? <span className="dim">[{stripNos[l.i]}] </span> : null}
+                  {l.text}
+                </div>
+              ))
+            )}
+          </div>
+
+          {!running &&
+            (ran ?? []).some((r) => r && (r.repeatResult || r.status)) &&
+            (() => {
+              const pass = (ran ?? []).filter(
+                (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
+              ).length
+              const fail = (ran ?? []).filter(
+                (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
+              ).length
+              return (
+                <div className={`ask-run-verdict ${fail ? 'fail' : 'pass'}`}>
+                  {fail ? '✕ FAIL' : '✓ PASS'}
+                  <span className="muted"> — PASS {pass} · FAIL {fail}</span>
+                </div>
+              )
+            })()}
+        </div>
+      )}
+
+      {draft && mode !== 'basic' && (
         <div className="ask-plan">
           {(draft.cut?.length ?? 0) > 0 && (
             <div className="ask-drop">
@@ -3451,12 +3586,7 @@ export default function AskBar({ devices }: Props) {
             <section className="railsec" data-sec="steps">
               <div className="railsec-b">
                 <div className="tc-inner">
-                  <section
-                    className="panel tc-seqcol"
-                    /* 편집기를 숨기는 일반 갈래에서는 절차 목록이 판을 채운다 */
-                    style={mode === 'basic' ? { flex: '1 1 auto', minWidth: 0 } : { flexBasis: seqW }}
-                    ref={seqRef}
-                  >
+                  <section className="panel tc-seqcol" style={{ flexBasis: seqW }} ref={seqRef}>
                     <div className="tc-title">
                       {/* 한 건이면 번호를 세우고, 여러 건이면 「고른 시험 n건」
                           한 마디로 족하다(지시) */}
@@ -3499,9 +3629,9 @@ export default function AskBar({ devices }: Props) {
                       const heads = seqSteps
                         .map((x, i) => (x.head ? i : -1))
                         .filter((i) => i >= 0)
-                      /* 「일반」 은 있는 시험을 **그대로 도는** 갈래라 고치지
-                         않는다(지시) — 고칠 것이 있으면 Coverage 에서 고친다 */
-                      const ro = mode === 'basic'
+                      /* 이 편집 판은 Advanced(새로 짓기) 전용이라 늘 편집 가능 —
+                         일반 갈래는 아래 목업식 새 판이 대신한다 */
+                      const ro = false
                       const seq = (from: number, to: number, addable: boolean) => (
                         <TcSequence
                           /* 이 판에는 목록이 시험마다 하나씩 여럿 뜬다 —
@@ -3627,11 +3757,6 @@ export default function AskBar({ devices }: Props) {
                     )}
                   </section>
 
-                  {/* 일반 갈래(기존 항목 실행)에서는 **편집기 열(tc-detcol)을
-                      통째로 숨긴다**(지시: tc 화면이 나오면 안 돼) — 절차 목록과
-                      실행 로그(세부 내역) 두 칸만 남긴다. Advanced 는 그대로. */}
-                  {mode !== 'basic' && (
-                  <>
                   <Resizer
                     label="스텝 목록 폭 조절"
                     onResize={setSeqW}
@@ -3727,8 +3852,6 @@ export default function AskBar({ devices }: Props) {
                       />
                     )}
                   </section>
-                  </>
-                  )}
 
                   {/* ── 셋째 칸 · 실행 로그 ─────────────────────────────────
                       장비가 실제로 무엇을 뱉었는지 **원문**을 보는 자리다.

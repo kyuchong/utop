@@ -9452,6 +9452,30 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   padding: 6px 2px 14px;
   text-align: left;
 }
+/* ── 일반 갈래 · 목업식 실행 판 — 편집기 대신 절차+진행+터미널+판정 ── */
+.ask-run { display: flex; flex-direction: column; gap: 12px; padding: 14px; overflow: auto; min-height: 0; }
+.ask-run-card { border: 1px solid var(--c-border-soft); border-radius: 11px; background: var(--c-surface); overflow: hidden; }
+.ask-run-cap { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--c-border-soft); }
+.ask-run-cap .sp { margin-left: auto; }
+.ask-run-prog { height: 6px; background: var(--c-surface-alt); }
+.ask-run-prog i { display: block; height: 100%; background: var(--c-primary); transition: width .3s; }
+.ask-run-step { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--c-border-soft); font-size: 13px; }
+.ask-run-step:first-child { border-top: none; }
+.ask-run-step.now { background: var(--c-primary-bg); }
+.ask-run-step .no { flex: 0 0 20px; text-align: right; color: var(--c-text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.ask-run-step .kb { flex: 0 0 58px; text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; border-radius: 5px; padding: 2px 0; background: var(--c-surface-alt); color: var(--c-text-muted); }
+.ask-run-step .kb.snmp { background: var(--c-primary-bg); color: var(--c-primary); }
+.ask-run-step .kb.judge { background: var(--c-accent-soft, var(--c-surface-alt)); color: var(--c-warn, var(--c-text)); }
+.ask-run-step .desc { flex: 1; min-width: 0; }
+.ask-run-step .desc .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 12px; color: var(--c-text-muted); }
+.ask-run-step .st { flex: 0 0 26px; text-align: center; }
+.ask-run-step .st .ok { color: var(--c-pass); font-weight: 700; }
+.ask-run-step .st .bad { color: var(--c-fail); font-weight: 700; }
+.ask-run-term { background: #0f1721; color: #c8d6e5; border-radius: 11px; padding: 12px 14px; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.6; min-height: 80px; max-height: 260px; overflow: auto; }
+.ask-run-term .dim { color: #5d7186; }
+.ask-run-verdict { display: flex; align-items: center; gap: 8px; border-radius: 11px; padding: 12px 16px; font-weight: 700; }
+.ask-run-verdict.pass { background: var(--c-pass-soft, rgba(23,122,72,.12)); color: var(--c-pass); }
+.ask-run-verdict.fail { background: var(--c-fail-soft, rgba(191,63,46,.12)); color: var(--c-fail); }
 .ask-msgs .msg { margin-bottom: 18px; }
 .ask-msgs .msg.u { display: flex; justify-content: flex-end; }
 .ask-msgs .msg.u b {
