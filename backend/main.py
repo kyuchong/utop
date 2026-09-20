@@ -8514,7 +8514,7 @@ async def _snmp_instances(host: str, comm: str, mp: int, col_oid: str, limit: in
     out = []
     try:
         from pysnmp.hlapi.v3arch.asyncio import (
-            SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
+            CommunityData, UdpTransportTarget, ContextData,
             ObjectType, ObjectIdentity, walk_cmd)
         try:
             from pysnmp.hlapi.v3arch.asyncio import bulk_walk_cmd as _bw
@@ -8643,7 +8643,7 @@ async def snmp_get_api(payload: dict):
     mode = (payload.get("mode") or "auto").lower()   # auto(GET→없으면 WALK) | get | walk
     try:
         from pysnmp.hlapi.v3arch.asyncio import (
-            SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
+            CommunityData, UdpTransportTarget, ContextData,
             ObjectType, ObjectIdentity, get_cmd, walk_cmd)
         try:
             from pysnmp.hlapi.v3arch.asyncio import bulk_walk_cmd as _bulk_walk_cmd
@@ -8752,10 +8752,9 @@ async def snmp_set_api(payload: dict):
         return {"ok": False, "error": "host(IP)가 없습니다", "output": ""}
     if not oid:
         return {"ok": False, "error": "OID가 없습니다", "output": ""}
-    mp = 0 if ver == "v1" else 1
     try:
         from pysnmp.hlapi.v3arch.asyncio import (
-            SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
+            CommunityData, UdpTransportTarget, ContextData,
             ObjectType, ObjectIdentity, set_cmd)
         from pysnmp.proto.rfc1902 import Integer32, OctetString, Unsigned32, IpAddress, Counter32, Gauge32, TimeTicks
         def _mkval(tt, val):
@@ -19841,7 +19840,7 @@ def _kai_snip(text: str, terms: list[str], width: int = 260, parts: int = 2) -> 
     taken: list[tuple[int, int]] = []
     for _ in range(max(1, parts)):
         best = (-1.0, -1, frozenset())
-        for i, (pos, _t) in enumerate(spots):
+        for i, (pos, _typ) in enumerate(spots):
             s0 = max(0, pos - w // 3)
             if any(not (s0 + w <= a or b <= s0) for a, b in taken):
                 continue          # 이미 판 자리와 겹치면 넘어간다
@@ -21302,6 +21301,9 @@ async def issues_sync(payload: dict):
     """프로젝트 이슈를 Jira에서 가져와 utop에 저장. 마지막 마커 이후 변경분만(증분), full=True면 전체."""
     from datetime import datetime as _dt, timedelta as _td
     projects = [str(x) for x in (payload.get("projects") or []) if str(x).strip()]
+    # 이 옛 엔드포인트는 **한 프로젝트씩** 돈다 — `project` 단수로 받고,
+    # 목록(`projects`)으로 오면 첫 것을 쓴다 (여태 `project` 미정의 NameError 였다).
+    project = str(payload.get("project") or "").strip() or (projects[0] if projects else "")
     if not project:
         return {"ok": False, "error": "프로젝트가 없습니다"}
     fields = str(payload.get("fields") or "summary,status,issuetype,assignee,priority,updated")

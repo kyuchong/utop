@@ -24,7 +24,6 @@ import json
 import re
 from datetime import datetime  # noqa: F401
 
-from fastapi import HTTPException
 
 import db
 from main import (
@@ -138,10 +137,10 @@ _TC_VAL_TOK = re.compile(
     r"|(?=(?:[^0-9]*[0-9]){6,})[A-Z0-9]{10,}"               # 일련번호 (숫자가 예닐곱 개는 된다)
     r")$")
 
-_TC_KIND_SKIP = {"group": "단계 묶음", "call": "다른 TC 부르기", "manual": "손으로 하는 절차",
+_TC_KIND_SKIP = {"call": "다른 TC 부르기",
                  "connect": "세션 열기", "disconnect": "세션 닫기",
                  "if": "갈림길(합격·불합격을 가르는 것)", "else": "갈림길", "elif": "갈림길",
-                 "switch": "갈림길", "variable": "변수", "model": "모델 가름"}
+                 "switch": "갈림길", "variable": "변수"}
 
 _AI_EX_KEY = "ai_examples"
 
@@ -523,36 +522,6 @@ def _nl_steps_from(obj):
                 continue
             if row["to"] < row["from"]:
                 continue
-        elif kind in ("manual", "model", "group"):
-            # 실행기가 이미 도는 것들이다 — manual 은 「사람이 할 일」 로 남기고
-            # 지나가고, model·group 은 읽는 사람을 위한 제목 줄이다.
-            # 「일반」 갈래는 **있는 시험을 그대로** 도는 것이라 빠지면 안 된다(지시).
-            txt = str(c.get("step") or c.get("desc") or c.get("data") or c.get("text") or "").strip()
-            txt, _sg = _tc_swap_model(txt, src_models, dst_model)
-            if _sg:
-                swapped += 1
-            if kind == "manual":
-                steps.append({"kind": "manual", "indent": depth,
-                              "desc": txt or "사람이 확인", "text": txt})
-            else:
-                if not txt:
-                    continue
-                steps.append({"kind": "comment", "indent": depth, "desc": txt, "text": txt})
-        elif kind == "diff":
-            # 값 견주기 — 장비로는 아무것도 안 나간다. 실행기(runner.ts)가
-            # 이미 그대로 돈다. 여기서만 버려서 「일반」 갈래로 기존 시험을
-            # 돌릴 때 스텝이 통째로 빠졌다(지적) — 있는 그대로 옮긴다.
-            desc2, _sd2 = _tc_swap_model(str(c.get("desc") or "").strip(), src_models, dst_model)
-            left, _sl = _tc_swap_model(str(c.get("cmpLeft") or ""), src_models, dst_model)
-            right, _sr = _tc_swap_model(str(c.get("cmpRight") or ""), src_models, dst_model)
-            if _sd2 or _sl or _sr:
-                swapped += 1
-            st = {"kind": "diff", "indent": depth, "desc": desc2,
-                  "cmpLeft": left, "cmpRight": right,
-                  "cmpOp": str(c.get("cmpOp") or "==")}
-            if c.get("excludeLines"):
-                st["excludeLines"] = c.get("excludeLines")
-            steps.append(st)
         elif kind in ("snmp_get", "snmp_set", "snmp_trap"):
             # OID 가 없으면 보낼 것이 없다 — 그 스텝은 버린다
             row["oid"] = str(r.get("oid") or "").strip()
@@ -1430,6 +1399,36 @@ def _tc_to_steps(checks, groups, src_models=None, dst_model=""):
                 skipped["반복(멈출 때까지)"] = skipped.get("반복(멈출 때까지)", 0) + 1
                 continue
             stack.append(ind)
+        elif kind in ("manual", "model", "group"):
+            # 실행기가 이미 도는 것들이다 — manual 은 「사람이 할 일」 로 남기고
+            # 지나가고, model·group 은 읽는 사람을 위한 제목 줄이다.
+            # 「일반」 갈래는 **있는 시험을 그대로** 도는 것이라 빠지면 안 된다(지시).
+            txt = str(c.get("step") or c.get("desc") or c.get("data") or c.get("text") or "").strip()
+            txt, _sg = _tc_swap_model(txt, src_models, dst_model)
+            if _sg:
+                swapped += 1
+            if kind == "manual":
+                steps.append({"kind": "manual", "indent": depth,
+                              "desc": txt or "사람이 확인", "text": txt})
+            else:
+                if not txt:
+                    continue
+                steps.append({"kind": "comment", "indent": depth, "desc": txt, "text": txt})
+        elif kind == "diff":
+            # 값 견주기 — 장비로는 아무것도 안 나간다. 실행기(runner.ts)가
+            # 이미 그대로 돈다. 여기서만 버려서 「일반」 갈래로 기존 시험을
+            # 돌릴 때 스텝이 통째로 빠졌다(지적) — 있는 그대로 옮긴다.
+            desc2, _sd2 = _tc_swap_model(str(c.get("desc") or "").strip(), src_models, dst_model)
+            left, _sl = _tc_swap_model(str(c.get("cmpLeft") or ""), src_models, dst_model)
+            right, _sr = _tc_swap_model(str(c.get("cmpRight") or ""), src_models, dst_model)
+            if _sd2 or _sl or _sr:
+                swapped += 1
+            st = {"kind": "diff", "indent": depth, "desc": desc2,
+                  "cmpLeft": left, "cmpRight": right,
+                  "cmpOp": str(c.get("cmpOp") or "==")}
+            if c.get("excludeLines"):
+                st["excludeLines"] = c.get("excludeLines")
+            steps.append(st)
         else:
             nm = _TC_KIND_SKIP.get(kind, kind)
             skipped[nm] = skipped.get(nm, 0) + 1

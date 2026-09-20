@@ -20,7 +20,7 @@ import TcTerminal from '@/components/tc/TcTerminal'
 import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IconCli } from '@/components/icons'
-import { stepNumbers, stepVerdict, type StepKind, type TcStep } from '@/components/tc/types'
+import { stepNumbers, stepSummary, stepVerdict, type StepKind, type TcStep } from '@/components/tc/types'
 import { useResults } from '@/pages/Cycles'
 import type { Device } from '@/pages/Devices'
 
@@ -277,7 +277,9 @@ export default function AskBar({ devices }: Props) {
   const llmNow = llms.find((x) => x.id === llmId)
 
   const [mode, setMode] = useState<'basic' | 'adv'>(() =>
-    prefGet('utop.ai.mode') === 'basic' ? 'basic' : 'adv',
+    /* 기본은 General(기존 항목 찾아 실행) — 목업 흐름이 이것이다(지시).
+       Advanced(새로 짓기)는 골라서 쓴다. */
+    prefGet('utop.ai.mode') === 'adv' ? 'adv' : 'basic',
   )
   useEffect(() => {
     prefSet('utop.ai.mode', mode)
@@ -1037,7 +1039,7 @@ export default function AskBar({ devices }: Props) {
     if (adopting) return
     say(
       'a',
-      `<p class="ln"><b>${hesc(tcid)}</b> 으로 정했습니다 — <b>3단계 · 절차 만들기</b> 를 시작합니다.</p>`,
+      `<p class="ln"><b>${hesc(tcid)}</b> 으로 정했습니다 — 절차를 준비합니다.</p>`,
     )
     void (mode === 'basic' ? takeTc(tcid, undefined, model) : adopt(tcid))
   }
@@ -1360,6 +1362,12 @@ export default function AskBar({ devices }: Props) {
       setFlowAt(0)
       void keepChat(d2.name, d2, picked?.ip ?? '')
       setLike([])
+      /* 절차를 실었다 — 실행은 **오른쪽 아티팩트 판**에서 한다(지시).
+         대화는 어디를 보라고만 알려 준다. */
+      say(
+        'a',
+        `<p class="ln"><b>${hesc(tcName)}</b> 절차 ${raw.length}스텝을 오른쪽 판에 실었습니다 — 확인하고 <b>▷ 시험 시작</b> 을 누르면 실행됩니다.</p>`,
+      )
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
       setText(asked)
@@ -1928,6 +1936,21 @@ export default function AskBar({ devices }: Props) {
         typeof only === 'number',
         to,
       )
+      /* 목업처럼 — 대화가 열려 있고 **전체 실행**이면 끝에 판정 요약 한 줄을
+         남긴다. 자세한 스텝 로그·판정은 오른쪽 판에 그대로 있다. */
+      if (msgs.length && only === undefined && from === undefined) {
+        const done = steps.filter((s) => s && (s.repeatResult || s.status)).length
+        const pass = steps.filter(
+          (s) => String(s?.repeatResult ?? s?.status ?? '').toLowerCase() === 'pass',
+        ).length
+        const fail = steps.filter(
+          (s) => String(s?.repeatResult ?? s?.status ?? '').toLowerCase() === 'fail',
+        ).length
+        say(
+          'a',
+          `<p class="ln">끝났습니다 — <b class="status pass">PASS ${pass}</b>${fail ? ` · <b class="status fail">FAIL ${fail}</b>` : ''} <span class="muted">(${done}/${steps.length} 스텝)</span> · 자세한 로그·판정은 오른쪽 판에 있습니다.</p>`,
+        )
+      }
     } finally {
       setRunning(false)
       setAt(-1)
@@ -2159,6 +2182,88 @@ export default function AskBar({ devices }: Props) {
   const devName = curDev?.name || curDev?.model || '장비'
   const devIp = curDev?.ip ?? ''
 
+  /** 목업식 실행 판의 스텝 배지 — 종류를 짧은 말로(SNMP·CLI·판정…) */
+  const kindBadge = (k?: string): { label: string; cls: string } => {
+    switch (k) {
+      case 'cli':
+        return { label: 'CLI', cls: 'cli' }
+      case 'snmp_get':
+      case 'snmp_set':
+      case 'snmp_trap':
+        return { label: 'SNMP', cls: 'snmp' }
+      case 'ping':
+        return { label: 'PING', cls: 'net' }
+      case 'wait':
+        return { label: 'WAIT', cls: 'wait' }
+      case 'diff':
+        return { label: 'DIFF', cls: 'judge' }
+      case 'if':
+      case 'else':
+      case 'elif':
+      case 'switch':
+        return { label: 'IF', cls: 'ctrl' }
+      case 'for':
+      case 'loop':
+        return { label: 'FOR', cls: 'ctrl' }
+      case 'instrument':
+        return { label: '계측', cls: 'inst' }
+      case 'comment':
+      case 'message':
+        return { label: '주석', cls: 'note' }
+      case 'manual':
+        return { label: '수동', cls: 'man' }
+      case 'model':
+        return { label: '모델', cls: 'note' }
+      default:
+        return { label: (k || 'CLI').toUpperCase().slice(0, 5), cls: 'cli' }
+    }
+  }
+
+  /* ── 대화 말풍선 판 — 첫 화면과 작업 화면(왼쪽 칸)이 **같은 것**을 쓴다.
+     작업 화면(초안·실행)으로 넘어가도 대화가 사라지지 않아야 한다(지시:
+     클로드처럼 — 왼쪽 대화 · 오른쪽 아티팩트 판). 렌더는 늘 한쪽뿐이라
+     msgsRef 도 같이 쓴다. */
+  const chatMsgs = (
+    <div
+      className="ask-msgs"
+      ref={msgsRef}
+      /* 말풍선 안의 「📟 장비 고르기」·「🔍 시험 항목 고르기」 —
+         글 속에 심은 단추라 한 자리에서 받는다 */
+      onClick={(e) => {
+        const t = e.target as HTMLElement
+        /* 추천 카드·후보 줄 — 누르면 그 자리에서 정해진다(승인: 단순안) */
+        const dv = t.closest('.js-devpick') as HTMLElement | null
+        if (dv) {
+          pickInlineDev(dv.dataset.id || '')
+          return
+        }
+        const tc = t.closest('.js-tcpick') as HTMLElement | null
+        if (tc) {
+          pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
+          return
+        }
+        /* 「전체 열기」 — 그때만 큰 고르개가 나온다 */
+        if (t.closest('.js-pickdev')) {
+          afterDevRef.current = 'tc'
+          setDevOpen(true)
+        } else if (t.closest('.js-picktc')) setLikeAsk(true)
+      }}
+    >
+      {msgs.map((m, i) =>
+        m.who === 'u' ? (
+          <div className="msg u" key={i}>
+            <b>{m.html}</b>
+          </div>
+        ) : (
+          <div className="msg a" key={i}>
+            <span className="av" aria-hidden="true">✦</span>
+            <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
+          </div>
+        ),
+      )}
+    </div>
+  )
+
   return (
     /* 세 칸 + 아래 입력줄 — 옮겨 온 화면의 짜임을 우리 꼴(panel·btn·토큰)로 다시 그렸다.
        왼쪽 기록 · 가운데 작업 흐름 · 오른쪽 캔버스, 입력은 흐름부터 오른쪽 끝까지. */
@@ -2174,6 +2279,16 @@ export default function AskBar({ devices }: Props) {
             <b className="ask-top-t">AI 자연어 시험</b>
             <span className={`ask-top-b${mode === 'adv' ? ' adv' : ''}`}>
               {mode === 'adv' ? 'Advanced AI Assistant' : 'General AI Assistant'}
+            </span>
+            {/* 지금 어느 단계인가 — 오른쪽 판이 무엇을 보여 주는 중인지 한 마디 */}
+            <span className={`ask-stagebdg${running ? ' run' : ''}`}>
+              {!draft && making
+                ? '절차 생성 중'
+                : running
+                  ? '실행 중'
+                  : (ran ?? []).some((r) => r && (r.repeatResult || r.status))
+                    ? '결과'
+                    : '절차'}
             </span>
             {asked && <span className="ask-top-q" title={asked}>{asked}</span>}
             <span className="sp" />
@@ -2203,13 +2318,69 @@ export default function AskBar({ devices }: Props) {
             </button>
           </div>
         )}
+        <div className={`ask-cols${draft || making ? ' work' : ''}`}>
+          {/* 작업 흐름 레일은 걷었다(지시: 필요 없어) — 한 일은 대화 말풍선이 이미 말한다 */}
+
+          {/* ── 왼쪽 · 대화 칸(지시: 클로드처럼) ─────────────────────────
+              초안이 열려도 대화는 남는다 — 질의응답·진행은 여기서 오가고,
+              절차·실행·로그 같은 자세한 것은 오른쪽 판이 쥔다.
+              입력줄도 이 칸 바닥이다: 「일반」 은 다시 찾는 말,
+              「Advanced」 는 지금 절차를 고치는 말(submit 이 이미 가른다). */}
+          {(draft || making) && (
+            <aside className="ask-chatcol">
+              {msgs.length > 0 ? (
+                chatMsgs
+              ) : (
+                <div className="ask-chatempty muted small">묻고 답한 것이 여기에 남습니다</div>
+              )}
+              <div className="ask-askbar">
+                <div className="ask-askbox">
+                  <input
+                    className="ask-in"
+                    value={text}
+                    placeholder={
+                      draft && mode === 'basic'
+                        ? '다른 시험을 찾으려면 적으세요 — 예) E6100 SNMP'
+                        : draft
+                          ? '고칠 것을 말하세요 — 예) 부하를 50%로 올려줘'
+                          : mode === 'basic'
+                            ? '무엇을 시험할지 적으면 등록된 시험에서 찾아 드립니다'
+                            : '무엇을 시험할지 한국어로 적으세요 — 없는 시험을 새로 짓습니다'
+                    }
+                    onChange={(e) => setText(e.target.value)}
+                    onBlur={() => void findLike(text)}
+                    onKeyDown={(e) => {
+                      if (e.nativeEvent.isComposing) return
+                      if (e.key === 'Enter') void submit()
+                    }}
+                  />
+                  <button
+                    className="ask-send"
+                    type="button"
+                    title="보내기 (Enter)"
+                    disabled={busy || !text.trim()}
+                    onClick={() => void submit()}
+                  >
+                    {busy ? '…' : '➤'}
+                  </button>
+                </div>
+              </div>
+            </aside>
+          )}
+
+          <div className={`ask-canvaswrap${draft ? ' plan' : ''}`}>
         {/* 슬롯 줄 — 목업처럼 **머리 바로 아래**, 판들 바깥이다.
             판 안에 있으면 세 판의 머리 높이가 어긋난다(지적). */}
         {draft && (
         <div className="ask-slots">
-          {/* 이 시험이 Coverage 트리의 **어디에 있는지**를 그대로 보여 준다
-              (지시 사진) — 사업자 › 폴더 › 요구사항 › 시험 번호.
-              누르면 그 자리로 간다. 장비는 오른쪽 끝 알약이 쥔다. */}
+          {/* 일반 갈래에서는 Coverage 경로(TC 느낌)를 감추고 항목명만 —
+              목업엔 트리 경로가 없다(지시: 목업과 동일하게). Advanced 는 그대로. */}
+          {mode === 'basic' ? (
+            <span className="ask-slots-t">
+              {tcOf(draft) && <span className="bc-cur">{tcOf(draft)}</span>}
+              <b title={draft.name}>{draft.name}</b>
+            </span>
+          ) : (
           <nav className="bcrumb" aria-label="경로">
             <span className="bc-root">Coverage</span>
             {(pathQ.data?.cats ?? []).map((c) => (
@@ -2256,6 +2427,7 @@ export default function AskBar({ devices }: Props) {
               </span>
             )}
           </nav>
+          )}
           {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
           <span className="sp" />
           {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}
@@ -2329,12 +2501,6 @@ export default function AskBar({ devices }: Props) {
           </button>
         </div>
         )}
-        <div className="ask-cols">
-          {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
-          {/* 작업 흐름 — 아직 아무 일도 없으면 빈 판이라 첫 화면을 좁힐 뿐이다 */}
-          {/* 작업 흐름 레일은 걷었다(지시: 필요 없어) — 한 일은 대화 말풍선이 이미 말한다 */}
-
-          <div className={`ask-canvaswrap${draft ? ' plan' : ''}`}>
           <main className={`ask-canvas${draft ? ' plan' : ''}${busy ? ' busy' : ''}`}>
             {/* 고치는 동안 뜨는 표 — **일하는 자리 한가운데**(지시).
                 판마다 띄우면 둘로 보이고, 한쪽에만 띄우면 왼쪽으로 쏠린다. */}
@@ -2518,46 +2684,7 @@ export default function AskBar({ devices }: Props) {
                 물어본 말과 AI 가 정한 것이 여기 쌓인다. 첫 화면에서는 안 보이고
                 (msgs 가 비어 있다) 한 번 물으면 제목·부제·오프너 자리를 이 판이
                 넘겨받는다 — 목업 그대로다. */}
-            {msgs.length > 0 && (
-              <div
-                className="ask-msgs"
-                ref={msgsRef}
-                /* 말풍선 안의 「📟 장비 고르기」·「🔍 시험 항목 고르기」 —
-                   글 속에 심은 단추라 한 자리에서 받는다 */
-                onClick={(e) => {
-                  const t = e.target as HTMLElement
-                  /* 추천 카드·후보 줄 — 누르면 그 자리에서 정해진다(승인: 단순안) */
-                  const dv = t.closest('.js-devpick') as HTMLElement | null
-                  if (dv) {
-                    pickInlineDev(dv.dataset.id || '')
-                    return
-                  }
-                  const tc = t.closest('.js-tcpick') as HTMLElement | null
-                  if (tc) {
-                    pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
-                    return
-                  }
-                  /* 「전체 열기」 — 그때만 큰 고르개가 나온다 */
-                  if (t.closest('.js-pickdev')) {
-                    afterDevRef.current = 'tc'
-                    setDevOpen(true)
-                  } else if (t.closest('.js-picktc')) setLikeAsk(true)
-                }}
-              >
-                {msgs.map((m, i) =>
-                  m.who === 'u' ? (
-                    <div className="msg u" key={i}>
-                      <b>{m.html}</b>
-                    </div>
-                  ) : (
-                    <div className="msg a" key={i}>
-                      <span className="av" aria-hidden="true">✦</span>
-                      <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
+            {msgs.length > 0 && chatMsgs}
             <div className="ask-askbox2 two">
               <div className="ask-r1">
               <input
@@ -3353,7 +3480,105 @@ export default function AskBar({ devices }: Props) {
 
       {err && <div className="ask-err">{err}</div>}
 
-      {draft && (
+      {/* ── 일반 갈래 · 목업식 실행 판(지시: tc 화면이 나오면 안 돼) ──────────
+          기존 항목을 고르면 **편집기(Coverage TC 부품)를 쓰지 않고** 읽기전용
+          절차 + 진행 막대 + 터미널 로그 + 판정만 보여 준다. 실행은 위 도구줄의
+          ▷ 시험 시작 으로 하고, 여기서 진행·세부가 흐른다. */}
+      {draft && mode === 'basic' && (
+        <div className="ask-run">
+          <div className="ask-run-card">
+            <div className="ask-run-cap">
+              <b>실행 절차</b>
+              <span className="muted small">
+                · {seqSteps.length}스텝{devName ? ` · ${devName}${devIp ? ` (${devIp})` : ''}` : ''}
+              </span>
+              <span className="sp" />
+              {(() => {
+                const done = (ran ?? []).filter((r) => r && (r.repeatResult || r.status)).length
+                if (running) return <span className="muted small">실행 중 {Math.max(done, at + 1)}/{seqSteps.length}</span>
+                if (done) return <span className="muted small">{done}/{seqSteps.length}</span>
+                return null
+              })()}
+            </div>
+            {(running || (ran ?? []).some((r) => r && (r.repeatResult || r.status))) && (
+              <div className="ask-run-prog">
+                <i
+                  style={{
+                    width: `${Math.round(
+                      ((ran ?? []).filter((r) => r && (r.repeatResult || r.status)).length /
+                        Math.max(1, seqSteps.length)) *
+                        100,
+                    )}%`,
+                  }}
+                />
+              </div>
+            )}
+            <div className="ask-run-steps">
+              {seqSteps.map((s, i) => {
+                const no = stripNos[i] || ''
+                const badge = kindBadge(s.kind)
+                const summ = stepSummary(s)
+                const desc = (s.step || '').trim() || summ
+                const v = stepVerdict((ran?.[i] ?? s) as TcStep)
+                const now = i === at
+                return (
+                  <div className={`ask-run-step${now ? ' now' : ''}`} key={i}>
+                    <span className="no">{no || '·'}</span>
+                    <span className={`kb ${badge.cls}`}>{badge.label}</span>
+                    <span className="desc">
+                      {desc}
+                      {summ && summ !== desc ? <span className="mono"> {summ}</span> : null}
+                    </span>
+                    <span className="st">
+                      {now ? (
+                        <i className="ask-spin" aria-hidden="true" />
+                      ) : v === 'PASS' ? (
+                        <b className="ok">✓</b>
+                      ) : v === 'FAIL' ? (
+                        <b className="bad">✕</b>
+                      ) : (
+                        ''
+                      )}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="ask-run-term">
+            {logs.length === 0 ? (
+              <div className="dim"># ▷ 시험 시작 을 누르면 장비 응답이 여기에 흐릅니다</div>
+            ) : (
+              logs.map((l) => (
+                <div key={l.n}>
+                  {l.i != null && stripNos[l.i] ? <span className="dim">[{stripNos[l.i]}] </span> : null}
+                  {l.text}
+                </div>
+              ))
+            )}
+          </div>
+
+          {!running &&
+            (ran ?? []).some((r) => r && (r.repeatResult || r.status)) &&
+            (() => {
+              const pass = (ran ?? []).filter(
+                (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
+              ).length
+              const fail = (ran ?? []).filter(
+                (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
+              ).length
+              return (
+                <div className={`ask-run-verdict ${fail ? 'fail' : 'pass'}`}>
+                  {fail ? '✕ FAIL' : '✓ PASS'}
+                  <span className="muted"> — PASS {pass} · FAIL {fail}</span>
+                </div>
+              )
+            })()}
+        </div>
+      )}
+
+      {draft && mode !== 'basic' && (
         <div className="ask-plan">
           {(draft.cut?.length ?? 0) > 0 && (
             <div className="ask-drop">
@@ -3412,9 +3637,9 @@ export default function AskBar({ devices }: Props) {
                       const heads = seqSteps
                         .map((x, i) => (x.head ? i : -1))
                         .filter((i) => i >= 0)
-                      /* 「일반」 은 있는 시험을 **그대로 도는** 갈래라 고치지
-                         않는다(지시) — 고칠 것이 있으면 Coverage 에서 고친다 */
-                      const ro = mode === 'basic'
+                      /* 이 편집 판은 Advanced(새로 짓기) 전용이라 늘 편집 가능 —
+                         일반 갈래는 아래 목업식 새 판이 대신한다 */
+                      const ro = false
                       const seq = (from: number, to: number, addable: boolean) => (
                         <TcSequence
                           /* 이 판에는 목록이 시험마다 하나씩 여럿 뜬다 —
@@ -3550,7 +3775,6 @@ export default function AskBar({ devices }: Props) {
                     <div className="tc-colh">
                       <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
                       <span className="sp" />
-                      {mode !== 'basic' && (
                       <button
                         className={`btn tc-dots tc-termbtn${termOpen ? ' on' : ''}`}
                         type="button"
@@ -3565,7 +3789,6 @@ export default function AskBar({ devices }: Props) {
                       >
                         <IconCli />
                       </button>
-                      )}
                     </div>
                     {/* ── 스텝 상태 띠(지시) ────────────────────────────────
                         스텝이 수십 개면 어디까지 돌았고 어디서 깨졌는지 표를
@@ -3606,7 +3829,7 @@ export default function AskBar({ devices }: Props) {
                         })}
                       </div>
                     )}
-                    {termOpen && devId && mode !== 'basic' ? (
+                    {termOpen && devId ? (
                       <TcTerminal
                         sessions={[devId]}
                         devById={new Map(devices.map((d) => [d.id, d]))}
@@ -3632,7 +3855,7 @@ export default function AskBar({ devices }: Props) {
                         onRemove={() => removeTcStep(stepAt)}
                         onDuplicate={() => dupTcStep(stepAt)}
                         onRun={running || !devId ? undefined : () => void run(stepAt)}
-                        readOnly={mode === 'basic'}
+                        readOnly={false}
                         loopVar={loopVarAt(seqSteps, stepAt)}
                       />
                     )}
@@ -3683,43 +3906,8 @@ export default function AskBar({ devices }: Props) {
 
           </div>
         </div>
-          {/* 입력줄은 **캔버스 칸 안에** 떠 있다(지시) — 작업 흐름까지 걸치고
-              위에 실선을 그으면 칸이 각져 보인다. 여백과 그림자로 띄운다. */}
-          {/* 아래 고정 입력줄 — 일이 시작된 뒤에만. 첫 화면에는 큰 입력이 따로 있다 */}
-          {(draft || making) && (
-          <div className="ask-askbar">
-          <div className="ask-askbox">
-            <input
-              className="ask-in"
-              value={text}
-              placeholder={
-                draft && mode === 'basic'
-                  ? '다른 시험을 찾으려면 적으세요 — 예) E6100 SNMP'
-                  : draft
-                  ? '고칠 것을 말하세요 — 예) 부하를 50%로 올려줘'
-                  : mode === 'basic'
-                    ? '무엇을 시험할지 적으면 등록된 시험에서 찾아 드립니다'
-                    : '무엇을 시험할지 한국어로 적으세요 — 없는 시험을 새로 짓습니다'
-              }
-              onChange={(e) => setText(e.target.value)}
-              onBlur={() => void findLike(text)}
-              onKeyDown={(e) => {
-                if (e.nativeEvent.isComposing) return
-                if (e.key === 'Enter') void submit()
-              }}
-            />
-            <button
-              className="ask-send"
-              type="button"
-              title="보내기 (Enter)"
-              disabled={busy || !text.trim()}
-              onClick={() => void submit()}
-            >
-              {busy ? '…' : '➤'}
-            </button>
-          </div>
-          </div>
-          )}
+          {/* 아래 고정 입력줄은 **왼쪽 대화 칸으로 옮겼다**(지시: 클로드처럼) —
+              입력은 대화 밑에 있어야 「대화로 시키고 오른쪽에서 본다」 가 된다. */}
       </div>
 
       {/* ⓪ 어느 모델의 시험인가 — 항목보다 먼저 고른다(지시) */}
