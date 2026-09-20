@@ -188,7 +188,7 @@ tr.picked td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 
 /* ══ 좁은 화면 — 판이 아래에서 올라오는 시트가 된다 ══ */
 .pfab{display:none}
-@media (max-width: 900px){
+@media (max-width: 760px){
   .app{flex-direction:column}
   .chat-col{flex:1; border-right:none}
   .panel-col{position:fixed; left:0; right:0; bottom:0; top:14%; z-index:8;
@@ -249,7 +249,7 @@ tr.picked td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
     </div>
   </div>
 </div>
-<button class="pfab" id="pfab" hidden>▤ 자세히 보기</button>
+<button class="pfab" id="pfab">▤ 자세히 보기</button>
 
 <script>
 /* ───────────────────────── 예시 데이터 ───────────────────────── */
@@ -335,7 +335,7 @@ function setPanel(icon, title, sub, stage, node){
   openPanel();
 }
 function openPanel(){ pcol.classList.add('open'); pfab.hidden = true; }
-document.getElementById('pclose').onclick = () => { pcol.classList.remove('open'); if (panelHas) pfab.hidden = false; };
+document.getElementById('pclose').onclick = () => { pcol.classList.remove('open'); pfab.hidden = false; };
 pfab.onclick = openPanel;
 
 function el(html){ const d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
