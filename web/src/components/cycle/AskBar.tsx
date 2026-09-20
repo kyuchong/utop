@@ -277,7 +277,9 @@ export default function AskBar({ devices }: Props) {
   const llmNow = llms.find((x) => x.id === llmId)
 
   const [mode, setMode] = useState<'basic' | 'adv'>(() =>
-    prefGet('utop.ai.mode') === 'basic' ? 'basic' : 'adv',
+    /* 기본은 General(기존 항목 찾아 실행) — 목업 흐름이 이것이다(지시).
+       Advanced(새로 짓기)는 골라서 쓴다. */
+    prefGet('utop.ai.mode') === 'adv' ? 'adv' : 'basic',
   )
   useEffect(() => {
     prefSet('utop.ai.mode', mode)
@@ -2371,9 +2373,14 @@ export default function AskBar({ devices }: Props) {
             판 안에 있으면 세 판의 머리 높이가 어긋난다(지적). */}
         {draft && (
         <div className="ask-slots">
-          {/* 이 시험이 Coverage 트리의 **어디에 있는지**를 그대로 보여 준다
-              (지시 사진) — 사업자 › 폴더 › 요구사항 › 시험 번호.
-              누르면 그 자리로 간다. 장비는 오른쪽 끝 알약이 쥔다. */}
+          {/* 일반 갈래에서는 Coverage 경로(TC 느낌)를 감추고 항목명만 —
+              목업엔 트리 경로가 없다(지시: 목업과 동일하게). Advanced 는 그대로. */}
+          {mode === 'basic' ? (
+            <span className="ask-slots-t">
+              {tcOf(draft) && <span className="bc-cur">{tcOf(draft)}</span>}
+              <b title={draft.name}>{draft.name}</b>
+            </span>
+          ) : (
           <nav className="bcrumb" aria-label="경로">
             <span className="bc-root">Coverage</span>
             {(pathQ.data?.cats ?? []).map((c) => (
@@ -2420,6 +2427,7 @@ export default function AskBar({ devices }: Props) {
               </span>
             )}
           </nav>
+          )}
           {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
           <span className="sp" />
           {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}

@@ -5407,6 +5407,9 @@ table.tb td.k {
   border-bottom: 1px solid var(--c-border-soft);
 }
 .ask-slots .sp { margin-left: auto; }
+/* 일반 갈래 도구줄 제목 — Coverage 경로 대신 항목명만 */
+.ask-slots-t { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
+.ask-slots-t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 판 — 흰 카드 + 머리줄. 작업 흐름 판과 같은 꼴 */
 .ask-pane {
