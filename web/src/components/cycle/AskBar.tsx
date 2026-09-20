@@ -4392,15 +4392,12 @@ export default function AskBar({ devices }: Props) {
                               />
                             </td>
                             <td className="tc-req">
+                              {/* 번호만 적는다(지시) — 제목 칩까지 달면 줄이 두 층이
+                                  되어 표가 무거워진다. 제목은 찾기로는 여전히 걸린다. */}
                               {x.reqid ? (
-                                <>
-                                  <b className="tc-reqid">{x.reqid}</b>
-                                  {!!x.reqtitle && (
-                                    <i className="tc-reqnm" title={x.reqtitle}>
-                                      {x.reqtitle}
-                                    </i>
-                                  )}
-                                </>
+                                <b className="tc-reqid" title={x.reqtitle || undefined}>
+                                  {x.reqid}
+                                </b>
                               ) : (
                                 <i className="tc-none">–</i>
                               )}

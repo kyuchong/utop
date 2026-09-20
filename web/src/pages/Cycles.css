@@ -9175,7 +9175,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* ── Test AI · 항목 고르개 표의 새 칸 ────────────────────────────────────
    무엇을 고르는지 판단할 근거를 줄에 싣는다 — 어느 요구사항 것인지, 돌린 적은
    있는지, 손으로 하는 시험인지. 좁은 칸은 폭을 못박아 이름 칸을 뺏지 않는다. */
-.ask-likemodal th.tc-req, .ask-likemodal td.tc-req { width: 210px; max-width: 210px; }
+.ask-likemodal th.tc-req, .ask-likemodal td.tc-req { width: 120px; max-width: 120px; white-space: nowrap; }
 .ask-likemodal th.tc-id,  .ask-likemodal td.tc-id  { width: 116px; white-space: nowrap; }
 .ask-likemodal th.tc-st,  .ask-likemodal td.tc-st  { width: 74px; }
 .ask-likemodal th.tc-kd,  .ask-likemodal td.tc-kd  { width: 58px; }
@@ -9191,15 +9191,6 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--c-text-muted);
-}
-.tc-reqnm {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-style: normal;
-  font-size: var(--fs-xs);
-  color: var(--c-text-faint);
 }
 .tc-none { font-style: normal; color: var(--c-idle); }
 /* 돌린 결과 — 알약 하나로 「해 봤나」 를 말한다 */
