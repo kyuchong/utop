@@ -476,6 +476,23 @@ export default function TcStepDetail({
     return null
   }
 
+  /**
+   * **자리(칸) 앵커** — 라벨이 없는 한 줄(`8/1-5 -15.87 1.90 3.26 …`)에서
+   * 그 값이 몇 번째 칸인지로 집는다. 줄머리에서 그만큼 건너뛰고 그 자리의
+   * 값을 느슨하게 잡아, 값이 바뀌어도 그 칸을 따라간다(안 박힘).
+   */
+  const posAnchor = (value: string, numPat: string): string | null => {
+    const lines = String(result ?? '').split(/\r?\n/)
+    const line =
+      lines.find((l) => l.includes(value)) ?? lines.find((l) => l.includes(value.trim())) ?? ''
+    if (!line) return null
+    const fields = line.trim().split(/\s+/)
+    const idx = fields.findIndex((f) => f.includes(value.trim()))
+    if (idx < 0) return null
+    const pat = `(?:^|\\n)[ \\t]*(?:\\S+[ \\t]+){${idx}}(${numPat})`
+    return hitCount(pat) === 1 ? pat : null
+  }
+
   const addVarFromBlock = (text: string, loose = true) => {
     const used = new Set([...takenVars, ...mine])
     let name = 'var1'
@@ -491,15 +508,18 @@ export default function TcStepDetail({
     if (loose && hitCount(patternFrom(t, true, bounded)) > 1) {
       // 여러 군데 맞는다 — 앞 라벨로 그 자리를 집어 본다
       const anchored = anchoredLoose(t, pickCtx, bounded)
+      // 라벨이 없으면 **자리(칸)**로 집는다(지적: 표도 아닌데 표 뽑기라 나온다)
+      const posd = anchored ? null : posAnchor(t, patternFrom(t, true, bounded))
       if (anchored) {
         q = anchored
         setCapNote('앞의 라벨로 그 자리를 집었습니다 — 값이 바뀌면 그 자리의 새 값을 따라갑니다.')
+      } else if (posd) {
+        q = posd
+        setCapNote('라벨이 없어 **그 줄의 자리(칸)**로 집었습니다 — 값이 바뀌어도 따라갑니다.')
       } else {
-        // 라벨로도 못 가리면 그때만 고른 값 그대로(고정)
+        // 라벨·자리로도 못 가리면 그때만 고른 값 그대로(고정)
         q = `(${patternFrom(t, false, bounded)})`
-        setCapNote(
-          '이 응답에서 여러 군데에 맞고 앞 라벨로도 한 곳으로 못 좁혔습니다 — 고른 값 그대로로 담았습니다. 줄마다 보려면 「표에서 값 뽑기」 를 쓰세요.',
-        )
+        setCapNote('여러 군데에 맞고 라벨·자리로도 못 좁혀 고른 값 그대로 담았습니다.')
       }
     }
     onChange({ queries: [...(step.queries ?? []), { q, var: name }] })
@@ -560,16 +580,8 @@ export default function TcStepDetail({
         setCapNote('앞의 라벨로 그 자리의 숫자를 집었습니다 — 값이 바뀌어도 따라갑니다.')
       } else {
         /* 라벨이 없을 때(지적: 8/1-5 -15.87 1.90 3.26 … 처럼 한 줄에 값만
-           줄줄이) — **몇 번째 칸**으로 집는다. 줄머리에서 그만큼 건너뛰고
-           그 자리의 수를 느슨하게 잡아, 값이 바뀌어도 그 자리를 따라간다.
-           안 박으니 다음 실행에서 붉어지지 않는다. */
-        const posAnchored = (() => {
-          const fields = line.trim().split(/\s+/)
-          const idx = fields.findIndex((f) => f.includes(num))
-          if (idx < 0) return null
-          const pat = `(?:^|\\n)[ \\t]*(?:\\S+[ \\t]+){${idx}}(${numPat})`
-          return hitCount(pat) === 1 ? pat : null
-        })()
+           줄줄이) — **몇 번째 칸**으로 집는다(공용 posAnchor). */
+        const posAnchored = posAnchor(num, numPat)
         if (posAnchored) {
           q = posAnchored
           setCapNote('라벨이 없어 **그 줄의 자리(칸)**로 집었습니다 — 값이 바뀌어도 따라갑니다.')
