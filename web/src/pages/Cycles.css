@@ -10671,3 +10671,9 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-msgs .ask-inhero .ask-intt .st { white-space: nowrap; flex: none; }
 /* 랩 위치 — IP 곁의 흐린 글 */
 .ask-msgs .ask-inb .loc { font-style: normal; font-size: var(--fs-xs); color: var(--cl-sub, var(--c-text-faint)); white-space: nowrap; }
+
+/* ── 1·2열 경계 실금을 카드 변으로(지적: 질문 전/후 어색) —
+   이동바 한가운데 긋던 그라데이션 선이 화면에 따라 끊겨 보였다.
+   선은 1열 카드의 오른쪽 테두리가 쥐고, 이동바는 흰 띠로만 남는다. ── */
+.ask > .ask-sess { border-right: 1px solid var(--cl-line); }
+.ask > .resizer { background: var(--cl-card); }
