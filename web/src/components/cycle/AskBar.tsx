@@ -625,6 +625,26 @@ export default function AskBar({ devices }: Props) {
      서버가 남겨 온 대화(nl-chats)를 왼쪽 기둥에 편다 — 누르면 그 절차를
      그대로 되살리고, ✕ 로 지운다. 목록은 제목·시각만 온다(가벼워야 한다). */
   const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string }>>([])
+  /** 로그인한 사람 — 말풍선 아바타와 왼쪽 프로필 칩(클로드)이 쓴다 */
+  const [me, setMe] = useState<{ name?: string; team?: string; dept?: string }>({})
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await apiFetch('/api/me')
+        const b = (await r.json()) as {
+          user?: { name?: string; username?: string; team?: string; dept?: string }
+        }
+        setMe({
+          name: b.user?.name || b.user?.username || '',
+          team: b.user?.team,
+          dept: b.user?.dept,
+        })
+      } catch {
+        /* 이름이 없어도 화면은 돈다 */
+      }
+    })()
+  }, [])
+  const myInit = (me.name || '나').slice(0, 1)
   useEffect(() => {
     void (async () => {
       try {
@@ -1007,11 +1027,17 @@ export default function AskBar({ devices }: Props) {
         `<em class="st ${heroSt!.k}">● ${hesc(heroSt!.label)}</em></span>` +
         `<span class="ask-inbtn">이 장비로</span></span>`
       : ''
+    /* 판을 여는 길은 **아티팩트 칩**(클로드 문법) — 글 속 링크보다 눈에 잡힌다 */
+    const nOk = sorted.filter((d) => devStat(d).k === 'ok').length
+    const nBusy = sorted.filter((d) => devStat(d).k === 'busy').length
+    const nNo = sorted.filter((d) => devStat(d).k === 'no').length
     say(
       'a',
       `<p class="ln"><b>1단계 · 장비</b> — ${head}</p>` +
-        `<div class="ask-inb">${heroHtml}${rows}` +
-        `<span class="ask-inmore">다른 장비면 → <button type="button" class="ask-inlnk js-pickdev">전체 장비 열기</button></span></div>`,
+        `<div class="ask-inb">${heroHtml}${rows}</div>` +
+        `<button type="button" class="ask-artchip js-pickdev"><span class="ic">🖧</span>` +
+        `<span class="tx"><b>장비 고르기</b>` +
+        `<em>사용 가능 ${nOk} · 사용중 ${nBusy} · 사용 불가 ${nNo}</em></span></button>`,
     )
   }
 
@@ -1050,7 +1076,10 @@ export default function AskBar({ devices }: Props) {
         `<b class="nm">${hesc(hero.name)}</b>` +
         `<span class="ask-inbtn">이걸로 절차 만들기</span></span>` +
         rows +
-        `<span class="ask-inmore">여기 없으면 → <button type="button" class="ask-inlnk js-picktc">전체 목록 열기</button></span></div>`,
+        `</div>` +
+        `<button type="button" class="ask-artchip js-picktc"><span class="ic">☰</span>` +
+        `<span class="tx"><b>시험 항목 고르기</b>` +
+        `<em>말과 가까운 ${items.length}건 · 전체에서 검색</em></span></button>`,
     )
   }
 
@@ -1420,6 +1449,15 @@ export default function AskBar({ devices }: Props) {
       setDevId(picked?.id ?? '')
       await holdMaking(t0)
       setDraft(d2)
+      /* 대화에도 **아티팩트 칩**(클로드)으로 남긴다 — 오른쪽 판이 닫혔거나
+         다른 단계를 보다가도 이 칩으로 Response 에 돌아온다 */
+      say(
+        'a',
+        `<p class="ln">절차가 준비됐습니다 — 오른쪽에서 확인하고 <b>▷ 시험 시작</b>을 누르세요.</p>` +
+          `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
+          `<span class="tx"><b>${hesc(tcName)} — Response</b>` +
+          `<em>${raw.length}스텝 · 실행 준비</em></span></button>`,
+      )
       /* 다 실었다 — 5단계를 끈다. 안 끄면 스텝이 다 나왔는데도 작업 흐름은
          「● 진행 중」 으로 남는다(지적). 기준을 채우는 길이 없는 갈래라
          여기가 끝이다. */
@@ -3144,10 +3182,13 @@ export default function AskBar({ devices }: Props) {
       {/* ── 1열 · 대화 목록(지시: 클로드·GPT 처럼) ────────────────────
           새 대화 · 지난 대화. 누르면 그 절차가 되살아나고 ✕ 로 지운다. */}
       <aside className="ask-sess" aria-label="대화 목록">
+        <div className="ask-slogo">
+          <i aria-hidden="true">✳</i>Coverage AI
+        </div>
         <button className="ask-hnew" type="button" onClick={newChat}>
-          ＋ 새 대화
+          <span className="pl" aria-hidden="true">＋</span>새 채팅
         </button>
-        <div className="ask-eyebrow">대화</div>
+        <div className="ask-eyebrow">최근 항목</div>
         <div className="ask-slist">
           {recent.length === 0 ? (
             <span className="muted small">아직 대화가 없습니다.</span>
@@ -3175,6 +3216,15 @@ export default function AskBar({ devices }: Props) {
             ))
           )}
         </div>
+        {me.name && (
+          <div className="ask-sme">
+            <span className="av" aria-hidden="true">{myInit}</span>
+            <span className="who">
+              <b>{me.name}</b>
+              <em>{me.dept || me.team || ''}</em>
+            </span>
+          </div>
+        )}
       </aside>
 
       <div className="ask-main">
@@ -3336,22 +3386,42 @@ export default function AskBar({ devices }: Props) {
                     pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
                     return
                   }
-                  /* 「전체 열기」 — 오른쪽 판이 그 표를 편다(목업) */
+                  /* 아티팩트 칩(클로드) — 오른쪽 판이 그 내용을 편다 */
                   if (t.closest('.js-pickdev')) {
                     afterDevRef.current = 'tc'
                     setPane('dev')
                   } else if (t.closest('.js-picktc')) setPane('tc')
+                  else if (t.closest('.js-openresp')) setRunView(true)
                 }}
               >
                 {msgs.map((m, i) =>
                   m.who === 'u' ? (
+                    /* 내 말 — 클로드처럼 왼쪽 아바타 + 둥근 통 */
                     <div className="msg u" key={i}>
+                      <span className="uav" aria-hidden="true">{myInit}</span>
                       <b>{m.html}</b>
                     </div>
                   ) : (
                     <div className="msg a" key={i}>
                       <span className="av" aria-hidden="true">✦</span>
-                      <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
+                      <div className="bdw">
+                        <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
+                        {/* 답 아래 동작 줄(클로드) — 지금은 복사 하나 */}
+                        <div className="aacts">
+                          <button
+                            type="button"
+                            title="답 복사"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void navigator.clipboard?.writeText(
+                                m.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+                              )
+                            }}
+                          >
+                            ⧉
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ),
                 )}
@@ -3367,7 +3437,7 @@ export default function AskBar({ devices }: Props) {
                 placeholder={
                   mode === 'adv'
                     ? '만들 시험을 설명하세요 — 대상 장비, 스텝, 판정 기준'
-                    : 'UBIQUOSS Test Assistant'
+                    : 'Coverage AI에게 요청하기…'
                 }
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {

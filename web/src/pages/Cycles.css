@@ -9982,3 +9982,136 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   border-color: #e8cdbb;
 }
 .askr-sum { background: #f7f5ee; border-top-color: var(--cl-line); }
+
+/* ── 시안 그대로: 사이드바 로고·새 채팅·프로필(클로드) ── */
+.ask-slogo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 12px;
+  font-weight: 700;
+  font-size: 14.5px;
+}
+.ask-slogo i { color: var(--cl-accent); font-style: normal; font-size: 16px; }
+.ask-hnew { display: flex; align-items: center; gap: 8px; }
+.ask-hnew .pl {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--cl-accent);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  flex: none;
+}
+.ask-sme {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px 2px;
+  border-top: 1px solid var(--cl-line);
+  margin-top: 6px;
+}
+.ask-sme .av {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #3b5a80;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ask-sme .who { min-width: 0; }
+.ask-sme b { display: block; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ask-sme em { font-style: normal; font-size: 11px; color: var(--cl-sub); }
+
+/* ── 시안 그대로: 내 말풍선 왼쪽 아바타 · AI 답 동작 줄 ── */
+.ask.console .ask-msgs .msg.u { justify-content: flex-start; gap: 12px; }
+.uav {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #3b5a80;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.ask-msgs .bdw { flex: 1; min-width: 0; }
+.aacts { display: flex; gap: 2px; margin-top: 3px; }
+.aacts button {
+  border: 0;
+  background: none;
+  color: #a8a396;
+  font-size: 13px;
+  padding: 3px 7px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.aacts button:hover { background: var(--cl-hover); color: var(--cl-sub); }
+
+/* ── 시안 그대로: 아티팩트 칩 ── */
+.ask-msgs .ask-artchip {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  border: 1px solid var(--cl-line);
+  border-radius: 12px;
+  background: var(--cl-card);
+  padding: 10px 13px;
+  margin-top: 10px;
+  cursor: pointer;
+  font: inherit;
+}
+.ask-msgs .ask-artchip:hover { border-color: #ccc7b6; }
+.ask-msgs .ask-artchip .ic {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--cl-bg);
+  border: 1px solid var(--cl-line);
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+}
+.ask-msgs .ask-artchip .tx { min-width: 0; }
+.ask-msgs .ask-artchip b { display: block; font-size: 13px; color: var(--cl-ink); }
+.ask-msgs .ask-artchip em { font-style: normal; font-size: 11.5px; color: var(--cl-sub); }
+
+/* ── 시안 그대로: 슬롯 줄을 카드 머리로 붙인다 ── */
+.ask-art > .ask-slots {
+  margin: 12px 16px 0;
+  background: var(--cl-card);
+  border: 1px solid var(--cl-line);
+  border-bottom: 1px solid var(--cl-line);
+  border-radius: 14px 14px 0 0;
+  padding: 10px 14px;
+  box-shadow: 0 5px 22px rgb(80 70 40 / 7%);
+}
+.ask-art > .ask-plan { padding: 0 16px 14px; }
+.askr { border-radius: 0 0 14px 14px; border-top: 0; }
+
+/* ── 파랑 잔재를 코랄로(시안의 세 색만) ── */
+.ask .btn.primary { background: var(--cl-accent); border-color: var(--cl-accent); }
+.ask .btn.primary:hover { filter: brightness(1.05); background: var(--cl-accent); }
+.ask-msgs .ln b { color: var(--cl-accent); }
+.ask-msgs .ask-inhero { border-color: #e6cab8; background: #fdf8f4; }
+.ask-msgs .ask-inhero:hover { box-shadow: 0 4px 14px rgb(198 97 63 / 16%); }
+.ask-msgs .ask-inhero .ask-inbtn { background: var(--cl-accent); }
+.ask-msgs .ask-inhero:hover .ask-inbtn { background: #b25436; }
+.ask-msgs .ask-inrow:hover { border-color: var(--cl-accent); }
+.ask-inlnk, .seelnk { color: var(--cl-accent); }
+.ask .ask-dmtab[data-f='all'] { --tab-c: var(--cl-accent); }
