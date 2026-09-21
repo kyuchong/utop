@@ -1143,8 +1143,13 @@ export function evalCondWhy(
   const a = strip(m[1] ?? '')
   const b = strip(m[3] ?? '')
   const op = m[2] ?? '=='
-  const na = Number(a)
-  const nb = Number(b)
+  /* 천단위 콤마(지적: 1,668,979,707,066 이 문자로 비교돼 자릿수로 어긋난다) —
+     `-?1,234,567(.89)` 꼴이면 콤마를 떼고 수로 읽는다. 이 꼴이 아닌 값은
+     그대로 둔다(임의의 콤마 나열까지 수로 보진 않는다). */
+  const deComma = (v: string) =>
+    /^-?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(v) ? v.replace(/,/g, '') : v
+  const na = Number(deComma(a))
+  const nb = Number(deComma(b))
   const numeric = a !== '' && b !== '' && Number.isFinite(na) && Number.isFinite(nb)
 
   let ok: boolean

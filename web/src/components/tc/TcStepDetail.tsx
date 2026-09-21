@@ -513,7 +513,9 @@ export default function TcStepDetail({
    */
   const addNumFromBlock = (text: string, decimals: number | null = null) => {
     const t = String(text ?? '')
-    const m = t.match(/-?\d+(?:\.\d+)?/)
+    // 천단위 콤마 묶음(1,668,979,707,066)을 통째로 — 안 그러면 첫 「1」만 잡힌다.
+    // 콤마 꼴이 먼저, 아니면 보통 수.
+    const m = t.match(/-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?/)
     if (!m) {
       setCapNote('고른 값에서 숫자를 찾지 못했습니다.')
       return
