@@ -559,8 +559,24 @@ export default function TcStepDetail({
         q = anchored
         setCapNote('앞의 라벨로 그 자리의 숫자를 집었습니다 — 값이 바뀌어도 따라갑니다.')
       } else {
-        q = `(${patternFrom(num, false)})`
-        setCapNote('여러 군데에 맞고 라벨로도 못 좁혀 고른 숫자 그대로 담았습니다.')
+        /* 라벨이 없을 때(지적: 8/1-5 -15.87 1.90 3.26 … 처럼 한 줄에 값만
+           줄줄이) — **몇 번째 칸**으로 집는다. 줄머리에서 그만큼 건너뛰고
+           그 자리의 수를 느슨하게 잡아, 값이 바뀌어도 그 자리를 따라간다.
+           안 박으니 다음 실행에서 붉어지지 않는다. */
+        const posAnchored = (() => {
+          const fields = line.trim().split(/\s+/)
+          const idx = fields.findIndex((f) => f.includes(num))
+          if (idx < 0) return null
+          const pat = `(?:^|\\n)[ \\t]*(?:\\S+[ \\t]+){${idx}}(${numPat})`
+          return hitCount(pat) === 1 ? pat : null
+        })()
+        if (posAnchored) {
+          q = posAnchored
+          setCapNote('라벨이 없어 **그 줄의 자리(칸)**로 집었습니다 — 값이 바뀌어도 따라갑니다.')
+        } else {
+          q = `(${patternFrom(num, false)})`
+          setCapNote('여러 군데에 맞고 라벨·자리로도 못 좁혀 고른 숫자 그대로 담았습니다.')
+        }
       }
     } else {
       setCapNote(
