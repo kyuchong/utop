@@ -21,7 +21,6 @@ import TcTerminal from '@/components/tc/TcTerminal'
 import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import RespView, { asStep } from '@/components/run/RespView'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
-import { buildSlides, type LguTc } from '@/components/cycle/lgu'
 import { IconCli } from '@/components/icons'
 import { stepNumbers, stepVerdict, type StepKind, type TcStep } from '@/components/tc/types'
 import { useResults } from '@/pages/Cycles'
@@ -2466,19 +2465,74 @@ export default function AskBar({ devices }: Props) {
 
   /* 진행 플로우는 걷었다(지시) */
 
-  /** 결과서 장들 — Cycles 결과서와 **같은 부품**(lgu.buildSlides)으로
-      짓는다(지시: 실제 PDF 출력 형태 그대로). 미리보기와 저장이 같은
-      장을 본다. */
-  const pdfSlides = () =>
-    buildSlides([
-      {
-        tcid: draft?.object ?? '',
-        name: draft?.name ?? '',
-        prompt: devName,
-        remark: `${devName} · ${devIp}`,
-        steps: seqSteps as unknown as LguTc['steps'],
-      },
-    ])
+  /** A4 결과서의 블록들 — 머리 한 장 + 스텝 카드들. 미리보기·저장이
+      같은 블록을 본다(지시: PPT 꼴이 아니라 문서 꼴). */
+  const reportBlocks = () => {
+    const passN = autoSteps.filter((s3) => /pass/i.test(String(s3.mark ?? ''))).length
+    const failN = autoSteps.filter((s3) => /fail/i.test(String(s3.mark ?? ''))).length
+    const at = new Date().toLocaleString('ko-KR')
+    const head =
+      `<h1>${hesc(draft?.name || draft?.object || '시험')} — 결과서</h1>` +
+      `<p class="meta">${hesc(draft?.object || '')} · 장비 ${hesc(devName)} · ${hesc(devIp)} · ${hesc(at)}` +
+      ` · <b class="ok">PASS ${passN}</b> / <b class="bad">FAIL ${failN}</b></p>`
+    const steps = autoSteps.map((s3) => {
+      const quiet = s3.kind === 'comment' || s3.kind === 'message'
+      const mark = String(s3.mark ?? '')
+      const mk = mark
+        ? `<b class="${/pass/i.test(mark) ? 'ok' : 'bad'}">${/pass/i.test(mark) ? 'PASS' : 'FAIL'}</b>`
+        : quiet
+          ? ''
+          : '<span class="k">판정 없음</span>'
+      const sh = `<div class="sh"><span>${quiet ? '주석' : `Step ${s3.no}`}</span><span class="cmd">${hesc(
+        s3.cmd || s3.t || '',
+      )}</span><span class="spx"></span>${mk}</div>`
+      if (quiet) return `<div class="st">${sh}</div>`
+      const why =
+        (s3.expected && s3.expected !== '—'
+          ? `<div><span class="k">판정 기준</span> ${hesc(s3.expected)}</div>`
+          : '') + (s3.reason ? `<div><span class="k">RCA</span> ${hesc(String(s3.reason))}</div>` : '')
+      const raw = String(s3.out ?? '')
+      const out = raw
+        ? `<pre>${hesc(raw.slice(0, 1600))}${raw.length > 1600 ? '\n… (이하 생략)' : ''}</pre>`
+        : ''
+      return `<div class="st">${sh}${why || out ? `<div class="sb">${why}${out}</div>` : ''}</div>`
+    })
+    return [head, ...steps]
+  }
+
+  /** A4 쪽 나누기 — 블록을 실제로 그려 높이를 재고 한 쪽(1043px)씩 담는다.
+      미리보기 쪽과 저장 쪽이 같은 나누기라 **보이는 그대로 PDF** 가 된다. */
+  const [pdfPages, setPdfPages] = useState<string[]>([])
+  useEffect(() => {
+    if (expPrev !== 'pdf') return
+    const blocks = reportBlocks()
+    const holder = document.createElement('div')
+    holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:714px;visibility:hidden'
+    holder.innerHTML =
+      `<style>${REPORT_CSS}</style><div class="rpt">` +
+      blocks.map((bb) => `<div class="mz">${bb}</div>`).join('') +
+      `</div>`
+    document.body.appendChild(holder)
+    const els = Array.from(holder.querySelectorAll('.rpt > .mz'))
+    const MAX = 1043
+    const pages: string[] = []
+    let cur: string[] = []
+    let hsum = 0
+    els.forEach((el, i2) => {
+      const bh = (el as HTMLElement).offsetHeight + 10
+      if (hsum + bh > MAX && cur.length) {
+        pages.push(cur.join(''))
+        cur = []
+        hsum = 0
+      }
+      cur.push(blocks[i2]!)
+      hsum += bh
+    })
+    if (cur.length) pages.push(cur.join(''))
+    holder.remove()
+    setPdfPages(pages)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expPrev])
 
   /** 받은 파일을 내려받는다 — PDF(base64)·PPTX(blob) 공용 */
   const downBlob = (blob: Blob, name: string) => {
@@ -2490,26 +2544,21 @@ export default function AskBar({ devices }: Props) {
     URL.revokeObjectURL(url)
   }
 
-  /** PDF 저장(지시) — 미리보기와 같은 장들을 서버가 PDF 로 바꿔 준다.
-      쪽 CSS(1280×720·안 여백·글꼴)도 미리보기 iframe 과 같은 값이다. */
+  /** PDF 저장(지시) — 미리보기와 **같은 쪽**을 그대로 A4 로 굳힌다 */
   const savePdf = async () => {
     setErr('')
     try {
       const html =
         `<style>html,body{margin:0;padding:0}` +
-        `.pg{width:1280px;height:720px;overflow:hidden;page-break-after:always;` +
-        `padding:4px 30px;box-sizing:border-box;` +
-        `font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}` +
-        `.pg:last-child{page-break-after:auto}</style>` +
-        pdfSlides()
-          .map((h) => `<div class="pg">${h}</div>`)
-          .join('')
+        `.pg{width:794px;height:1123px;overflow:hidden;page-break-after:always;` +
+        `padding:40px;box-sizing:border-box}` +
+        `.pg:last-child{page-break-after:auto}${REPORT_CSS}</style>` +
+        pdfPages.map((pgh) => `<div class="pg rpt">${pgh}</div>`).join('')
       const r = await apiFetch('/api/wiki/pdf', {
         method: 'POST',
         body: JSON.stringify({
           html,
           title: `${draft?.object || draft?.name || '시험'}_결과서`,
-          slide: true,
         }),
       })
       const j = (await r.json()) as { ok?: boolean; name?: string; data?: string; error?: string }
@@ -3618,9 +3667,9 @@ export default function AskBar({ devices }: Props) {
             </div>
             {expPrev === 'pdf' ? (
               (() => {
-                /* Cycles 결과서처럼(지시) — 왼쪽 장 썸네일 · 오른쪽 그 장 크게.
-                   장은 실제 PDF 와 같은 것(pdfSlides)이다. */
-                const sl = pdfSlides()
+                /* 왼쪽 쪽 썸네일 · 오른쪽 그 쪽 크게(지시: Cycles 처럼).
+                   쪽은 저장될 PDF 와 같은 A4(실측 나누기)다. */
+                const sl = pdfPages
                 const at = Math.min(prevAt, Math.max(0, sl.length - 1))
                 return (
                   <div className="ask-prevbody">
@@ -3630,16 +3679,16 @@ export default function AskBar({ devices }: Props) {
                           key={i}
                           type="button"
                           className={`ask-prevth${i === at ? ' on' : ''}`}
-                          title={`${i + 1}장`}
+                          title={`${i + 1}쪽`}
                           onClick={() => setPrevAt(i)}
                         >
-                          <AskSlide html={h} w={150} />
+                          <AskPage html={h} w={130} />
                           <em>{i + 1}</em>
                         </button>
                       ))}
                     </div>
                     <div className="ask-prevmain">
-                      <AskSlide html={sl[at] ?? ''} w={720} />
+                      <AskPage html={sl[at] ?? ''} w={520} />
                     </div>
                   </div>
                 )
@@ -5382,25 +5431,35 @@ export default function AskBar({ devices }: Props) {
   )
 }
 
-/** 결과서 장 하나 — Cycles 결과서와 같은 격리 iframe(배율로 줄여 그린다).
-    앱 CSS 가 못 들어와 표가 깨질 일이 없고, 미리보기가 곧 출력이다. */
-function AskSlide({ html, w }: { html: string; w: number }) {
-  const k = w / 1280
-  const h = Math.round(720 * k)
+/** A4 결과서 쪽의 CSS — 미리보기 iframe·쪽 재기·PDF 세 곳이 같은 것을 쓴다.
+    body 가 아니라 .rpt 에 건다 — 재는 홀더가 앱 문서 안이라 body 규칙은 안 닿는다. */
+const REPORT_CSS =
+  `.rpt{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:12px;color:#222;line-height:1.5}` +
+  `.rpt h1{font-size:18px;margin:0 0 4px}.rpt .meta{color:#666;margin:0 0 14px}` +
+  `.rpt .st{border:1px solid #ddd;border-radius:6px;margin:0 0 10px}` +
+  `.rpt .sh{display:flex;gap:10px;align-items:center;padding:6px 10px;background:#f5f5f2;border-bottom:1px solid #ddd;font-weight:700}` +
+  `.rpt .sh .cmd{font-family:Consolas,monospace;font-weight:400}.rpt .sh .spx{flex:1}` +
+  `.rpt .ok{color:#12643a}.rpt .bad{color:#b3372c}.rpt .k{color:#888;font-weight:400}` +
+  `.rpt .sb{padding:8px 10px}` +
+  `.rpt pre{white-space:pre-wrap;word-break:break-all;background:#fafaf7;border:1px solid #eee;padding:6px 8px;border-radius:4px;font-family:Consolas,monospace;font-size:11px;margin:6px 0 0}`
+
+/** A4 쪽 하나 — 격리 iframe(배율 축소). 미리보기가 곧 출력이다 */
+function AskPage({ html, w }: { html: string; w: number }) {
+  const k = w / 794
+  const h = Math.round(1123 * k)
   return (
     <span className="ask-slidebox" style={{ width: w, height: h }}>
       <iframe
-        title="결과서 장"
+        title="결과서 쪽"
         sandbox=""
         scrolling="no"
         style={{ width: w, height: h, border: 0, display: 'block' }}
         srcDoc={
           '<!doctype html><meta charset="utf-8">' +
-          '<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}' +
-          '.p{width:1280px;height:720px;padding:4px 30px;box-sizing:border-box;' +
-          `overflow:hidden;transform:scale(${k});transform-origin:top left;` +
-          "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
-          `<div class="p">${html}</div>`
+          `<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}` +
+          `.pgv{width:794px;height:1123px;padding:40px;box-sizing:border-box;` +
+          `overflow:hidden;transform:scale(${k});transform-origin:top left}${REPORT_CSS}</style>` +
+          `<div class="pgv rpt">${html}</div>`
         }
       />
     </span>
