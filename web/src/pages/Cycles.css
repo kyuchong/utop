@@ -10443,3 +10443,35 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* 인사말 글꼴을 앱 글꼴로(지적: 폰트가 바뀐 것 같다) — 클로드 스킨의
    ui-serif 가 윈도우에서 바탕체로 떨어져 다른 화면과 겉돌았다 */
 .ask-hometitle { font-family: inherit; }
+
+/* ── 3열 머리의 진행 플로우(지시) — ① 장비 → ② 항목 → ③ 실행 ── */
+.ask-flow { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.askp-hd .ask-flow { margin-left: auto; }
+.ask-slots .ask-flow { margin: 0 8px; }
+.fl-s {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cl-sub);
+  white-space: nowrap;
+}
+.fl-s b {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e9e6da;
+  color: var(--cl-sub);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.fl-s.cur { color: var(--cl-accent); }
+.fl-s.cur b { background: var(--cl-accent); color: #fff; }
+.fl-s.done { color: #12643a; }
+.fl-s.done b { background: #e8f5ed; color: #12643a; }
+.fl-ln { width: 14px; height: 2px; border-radius: 2px; background: #e5e2d5; }
+.fl-ln.on { background: #bfe0cd; }

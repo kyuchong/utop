@@ -2480,6 +2480,28 @@ export default function AskBar({ devices }: Props) {
   /** 콘솔 모드(목업) — 대화가 시작되면 왼쪽 대화 기둥 + 오른쪽 자세히 보기 판 */
   const twoPane = msgs.length > 0 || !!draft || making
 
+  /** 진행 플로우(지시) — 3열 머리에 ① 장비 → ② 항목 → ③ 실행.
+      지난 단계는 ✓, 지금 단계는 코랄로 선다. */
+  const flowSteps = (cur: 1 | 2 | 3) => (
+    <span className="ask-flow" aria-label={`진행 ${cur}/3 단계`}>
+      {(
+        [
+          ['장비', 1],
+          ['항목', 2],
+          ['실행', 3],
+        ] as const
+      ).map(([nm, n], i) => (
+        <Fragment key={n}>
+          {i > 0 && <em className={`fl-ln${cur > i ? ' on' : ''}`} aria-hidden="true" />}
+          <i className={`fl-s${cur === n ? ' cur' : cur > n ? ' done' : ''}`}>
+            <b>{cur > n ? '✓' : n}</b>
+            {nm}
+          </i>
+        </Fragment>
+      ))}
+    </span>
+  )
+
   /** 장비 표 한 벌 — 캡슐의 창(devOpen)과 오른쪽 판(1단계 · 장비)이 같은 몸을
       쓴다(목업). 판에서는 닫기 ✕ 를 걷는다 — 판은 창이 아니라 늘 열려 있는 자리다. */
   const devPickUI = (inPanel: boolean) => (
@@ -4207,6 +4229,8 @@ export default function AskBar({ devices }: Props) {
           </nav>
           {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
           <span className="sp" />
+          {/* 3단계까지 온 진행 플로우(지시) */}
+          {flowSteps(3)}
           {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}
           <button
             type="button"
@@ -4357,9 +4381,8 @@ export default function AskBar({ devices }: Props) {
                     : '대화가 진행되면 여기에 표·절차·로그가 뜹니다'}
               </span>
             </div>
-            {pane && (
-              <span className="askp-stage">{pane === 'dev' ? '1단계 · 장비' : '2단계 · 항목'}</span>
-            )}
+            {/* 배지 대신 진행 플로우(지시) — 어디까지 왔는지 한눈에 */}
+            {pane && flowSteps(pane === 'dev' ? 1 : 2)}
           </header>
           <div className="askp-body">
             {pane === 'dev' ? (
