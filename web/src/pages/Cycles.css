@@ -10210,3 +10210,15 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask.console .askp { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
 .ask-art > .ask-plan { padding: 0; }
 .askr { border: 0; border-radius: 0; box-shadow: none; }
+
+/* ── 카드 꼴을 REQ-Coverage 와 한 벌로(지시) — 그림자 없는 납작한 판,
+   실금 테두리 · 6px 반지름, 카드 사이는 이동바 자리가 전부 ── */
+.ask.console { padding: 8px 10px 10px; }
+.ask.console > .ask-sess,
+.ask-canvas.console:not(.plan) > .ask-home,
+.ask-canvas.plan.console > .ask-home,
+.ask-art {
+  border: 1px solid var(--cl-line);
+  border-radius: var(--r-box, 6px);
+  box-shadow: none;
+}
