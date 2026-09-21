@@ -621,6 +621,33 @@ export default function AskBar({ devices }: Props) {
   const [, setFlowAt] = useState(0)
   /** 이 대화의 id — 최근 목록에 남길 때 쓴다 */
   const [chatId, setChatId] = useState('')
+  /* ── 1열 · 대화 목록(지시: 클로드·GPT 처럼) ─────────────────────────
+     서버가 남겨 온 대화(nl-chats)를 왼쪽 기둥에 편다 — 누르면 그 절차를
+     그대로 되살리고, ✕ 로 지운다. 목록은 제목·시각만 온다(가벼워야 한다). */
+  const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string }>>([])
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r2 = await apiFetch('/api/ai/nl-chats')
+        /* 서버 목록은 **id** 로 준다 — cid 로만 읽으면 새로고침 뒤 번호가
+           비어 「절차가 담겨 있지 않습니다」 로 떨어진다(옛 지적). 둘 다 받는다. */
+        const b2 = (await r2.json()) as {
+          ok?: boolean
+          items?: Array<{ id?: string; cid?: string; title?: string; at?: string }>
+        }
+        if (b2.ok && Array.isArray(b2.items))
+          setRecent(
+            b2.items
+              .map((x) => ({ cid: String(x.id ?? x.cid ?? ''), title: x.title ?? '', at: x.at }))
+              .filter((x) => x.cid)
+              .slice(0, 30)
+              .map((x) => ({ ...x, title: x.title || x.cid })),
+          )
+      } catch {
+        /* 기록이 없어도 화면은 돈다 */
+      }
+    })()
+  }, [])
   /** 절차를 짓는 동안 「지금 무엇을 하는 중인가」 — 「생성 중」 만 띄우면
       멈춘 것인지 도는 것인지 알 수 없다(지적) */
   const [genSay, setGenSay] = useState('')
@@ -1119,6 +1146,8 @@ export default function AskBar({ devices }: Props) {
   const keepChat = async (title: string, plan: Draft, dev: string) => {
     const id = chatId || `nl-${Date.now().toString(36)}`
     if (!chatId) setChatId(id)
+    /* 왼쪽 대화 목록에도 바로 올린다 — 서버를 다시 읽을 것 없이 */
+    setRecent((v) => [{ cid: id, title }, ...v.filter((x) => x.cid !== id)].slice(0, 30))
     try {
       await apiFetch('/api/ai/nl-chats', {
         method: 'POST',
@@ -2216,6 +2245,125 @@ export default function AskBar({ devices }: Props) {
   const devName = curDev?.name || curDev?.model || '장비'
   const devIp = curDev?.ip ?? ''
 
+  /** 새 대화 — 처음으로와 같은 청소에 대화 번호까지 비운다 */
+  const newChat = () => {
+    setDraft(null)
+    setBuilt(null)
+    setRan(null)
+    setAsked('')
+    setErr('')
+    setFlowLogRaw([])
+    setFlowVals([])
+    setFlowAt(0)
+    setFitNotes([])
+    setPicked(new Set())
+    setLike([])
+    setText('')
+    setMsgs([])
+    setPane('')
+    setRunView(false)
+    setLogs([])
+    setStepAt(0)
+    setFoldGrp(new Set())
+    setChatId('')
+  }
+
+  /**
+   * 기록 하나 열기 — **다시 만들지 않는다**(옛 지적: 눌렀더니 만들기 창이
+   * 떴다). 담아 둔 절차를 그대로 펴고, 그때 쓰던 장비도 되살린다.
+   */
+  const openChat = async (cid: string, title: string) => {
+    setErr('')
+    try {
+      const r = await apiFetch(`/api/ai/nl-chats/${encodeURIComponent(cid)}`)
+      const b = (await r.json()) as {
+        ok?: boolean
+        error?: string
+        chat?: {
+          title?: string
+          plan?: Draft
+          dev?: string
+          at?: string
+          flow?: Array<{ s?: number; t?: string }>
+          vals?: Array<{ k?: string; v?: string }>
+          notes?: string[]
+        }
+      }
+      const plan = b.chat?.plan
+      if (!b.ok) {
+        setText(title)
+        setErr(b.error || '기록을 읽지 못했습니다')
+        return
+      }
+      if (!plan || !Array.isArray(plan.steps) || plan.steps.length === 0) {
+        // 절차가 안 담긴 옛 기록이면 그 말을 입력칸에 올려 준다 — 마음대로
+        // 다시 만들지는 않는다
+        setText(title)
+        setErr('이 기록에는 절차가 담겨 있지 않습니다 — 아래에서 다시 물어보세요')
+        return
+      }
+      const dv = usable.find((d) => d.ip === String(b.chat?.dev ?? ''))
+      if (dv) setDevId(dv.id)
+      setChatId(cid)
+      setText('')
+      setAsked(String(plan.name ?? ''))
+      setLike([])
+      setLikeAsk(false)
+      setRan(null)
+      setLogs([])
+      setStepAt(0)
+      setFlowAt(0)
+      setPane('')
+      /* 대화 기둥에도 그 대화를 되살린다 — 물어본 말 한 줄과 연 흔적 */
+      setMsgs([
+        { who: 'u', html: hesc(title) },
+        {
+          who: 'a',
+          html: `<p class="ln">기록을 열었습니다 — <b>${hesc(String(plan.name ?? ''))}</b> · ${plan.steps.length}스텝${
+            b.chat?.at ? ` · ${hesc(String(b.chat.at).slice(0, 16))}` : ''
+          }</p>`,
+        },
+      ])
+      const keptFlow = (b.chat?.flow ?? [])
+        .filter((x) => String(x?.t ?? '').trim())
+        .map((x) => ({ s: Number(x.s) || 1, t: String(x.t) }))
+      const keptVals = (b.chat?.vals ?? [])
+        .filter((x) => String(x?.k ?? '').trim())
+        .map((x) => ({ k: String(x.k), v: String(x.v ?? '') }))
+      setFitNotes(Array.isArray(b.chat?.notes) ? b.chat!.notes! : [])
+      setFlowVals(keptVals.length > 0 ? keptVals : dv ? [{ k: '대상', v: dv.ip }] : [])
+      setFlowLog(
+        keptFlow.length > 0
+          ? [
+              ...keptFlow,
+              { s: 5, t: `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}` },
+            ]
+          : [
+              { s: 1, t: dv ? `그때 쓰던 장비 ${dv.ip} 로 되살림` : '담아 둔 절차를 그대로 폄' },
+              { s: 5, t: `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}` },
+            ],
+      )
+      instantRef.current = true
+      setBuilt(plan)
+      setDraft(plan)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  /** 기록 하나 지우기 — 내 것만 지워진다(서버가 막는다) */
+  const dropChat = async (cid: string) => {
+    setRecent((v) => v.filter((x) => x.cid !== cid))
+    // 보고 있던 그 기록을 지웠으면 화면도 치운다 — 목록에서만 빼면 지운
+    // 시험의 절차·스텝이 그대로 남는다(옛 지적)
+    if (cid === chatId) newChat()
+    try {
+      await apiFetch(`/api/ai/nl-chats/${encodeURIComponent(cid)}`, { method: 'DELETE' })
+    } catch {
+      /* 못 지워도 목록에서는 빠진다 — 다음에 다시 읽으면 돌아온다 */
+    }
+  }
+
   /** 콘솔 모드(목업) — 대화가 시작되면 왼쪽 대화 기둥 + 오른쪽 자세히 보기 판 */
   const twoPane = msgs.length > 0 || !!draft || making
 
@@ -2992,6 +3140,42 @@ export default function AskBar({ devices }: Props) {
     <div className={`ask${!draft && !making ? ' athome' : ''}`}>
       {/* 왼쪽 「새 시험 만들기 · 최근」 칸은 걷어냈다(지시) — 첫 화면이
           한가운데에 서야 해서, 옆에 칸이 있으면 그만큼 밀린다. */}
+
+      {/* ── 1열 · 대화 목록(지시: 클로드·GPT 처럼) ────────────────────
+          새 대화 · 지난 대화. 누르면 그 절차가 되살아나고 ✕ 로 지운다. */}
+      <aside className="ask-sess" aria-label="대화 목록">
+        <button className="btn small ask-new" type="button" onClick={newChat}>
+          ＋ 새 대화
+        </button>
+        <div className="ask-eyebrow">대화</div>
+        <div className="ask-slist">
+          {recent.length === 0 ? (
+            <span className="muted small">아직 대화가 없습니다.</span>
+          ) : (
+            recent.map((x) => (
+              <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}`} key={x.cid}>
+                <button
+                  type="button"
+                  className="ask-sbtn"
+                  title="이 대화를 엽니다"
+                  onClick={() => void openChat(x.cid, x.title)}
+                >
+                  <b>{x.title}</b>
+                  {x.at && <em>{String(x.at).slice(5, 16).replace('T', ' ')}</em>}
+                </button>
+                <button
+                  type="button"
+                  className="ask-sdel"
+                  title="이 대화 지우기"
+                  onClick={() => void dropChat(x.cid)}
+                >
+                  ✕
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </aside>
 
       <div className="ask-main">
         {/* 맨 위 줄 — 지금 무엇을 하고 있나(목업). 일이 시작된 뒤에만 뜬다.

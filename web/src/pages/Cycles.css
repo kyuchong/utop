@@ -4062,12 +4062,14 @@ table.tb td.k {
 /* 왼쪽 — 새로 만들기 · 최근 */
 .ask-sess {
   flex: none;
-  width: 190px;
+  /* 대화 목록(지시: 클로드·GPT 처럼) — 제목이 한 줄로 읽히게 조금 넓힌다 */
+  width: 232px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 12px;
   border-right: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
   overflow: auto;
 }
 .ask-new { width: 100%; }
