@@ -10263,3 +10263,9 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask .resizer-grip { background: #d4dae4; }
 .ask .resizer:hover .resizer-grip,
 .ask .resizer.on .resizer-grip { background: var(--cl-accent); }
+
+/* ── 1·2열도 흰 카드(지시: 흰색이 아닌데) — 크림 종이 규칙을 덮는다 ── */
+.ask-sess,
+.ask > .ask-sess { background: var(--cl-card); }
+.ask.console .ask-home,
+.ask.console .ask-home.chat .ask-homewrap { background: var(--cl-card); }
