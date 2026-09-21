@@ -1425,6 +1425,11 @@ async function runOne(
     // 프롬프트 뒤 대기. 스텝마다 올릴 수 있다 — reload 처럼 한참 뒤에
     // 뭔가 더 뱉는 명령이 있다.
     ...(step.tailWait !== undefined ? { tail_wait: step.tailWait } : {}),
+    /* 셀 진입 스텝(지시) — 명령 뒤 Password: 물음에 이 암호를 보내고 셀
+       프롬프트로 넘어간다. 비우면 백엔드가 장비 접속 암호를 쓴다. */
+    ...(kind === 'shell'
+      ? { shell_enter: true, shell_pw: subVars(String(step.shellPw ?? ''), vars) }
+      : {}),
   }
   let acc = ''
   let err = ''

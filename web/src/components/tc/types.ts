@@ -126,6 +126,15 @@ export type StepKind =
   // 접속
   | 'connect'
   | 'disconnect'
+  /**
+   * 장비 CLI 에서 **리눅스 셀로 들어간다**(지시: start-shell 뒤 암호).
+   *
+   * `start-shell` 처럼 「명령 → Password: 물음 → 암호 → 셀 프롬프트」 로
+   * 이어지는 대화형 진입을 한 스텝이 처리한다. 이 스텝을 지나면 같은
+   * 세션의 다음 스텝부터는 셀 프롬프트로 명령이 나간다. 되나오려면 그
+   * 셀에서 `exit` 를 CLI 스텝으로 보낸다.
+   */
+  | 'shell'
   // 기타
   | 'model'
   | 'comment'
@@ -275,6 +284,8 @@ export interface TcStep {
   data_img_w?: number
   /** kind=cli 의 실제 명령. data 와 나뉘어 있는 것은 옛 화면 구조 그대로다 */
   cli?: string
+  /** kind=shell — 셀 진입 암호. 비우면 장비 접속 암호를 쓴다(지시) */
+  shellPw?: string
   /**
    * 옛 형식의 스텝 종류표. 2026 년 중반까지 만든 시험은 SNMP 도 kind='cli' 로
    * 두고 이 칸에 'SNMP Public'(읽기)·'SNMP Private'(쓰기) 로 갈래를 적었다.
@@ -614,6 +625,8 @@ export const STEP_KINDS: Array<{
   // 그대로 두고 이름만 짝에 맞춘다.
   { k: 'connect', label: 'Connect', group: 'conn', icon: 'plug', hidden: true },
   { k: 'disconnect', label: 'Disconnect', group: 'conn', icon: 'unplug', hidden: true },
+  // 리눅스 셀 진입(지시) — 「+ 스텝」 에 내놓는다
+  { k: 'shell', label: '셀 진입', group: 'conn', icon: 'plug' },
 ]
 
 const KIND_MAP = new Map(STEP_KINDS.map((x) => [x.k, x]))

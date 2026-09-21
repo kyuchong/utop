@@ -288,8 +288,8 @@ export default function TcStepDetail({
     kind === 'ping' || kind === 'snmp_get' || kind === 'snmp_set' || kind === 'snmp_trap'
   /** 명령을 보내는 것 */
   const isCmd = kind === 'cli' || kind === 'instrument'
-  /** 접속·해제 */
-  const isConn = kind === 'connect' || kind === 'disconnect'
+  /** 접속·해제·셀 진입 */
+  const isConn = kind === 'connect' || kind === 'disconnect' || kind === 'shell'
   /** 응답을 받아 판정할 수 있는 것. 판정 칸을 띄운다 */
   /** 값만 견주는 줄. 장비로 아무것도 안 나가지만 합격·불합격은 낸다 */
   const isDiff = kind === 'diff'
@@ -721,6 +721,33 @@ export default function TcStepDetail({
               <span className="sd-hint">{STEP_CONTENT[kind]?.hint}</span>
             )}
           </label>
+        )}
+        {/* 셀 진입(지시) — 명령(start-shell)과 셀 암호 */}
+        {kind === 'shell' && (
+          <>
+            <label className="sd-f wide">
+              <span className="sd-lab">셀 진입 명령</span>
+              <input
+                className="mono"
+                value={step.cli ?? step.data ?? ''}
+                placeholder="start-shell"
+                onChange={(e) => onChange({ cli: e.target.value })}
+              />
+              <span className="sd-hint">
+                이 명령을 보낸 뒤 「Password:」 물음에 아래 암호를 보냅니다 — 지나면 셀 프롬프트로 바뀝니다
+              </span>
+            </label>
+            <label className="sd-f wide">
+              <span className="sd-lab">셀 암호</span>
+              <input
+                type="password"
+                autoComplete="off"
+                value={step.shellPw ?? ''}
+                placeholder="비우면 장비 접속 암호를 씁니다"
+                onChange={(e) => onChange({ shellPw: e.target.value })}
+              />
+            </label>
+          </>
         )}
         {/* **절차 설명** — 결과서(PPTX)가 이 값을 절차의 첫 줄로 읽는다.
             전에 이 칸을 없애면서 「목록에서 고치는 것이 맞다」 고 했는데

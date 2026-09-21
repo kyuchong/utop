@@ -7868,6 +7868,10 @@ async def run_cli_stream(payload: dict):
         _quiet_wait = min(30.0, max(0.0, float(payload.get("tail_wait", 0) or 0)))
     except Exception:
         _quiet_wait = 0.0
+    # 셀 진입 스텝(지시) — 명령 뒤 Password: 물음에 이 암호를 보내고 셀
+    # 프롬프트로 넘어간다. 비우면 장비 접속 암호를 쓴다.
+    _shell_enter = bool(payload.get("shell_enter"))
+    _shell_pw = str(payload.get("shell_pw") or "").strip() or str(params.get("password") or "")
     def _sse(obj):
         return "data: " + _jstr.dumps(obj, ensure_ascii=False) + "\n\n"
     async def _gen():
@@ -7928,9 +7932,62 @@ async def run_cli_stream(payload: dict):
                         _fp = await asyncio.to_thread(conn.find_prompt)
                         bp = (_fp or "").strip().rstrip("#>$ ").split("(")[0].strip()
                     except Exception: bp = ""
-                pr = (_restr.escape(bp) + r"\S*[#>]\s*$") if bp else None
+                # 셀($) 프롬프트도 프롬프트로 본다(지시: 셀 진입 뒤 다음 스텝).
+                # 장비 이름(bp)으로 시작하는 줄에만 걸려 오탐이 드물다.
+                pr = (_restr.escape(bp) + r"\S*[#>$]\s*$") if bp else None
                 for cmd in commands:
                     yield _sse({"cmd": cmd})       # 명령 입력 표시(라이브 터미널에 '$ cmd')
+
+                    # ── 셀 진입(지시) — 대화형 암호 처리 ──────────────────
+                    # 「start-shell → Password: → 암호 → 셀 프롬프트」. 여기서
+                    # _cfg_ctx_keep(개행을 먼저 쏘는 부분)를 지나면 그 개행이
+                    # Password: 물음에 빈 암호로 들어가 "Password incorrect" 가
+                    # 된다(진단). 그래서 셀 진입은 이 갈래가 통째로 맡는다.
+                    if _shell_enter:
+                        try: await asyncio.to_thread(conn.read_channel)
+                        except Exception: pass
+                        await asyncio.to_thread(conn.write_channel, cmd + "\n")
+                        _acc = ""; _sent_pw = False; _sh_dl = _tstr.time() + 30
+                        while _tstr.time() < _sh_dl:
+                            try: _c = conn.read_channel() or ""
+                            except Exception: _c = ""
+                            if _c:
+                                _acc += _c
+                                if _c.strip():
+                                    yield _sse({"o": _c}); await asyncio.sleep(0)
+                                # Password: 물음이 오면 한 번만 암호를 보낸다
+                                if (not _sent_pw) and _restr.search(r"pass\s*word\s*:?\s*$", _acc, _restr.I):
+                                    _sent_pw = True
+                                    await asyncio.to_thread(conn.write_channel, _shell_pw + "\n")
+                                    _acc = ""      # 물음 뒤부터 다시 본다
+                                    await asyncio.sleep(0.2)
+                                    continue
+                                # 암호를 보낸 뒤 셀 프롬프트($·#·>)가 안정되면 끝
+                                if _sent_pw:
+                                    _tail = _acc.split("\n")[-1].strip()
+                                    if _tail and _restr.search(r"[#>$]\s*$", _tail):
+                                        break
+                                # 암호가 필요 없는 셀(바로 프롬프트)도 있다
+                                elif _restr.search(r"[#>$]\s*$", _acc.split("\n")[-1].strip()) and cmd.strip() not in _acc.split("\n")[-1]:
+                                    break
+                            else:
+                                await asyncio.sleep(0.05)
+                        # 셀 프롬프트로 갈아탄다 — 다음 스텝부터 이 프롬프트를 쓴다.
+                        # cfg 문맥은 셀에서 뜻이 없으니 비운다.
+                        try:
+                            _np = await asyncio.to_thread(conn.find_prompt)
+                            if _np:
+                                conn.base_prompt = _np.strip().rstrip("#>$ ").split("(")[0].strip()
+                                bp = conn.base_prompt
+                                pr = (_restr.escape(bp) + r"\S*[#>$]\s*$") if bp else pr
+                        except Exception: pass
+                        ent["cfg_ctx"] = []
+                        ent["ts"] = _t.time()
+                        yield _sse({"pr": (conn.base_prompt or "") + "#"})
+                        print(f"[shell] {params.get('host')} 셀 진입 {'(암호 보냄)' if _sent_pw else ''}", flush=True)
+                        continue
+                    # ─────────────────────────────────────────────────────
+
                     # 장비가 **무엇을 돌려줬는지** 남긴다.
                     #
                     # 여태 이 자리에 기록이 없어서, 「명령은 나갔는데 화면에
