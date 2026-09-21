@@ -10677,3 +10677,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
    선은 1열 카드의 오른쪽 테두리가 쥐고, 이동바는 흰 띠로만 남는다. ── */
 .ask > .ask-sess { border-right: 1px solid var(--cl-line); }
 .ask > .resizer { background: var(--cl-card); }
+/* 손잡이가 실금과 어긋나 보였다(지적: 폭 조절 부분) — 손잡이(2px)를
+   1열 카드 오른쪽 실금(스트립 왼끝) 위에 겹친다. 잡는 폭(8px)은 그대로. */
+.ask > .resizer { justify-content: flex-start; }
+.ask > .resizer .resizer-grip { margin-left: -1.5px; }
