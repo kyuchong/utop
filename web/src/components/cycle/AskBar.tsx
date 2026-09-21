@@ -2358,8 +2358,13 @@ export default function AskBar({ devices }: Props) {
   const devName = curDev?.name || curDev?.model || '장비'
   const devIp = curDev?.ip ?? ''
 
-  /** 새 대화 — 처음으로와 같은 청소에 대화 번호까지 비운다 */
+  /** 새 대화 — 처음으로와 같은 청소에 대화 번호까지 비운다.
+      고른 장비도 비운다(지적: 새 채팅인데 지난 대화의 장비가 남는다) —
+      장비는 대화가 정하는 값이지 계정 설정이 아니다. */
   const newChat = () => {
+    setDevId('')
+    setTDev('')
+    setAskModel('')
     setDraft(null)
     setBuilt(null)
     setRan(null)
