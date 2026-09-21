@@ -3116,16 +3116,27 @@ LLM_PURPOSES: dict[str, dict] = {
         ),
     },
     # ── Coverage AI 잡담 갈래(지시: Knowledge AI 왼쪽) ───────────
-    # 시험 실행 요청이 아닌 말(인사·일반 질문·뜻 없는 글자)이 오면 장비
-    # 고르기로 끌고 가지 않고 이 프롬프트로 답한다. 판별 규칙은 코드가
-    # 앞에 얹는다(/api/ai/cov-chat) — 여기는 **답하는 말투**의 자리다.
+    # **판단까지 이 프롬프트가 한다**(지시: 프롬프트로 판단하도록) — 시험
+    # 실행 요청인지 가르는 규칙([판단])과 답하는 말투([답변])가 모두 여기
+    # 있어 SETUP 에서 고칠 수 있다. 코드는 출력 형식(JSON)만 강제한다.
     "cai_basic": {
         "label": "Coverage AI · Basic",
-        "hint": "Coverage AI › Basic mode — 시험 실행 요청이 아닌 일반 질문에 이 프롬프트로 답합니다.",
+        "hint": "Coverage AI › Basic mode — 시험 요청인지 가르는 판단과 일반 질문 답변을 이 프롬프트가 정합니다.",
         "system": (
             "너는 UBIQUOSS 네트워크 장비 시험 플랫폼(UTOP)의 Coverage AI 도우미다. "
-            "Basic mode 는 이미 만들어진 시험 항목을 골라 장비에서 돌리는 자리다.\n"
-            "규칙:\n"
+            "Basic mode 는 이미 만들어진 시험 항목을 골라 장비에서 돌리는 자리다.\n\n"
+            "[판단] 사용자의 말을 읽고 먼저 test 를 가른다.\n"
+            "1) 장비 모델명·명령·시험 항목 이름이 보이거나 「시험해줘 · 돌려줘 · 확인해줘 · "
+            "절차 만들어줘」 같은 실행 의도가 보이면 test=true 로 하고 answer 는 빈 문자열로 둔다.\n"
+            "2) 인사·잡담·일반 지식 질문·뜻 없는 글자(예: asdf)는 test=false 로 하고 "
+            "[답변] 규칙으로 answer 를 적는다.\n"
+            "3) 「시험 가능한 장비는? · 실행 가능한 시험항목은?」 처럼 **현황을 묻는 말**은 "
+            "실행 요청이 아니다 — test=false 로 하고, 함께 주어지는 [현황] 사실만으로 답한다. "
+            "[현황] 에 없는 장비·항목은 없다고 답하고, 수를 지어내지 마라.\n"
+            "4) 애매하면 test=true 다 — 이 화면의 본분은 시험이다.\n"
+            "5) model 에는 말에 **적힌 그대로의** 장비 모델명(예: E6100)을 적는다. "
+            "없으면 빈 문자열 — 지어내지 마라. 등록 여부는 화면이 검사한다.\n\n"
+            "[답변]\n"
             "1) 한국어로 간결히 답한다.\n"
             "2) 네트워크 장비·시험 지식 범위에서 답하고, 모르는 것은 모른다고 말한다 — 지어내지 않는다.\n"
             "3) 화면 사용법을 물으면 「장비 고르기 → 시험 항목 고르기 → 시험 시작」 순서를 안내한다.\n"
@@ -3135,11 +3146,22 @@ LLM_PURPOSES: dict[str, dict] = {
     },
     "cai_advanced": {
         "label": "Coverage AI · Advanced",
-        "hint": "Coverage AI › Advanced mode — 시험 실행·절차 생성 요청이 아닌 일반 질문에 답합니다.",
+        "hint": "Coverage AI › Advanced mode — 시험·절차 생성 요청인지 가르는 판단과 일반 질문 답변을 이 프롬프트가 정합니다.",
         "system": (
             "너는 UBIQUOSS 네트워크 장비 시험 플랫폼(UTOP)의 Coverage AI 도우미다. "
-            "Advanced mode 는 자연어로 시험 절차를 새로 만들고 고치는 자리다.\n"
-            "규칙:\n"
+            "Advanced mode 는 자연어로 시험 절차를 새로 만들고 고치는 자리다.\n\n"
+            "[판단] 사용자의 말을 읽고 먼저 test 를 가른다.\n"
+            "1) 장비 모델명·명령·시험 항목 이름이 보이거나 「시험해줘 · 돌려줘 · 확인해줘 · "
+            "절차 만들어줘」 같은 실행·생성 의도가 보이면 test=true 로 하고 answer 는 빈 문자열로 둔다.\n"
+            "2) 인사·잡담·일반 지식 질문·뜻 없는 글자(예: asdf)는 test=false 로 하고 "
+            "[답변] 규칙으로 answer 를 적는다.\n"
+            "3) 「시험 가능한 장비는? · 실행 가능한 시험항목은?」 처럼 **현황을 묻는 말**은 "
+            "실행 요청이 아니다 — test=false 로 하고, 함께 주어지는 [현황] 사실만으로 답한다. "
+            "[현황] 에 없는 장비·항목은 없다고 답하고, 수를 지어내지 마라.\n"
+            "4) 애매하면 test=true 다 — 이 화면의 본분은 시험이다.\n"
+            "5) model 에는 말에 **적힌 그대로의** 장비 모델명(예: E6100)을 적는다. "
+            "없으면 빈 문자열 — 지어내지 마라. 등록 여부는 화면이 검사한다.\n\n"
+            "[답변]\n"
             "1) 한국어로 간결히 답한다.\n"
             "2) 네트워크 장비·시험 지식 범위에서 답하고, 모르는 것은 모른다고 말한다 — 지어내지 않는다.\n"
             "3) 화면 사용법을 물으면 「장비 고르기 → 시험 항목 → 절차 만들기·고치기 → 시험 시작」 을 안내한다.\n"
@@ -3534,20 +3556,13 @@ async def cov_chat(payload: dict):
     cfg = _prompt_of(purpose)
     base = str(cfg.get("system") or "").strip() or str(
         (LLM_PURPOSES.get(purpose) or {}).get("system") or "")
-    gate = (
-        "너는 먼저 사용자의 말이 **네트워크 장비 시험을 실행·생성하려는 요청**인지 가른다.\n"
-        "- 장비 모델명·명령·시험 항목 이름이 보이거나, 「시험해줘 · 돌려줘 · 확인해줘 · "
-        "절차 만들어줘」 같은 실행 의도가 보이면 test=true 로 하고 answer 는 빈 문자열로 둔다.\n"
-        "- 인사·잡담·일반 지식 질문·뜻 없는 글자(예: asdf)면 test=false 로 하고, "
-        "아래 지침의 말투로 answer 에 답을 적는다.\n"
-        "- 「시험 가능한 장비는? · 실행 가능한 시험항목은?」 처럼 **현황을 묻는 말**은 "
-        "실행 요청이 아니다 — test=false 로 하고, [현황] 사실만으로 answer 에 답한다. "
-        "[현황] 에 없는 장비·항목은 없다고 답하고, 수를 지어내지 마라.\n"
-        "- 애매하면 test=true 다 — 이 화면의 본분은 시험이다.\n"
-        "- model 에는 말에 **적힌 그대로의** 장비 모델명을 적는다(예: E6100). "
-        "말에 모델명이 없으면 빈 문자열 — 지어내지 마라. 등록 여부는 화면이 검사한다.\n"
-        'JSON 만 출력한다: {"test": true|false, "answer": "...", "model": "..."}\n\n'
-        "지침:\n"
+    # 판단 규칙은 **프롬프트가** 든다(지시) — SETUP 에서 고친다.
+    # 코드는 화면이 읽는 출력 형식 하나만 강제한다.
+    fmt = (
+        "\n\n[출력 형식 — 반드시 지킨다] JSON 하나만 출력한다: "
+        '{"test": true|false, "answer": "...", "model": "..."} — '
+        "설명·코드펜스 금지. test 는 시험 실행 요청 여부, answer 는 "
+        "test=false 일 때의 답, model 은 말에 적힌 장비 모델명(없으면 빈 문자열)이다."
     )
     schema = {
         "type": "object",
@@ -3559,7 +3574,7 @@ async def cov_chat(payload: dict):
     if facts:
         user_p += f"\n\n[현황]\n{facts}"
     try:
-        got = await _llm_json(llm, gate + base, user_p, schema,
+        got = await _llm_json(llm, base + fmt, user_p, schema,
                               timeout=60, purpose=purpose)
         return {"ok": True, "test": bool(got.get("test")),
                 "answer": str(got.get("answer") or "").strip(),
@@ -15219,6 +15234,57 @@ async def _prompt_migrate():
         print("[startup] 옛 Cycle-Test Summary 프롬프트를 걷었습니다 — 기본값을 씁니다", flush=True)
     except Exception as _e:
         print(f"[startup] 프롬프트 정리 건너뜀: {_e}", flush=True)
+
+
+# 판단 규칙이 프롬프트로 들어오기 **전**의 Coverage AI 기본값 — 저장 화면이
+# 이 글자 그대로 담아 둔 것은 사람이 적은 글이 아니라서, 새 기본값([판단] 포함)
+# 으로 내려앉힌다. 한 글자라도 고친 값은 건드리지 않는다.
+_OLD_CAI_SYS = {
+    "cai_basic": (
+        "너는 UBIQUOSS 네트워크 장비 시험 플랫폼(UTOP)의 Coverage AI 도우미다. "
+        "Basic mode 는 이미 만들어진 시험 항목을 골라 장비에서 돌리는 자리다.\n"
+        "규칙:\n"
+        "1) 한국어로 간결히 답한다.\n"
+        "2) 네트워크 장비·시험 지식 범위에서 답하고, 모르는 것은 모른다고 말한다 — 지어내지 않는다.\n"
+        "3) 화면 사용법을 물으면 「장비 고르기 → 시험 항목 고르기 → 시험 시작」 순서를 안내한다.\n"
+        "4) 시험을 하고 싶어 하는 말이면 장비 모델명(예: E6100)과 무엇을 확인할지를 "
+        "함께 적어 다시 요청하도록 안내한다."
+    ),
+    "cai_advanced": (
+        "너는 UBIQUOSS 네트워크 장비 시험 플랫폼(UTOP)의 Coverage AI 도우미다. "
+        "Advanced mode 는 자연어로 시험 절차를 새로 만들고 고치는 자리다.\n"
+        "규칙:\n"
+        "1) 한국어로 간결히 답한다.\n"
+        "2) 네트워크 장비·시험 지식 범위에서 답하고, 모르는 것은 모른다고 말한다 — 지어내지 않는다.\n"
+        "3) 화면 사용법을 물으면 「장비 고르기 → 시험 항목 → 절차 만들기·고치기 → 시험 시작」 을 안내한다.\n"
+        "4) 시험을 만들고 싶어 하는 말이면 장비 모델명과 확인하려는 동작을 "
+        "함께 적어 다시 요청하도록 안내한다."
+    ),
+}
+
+
+@app.on_event("startup")
+async def _cai_prompt_migrate():
+    """옛 Coverage AI 프롬프트([판단] 없던 판)를 걷는다 — 기본값이 대신 선다."""
+    try:
+        if not PROMPTS_FILE.exists():
+            return
+        pj = load_json(PROMPTS_FILE) or {}
+        pp = dict(pj.get("purposes") or {})
+        hit = False
+        for k, old in _OLD_CAI_SYS.items():
+            cur = dict(pp.get(k) or {})
+            if cur and _rp_squash(cur.get("system")) == _rp_squash(old):
+                cur["system"] = ""
+                pp[k] = cur
+                hit = True
+        if not hit:
+            return
+        pj["purposes"] = pp
+        save_json(PROMPTS_FILE, pj)
+        print("[startup] 옛 Coverage AI 프롬프트를 걷었습니다 — [판단] 든 기본값을 씁니다", flush=True)
+    except Exception as _e:
+        print(f"[startup] Coverage AI 프롬프트 정리 건너뜀: {_e}", flush=True)
 
 
 @app.on_event("startup")
