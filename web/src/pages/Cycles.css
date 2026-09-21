@@ -10269,3 +10269,9 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask > .ask-sess { background: var(--cl-card); }
 .ask.console .ask-home,
 .ask.console .ask-home.chat .ask-homewrap { background: var(--cl-card); }
+
+/* ── 추천 카드 홀쭉하게(지시) — 이름·IP·상태와 「이 장비로」 가 한 줄 ── */
+.ask-msgs .ask-inhero { flex-direction: row; align-items: center; gap: 10px; padding: 8px 12px; }
+.ask-msgs .ask-inhero .ask-intt { flex: 1; }
+.ask-msgs .ask-inhero > .nm { flex: 1; }
+.ask-msgs .ask-inbtn { align-self: center; margin-left: auto; flex: none; padding: 5px 12px; white-space: nowrap; }

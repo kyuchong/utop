@@ -1021,6 +1021,17 @@ export default function AskBar({ devices }: Props) {
   const unThink = () =>
     setMsgs((v) => v.filter((m) => !(m.who === 'a' && m.html.includes('ask-think'))))
 
+  /** 고르면 **고른 것만 남는다**(지시) — 1·2단계 추천 블록(추천 카드·후보
+      줄·칩)을 확정 한 줄로 갈아 끼운다. 블록이 없으면 한 줄을 새로 단다. */
+  const pickedLine = (kind: 'dev' | 'tc', line: string) =>
+    setMsgs((v) => {
+      const mark = `data-pick="${kind}"`
+      const has = v.some((m) => m.who === 'a' && m.html.includes(mark))
+      return has
+        ? v.map((m) => (m.who === 'a' && m.html.includes(mark) ? { ...m, html: line } : m))
+        : [...v, { who: 'a' as const, html: line }]
+    })
+
   /** 장비 하나의 상태 — 고르개 창의 판정을 요약한 것(통신 + 점유) */
   const devStat = (d: Device) => {
     const on = (proto: string) => {
@@ -1076,7 +1087,7 @@ export default function AskBar({ devices }: Props) {
     say(
       'a',
       `<p class="ln"><b>1단계 · 장비</b> — ${head}</p>` +
-        `<div class="ask-inb">${heroHtml}${rows}</div>` +
+        `<div class="ask-inb" data-pick="dev">${heroHtml}${rows}</div>` +
         `<button type="button" class="ask-artchip js-pickdev"><span class="ic">🖧</span>` +
         `<span class="tx"><b>장비 고르기</b>` +
         `<em>사용 가능 ${nOk} · 사용중 ${nBusy} · 사용 불가 ${nNo}</em></span></button>`,
@@ -1111,7 +1122,7 @@ export default function AskBar({ devices }: Props) {
     say(
       'a',
       '<p class="ln"><b>2단계 · 시험 항목</b> — 말씀하신 건 이것 같습니다.</p>' +
-        `<div class="ask-inb"><span class="ask-inhero js-tcpick" data-tcid="${hesc(hero.tcid)}" data-model="${hesc(String(hero.model ?? ''))}">` +
+        `<div class="ask-inb" data-pick="tc"><span class="ask-inhero js-tcpick" data-tcid="${hesc(hero.tcid)}" data-model="${hesc(String(hero.model ?? ''))}">` +
         `<span class="ask-intt"><code>${hesc(hero.tcid)}</code>` +
         `<em class="st pill ${hk}">${hk === 'none' ? '미실행' : `지난번 ${hl}`}</em>` +
         `<i>${man ? '수동' : '자동'}${nStep ? ` · ${nStep}스텝` : ''}</i></span>` +
@@ -1163,16 +1174,21 @@ export default function AskBar({ devices }: Props) {
         { k: '대상', v: String(d.ip ?? '') },
       ].filter((x) => x.v),
     )
-    say('a', `<p class="ln"><b>${hesc(nm)} (${hesc(String(d.ip ?? ''))})</b> 로 정했습니다.</p>`)
+    /* 고른 것만 남긴다(지시) — 추천 블록이 확정 한 줄로 접힌다 */
+    pickedLine(
+      'dev',
+      `<p class="ln"><b>1단계 · 장비</b> — <b>${hesc(nm)} (${hesc(String(d.ip ?? ''))})</b> 로 정했습니다.</p>`,
+    )
     void stepTc(d, asked || text)
   }
 
   /** 대화 속 추천에서 항목을 골랐다 — 바로 3단계 */
   const pickInlineTc = (tcid: string, model: string) => {
     if (adopting) return
-    say(
-      'a',
-      `<p class="ln"><b>${hesc(tcid)}</b> 으로 정했습니다 — <b>3단계 · 절차 만들기</b> 를 시작합니다.</p>`,
+    pickedLine(
+      'tc',
+      `<p class="ln"><b>2단계 · 시험 항목</b> — <b>${hesc(tcid)}</b> 으로 정했습니다. ` +
+        '<b>3단계 · 절차 만들기</b> 를 시작합니다.</p>',
     )
     void (mode === 'basic' ? takeTc(tcid, undefined, model) : adopt(tcid))
   }
@@ -2685,9 +2701,9 @@ export default function AskBar({ devices }: Props) {
                                       setDevId(d.id)
                                       if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
                                       setDevOpen(false)
-                                      say(
-                                        'a',
-                                        `<p class="ln"><b>${hesc(nm)} (${hesc(String(d.ip ?? ''))})</b> 로 정했습니다.</p>`,
+                                      pickedLine(
+                                        'dev',
+                                        `<p class="ln"><b>1단계 · 장비</b> — <b>${hesc(nm)} (${hesc(String(d.ip ?? ''))})</b> 로 정했습니다.</p>`,
                                       )
                                       /* 질문 흐름에서 열었으면 그대로 2단계로 잇는다 */
                                       if (afterDevRef.current === 'tc') {
@@ -3090,9 +3106,9 @@ export default function AskBar({ devices }: Props) {
                               if (adopting) return
                               setLikeAsk(false)
                               /* 무엇으로 정했는지 남기고 3단계로(지시: 목업) */
-                              say(
-                                'a',
-                                `<p class="ln"><b>${hesc(x.tcid)}</b> 으로 정했습니다 — ${hesc(x.name)}.<br>` +
+                              pickedLine(
+                                'tc',
+                                `<p class="ln"><b>2단계 · 시험 항목</b> — <b>${hesc(x.tcid)}</b> · ${hesc(x.name)} 으로 정했습니다. ` +
                                   '<b>3단계 · 절차 만들기</b> 를 시작합니다.</p>',
                               )
                               /* 일반 = 있는 것을 그대로, 고급 = 이 장비에 맞춰 옮겨 짓기 */
