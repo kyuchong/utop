@@ -632,7 +632,20 @@ export default function AskBar({ devices }: Props) {
      서버가 남겨 온 대화(nl-chats)를 왼쪽 기둥에 편다 — 누르면 그 절차를
      그대로 되살리고, ✕ 로 지운다. 목록은 제목·시각만 온다(가벼워야 한다). */
   const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string }>>([])
-  /* 말풍선 아바타·프로필 칩은 걷었다(지시) — /api/me 도 더는 안 읽는다 */
+  /** 로그인한 사람 — 말풍선 오른쪽의 「누가 물었나」 아바타(지시) */
+  const [meName, setMeName] = useState('')
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await apiFetch('/api/me')
+        const b = (await r.json()) as { user?: { name?: string; username?: string } }
+        setMeName(b.user?.name || b.user?.username || '')
+      } catch {
+        /* 이름이 없어도 화면은 돈다 */
+      }
+    })()
+  }, [])
+  const myInit = (meName || '나').slice(0, 1)
   /** 1열 접기(지시) — 접으면 아이콘 레일만 남는다. 계정에 남긴다. */
   const [railShut, setRailShut] = useState(() => prefGet('utop.ai.railshut') === '1')
   useEffect(() => {
@@ -3281,22 +3294,9 @@ export default function AskBar({ devices }: Props) {
       )}
       {!railShut && (
       <aside className="ask-sess" aria-label="대화 목록" ref={sessRef} style={{ width: sessW }}>
-        {/* 상단 줄 — 새 채팅 · 오른쪽에 검색·접기 아이콘(지시) */}
+        {/* 아이콘 줄은 새 채팅 **위**(지시) — 접기만. 검색은 대화 줄로 갔다 */}
         <div className="ask-stop">
-          <button className="ask-hnew" type="button" onClick={newChat}>
-            <span className="pl" aria-hidden="true">＋</span>새 채팅
-          </button>
-          <button
-            className={`ask-ico${findOn ? ' on' : ''}`}
-            type="button"
-            title="대화 검색"
-            onClick={() => {
-              setFindOn((v) => !v)
-              setFindQ('')
-            }}
-          >
-            <IconSearch />
-          </button>
+          <span className="sp" />
           <button
             className="ask-ico"
             type="button"
@@ -3305,6 +3305,34 @@ export default function AskBar({ devices }: Props) {
           >
             <IconPanelToggle />
           </button>
+        </div>
+        <button className="ask-hnew" type="button" onClick={newChat}>
+          <span className="pl" aria-hidden="true">＋</span>새 채팅
+        </button>
+        <div className="ask-eyebrow">
+          <span>대화</span>
+          <span className="eyebtns">
+            {/* 대화 검색은 모든 대화 보기 왼쪽(지시) */}
+            <button
+              type="button"
+              className={`ask-sec-add${findOn ? ' on' : ''}`}
+              title="대화 검색"
+              onClick={() => {
+                setFindOn((v) => !v)
+                setFindQ('')
+              }}
+            >
+              <IconSearch />
+            </button>
+            <button
+              type="button"
+              className="ask-sec-add"
+              title={listAll ? '최근 것만 보기' : '모든 대화 보기'}
+              onClick={() => setListAll((v) => !v)}
+            >
+              ⇅
+            </button>
+          </span>
         </div>
         {findOn && (
           <input
@@ -3321,17 +3349,6 @@ export default function AskBar({ devices }: Props) {
             }}
           />
         )}
-        <div className="ask-eyebrow">
-          <span>대화</span>
-          <button
-            type="button"
-            className="ask-sec-add"
-            title={listAll ? '최근 것만 보기' : '모든 대화 보기'}
-            onClick={() => setListAll((v) => !v)}
-          >
-            ⇅
-          </button>
-        </div>
         <div className="ask-slist">
           {recent.length === 0 ? (
             <span className="muted small">아직 대화가 없습니다.</span>
@@ -3437,6 +3454,15 @@ export default function AskBar({ devices }: Props) {
           ref={homeRef}
           style={twoPane ? { flex: `0 0 ${chatW}px` } : undefined}
         >
+          {/* 대화 머리(지시) — 지금 어떤 대화인지 제목이 선다 */}
+          {twoPane && (
+            <div
+              className="ask-chattop"
+              title={recent.find((x) => x.cid === chatId)?.title || asked || undefined}
+            >
+              {recent.find((x) => x.cid === chatId)?.title || asked || '새 대화'}
+            </div>
+          )}
           {exEdit && <span className="ask-edbadge">오프너 편집 모드</span>}
           <div className="ask-hometools">
             {!exEdit && (
@@ -3579,9 +3605,12 @@ export default function AskBar({ devices }: Props) {
               >
                 {msgs.map((m, i) =>
                   m.who === 'u' ? (
-                    /* 내 말 — 오른쪽 정렬(지시: 왼쪽에 뜨는 문제) */
+                    /* 내 말 — 오른쪽 정렬 + 누가 물었나 아바타(지시) */
                     <div className="msg u" key={i}>
                       <b>{m.html}</b>
+                      <span className="uav" aria-hidden="true" title={meName || undefined}>
+                        {myInit}
+                      </span>
                     </div>
                   ) : (
                     <div className="msg a" key={i}>

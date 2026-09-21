@@ -10321,3 +10321,39 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 }
 .ask-rail2 .ask-ico { width: 32px; height: 32px; }
 .ask-rail2 .plus2 { color: var(--cl-accent); font-weight: 700; font-size: 17px; }
+/* 아이콘 줄이 새 채팅 위(지시) — 오른쪽 정렬, 줄 높이만 차지 */
+.ask-stop { min-height: 28px; }
+.ask-stop .sp { flex: 1; }
+
+/* 2열 대화 머리(지시) — 어떤 대화인지 제목 한 줄 */
+.ask-chattop {
+  flex: none;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--cl-line);
+  background: var(--cl-card);
+  font-weight: 600;
+  font-size: var(--fs-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  z-index: 2;
+}
+/* 누가 물었나 — 말풍선 오른쪽 아바타(지시) */
+.ask.console .ask-msgs .msg.u { gap: 10px; }
+.uav {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #3b5a80;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+/* 대화 줄 오른쪽 단추 무리 — 검색 · 모든 대화 보기 */
+.ask-eyebrow .eyebtns { display: flex; align-items: center; gap: 2px; }
+.ask-sec-add.on { background: var(--cl-hover); color: var(--cl-ink); }
