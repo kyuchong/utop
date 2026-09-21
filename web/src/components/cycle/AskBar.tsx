@@ -1889,11 +1889,40 @@ export default function AskBar({ devices }: Props) {
        서버가 못 가르면 test=true 로 돌아와 원래 흐름 그대로다. */
     if (!(draft && mode !== 'basic')) {
       sayThink('말을 읽는 중…')
+      /* 현황 요약(지적: 「시험 가능한 장비는?」 에 지어낸 「없습니다」) —
+         장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
+         현황 질문에는 LLM 이 이것만 보고 답하게 한다. */
+      const facts = (() => {
+        const cnt = { ok: 0, busy: 0, part: 0, no: 0 }
+        const okRows: string[] = []
+        usable.forEach((d) => {
+          const k = devStat(d).k
+          cnt[k] += 1
+          if (k === 'ok' && okRows.length < 20)
+            okRows.push(`${String(d.model || d.name || '')}(${String(d.ip ?? '')})`)
+        })
+        const byModel = new Map<string, number>()
+        tcAll.forEach((t) => {
+          const m = String(t.model ?? '').trim() || '공통'
+          byModel.set(m, (byModel.get(m) ?? 0) + 1)
+        })
+        const tcTxt = [...byModel.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 15)
+          .map(([m, n]) => `${m} ${n}건`)
+          .join(' · ')
+        return (
+          `장비: 전체 ${usable.length}대 — 사용 가능 ${cnt.ok} · 사용중 ${cnt.busy} · ` +
+          `일부 연결 ${cnt.part} · 사용 불가 ${cnt.no}\n` +
+          `사용 가능 장비: ${okRows.join(', ') || '없음'}\n` +
+          `시험 항목(REQ-Coverage): 총 ${tcAll.length}건 — 모델별 ${tcTxt || '없음'}`
+        )
+      })()
       let chat: { test?: boolean; answer?: string; model?: string } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
           method: 'POST',
-          body: JSON.stringify({ q: said, mode }),
+          body: JSON.stringify({ q: said, mode, facts }),
         })
         chat = (await r.json()) as { test?: boolean; answer?: string; model?: string }
       } catch {

@@ -3523,6 +3523,9 @@ async def cov_chat(payload: dict):
     """
     q = str(payload.get("q") or "").strip()
     purpose = "cai_advanced" if str(payload.get("mode") or "") == "advanced" else "cai_basic"
+    # 화면이 만든 현황 요약(장비·시험 항목) — LLM 이 이 사실로만 답한다(지시:
+    # 「시험 가능한 장비는?」 에 지어낸 「없습니다」 가 나왔다)
+    facts = str(payload.get("facts") or "").strip()[:4000]
     if not q:
         return {"ok": False, "error": "질문이 비었습니다"}
     llm = _llm_pick(purpose) or _ai_llm() or {}
@@ -3537,6 +3540,9 @@ async def cov_chat(payload: dict):
         "절차 만들어줘」 같은 실행 의도가 보이면 test=true 로 하고 answer 는 빈 문자열로 둔다.\n"
         "- 인사·잡담·일반 지식 질문·뜻 없는 글자(예: asdf)면 test=false 로 하고, "
         "아래 지침의 말투로 answer 에 답을 적는다.\n"
+        "- 「시험 가능한 장비는? · 실행 가능한 시험항목은?」 처럼 **현황을 묻는 말**은 "
+        "실행 요청이 아니다 — test=false 로 하고, [현황] 사실만으로 answer 에 답한다. "
+        "[현황] 에 없는 장비·항목은 없다고 답하고, 수를 지어내지 마라.\n"
         "- 애매하면 test=true 다 — 이 화면의 본분은 시험이다.\n"
         "- model 에는 말에 **적힌 그대로의** 장비 모델명을 적는다(예: E6100). "
         "말에 모델명이 없으면 빈 문자열 — 지어내지 마라. 등록 여부는 화면이 검사한다.\n"
@@ -3549,8 +3555,11 @@ async def cov_chat(payload: dict):
                        "model": {"type": "string"}},
         "required": ["test", "answer"],
     }
+    user_p = f"사용자의 말: {q}"
+    if facts:
+        user_p += f"\n\n[현황]\n{facts}"
     try:
-        got = await _llm_json(llm, gate + base, f"사용자의 말: {q}", schema,
+        got = await _llm_json(llm, gate + base, user_p, schema,
                               timeout=60, purpose=purpose)
         return {"ok": True, "test": bool(got.get("test")),
                 "answer": str(got.get("answer") or "").strip(),
