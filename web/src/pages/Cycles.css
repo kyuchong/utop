@@ -10656,3 +10656,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
    대신 줄며 말줄임된다 */
 .ask-slots > .bcrumb { min-width: 110px; }
 .ask-slotstat { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── 아티팩트 칩이 대화 전폭으로 늘어졌다(지시: 너무 길어) —
+   추천 카드와 같은 420px 까지만 ── */
+.ask-msgs .ask-artchip { width: auto; max-width: 420px; }
