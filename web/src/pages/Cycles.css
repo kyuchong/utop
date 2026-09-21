@@ -10624,3 +10624,35 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-msgs .ask-inhero .ask-intt .nm { font-size: var(--fs-md); }
 .ask-msgs .ask-inbtn { padding: 4px 10px; font-size: var(--fs-xs); }
 .ask-msgs .ask-inrow { padding: 4px 10px; font-size: var(--fs-sm); }
+
+/* ── 3열 머리(지시) — 상태 글줄은 빵부스러기 옆, 밴드는 시험 흐름 ── */
+.ask-slotstat {
+  flex: none;
+  margin-left: 10px;
+  font-size: var(--fs-xs);
+  color: var(--cl-sub);
+  white-space: nowrap;
+}
+.ask-slotstat.run { color: var(--cl-accent); font-weight: 700; }
+.askr-flow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  color: var(--cl-sub, var(--c-text-muted));
+}
+.askr-flow li { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.askr-flow li + li::before { content: '›'; margin: 0 5px; color: #c8c3b3; }
+.askr-flow li i { font-style: normal; font-size: 11px; }
+.askr-flow li.ok { color: #12643a; }
+.askr-flow li.on { color: var(--cl-accent); font-weight: 700; }
+.askr-flow li.next { color: var(--cl-ink); font-weight: 600; }
+/* 좁을 때 빵부스러기가 0으로 짜부라졌다 — 최소폭을 쥐어 주고, 상태 글이
+   대신 줄며 말줄임된다 */
+.ask-slots > .bcrumb { min-width: 110px; }
+.ask-slotstat { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

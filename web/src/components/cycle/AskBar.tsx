@@ -2140,6 +2140,18 @@ export default function AskBar({ devices }: Props) {
         }
   })
 
+  /* 실행 요약 한 벌 — 빵부스러기 줄(지시)과 상태 밴드가 같은 수를 본다 */
+  const doneN = (ran ?? []).filter(
+    (r) => r && (r.executed_at || r.output || r.status || r.repeatResult),
+  ).length
+  /* 주석(Comment·Message)은 실행 대상이 아니다 — 전체 수에 넣으면
+     다 돌고도 「중단됨」 이 된다(6/12 꼴) */
+  const runnableN = seqSteps.filter((s3) => {
+    const k = String(s3.kind ?? '')
+    return k !== 'comment' && k !== 'message'
+  }).length
+  const runMmss = `${String(Math.floor(runSec / 60)).padStart(2, '0')}:${String(runSec % 60).padStart(2, '0')}`
+
   /** ＋ 스텝 — 초안 끝에 한 줄 붙인다 */
   const addStep = (k: StepKind) => {
     if (!draft) return
@@ -4575,6 +4587,11 @@ export default function AskBar({ devices }: Props) {
               </span>
             )}
           </nav>
+          {/* 실행 상태는 빵부스러기 옆(지시) — 「실행 중 3/3 스텝 · 경과 00:12」 */}
+          <span className={`ask-slotstat${running ? ' run' : ''}`}>
+            {running ? '실행 중' : doneN > 0 ? '실행 끝' : '실행 준비'} {doneN}/{runnableN} 스텝
+            {' · '}경과 {runMmss}
+          </span>
           {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
           <span className="sp" />
           {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}
@@ -4761,39 +4778,30 @@ export default function AskBar({ devices }: Props) {
                편집 세 판은 「절차·상세 보기」 로 돌아가면 그대로 있다. */
             <div className="askr">
               {(() => {
-                const doneN = (ran ?? []).filter(
-                  (r) => r && (r.executed_at || r.output || r.status || r.repeatResult),
-                ).length
-                /* 주석(Comment·Message)은 실행 대상이 아니다 — 전체 수에 넣으면
-                   다 돌고도 「중단됨」 이 된다(6/12 꼴) */
-                const runnableN = seqSteps.filter((s3) => {
-                  const k = String(s3.kind ?? '')
-                  return k !== 'comment' && k !== 'message'
-                }).length
                 const pass = (ran ?? []).filter(
                   (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
                 ).length
                 const fail = (ran ?? []).filter(
                   (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
                 ).length
-                const mmss = `${String(Math.floor(runSec / 60)).padStart(2, '0')}:${String(runSec % 60).padStart(2, '0')}`
                 return (
                   <>
+                    {/* 상태 글줄은 빵부스러기 줄로 올렸다(지시) — 이 밴드는
+                        **시험 흐름**을 그린다: 장비 → 항목 → 절차 → 실행 → 결과 */}
                     <div className={`askr-band${running ? '' : ' done'}`}>
                       {running && <span className="askr-dot" aria-hidden="true" />}
-                      <b>
-                        {running
-                          ? at >= 0
-                            ? `실행 중 — 스텝 ${stripNos[at] || at + 1}`
-                            : '실행 중'
-                          : doneN > 0
-                            ? '실행 끝'
-                            : '실행 준비 — ▷ 시험 시작을 누르세요'}
-                      </b>
-                      <span className="askr-meta">
-                        {doneN}/{runnableN} 스텝 · 경과 {mmss}
-                        {curDev && ` · ${devName} · ${devIp}`}
-                      </span>
+                      <ol className="askr-flow" aria-label="시험 흐름">
+                        <li className="ok"><i>✓</i>장비 고르기</li>
+                        <li className="ok"><i>✓</i>시험 항목</li>
+                        <li className="ok"><i>✓</i>절차 준비</li>
+                        <li className={running ? 'on' : doneN > 0 ? 'ok' : 'next'}>
+                          <i>{running ? '●' : doneN > 0 ? '✓' : '▷'}</i>
+                          {running && at >= 0 ? `실행 (스텝 ${stripNos[at] || at + 1})` : '실행'}
+                        </li>
+                        <li className={!running && doneN > 0 ? 'ok' : ''}>
+                          <i>{!running && doneN > 0 ? '✓' : '▤'}</i>결과
+                        </li>
+                      </ol>
                       <span className="sp" />
                       {running ? (
                         <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
