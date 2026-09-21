@@ -431,7 +431,10 @@ export default function TcSequence({
              벌어졌다. 0 으로 두면 걸침이 열 폭에 끼어들지 못한다. */
           '--sq-cols': [
             /* slim — 판정◎·결과서▤·로그☰ 세 칸(30px×3)이 빠진다 */
-            slim ? '26px 30px 40px 60px 190px' : '26px 30px 30px 30px 30px 40px 60px 190px',
+            /* 결과서·로그 칸을 **맨 왼쪽**(체크박스 왼쪽)으로(지시) — order 로
+               앞으로 보내므로 그 두 칸(30px)을 트랙 1·2 에 둔다. 6번 칸부터는
+               자리가 그대로라 주석 줄(grid-column: 9/-1) 배치도 안 깨진다. */
+            slim ? '26px 30px 40px 60px 190px' : '30px 30px 26px 30px 30px 40px 60px 190px',
             sumW ? `minmax(0, ${sumW}px)` : 'minmax(0, 1fr)',
             dscW ? `minmax(${dscW}px, 1fr)` : 'minmax(0, 1fr)',
           ].join(' '),
@@ -477,6 +480,7 @@ export default function TcSequence({
               <span
                 title="결과서(PPTX)에 실을 줄 — 눌러서 전부 켜고 끄기"
                 className={onPatchMany ? 'sq-hcl' : undefined}
+                style={{ order: -2 }}
                 onClick={onPatchMany ? () => flagAll('ppt') : undefined}
               >
                 {/* 장표 한 장 — 화면과 받침, 안에 막대. 색을 칠한 네모에 글자를
@@ -502,6 +506,7 @@ export default function TcSequence({
               <span
                 title="실행 로그에 남길 줄 — 눌러서 전부 켜고 끄기"
                 className={onPatchMany ? 'sq-hcl' : undefined}
+                style={{ order: -1 }}
                 onClick={onPatchMany ? () => flagAll('log') : undefined}
               >
                 {/* 줄글 몇 줄 — PPTX 장표와 결이 맞게 선으로만 그린다 */}
@@ -692,7 +697,7 @@ export default function TcSequence({
                 {/* 결과서에 실을 줄(지시) — **동그라미**로 둔다. 네모 체크는
                     맨 앞 「여러 줄 고르기」 가 이미 쓰고 있어, 같은 모양이
                     나란히 서면 무엇을 고르는 것인지 갈리지 않는다. */}
-                <span className="sq-pptc">
+                <span className="sq-pptc" style={{ order: -2 }}>
                   <input
                     type="checkbox"
                     className="sq-ppt"
@@ -706,7 +711,7 @@ export default function TcSequence({
                 </span>
                 {/* 실행 로그에 남길 줄(승인). 값이 없으면 갈래 기본값이라
                     손대지 않은 옛 시험은 지금까지와 똑같이 찍힌다. */}
-                <span className="sq-logc">
+                <span className="sq-logc" style={{ order: -1 }}>
                   <input
                     type="checkbox"
                     className="sq-ppt"
