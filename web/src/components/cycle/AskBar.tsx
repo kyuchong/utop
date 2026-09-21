@@ -1082,95 +1082,32 @@ export default function AskBar({ devices }: Props) {
     setDevQ(m0)
     /* 상태 탭은 질문마다 「사용 가능」 부터(지시) — 고를 수 있는 것이 먼저다 */
     setDevTab('ok')
-    const ord = { ok: 0, part: 1, busy: 2, no: 3 } as const
-    const sorted = [...cands].sort((a, b) => ord[devStat(a).k] - ord[devStat(b).k])
-    const hero = sorted[0]
-    const heroSt = hero ? devStat(hero) : null
-    const canHero = !!hero && (heroSt!.k === 'ok' || heroSt!.k === 'part')
-    /* 랩 위치(지시) — 같은 모델은 자리로 갈린다: 구역 · 랙 · U */
-    const locOf = (d: Device) => {
-      const l = rackMap.get(String(d.id))
-      return l ? `${l.lab} · ${l.rack}${l.pos ? ` · ${l.pos}U` : ''}` : ''
-    }
-    const row = (d: Device) => {
-      const st = devStat(d)
-      const dead = st.k === 'busy' || st.k === 'no'
-      const nm = hesc(String(d.model || d.name || d.ip))
-      const lc = locOf(d)
-      return (
-        `<span class="ask-inrow${dead ? ' dis' : ' js-devpick'}" data-id="${hesc(String(d.id))}">` +
-        `<span class="nm"><b>${nm}</b></span>` +
-        `<i>${hesc(String(d.ip ?? ''))}</i>` +
-        (lc ? `<i class="loc">${hesc(lc)}</i>` : '') +
-        `<em class="st ${st.k}">● ${hesc(st.label)}</em></span>`
-      )
-    }
-    const rows = sorted.slice(canHero ? 1 : 0, canHero ? 4 : 3).map(row).join('')
+    /* 추천 카드는 걷었다(지시: 장비 고르기만) — 칩 하나가 창을 연다 */
+    const nOk = cands.filter((d) => devStat(d).k === 'ok').length
+    const nBusy = cands.filter((d) => devStat(d).k === 'busy').length
+    const nNo = cands.filter((d) => devStat(d).k === 'no').length
     const head = m0
-      ? `${hesc(m0)} 이(가) ${cands.length}대 있습니다${canHero ? ' — 비어 있는 이것으로 할까요?' : ' — 지금 비어 있는 것이 없습니다.'}`
-      : '어느 장비에서 돌릴까요?'
-    const heroLoc = hero ? locOf(hero) : ''
-    const heroHtml = canHero && hero
-      ? `<span class="ask-inhero js-devpick" data-id="${hesc(String(hero.id))}">` +
-        `<span class="ask-intt"><b class="nm">${hesc(String(hero.model || hero.name || ''))}</b>` +
-        `<i>${hesc(String(hero.ip ?? ''))}</i>` +
-        (heroLoc ? `<i class="loc">${hesc(heroLoc)}</i>` : '') +
-        `<em class="st ${heroSt!.k}">● ${hesc(heroSt!.label)}</em></span>` +
-        `<span class="ask-inbtn">이 장비로</span></span>`
-      : ''
-    /* 판을 여는 길은 **아티팩트 칩**(클로드 문법) — 글 속 링크보다 눈에 잡힌다 */
-    const nOk = sorted.filter((d) => devStat(d).k === 'ok').length
-    const nBusy = sorted.filter((d) => devStat(d).k === 'busy').length
-    const nNo = sorted.filter((d) => devStat(d).k === 'no').length
+      ? `${hesc(m0)} 이(가) ${cands.length}대 있습니다 — 아래에서 골라 주세요.`
+      : '어느 장비에서 돌릴까요? — 아래에서 골라 주세요.'
     say(
       'a',
       `<p class="ln"><b>1단계 · 장비</b> — ${head}</p>` +
-        `<div class="ask-inb" data-pick="dev">${heroHtml}${rows}</div>` +
-        `<button type="button" class="ask-artchip js-pickdev"><span class="ic">🖧</span>` +
+        `<div data-pick="dev"><button type="button" class="ask-artchip js-pickdev"><span class="ic">🖧</span>` +
         `<span class="tx"><b>장비 고르기</b>` +
-        `<em>사용 가능 ${nOk} · 사용중 ${nBusy} · 사용 불가 ${nNo}</em></span></button>`,
+        `<em>사용 가능 ${nOk} · 사용중 ${nBusy} · 사용 불가 ${nNo}</em></span></button></div>`,
     )
   }
 
-  /** 2단계 말풍선 — 말과 가장 가까운 항목 한 건을 추천하고, 나머지는 줄로 */
+  /** 2단계 말풍선 — 추천 카드는 걷었다(지시: 고르기 칩만). 칩이 창을 연다 */
   const sayTcBlock = (
     items: Array<{ tcid: string; name: string; model?: string; steps?: number }>,
   ) => {
-    const meta = (id: string) => tcAll.find((t) => t.tcid === id)
-    const pill = (id: string): [string, string] => {
-      const v = String(meta(id)?.status ?? '').toLowerCase()
-      return v === 'pass' ? ['pass', 'Pass'] : v === 'fail' ? ['fail', 'Fail'] : ['none', '미실행']
-    }
-    const hero = items[0]!
-    const hm = meta(hero.tcid)
-    const [hk, hl] = pill(hero.tcid)
-    const man = /manual|수동/i.test(String(hm?.type ?? ''))
-    const nStep = Number(hero.steps || hm?.steps || 0)
-    const rows = items
-      .slice(1, 4)
-      .map((x) => {
-        const [k, l] = pill(x.tcid)
-        return (
-          `<span class="ask-inrow js-tcpick" data-tcid="${hesc(x.tcid)}" data-model="${hesc(String(x.model ?? ''))}">` +
-          `<s class="ask-indot ${k}"></s><span class="nm">${hesc(x.name)}</span>` +
-          `<em class="st ${k}">${l}</em></span>`
-        )
-      })
-      .join('')
     say(
       'a',
-      '<p class="ln"><b>2단계 · 시험 항목</b> — 말씀하신 건 이것 같습니다.</p>' +
-        `<div class="ask-inb" data-pick="tc"><span class="ask-inhero js-tcpick" data-tcid="${hesc(hero.tcid)}" data-model="${hesc(String(hero.model ?? ''))}">` +
-        `<span class="ask-intt"><code>${hesc(hero.tcid)}</code>` +
-        `<em class="st pill ${hk}">${hk === 'none' ? '미실행' : `지난번 ${hl}`}</em>` +
-        `<i>${man ? '수동' : '자동'}${nStep ? ` · ${nStep}스텝` : ''}</i></span>` +
-        `<b class="nm">${hesc(hero.name)}</b>` +
-        `<span class="ask-inbtn">이걸로 절차 만들기</span></span>` +
-        rows +
-        `</div>` +
-        `<button type="button" class="ask-artchip js-picktc"><span class="ic">☰</span>` +
+      '<p class="ln"><b>2단계 · 시험 항목</b> — 아래에서 골라 주세요.</p>' +
+        `<div data-pick="tc"><button type="button" class="ask-artchip js-picktc"><span class="ic">☰</span>` +
         `<span class="tx"><b>시험 항목 고르기</b>` +
-        `<em>말과 가까운 ${items.length}건 · 전체에서 검색</em></span></button>`,
+        `<em>말과 가까운 ${items.length}건 · 전체에서 검색</em></span></button></div>`,
     )
   }
 
