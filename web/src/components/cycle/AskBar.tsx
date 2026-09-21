@@ -3633,7 +3633,8 @@ export default function AskBar({ devices }: Props) {
                 onClick={() => void submit()}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M5 12h13M13 6l6 6-6 6" />
+                  {/* 위 화살표(클로드의 보내기) — 옆 화살표는 「다음」 으로 읽힌다 */}
+                  <path d="M12 19V6M6 12l6-6 6 6" />
                 </svg>
               </button>
               </div>

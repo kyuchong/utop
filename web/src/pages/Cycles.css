@@ -9867,3 +9867,118 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* 대화 기둥은 흰 종이(클로드) — 회색은 3열 바탕만 */
 .ask.console .ask-home { background: var(--c-surface); }
 .ask.console .ask-home.chat .ask-homewrap { background: var(--c-surface); }
+
+/* ══════════════════════════════════════════════════════════════════
+   클로드 스킨(지시: 클로드와 동일한 UI).
+   크림 종이 바탕 · 따뜻한 회벽 사이드바 · 코랄 포인트 · 세리프 인사말 ·
+   흰 카드 아티팩트. 값은 이 화면(.ask)에만 산다 — 다른 화면은 그대로. */
+.ask {
+  --cl-bg: #faf9f5;        /* 종이 */
+  --cl-side: #f0eee7;      /* 사이드바 */
+  --cl-hover: #e8e5da;
+  --cl-line: #e6e3d8;
+  --cl-card: #ffffff;
+  --cl-ink: #26251f;
+  --cl-sub: #74705f;
+  --cl-accent: #c9633e;    /* 코랄 */
+  --cl-user: #f0eee4;      /* 내 말풍선 */
+  background: var(--cl-bg);
+}
+
+/* ── 1열 · 대화 목록 ── */
+.ask-sess { background: var(--cl-side); border-right-color: var(--cl-line); }
+.ask-hnew { color: var(--cl-accent); }
+.ask-hnew:hover { background: var(--cl-hover); }
+.ask-eyebrow { color: var(--cl-sub); }
+.ask-sitem:hover { background: var(--cl-hover); }
+.ask-sitem.on { background: #e2dfd2; }
+.ask-sbtn b { color: var(--cl-ink); }
+
+/* ── 2열 · 대화 ── */
+.ask.console .ask-home,
+.ask.console .ask-home.chat .ask-homewrap { background: var(--cl-bg); }
+.ask-canvas.console > .ask-home,
+.ask-canvas.plan.console > .ask-home { border-right-color: var(--cl-line); }
+.ask.console .ask-msgs .msg.u b {
+  background: var(--cl-user);
+  border-color: #e3e0d1;
+  color: var(--cl-ink);
+}
+.ask.console .ask-msgs .msg.a .bd { color: var(--cl-ink); }
+
+/* 입력 캡슐 — 흰 종이에 실금, 큰 둥근 모서리, 보내기는 코랄 동그라미 */
+.ask-askbox2 {
+  background: var(--cl-card);
+  border: 1px solid var(--cl-line);
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgb(70 60 30 / 7%);
+}
+.ask-askbox2 .ask-askin2 { color: var(--cl-ink); }
+.ask-send2 { background: #dcd9cc; color: #fff; border-radius: 50%; }
+.ask-send2.on { background: var(--cl-accent); }
+.ask-send2.on:hover { filter: brightness(1.06); }
+.ask-chip, .ask-plus, .ta-pickb { border-color: var(--cl-line); }
+
+/* ── 첫 화면 — 크림 종이 위 세리프 인사말(클로드) ──
+   기본(aurora) 테마에서만 하늘을 걷는다 — 계절 테마를 고르면 그대로 논다. */
+.ask-home[data-theme='aurora'] .ask-sky { display: none; }
+.ask-home[data-theme='aurora'] .ask-homewrap {
+  background: var(--cl-bg, #faf9f5);
+}
+.ask-hometitle {
+  font-family: ui-serif, Georgia, 'Times New Roman', serif;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  color: #2b2a23;
+}
+.ask-homesub { color: var(--cl-sub); }
+.ask-aibadge {
+  background: var(--cl-card);
+  border: 1px solid var(--cl-line);
+  color: var(--cl-sub);
+}
+.ask-aibadge i { color: var(--cl-accent); }
+.ask-op { border-color: var(--cl-line); background: var(--cl-card); }
+.ask-op:hover { border-color: var(--cl-accent); }
+.ask-cando small { color: var(--cl-sub); }
+
+/* ── 3열 · 아티팩트 — 크림 바탕 위 흰 카드(클로드) ── */
+.ask-art { background: var(--cl-bg); }
+.ask-art > .ask-slots {
+  background: transparent;
+  border-bottom: 0;
+  padding: 12px 18px 4px;
+}
+/* 자세히 보기 판을 카드로 */
+.ask.console .askp {
+  flex: 1;
+  margin: 12px 16px 14px;
+  border: 1px solid var(--cl-line);
+  border-radius: 14px;
+  background: var(--cl-card);
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgb(70 60 30 / 6%);
+}
+.ask.console .askp-hd { background: var(--cl-card); border-bottom-color: var(--cl-line); }
+.ask.console .askp-body { background: var(--cl-card); padding: 12px 16px; }
+/* 카드 안의 표는 제 테두리를 접는다 — 겹테두리 방지 */
+.ask.console .askp-fill > .ask-devmenu.big.inpanel { border: 0; border-radius: 0; }
+.ask.console .askp-fill.ask-likewrap { border: 0; border-radius: 0; }
+/* 절차·Response 도 같은 카드 */
+.ask-art > .ask-plan { padding: 8px 16px 14px; }
+.askr {
+  border-color: var(--cl-line);
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgb(70 60 30 / 6%);
+}
+.askr-band { background: #f4f2e9; }
+.askr-band.done { background: #f4f2e9; }
+.askr-dot { background: var(--cl-accent); }
+.askr-prog { background: #ece9dd; }
+.askr-prog > span { background: var(--cl-accent); }
+.askp-stage {
+  color: var(--cl-accent);
+  background: #f7ebe3;
+  border-color: #e8cdbb;
+}
+.askr-sum { background: #f7f5ee; border-top-color: var(--cl-line); }
