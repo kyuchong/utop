@@ -1532,6 +1532,17 @@ export default function TcStepDetail({
               >
                 {'${ } 기준 넣기'}
               </button>
+              {/* 응답 줄 수 판정(추가, 지시) — iTest 의 rowCount() 꼴 */}
+              <button
+                type="button"
+                className="sd-pickbtn"
+                title="응답 줄 수를 판정 기준으로 — 「줄 수 == N」 칩이 생깁니다"
+                onClick={() =>
+                  writeChips([...chips, { t: 'rowcount', v: '', op: '==' }])
+                }
+              >
+                ＋ 줄 수
+              </button>
             </span>
             {pick === 'p-crit' ? (
               <ParamPicker
@@ -1584,11 +1595,13 @@ export default function TcStepDetail({
                 /* 열제외·표는 블럭에서 짜 온 **구조**라 종류를 못 바꾸게 둔다 */
                 const fixed = c.t === 'skipcol' || c.t === 'table'
                 const tlab =
-                  c.t === 'has' ? '있으면' : c.t === 'not' ? '없으면' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '비교' : '표'
-                /* 견줌 꼬리가 켜져 있나 — 견주는 법(op)이 있으면 켜진 것 */
-                const cmpOn = !!String(c.op ?? '').trim()
-                /* 견줌은 **글자 기준**에만 붙인다(줄제외·열제외·표는 뜻이 없다) */
-                const canCmp = c.t === 'has' || c.t === 'not'
+                  c.t === 'has' ? '있으면' : c.t === 'not' ? '없으면' : c.t === 'hasline' ? '있으면(줄)' : c.t === 'rowcount' ? '줄 수' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '비교' : '표'
+                /* 견줌 꼬리가 켜져 있나 — 견주는 법(op)이 있으면 켜진 것.
+                   줄 수 칩은 op 가 제 몸(줄 수 견주기)이라 꼬리가 아니다 */
+                const cmpOn = c.t !== 'rowcount' && !!String(c.op ?? '').trim()
+                /* 견줌은 **글자 기준**에만 붙인다(줄제외·열제외·표는 뜻이 없다).
+                   있으면(줄)의 꼬리는 값이 아니라 **발견 줄 수**를 견준다(추가) */
+                const canCmp = c.t === 'has' || c.t === 'not' || c.t === 'hasline'
                 return (
                   <div className="sd-jr" key={n}>
                     {fixed ? (
@@ -1601,15 +1614,32 @@ export default function TcStepDetail({
                         onChange={(e) => set({ t: e.target.value as JudgeRule['t'] })}
                       >
                         <option value="has">있으면</option>
+                        <option value="hasline">있으면(줄)</option>
                         <option value="not">없으면</option>
                         <option value="skip">줄제외</option>
+                        <option value="rowcount">줄 수</option>
                       </select>
                     )}
 
+                    {/* 줄 수 칩 — 「줄 수 [==] [N]」 (추가, 지시) */}
+                    {c.t === 'rowcount' && (
+                      <select
+                        className="sd-jr-op"
+                        value={c.op || '=='}
+                        onChange={(e) => set({ op: e.target.value })}
+                      >
+                        <option value="==">==</option>
+                        <option value="!=">!=</option>
+                        <option value=">">&gt;</option>
+                        <option value="<">&lt;</option>
+                        <option value=">=">&gt;=</option>
+                        <option value="<=">&lt;=</option>
+                      </select>
+                    )}
                     <input
                       className="sd-jr-in mono"
                       value={c.v}
-                      placeholder="기준 값"
+                      placeholder={c.t === 'rowcount' ? '몇 줄 (예: 3)' : '기준 값'}
                       readOnly={fixed}
                       title={c.v.includes('$') ? `지금 값: ${subVars(c.v, gp.values)}` : undefined}
                       onChange={(e) => set({ v: e.target.value })}
@@ -1634,7 +1664,7 @@ export default function TcStepDetail({
                         <input
                           className="sd-jr-in mono"
                           value={c.rhs ?? ''}
-                          placeholder="${전역파라미터}"
+                          placeholder={c.t === 'hasline' ? '발견 줄 수 (예: 1)' : '${전역파라미터}'}
                           title={(c.rhs ?? '').includes('$') ? `지금 값: ${subVars(c.rhs ?? '', gp.values)}` : undefined}
                           onChange={(e) => set({ rhs: e.target.value })}
                         />
@@ -1655,7 +1685,13 @@ export default function TcStepDetail({
                       <button
                         type="button"
                         className="sd-jr-mini"
-                        title={cmpOn ? '비교 빼기' : '이 값을 전역 파라미터와 비교하기'}
+                        title={
+                          cmpOn
+                            ? '비교 빼기'
+                            : c.t === 'hasline'
+                              ? '발견된 줄 수를 견주기 (iTest 의 assert $value == N)'
+                              : '이 값을 전역 파라미터와 비교하기'
+                        }
                         onClick={() => (cmpOn ? set({ op: '', rhs: '' }) : set({ op: '==' }))}
                       >
                         {cmpOn ? '비교 빼기' : '± 비교'}

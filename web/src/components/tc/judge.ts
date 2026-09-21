@@ -625,7 +625,9 @@ export function judgeTable(
  * 칩이 없으면 판정 안 함.** 칩이 있으면 옛 type·criteria 보다 우선한다.
  */
 export interface JudgeRule {
-  t: 'has' | 'not' | 'table' | 'skip' | 'skipcol' | 'cmp'
+  /** hasline = **줄 단위** 있으면(추가, 지시 — iTest contains 꼴. 기존 has 는 안 건드림)
+   *  rowcount = 응답 **줄 수** 판정(추가 — iTest rowCount() 꼴) */
+  t: 'has' | 'not' | 'table' | 'skip' | 'skipcol' | 'cmp' | 'hasline' | 'rowcount'
   v: string
   /**
    * **견줌 꼬리** — 「있어야 E6100 == ${Model_Name}」(지시).
@@ -724,7 +726,9 @@ export function stepRules(step: TcStep): JudgeRule[] {
   return r.filter(
     (x): x is JudgeRule =>
       !!x && typeof x === 'object' && typeof (x as JudgeRule).v === 'string' &&
-      ['has', 'not', 'table', 'skip', 'skipcol', 'cmp'].includes(String((x as JudgeRule).t)),
+      ['has', 'not', 'table', 'skip', 'skipcol', 'cmp', 'hasline', 'rowcount'].includes(
+        String((x as JudgeRule).t),
+      ),
   )
 }
 
@@ -786,6 +790,51 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
       }
       const v = subVars(String(r.v ?? ''), vars).trim()
       if (!v) continue
+      /* ── 줄 단위 있으면(추가, 지시) — 공백 수를 정규화해 그 구절이 **든
+         줄**을 세고, 앞뒤가 글자·숫자면(1001↔10011, 1↔12) 안 맞은 걸로
+         본다. 견줌 꼬리(op·rhs)는 iTest 의 assert $value == N 처럼
+         **발견된 줄 수**를 견준다. 기존 has 는 그대로다. */
+      if (r.t === 'hasline') {
+        const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
+        const nv = norm(v)
+        const lineHit = (ln: string) => {
+          const nl = norm(ln)
+          let at = nl.indexOf(nv)
+          while (at !== -1) {
+            const b = at === 0 || !/[a-z0-9]/.test(nl[at - 1]!)
+            const e = at + nv.length >= nl.length || !/[a-z0-9]/.test(nl[at + nv.length]!)
+            if (b && e) return true
+            at = nl.indexOf(nv, at + 1)
+          }
+          return false
+        }
+        const inScoped = scoped2.split(/\r?\n/).filter(lineHit)
+        const hits = inScoped.length ? inScoped : raw2.split(/\r?\n/).filter(lineHit)
+        const cnt = hits.length
+        let ok = cnt > 0
+        const why: string[] = [
+          ok
+            ? `"${v}" 이(가) ${cnt}개 줄에서 발견되었습니다${saw(hits[0]?.trim().slice(0, 100), v)}`
+            : `"${v}" 이(가) 든 줄이 없습니다`,
+        ]
+        const rhs2 = String(r.rhs ?? '').trim()
+        if (String(r.op ?? '').trim() && rhs2) {
+          const e2 = evalCondWhy(`${cnt} ${r.op} ${subVars(rhs2, vars)}`, vars)
+          ok = e2.ok
+          why.push(`발견 줄 수 ${e2.why}`)
+        }
+        res.push({ ok, why: why.join(' · ') })
+        continue
+      }
+      /* ── 응답 줄 수(추가, 지시) — iTest rowCount(). 줄제외를 적용한
+         응답에서 비어 있지 않은 줄을 세어 기준 수와 견준다. */
+      if (r.t === 'rowcount') {
+        const nLines = scoped2.split(/\r?\n/).filter((l) => l.trim() !== '').length
+        const op2 = String(r.op ?? '').trim() || '=='
+        const e2 = evalCondWhy(`${nLines} ${op2} ${v}`, vars)
+        res.push({ ok: e2.ok, why: `응답 줄 수 ${e2.why}` })
+        continue
+      }
       if (r.t === 'has' || r.t === 'not') {
         let ok: boolean
         const why: string[] = []

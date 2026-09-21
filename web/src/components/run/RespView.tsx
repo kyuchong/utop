@@ -93,7 +93,18 @@ export function asStep(raw: Record<string, unknown>, i: number): {
     g('criteria') ||
     g('expected') ||
     rules
-      .map((r) => `${String(r?.rhs ?? r?.t ?? '')} ${String(r?.op ?? '==')} ${String(r?.v ?? '')}`.trim())
+      .map((r) => {
+        const t = String(r?.t ?? '')
+        /* 새 칩(추가)은 사람 말로 — 줄있음·줄수. 옛 칩 표기는 그대로 둔다 */
+        if (t === 'hasline')
+          return `줄있음 == ${String(r?.v ?? '')}${
+            String(r?.op ?? '').trim() && String(r?.rhs ?? '').trim()
+              ? ` (줄수 ${r?.op} ${r?.rhs})`
+              : ''
+          }`.trim()
+        if (t === 'rowcount') return `줄수 ${String(r?.op ?? '==')} ${String(r?.v ?? '')}`.trim()
+        return `${String(r?.rhs ?? r?.t ?? '')} ${String(r?.op ?? '==')} ${String(r?.v ?? '')}`.trim()
+      })
       .filter(Boolean)
       .join(' && ')
   /* 판정 — 사람이 적은 result 가 먼저, 없으면 실행기의 status */
@@ -582,11 +593,14 @@ export default function RespView({
                            데서나 칠해졌다). && 로 가른 절마다 말머리·연산자를
                            걷어 남는 구절 하나가 값이다. */
                         const KW =
-                          /^(has|not|==|!=|>=|<=|>|<|있으면|없으면|같다|다르다|포함|포함한다)$/i
+                          /^(has|not|==|!=|>=|<=|>|<|있으면|없으면|같다|다르다|포함|포함한다|줄있음|줄수)$/i
                         const vals = String(s2.expected ?? '')
                           .split('&&')
                           .map((c0) => {
-                            const w = c0.trim().split(/\s+/)
+                            /* 줄 수 절은 값이 아니라 수라 칠할 것이 없다 */
+                            const c1 = c0.trim().replace(/\s*\(줄수[^)]*\)\s*$/, '')
+                            if (/^줄수(\s|$)/i.test(c1)) return ''
+                            const w = c1.split(/\s+/)
                             while (w.length && KW.test(w[0]!)) w.shift()
                             return w.join(' ').replace(/^["']|["']$/g, '').trim()
                           })
