@@ -38,6 +38,9 @@ export default function TcSessionBar({
   const [pick, setPick] = useState(false)
   /** 세션 목록을 펼쳤는가 */
   const [panel, setPanel] = useState(false)
+  /** 패널을 띄울 화면 좌표 — 열 안 absolute 는 오른쪽 판에 가려졌다(지적:
+      드래그로 2열을 밀어야 + 세션이 보임). 블럭 메뉴처럼 fixed 로 띄운다. */
+  const [panelAt, setPanelAt] = useState<{ x: number; y: number } | null>(null)
   /** 연결 확인 중인 자리 */
   const [testing, setTesting] = useState<number | null>(null)
   const qc = useQueryClient()
@@ -304,7 +307,11 @@ export default function TcSessionBar({
         aria-haspopup="true"
         aria-expanded={panel}
         title="세션 목록 펼치기"
-        onClick={() => setPanel((v) => !v)}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect()
+          setPanelAt({ x: r.left, y: r.bottom + 4 })
+          setPanel((v) => !v)
+        }}
       >
         세션 {sessions.length}
         <span className="muted">
@@ -317,7 +324,20 @@ export default function TcSessionBar({
       {panel && (
         <>
           <div className="tc-menu-back" onClick={() => setPanel(false)} />
-          <div className="tc-sesspanel">
+          <div
+            className="tc-sesspanel"
+            /* 화면 좌표로 — 열의 overflow·오른쪽 판 어느 쪽에도 안 가린다 */
+            style={
+              panelAt
+                ? {
+                    position: 'fixed',
+                    left: Math.max(8, Math.min(panelAt.x, window.innerWidth - 700)),
+                    top: Math.min(panelAt.y, window.innerHeight - 340),
+                    zIndex: 80,
+                  }
+                : undefined
+            }
+          >
             <div className="tc-sesspanel-head">
               <b>세션 {sessions.length}개</b>
               {/* '세션 3개 · 장비 2대' 만 보면 왜 숫자가 다른지 모른다.

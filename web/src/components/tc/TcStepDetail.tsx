@@ -2225,10 +2225,24 @@ export default function TcStepDetail({
                   <BlockText
                     text={result}
                     onBlock={(v, x, y, kind) => setBlockAt({ v, x, y, kind })}
-                    markOf={(v) => {
+                    markOf={(v, line) => {
                       // 지정된 블럭 표시 — 기준 칩(초록/빨강)·변수(노랑)
                       if (chips.some((c) => c.t === 'has' && c.v === v)) return 'has'
                       if (chips.some((c) => c.t === 'not' && c.v === v)) return 'not'
+                      /* 있으면(줄) 칩(지적: 줄로 잡으면 색이 없다) — 그 구절이
+                         실제로 있는 줄에서, 구절에 든 조각만 칠한다 */
+                      const nrm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
+                      const tN = nrm(v)
+                      const lnN = ` ${nrm(String(line ?? ''))} `
+                      if (
+                        tN &&
+                        chips.some((c) => {
+                          if (c.t !== 'hasline') return false
+                          const vN = nrm(subVars(c.v, gp.values))
+                          return vN && lnN.includes(` ${vN} `) && ` ${vN} `.includes(` ${tN} `)
+                        })
+                      )
+                        return 'has'
                       const esc3 = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
                       const qs = [
                         ...(step.queries ?? []).map((x) => x.q),
