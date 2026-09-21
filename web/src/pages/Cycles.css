@@ -10616,3 +10616,11 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
     linear-gradient(var(--cl-line), var(--cl-line)) center / 1px 100% no-repeat,
     var(--cl-card);
 }
+
+/* ── 대화 속 추천 카드를 더 홀쭉·좁게(지시) — 폭 420px, 줄 높이도 줄임 ── */
+.ask-msgs .ask-inb { max-width: 420px; gap: 3px; margin: 2px 0 8px; }
+.ask-msgs .ask-inhero { padding: 5px 10px; border-radius: 9px; }
+.ask-msgs .ask-inhero > .nm,
+.ask-msgs .ask-inhero .ask-intt .nm { font-size: var(--fs-md); }
+.ask-msgs .ask-inbtn { padding: 4px 10px; font-size: var(--fs-xs); }
+.ask-msgs .ask-inrow { padding: 4px 10px; font-size: var(--fs-sm); }

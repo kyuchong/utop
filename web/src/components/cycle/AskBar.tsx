@@ -464,8 +464,9 @@ export default function AskBar({ devices }: Props) {
 
   /** 장비 고르개의 상태 탭 — 전체 · 연결됨 · 점검 · 연결안됨.
       열 머리 드롭다운에도 같은 거르개가 있지만, 가장 자주 쓰는 거르개가
-      메뉴 속에 묻혀 있으면 두 번 눌러야 닿는다(목업: 탭으로 낸다). */
-  const [devTab, setDevTab] = useState<'all' | 'ok' | 'busy' | 'part' | 'no'>('all')
+      메뉴 속에 묻혀 있으면 두 번 눌러야 닿는다(목업: 탭으로 낸다).
+      기본은 **사용 가능**(지시) — 고를 수 있는 것부터 보인다. */
+  const [devTab, setDevTab] = useState<'all' | 'ok' | 'busy' | 'part' | 'no'>('ok')
   /* 장비를 고른 **뒤에** 이어서 할 일. 질문 흐름에서 고르개를 열었으면
      고르자마자 2단계(항목 고르기)로 이어져야 한다 — 창만 닫히고 멈추면
      사람이 다음에 무엇을 눌러야 할지 모른다. */
@@ -1082,6 +1083,8 @@ export default function AskBar({ devices }: Props) {
     /* 판의 표도 물어본 모델로 미리 좁힌다(목업: 다른 모델은 흐리게) —
        「필터 지우기」 로 언제든 전체로 돌아간다 */
     setDevQ(m0)
+    /* 상태 탭은 질문마다 「사용 가능」 부터(지시) — 고를 수 있는 것이 먼저다 */
+    setDevTab('ok')
     const ord = { ok: 0, part: 1, busy: 2, no: 3 } as const
     const sorted = [...cands].sort((a, b) => ord[devStat(a).k] - ord[devStat(b).k])
     const hero = sorted[0]
@@ -1180,7 +1183,11 @@ export default function AskBar({ devices }: Props) {
     /* 전체 목록은 오른쪽 판이 편다(목업: 2단계 · 항목) — 창을 띄우지 않는다 */
     setPane('tc')
     if (!items.length) {
-      say('a', '<p class="ln">말씀과 가까운 항목을 못 찾았습니다 — 오른쪽 판에서 골라 주세요.</p>')
+      say(
+        'a',
+        '<p class="ln">REQ-Coverage 에 일치하는 시험 항목이 없습니다 — ' +
+          '다른 말로 다시 요청하시거나, 오른쪽 판에서 직접 골라 주세요.</p>',
+      )
       return
     }
     sayTcBlock(items)
@@ -1876,13 +1883,13 @@ export default function AskBar({ devices }: Props) {
        서버가 못 가르면 test=true 로 돌아와 원래 흐름 그대로다. */
     if (!(draft && mode !== 'basic')) {
       sayThink('말을 읽는 중…')
-      let chat: { test?: boolean; answer?: string } | null = null
+      let chat: { test?: boolean; answer?: string; model?: string } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
           method: 'POST',
           body: JSON.stringify({ q: said, mode }),
         })
-        chat = (await r.json()) as { test?: boolean; answer?: string }
+        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string }
       } catch {
         /* 못 물으면 시험 갈래로 — 이 화면의 본분 */
       }
@@ -1892,10 +1899,42 @@ export default function AskBar({ devices }: Props) {
         setFlowAt(0)
         return
       }
+      /* 등록 안 된 장비(지시) — 말에 적힌 모델이 장비·Coverage 어디에도
+         없으면 고르기 창을 띄우지 않고 「일치하는 결과가 없다」 고 말한다.
+         LLM 이 뽑은 모델명이 실제로 말에 있는 글자일 때만 믿는다. */
+      const askedModel = String(chat?.model ?? '').trim()
+      if (askedModel && raw0.toLowerCase().includes(askedModel.toLowerCase())) {
+        const knownModels = new Set(
+          [
+            ...usable.map((d) => String(d.model ?? '').trim().toLowerCase()),
+            ...tcAll.map((t) => String(t.model ?? '').trim().toLowerCase()),
+          ].filter(Boolean),
+        )
+        if (!knownModels.has(askedModel.toLowerCase())) {
+          say(
+            'a',
+            `<p class="ln"><b>${hesc(askedModel)}</b> 은(는) 등록된 장비가 아닙니다 — ` +
+              `일치하는 결과가 없습니다. Devices 에 등록된 모델명으로 다시 말씀해 주세요.</p>`,
+          )
+          setFlowAt(0)
+          return
+        }
+      }
     }
     /* General 은 **항목부터** 고른다(지시). 장비는 항목이 모델을 정한 뒤에
        묻는다 — 말에 모델이 있으면 그 모델 것만, 없으면 전체를 보여 준다. */
     if (mode === 'basic' && !draft) {
+      /* 이미 장비가 정해져 있으면(칩) 다시 묻지 않는다(지적) — 말에 다른
+         모델을 적었을 때만 아래 고르기로 내려간다. */
+      const cur0 = usable.find((x) => x.id === devId)
+      if (cur0) {
+        const m9 = (candsOf(raw0)?.model ?? '').trim().toLowerCase()
+        if (!m9 || m9 === String(cur0.model ?? '').trim().toLowerCase()) {
+          setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${cur0.ip} 유지 (이미 고른 장비)` }])
+          await stepTc(cur0, said)
+          return
+        }
+      }
       /* 장비를 먼저 고른다(지시 사진) — 고른 장비가 **모델을 정하고**,
          그 모델의 시험 항목만 이어서 보여 준다. */
       const known = [
@@ -2033,7 +2072,18 @@ export default function AskBar({ devices }: Props) {
       void makePlan(said, dev)
       return
     }
-    await findLike(said, dev)
+    const found = await findLike(said, dev)
+    /* REQ-Coverage 에 없는 항목(지시) — 가까운 것이 하나도 없으면 큰 고르기
+       창을 띄우지 않고 「일치하는 결과가 없다」 고 말한다. */
+    if (!found.length) {
+      say(
+        'a',
+        '<p class="ln">REQ-Coverage 에 일치하는 시험 항목이 없습니다 — ' +
+          '다른 말로 다시 요청하시거나, 「시험 항목 찾기」 로 직접 골라 주세요.</p>',
+      )
+      setFlowAt(0)
+      return
+    }
     setTcOnlyModel(true)
     setTcFind('')
     setTcPick(new Set())

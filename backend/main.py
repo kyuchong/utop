@@ -3538,21 +3538,25 @@ async def cov_chat(payload: dict):
         "- 인사·잡담·일반 지식 질문·뜻 없는 글자(예: asdf)면 test=false 로 하고, "
         "아래 지침의 말투로 answer 에 답을 적는다.\n"
         "- 애매하면 test=true 다 — 이 화면의 본분은 시험이다.\n"
-        'JSON 만 출력한다: {"test": true|false, "answer": "..."}\n\n'
+        "- model 에는 말에 **적힌 그대로의** 장비 모델명을 적는다(예: E6100). "
+        "말에 모델명이 없으면 빈 문자열 — 지어내지 마라. 등록 여부는 화면이 검사한다.\n"
+        'JSON 만 출력한다: {"test": true|false, "answer": "...", "model": "..."}\n\n'
         "지침:\n"
     )
     schema = {
         "type": "object",
-        "properties": {"test": {"type": "boolean"}, "answer": {"type": "string"}},
+        "properties": {"test": {"type": "boolean"}, "answer": {"type": "string"},
+                       "model": {"type": "string"}},
         "required": ["test", "answer"],
     }
     try:
         got = await _llm_json(llm, gate + base, f"사용자의 말: {q}", schema,
                               timeout=60, purpose=purpose)
         return {"ok": True, "test": bool(got.get("test")),
-                "answer": str(got.get("answer") or "").strip()}
+                "answer": str(got.get("answer") or "").strip(),
+                "model": str(got.get("model") or "").strip()}
     except Exception as e:
-        return {"ok": True, "test": True, "answer": "", "error": str(e)[:200]}
+        return {"ok": True, "test": True, "answer": "", "model": "", "error": str(e)[:200]}
 
 
 @app.post("/api/llm/wiring")
