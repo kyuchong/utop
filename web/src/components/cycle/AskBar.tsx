@@ -3137,14 +3137,14 @@ export default function AskBar({ devices }: Props) {
   return (
     /* 세 칸 + 아래 입력줄 — 옮겨 온 화면의 짜임을 우리 꼴(panel·btn·토큰)로 다시 그렸다.
        왼쪽 기록 · 가운데 작업 흐름 · 오른쪽 캔버스, 입력은 흐름부터 오른쪽 끝까지. */
-    <div className={`ask${!draft && !making ? ' athome' : ''}`}>
+    <div className={`ask${!draft && !making ? ' athome' : ''}${twoPane ? ' console' : ''}`}>
       {/* 왼쪽 「새 시험 만들기 · 최근」 칸은 걷어냈다(지시) — 첫 화면이
           한가운데에 서야 해서, 옆에 칸이 있으면 그만큼 밀린다. */}
 
       {/* ── 1열 · 대화 목록(지시: 클로드·GPT 처럼) ────────────────────
           새 대화 · 지난 대화. 누르면 그 절차가 되살아나고 ✕ 로 지운다. */}
       <aside className="ask-sess" aria-label="대화 목록">
-        <button className="btn small ask-new" type="button" onClick={newChat}>
+        <button className="ask-hnew" type="button" onClick={newChat}>
           ＋ 새 대화
         </button>
         <div className="ask-eyebrow">대화</div>
@@ -3157,7 +3157,7 @@ export default function AskBar({ devices }: Props) {
                 <button
                   type="button"
                   className="ask-sbtn"
-                  title="이 대화를 엽니다"
+                  title={x.at ? `${x.title} · ${String(x.at).slice(0, 16)}` : x.title}
                   onClick={() => void openChat(x.cid, x.title)}
                 >
                   <b>{x.title}</b>
@@ -3178,181 +3178,6 @@ export default function AskBar({ devices }: Props) {
       </aside>
 
       <div className="ask-main">
-        {/* 맨 위 줄 — 지금 무엇을 하고 있나(목업). 일이 시작된 뒤에만 뜬다.
-            물어본 말을 늘 곁에 두어야 「내가 뭘 시켰더라」 를 안 잊는다. */}
-        {(draft || making) && (
-          <div className="ask-top">
-            <b className="ask-top-t">AI 자연어 시험</b>
-            <span className={`ask-top-b${mode === 'adv' ? ' adv' : ''}`}>
-              {mode === 'adv' ? 'Advanced AI Assistant' : 'Basic AI Assistant'}
-            </span>
-            {asked && <span className="ask-top-q" title={asked}>{asked}</span>}
-            {/* 지금 어느 단계인가(목업의 배지) — 판 머리와 같은 알약 */}
-            <span className="askp-stage">
-              {making
-                ? '절차 생성'
-                : running
-                  ? '3단계 · 실행'
-                  : ran && ran.some((x) => x && (x.status || x.repeatResult))
-                    ? '결과'
-                    : '3단계 · 실행 확인'}
-            </span>
-            <span className="sp" />
-            <button
-              className="btn small"
-              type="button"
-              title="첫 화면으로 돌아갑니다 — 만든 절차와 물어본 말이 버려집니다"
-              onClick={() => {
-                setDraft(null)
-                setBuilt(null)
-                setRan(null)
-                setAsked('')
-                setErr('')
-                /* **이번 판의 찌꺼기까지 비운다**(지적: 눌러도 앞의 것이 남는다).
-                   흐름 기록·고른 스텝·물어본 글이 남으면 다음 물음이 그 위에서
-                   굴러간다. 다만 고른 장비(devId)와 켠 도구(tOn)는 **남긴다** —
-                   그 둘은 계정 설정을 따라가는 값이라, 여기서 비우면 「내 설정이
-                   사라졌다」 가 된다. */
-                setFlowLogRaw([])
-                setPicked(new Set())
-                setLike([])
-                setText('')
-                setMsgs([])
-                setPane('')
-                setRunView(false)
-              }}
-            >
-              ↺ 처음으로
-            </button>
-          </div>
-        )}
-        {/* 슬롯 줄 — 목업처럼 **머리 바로 아래**, 판들 바깥이다.
-            판 안에 있으면 세 판의 머리 높이가 어긋난다(지적). */}
-        {draft && (
-        <div className="ask-slots">
-          {/* 이 시험이 Coverage 트리의 **어디에 있는지**를 그대로 보여 준다
-              (지시 사진) — 사업자 › 폴더 › 요구사항 › 시험 번호.
-              누르면 그 자리로 간다. 장비는 오른쪽 끝 알약이 쥔다. */}
-          <nav className="bcrumb" aria-label="경로">
-            <span className="bc-root">Coverage</span>
-            {(pathQ.data?.cats ?? []).map((c) => (
-              <Fragment key={c.id}>
-                <span className="bc-sep" aria-hidden="true">
-                  ›
-                </span>
-                <span className="bc-a bc-plain">{c.name}</span>
-              </Fragment>
-            ))}
-            {pathQ.data?.req && (
-              <>
-                <span className="bc-sep" aria-hidden="true">
-                  ›
-                </span>
-                <a
-                  className="bc-a"
-                  href={gotoHref('req', pathQ.data.req.id)}
-                  title="이 요구사항으로 갑니다"
-                  onClick={(e) => gotoClick(e, 'req', pathQ.data?.req?.id ?? '')}
-                >
-                  {pathQ.data.req.title || pathQ.data.req.reqid}
-                </a>
-              </>
-            )}
-            <span className="bc-sep" aria-hidden="true">
-              ›
-            </span>
-            {tcOf(draft) ? (
-              <a
-                className="bc-cur"
-                href={gotoHref('tc', tcOf(draft))}
-                title="Coverage 에서 이 시험을 엽니다"
-                onClick={(e) => gotoClick(e, 'tc', tcOf(draft))}
-              >
-                {tcOf(draft)}
-              </a>
-            ) : (
-              <span className="bc-cur">{draft.name}</span>
-            )}
-            {tcOf(draft) && draft.name && (
-              <span className="bc-id" title={draft.name}>
-                {draft.name}
-              </span>
-            )}
-          </nav>
-          {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
-          <span className="sp" />
-          {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}
-          <button
-            type="button"
-            className="btn small ask-devchip"
-            title="다른 장비로 바꿉니다"
-            onClick={() => {
-              setPickSel(devId || usable[0]?.id || '')
-              setPickLab('')
-              setPickRack('')
-              setPickDev({ model: '', cands: usable })
-            }}
-          >
-            ▭ {curDev ? `${curDev.model || curDev.name || ''} · ${curDev.ip}` : '장비를 고르세요'}
-          </button>
-          {/* **여기부터**(지시) — 가운데서 깨졌을 때 처음부터 다시 돌리지 않게.
-              엔진은 이미 구간을 받는다(run(only, from, to)), 단추만 없었다. */}
-          {!running && stepAt > 0 && (
-            <button
-              className="btn small"
-              type="button"
-              disabled={!draft.steps.length || !devId}
-              title={`고른 ${stepAt + 1}번 줄부터 끝까지 돌립니다`}
-              onClick={() => void run(undefined, stepAt)}
-            >
-              ▶ 여기부터
-            </button>
-          )}
-          {running ? (
-            <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
-              ⏹ 멈추기
-            </button>
-          ) : (
-            <button
-              className="btn primary ask-runbig"
-              type="button"
-              disabled={!draft.steps.length || !devId}
-              onClick={() => void run()}
-            >
-              {/* 다 돌린 뒤에도 「시험 시작」 이면 끝났는지 아직인지 모른다(지적) */}
-              {ran && ran.some((x) => x && (x.status || x.repeatResult)) ? '▷ 다시 시험' : '▷ 시험 시작'}
-            </button>
-          )}
-          {ran && !running && (
-            <button className="btn small" type="button" onClick={() => void save()}>
-              시험으로 저장
-            </button>
-          )}
-          <button
-            className="btn small ask-trash"
-            type="button"
-            title="버리기 — 만든 절차를 지웁니다"
-            aria-label="버리기"
-            onClick={() => {
-              /* 한 번 물어본다(지시) — 스텝과 돌린 결과가 함께 사라진다 */
-              const n = draft.steps.length
-              const hasRun = (ran ?? []).some((r) => r && (r.repeatResult || r.status))
-              if (
-                !window.confirm(
-                  `만든 절차 ${n}스텝을 버릴까요?` +
-                    (hasRun ? '\n돌린 결과도 함께 사라집니다.' : ''),
-                )
-              )
-                return
-              setDraft(null)
-              setRan(null)
-              setRunView(false)
-            }}
-          >
-            <IconTrash />
-          </button>
-        </div>
-        )}
         <div className="ask-cols">
           {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
           {/* 작업 흐름 — 아직 아무 일도 없으면 빈 판이라 첫 화면을 좁힐 뿐이다 */}
@@ -3372,65 +3197,6 @@ export default function AskBar({ devices }: Props) {
               </div>
             )}
 
-      {/* 만드는 중 — 첫 화면을 **치운다**.
-          초안은 기준까지 다 채운 뒤에 나오므로 그때까지 이 자리가 빈다.
-          질문 보기를 그대로 두면 다 만든 줄 모르고 다른 예시를 눌러 같은
-          일이 두 번 시작된다(가져오기 중에는 busy 가 꺼져 있어 막히지도
-          않았다). 지금 무엇을 하고 있는지만 보인다. */}
-      {!draft && making && (
-        <div className="ask-making">
-          <h1>
-            <span className="ask-spin" aria-hidden="true" />
-            AI 생성 중…
-          </h1>
-          <p className="muted">
-            {asked.trim() ? `“${asked.trim()}”` : '고른 시험 항목으로 절차를 짓는 중입니다'}
-          </p>
-          <div className="ask-mksay">
-            <i />
-            <span>{genSay || '만드는 중…'}</span>
-            {elapsed > 4 && <em className="muted">{elapsed}초째</em>}
-          </div>
-          {/* 절차가 지어졌으면 **그것을 보여 준다.** 레일에는 스텝이 다 찼는데
-              여기만 회색 뼈대면 「스텝이 안 만들어졌다」 로 보인다(지적) — 실은
-              기준을 잡느라 몇 초에서 몇십 초가 걸리는 참이다. */}
-          {built && built.steps.length > 0 ? (
-            <ol className="ask-mkstep">
-              {built.steps.map((x, i) => (
-                <li key={i}>
-                  <i>{i + 1}</i>
-                  <span>
-                    <b>{x.desc || x.cli}</b>
-                    {x.cli && x.desc ? <code>{x.cli}</code> : null}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="ask-skel" aria-hidden="true">
-              {[0, 1, 2].map((i) => (
-                <div className="ask-skelrow" key={i}>
-                  <b />
-                  <em />
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="ask-note muted small">
-            {built && built.steps.length > 0 ? (
-              <>
-                절차 <b>{built.steps.length}스텝</b> 은 다 나왔습니다. 지금은 <b>판정 기준</b> 을 잡는
-                중입니다 — 다 채우면 이 절차가 고칠 수 있는 꼴로 열립니다.
-              </>
-            ) : (
-              <>
-                <b>판정 기준</b> 까지 채운 뒤에 절차가 한 번에 나옵니다.
-              </>
-            )}
-          </p>
-        </div>
-      )}
-
       {/* 첫 화면 — 보내 주신 목업 그대로(지시).
           제목 · 입력칸(모드 고르개가 그 안에) · 오프너 셋.
           관리자는 ⚙ 로 오프너를 이 자리에서 고친다. */}
@@ -3438,16 +3204,6 @@ export default function AskBar({ devices }: Props) {
           className={`ask-home${exEdit ? ' editing' : ''}${twoPane ? ' chat' : ''}`}
           data-theme={theme}
         >
-          {/* 대화 머리(목업) — 콘솔 모드에서 이 기둥이 무엇인지 말한다 */}
-          {twoPane && (
-            <div className="ask-chathd">
-              <span className="ask-chatlogo" aria-hidden="true">AI</span>
-              <div className="ask-chattt">
-                <b>Coverage AI</b>
-                <span>대화로 진행 · 자세한 것은 오른쪽 판에</span>
-              </div>
-            </div>
-          )}
           {exEdit && <span className="ask-edbadge">오프너 편집 모드</span>}
           <div className="ask-hometools">
             {!exEdit && (
@@ -4053,6 +3809,197 @@ export default function AskBar({ devices }: Props) {
           만들기만으로는 장비에 아무것도 안 나간다 — 명령은 [실행] 을 눌렀을
           때만 나가므로, 사람이 절차를 보고 고른 뒤에 나간다. */}
 
+      {/* ── 3열 · 아티팩트(지시: 클로드처럼) ──────────────────────
+          맨 위는 슬롯 줄(경로·장비·실행 단추) — 이 기둥의 머리다.
+          그 아래로 만드는 중 · 자세히 보기 판 · 절차가 갈아 든다. */}
+      {twoPane && (
+        <section className="ask-art">
+        {/* 슬롯 줄 — 목업처럼 **머리 바로 아래**, 판들 바깥이다.
+            판 안에 있으면 세 판의 머리 높이가 어긋난다(지적). */}
+        {draft && (
+        <div className="ask-slots">
+          {/* 이 시험이 Coverage 트리의 **어디에 있는지**를 그대로 보여 준다
+              (지시 사진) — 사업자 › 폴더 › 요구사항 › 시험 번호.
+              누르면 그 자리로 간다. 장비는 오른쪽 끝 알약이 쥔다. */}
+          <nav className="bcrumb" aria-label="경로">
+            <span className="bc-root">Coverage</span>
+            {(pathQ.data?.cats ?? []).map((c) => (
+              <Fragment key={c.id}>
+                <span className="bc-sep" aria-hidden="true">
+                  ›
+                </span>
+                <span className="bc-a bc-plain">{c.name}</span>
+              </Fragment>
+            ))}
+            {pathQ.data?.req && (
+              <>
+                <span className="bc-sep" aria-hidden="true">
+                  ›
+                </span>
+                <a
+                  className="bc-a"
+                  href={gotoHref('req', pathQ.data.req.id)}
+                  title="이 요구사항으로 갑니다"
+                  onClick={(e) => gotoClick(e, 'req', pathQ.data?.req?.id ?? '')}
+                >
+                  {pathQ.data.req.title || pathQ.data.req.reqid}
+                </a>
+              </>
+            )}
+            <span className="bc-sep" aria-hidden="true">
+              ›
+            </span>
+            {tcOf(draft) ? (
+              <a
+                className="bc-cur"
+                href={gotoHref('tc', tcOf(draft))}
+                title="Coverage 에서 이 시험을 엽니다"
+                onClick={(e) => gotoClick(e, 'tc', tcOf(draft))}
+              >
+                {tcOf(draft)}
+              </a>
+            ) : (
+              <span className="bc-cur">{draft.name}</span>
+            )}
+            {tcOf(draft) && draft.name && (
+              <span className="bc-id" title={draft.name}>
+                {draft.name}
+              </span>
+            )}
+          </nav>
+          {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
+          <span className="sp" />
+          {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}
+          <button
+            type="button"
+            className="btn small ask-devchip"
+            title="다른 장비로 바꿉니다"
+            onClick={() => {
+              setPickSel(devId || usable[0]?.id || '')
+              setPickLab('')
+              setPickRack('')
+              setPickDev({ model: '', cands: usable })
+            }}
+          >
+            ▭ {curDev ? `${curDev.model || curDev.name || ''} · ${curDev.ip}` : '장비를 고르세요'}
+          </button>
+          {/* **여기부터**(지시) — 가운데서 깨졌을 때 처음부터 다시 돌리지 않게.
+              엔진은 이미 구간을 받는다(run(only, from, to)), 단추만 없었다. */}
+          {!running && stepAt > 0 && (
+            <button
+              className="btn small"
+              type="button"
+              disabled={!draft.steps.length || !devId}
+              title={`고른 ${stepAt + 1}번 줄부터 끝까지 돌립니다`}
+              onClick={() => void run(undefined, stepAt)}
+            >
+              ▶ 여기부터
+            </button>
+          )}
+          {running ? (
+            <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
+              ⏹ 멈추기
+            </button>
+          ) : (
+            <button
+              className="btn primary ask-runbig"
+              type="button"
+              disabled={!draft.steps.length || !devId}
+              onClick={() => void run()}
+            >
+              {/* 다 돌린 뒤에도 「시험 시작」 이면 끝났는지 아직인지 모른다(지적) */}
+              {ran && ran.some((x) => x && (x.status || x.repeatResult)) ? '▷ 다시 시험' : '▷ 시험 시작'}
+            </button>
+          )}
+          {ran && !running && (
+            <button className="btn small" type="button" onClick={() => void save()}>
+              시험으로 저장
+            </button>
+          )}
+          <button
+            className="btn small ask-trash"
+            type="button"
+            title="버리기 — 만든 절차를 지웁니다"
+            aria-label="버리기"
+            onClick={() => {
+              /* 한 번 물어본다(지시) — 스텝과 돌린 결과가 함께 사라진다 */
+              const n = draft.steps.length
+              const hasRun = (ran ?? []).some((r) => r && (r.repeatResult || r.status))
+              if (
+                !window.confirm(
+                  `만든 절차 ${n}스텝을 버릴까요?` +
+                    (hasRun ? '\n돌린 결과도 함께 사라집니다.' : ''),
+                )
+              )
+                return
+              setDraft(null)
+              setRan(null)
+              setRunView(false)
+            }}
+          >
+            <IconTrash />
+          </button>
+        </div>
+        )}
+      {/* 만드는 중 — 첫 화면을 **치운다**.
+          초안은 기준까지 다 채운 뒤에 나오므로 그때까지 이 자리가 빈다.
+          질문 보기를 그대로 두면 다 만든 줄 모르고 다른 예시를 눌러 같은
+          일이 두 번 시작된다(가져오기 중에는 busy 가 꺼져 있어 막히지도
+          않았다). 지금 무엇을 하고 있는지만 보인다. */}
+      {!draft && making && (
+        <div className="ask-making">
+          <h1>
+            <span className="ask-spin" aria-hidden="true" />
+            AI 생성 중…
+          </h1>
+          <p className="muted">
+            {asked.trim() ? `“${asked.trim()}”` : '고른 시험 항목으로 절차를 짓는 중입니다'}
+          </p>
+          <div className="ask-mksay">
+            <i />
+            <span>{genSay || '만드는 중…'}</span>
+            {elapsed > 4 && <em className="muted">{elapsed}초째</em>}
+          </div>
+          {/* 절차가 지어졌으면 **그것을 보여 준다.** 레일에는 스텝이 다 찼는데
+              여기만 회색 뼈대면 「스텝이 안 만들어졌다」 로 보인다(지적) — 실은
+              기준을 잡느라 몇 초에서 몇십 초가 걸리는 참이다. */}
+          {built && built.steps.length > 0 ? (
+            <ol className="ask-mkstep">
+              {built.steps.map((x, i) => (
+                <li key={i}>
+                  <i>{i + 1}</i>
+                  <span>
+                    <b>{x.desc || x.cli}</b>
+                    {x.cli && x.desc ? <code>{x.cli}</code> : null}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="ask-skel" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <div className="ask-skelrow" key={i}>
+                  <b />
+                  <em />
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="ask-note muted small">
+            {built && built.steps.length > 0 ? (
+              <>
+                절차 <b>{built.steps.length}스텝</b> 은 다 나왔습니다. 지금은 <b>판정 기준</b> 을 잡는
+                중입니다 — 다 채우면 이 절차가 고칠 수 있는 꼴로 열립니다.
+              </>
+            ) : (
+              <>
+                <b>판정 기준</b> 까지 채운 뒤에 절차가 한 번에 나옵니다.
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* ── 오른쪽 · 자세히 보기 판(목업 「Test AI 시험 콘솔」) ──────────
           1·2단계의 표가 여기 선다. 절차(draft)·생성 중(making)은 저희 판이
           이 자리를 그대로 차지하므로 그때는 나서지 않는다. */}
@@ -4521,6 +4468,8 @@ export default function AskBar({ devices }: Props) {
           </div>
           )}
         </div>
+      )}
+        </section>
       )}
           </main>
 

@@ -9785,3 +9785,85 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .askr-sum-v { font-size: 15px; }
 .askr-sum-v.pass { color: var(--c-pass); }
 .askr-sum-v.fail { color: var(--c-fail); }
+
+/* ══════════════════════════════════════════════════════════════════
+   콘솔을 클로드 꼴로(지시: 3분할만 됐지 클로드처럼 안 보인다 · 글자가 제각각).
+   위 이중 툴바는 걷고 — 슬롯 줄이 3열(아티팩트)의 머리가 된다.
+   1열 목록은 납작한 글줄, 2열 대화는 민짜 글, 글자 크기는 세 단만 쓴다:
+   본문 --fs-md · 목록 --fs-sm · 메타 --fs-xs. */
+.ask.console .ask-cols { padding: 0; }
+
+/* 절차 모드의 display:contents 사슬을 걷는다 — 판들이 이제 3열 안에 산다 */
+.ask-canvaswrap.plan { display: flex; flex-direction: column; }
+.ask-canvas.plan { display: flex; flex-direction: row; padding: 0; }
+.ask-canvas.plan.console > .ask-home {
+  flex: 0 0 clamp(340px, 32%, 520px);
+  border: 0;
+  border-right: 1px solid var(--c-border);
+  border-radius: 0;
+  order: -1;
+}
+
+/* ── 3열 · 아티팩트 기둥 ── */
+.ask-art {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-app-bg);
+}
+.ask-art > .ask-slots { flex: none; }
+.ask-art > .ask-plan {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 12px 16px;
+}
+.ask-art .ask-two.railbox { flex: 1; min-height: 0; display: flex; }
+.ask-art > .ask-making { flex: 1; min-width: 0; overflow: auto; }
+
+/* ── 1열 · 대화 목록 — 납작한 글줄(클로드) ── */
+.ask-sess { gap: 4px; padding: 10px; }
+.ask-hnew {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text);
+  cursor: pointer;
+}
+.ask-hnew:hover { background: var(--c-surface); }
+.ask-eyebrow { margin: 6px 4px 0; }
+.ask-slist { gap: 1px; }
+.ask-sitem { border: 0; background: transparent; border-radius: 8px; }
+.ask-sitem:hover { border-color: transparent; background: var(--c-surface); }
+.ask-sitem.on { border-color: transparent; background: var(--c-primary-bg); }
+.ask-sbtn { padding: 7px 10px; }
+.ask-sbtn b { font-size: var(--fs-sm); font-weight: 500; }
+/* 날짜 줄은 걷는다(클로드) — 풍선말이 대신 말한다 */
+.ask-sbtn em { display: none; }
+
+/* ── 2열 · 대화 — 민짜 글, 글자 한 단(--fs-md) ── */
+.ask.console .ask-msgs .msg { margin-bottom: 14px; }
+.ask.console .ask-msgs .msg.u b {
+  background: var(--c-surface-alt);
+  color: var(--c-text);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 14px;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  padding: 9px 14px;
+}
+.ask.console .ask-msgs .msg.a .av { display: none; }
+.ask.console .ask-msgs .msg.a .bd { font-size: var(--fs-md); padding-top: 0; }
+.ask.console .ask-msgs .ln { margin: 0 0 9px; }
+/* 대화 기둥은 흰 종이(클로드) — 회색은 3열 바탕만 */
+.ask.console .ask-home { background: var(--c-surface); }
+.ask.console .ask-home.chat .ask-homewrap { background: var(--c-surface); }
