@@ -10174,3 +10174,39 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   color: var(--cl-ink);
 }
 .ask-sfind:focus { outline: 2px solid var(--cl-accent); outline-offset: -1px; border-color: transparent; }
+
+/* ── 3열을 카드로(지시) — 크림 바탕 위에 세 장이 떠 있고, 사이 손잡이로
+   1·2열 폭을 잡는다(3열은 남는 폭). ── */
+.ask.console { padding: 10px 12px 12px; }
+.ask.console > .ask-sess {
+  border: 1px solid var(--cl-line);
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgb(70 60 30 / 6%);
+}
+.ask-canvas.console:not(.plan) > .ask-home,
+.ask-canvas.plan.console > .ask-home {
+  border: 1px solid var(--cl-line);
+  border-right: 1px solid var(--cl-line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgb(70 60 30 / 6%);
+}
+.ask-art {
+  border: 1px solid var(--cl-line);
+  border-radius: 14px;
+  background: var(--cl-card);
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgb(70 60 30 / 6%);
+}
+/* 카드가 됐으니 속엣것들의 제 카드 껍데기는 걷는다 — 겹테두리 방지 */
+.ask-art > .ask-slots {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--cl-line);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--cl-card);
+}
+.ask.console .askp { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+.ask-art > .ask-plan { padding: 0; }
+.askr { border: 0; border-radius: 0; box-shadow: none; }

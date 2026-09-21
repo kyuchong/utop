@@ -8,6 +8,7 @@ import {
   IconFolder,
   IconProject,
   IconReqDoc,
+  IconSearch,
   IconSettings,
   IconTrash,
 } from '@/components/icons'
@@ -580,6 +581,11 @@ export default function AskBar({ devices }: Props) {
   }
   /** 스텝 목록 폭 — Coverage 와 같은 조절바(목업) */
   const [seqW, setSeqW] = useResizableWidth('utop.ai.seqw', 560, 340, 1000)
+  /* 3열 폭 조절(지시) — 1열 대화 목록 · 2열 대화, 3열은 남는 폭을 갖는다 */
+  const [sessW, setSessW] = useResizableWidth('utop.ai.sessw', 232, 170, 420)
+  const [chatW, setChatW] = useResizableWidth('utop.ai.chatw', 480, 320, 860)
+  const sessRef = useRef<HTMLElement>(null)
+  const homeRef = useRef<HTMLDivElement>(null)
   /** 실행 로그 판 폭 — 판이 셋이 되었으므로 이것도 잡을 수 있어야 한다 */
   const [logW, setLogW] = useResizableWidth('utop.ai.logw', 330, 240, 720)
   /** 판정 색은 **설정이 정본**이다 — 여기서 초록·빨강을 따로 박으면
@@ -3217,7 +3223,7 @@ export default function AskBar({ devices }: Props) {
 
       {/* ── 1열 · 대화 목록(지시: 클로드·GPT 처럼) ────────────────────
           새 대화 · 지난 대화. 누르면 그 절차가 되살아나고 ✕ 로 지운다. */}
-      <aside className="ask-sess" aria-label="대화 목록">
+      <aside className="ask-sess" aria-label="대화 목록" ref={sessRef} style={{ width: sessW }}>
         {/* 로고 줄은 걷었다(지시) — 왼쪽 UTOP 메뉴가 이미 Coverage AI 를 말한다 */}
         <button className="ask-hnew" type="button" onClick={newChat}>
           <span className="pl" aria-hidden="true">＋</span>새 채팅
@@ -3230,7 +3236,8 @@ export default function AskBar({ devices }: Props) {
             setFindQ('')
           }}
         >
-          <span className="pl s" aria-hidden="true">🔍</span>대화 검색
+          {/* 테두리만 있는 돋보기(지시) — 이모지 대신 선 아이콘 */}
+          <span className="pl s" aria-hidden="true"><IconSearch /></span>대화 검색
         </button>
         {findOn && (
           <input
@@ -3325,6 +3332,11 @@ export default function AskBar({ devices }: Props) {
         </div>
         {/* 프로필 칩도 걷었다(지시) — 상단바가 이미 로그인한 사람을 말한다 */}
       </aside>
+      <Resizer
+        label="대화 목록 폭 조절"
+        onResize={setSessW}
+        getOrigin={() => sessRef.current?.getBoundingClientRect().left ?? 0}
+      />
 
       <div className="ask-main">
         <div className="ask-cols">
@@ -3352,6 +3364,8 @@ export default function AskBar({ devices }: Props) {
         <div
           className={`ask-home${exEdit ? ' editing' : ''}${twoPane ? ' chat' : ''}`}
           data-theme={theme}
+          ref={homeRef}
+          style={twoPane ? { flex: `0 0 ${chatW}px` } : undefined}
         >
           {exEdit && <span className="ask-edbadge">오프너 편집 모드</span>}
           <div className="ask-hometools">
@@ -3979,6 +3993,14 @@ export default function AskBar({ devices }: Props) {
           만들기만으로는 장비에 아무것도 안 나간다 — 명령은 [실행] 을 눌렀을
           때만 나가므로, 사람이 절차를 보고 고른 뒤에 나간다. */}
 
+      {/* 2열 ↔ 3열 사이 폭 조절 손잡이(지시) */}
+      {twoPane && (
+        <Resizer
+          label="대화 폭 조절"
+          onResize={setChatW}
+          getOrigin={() => homeRef.current?.getBoundingClientRect().left ?? 0}
+        />
+      )}
       {/* ── 3열 · 아티팩트(지시: 클로드처럼) ──────────────────────
           맨 위는 슬롯 줄(경로·장비·실행 단추) — 이 기둥의 머리다.
           그 아래로 만드는 중 · 자세히 보기 판 · 절차가 갈아 든다. */}
