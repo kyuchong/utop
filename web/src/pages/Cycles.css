@@ -9983,16 +9983,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 }
 .askr-sum { background: #f7f5ee; border-top-color: var(--cl-line); }
 
-/* ── 시안 그대로: 사이드바 로고·새 채팅·프로필(클로드) ── */
-.ask-slogo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px 12px;
-  font-weight: 700;
-  font-size: 14.5px;
-}
-.ask-slogo i { color: var(--cl-accent); font-style: normal; font-size: 16px; }
+/* ── 시안 그대로: 새 채팅(클로드) — 로고·프로필 칩은 걷었다(지시) ── */
 .ask-hnew { display: flex; align-items: center; gap: 8px; }
 .ask-hnew .pl {
   display: grid;
@@ -10006,31 +9997,6 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   line-height: 1;
   flex: none;
 }
-.ask-sme {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px 10px 2px;
-  border-top: 1px solid var(--cl-line);
-  margin-top: 6px;
-}
-.ask-sme .av {
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #3b5a80;
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 700;
-}
-.ask-sme .who { min-width: 0; }
-.ask-sme b { display: block; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ask-sme em { font-style: normal; font-size: 11px; color: var(--cl-sub); }
-
 /* ── 시안 그대로: 내 말풍선 왼쪽 아바타 · AI 답 동작 줄 ── */
 .ask.console .ask-msgs .msg.u { justify-content: flex-start; gap: 12px; }
 .uav {
@@ -10188,3 +10154,23 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   cursor: pointer;
 }
 .ask-smore:hover { background: var(--cl-hover); color: var(--cl-ink); }
+
+/* 대화 검색(지시) — 새 채팅 아래 줄과 찾기 칸 */
+.ask-hnew.sub { color: var(--cl-ink); font-weight: 500; }
+.ask-hnew.sub.on { background: var(--cl-hover); }
+.ask-hnew .pl.s {
+  background: transparent;
+  color: var(--cl-sub);
+  font-size: 13px;
+}
+.ask-sfind {
+  margin: 2px 4px 4px;
+  padding: 7px 10px;
+  border: 1px solid var(--cl-line);
+  border-radius: 9px;
+  background: var(--cl-card);
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--cl-ink);
+}
+.ask-sfind:focus { outline: 2px solid var(--cl-accent); outline-offset: -1px; border-color: transparent; }

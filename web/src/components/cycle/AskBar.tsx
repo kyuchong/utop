@@ -649,6 +649,15 @@ export default function AskBar({ devices }: Props) {
      줄마다 ⋯ 메뉴(이름 바꾸기·지우기), 최근 12개만 펴고 「더 보기」 */
   const [listAll, setListAll] = useState(false)
   const [thMenu, setThMenu] = useState('')
+  /* 대화 검색(지시) — 새 채팅 아래 줄, 누르면 찾기 칸이 열려 제목으로 거른다 */
+  const [findOn, setFindOn] = useState(false)
+  const [findQ, setFindQ] = useState('')
+  const chatQ = findOn ? findQ.trim().toLowerCase() : ''
+  const shownChats = chatQ
+    ? recent.filter((x) => x.title.toLowerCase().includes(chatQ))
+    : listAll
+      ? recent
+      : recent.slice(0, 12)
   useEffect(() => {
     if (!thMenu) return
     const close = () => setThMenu('')
@@ -3209,12 +3218,35 @@ export default function AskBar({ devices }: Props) {
       {/* ── 1열 · 대화 목록(지시: 클로드·GPT 처럼) ────────────────────
           새 대화 · 지난 대화. 누르면 그 절차가 되살아나고 ✕ 로 지운다. */}
       <aside className="ask-sess" aria-label="대화 목록">
-        <div className="ask-slogo">
-          <i aria-hidden="true">✳</i>Coverage AI
-        </div>
+        {/* 로고 줄은 걷었다(지시) — 왼쪽 UTOP 메뉴가 이미 Coverage AI 를 말한다 */}
         <button className="ask-hnew" type="button" onClick={newChat}>
           <span className="pl" aria-hidden="true">＋</span>새 채팅
         </button>
+        <button
+          className={`ask-hnew sub${findOn ? ' on' : ''}`}
+          type="button"
+          onClick={() => {
+            setFindOn((v) => !v)
+            setFindQ('')
+          }}
+        >
+          <span className="pl s" aria-hidden="true">🔍</span>대화 검색
+        </button>
+        {findOn && (
+          <input
+            className="ask-sfind"
+            autoFocus
+            value={findQ}
+            placeholder="대화 제목으로 찾기"
+            onChange={(e) => setFindQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setFindOn(false)
+                setFindQ('')
+              }
+            }}
+          />
+        )}
         <div className="ask-eyebrow">
           <span>대화</span>
           <button
@@ -3229,8 +3261,10 @@ export default function AskBar({ devices }: Props) {
         <div className="ask-slist">
           {recent.length === 0 ? (
             <span className="muted small">아직 대화가 없습니다.</span>
+          ) : shownChats.length === 0 ? (
+            <span className="muted small">「{findQ.trim()}」 에 맞는 대화가 없습니다.</span>
           ) : (
-            (listAll ? recent : recent.slice(0, 12)).map((x) => (
+            shownChats.map((x) => (
               <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}`} key={x.cid}>
                 <button
                   type="button"
@@ -3283,21 +3317,13 @@ export default function AskBar({ devices }: Props) {
               </div>
             ))
           )}
-          {!listAll && recent.length > 12 && (
+          {!chatQ && !listAll && recent.length > 12 && (
             <button type="button" className="ask-smore" onClick={() => setListAll(true)}>
               {recent.length - 12}개 더 보기
             </button>
           )}
         </div>
-        {me.name && (
-          <div className="ask-sme">
-            <span className="av" aria-hidden="true">{myInit}</span>
-            <span className="who">
-              <b>{me.name}</b>
-              <em>{me.dept || me.team || ''}</em>
-            </span>
-          </div>
-        )}
+        {/* 프로필 칩도 걷었다(지시) — 상단바가 이미 로그인한 사람을 말한다 */}
       </aside>
 
       <div className="ask-main">
