@@ -8045,6 +8045,14 @@ async def run_cli_stream(payload: dict):
                                 if _emit:
                                     yield _sse({"o": _emit})
                                     await asyncio.sleep(0)
+                            # 암호 물음(지시: 라이브 터미널에서 start-shell 접속) —
+                            # `Password:` 로 끝나면 그 명령은 여기서 끝난 것이다.
+                            # 프롬프트가 아니라 12초 idle 을 기다리던 것이 접속을
+                            # 막던 진범. 남은 tail 을 보이고 제어를 돌려준다 —
+                            # 사용자가 다음 줄에 암호를 치면 그대로 들어간다.
+                            if pending and _restr.search(r"pass\s*word\s*:?\s*$", pending.strip(), _restr.I):
+                                if pending: yield _sse({"o": pending})
+                                pending = ""; break
                             if pr and pending.strip() and _restr.search(pr, pending.strip()):
                                 _quiet_dl = _tstr.time() + _quiet_wait
                                 _saw_more = False
