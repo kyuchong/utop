@@ -2128,28 +2128,8 @@ export default function AskBar({ devices }: Props) {
     }
   }
 
-  /** 쓸 만하면 진짜 시험으로 남긴다 */
-  const save = async () => {
-    if (!draft) return
-    const tcid = window.prompt('시험 ID', `NL-${Date.now().toString().slice(-8)}`)
-    if (!tcid?.trim()) return
-    try {
-      const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid.trim())}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          tcid: tcid.trim(),
-          name: draft.name,
-          object_md: draft.object ?? '',
-          sessions: [devId],
-          checks: (ran ?? []).map((s) => ({ ...s })),
-        }),
-      })
-      if (!r.ok) throw new Error(String(r.status))
-      window.alert(`「${draft.name}」 을 시험으로 저장했습니다.`)
-    } catch {
-      window.alert('저장하지 못했습니다')
-    }
-  }
+  /* 「시험으로 저장」 은 걷었다(지시) — 결과는 PDF·PPTX 로 남긴다.
+     되살릴 일이 생기면 git 에서 save() 를 꺼낸다. */
 
   /**
    * Coverage 의 「스텝 상세」 가 주는 값(TcStep) 을 초안에 되돌린다.
@@ -2480,27 +2460,130 @@ export default function AskBar({ devices }: Props) {
   /** 콘솔 모드(목업) — 대화가 시작되면 왼쪽 대화 기둥 + 오른쪽 자세히 보기 판 */
   const twoPane = msgs.length > 0 || !!draft || making
 
-  /** 진행 플로우(지시) — 3열 머리에 ① 장비 → ② 항목 → ③ 실행.
-      지난 단계는 ✓, 지금 단계는 코랄로 선다. */
-  const flowSteps = (cur: 1 | 2 | 3) => (
-    <span className="ask-flow" aria-label={`진행 ${cur}/3 단계`}>
-      {(
-        [
-          ['장비', 1],
-          ['항목', 2],
-          ['실행', 3],
-        ] as const
-      ).map(([nm, n], i) => (
-        <Fragment key={n}>
-          {i > 0 && <em className={`fl-ln${cur > i ? ' on' : ''}`} aria-hidden="true" />}
-          <i className={`fl-s${cur === n ? ' cur' : cur > n ? ' done' : ''}`}>
-            <b>{cur > n ? '✓' : n}</b>
-            {nm}
-          </i>
-        </Fragment>
-      ))}
-    </span>
-  )
+  /* 진행 플로우는 걷었다(지시) */
+
+  /** 결과서 HTML — PDF 저장이 쓴다(서버 /api/wiki/pdf 가 PDF 로 바꿔 준다) */
+  const reportHtml = () => {
+    const passN = autoSteps.filter((s) => /pass/i.test(String(s.mark ?? ''))).length
+    const failN = autoSteps.filter((s) => /fail/i.test(String(s.mark ?? ''))).length
+    const at = new Date().toLocaleString('ko-KR')
+    const body = autoSteps
+      .map((s) => {
+        const quiet = s.kind === 'comment' || s.kind === 'message'
+        const mark = String(s.mark ?? '')
+        const mk = mark
+          ? `<b class="${/pass/i.test(mark) ? 'ok' : 'bad'}">${/pass/i.test(mark) ? 'PASS' : 'FAIL'}</b>`
+          : quiet
+            ? ''
+            : '<span class="k">판정 없음</span>'
+        const head = `<div class="sh"><span>${quiet ? '주석' : `Step ${s.no}`}</span><span class="cmd">${hesc(
+          s.cmd || s.t || '',
+        )}</span><span class="sp"></span>${mk}</div>`
+        if (quiet) return `<div class="st">${head}</div>`
+        const why =
+          (s.expected && s.expected !== '—' ? `<div><span class="k">판정 기준</span> ${hesc(s.expected)}</div>` : '') +
+          (s.reason ? `<div><span class="k">RCA</span> ${hesc(String(s.reason))}</div>` : '')
+        const out = s.out ? `<pre>${hesc(String(s.out).slice(0, 4000))}</pre>` : ''
+        return `<div class="st">${head}${why || out ? `<div class="sb">${why}${out}</div>` : ''}</div>`
+      })
+      .join('')
+    return (
+      `<style>body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:12px;color:#222;margin:24px}` +
+      `h1{font-size:18px;margin:0 0 4px}.meta{color:#666;margin:0 0 14px}` +
+      `.st{border:1px solid #ddd;border-radius:6px;margin:0 0 10px;page-break-inside:avoid}` +
+      `.sh{display:flex;gap:10px;align-items:center;padding:6px 10px;background:#f5f5f2;border-bottom:1px solid #ddd;font-weight:700}` +
+      `.sh .cmd{font-family:Consolas,monospace;font-weight:400}.sh .sp{flex:1}` +
+      `.ok{color:#12643a}.bad{color:#b3372c}.k{color:#888;font-weight:400}` +
+      `.sb{padding:8px 10px;line-height:1.6}` +
+      `pre{white-space:pre-wrap;word-break:break-all;background:#fafaf7;border:1px solid #eee;padding:6px 8px;border-radius:4px;font-family:Consolas,monospace;font-size:11px;margin:6px 0 0}</style>` +
+      `<h1>${hesc(draft?.name || draft?.object || '시험')} — 결과서</h1>` +
+      `<p class="meta">${hesc(draft?.object || '')} · 장비 ${hesc(devName)} · ${hesc(devIp)} · ${hesc(at)}` +
+      ` · <b class="ok">PASS ${passN}</b> / <b class="bad">FAIL ${failN}</b></p>` +
+      body
+    )
+  }
+
+  /** 받은 파일을 내려받는다 — PDF(base64)·PPTX(blob) 공용 */
+  const downBlob = (blob: Blob, name: string) => {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  /** PDF 저장(지시) — 결과서 HTML 을 서버가 PDF 로 바꿔 준다 */
+  const savePdf = async () => {
+    setErr('')
+    try {
+      const r = await apiFetch('/api/wiki/pdf', {
+        method: 'POST',
+        body: JSON.stringify({
+          html: reportHtml(),
+          title: `${draft?.object || draft?.name || '시험'}_결과서`,
+        }),
+      })
+      const j = (await r.json()) as { ok?: boolean; name?: string; data?: string; error?: string }
+      if (!j.ok || !j.data) throw new Error(j.error || 'PDF 를 만들지 못했습니다')
+      const bin = atob(j.data)
+      const buf = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+      downBlob(new Blob([buf], { type: 'application/pdf' }), j.name || '결과서.pdf')
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'PDF 저장에 실패했습니다')
+    }
+  }
+
+  /** PPTX 저장(지시) — 고객사 양식(/api/pptx-render)에 값을 채워 받는다 */
+  const savePptx = async () => {
+    if (!draft) return
+    setErr('')
+    try {
+      const runnable = autoSteps.filter((s) => s.kind !== 'comment' && s.kind !== 'message')
+      const resultText = runnable
+        .map(
+          (s) =>
+            `[Step ${s.no}] ${s.cmd || s.t || ''}` +
+            (s.mark ? `  → ${s.mark}` : '') +
+            (s.reason ? `\n${String(s.reason)}` : '') +
+            (s.out ? `\n${String(s.out).slice(0, 700)}` : ''),
+        )
+        .join('\n\n')
+      const vals = {
+        tc_id: draft.object || '',
+        req_id: '',
+        tc_name: draft.name || '',
+      }
+      const r = await apiFetch('/api/pptx-render', {
+        method: 'POST',
+        body: JSON.stringify({
+          template: 'lguplus',
+          name: `${draft.object || draft.name || '시험'}_결과서`,
+          slides: [
+            {
+              kind: 'first',
+              values: {
+                ...vals,
+                spec: '',
+                method: draft.steps.map((x, i) => `${i + 1}. ${x.desc || x.cli || ''}`).join('\n'),
+                result_head: '뒷면 참조',
+                note: `${devName} · ${devIp}`,
+              },
+            },
+            { kind: 'more', values: { ...vals, result: resultText.slice(0, 6000), note: '' } },
+          ],
+        }),
+      })
+      if (!r.ok) {
+        const j = (await r.json().catch(() => null)) as { detail?: string } | null
+        throw new Error(j?.detail || 'PPTX 를 만들지 못했습니다')
+      }
+      downBlob(await r.blob(), `${draft.object || draft.name || '시험'}_결과서.pptx`)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'PPTX 저장에 실패했습니다')
+    }
+  }
 
   /** 장비 표 한 벌 — 캡슐의 창(devOpen)과 오른쪽 판(1단계 · 장비)이 같은 몸을
       쓴다(목업). 판에서는 닫기 ✕ 를 걷는다 — 판은 창이 아니라 늘 열려 있는 자리다. */
@@ -4229,8 +4312,6 @@ export default function AskBar({ devices }: Props) {
           </nav>
           {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
           <span className="sp" />
-          {/* 3단계까지 온 진행 플로우(지시) */}
-          {flowSteps(3)}
           {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}
           <button
             type="button"
@@ -4273,10 +4354,26 @@ export default function AskBar({ devices }: Props) {
               {ran && ran.some((x) => x && (x.status || x.repeatResult)) ? '▷ 다시 시험' : '▷ 시험 시작'}
             </button>
           )}
-          {ran && !running && (
-            <button className="btn small" type="button" onClick={() => void save()}>
-              시험으로 저장
-            </button>
+          {/* 결과는 파일로 남긴다(지시) — 시험으로 저장은 걷었다 */}
+          {!running && (
+            <>
+              <button
+                className="btn small"
+                type="button"
+                title="절차와 결과를 PDF 결과서로 저장합니다"
+                onClick={() => void savePdf()}
+              >
+                PDF 저장
+              </button>
+              <button
+                className="btn small"
+                type="button"
+                title="고객사 양식(PPTX) 결과서로 저장합니다"
+                onClick={() => void savePptx()}
+              >
+                PPTX 저장
+              </button>
+            </>
           )}
           <button
             className="btn small ask-trash"
@@ -4381,8 +4478,9 @@ export default function AskBar({ devices }: Props) {
                     : '대화가 진행되면 여기에 표·절차·로그가 뜹니다'}
               </span>
             </div>
-            {/* 배지 대신 진행 플로우(지시) — 어디까지 왔는지 한눈에 */}
-            {pane && flowSteps(pane === 'dev' ? 1 : 2)}
+            {pane && (
+              <span className="askp-stage">{pane === 'dev' ? '1단계 · 장비' : '2단계 · 항목'}</span>
+            )}
           </header>
           <div className="askp-body">
             {pane === 'dev' ? (
