@@ -736,3 +736,5 @@
 .tc-note .bn-container { min-height: 96px; display: flex; flex-direction: column; }
 .tc-note .bn-editor { flex: 1; min-height: 84px; padding-inline: 44px 12px; font-size: 13px; }
 .tc-note .bn-editor .bn-block-content { font-size: 13px; }
+/* 배지 복사 피드백(지적: 통일 때 복사가 사라짐) — 누르면 잠깐 초록 */
+.tcx-crumbid.done { background: #e3f6e9; border-color: #9fd8b2; color: #117f3a; }

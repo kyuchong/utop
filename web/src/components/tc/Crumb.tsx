@@ -9,7 +9,7 @@
  * 세 곳에 따로 그리면 하루가 멀다 하고 갈린다 — 오늘 감싸개 규칙이 그렇게
  * 세 번 갈렸다. 그리는 곳을 여기 하나로 둔다.
  */
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
 /**
  * 보이는 ID — 이음쇠를 **「-」** 로(지시: 전부 `E61xx-R0001` 꼴).
@@ -32,6 +32,7 @@ export default function Crumb({
   name,
   id,
   onId,
+  copyParam,
   right,
 }: {
   /** 모델그룹 — 모르면 안 그린다(지어내지 않는다) */
@@ -46,9 +47,14 @@ export default function Crumb({
   id?: string
   /** 배지를 누르면 — 대개 「이 항목으로 가는 주소 복사」 */
   onId?: () => void
+  /** 배지 클릭 = **주소 복사**(지적: 통일하면서 복사가 사라졌다).
+      'tc'·'req' 처럼 주소 파라미터 이름을 주면 onId 없이도
+      `?tc=<ID>` 주소를 복사하고 「주소 복사됨」 을 잠깐 보인다. */
+  copyParam?: string
   /** 배지 뒤에 더 붙일 것 */
   right?: ReactNode
 }) {
+  const [copied, setCopied] = useState(false)
   /* 폴더 길에 이미 그 이름이 있으면 앞머리를 또 그리지 않는다.
    *
    *  REQ-Coverage 의 폴더 트리는 `E61xx > Coverage > 11.HW > Spec` 이라
@@ -78,17 +84,31 @@ export default function Crumb({
           <span className={i === segs.length - 1 ? 'last' : ''}>{sg}</span>
         </span>
       ))}
-      {!!id && (
-        <button
-          type="button"
-          className="tcx-crumbid"
-          title={onId ? '이 항목으로 가는 주소를 복사합니다' : dashId(id)}
-          onClick={onId}
-          disabled={!onId}
-        >
-          {dashId(id)}
-        </button>
-      )}
+      {!!id && (() => {
+        const canCopy = !!onId || !!copyParam
+        const doCopy = () => {
+          if (onId) {
+            onId()
+            return
+          }
+          if (!copyParam) return
+          const url = `${window.location.origin}${window.location.pathname}?${copyParam}=${encodeURIComponent(dashId(id))}`
+          void navigator.clipboard?.writeText(url)
+          setCopied(true)
+          window.setTimeout(() => setCopied(false), 1500)
+        }
+        return (
+          <button
+            type="button"
+            className={`tcx-crumbid${copied ? ' done' : ''}`}
+            title={canCopy ? '이 항목으로 가는 주소를 복사합니다' : dashId(id)}
+            onClick={canCopy ? doCopy : undefined}
+            disabled={!canCopy}
+          >
+            {copied ? '주소 복사됨' : dashId(id)}
+          </button>
+        )
+      })()}
       {right}
     </nav>
   )

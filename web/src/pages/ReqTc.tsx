@@ -1559,19 +1559,53 @@ export default function ReqTc({ me }: Props) {
        내부 열쇠(rq-1786…)는 우리끼리 쓰는 값이라, 주소창에 나오면 무엇을
        가리키는지 알 수 없고 링크를 눈으로 확인할 수도 없다. */
     const reqShow = openReq ? reqLabel(reqById.get(openReq) ?? ({} as Requirement)) || openReq : ''
+    /* 폴더도 이름으로(지시: cat-1789… 는 암호 같다) — 뿌리부터의 **폴더명
+       사슬**(111. LGUPLUS E6100/SW/MAINT)을 적는다. 이름을 못 만들면
+       (트리를 아직 못 읽음) **cat 을 아예 안 적는다**(지시: 암호 꼴 표시 금지). */
+    const catShow = (() => {
+      if (!cat) return ''
+      const by = new Map(cats.map((c) => [c.id, c]))
+      const names: string[] = []
+      let cur = by.get(cat)
+      let guard = 0
+      while (cur && guard++ < 10) {
+        names.unshift(cur.name)
+        cur = cur.parent_id ? by.get(String(cur.parent_id)) : undefined
+      }
+      return names.join('/')
+    })()
     const url = openTc
       ? `${p}?tc=${encodeURIComponent(openTc)}`
       : openReq
         ? `${p}?req=${encodeURIComponent(reqShow)}`
-        : cat
-          ? `${p}?cat=${encodeURIComponent(cat)}`
+        : cat && catShow
+          ? `${p}?cat=${encodeURIComponent(catShow)}`
           /* 아무것도 안 골랐어도 **어느 화면인지**는 적는다. 빈 주소를
              남기면 뒤로가기가 여기로 왔을 때 무엇을 보여야 할지 모른다. */
           : `${p}?p=reqtc`
     if (window.location.pathname + window.location.search !== url) {
       window.history.replaceState({ utop: true }, '', url)
     }
-  }, [openTc, openReq, cat, reqById])
+  }, [openTc, openReq, cat, reqById, cats])
+
+  /* 주소·기억으로 온 값이 **이름 사슬**이면 id 로 푼다 — 옛 id(cat-…) 링크는
+     그대로 통한다. 이름이 겹치면 뿌리부터 차례로 맞는 첫 폴더를 잡는다. */
+  useEffect(() => {
+    if (!cat || cats.length === 0) return
+    if (cats.some((c) => c.id === cat)) return
+    const segs = cat.split('/').map((s) => s.trim()).filter(Boolean)
+    if (!segs.length) return
+    let parent: string | null = null
+    let found: (typeof cats)[number] | undefined
+    for (const nm of segs) {
+      found = cats.find((c) => (c.parent_id ?? null) === parent && c.name === nm)
+      if (!found) break
+      parent = found.id
+    }
+    /* 사슬로 못 찾으면 마지막 이름 하나로도 찾아 본다 — 폴더를 옮겨 둔 옛 링크 */
+    if (!found) found = cats.find((c) => c.name === segs[segs.length - 1])
+    setCat(found ? found.id : '')
+  }, [cat, cats])
 
   /** 열어 둔 요구사항의 자리 — 시험(tcCrumb)과 **같은 꼴**이다.
       두 상세가 서로 다른 모양으로 서면, 같은 화면인데 무엇을 열었느냐에
@@ -3669,7 +3703,8 @@ export function TcPop({
           {/* 자리 줄 — **세 화면이 같은 꼴**(지시).
                 E61xx / Coverage / 11.HW / Spec / 제목   [E61xx-T0068]
               폴더 길이 이미 모델그룹·화면이름으로 시작하면 부품이 건너뛴다. */}
-          <Crumb screen="Coverage" path={crumb} name={name} id={id} />
+          {/* 배지 클릭 = 주소 복사(지적: 통일 때 사라짐) */}
+          <Crumb screen="Coverage" path={crumb} name={name} id={id} copyParam="tc" />
           <span className="sp" />
           <button
             type="button"
@@ -3730,7 +3765,7 @@ function ReqPop({
             걷었다 — 제목은 자리 줄이 이미 말하고, 화살표는 시험 창에 없어
             두 창이 달라 보였다. */}
         <div className="modal-head slim">
-          <Crumb screen="Requirements" path={crumb} name={req?.title || ''} id={req ? reqLabel(req) : ''} />
+          <Crumb screen="Requirements" path={crumb} name={req?.title || ''} id={req ? reqLabel(req) : ''} copyParam="req" />
           <span className="sp" />
           <button
             type="button"
