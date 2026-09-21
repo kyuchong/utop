@@ -10242,3 +10242,13 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask > .ask-sess { background: var(--cl-card); }
 .ask:not(.console) .ask-canvas { background: var(--cl-card); }
 .ask-home[data-theme='aurora'] .ask-homewrap { background: var(--cl-card); }
+
+/* ── 이동바 뒤 배경을 REQ-Coverage 처럼 바탕색과 한 몸으로(지시) —
+   캔버스 사슬이 회청(app-bg)을 깔아 틈만 다른 색이었다 ── */
+.ask.console .ask-cols,
+.ask.console .ask-canvaswrap,
+.ask.console .ask-canvas { background: var(--cl-bg); }
+/* 손잡이 선도 이 화면 팔레트로 — 평소 실금, 잡으면 코랄 */
+.ask .resizer-grip { background: var(--cl-line); }
+.ask .resizer:hover .resizer-grip,
+.ask .resizer.on .resizer-grip { background: var(--cl-accent); }
