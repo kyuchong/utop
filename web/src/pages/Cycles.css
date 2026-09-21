@@ -10439,3 +10439,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 }
 .ask.console .askp-hd { min-height: 46px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; }
 .ask-art > .ask-slots { min-height: 46px; box-sizing: border-box; align-items: center; padding-top: 4px; padding-bottom: 4px; }
+
+/* 인사말 글꼴을 앱 글꼴로(지적: 폰트가 바뀐 것 같다) — 클로드 스킨의
+   ui-serif 가 윈도우에서 바탕체로 떨어져 다른 화면과 겉돌았다 */
+.ask-hometitle { font-family: inherit; }
