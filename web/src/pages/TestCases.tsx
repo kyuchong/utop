@@ -875,7 +875,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
     if (running || !justRan.current) return
     justRan.current = false
     if (!openId || saveM.isPending) return
-    saveM.mutate()
+    // 실행 결과 보존 — 조용히(토스트 없이). 사용자는 저장을 누른 적이 없다.
+    saveM.mutate({ silent: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, openId])
 
@@ -1184,7 +1185,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
   const justRan = useRef(false)
 
   const saveM = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (_opts?: { silent?: boolean }) => {
       // checks 를 항상 함께 보낸다. 빠지면 서버가 옛 값을 되살려
       // 방금 지운 스텝이 다시 나타난다(main.py 의 보존 장치).
       // 읽을 때 받은 `_rev` 를 같이 보낸다. 그 사이에 남이 저장했으면
@@ -1193,13 +1194,17 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
       // 뿌려서, 받는 쪽이 「내가 저장한 것」 을 걸러낸다.
       await tcApi.save(openId, { ...d, checks: d.checks ?? [], updated_by: meName })
     },
-    onSuccess: () => {
+    onSuccess: (_r, opts) => {
       setDirty(false)
       setRemote(null)
       /* 오른쪽 위에 잠깐 떴다 사라진다(지시) — 줄 안의 작은 글자는 저장했는지
-         눈이 안 간다. 요구사항 상세와 같은 자리·같은 꼴이다. */
-      setToast('저장되었습니다')
-      window.setTimeout(() => setToast(''), 1800)
+         눈이 안 간다. 요구사항 상세와 같은 자리·같은 꼴이다.
+         **실행에서 온 저장은 조용히**(지적: 스텝 ▶ 를 눌렀는데 「저장되었습니다」
+         가 뜬다) — 결과 보존은 하되 토스트는 안 띄운다. */
+      if (!opts?.silent) {
+        setToast('저장되었습니다')
+        window.setTimeout(() => setToast(''), 1800)
+      }
       void qc.invalidateQueries({ queryKey: ['tc', openId] })
       void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
     },
@@ -1730,7 +1735,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
     onEmbedApi?.({
       dirty,
       saving: saveM.isPending,
-      save: () => saveM.mutate(),
+      save: () => saveM.mutate(undefined),
       menu: moreMenu,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1768,7 +1773,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     className={`btn tc-savebtn${dirty ? ' dirty' : ''}`}
                     type="button"
                     disabled={saveM.isPending || !dirty}
-                    onClick={() => saveM.mutate()}
+                    onClick={() => saveM.mutate(undefined)}
                   >
                     {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
                   </button>
