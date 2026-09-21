@@ -9723,3 +9723,63 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   .ask-canvas.console > .ask-home { flex-basis: clamp(300px, 34%, 420px); }
   .ask-canvas.plan.console > .ask-home { flex-basis: 300px; }
 }
+
+/* ── Test AI 실행 응답 화면(지시: 사이클 자동 실행처럼) ──────────────────
+   실행을 걸면 편집 세 판 대신 응답이 주인공이 된다 — 상태 밴드 · 진행 막대 ·
+   왼쪽 스텝 큐 · 오른쪽 큰 실행 로그 · 끝나면 결과 밴드. cy-run 과 닮았지만
+   이름은 askr- 로 가른다 — 한쪽을 고쳐도 다른 쪽이 조용히 흔들리지 않게. */
+.askr {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 11px;
+  background: var(--c-surface);
+  overflow: hidden;
+}
+.askr-band {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--c-primary-bg);
+  flex: none;
+}
+.askr-band > b { font-size: 15px; }
+.askr-band.done { background: var(--c-surface-alt); }
+.askr-meta { color: var(--c-text-muted); font-size: var(--fs-sm); }
+.askr-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  animation: cyrun-blink 1.2s infinite;
+  flex: none;
+}
+@media (prefers-reduced-motion: reduce) { .askr-dot { animation: none; } }
+.askr-prog { height: 6px; background: var(--c-surface-alt); flex: none; }
+.askr-prog > span { display: block; height: 100%; background: var(--c-primary); transition: width 0.4s ease; }
+/* Response 판(RunAuto 와 한 몸)이 이 안을 채운다 — ra-sbar·ra-con·ra-confoot */
+.askr-resp {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+}
+.askr-sum {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--c-border-soft);
+  background: var(--c-surface-alt);
+}
+.askr-sum-v { font-size: 15px; }
+.askr-sum-v.pass { color: var(--c-pass); }
+.askr-sum-v.fail { color: var(--c-fail); }

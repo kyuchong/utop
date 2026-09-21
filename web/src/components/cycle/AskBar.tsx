@@ -18,6 +18,7 @@ import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTerminal from '@/components/tc/TcTerminal'
 import RunLog, { type LogLine } from '@/components/tc/RunLog'
+import RespView, { asStep } from '@/components/run/RespView'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IconCli } from '@/components/icons'
 import { stepNumbers, stepVerdict, type StepKind, type TcStep } from '@/components/tc/types'
@@ -297,6 +298,31 @@ export default function AskBar({ devices }: Props) {
   const [at, setAt] = useState(-1)
   const [running, setRunning] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  /* ── 실행 응답 화면(지시: 사이클 자동 실행처럼) ──────────────────────
+     실행을 걸면 편집용 세 판 대신 **응답이 주인공**인 화면으로 바뀐다 —
+     상태 밴드 · 진행 막대 · 왼쪽 스텝 큐 · 오른쪽 큰 실행 로그.
+     끝난 뒤 「절차·상세 보기」 로 언제든 편집 화면으로 돌아온다. */
+  const [runView, setRunView] = useState(false)
+  /* 절차가 **처음 열리면** 곧장 응답 화면이다(지시: 2열 카드에 3단은 보기
+     힘들다 · General 은 읽기 전용이라 response 화면만으로 좋다).
+     Advanced 는 절차를 짓고 고치는 갈래라 편집 세 판으로 연다 — 실행을
+     걸면 그때 응답 화면이 된다. draft 는 편집 때마다 바뀌므로 「없다가
+     생긴 순간」 만 잡는다. */
+  const hadDraft = useRef(false)
+  useEffect(() => {
+    if (draft && !hadDraft.current) setRunView(mode === 'basic')
+    hadDraft.current = !!draft
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft])
+  const runT0 = useRef(0)
+  const [runSec, setRunSec] = useState(0)
+  useEffect(() => {
+    if (!running) return
+    runT0.current = Date.now()
+    setRunSec(0)
+    const t = setInterval(() => setRunSec(Math.floor((Date.now() - runT0.current) / 1000)), 500)
+    return () => clearInterval(t)
+  }, [running])
   /** 첫 화면 질문 보기 — 무엇을 시킬 수 있는지 눌러서 안다 */
   const [examples, setExamples] = useState<Array<{ q: string; d?: string }>>([])
   /** 비슷한 기존 시험 — 새로 짓기 전에 있는 것부터 본다 */
@@ -1857,6 +1883,25 @@ export default function AskBar({ devices }: Props) {
   /* 표가 매긴 스텝 번호 — 상태 띠와 로그가 **같은 번호**를 적어야 한다.
      따로 세면 「스텝 5」 를 눌러 놓고 표에서는 1.1 을 찾게 된다(지적). */
   const stripNos = stepNumbers(seqSteps, (x) => x.kind === 'manual')
+  /* Response 판(사이클 자동 실행과 한 몸)이 읽는 꼴로 옮긴다. 아직 이 화면에서
+     안 돌렸으면 결과 쪽은 비운다 — Coverage 에 남은 지난 실행의 자취(status·
+     output)가 이번 것처럼 보이면 안 된다(RunDetail 과 같은 규칙). */
+  const autoSteps = seqSteps.map((x, i) => {
+    const a = asStep(x as unknown as Record<string, unknown>, i)
+    return ran?.length
+      ? a
+      : {
+          ...a,
+          out: '',
+          mark: undefined,
+          took: undefined,
+          tookMs: undefined,
+          at: undefined,
+          ran: false,
+          rounds: undefined,
+          reason: undefined,
+        }
+  })
 
   /** ＋ 스텝 — 초안 끝에 한 줄 붙인다 */
   const addStep = (k: StepKind) => {
@@ -1890,6 +1935,7 @@ export default function AskBar({ devices }: Props) {
     setLogs([])
     logN.current = 0
     setRunning(true)
+    setRunView(true)
     setAt(-1)
     try {
       await runSteps(
@@ -2989,6 +3035,7 @@ export default function AskBar({ devices }: Props) {
                 setText('')
                 setMsgs([])
                 setPane('')
+                setRunView(false)
               }}
             >
               ↺ 처음으로
@@ -3115,6 +3162,7 @@ export default function AskBar({ devices }: Props) {
                 return
               setDraft(null)
               setRan(null)
+              setRunView(false)
             }}
           >
             <IconTrash />
@@ -3863,6 +3911,108 @@ export default function AskBar({ devices }: Props) {
               위아래로 두면 응답을 보려고 내리는 순간 고치던 칸이 사라진다. */}
           {/* 목업 그대로 — 한 판 안에서 왼쪽 목록 · 조절바 · 오른쪽 세부.
               둘 다 Coverage(TC 화면)와 **같은 부품**이라 꼴이 한 벌이다. */}
+          {runView ? (
+            /* ── 실행 응답 화면(지시: 사이클 자동 실행처럼) ─────────────
+               상태 밴드 · 진행 막대 · 왼쪽 스텝 큐 · 오른쪽 큰 실행 로그.
+               편집 세 판은 「절차·상세 보기」 로 돌아가면 그대로 있다. */
+            <div className="askr">
+              {(() => {
+                const doneN = (ran ?? []).filter(
+                  (r) => r && (r.executed_at || r.output || r.status || r.repeatResult),
+                ).length
+                /* 주석(Comment·Message)은 실행 대상이 아니다 — 전체 수에 넣으면
+                   다 돌고도 「중단됨」 이 된다(6/12 꼴) */
+                const runnableN = seqSteps.filter((s3) => {
+                  const k = String(s3.kind ?? '')
+                  return k !== 'comment' && k !== 'message'
+                }).length
+                const pass = (ran ?? []).filter(
+                  (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
+                ).length
+                const fail = (ran ?? []).filter(
+                  (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
+                ).length
+                const mmss = `${String(Math.floor(runSec / 60)).padStart(2, '0')}:${String(runSec % 60).padStart(2, '0')}`
+                return (
+                  <>
+                    <div className={`askr-band${running ? '' : ' done'}`}>
+                      {running && <span className="askr-dot" aria-hidden="true" />}
+                      <b>
+                        {running
+                          ? at >= 0
+                            ? `실행 중 — 스텝 ${stripNos[at] || at + 1}`
+                            : '실행 중'
+                          : doneN > 0
+                            ? '실행 끝'
+                            : '실행 준비 — ▷ 시험 시작을 누르세요'}
+                      </b>
+                      <span className="askr-meta">
+                        {doneN}/{runnableN} 스텝 · 경과 {mmss}
+                        {curDev && ` · ${devName} · ${devIp}`}
+                      </span>
+                      <span className="sp" />
+                      {running ? (
+                        <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
+                          ⏹ 멈추기
+                        </button>
+                      ) : mode === 'adv' ? (
+                        /* 편집은 Advanced 의 일이다 — General 은 읽기 전용이라
+                           response 화면만 쓴다(지시) */
+                        <button
+                          className="btn small"
+                          type="button"
+                          title="스텝 표·상세 편집 화면으로 돌아갑니다 — 결과와 로그는 남습니다"
+                          onClick={() => setRunView(false)}
+                        >
+                          ↩ 절차·상세 보기
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="askr-prog" aria-hidden="true">
+                      <span
+                        style={{
+                          width: `${runnableN ? Math.round((doneN / runnableN) * 100) : 0}%`,
+                        }}
+                      />
+                    </div>
+                    {/* Response 판 — 사이클 자동 실행 화면과 **한 몸**(지시).
+                        스텝 카드(명령·판정 기준·변수·RCA·출력 강조)가 그대로 선다. */}
+                    <div className="askr-resp">
+                      <RespView
+                        steps={autoSteps}
+                        stepAt={stepAt}
+                        onStep={setStepAt}
+                        dut={devName}
+                        runStep={running ? at : null}
+                        seedKey={draft.object || draft.name}
+                      />
+                    </div>
+                    {!running && (doneN > 0 || pass > 0 || fail > 0) && (
+                      <div className="askr-sum">
+                        {fail > 0 ? (
+                          <b className="askr-sum-v fail">✗ FAIL</b>
+                        ) : doneN >= runnableN && pass > 0 ? (
+                          <b className="askr-sum-v pass">✓ PASS</b>
+                        ) : (
+                          <b className="askr-sum-v">{doneN > 0 ? '중단됨' : '실행 없음'}</b>
+                        )}
+                        <span className="status pass">Pass {pass}</span>
+                        <span className="status fail">Fail {fail}</span>
+                        <span className="muted small">미실행 {Math.max(0, runnableN - doneN)}</span>
+                        <span className="sp" />
+                        <span className="muted small">{runSec}s</span>
+                        {mode === 'adv' && (
+                          <button className="btn small" type="button" onClick={() => setRunView(false)}>
+                            ↩ 절차·상세 보기
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+            </div>
+          ) : (
           <div className="ask-two railbox">
             <section className="railsec" data-sec="steps">
               <div className="railsec-b">
@@ -4175,6 +4325,7 @@ export default function AskBar({ devices }: Props) {
               </div>
             </section>
           </div>
+          )}
         </div>
       )}
           </main>

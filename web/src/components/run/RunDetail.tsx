@@ -10,8 +10,8 @@ import { useVerdicts, vDef, vLetter } from '@/lib/verdicts'
 import type { CycleMeta, CycleStep } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
 import { useReqIndex } from '@/pages/qaBits'
-import { stepSummary, type TcStep } from '@/components/tc/types'
 import RunAuto from './RunAuto'
+import { asStep } from './RespView'
 import RunManual from './RunManual'
 import './RunDetail.css'
 
@@ -144,145 +144,6 @@ interface DeviceLite {
  *  대기·비교 스텝에는 desc·cli 가 없어 「스텝 2」 · 「스텝 5」 로 떴다(지적).
  *  자료에 이미 뜻이 들어 있다 — 대기는 몇 초인지, 비교는 무엇을 견주는지.
  */
-function autoName(raw: Record<string, unknown>): string {
-  const kind = String(raw?.kind ?? '').toLowerCase()
-  if (kind === 'wait') {
-    const sec = Number(raw?.waitSec ?? 0)
-    return sec > 0 ? `${sec}초 대기` : '대기'
-  }
-  if (kind === 'diff') {
-    /* conds 가 정본이다(l · op · r). 없으면 옛 칸(cmpLeft·cmpRight)으로. */
-    const cs = Array.isArray(raw?.conds) ? (raw.conds as Array<Record<string, unknown>>) : []
-    const join = String(raw?.condJoin ?? 'and').toLowerCase() === 'or' ? ' || ' : ' && '
-    const parts = cs
-      .map((c) => `${String(c?.l ?? '')} ${String(c?.op ?? '==')} ${String(c?.r ?? '')}`.trim())
-      .filter((x) => x.length > 2)
-    if (parts.length) return parts.join(join)
-    const l = String(raw?.cmpLeft ?? '')
-    const r = String(raw?.cmpRight ?? '')
-    if (l || r) return `${l} ${String(raw?.cmpOp ?? '==')} ${r}`.trim()
-    return '비교'
-  }
-  return ''
-}
-
-/** 스텝 하나를 화면이 아는 모양으로 바꾼다.
- *
- * 실제 자료의 칸 이름은 목업과 다르다 — 절차는 `cli`(명령)·`desc`(설명)·
- * `rules`(견줄 것)·`status`(판정)·`took_ms`(걸린 시간)로 적힌다. 이걸 안
- * 맞춰 줘서, 다 돌고도 표가 전부 「—」 였다(지적).
- */
-function asStep(raw: Record<string, unknown>, i: number): {
-  no: number; kind: string; t: string; cmd: string; expected: string; action: string
-  session: string; out: string; mark?: string; took?: string; tookMs?: number; waitSec?: number; at?: string
-  /** 왜 그 판정이 났나 — 블록이 판정 기준 아래 적는다 */
-  reason?: string
-  /** 이 스텝이 담는 변수 — 이름과 규칙 */
-  vars?: Array<{ name: string; rule?: string }>
-  /** 이 스텝이 붙은 장비 — 세션 판이 이것으로 장비를 찾는다 */
-  devId?: string
-  /** 비교 스텝이 통과·실패일 때 적어 둔 문구 */
-  okMsg?: string; ngMsg?: string
-  /** **반복 회차별 기록**(지적: 20 회를 돌았는데 화면은 1 회로 보인다).
-   *  실행기는 회차마다 여기에 남기는데 화면이 통째로 버리고 있었다. */
-  rounds?: Array<{ n?: number; status?: string; reason?: string; took_ms?: number; output?: string; cmd?: string; trimmed?: boolean }>
-  /** 이 스텝이 실제로 돌았나. 판정이 없는 스텝(대기·조회)과 **안 돌린 스텝**은 다르다 */
-  ran?: boolean
-} {
-  const g = (k: string) => String(raw?.[k] ?? '').trim()
-  const cli = g('cli') || g('cmd')
-  /* 기대값 — criteria 가 비면 rules 를 사람 말로 잇는다 */
-  const rules = Array.isArray(raw?.rules) ? (raw.rules as Array<Record<string, unknown>>) : []
-  /* **견주는 줄은 그 식이 곧 기준**이다(지적: Diff 에 「기준 없음」 이 떴다).
-     criteria 칸을 안 쓰고 cmpLeft·cmpOp·cmpRight 에 적는 갈래라 비어 보였다.
-     적어 둔 말(cmpLeftLabel)이 있으면 함께 세워 사람 말로 읽히게 한다. */
-  const cmpText = (() => {
-    if (String(raw?.kind ?? '') !== 'diff') return ''
-    const l = `${g('cmpLeftLabel')} ${g('cmpLeft')}`.trim()
-    const r = `${g('cmpRightLabel')} ${g('cmpRight')}`.trim()
-    if (!l && !r) return ''
-    const op = g('cmpOp') || '=='
-    const word: Record<string, string> = {
-      '==': '같다', '!=': '다르다', '포함': '포함한다',
-      '>': '크다', '<': '작다', '>=': '크거나 같다', '<=': '작거나 같다',
-    }
-    return `${l} ${word[op] ?? op} ${r}`.trim()
-  })()
-  const expected =
-    cmpText ||
-    g('criteria') ||
-    g('expected') ||
-    rules
-      .map((r) => `${String(r?.rhs ?? r?.t ?? '')} ${String(r?.op ?? '==')} ${String(r?.v ?? '')}`.trim())
-      .filter(Boolean)
-      .join(' && ')
-  /* 판정 — 사람이 적은 result 가 먼저, 없으면 실행기의 status */
-  const res = g('result')
-  const st = g('status').toUpperCase()
-  const mark = res || ({ PASS: 'Pass', FAIL: 'Fail', BLOCKED: 'Blocked', WIP: 'WIP' } as Record<string, string>)[st]
-  const ms = Number(raw?.took_ms ?? NaN)
-  return {
-    no: Number(raw?.no ?? NaN) || i + 1,
-    /* 「스텝 2」 같은 자리 채우개를 여기서 넣으면, 로그 쪽 채우개가 정의
-       쪽 진짜 이름을 이겨 버린다(지적: Description 이 「스텝 2」). 비워
-       두고, 그릴 때 채운다. */
-    kind: g('kind'),
-    t: g('desc') || g('step') || g('t') || cli || autoName(raw),
-    /* Description 에는 시험 항목의 **「명령 내용」** 이 선다(지시) — 여태
-       cli 만 봐서 주석·메시지·OID·대기는 「스텝 N」 으로 비었다.
-       그 칸을 만드는 함수를 그대로 쓴다(한 곳). */
-    cmd: cli || stepSummary(raw as unknown as TcStep) || '',
-    expected: expected || '—',
-    action: g('action') || (g('kind') === 'cli' || cli ? 'command' : g('kind')) || '—',
-    session: raw?.session === undefined || raw?.session === null ? '—' : `s${String(raw.session)}`,
-    devId: g('devId') || g('dev_id') || undefined,
-    out: g('output') || g('out'),
-    mark: mark || undefined,
-    took: Number.isFinite(ms) ? `${(ms / 1000).toFixed(2)}s` : g('took') || undefined,
-    tookMs: Number.isFinite(ms) ? ms : undefined,
-    waitSec: Number(raw?.waitSec ?? 0) || undefined,
-    /* 스텝이 **언제** 돌았나. 안 실으면 이벤트 줄이 전부 항목 끝난 시각
-       하나로 찍혀, 무엇이 먼저였는지 알 수 없다. */
-    at: g('executed_at') || g('at') || undefined,
-    /* **왜 그 판정이 났나**(RCA) — 블록이 판정 기준 바로 아래 적는다(승인) */
-    reason: g('reason') || undefined,
-    /* 이 스텝이 **담는 변수** — 이름과 규칙. 값은 RCA 문장에 이미 들어 있다 */
-    vars: (() => {
-      const out: Array<{ name: string; rule?: string }> = []
-      for (const x of (Array.isArray(raw?.extracts) ? raw.extracts : []) as Array<Record<string, unknown>>) {
-        const n = String(x?.var ?? '').trim()
-        if (n) out.push({ name: n, rule: String(x?.rule ?? '') || undefined })
-      }
-      for (const x of (Array.isArray(raw?.queries) ? raw.queries : []) as Array<Record<string, unknown>>) {
-        const n = String(x?.var ?? '').trim()
-        if (n && !out.some((y) => y.name === n))
-          out.push({ name: n, rule: String(x?.q ?? x?.col ?? '') || undefined })
-      }
-      return out.length ? out : undefined
-    })(),
-    /* 사람이 적어 둔 판정 문구. 실행 이벤트가 「기준 맞음」 대신 이걸 적는다(지시) */
-    okMsg: g('msgYes') || g('trueMsg') || undefined,
-    ngMsg: g('msgNo') || g('falseMsg') || undefined,
-    /* 회차 기록은 **있는 그대로** 나른다 — 여기서 버려서 20 회가 1 회로 보였다 */
-    rounds: Array.isArray(raw?.rounds)
-      ? (raw.rounds as Array<Record<string, unknown>>).map((r) => ({
-          n: Number(r?.n ?? 0) || undefined,
-          status: String(r?.status ?? '') || undefined,
-          reason: String(r?.reason ?? '') || undefined,
-          took_ms: typeof r?.took_ms === 'number' ? r.took_ms : undefined,
-          output: String(r?.output ?? ''),
-          /* 그 회차에 **실제로 보낸 명령** — 변수를 푼 뒤의 것 */
-          cmd: String(r?.cmd ?? '') || undefined,
-          trimmed: !!r?.trimmed,
-        }))
-      : undefined,
-    /* 걸린 시간이나 출력이 있으면 돈 것이다. 실행기는 판정 기준이 없는
-       스텝(대기·단순 조회)에는 status 를 안 남긴다 — 그걸 「미실행」 으로
-       그려서 「건너뛴 것 같다」 는 말이 나왔다(지적). */
-    ran: Number.isFinite(ms) || !!g('output') || !!g('out') || !!g('executed_at') || !!res || !!st,
-  }
-}
-
 function manualSteps(tc?: Record<string, unknown>): Array<{
   t: string; e: string; d?: string; da?: string
   daImg?: string; daW?: number; eImg?: string; eW?: number
