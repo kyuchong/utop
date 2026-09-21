@@ -274,6 +274,10 @@ function tableLayoutByHead(lines: string[]): TblLayout | null {
     if (!head.trim()) continue
     const cells = cut(head)
     if (cells.length < 3) continue
+    /* `라벨 : 값`(KV) 을 표로 오인하지 않는다(지적: RX Laser Power 줄이
+       머리글로 잡혀 값이 안 눌린다). 가운데가 `:` 한 칸이면 표 머리글이
+       아니라 KV 다 — 표로 안 삼으면 KV 줄로 그려져 값이 눌린다. */
+    if (cells.some((c) => c.w.trim() === ':')) continue
     const starts = cells.map((c) => c.at)
     const bodyIdx: number[] = []
     for (let i = h + 1; i < lines.length; i++) {
