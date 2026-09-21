@@ -1974,20 +1974,27 @@ export default function AskBar({ devices }: Props) {
       setPickRack('')
       setPickDev({ model, cands })
     }
+    let dev: Device | undefined
     /*
-     * 새 질문이면 **늘 묻는다.**
-     *
-     * 여태는 「이미 그 모델 장비를 고른 상태」 면 창을 건너뛰었다. 그래서 한 번
-     * 고르고 나면 그 뒤 질문에서는 장비를 바꿀 길이 없었다 — 그만두고 다시
-     * 물어도 창이 안 떴다(지적). 같은 모델이 3대인데 어느 대인지는 시험마다
-     * 다르다. 쓰던 장비를 미리 짚어 두었으니 그대로 갈 때도 한 번만 누르면 된다.
+     * 이미 장비가 정해져 있으면 **다시 묻지 않는다**(지적: 칩에 장비가
+     * 보이는데 또 고르기 창이 떴다). 장비를 바꾸는 길은 캡슐의 장비 칩과
+     * 오른쪽 판이 이미 열어 둔다 — 옛 「새 질문이면 늘 묻는다」 규칙은
+     * 그 길이 없던 시절의 것이다.
+     * 말에 지금 것과 **다른 모델**을 적었을 때만 그 모델로 다시 고른다.
      */
-    if (hit && hit.cands.length > 1) {
+    const cur = usable.find((x) => x.id === devId)
+    if (cur) {
+      const saidModel = (candsOf(raw0)?.model ?? '').trim().toLowerCase()
+      if (!saidModel || saidModel === String(cur.model ?? '').trim().toLowerCase()) {
+        dev = cur
+        setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${cur.ip} 유지 (이미 고른 장비)` }])
+      }
+    }
+    if (!dev && hit && hit.cands.length > 1) {
       askPick(hit.model, hit.cands, `요청의 ${hit.model} 이(가) ${hit.cands.length}대`)
       return
     }
-    let dev: Device | undefined
-    if (hit && hit.cands.length === 1 && hit.cands[0]) {
+    if (!dev && hit && hit.cands.length === 1 && hit.cands[0]) {
       dev = hit.cands[0]
       setDevId(hit.cands[0].id)
       setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${hit.cands[0]!.ip} 확정 (한 대뿐)` }])
@@ -2003,7 +2010,7 @@ export default function AskBar({ devices }: Props) {
      * 모르는 절차가 나오고, 조회를 미리 못 보내니 판정 기준도 통째로
      * 비었다(지적). 어느 장비인지는 사람만 안다 — 전체에서 고르게 한다.
      */
-    if (!hit) {
+    if (!dev && !hit) {
       if (usable.length === 0) {
         setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
         setFlowAt(0)
