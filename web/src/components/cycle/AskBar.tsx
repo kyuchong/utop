@@ -1077,8 +1077,7 @@ export default function AskBar({ devices }: Props) {
   /** 1단계 말풍선 — 비어 있는 장비 한 대를 추천하고, 나머지는 줄로.
       같은 순간 오른쪽 판에는 전체 장비 표가 선다(목업: 1단계 · 장비). */
   const sayDevBlock = (cands: Device[], m0: string) => {
-    setPane('dev')
-    /* 판의 표도 물어본 모델로 미리 좁힌다(목업: 다른 모델은 흐리게) —
+    /* 3열은 안 편다(지시: 고르기는 팝업) — 칩이 여는 창의 표를 미리 좁힌다.
        「필터 지우기」 로 언제든 전체로 돌아간다 */
     setDevQ(m0)
     /* 상태 탭은 질문마다 「사용 가능」 부터(지시) — 고를 수 있는 것이 먼저다 */
@@ -1178,13 +1177,12 @@ export default function AskBar({ devices }: Props) {
     sayThink('말씀과 가까운 시험 항목을 찾는 중…')
     const items = await findLike(q, d)
     unThink()
-    /* 전체 목록은 오른쪽 판이 편다(목업: 2단계 · 항목) — 창을 띄우지 않는다 */
-    setPane('tc')
+    /* 3열은 안 편다(지시: 고르기는 팝업) — 전체 목록은 칩이 여는 창의 몫 */
     if (!items.length) {
       say(
         'a',
         '<p class="ln">REQ-Coverage 에 일치하는 시험 항목이 없습니다 — ' +
-          '다른 말로 다시 요청하시거나, 오른쪽 판에서 직접 골라 주세요.</p>',
+          '다른 말로 다시 요청하시거나, 「시험 항목 찾기」 로 직접 골라 주세요.</p>',
       )
       return
     }
@@ -2590,10 +2588,10 @@ export default function AskBar({ devices }: Props) {
 
   /** 콘솔 모드(목업) — 대화가 시작되면 왼쪽 대화 기둥 + 오른쪽 자세히 보기 판 */
   const twoPane = msgs.length > 0 || !!draft || making
-  /* 3열을 세울 때(지시: 실행까지 하면 나오게) — basic 은 절차가 준비된 뒤에는
-     artOpen(실행·칩)이 켜야 열린다. 고르는 동안(장비·항목 판)과 만드는 중,
-     그리고 Advanced(절차를 봐야 고친다)는 지금처럼 바로 선다. */
-  const artShow = twoPane && (mode !== 'basic' || !draft || artOpen)
+  /* 3열을 세울 때(지시: 고르기는 팝업, 3열은 아티팩트) — basic 은 오직
+     artOpen(실행·아티팩트 칩)이 켜야 선다. Advanced(절차를 봐야 고친다)는
+     지금처럼 바로 선다. */
+  const artShow = twoPane && (mode !== 'basic' || artOpen)
 
   /* 진행 플로우는 걷었다(지시) */
 
@@ -4033,11 +4031,11 @@ export default function AskBar({ devices }: Props) {
                     pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
                     return
                   }
-                  /* 아티팩트 칩(클로드) — 오른쪽 판이 그 내용을 편다 */
+                  /* 고르기 칩은 **팝업**을 연다(지시) — 3열은 아티팩트의 몫 */
                   if (t.closest('.js-pickdev')) {
                     afterDevRef.current = 'tc'
-                    setPane('dev')
-                  } else if (t.closest('.js-picktc')) setPane('tc')
+                    setDevOpen(true)
+                  } else if (t.closest('.js-picktc')) setLikeAsk(true)
                   else if (t.closest('.js-runnow')) {
                     /* 대화 속 시작 단추(지시) — 실행하면서 3열이 열린다 */
                     setArtOpen(true)
