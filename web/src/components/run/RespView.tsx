@@ -224,9 +224,8 @@ export default function RespView({
    */
   const foldSeed = useRef('')
   useEffect(() => {
-    /* 실행 중에는 **전부 접는다**(지시: 지금 돌고 있는지 구분이 안 된다) —
-       실행이 끝난(runStep==null) 뒤에야 Fail 만 편다. 실행 중에 Fail 이
-       튀어 열리면 결과가 다 나온 것처럼 보인다. */
+    /* 실행 중에는 **전부 편다**(지시: 스텝마다 CLI 입력되는 걸 보고 싶다) —
+       시험 항목이 끝난(runStep==null) 뒤에야 Fail 만 남기고 접는다. */
     const running = runStep != null
     const key = `${seedKey ?? ''}|${steps.length}|${steps.map((x) => x.mark ?? '').join(',')}|${
       running ? 'run' : 'done'
@@ -234,16 +233,12 @@ export default function RespView({
     if (foldSeed.current === key) return
     foldSeed.current = key
     const next = new Set<number>()
-    if (!openAll) {
-      if (running) {
-        // 실행 중 — 전부 접어 둔다. 도는 스텝은 진행 표시(runStep)로 짚인다
-        steps.forEach((_s, i3) => next.add(i3))
-      } else {
-        // 끝난 뒤 — 통과·판정 없는 줄은 접고 부적합만 편다
-        steps.forEach((s2, i3) => {
-          if (!/fail/i.test(String(s2.mark ?? ''))) next.add(i3)
-        })
-      }
+    if (!openAll && !running) {
+      // 끝난 뒤에만 접는다 — 통과·판정 없는 줄은 접고 부적합만 편다.
+      // 실행 중(running)이면 아무것도 안 접어 전부 펼쳐 둔다.
+      steps.forEach((s2, i3) => {
+        if (!/fail/i.test(String(s2.mark ?? ''))) next.add(i3)
+      })
     }
     setFolded(next)
   }, [seedKey, steps, openAll, runStep])
