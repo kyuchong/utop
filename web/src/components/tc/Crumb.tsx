@@ -10,6 +10,7 @@
  * 세 번 갈렸다. 그리는 곳을 여기 하나로 둔다.
  */
 import { useState, type ReactNode } from 'react'
+import { copyText } from '@/lib/copy'
 
 /**
  * 보이는 ID — 이음쇠를 **「-」** 로(지시: 전부 `E61xx-R0001` 꼴).
@@ -93,9 +94,13 @@ export default function Crumb({
           }
           if (!copyParam) return
           const url = `${window.location.origin}${window.location.pathname}?${copyParam}=${encodeURIComponent(dashId(id))}`
-          void navigator.clipboard?.writeText(url)
-          setCopied(true)
-          window.setTimeout(() => setCopied(false), 1500)
+          /* http(비보안)에서도 되는 공용 복사 — clipboard 만 쓰면 253 에서
+             조용히 실패한다(지적: 복사가 안 됨) */
+          void copyText(url).then((ok) => {
+            if (!ok) return
+            setCopied(true)
+            window.setTimeout(() => setCopied(false), 1500)
+          })
         }
         return (
           <button
