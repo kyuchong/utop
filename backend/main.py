@@ -3115,6 +3115,38 @@ LLM_PURPOSES: dict[str, dict] = {
             "건수는 **주어진 숫자만** 쓴다. 지어내지 마라. 군더더기 없이 사무적으로."
         ),
     },
+    # ── Coverage AI 잡담 갈래(지시: Knowledge AI 왼쪽) ───────────
+    # 시험 실행 요청이 아닌 말(인사·일반 질문·뜻 없는 글자)이 오면 장비
+    # 고르기로 끌고 가지 않고 이 프롬프트로 답한다. 판별 규칙은 코드가
+    # 앞에 얹는다(/api/ai/cov-chat) — 여기는 **답하는 말투**의 자리다.
+    "cai_basic": {
+        "label": "Coverage AI · Basic",
+        "hint": "Coverage AI › Basic mode — 시험 실행 요청이 아닌 일반 질문에 이 프롬프트로 답합니다.",
+        "system": (
+            "너는 UBIQUOSS 네트워크 장비 시험 플랫폼(UTOP)의 Coverage AI 도우미다. "
+            "Basic mode 는 이미 만들어진 시험 항목을 골라 장비에서 돌리는 자리다.\n"
+            "규칙:\n"
+            "1) 한국어로 간결히 답한다.\n"
+            "2) 네트워크 장비·시험 지식 범위에서 답하고, 모르는 것은 모른다고 말한다 — 지어내지 않는다.\n"
+            "3) 화면 사용법을 물으면 「장비 고르기 → 시험 항목 고르기 → 시험 시작」 순서를 안내한다.\n"
+            "4) 시험을 하고 싶어 하는 말이면 장비 모델명(예: E6100)과 무엇을 확인할지를 "
+            "함께 적어 다시 요청하도록 안내한다."
+        ),
+    },
+    "cai_advanced": {
+        "label": "Coverage AI · Advanced",
+        "hint": "Coverage AI › Advanced mode — 시험 실행·절차 생성 요청이 아닌 일반 질문에 답합니다.",
+        "system": (
+            "너는 UBIQUOSS 네트워크 장비 시험 플랫폼(UTOP)의 Coverage AI 도우미다. "
+            "Advanced mode 는 자연어로 시험 절차를 새로 만들고 고치는 자리다.\n"
+            "규칙:\n"
+            "1) 한국어로 간결히 답한다.\n"
+            "2) 네트워크 장비·시험 지식 범위에서 답하고, 모르는 것은 모른다고 말한다 — 지어내지 않는다.\n"
+            "3) 화면 사용법을 물으면 「장비 고르기 → 시험 항목 → 절차 만들기·고치기 → 시험 시작」 을 안내한다.\n"
+            "4) 시험을 만들고 싶어 하는 말이면 장비 모델명과 확인하려는 동작을 "
+            "함께 적어 다시 요청하도록 안내한다."
+        ),
+    },
     # ── 지식 ──────────────────────────────────────────────────
     "kai_answer": {
         "label": "Knowledge AI",
@@ -3473,6 +3505,54 @@ async def llm_similar(payload: dict):
             for t in order[:5]
         ],
     }
+
+
+@app.post("/api/ai/cov-chat")
+async def cov_chat(payload: dict):
+    """Coverage AI 잡담 갈래(지시) — 아무 상관없는 말에 장비 고르기가 뜨던 것.
+
+    화면이 보내기 전에 이걸 먼저 부른다. LLM 이 「시험 실행 요청인가」 를
+    가르고, 아니면 SETUP › 용도별 프롬프트 › Coverage AI(Basic/Advanced) 의
+    말투로 바로 답한다(test=false + answer). 시험 요청이면 test=true 만
+    돌려주고 화면은 원래 흐름(장비 → 항목)으로 간다.
+
+    판별 규칙은 코드가 앞에 얹는다 — 사람이 설정 글을 어떻게 고치든
+    가르는 기준은 흔들리지 않아야 한다. LLM 이 없거나 답을 못 주면
+    test=true 로 물러선다: 이 화면의 본분은 시험이라, 못 가르면
+    하던 대로 하는 편이 안전하다.
+    """
+    q = str(payload.get("q") or "").strip()
+    purpose = "cai_advanced" if str(payload.get("mode") or "") == "advanced" else "cai_basic"
+    if not q:
+        return {"ok": False, "error": "질문이 비었습니다"}
+    llm = _llm_pick(purpose) or _ai_llm() or {}
+    if not (llm and llm.get("endpoint")):
+        return {"ok": True, "test": True, "answer": ""}
+    cfg = _prompt_of(purpose)
+    base = str(cfg.get("system") or "").strip() or str(
+        (LLM_PURPOSES.get(purpose) or {}).get("system") or "")
+    gate = (
+        "너는 먼저 사용자의 말이 **네트워크 장비 시험을 실행·생성하려는 요청**인지 가른다.\n"
+        "- 장비 모델명·명령·시험 항목 이름이 보이거나, 「시험해줘 · 돌려줘 · 확인해줘 · "
+        "절차 만들어줘」 같은 실행 의도가 보이면 test=true 로 하고 answer 는 빈 문자열로 둔다.\n"
+        "- 인사·잡담·일반 지식 질문·뜻 없는 글자(예: asdf)면 test=false 로 하고, "
+        "아래 지침의 말투로 answer 에 답을 적는다.\n"
+        "- 애매하면 test=true 다 — 이 화면의 본분은 시험이다.\n"
+        'JSON 만 출력한다: {"test": true|false, "answer": "..."}\n\n'
+        "지침:\n"
+    )
+    schema = {
+        "type": "object",
+        "properties": {"test": {"type": "boolean"}, "answer": {"type": "string"}},
+        "required": ["test", "answer"],
+    }
+    try:
+        got = await _llm_json(llm, gate + base, f"사용자의 말: {q}", schema,
+                              timeout=60, purpose=purpose)
+        return {"ok": True, "test": bool(got.get("test")),
+                "answer": str(got.get("answer") or "").strip()}
+    except Exception as e:
+        return {"ok": True, "test": True, "answer": "", "error": str(e)[:200]}
 
 
 @app.post("/api/llm/wiring")

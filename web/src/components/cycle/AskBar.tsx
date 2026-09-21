@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState , type CSSProperties } from 'react'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
@@ -442,6 +444,9 @@ export default function AskBar({ devices }: Props) {
   /** 남이 지은 글(장비 이름·항목 제목)을 html 에 실을 때 — 꺾쇠를 막는다 */
   const hesc = (t: string) =>
     String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  /** LLM 이 지은 답(마크다운)을 말풍선에 실을 때 — 씻어서 html 로 */
+  const mdSafe = (t: string) =>
+    DOMPurify.sanitize(marked.parse(t || '', { async: false, breaks: true, gfm: true }) as string)
   /** 말풍선 한 줄 — html 은 우리가 짓는 글이라 그대로 싣는다 */
   const say = (who: 'u' | 'a', html: string) => setMsgs((v) => [...v, { who, html }])
   /* 새 줄이 붙으면 아래로 따라간다 — 사람이 위로 올려 읽는 중이면 그대로 둔다 */
@@ -1872,6 +1877,29 @@ export default function AskBar({ devices }: Props) {
     setFlowVals([])
     setFitNotes([])
     setFlowAt(1)
+    /* 시험과 상관없는 말이면 장비 고르기로 끌고 가지 않는다(지시) —
+       SETUP › 용도별 프롬프트 › Coverage AI(Basic/Advanced) 의 말투로 바로
+       답한다. 절차를 고치는 중(Advanced)의 말은 고치는 말이라 안 묻는다.
+       서버가 못 가르면 test=true 로 돌아와 원래 흐름 그대로다. */
+    if (!(draft && mode !== 'basic')) {
+      sayThink('말을 읽는 중…')
+      let chat: { test?: boolean; answer?: string } | null = null
+      try {
+        const r = await apiFetch('/api/ai/cov-chat', {
+          method: 'POST',
+          body: JSON.stringify({ q: said, mode }),
+        })
+        chat = (await r.json()) as { test?: boolean; answer?: string }
+      } catch {
+        /* 못 물으면 시험 갈래로 — 이 화면의 본분 */
+      }
+      unThink()
+      if (chat && chat.test === false && chat.answer) {
+        say('a', mdSafe(chat.answer))
+        setFlowAt(0)
+        return
+      }
+    }
     /* General 은 **항목부터** 고른다(지시). 장비는 항목이 모델을 정한 뒤에
        묻는다 — 말에 모델이 있으면 그 모델 것만, 없으면 전체를 보여 준다. */
     if (mode === 'basic' && !draft) {
