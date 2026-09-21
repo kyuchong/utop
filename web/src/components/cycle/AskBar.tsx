@@ -11,7 +11,6 @@ import {
   IconPanelToggle,
   IconSearch,
   IconSettings,
-  IconTrash,
 } from '@/components/icons'
 import { connParams } from '@/components/tc/device'
 import { loopVarAt, runSteps } from '@/components/tc/runner'
@@ -4375,29 +4374,7 @@ export default function AskBar({ devices }: Props) {
               </button>
             </>
           )}
-          <button
-            className="btn small ask-trash"
-            type="button"
-            title="버리기 — 만든 절차를 지웁니다"
-            aria-label="버리기"
-            onClick={() => {
-              /* 한 번 물어본다(지시) — 스텝과 돌린 결과가 함께 사라진다 */
-              const n = draft.steps.length
-              const hasRun = (ran ?? []).some((r) => r && (r.repeatResult || r.status))
-              if (
-                !window.confirm(
-                  `만든 절차 ${n}스텝을 버릴까요?` +
-                    (hasRun ? '\n돌린 결과도 함께 사라집니다.' : ''),
-                )
-              )
-                return
-              setDraft(null)
-              setRan(null)
-              setRunView(false)
-            }}
-          >
-            <IconTrash />
-          </button>
+          {/* 버리기 단추는 걷었다(지시) — 새 채팅이 그 몫을 한다 */}
         </div>
         )}
       {/* 만드는 중 — 첫 화면을 **치운다**.
