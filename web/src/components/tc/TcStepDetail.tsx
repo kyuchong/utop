@@ -502,6 +502,47 @@ export default function TcStepDetail({
     onChange({ queries: [...(step.queries ?? []), { q, var: name }] })
   }
 
+  /**
+   * **숫자만** 담는다(지시: -15.87 dBm 에서 -15.87 만).
+   *
+   * 고른 값에 붙은 단위·라벨을 그룹 밖에 두고 수(부호·소수 포함)만 잡는다.
+   * 이러면 치환 스텝 없이 다음 Diff 가 곧바로 수로 견준다. 음수도 부호째.
+   */
+  const addNumFromBlock = (text: string) => {
+    const t = String(text ?? '')
+    const m = t.match(/-?\d+(?:\.\d+)?/)
+    if (!m) {
+      setCapNote('고른 값에서 숫자를 찾지 못했습니다.')
+      return
+    }
+    const num = m[0]
+    const used = new Set([...takenVars, ...mine])
+    let name = 'var1'
+    for (let n = 1; n < 999; n++) {
+      if (!used.has(`var${n}`)) { name = `var${n}`; break }
+    }
+    // 이 값이 든 줄의 **숫자 앞부분**을 라벨(닻)로 삼는다
+    const lines = String(result ?? '').split(/\r?\n/)
+    const line = lines.find((l) => l.includes(t.trim())) ?? lines.find((l) => l.includes(num)) ?? ''
+    const before = line.slice(0, Math.max(0, line.indexOf(num)))
+    // 수 자국 — 부호·소수 포함(-?\d+\.\d+ 등)
+    const numPat = patternFrom(num, true, false)
+    let q = `(${numPat})`
+    if (hitCount(numPat) > 1) {
+      const anchored = anchoredLoose(num, before, false)
+      if (anchored) {
+        q = anchored
+        setCapNote('앞의 라벨로 그 자리의 숫자를 집었습니다 — 값이 바뀌어도 따라갑니다.')
+      } else {
+        q = `(${patternFrom(num, false)})`
+        setCapNote('여러 군데에 맞고 라벨로도 못 좁혀 고른 숫자 그대로 담았습니다.')
+      }
+    } else {
+      setCapNote(`숫자만 담았습니다 — ${num}`)
+    }
+    onChange({ queries: [...(step.queries ?? []), { q, var: name }] })
+  }
+
   /** 응답에서 글자를 고르면 판정·변수로 만들 수 있게 잡아둔다 */
   const grab = () => {
     const sel = window.getSelection()
@@ -2152,6 +2193,20 @@ export default function TcStepDetail({
                           </button>
                         )
                       })()}
+                      {/* 숫자만(지시) — 드래그로 "-15.87 dBm" 을 긁어도 -15.87 만 */}
+                      {/-?\d/.test(picked) && (
+                        <button
+                          className="btn small"
+                          type="button"
+                          title="단위·라벨을 떼고 숫자만 담습니다 (예: -15.87 dBm → -15.87) — 다음 Diff 가 수로 견줍니다"
+                          onClick={() => {
+                            addNumFromBlock(picked)
+                            setPicked('')
+                          }}
+                        >
+                          숫자만
+                        </button>
+                      )}
                       <button
                         className="btn small"
                         type="button"
@@ -2325,6 +2380,19 @@ export default function TcStepDetail({
                       >
                         변수로 담기
                       </button>
+                      {/* 숫자만(지시) — 단위·라벨 떼고 수만. 음수도 부호째 */}
+                      {/-?\d/.test(blockAt.v) && (
+                        <button
+                          type="button"
+                          title="단위·라벨을 떼고 숫자만 변수로 담습니다 (예: -15.87 dBm → -15.87)"
+                          onClick={() => {
+                            addNumFromBlock(blockAt.v)
+                            setBlockAt(null)
+                          }}
+                        >
+                          숫자만 변수로
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
