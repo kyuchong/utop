@@ -574,21 +574,36 @@ export default function RespView({
                       /* **기준·변수로 쓰인 값을 칠한다**(지시: iTest 처럼).
                          판정 기준 글(has == E6100 · 있으면 E6100)에서 값만
                          추려 견준다 — 연산자·말머리는 값이 아니다. */
-                      markOf={(v) => {
+                      markOf={(v, line) => {
                         const t = v.trim()
                         if (!t) return null
-                        const toks = String(s2.expected ?? '')
-                          .split(/[\s,]+/)
-                          .map((x) => x.replace(/^["']|["']$/g, '').trim())
-                          .filter(
-                            (x) =>
-                              x &&
-                              !/^(has|not|==|!=|>=|<=|>|<|있으면|없으면|같다|다르다|포함|포함한다)$/.test(x),
-                          )
+                        /* 기준을 **값 구절** 단위로 읽는다(지적: 여러 낱말짜리
+                           has 값을 낱말로 쪼개니 notconnect·1·full 이 아무
+                           데서나 칠해졌다). && 로 가른 절마다 말머리·연산자를
+                           걷어 남는 구절 하나가 값이다. */
+                        const KW =
+                          /^(has|not|==|!=|>=|<=|>|<|있으면|없으면|같다|다르다|포함|포함한다)$/i
+                        const vals = String(s2.expected ?? '')
+                          .split('&&')
+                          .map((c0) => {
+                            const w = c0.trim().split(/\s+/)
+                            while (w.length && KW.test(w[0]!)) w.shift()
+                            return w.join(' ').replace(/^["']|["']$/g, '').trim()
+                          })
+                          .filter(Boolean)
+                        const tN = t.replace(/\s+/g, ' ')
+                        const lnN = ` ${String(line ?? '').replace(/\s+/g, ' ').trim()} `
+                        const hit = vals.some((val) => {
+                          const vN = val.replace(/\s+/g, ' ')
+                          if (!vN.includes(' ')) return vN === tN // 한 낱말 값 — 지금까지처럼
+                          /* 여러 낱말 값 — 그 구절이 **실제로 있는 줄**에서만,
+                             구절에 든 조각만 칠한다 */
+                          return lnN.includes(` ${vN} `) && ` ${vN} `.includes(` ${tN} `)
+                        })
                         /* **판정 색으로 칠한다**(지시: 합격 초록·불합격 붉음).
                            불합격은 대개 찾는 값이 원문에 아예 없어 칠할 것이
                            없다 — 그때는 판정 기준 줄에서 붉게 보인다. */
-                        if (toks.includes(t)) return /fail/i.test(String(mk)) ? 'not' : 'has'
+                        if (hit) return /fail/i.test(String(mk)) ? 'not' : 'has'
                         if ((s2.vars ?? []).some((x) => x.name === t)) return 'var'
                         return null
                       }}

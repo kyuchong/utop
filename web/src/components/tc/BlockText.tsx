@@ -69,13 +69,15 @@ export default function BlockText({
   onBlock?: (v: string, x: number, y: number, kind?: 'col') => void
   /** 줄제외 칩에 걸린 줄 — 흐림+취소선으로 「빠진 줄」 임을 보인다 */
   dim?: (line: string) => boolean
-  /** 이 값이 이미 기준·변수로 지정돼 있나 — 지정된 블럭은 색으로 표시(지적) */
-  markOf?: (v: string) => 'has' | 'not' | 'var' | null
+  /** 이 값이 이미 기준·변수로 지정돼 있나 — 지정된 블럭은 색으로 표시(지적).
+      둘째 인자로 그 블럭이 든 **줄**을 준다 — 여러 낱말짜리 기준은 그 구절이
+      실제로 있는 줄에서만 칠해야 한다(지적: 단어별로 다 칠해짐) */
+  markOf?: (v: string, line?: string) => 'has' | 'not' | 'var' | null
 }) {
   /** 한 덩어리 블럭 — 누르면 기준·변수 메뉴의 입구가 된다 */
-  const B = ({ children }: { children: string }) => (
+  const B = ({ children, ln }: { children: string; ln?: string }) => (
     <span
-      className={`bv-b${markOf?.(children) ? ` m-${markOf(children)}` : ''}`}
+      className={`bv-b${markOf?.(children, ln) ? ` m-${markOf(children, ln)}` : ''}`}
       onClick={
         onBlock
           ? (e) => {
@@ -98,7 +100,7 @@ export default function BlockText({
     let n = 0
     while ((m = TOKEN.exec(s))) {
       if (m.index > cur) parts.push(s.slice(cur, m.index))
-      parts.push(<B key={n++}>{m[0]}</B>)
+      parts.push(<B key={n++} ln={s}>{m[0]}</B>)
       cur = m.index + m[0].length
       if (m.index === TOKEN.lastIndex) TOKEN.lastIndex++
     }
@@ -175,7 +177,7 @@ export default function BlockText({
         const trail = /\s*$/.exec(rest)?.[0] ?? ''
         const core = rest.slice(0, rest.length - trail.length)
         if (lead) parts.push(lead)
-        if (core) parts.push(<B key={c}>{core}</B>)
+        if (core) parts.push(<B key={c} ln={ln}>{core}</B>)
         if (trail) parts.push(trail)
         cur = Math.max(cur, to)
       })
@@ -191,9 +193,9 @@ export default function BlockText({
       out.push(
         <span key={i}>
           {eq[1]}
-          <B>{eq[2] ?? ''}</B>
+          <B ln={ln}>{eq[2] ?? ''}</B>
           {eq[3]}
-          <B>{eq[4] ?? ''}</B>
+          <B ln={ln}>{eq[4] ?? ''}</B>
           {eq[5]}
         </span>,
       )
@@ -206,9 +208,9 @@ export default function BlockText({
       out.push(
         <span key={i}>
           {m[1]}
-          <B>{m[2] ?? ''}</B>
+          <B ln={ln}>{m[2] ?? ''}</B>
           {m[3]}
-          <B>{m[4] ?? ''}</B>
+          <B ln={ln}>{m[4] ?? ''}</B>
           {m[5]}
         </span>,
       )
@@ -235,7 +237,7 @@ export default function BlockText({
           const core = rest2.slice(0, rest2.length - trail.length)
           if (c) parts.push(',')
           if (lead) parts.push(lead)
-          if (core) parts.push(<B key={c}>{core}</B>)
+          if (core) parts.push(<B key={c} ln={ln}>{core}</B>)
           if (trail) parts.push(trail)
         })
         out.push(<span key={i}>{parts}</span>)
