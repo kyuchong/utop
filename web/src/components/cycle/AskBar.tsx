@@ -456,6 +456,27 @@ export default function AskBar({ devices }: Props) {
   }
   /** 말풍선 한 줄 — html 은 우리가 짓는 글이라 그대로 싣는다 */
   const say = (who: 'u' | 'a', html: string) => setMsgs((v) => [...v, { who, html, at: hhmm() }])
+  /** AI 답을 **흘려 쓴다**(지시: 스트리밍) — 받은 글을 조금씩 드러낸다 */
+  const saySlow = (text: string) => {
+    let idx = -1
+    setMsgs((v) => {
+      idx = v.length
+      return [...v, { who: 'a' as const, html: '', at: hhmm() }]
+    })
+    let i = 0
+    const step = Math.max(2, Math.round(text.length / 60))
+    const t = window.setInterval(() => {
+      i = Math.min(text.length, i + step)
+      const html = mdSafe(text.slice(0, i))
+      setMsgs((v) => {
+        if (idx < 0 || idx >= v.length || v[idx]?.who !== 'a') return v
+        const c = [...v]
+        c[idx] = { ...c[idx]!, html }
+        return c
+      })
+      if (i >= text.length) window.clearInterval(t)
+    }, 30)
+  }
   /* 새 줄이 붙으면 아래로 따라간다 — 사람이 위로 올려 읽는 중이면 그대로 둔다 */
   useEffect(() => {
     const el = msgsRef.current
@@ -1051,12 +1072,12 @@ export default function AskBar({ devices }: Props) {
         ? v.map((m) => (m.who === 'a' && m.html.includes(mark) ? { ...m, html: line } : m))
         : [...v, { who: 'a' as const, html: line }]
     })
-  /** 고른 장비 — 카드 대신 글 한 줄(지시: 이미지처럼) */
+  /** 고른 장비 — 글 한 줄. 어느 단계였는지 함께 남긴다(지시) */
   const devDoneCard = (nm: string, ip: string) =>
-    `<p class="ln"><b>${hesc(nm)} (${hesc(ip)})</b> 로 정했습니다.</p>`
-  /** 고른 항목 — 카드 대신 글 한 줄(지시) */
+    `<p class="ln"><b>1단계 · 장비</b> — <b>${hesc(nm)} (${hesc(ip)})</b> 로 정했습니다.</p>`
+  /** 고른 항목 — 글 한 줄. 어느 단계였는지 함께 남긴다(지시) */
   const tcDoneCard = (tcid: string, name: string) =>
-    `<p class="ln"><b>${hesc(tcid)}</b> 으로 정했습니다 — ${hesc(name)}. ` +
+    `<p class="ln"><b>2단계 · 시험 항목</b> — <b>${hesc(tcid)}</b> 으로 정했습니다 — ${hesc(name)}. ` +
     `<b>3단계 · 절차 만들기</b> 를 시작합니다.</p>`
 
   /** 장비 하나의 상태 — 고르개 창의 판정을 요약한 것(통신 + 점유) */
@@ -1489,7 +1510,7 @@ export default function AskBar({ devices }: Props) {
         'a',
         /* 시작 단추는 채팅에 안 둔다(지시) — 카드가 3열을 열고,
            ▷ 시험 시작은 그 판 머리에 있다. */
-        `<p class="ln">절차가 준비됐습니다 — 아래 카드를 누르면 결과 판이 열립니다. ` +
+        `<p class="ln"><b>3단계 · 절차</b> — 절차가 준비됐습니다. 아래 카드를 누르면 결과 판이 열립니다. ` +
           `<b>▷ 시험 시작</b>은 그 판에 있습니다.</p>` +
           `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
           `<span class="tx"><b>${hesc(tcName)} — Response</b>` +
@@ -1870,7 +1891,7 @@ export default function AskBar({ devices }: Props) {
       }
       unThink()
       if (chat && chat.test === false && chat.answer) {
-        say('a', mdSafe(chat.answer))
+        saySlow(chat.answer)
         setFlowAt(0)
         return
       }
