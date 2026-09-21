@@ -10357,3 +10357,85 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* 대화 줄 오른쪽 단추 무리 — 검색 · 모든 대화 보기 */
 .ask-eyebrow .eyebtns { display: flex; align-items: center; gap: 2px; }
 .ask-sec-add.on { background: var(--cl-hover); color: var(--cl-ink); }
+
+/* ── 대화 검색 팝업(지시) ── */
+.modal.ask-findmodal {
+  width: 560px;
+  max-width: 92vw;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+.ask-findhd {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--cl-line);
+  color: var(--cl-sub);
+}
+.ask-findhd input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 15px;
+  color: var(--cl-ink);
+  background: transparent;
+}
+.ask-findlist {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ask-finditem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+}
+.ask-finditem:hover { background: var(--cl-bg); }
+.ask-finditem b {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  color: var(--cl-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ask-finditem em { flex: none; font-style: normal; font-size: var(--fs-xs); color: var(--cl-sub); }
+.ask-findnone { padding: 20px; text-align: center; color: var(--cl-sub); font-size: var(--fs-sm); }
+
+/* ── 1·2·3열 머리 라인 맞추기(지시) — 모두 46px, 밑선이 같은 y ── */
+.ask-stop {
+  min-height: 46px;
+  box-sizing: border-box;
+  align-items: center;
+  margin: -10px -10px 6px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--cl-line);
+}
+.ask-chattop {
+  min-height: 46px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.ask.console .askp-hd { min-height: 46px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; }
+.ask-art > .ask-slots { min-height: 46px; box-sizing: border-box; align-items: center; padding-top: 4px; padding-bottom: 4px; }

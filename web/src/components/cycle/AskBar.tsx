@@ -658,12 +658,7 @@ export default function AskBar({ devices }: Props) {
   /* 대화 검색(지시) — 새 채팅 아래 줄, 누르면 찾기 칸이 열려 제목으로 거른다 */
   const [findOn, setFindOn] = useState(false)
   const [findQ, setFindQ] = useState('')
-  const chatQ = findOn ? findQ.trim().toLowerCase() : ''
-  const shownChats = chatQ
-    ? recent.filter((x) => x.title.toLowerCase().includes(chatQ))
-    : listAll
-      ? recent
-      : recent.slice(0, 12)
+  const shownChats = listAll ? recent : recent.slice(0, 12)
   useEffect(() => {
     if (!thMenu) return
     const close = () => setThMenu('')
@@ -3283,7 +3278,6 @@ export default function AskBar({ devices }: Props) {
             type="button"
             title="대화 검색"
             onClick={() => {
-              setRailShut(false)
               setFindOn(true)
               setFindQ('')
             }}
@@ -3294,9 +3288,11 @@ export default function AskBar({ devices }: Props) {
       )}
       {!railShut && (
       <aside className="ask-sess" aria-label="대화 목록" ref={sessRef} style={{ width: sessW }}>
-        {/* 아이콘 줄은 새 채팅 **위**(지시) — 접기만. 검색은 대화 줄로 갔다 */}
+        {/* 새 채팅 줄 — 접기 아이콘은 같은 줄 오른쪽(지시: 원위치) */}
         <div className="ask-stop">
-          <span className="sp" />
+          <button className="ask-hnew" type="button" onClick={newChat}>
+            <span className="pl" aria-hidden="true">＋</span>새 채팅
+          </button>
           <button
             className="ask-ico"
             type="button"
@@ -3306,9 +3302,6 @@ export default function AskBar({ devices }: Props) {
             <IconPanelToggle />
           </button>
         </div>
-        <button className="ask-hnew" type="button" onClick={newChat}>
-          <span className="pl" aria-hidden="true">＋</span>새 채팅
-        </button>
         <div className="ask-eyebrow">
           <span>대화</span>
           <span className="eyebtns">
@@ -3334,26 +3327,10 @@ export default function AskBar({ devices }: Props) {
             </button>
           </span>
         </div>
-        {findOn && (
-          <input
-            className="ask-sfind"
-            autoFocus
-            value={findQ}
-            placeholder="대화 제목으로 찾기"
-            onChange={(e) => setFindQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setFindOn(false)
-                setFindQ('')
-              }
-            }}
-          />
-        )}
+        {/* 찾기 칸은 걷었다 — 검색은 팝업으로(지시) */}
         <div className="ask-slist">
           {recent.length === 0 ? (
             <span className="muted small">아직 대화가 없습니다.</span>
-          ) : shownChats.length === 0 ? (
-            <span className="muted small">「{findQ.trim()}」 에 맞는 대화가 없습니다.</span>
           ) : (
             shownChats.map((x) => (
               <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}`} key={x.cid}>
@@ -3408,7 +3385,7 @@ export default function AskBar({ devices }: Props) {
               </div>
             ))
           )}
-          {!chatQ && !listAll && recent.length > 12 && (
+          {!listAll && recent.length > 12 && (
             <button type="button" className="ask-smore" onClick={() => setListAll(true)}>
               {recent.length - 12}개 더 보기
             </button>
@@ -3423,6 +3400,77 @@ export default function AskBar({ devices }: Props) {
           onResize={setSessW}
           getOrigin={() => sessRef.current?.getBoundingClientRect().left ?? 0}
         />
+      )}
+
+      {/* 대화 검색 — 팝업(지시). 제목으로 걸러 누르면 그 대화가 열린다 */}
+      {findOn && (
+        <div
+          className="modal-back"
+          onMouseDown={() => {
+            setFindOn(false)
+            setFindQ('')
+          }}
+        >
+          <div
+            className="modal ask-findmodal"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="ask-findhd">
+              <IconSearch />
+              <input
+                autoFocus
+                value={findQ}
+                placeholder="대화 제목으로 찾기"
+                onChange={(e) => setFindQ(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setFindOn(false)
+                    setFindQ('')
+                  }
+                }}
+              />
+              <button
+                className="modal-x"
+                type="button"
+                onClick={() => {
+                  setFindOn(false)
+                  setFindQ('')
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="ask-findlist">
+              {(() => {
+                const q = findQ.trim().toLowerCase()
+                const hits = (q ? recent.filter((x) => x.title.toLowerCase().includes(q)) : recent).slice(0, 30)
+                if (!hits.length)
+                  return (
+                    <div className="ask-findnone">
+                      {q ? `「${findQ.trim()}」 에 맞는 대화가 없습니다.` : '아직 대화가 없습니다.'}
+                    </div>
+                  )
+                return hits.map((x) => (
+                  <button
+                    key={x.cid}
+                    type="button"
+                    className="ask-finditem"
+                    onClick={() => {
+                      setFindOn(false)
+                      setFindQ('')
+                      void openChat(x.cid, x.title)
+                    }}
+                  >
+                    <b>{x.title}</b>
+                    {x.at && <em>{String(x.at).slice(5, 16)}</em>}
+                  </button>
+                ))
+              })()}
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="ask-main">
