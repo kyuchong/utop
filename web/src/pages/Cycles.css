@@ -10552,3 +10552,59 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   justify-content: flex-start;
   gap: 14px;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   1·2열을 Knowledge AI 처럼 한 카드로(지시) — 목록과 채팅이 한 흰 판,
+   사이는 이동바 자리의 실금 하나. 폭 조절은 그대로 산다.
+   ══════════════════════════════════════════════════════════════════ */
+/* 목록 카드의 오른쪽 모서리를 펴고 */
+.ask > .ask-sess {
+  border-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* 그 옆 이동바(6px)는 카드 속이 된다 — 흰 바탕, 가운데 실금 */
+.ask > .resizer { background: var(--cl-card); }
+/* 2열 쪽 모서리도 펴서 한 몸으로 */
+.ask-canvas.console:not(.plan) > .ask-home,
+.ask-canvas.plan.console > .ask-home {
+  border-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.ask:not(.console) .ask-canvas {
+  border-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+/* 접힘(아이콘 레일)일 때는 이동바가 없다 — 레일과 2열을 그대로 붙인다 */
+.ask > .ask-rail2 {
+  margin-right: 0;
+  border-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.ask > .ask-rail2 ~ .ask-main .ask-canvas.console > .ask-home,
+.ask > .ask-rail2 ~ .ask-main .ask-canvas:not(.console) {
+  border-left: 1px solid var(--cl-line);
+}
+
+/* ── 말풍선 머리(지시: 이미지) — AI 답에는 ✦ 아이콘, 질문에는 시각 ── */
+/* 콘솔에서 감췄던 AI 아이콘을 되살린다 — 이 화면 팔레트(코랄)로 */
+.ask.console .ask-msgs .msg.a .av {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  background: #fbeee6;
+  color: var(--cl-accent);
+  border: 1px solid rgb(201 99 62 / 22%);
+}
+/* 질문 시각 — 말풍선 왼쪽에 작게 */
+.ask-msgs .msg.u .uat {
+  align-self: center;
+  flex: none;
+  font-size: 11px;
+  color: var(--cl-sub, var(--c-text-faint));
+}
+.ask.console .ask-msgs .msg.u { gap: 10px; }

@@ -434,7 +434,7 @@ export default function AskBar({ devices }: Props) {
 
      말풍선을 쌓는다 — 내 말은 오른쪽, AI 말은 ✦ 를 단 왼쪽. 단계(장비 →
      항목 → 절차)도 이 줄에 실어, 지금 어디쯤인지 늘 보이게 한다. */
-  const [msgs, setMsgs] = useState<Array<{ who: 'u' | 'a'; html: string }>>([])
+  const [msgs, setMsgs] = useState<Array<{ who: 'u' | 'a'; html: string; at?: string }>>([])
   const msgsRef = useRef<HTMLDivElement>(null)
   /* ── 오른쪽 「자세히 보기」 판(승인: 목업 「Test AI 시험 콘솔」) ─────────
      대화는 왼쪽 기둥에 짧게 오가고, 장비 표·항목 목록·절차·로그 같은 큰
@@ -447,8 +447,13 @@ export default function AskBar({ devices }: Props) {
   /** LLM 이 지은 답(마크다운)을 말풍선에 실을 때 — 씻어서 html 로 */
   const mdSafe = (t: string) =>
     DOMPurify.sanitize(marked.parse(t || '', { async: false, breaks: true, gfm: true }) as string)
+  /** 지금 시각 HH:MM — 질문에 언제 물었는지 남긴다(지시) */
+  const hhmm = () => {
+    const d = new Date()
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
   /** 말풍선 한 줄 — html 은 우리가 짓는 글이라 그대로 싣는다 */
-  const say = (who: 'u' | 'a', html: string) => setMsgs((v) => [...v, { who, html }])
+  const say = (who: 'u' | 'a', html: string) => setMsgs((v) => [...v, { who, html, at: hhmm() }])
   /* 새 줄이 붙으면 아래로 따라간다 — 사람이 위로 올려 읽는 중이면 그대로 둔다 */
   useEffect(() => {
     const el = msgsRef.current
@@ -1047,19 +1052,13 @@ export default function AskBar({ devices }: Props) {
         ? v.map((m) => (m.who === 'a' && m.html.includes(mark) ? { ...m, html: line } : m))
         : [...v, { who: 'a' as const, html: line }]
     })
-  /** 고른 장비 카드 — 추천 카드와 같은 꼴, 누를 거리 없이 ✓ 만 단다 */
-  const devDoneCard = (nm: string, ip: string, k: string, label: string) =>
-    `<p class="ln"><b>1단계 · 장비</b> — 이 장비로 정했습니다.</p>` +
-    `<div class="ask-inb"><span class="ask-inhero done"><span class="ask-intt">` +
-    `<b class="nm">${hesc(nm)}</b><i>${hesc(ip)}</i><em class="st ${k}">● ${hesc(label)}</em></span>` +
-    `<span class="ask-inbtn done">✓ 선택됨</span></span></div>`
-  /** 고른 항목 카드 — 위와 같은 꼴 */
-  const tcDoneCard = (tcid: string, name: string, meta: string) =>
-    `<p class="ln"><b>2단계 · 시험 항목</b> — 이 항목으로 <b>3단계 · 절차 만들기</b> 를 시작합니다.</p>` +
-    `<div class="ask-inb"><span class="ask-inhero done"><span class="ask-intt"><code>${hesc(tcid)}</code>` +
-    (meta ? `<i>${hesc(meta)}</i>` : '') +
-    `</span><b class="nm">${hesc(name)}</b>` +
-    `<span class="ask-inbtn done">✓ 선택됨</span></span></div>`
+  /** 고른 장비 — 카드 대신 글 한 줄(지시: 이미지처럼) */
+  const devDoneCard = (nm: string, ip: string) =>
+    `<p class="ln"><b>${hesc(nm)} (${hesc(ip)})</b> 로 정했습니다.</p>`
+  /** 고른 항목 — 카드 대신 글 한 줄(지시) */
+  const tcDoneCard = (tcid: string, name: string) =>
+    `<p class="ln"><b>${hesc(tcid)}</b> 으로 정했습니다 — ${hesc(name)}. ` +
+    `<b>3단계 · 절차 만들기</b> 를 시작합니다.</p>`
 
   /** 장비 하나의 상태 — 고르개 창의 판정을 요약한 것(통신 + 점유) */
   const devStat = (d: Device) => {
@@ -1204,8 +1203,7 @@ export default function AskBar({ devices }: Props) {
       ].filter((x) => x.v),
     )
     /* 선택한 카드만 남긴다(지시) — 추천 블록이 고른 카드 하나로 접힌다 */
-    const st0 = devStat(d)
-    pickedLine('dev', devDoneCard(nm, String(d.ip ?? ''), st0.k, st0.label))
+    pickedLine('dev', devDoneCard(nm, String(d.ip ?? '')))
     void stepTc(d, asked || text)
   }
 
@@ -1216,12 +1214,7 @@ export default function AskBar({ devices }: Props) {
       /* 선택한 카드만 남긴다(지시) — 이름·방식·스텝 수까지 추천 카드 그대로 */
       const hm = tcAll.find((t) => t.tcid === tcid)
       const nm2 = hm?.name || like.find((x) => x.tcid === tcid)?.name || tcid
-      const man2 = /manual|수동/i.test(String(hm?.type ?? ''))
-      const nStep2 = Number(hm?.steps || like.find((x) => x.tcid === tcid)?.steps || 0)
-      pickedLine(
-        'tc',
-        tcDoneCard(tcid, nm2, `${man2 ? '수동' : '자동'}${nStep2 ? ` · ${nStep2}스텝` : ''}`),
-      )
+      pickedLine('tc', tcDoneCard(tcid, nm2))
     }
     void (mode === 'basic' ? takeTc(tcid, undefined, model) : adopt(tcid))
   }
@@ -2934,10 +2927,7 @@ export default function AskBar({ devices }: Props) {
                                       setDevId(d.id)
                                       if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
                                       setDevOpen(false)
-                                      pickedLine(
-                                        'dev',
-                                        devDoneCard(nm, String(d.ip ?? ''), R.k, R.label),
-                                      )
+                                      pickedLine('dev', devDoneCard(nm, String(d.ip ?? '')))
                                       /* 질문 흐름에서 열었으면 그대로 2단계로 잇는다 */
                                       if (afterDevRef.current === 'tc') {
                                         afterDevRef.current = ''
@@ -3339,14 +3329,7 @@ export default function AskBar({ devices }: Props) {
                               if (adopting) return
                               setLikeAsk(false)
                               /* 무엇으로 정했는지 남기고 3단계로(지시: 목업) */
-                              pickedLine(
-                                'tc',
-                                tcDoneCard(
-                                  x.tcid,
-                                  x.name,
-                                  `${/manual|수동/i.test(String(x.type || '')) ? '수동' : '자동'} · ${x.steps}스텝`,
-                                ),
-                              )
+                              pickedLine('tc', tcDoneCard(x.tcid, x.name))
                               /* 일반 = 있는 것을 그대로, 고급 = 이 장비에 맞춰 옮겨 짓기 */
                               void (mode === 'basic'
                                 ? takeTc(x.tcid, undefined, x.model)
@@ -3961,8 +3944,9 @@ export default function AskBar({ devices }: Props) {
               >
                 {msgs.map((m, i) =>
                   m.who === 'u' ? (
-                    /* 내 말 — 오른쪽 정렬 + 누가 물었나 아바타(지시) */
+                    /* 내 말 — 오른쪽 정렬 + 물은 시각 + 누가 물었나 아바타(지시) */
                     <div className="msg u" key={i}>
+                      {m.at && <time className="uat">{m.at}</time>}
                       <b>{m.html}</b>
                       <span className="uav" aria-hidden="true" title={meName || undefined}>
                         {myInit}
