@@ -1454,6 +1454,18 @@ button.sq-caret svg { width: 11px; height: 11px; }
   font-size: var(--fs-xs);
 }
 .sd-bmenu button:hover { background: #f0f4f8; }
+/* 「숫자만 변수로」 + 소수 자릿수 고르개(지시) — 한 줄에 */
+.sd-numpick { display: flex; align-items: center; gap: 4px; }
+.sd-numpick button { flex: 1; }
+.sd-numpick select,
+.sd-numsel {
+  font: inherit;
+  font-size: var(--fs-xs);
+  border: 1px solid var(--tc-line, #dfe4ea);
+  border-radius: 6px;
+  padding: 3px 4px;
+  background: var(--c-surface, #fff);
+}
 
 .sd-res.empty-res {
   background: var(--tc-hover);

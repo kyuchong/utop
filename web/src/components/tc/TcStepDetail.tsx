@@ -135,6 +135,9 @@ export default function TcStepDetail({
   const [pickCut, setPickCut] = useState(false)
   /** 뽑기에서 알려 줄 말 한 줄 — 조용히 다르게 담으면 왜 값이 다른지 모른다 */
   const [capNote, setCapNote] = useState('')
+  /** 「숫자만」 이 잡을 소수 자릿수(지시: 1.83 의 끝자리가 자꾸 변한다).
+      null=소수 전체 · 0=정수 · 1~3=그 자리까지만 */
+  const [numDec, setNumDec] = useState<number | null>(null)
   /** 눌린 블럭 — [변수로 · 있으면 합격 · 없으면 합격] 메뉴가 뜬 자리 */
   const [blockAt, setBlockAt] = useState<{ v: string; x: number; y: number; kind?: 'col' } | null>(null)
   const [tblOpen, setTblOpen] = useState(false)
@@ -508,7 +511,7 @@ export default function TcStepDetail({
    * 고른 값에 붙은 단위·라벨을 그룹 밖에 두고 수(부호·소수 포함)만 잡는다.
    * 이러면 치환 스텝 없이 다음 Diff 가 곧바로 수로 견준다. 음수도 부호째.
    */
-  const addNumFromBlock = (text: string) => {
+  const addNumFromBlock = (text: string, decimals: number | null = null) => {
     const t = String(text ?? '')
     const m = t.match(/-?\d+(?:\.\d+)?/)
     if (!m) {
@@ -525,11 +528,31 @@ export default function TcStepDetail({
     const lines = String(result ?? '').split(/\r?\n/)
     const line = lines.find((l) => l.includes(t.trim())) ?? lines.find((l) => l.includes(num)) ?? ''
     const before = line.slice(0, Math.max(0, line.indexOf(num)))
-    // 수 자국 — 부호·소수 포함(-?\d+\.\d+ 등)
-    const numPat = patternFrom(num, true, false)
+    /* 수 자국 — 부호·소수 포함. **소수 자릿수를 정하면**(지시: 끝자리가
+       자꾸 변한다) 그 자리까지만 잡는다: 0=정수(-?\d+) · N=(-?\d+\.\d{N}).
+       "1.83" 에서 1자리면 "1.8" 만 잡혀 끝자리 흔들림을 무시한다. */
+    const numPat =
+      decimals == null
+        ? patternFrom(num, true, false) // 소수 전체 — 지금대로
+        : decimals === 0
+          ? '-?\\d+'
+          : `-?\\d+\\.\\d{${decimals}}`
     let q = `(${numPat})`
     if (hitCount(numPat) > 1) {
-      const anchored = anchoredLoose(num, before, false)
+      // 소수 자릿수를 정했으면 그 자국을, 아니면 값 그대로를 라벨로 집는다
+      const anchored =
+        decimals == null
+          ? anchoredLoose(num, before, false)
+          : (() => {
+              const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+              const toks = before.split(/\s+/).filter(Boolean)
+              for (let k = 1; k <= toks.length && k <= 10; k += 1) {
+                const anchor = toks.slice(toks.length - k).map(esc).join('\\s+')
+                const pat = `${anchor}\\s*(${numPat})`
+                if (hitCount(pat) === 1) return pat
+              }
+              return null
+            })()
       if (anchored) {
         q = anchored
         setCapNote('앞의 라벨로 그 자리의 숫자를 집었습니다 — 값이 바뀌어도 따라갑니다.')
@@ -538,7 +561,11 @@ export default function TcStepDetail({
         setCapNote('여러 군데에 맞고 라벨로도 못 좁혀 고른 숫자 그대로 담았습니다.')
       }
     } else {
-      setCapNote(`숫자만 담았습니다 — ${num}`)
+      setCapNote(
+        decimals == null
+          ? `숫자만 담았습니다 — ${num}`
+          : `숫자만 담았습니다 (소수 ${decimals}자리) — 끝자리 흔들림을 무시합니다`,
+      )
     }
     onChange({ queries: [...(step.queries ?? []), { q, var: name }] })
   }
@@ -2193,19 +2220,36 @@ export default function TcStepDetail({
                           </button>
                         )
                       })()}
-                      {/* 숫자만(지시) — 드래그로 "-15.87 dBm" 을 긁어도 -15.87 만 */}
+                      {/* 숫자만(지시) — 드래그로 "-15.87 dBm" 을 긁어도 -15.87 만.
+                          소수 자릿수로 끝자리 흔들림을 무시(지시) */}
                       {/-?\d/.test(picked) && (
-                        <button
-                          className="btn small"
-                          type="button"
-                          title="단위·라벨을 떼고 숫자만 담습니다 (예: -15.87 dBm → -15.87) — 다음 Diff 가 수로 견줍니다"
-                          onClick={() => {
-                            addNumFromBlock(picked)
-                            setPicked('')
-                          }}
-                        >
-                          숫자만
-                        </button>
+                        <>
+                          <button
+                            className="btn small"
+                            type="button"
+                            title="단위·라벨을 떼고 숫자만 담습니다 (예: -15.87 dBm → -15.87) — 다음 Diff 가 수로 견줍니다"
+                            onClick={() => {
+                              addNumFromBlock(picked, numDec)
+                              setPicked('')
+                            }}
+                          >
+                            숫자만
+                          </button>
+                          <select
+                            className="sd-numsel"
+                            value={numDec == null ? '' : String(numDec)}
+                            title="소수 몇 자리까지 담을지 — 끝자리가 자꾸 변하면 자릿수를 줄이세요"
+                            onChange={(e) =>
+                              setNumDec(e.target.value === '' ? null : Number(e.target.value))
+                            }
+                          >
+                            <option value="">소수 전체</option>
+                            <option value="0">정수</option>
+                            <option value="1">소수 1자리</option>
+                            <option value="2">소수 2자리</option>
+                            <option value="3">소수 3자리</option>
+                          </select>
+                        </>
                       )}
                       <button
                         className="btn small"
@@ -2380,18 +2424,35 @@ export default function TcStepDetail({
                       >
                         변수로 담기
                       </button>
-                      {/* 숫자만(지시) — 단위·라벨 떼고 수만. 음수도 부호째 */}
+                      {/* 숫자만(지시) — 단위·라벨 떼고 수만. 음수도 부호째.
+                          소수 자릿수를 정하면 끝자리 흔들림을 무시한다(지시) */}
                       {/-?\d/.test(blockAt.v) && (
-                        <button
-                          type="button"
-                          title="단위·라벨을 떼고 숫자만 변수로 담습니다 (예: -15.87 dBm → -15.87)"
-                          onClick={() => {
-                            addNumFromBlock(blockAt.v)
-                            setBlockAt(null)
-                          }}
-                        >
-                          숫자만 변수로
-                        </button>
+                        <div className="sd-numpick">
+                          <button
+                            type="button"
+                            title="단위·라벨을 떼고 숫자만 변수로 담습니다 (예: -15.87 dBm → -15.87)"
+                            onClick={() => {
+                              addNumFromBlock(blockAt.v, numDec)
+                              setBlockAt(null)
+                            }}
+                          >
+                            숫자만 변수로
+                          </button>
+                          <select
+                            value={numDec == null ? '' : String(numDec)}
+                            title="소수 몇 자리까지 담을지 — 끝자리가 자꾸 변하면 자릿수를 줄이세요"
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) =>
+                              setNumDec(e.target.value === '' ? null : Number(e.target.value))
+                            }
+                          >
+                            <option value="">소수 전체</option>
+                            <option value="0">정수</option>
+                            <option value="1">소수 1자리</option>
+                            <option value="2">소수 2자리</option>
+                            <option value="3">소수 3자리</option>
+                          </select>
+                        </div>
                       )}
                       <button
                         type="button"
