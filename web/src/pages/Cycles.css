@@ -10608,3 +10608,11 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   color: var(--cl-sub, var(--c-text-faint));
 }
 .ask.console .ask-msgs .msg.u { gap: 10px; }
+
+/* ── 1·2열 사이 경계선(지시) — 한 카드 안이라도 실금은 위에서 아래까지.
+   이동바 한가운데 1px 선을 긋는다. 손잡이(잡으면 코랄)는 그 위에 뜬다. ── */
+.ask > .resizer {
+  background:
+    linear-gradient(var(--cl-line), var(--cl-line)) center / 1px 100% no-repeat,
+    var(--cl-card);
+}
