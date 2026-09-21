@@ -645,6 +645,8 @@ export default function AskBar({ devices }: Props) {
     })()
   }, [])
   const myInit = (meName || '나').slice(0, 1)
+  /** 내보내기 미리보기(지시) — 내용을 팝업으로 보고 나서 내려받는다 */
+  const [expPrev, setExpPrev] = useState<'' | 'pdf' | 'pptx'>('')
   /** 1열 접기(지시) — 접으면 아이콘 레일만 남는다. 계정에 남긴다. */
   const [railShut, setRailShut] = useState(() => prefGet('utop.ai.railshut') === '1')
   useEffect(() => {
@@ -2534,21 +2536,48 @@ export default function AskBar({ devices }: Props) {
     }
   }
 
+  /** PPTX 에 실을 내용 한 벌 — 저장과 미리보기가 같은 것을 본다 */
+  const pptxParts = () => {
+    const runnable = autoSteps.filter((s) => s.kind !== 'comment' && s.kind !== 'message')
+    const resultText = runnable
+      .map(
+        (s) =>
+          `[Step ${s.no}] ${s.cmd || s.t || ''}` +
+          (s.mark ? `  → ${s.mark}` : '') +
+          (s.reason ? `\n${String(s.reason)}` : '') +
+          (s.out ? `\n${String(s.out).slice(0, 700)}` : ''),
+      )
+      .join('\n\n')
+    const method = (draft?.steps ?? []).map((x, i) => `${i + 1}. ${x.desc || x.cli || ''}`).join('\n')
+    return { resultText, method }
+  }
+
+  /** PPTX 미리보기 HTML — 양식에 채워질 내용을 쪽 꼴로 보여 준다 */
+  const pptxPrevHtml = () => {
+    const { resultText, method } = pptxParts()
+    return (
+      `<style>body{margin:0;background:#e8e6dc;font-family:'Malgun Gothic',sans-serif;font-size:12px;color:#222}` +
+      `.pg{width:860px;min-height:460px;background:#fff;margin:16px auto;box-shadow:0 4px 14px rgb(0 0 0/12%);padding:26px;box-sizing:border-box}` +
+      `h3{margin:0 0 10px;font-size:14px}` +
+      `table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}` +
+      `th{background:#f0efe8;width:110px;white-space:nowrap}` +
+      `pre{white-space:pre-wrap;word-break:break-all;font-family:Consolas,monospace;font-size:11px;margin:0}</style>` +
+      `<div class="pg"><h3>시험 결과서 — 첫 장</h3><table>` +
+      `<tr><th>TC ID</th><td>${hesc(draft?.object || '')}</td><th>시험 항목</th><td>${hesc(draft?.name || '')}</td></tr>` +
+      `<tr><th>시험 방법</th><td colspan="3"><pre>${hesc(method)}</pre></td></tr>` +
+      `<tr><th>시험 결과</th><td colspan="3">뒷면 참조</td></tr>` +
+      `<tr><th>비고</th><td colspan="3">${hesc(devName)} · ${hesc(devIp)}</td></tr>` +
+      `</table></div>` +
+      `<div class="pg"><h3>시험 결과 — 이어지는 장</h3><pre>${hesc(resultText || '(아직 돌리지 않았습니다)')}</pre></div>`
+    )
+  }
+
   /** PPTX 저장(지시) — 고객사 양식(/api/pptx-render)에 값을 채워 받는다 */
   const savePptx = async () => {
     if (!draft) return
     setErr('')
     try {
-      const runnable = autoSteps.filter((s) => s.kind !== 'comment' && s.kind !== 'message')
-      const resultText = runnable
-        .map(
-          (s) =>
-            `[Step ${s.no}] ${s.cmd || s.t || ''}` +
-            (s.mark ? `  → ${s.mark}` : '') +
-            (s.reason ? `\n${String(s.reason)}` : '') +
-            (s.out ? `\n${String(s.out).slice(0, 700)}` : ''),
-        )
-        .join('\n\n')
+      const { resultText, method } = pptxParts()
       const vals = {
         tc_id: draft.object || '',
         req_id: '',
@@ -2565,7 +2594,7 @@ export default function AskBar({ devices }: Props) {
               values: {
                 ...vals,
                 spec: '',
-                method: draft.steps.map((x, i) => `${i + 1}. ${x.desc || x.cli || ''}`).join('\n'),
+                method,
                 result_head: '뒷면 참조',
                 note: `${devName} · ${devIp}`,
               },
@@ -3577,6 +3606,57 @@ export default function AskBar({ devices }: Props) {
         </div>
       )}
 
+      {/* 내보내기 미리보기(지시) — 확인하고 내려받는다 */}
+      {expPrev && draft && (
+        <div className="modal-back" onMouseDown={() => setExpPrev('')}>
+          <div
+            className="modal ask-prevmodal"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-head">
+              <div>
+                <b>{expPrev === 'pdf' ? 'PDF 결과서 미리보기' : 'PPTX 결과서 미리보기'}</b>
+                <div className="muted small">
+                  {expPrev === 'pdf'
+                    ? '이 내용 그대로 PDF 로 저장됩니다.'
+                    : '실제 파일은 고객사 양식(PPTX)에 이 내용이 채워져 나옵니다.'}
+                </div>
+              </div>
+              <span className="sp" />
+              <button className="modal-x" type="button" onClick={() => setExpPrev('')}>
+                ✕
+              </button>
+            </div>
+            <iframe
+              className="ask-previfr"
+              title="결과서 미리보기"
+              srcDoc={expPrev === 'pdf' ? reportHtml() : pptxPrevHtml()}
+            />
+            <div className="modal-foot">
+              <span className="sp" />
+              <span className="ask-footbtns">
+                <button className="btn small" type="button" onClick={() => setExpPrev('')}>
+                  닫기
+                </button>
+                <button
+                  className="btn primary small"
+                  type="button"
+                  onClick={() => {
+                    const k = expPrev
+                    setExpPrev('')
+                    void (k === 'pdf' ? savePdf() : savePptx())
+                  }}
+                >
+                  ⬇ 내려받기
+                </button>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="ask-main">
         <div className="ask-cols">
           {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
@@ -4359,16 +4439,16 @@ export default function AskBar({ devices }: Props) {
               <button
                 className="btn small"
                 type="button"
-                title="절차와 결과를 PDF 결과서로 저장합니다"
-                onClick={() => void savePdf()}
+                title="절차와 결과를 PDF 결과서로 저장합니다 — 미리보기가 먼저 뜹니다"
+                onClick={() => setExpPrev('pdf')}
               >
                 PDF 저장
               </button>
               <button
                 className="btn small"
                 type="button"
-                title="고객사 양식(PPTX) 결과서로 저장합니다"
-                onClick={() => void savePptx()}
+                title="고객사 양식(PPTX) 결과서로 저장합니다 — 미리보기가 먼저 뜹니다"
+                onClick={() => setExpPrev('pptx')}
               >
                 PPTX 저장
               </button>
