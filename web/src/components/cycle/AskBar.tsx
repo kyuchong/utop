@@ -406,6 +406,11 @@ export default function AskBar({ devices }: Props) {
      항목 → 절차)도 이 줄에 실어, 지금 어디쯤인지 늘 보이게 한다. */
   const [msgs, setMsgs] = useState<Array<{ who: 'u' | 'a'; html: string }>>([])
   const msgsRef = useRef<HTMLDivElement>(null)
+  /* ── 오른쪽 「자세히 보기」 판(승인: 목업 「Test AI 시험 콘솔」) ─────────
+     대화는 왼쪽 기둥에 짧게 오가고, 장비 표·항목 목록·절차·로그 같은 큰
+     것은 오른쪽 판에 단계 배지와 함께 열린다. 이 값은 1·2단계에 무엇을
+     펼칠지다 — 절차(draft)·생성 중(making)은 저희 자리가 따로 있다. */
+  const [pane, setPane] = useState<'' | 'dev' | 'tc'>('')
   /** 남이 지은 글(장비 이름·항목 제목)을 html 에 실을 때 — 꺾쇠를 막는다 */
   const hesc = (t: string) =>
     String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -916,8 +921,13 @@ export default function AskBar({ devices }: Props) {
     return { k: 'part' as const, label: '일부 연결' }
   }
 
-  /** 1단계 말풍선 — 비어 있는 장비 한 대를 추천하고, 나머지는 줄로 */
+  /** 1단계 말풍선 — 비어 있는 장비 한 대를 추천하고, 나머지는 줄로.
+      같은 순간 오른쪽 판에는 전체 장비 표가 선다(목업: 1단계 · 장비). */
   const sayDevBlock = (cands: Device[], m0: string) => {
+    setPane('dev')
+    /* 판의 표도 물어본 모델로 미리 좁힌다(목업: 다른 모델은 흐리게) —
+       「필터 지우기」 로 언제든 전체로 돌아간다 */
+    setDevQ(m0)
     const ord = { ok: 0, part: 1, busy: 2, no: 3 } as const
     const sorted = [...cands].sort((a, b) => ord[devStat(a).k] - ord[devStat(b).k])
     const hero = sorted[0]
@@ -1004,9 +1014,10 @@ export default function AskBar({ devices }: Props) {
     sayThink('말씀과 가까운 시험 항목을 찾는 중…')
     const items = await findLike(q, d)
     unThink()
+    /* 전체 목록은 오른쪽 판이 편다(목업: 2단계 · 항목) — 창을 띄우지 않는다 */
+    setPane('tc')
     if (!items.length) {
-      say('a', '<p class="ln">말씀과 가까운 항목을 못 찾았습니다 — 목록에서 골라 주세요.</p>')
-      setLikeAsk(true)
+      say('a', '<p class="ln">말씀과 가까운 항목을 못 찾았습니다 — 오른쪽 판에서 골라 주세요.</p>')
       return
     }
     sayTcBlock(items)
@@ -2159,695 +2170,14 @@ export default function AskBar({ devices }: Props) {
   const devName = curDev?.name || curDev?.model || '장비'
   const devIp = curDev?.ip ?? ''
 
-  return (
-    /* 세 칸 + 아래 입력줄 — 옮겨 온 화면의 짜임을 우리 꼴(panel·btn·토큰)로 다시 그렸다.
-       왼쪽 기록 · 가운데 작업 흐름 · 오른쪽 캔버스, 입력은 흐름부터 오른쪽 끝까지. */
-    <div className={`ask${!draft && !making ? ' athome' : ''}`}>
-      {/* 왼쪽 「새 시험 만들기 · 최근」 칸은 걷어냈다(지시) — 첫 화면이
-          한가운데에 서야 해서, 옆에 칸이 있으면 그만큼 밀린다. */}
+  /** 콘솔 모드(목업) — 대화가 시작되면 왼쪽 대화 기둥 + 오른쪽 자세히 보기 판 */
+  const twoPane = msgs.length > 0 || !!draft || making
 
-      <div className="ask-main">
-        {/* 맨 위 줄 — 지금 무엇을 하고 있나(목업). 일이 시작된 뒤에만 뜬다.
-            물어본 말을 늘 곁에 두어야 「내가 뭘 시켰더라」 를 안 잊는다. */}
-        {(draft || making) && (
-          <div className="ask-top">
-            <b className="ask-top-t">AI 자연어 시험</b>
-            <span className={`ask-top-b${mode === 'adv' ? ' adv' : ''}`}>
-              {mode === 'adv' ? 'Advanced AI Assistant' : 'General AI Assistant'}
-            </span>
-            {asked && <span className="ask-top-q" title={asked}>{asked}</span>}
-            <span className="sp" />
-            <button
-              className="btn small"
-              type="button"
-              title="첫 화면으로 돌아갑니다 — 만든 절차와 물어본 말이 버려집니다"
-              onClick={() => {
-                setDraft(null)
-                setBuilt(null)
-                setRan(null)
-                setAsked('')
-                setErr('')
-                /* **이번 판의 찌꺼기까지 비운다**(지적: 눌러도 앞의 것이 남는다).
-                   흐름 기록·고른 스텝·물어본 글이 남으면 다음 물음이 그 위에서
-                   굴러간다. 다만 고른 장비(devId)와 켠 도구(tOn)는 **남긴다** —
-                   그 둘은 계정 설정을 따라가는 값이라, 여기서 비우면 「내 설정이
-                   사라졌다」 가 된다. */
-                setFlowLogRaw([])
-                setPicked(new Set())
-                setLike([])
-                setText('')
-                setMsgs([])
-              }}
-            >
-              ↺ 처음으로
-            </button>
-          </div>
-        )}
-        {/* 슬롯 줄 — 목업처럼 **머리 바로 아래**, 판들 바깥이다.
-            판 안에 있으면 세 판의 머리 높이가 어긋난다(지적). */}
-        {draft && (
-        <div className="ask-slots">
-          {/* 이 시험이 Coverage 트리의 **어디에 있는지**를 그대로 보여 준다
-              (지시 사진) — 사업자 › 폴더 › 요구사항 › 시험 번호.
-              누르면 그 자리로 간다. 장비는 오른쪽 끝 알약이 쥔다. */}
-          <nav className="bcrumb" aria-label="경로">
-            <span className="bc-root">Coverage</span>
-            {(pathQ.data?.cats ?? []).map((c) => (
-              <Fragment key={c.id}>
-                <span className="bc-sep" aria-hidden="true">
-                  ›
-                </span>
-                <span className="bc-a bc-plain">{c.name}</span>
-              </Fragment>
-            ))}
-            {pathQ.data?.req && (
-              <>
-                <span className="bc-sep" aria-hidden="true">
-                  ›
-                </span>
-                <a
-                  className="bc-a"
-                  href={gotoHref('req', pathQ.data.req.id)}
-                  title="이 요구사항으로 갑니다"
-                  onClick={(e) => gotoClick(e, 'req', pathQ.data?.req?.id ?? '')}
-                >
-                  {pathQ.data.req.title || pathQ.data.req.reqid}
-                </a>
-              </>
-            )}
-            <span className="bc-sep" aria-hidden="true">
-              ›
-            </span>
-            {tcOf(draft) ? (
-              <a
-                className="bc-cur"
-                href={gotoHref('tc', tcOf(draft))}
-                title="Coverage 에서 이 시험을 엽니다"
-                onClick={(e) => gotoClick(e, 'tc', tcOf(draft))}
-              >
-                {tcOf(draft)}
-              </a>
-            ) : (
-              <span className="bc-cur">{draft.name}</span>
-            )}
-            {tcOf(draft) && draft.name && (
-              <span className="bc-id" title={draft.name}>
-                {draft.name}
-              </span>
-            )}
-          </nav>
-          {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
-          <span className="sp" />
-          {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}
-          <button
-            type="button"
-            className="btn small ask-devchip"
-            title="다른 장비로 바꿉니다"
-            onClick={() => {
-              setPickSel(devId || usable[0]?.id || '')
-              setPickLab('')
-              setPickRack('')
-              setPickDev({ model: '', cands: usable })
-            }}
-          >
-            ▭ {curDev ? `${curDev.model || curDev.name || ''} · ${curDev.ip}` : '장비를 고르세요'}
-          </button>
-          {/* **여기부터**(지시) — 가운데서 깨졌을 때 처음부터 다시 돌리지 않게.
-              엔진은 이미 구간을 받는다(run(only, from, to)), 단추만 없었다. */}
-          {!running && stepAt > 0 && (
-            <button
-              className="btn small"
-              type="button"
-              disabled={!draft.steps.length || !devId}
-              title={`고른 ${stepAt + 1}번 줄부터 끝까지 돌립니다`}
-              onClick={() => void run(undefined, stepAt)}
-            >
-              ▶ 여기부터
-            </button>
-          )}
-          {running ? (
-            <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
-              ⏹ 멈추기
-            </button>
-          ) : (
-            <button
-              className="btn primary ask-runbig"
-              type="button"
-              disabled={!draft.steps.length || !devId}
-              onClick={() => void run()}
-            >
-              {/* 다 돌린 뒤에도 「시험 시작」 이면 끝났는지 아직인지 모른다(지적) */}
-              {ran && ran.some((x) => x && (x.status || x.repeatResult)) ? '▷ 다시 시험' : '▷ 시험 시작'}
-            </button>
-          )}
-          {ran && !running && (
-            <button className="btn small" type="button" onClick={() => void save()}>
-              시험으로 저장
-            </button>
-          )}
-          <button
-            className="btn small ask-trash"
-            type="button"
-            title="버리기 — 만든 절차를 지웁니다"
-            aria-label="버리기"
-            onClick={() => {
-              /* 한 번 물어본다(지시) — 스텝과 돌린 결과가 함께 사라진다 */
-              const n = draft.steps.length
-              const hasRun = (ran ?? []).some((r) => r && (r.repeatResult || r.status))
-              if (
-                !window.confirm(
-                  `만든 절차 ${n}스텝을 버릴까요?` +
-                    (hasRun ? '\n돌린 결과도 함께 사라집니다.' : ''),
-                )
-              )
-                return
-              setDraft(null)
-              setRan(null)
-            }}
-          >
-            <IconTrash />
-          </button>
-        </div>
-        )}
-        <div className="ask-cols">
-          {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
-          {/* 작업 흐름 — 아직 아무 일도 없으면 빈 판이라 첫 화면을 좁힐 뿐이다 */}
-          {/* 작업 흐름 레일은 걷었다(지시: 필요 없어) — 한 일은 대화 말풍선이 이미 말한다 */}
+  /** 장비 표 한 벌 — 캡슐의 창(devOpen)과 오른쪽 판(1단계 · 장비)이 같은 몸을
+      쓴다(목업). 판에서는 닫기 ✕ 를 걷는다 — 판은 창이 아니라 늘 열려 있는 자리다. */
+  const devPickUI = (inPanel: boolean) => (
+    <span className={`ask-devmenu big${inPanel ? ' inpanel' : ''}`} role={inPanel ? undefined : 'menu'}>
 
-          <div className={`ask-canvaswrap${draft ? ' plan' : ''}`}>
-          <main className={`ask-canvas${draft ? ' plan' : ''}${busy ? ' busy' : ''}`}>
-            {/* 고치는 동안 뜨는 표 — **일하는 자리 한가운데**(지시).
-                판마다 띄우면 둘로 보이고, 한쪽에만 띄우면 왼쪽으로 쏠린다. */}
-            {busy && draft && (
-              <div className="ask-busy" role="status" aria-live="polite">
-                <span className="ask-busy-box">
-                  <i className="ask-spin" aria-hidden="true" />
-                  <b>AI 수정 중…</b>
-                  <em>지금 절차를 고치고 있습니다</em>
-                </span>
-              </div>
-            )}
-
-      {/* 만드는 중 — 첫 화면을 **치운다**.
-          초안은 기준까지 다 채운 뒤에 나오므로 그때까지 이 자리가 빈다.
-          질문 보기를 그대로 두면 다 만든 줄 모르고 다른 예시를 눌러 같은
-          일이 두 번 시작된다(가져오기 중에는 busy 가 꺼져 있어 막히지도
-          않았다). 지금 무엇을 하고 있는지만 보인다. */}
-      {!draft && making && (
-        <div className="ask-making">
-          <h1>
-            <span className="ask-spin" aria-hidden="true" />
-            AI 생성 중…
-          </h1>
-          <p className="muted">
-            {asked.trim() ? `“${asked.trim()}”` : '고른 시험 항목으로 절차를 짓는 중입니다'}
-          </p>
-          <div className="ask-mksay">
-            <i />
-            <span>{genSay || '만드는 중…'}</span>
-            {elapsed > 4 && <em className="muted">{elapsed}초째</em>}
-          </div>
-          {/* 절차가 지어졌으면 **그것을 보여 준다.** 레일에는 스텝이 다 찼는데
-              여기만 회색 뼈대면 「스텝이 안 만들어졌다」 로 보인다(지적) — 실은
-              기준을 잡느라 몇 초에서 몇십 초가 걸리는 참이다. */}
-          {built && built.steps.length > 0 ? (
-            <ol className="ask-mkstep">
-              {built.steps.map((x, i) => (
-                <li key={i}>
-                  <i>{i + 1}</i>
-                  <span>
-                    <b>{x.desc || x.cli}</b>
-                    {x.cli && x.desc ? <code>{x.cli}</code> : null}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="ask-skel" aria-hidden="true">
-              {[0, 1, 2].map((i) => (
-                <div className="ask-skelrow" key={i}>
-                  <b />
-                  <em />
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="ask-note muted small">
-            {built && built.steps.length > 0 ? (
-              <>
-                절차 <b>{built.steps.length}스텝</b> 은 다 나왔습니다. 지금은 <b>판정 기준</b> 을 잡는
-                중입니다 — 다 채우면 이 절차가 고칠 수 있는 꼴로 열립니다.
-              </>
-            ) : (
-              <>
-                <b>판정 기준</b> 까지 채운 뒤에 절차가 한 번에 나옵니다.
-              </>
-            )}
-          </p>
-        </div>
-      )}
-
-      {/* 첫 화면 — 보내 주신 목업 그대로(지시).
-          제목 · 입력칸(모드 고르개가 그 안에) · 오프너 셋.
-          관리자는 ⚙ 로 오프너를 이 자리에서 고친다. */}
-      {!draft && !making && (
-        <div
-          className={`ask-home${exEdit ? ' editing' : ''}${msgs.length ? ' chat' : ''}`}
-          data-theme={theme}
-        >
-          {exEdit && <span className="ask-edbadge">오프너 편집 모드</span>}
-          <div className="ask-hometools">
-            {!exEdit && (
-              <span className="ask-themewrap">
-                <button
-                  className="ask-gearbtn"
-                  type="button"
-                  aria-haspopup="true"
-                  aria-expanded={themeOpen}
-                  title="첫 화면 테마 — 계절·명절 색으로 바꿉니다"
-                  onClick={() => setThemeOpen((v) => !v)}
-                >
-                  {THEMES.find(([k]) => k === theme)?.[2]} 테마
-                </button>
-                {themeOpen && (
-                  <>
-                    <span className="ask-modeback" onClick={() => setThemeOpen(false)} />
-                    <span className="ask-thememenu" role="menu">
-                      {THEMES.map(([k, nm, emo]) => (
-                        <button
-                          key={k}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={theme === k}
-                          className={`ask-thmi${theme === k ? ' on' : ''}`}
-                          onClick={() => {
-                            setTheme(k)
-                            setThemeOpen(false)
-                          }}
-                        >
-                          <i aria-hidden="true">{emo}</i>
-                          {nm}
-                          {theme === k && <b aria-hidden="true">✔</b>}
-                        </button>
-                      ))}
-                    </span>
-                  </>
-                )}
-              </span>
-            )}
-            {amAdmin && !exEdit && (
-              <button
-                className="ask-gearbtn"
-                type="button"
-                title="오프너 문구를 이 자리에서 바로 고칩니다"
-                onClick={() => {
-                  exBack.current = examples.map((x) => ({ ...x }))
-                  setExEdit(true)
-                }}
-              >
-                <IconSettings /> 설정
-              </button>
-            )}
-            {exEdit && (
-              <button
-                className="ask-edcancel"
-                type="button"
-                onClick={() => {
-                  setExamples(exBack.current.map((x) => ({ ...x })))
-                  setExEdit(false)
-                }}
-              >
-                ✕ 편집 취소
-              </button>
-            )}
-          </div>
-
-          <div className="ask-homewrap">
-            {/* A안 오로라(승인) — 빛무리 셋과 점 격자. 그림일 뿐이라
-                보조기기에는 없는 것으로 친다. 움직임은 CSS 가 갖고 있고
-                prefers-reduced-motion 이면 멎는다. */}
-            <div className="ask-sky" aria-hidden="true">
-              <i className="o1" />
-              <i className="o2" />
-              <i className="o3" />
-              <i className="dots" />
-              {/* 계절의 「것」 — 벚꽃·물방울·낙엽·눈·별·연. 무엇이 될지는
-                  테마 CSS 가 정하고, 여기는 자리 열여섯만 뿌린다. */}
-              <span className="fx">
-                {Array.from({ length: 16 }, (_, i) => (
-                  <i key={i} style={{ '--i': i } as CSSProperties} />
-                ))}
-              </span>
-            </div>
-            <span className="ask-aibadge">
-              <i aria-hidden="true">✦</i>UBIQUOSS Test Assistant
-            </span>
-            <h1 className="ask-hometitle">무엇을 도와드릴까요?</h1>
-            {/* 부제는 **고른 갈래를 따라간다**(지시) — 두 갈래가 하는 일이
-                다른데 한 줄로 뭉뚱그리면, 무엇을 골라야 할지는 결국 눌러
-                봐야 안다. 아래 모드 칩과 같은 말을 쓴다. */}
-            <p className="ask-homesub">
-              {mode === 'adv'
-                ? '자연어로 시험 항목을 만들고 실행합니다'
-                : '자연어로 장비를 선택하고 항목을 찾고 실행합니다'}
-            </p>
-
-            {/* 입력 + 모드 — 한 상자 안이다(목업) */}
-            {/* 2행 캡슐(승인) — 1행 질문 · 2행 첨부·도구·핀 칩 | 모드·음성·보내기 */}
-            {/* ── 대화 ─────────────────────────────────────────────────
-                물어본 말과 AI 가 정한 것이 여기 쌓인다. 첫 화면에서는 안 보이고
-                (msgs 가 비어 있다) 한 번 물으면 제목·부제·오프너 자리를 이 판이
-                넘겨받는다 — 목업 그대로다. */}
-            {msgs.length > 0 && (
-              <div
-                className="ask-msgs"
-                ref={msgsRef}
-                /* 말풍선 안의 「📟 장비 고르기」·「🔍 시험 항목 고르기」 —
-                   글 속에 심은 단추라 한 자리에서 받는다 */
-                onClick={(e) => {
-                  const t = e.target as HTMLElement
-                  /* 추천 카드·후보 줄 — 누르면 그 자리에서 정해진다(승인: 단순안) */
-                  const dv = t.closest('.js-devpick') as HTMLElement | null
-                  if (dv) {
-                    pickInlineDev(dv.dataset.id || '')
-                    return
-                  }
-                  const tc = t.closest('.js-tcpick') as HTMLElement | null
-                  if (tc) {
-                    pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
-                    return
-                  }
-                  /* 「전체 열기」 — 그때만 큰 고르개가 나온다 */
-                  if (t.closest('.js-pickdev')) {
-                    afterDevRef.current = 'tc'
-                    setDevOpen(true)
-                  } else if (t.closest('.js-picktc')) setLikeAsk(true)
-                }}
-              >
-                {msgs.map((m, i) =>
-                  m.who === 'u' ? (
-                    <div className="msg u" key={i}>
-                      <b>{m.html}</b>
-                    </div>
-                  ) : (
-                    <div className="msg a" key={i}>
-                      <span className="av" aria-hidden="true">✦</span>
-                      <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
-            <div className="ask-askbox2 two">
-              <div className="ask-r1">
-              <input
-                ref={askInRef}
-                className="ask-askin2"
-                value={text}
-                disabled={exEdit}
-                placeholder={
-                  mode === 'adv'
-                    ? '만들 시험을 설명하세요 — 대상 장비, 스텝, 판정 기준'
-                    : 'UBIQUOSS Test Assistant'
-                }
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.nativeEvent.isComposing) return
-                  if (e.key === 'Enter' && text.trim()) void submit()
-                }}
-              />
-              </div>
-
-              <div className="ask-r2">
-              {/* **＋ 하나**로 모은다(지시: 목업). 파일(📎)과 도구(⚙)를 따로 두면
-                  입력줄 앞이 단추 둘로 시작해 무엇을 눌러야 할지 묻게 된다.
-                  붙일 것도 켤 것도 다 이 안에 있다. */}
-              <span className="ask-toolwrap">
-                <button
-                  className={`ask-plus${toolsOpen ? ' on' : ''}`}
-                  type="button"
-                  aria-haspopup="true"
-                  aria-expanded={toolsOpen}
-                  title="파일 붙이기 · 도구 추가"
-                  onClick={() => setToolsOpen((v) => !v)}
-                >
-                  ＋
-                </button>
-                {toolsOpen && (
-                  <>
-                    <span className="ask-modeback" onClick={() => setToolsOpen(false)} />
-                    <span className="ask-toolmenu" role="menu">
-                      {/* 파일이 먼저다 — 「무엇을 붙일까」 가 「무엇을 켤까」 보다 앞선다 */}
-                      <span className="ask-tmi off file" aria-disabled="true">
-                        <i>📎</i>파일 업로드<em className="soon">CSV · 로그 · 캡처 · 나중</em>
-                      </span>
-                      <span className="tsep" aria-hidden="true" />
-                      {/* **메뉴는 꽂기만 한다**(지시). 전에는 항목을 누르면 그
-                          자리에서 켜지거나 장비 팝업이 떴고, 입력줄에 칩으로
-                          세우려면 📌 를 따로 눌러야 했다 — 한 줄에 누르는 자리가
-                          둘이라 어느 쪽이 무엇인지 알 수 없었다. 이제 여기서는
-                          꽂고 빼기만 하고, **쓰는 것은 입력줄의 칩**으로 한다.
-                          여러 개를 이어서 꽂을 수 있게 고른 뒤에도 닫지 않는다. */}
-                      {TOOLDEF.map(([k, emo, nm, d]) => {
-                        const on = pins.includes(k)
-                        return (
-                          <span
-                            key={k}
-                            role="menuitemcheckbox"
-                            aria-checked={on}
-                            tabIndex={0}
-                            className={`ask-tmi${on ? ' on' : ''}`}
-                            title={on ? `${d} \u00b7 다시 누르면 뺍니다` : `${d} \u00b7 누르면 입력줄에 꽂힙니다`}
-                            onClick={() => pinTool(k)}
-                            onKeyDown={(e) => e.key === 'Enter' && pinTool(k)}
-                          >
-                            <i>{emo}</i>
-                            {nm}
-                            {on && <em className="ck">✓</em>}
-                          </span>
-                        )
-                      })}
-                    </span>
-                  </>
-                )}
-              </span>
-              {/* **도구 칩은 ＋ 바로 옆**(지시: 목업 입력창). 아래 줄로 내리면
-                  ＋ 와 칩이 갈라져 「무엇을 켜 두었나」 가 한눈에 안 들어온다.
-                  핀이 많아 넘치면 줄이 접힌다 — 모드·마이크·보내기는 안 밀린다. */}
-              <div className="ask-r3">
-                {pins.map((k) => {
-                  const t = TOOLDEF.find(([x]) => x === k)
-                  if (!t) return null
-                  const [key, emo, nm, d] = t
-                  /* 고른 것이 있으면 **고른 것만** 지운다(지적). 여태 ✕ 는
-                     언제나 도구를 통째로 뺐다 — 고른 장비만 지우려고 눌렀다가
-                     칩 자체가 사라져 다시 ⚙ 에서 꽂아야 했다. */
-                  const chose = key === 'dev' ? !!tDev : key === 'find' ? tcPick.size > 0 : false
-                  const off = (
-                    <i
-                      className="chx"
-                      title={chose ? '고른 것 지우기' : '도구 빼기'}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (chose) {
-                          if (key === 'dev') {
-                            setTDev('')
-                            setDevId('')
-                          } else setTcPick(new Set())
-                          return
-                        }
-                        setPins((prev) => prev.filter((x) => x !== key))
-                        setTOn((prev) => {
-                          const nx = new Set(prev)
-                          nx.delete(key)
-                          return nx
-                        })
-                      }}
-                    >
-                      ✕
-                    </i>
-                  )
-                  if (key === 'dev')
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        className={`ask-chip${tDev ? ' on sel' : ''}`}
-                        title={d}
-                        onClick={() => setDevOpen((v) => !v)}
-                      >
-                        {/* 모델명만 보이면 같은 모델이 열 대인 LAB 에서 어느
-                            것을 골랐는지 모른다 — IP 까지 적는다 */}
-                        {emo} {tDev ? `${tDev}${curDev?.ip ? ` (${curDev.ip})` : ''}` : nm}
-                        {off}
-                      </button>
-                    )
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`ask-chip${tOn.has(key) ? ' on' : ''}${key === 'find' && tcPick.size ? ' sel' : ''}`}
-                      title={key === 'find' ? `${d} \u00b7 눌러서 항목을 고릅니다` : d}
-                      onClick={() => {
-                        flipTool(key)
-                        /* **칩을 누르면 그 도구가 하는 일이 열린다**(지시).
-                           「장비 고르기」 는 고르개가 뜨는데 「시험 항목 찾기」 는
-                           켜지기만 해서, 같은 줄의 두 칩이 서로 다르게 굴었다.
-                           끌 때는 열지 않는다 — 끄려고 누른 사람 앞에 창이 뜬다. */
-                        if (key === 'find' && !tOn.has(key)) setLikeAsk(true)
-                      }}
-                    >
-                      {/* 몇 건을 골랐는지 칩에서 바로 보인다(지적) */}
-                      {emo}{' '}
-                      {key === 'find' && tcPick.size
-                        ? `${[...tcPick][0]}${tcPick.size > 1 ? ` 외 ${tcPick.size - 1}건` : ''}`
-                        : nm}
-                      {off}
-                    </button>
-                  )
-                })}
-                {!pins.length && (
-                  <button
-                    type="button"
-                    className={`ask-more${toolsOpen ? ' on' : ''}`}
-                    title="쓸 도구를 골라 이 줄에 꽂습니다"
-                    onClick={() => setToolsOpen((v) => !v)}
-                  >
-                    ＋ 도구 추가
-                  </button>
-                )}
-              </div>
-              {/* 빈 공간은 **모드 뒤**다(지시: 모드는 ＋ 옆). 앞에 두면 모드가
-                  오른쪽 끝으로 밀려 마이크·보내기와 한 덩이로 읽힌다. */}
-              <span className="ask-rsp" />
-              {/* 모드 — **드롭다운**(지시). 세그먼트 토글이던 것을 되돌린다:
-                  오른쪽 끝에 AI 고르개가 서면서 두 고르개의 생김새가 같아야
-                  한 벌로 읽힌다. 지금 무엇인지는 단추에 그대로 적는다. */}
-              <span className="ta-pick">
-                <button
-                  type="button"
-                  className={`ta-pickb${modeOpen ? ' open' : ''}`}
-                  disabled={exEdit}
-                  title={
-                    mode === 'basic'
-                      ? 'General — 이미 만들어진 시험 항목을 찾아 그대로 실행합니다 · 명령을 몰라도 됩니다'
-                      : 'Advanced — 없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다 · 장비를 아는 사람이'
-                  }
-                  aria-expanded={modeOpen}
-                  onClick={() => {
-                    setModeOpen((v) => !v)
-                    setLlmOpen(false)
-                  }}
-                >
-                  <i className="sico" aria-hidden="true">{mode === 'basic' ? '\u25b6' : '\u270e'}</i>
-                  <span className="mlb">{mode === 'basic' ? 'General' : 'Advanced'}</span>
-                  <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-                </button>
-                {modeOpen && (
-                  <>
-                    <span className="ta-pickveil" onClick={() => setModeOpen(false)} />
-                    <span className="ta-pickmenu">
-                      {(
-                        [
-                          ['basic', 'General', '\u25b6', '있는 시험을 찾아 바로 실행'],
-                          ['adv', 'Advanced', '\u270e', '없는 시험을 새로 만들어 실행'],
-                        ] as const
-                      ).map(([k, label, ico, sub]) => (
-                        <button
-                          key={k}
-                          type="button"
-                          className={`ta-pickit${mode === k ? ' on' : ''}`}
-                          onClick={() => {
-                            setMode(k)
-                            setModeOpen(false)
-                          }}
-                        >
-                          <i className="sico" aria-hidden="true">{ico}</i>
-                          <b>{label}</b>
-                          <span className="sub">{sub}</span>
-                          {mode === k && <svg className="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
-                        </button>
-                      ))}
-                    </span>
-                  </>
-                )}
-              </span>
-              {/* 쓸 AI — **오른쪽 끝**(지시). 마이크·보내기 바로 앞이라
-                  「무엇으로 답하는가」 가 보내는 손과 한자리에 있다. */}
-              {llms.length > 0 && (
-                <span className="ta-pick ta-ai">
-                  <button
-                    type="button"
-                    className={`ta-pickb ai${llmOpen ? ' open' : ''}`}
-                    disabled={exEdit}
-                    title={`이 물음에 답할 AI — 지금은 ${llmNow?.name ?? '기본'}${llmNow?.model ? ` (${llmNow.model})` : ''}`}
-                    aria-expanded={llmOpen}
-                    onClick={() => {
-                      setLlmOpen((v) => !v)
-                      setModeOpen(false)
-                    }}
-                  >
-                    {/* **이름만 세운다**(목업). 모델 번호까지 달면 「Local LLM
-                        gemma-4-31b-it」 처럼 길어져 입력줄의 절반을 먹는다 —
-                        모델은 풍선말과 고름표 안에서 본다. */}
-                    <span className="mlb">{llmNow?.name ?? 'AI 고르기'}</span>
-                    <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-                  </button>
-                  {llmOpen && (
-                    <>
-                      <span className="ta-pickveil" onClick={() => setLlmOpen(false)} />
-                      <span className="ta-pickmenu right">
-                        {llms.map((x) => (
-                          <button
-                            key={x.id}
-                            type="button"
-                            className={`ta-pickit${x.id === llmId ? ' on' : ''}`}
-                            onClick={() => {
-                              setLlmId(x.id)
-                              setLlmOpen(false)
-                            }}
-                          >
-                            <b>{x.name}</b>
-                            {!!x.model && <span className="sub">{x.model}</span>}
-                            {x.id === llmId && <svg className="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
-                          </button>
-                        ))}
-                      </span>
-                    </>
-                  )}
-                </span>
-              )}
-              <button
-                className={`ask-tb mic${listening ? ' rec' : ''}`}
-                type="button"
-                title={listening ? '듣는 중 — 누르면 멈춥니다' : '음성으로 묻기'}
-                disabled={exEdit}
-                onClick={micToggle}
-              >
-                {listening ? '🔴' : '🎤'}
-              </button>
-              <button
-                className={`ask-send2${text.trim() && !exEdit ? ' on' : ''}`}
-                type="button"
-                title="보내기 (Enter)"
-                disabled={exEdit || !text.trim()}
-                onClick={() => void submit()}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M5 12h13M13 6l6 6-6 6" />
-                </svg>
-              </button>
-              </div>
-
-
-              {/* 장비 고르개 — **표로 고른다**(지시: 목업).
-                  이름만 늘어놓으면 같은 모델이 열 대씩 있는 LAB 에서 어느 것을
-                  고를지 알 수 없다. 거르개(LAB·사업자·벤더·모델그룹)는 열 머리를
-                  눌러 쓰고, 오른쪽 끝의 연결 상태가 지금 붙을 수 있는지 말한다. */}
-              {devOpen && (
-                <>
-                  <span className="ask-modeback" onClick={() => setDevOpen(false)} />
-                  <span className="ask-devmenu big" role="menu">
                       {(() => {
                         const COLS: Array<[string, string, string]> = [
                           ['lab', 'LAB', 'dv-lab'],
@@ -2938,7 +2268,7 @@ export default function AskBar({ devices }: Props) {
                             a.localeCompare(b, 'ko'),
                           )
                         const hf = (k: string, label: string, cls: string, list: string[]) => (
-                          <span className={`${cls} hf${devF[k] ? ' set' : ''}`}>
+                          <span key={k} className={`${cls} hf${devF[k] ? ' set' : ''}`}>
                             <button
                               type="button"
                               className="hf-btn"
@@ -3012,15 +2342,17 @@ export default function AskBar({ devices }: Props) {
                               )}
                               {/* 덮개를 정확히 눌러야만 닫히던 것(지적) — 닫는
                                   자리를 눈에 보이게 둔다. ESC 도 받는다. */}
-                              <button
-                                type="button"
-                                className="ask-dmx"
-                                title="닫기 (ESC)"
-                                aria-label="닫기"
-                                onClick={() => setDevOpen(false)}
-                              >
-                                ✕
-                              </button>
+                              {!inPanel && (
+                                <button
+                                  type="button"
+                                  className="ask-dmx"
+                                  title="닫기 (ESC)"
+                                  aria-label="닫기"
+                                  onClick={() => setDevOpen(false)}
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </span>
                             {/* ── 상태 탭(지시: 목업) ─────────────────────────
                                 지금 붙을 수 있는 장비만 보는 것이 가장 잦은 일이다.
@@ -3189,908 +2521,26 @@ export default function AskBar({ devices }: Props) {
                           </>
                         )
                       })()}
-                  </span>
-                </>
-              )}
-            </div>
+    </span>
+  )
 
-            {/* 모드 안내는 걷었다(지시) — 고르개가 같은 말을 이미 하고,
-                부제도 갈래를 따라 바뀐다. 한 화면에서 같은 말이 세 번 나면
-                어느 것이 지금 상태인지 되레 헷갈린다. */}
-
-            {/* 오프너 — 눌러서 무엇을 시킬 수 있는지 안다.
-                머리를 다는 까닭: 줄만 늘어놓으면 「이미 한 말」 인지 「눌러 보는
-                보기」 인지 갈리지 않는다(목업). 고치는 중에는 편집 배지가 그
-                몫을 하므로 달지 않는다. */}
-            {!exEdit && examples.some((x) => x.q.trim() && !exHide.includes(x.q)) && (
-              <div className="ask-opsh">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
-                </svg>
-                Suggested
-              </div>
-            )}
-            <div className="ask-ops">
-              {exEdit
-                ? examples.map((x, i) => (
-                    <div className="ask-oprow ed" key={i}>
-                      <span className="ask-op-ic">✦</span>
-                      <input
-                        className="ask-op-in"
-                        value={x.q}
-                        placeholder="오프너 문구"
-                        onChange={(e) => exSet(i, { q: e.target.value })}
-                      />
-                      <button
-                        type="button"
-                        className="ask-op-x on"
-                        title="이 오프너 지우기"
-                        onClick={() => exDel(i)}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))
-                : examples
-                    .filter((x) => x.q.trim() && !exHide.includes(x.q))
-                    .map((x, i) => (
-                      <div className="ask-oprow" key={x.q || i}>
-                        <button
-                          type="button"
-                          className="ask-op"
-                          title={x.d || x.q}
-                          onClick={() => {
-                            /* 채워 넣기만 한다(지시) — 시작은 보내기 단추로.
-                               바로 보내면 고쳐 물을 틈이 없다. */
-                            setText(x.q)
-                            askInRef.current?.focus()
-                          }}
-                        >
-                          <span className="ask-op-ic">✦</span>
-                          <span className="ask-op-tx">{x.q}</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="ask-op-x"
-                          title="이 오프너 숨기기 (내 화면에서만)"
-                          onClick={() => setExHide((v) => [...v, x.q])}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-              {exEdit && (
-                <button className="ask-opadd" type="button" onClick={exAdd}>
-                  <span className="ask-op-ic plus">＋</span>오프너 추가
-                </button>
-              )}
-              {!exEdit && exHide.length > 0 && (
-                <button
-                  className="ask-opshow"
-                  type="button"
-                  onClick={() => setExHide([])}
-                >
-                  숨긴 오프너 {exHide.length}개 다시 보기
-                </button>
-              )}
-            </div>
-
-            {/* 처음 온 사람에게 이 화면이 무엇을 하는지 — 누르는 것이 아니라
-                말해 주는 줄이다(A안). 편집 중에는 자리를 오프너에 내준다. */}
-            {!exEdit && (
-              <div className="ask-cando">
-                <small>TEST AI 가 하는 일</small>
-                <div className="ask-cando-row">
-                  <span className="ask-cd t1">
-                    <i>
-                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-                    </i>
-                    기존 항목 실행
-                  </span>
-                  <span className="ask-cd t2">
-                    <i>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg>
-                    </i>
-                    새 시험 만들기
-                  </span>
-                  <span className="ask-cd t3">
-                    <i>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-8M21 19H3" /></svg>
-                    </i>
-                    결과 분석
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {exEdit && (
-            <div className="ask-edbar">
-              <button
-                className="btn"
-                type="button"
-                onClick={() =>
-                  setExamples([
-                    { q: 'E6100 시스템 정보 조회 시험해줘' },
-                    { q: 'E6100 SNMP 시험해줘' },
-                    { q: 'E6100 인터페이스 1번 shutdown 반복 시험 3회' },
-                  ])
-                }
-              >
-                기본값으로
-              </button>
-              <span className="sp" />
-              {exSay && <span className="muted small">{exSay}</span>}
-              <button
-                className="btn"
-                type="button"
-                onClick={() => {
-                  setExamples(exBack.current.map((x) => ({ ...x })))
-                  setExEdit(false)
-                }}
-              >
-                취소
-              </button>
-              <button
-                className="btn primary"
-                type="button"
-                onClick={() => {
-                  void exSave().then((ok) => {
-                    if (ok) setExEdit(false)
-                  })
-                }}
-              >
-                변경사항 저장
-              </button>
-            </div>
-          )}
+  /** 항목 고르개 본문 — 창(likeAsk)과 오른쪽 판(2단계 · 항목)이 같은 몸을 쓴다(목업) */
+  const tcPickBody = (inPanel: boolean) => (
+    <>
+      {inPanel && (
+        <div className="askp-note">
+          고르면 그 항목의 절차를 <b>{askModel || curDev?.model || '고른 장비'}</b> 에 맞춰 옮겨
+          줍니다.
+          <button type="button" className="ask-likeall" onClick={() => setPickModelOpen(true)}>
+            모델 바꾸기
+          </button>
         </div>
       )}
-
-      {/* 「설정 시험 허용」 스위치는 없앴다(지시: 그냥 생성되도록).
-          만들기만으로는 장비에 아무것도 안 나간다 — 명령은 [실행] 을 눌렀을
-          때만 나가므로, 사람이 절차를 보고 고른 뒤에 나간다. */}
-
-      {err && <div className="ask-err">{err}</div>}
-
-      {draft && (
-        <div className="ask-plan">
-          {(draft.cut?.length ?? 0) > 0 && (
-            <div className="ask-drop">
-              조회가 아닌 명령 {draft.cut?.length}개는 뺐습니다 — {draft.cut?.join(' · ')}
-            </div>
-          )}
-
-          {/* 왼쪽 스텝 목록 · 오른쪽 그 스텝의 속(명령·기준·응답).
-              위아래로 두면 응답을 보려고 내리는 순간 고치던 칸이 사라진다. */}
-          {/* 목업 그대로 — 한 판 안에서 왼쪽 목록 · 조절바 · 오른쪽 세부.
-              둘 다 Coverage(TC 화면)와 **같은 부품**이라 꼴이 한 벌이다. */}
-          <div className="ask-two railbox">
-            <section className="railsec" data-sec="steps">
-              <div className="railsec-b">
-                <div className="tc-inner">
-                  <section className="panel tc-seqcol" style={{ flexBasis: seqW }} ref={seqRef}>
-                    <div className="tc-title">
-                      {/* 한 건이면 번호를 세우고, 여러 건이면 「고른 시험 n건」
-                          한 마디로 족하다(지시) */}
-                      {draft.object && /^TC-/i.test(draft.object) && (
-                        <>
-                          <span className="tc-tid">{draft.object}</span>
-                          <span className="tc-title-div" aria-hidden="true" />
-                        </>
-                      )}
-                      <b title={draft.name}>{draft.name}</b>
-                      <span className="sp" />
-                      {(() => {
-                        const done = (ran ?? []).filter((r) => r && (r.repeatResult || r.status)).length
-                        const pass = (ran ?? []).filter(
-                          (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
-                        ).length
-                        const fail = (ran ?? []).filter(
-                          (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
-                        ).length
-                        if (!done)
-                          return <span className="muted small">{draft.steps.length} 스텝</span>
-                        return (
-                          <span className="muted small">
-                            {done}/{draft.steps.length} · <b className="status pass">PASS {pass}</b> ·{' '}
-                            <b className="status fail">FAIL {fail}</b>
-                          </span>
-                        )
-                      })()}
-                    </div>
-                    {(() => {
-                      /*
-                       * 여러 시험을 이어 붙였으면 **시험마다 카드**로 나눈다
-                       * (지시 사진). 카드 하나가 곧 한 시험이라
-                       *   · 번호가 그 시험 안에서 1 부터 다시 매겨지고,
-                       *   · 머리에 그 시험의 셈과 ▶(그 시험만 돌리기)이 서고,
-                       *   · 접으면 통째로 숨는다.
-                       * 목록 부품은 그대로 쓰고 **자리 번호만 옮겨 준다** —
-                       * 고르기·실행이 전부 원본 자리로 돌아가야 한다.
-                       */
-                      const heads = seqSteps
-                        .map((x, i) => (x.head ? i : -1))
-                        .filter((i) => i >= 0)
-                      /* 「일반」 은 있는 시험을 **그대로 도는** 갈래라 고치지
-                         않는다(지시) — 고칠 것이 있으면 Coverage 에서 고친다 */
-                      const ro = mode === 'basic'
-                      const seq = (from: number, to: number, addable: boolean) => (
-                        <TcSequence
-                          /* 이 판에는 목록이 시험마다 하나씩 여럿 뜬다 —
-                             머리줄을 켜면 묶음마다 서고 전부 sticky 라
-                             스크롤할 때 서로 겹친다 */
-                          head={false}
-                          /* 판정◎·결과서▤·로그☰ 칸은 걷는다(지시) — 이 화면엔
-                             결과서도 판정 편집도 없어 늘 죽은 칸이었다 */
-                          slim
-                          steps={seqSteps.slice(from, to)}
-                          selected={stepAt >= from && stepAt < to ? stepAt - from : -1}
-                          onSelect={(i) => setStepAt(from + i)}
-                          onAdd={(k) => addStep(k)}
-                          sessionName={() => devName || '장비'}
-                          runningAt={at >= from && at < to ? at - from : -1}
-                          picked={new Set([...picked].filter((i) => i >= from && i < to).map((i) => i - from))}
-                          onPick={(i) =>
-                            setPicked((v) => {
-                              const n = new Set(v)
-                              const g = from + i
-                              if (n.has(g)) n.delete(g)
-                              else n.add(g)
-                              return n
-                            })
-                          }
-                          onRun={running || !devId ? undefined : (i) => void run(from + i)}
-                          hide={addable ? undefined : (x) => !!x.head}
-                          readOnly={ro}
-                        />
-                      )
-                      if (heads.length < 2) return seq(0, seqSteps.length, true)
-                      return (
-                        <div className="ask-grps">
-                          {heads.map((h, gi) => {
-                            const from = h + 1
-                            const to = heads[gi + 1] ?? seqSteps.length
-                            const mine = (ran ?? []).slice(from, to)
-                            const done = mine.filter((r) => r && (r.repeatResult || r.status)).length
-                            const pass = mine.filter(
-                              (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
-                            ).length
-                            const fail = mine.filter(
-                              (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
-                            ).length
-                            const hd = seqSteps[h]
-                            const open = !foldGrp.has(h)
-                            return (
-                              <section className={`ask-grp${open ? '' : ' folded'}`} key={h}>
-                                <div className="ask-grph">
-                                  <button
-                                    type="button"
-                                    className="ask-grpcar"
-                                    aria-label={open ? '접기' : '펼치기'}
-                                    onClick={() =>
-                                      setFoldGrp((v) => {
-                                        const n = new Set(v)
-                                        if (n.has(h)) n.delete(h)
-                                        else n.add(h)
-                                        return n
-                                      })
-                                    }
-                                  >
-                                    {open ? '▾' : '▸'}
-                                  </button>
-                                  <i className="ask-grpn">{gi + 1}</i>
-                                  <b className="ell" title={hd?.step ? `${hd.text} · ${hd.step}` : hd?.text}>
-                                    {hd?.text || hd?.step || '시험'}
-                                  </b>
-                                  <span className="sp" />
-                                  <span className="muted small">
-                                    {done}/{to - from}
-                                    {done > 0 && (
-                                      <>
-                                        {' · '}
-                                        <b className="status pass">PASS {pass}</b>
-                                        {fail > 0 && (
-                                          <>
-                                            {' · '}
-                                            <b className="status fail">FAIL {fail}</b>
-                                          </>
-                                        )}
-                                      </>
-                                    )}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="ask-grprun"
-                                    title="이 시험만 돌립니다"
-                                    disabled={running || !devId}
-                                    onClick={() => void run(undefined, from, to)}
-                                  >
-                                    ▶
-                                  </button>
-                                </div>
-                                {open && seq(from, to, gi === heads.length - 1)}
-                              </section>
-                            )
-                          })}
-                        </div>
-                      )
-                    })()}
-                    {/* **고른 줄 띠**(지시) — 체크는 그려지는데 그 다음에 누를
-                        단추가 없어서 여러 줄 고르기가 아무 일도 안 했다.
-                        목록 **아래**에 둔다: 위에 두면 띠가 서는 순간 방금 누른
-                        칸이 손 밑에서 아래로 달아난다. */}
-                    {picked.size > 0 && (
-                      <div className="ask-sqbulk">
-                        <b>스텝 {picked.size}개</b>
-                        <span className="sp" />
-                        <button
-                          className="btn small primary"
-                          type="button"
-                          disabled={running || !devId}
-                          title="고른 줄 중 첫 줄부터 끝까지 돌립니다"
-                          onClick={() => void run(undefined, Math.min(...picked))}
-                        >
-                          ▶ 고른 것만
-                        </button>
-                        <button className="btn small" type="button" onClick={() => setPicked(new Set())}>
-                          해제
-                        </button>
-                      </div>
-                    )}
-                  </section>
-
-                  <Resizer
-                    label="스텝 목록 폭 조절"
-                    onResize={setSeqW}
-                    getOrigin={() => seqRef.current?.getBoundingClientRect().left ?? 0}
-                  />
-
-                  <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
-                    <div className="tc-colh">
-                      <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
-                      <span className="sp" />
-                      {mode !== 'basic' && (
-                      <button
-                        className={`btn tc-dots tc-termbtn${termOpen ? ' on' : ''}`}
-                        type="button"
-                        aria-pressed={termOpen}
-                        disabled={!devId}
-                        title={
-                          termOpen
-                            ? '명령어 캡쳐 닫기'
-                            : '명령어 캡쳐 — 장비에 붙어 명령을 치면 그대로 스텝이 됩니다'
-                        }
-                        onClick={() => setTermOpen((v) => !v)}
-                      >
-                        <IconCli />
-                      </button>
-                      )}
-                    </div>
-                    {/* ── 스텝 상태 띠(지시) ────────────────────────────────
-                        스텝이 수십 개면 어디까지 돌았고 어디서 깨졌는지 표를
-                        끝까지 긁어야 안다. 부품(.sc-strip)은 Coverage 가 쓰는
-                        그것이고 CSS 도 이미 있다 — 새로 짓지 않는다.
-
-                        번호는 **표가 매긴 것**을 그대로 쓴다. 여기서 i+1 로 새로
-                        세면 주석이 번호를 안 먹는 표와 어긋나, 「스텝 5」 를 눌러
-                        놓고 표에서는 1.1 을 찾게 된다. */}
-                    {!termOpen && seqSteps.length > 1 && (
-                      <div className="sc-strip tc-strip">
-                        <span className="sc-strip-lab">스텝</span>
-                        {seqSteps.map((s2, i) => {
-                          const no = stripNos[i] || ''
-                          const v = stepVerdict((ran?.[i] ?? s2) as TcStep)
-                          const def = resDefs.find((r) => r.v === v)
-                          const done = !!ran?.[i]?.executed_at || !!ran?.[i]?.output
-                          const now = i === at
-                          const cls = now ? 'now' : def ? 'def' : v ? 'part' : done ? 'ran' : ''
-                          const sty =
-                            !now && def?.color
-                              ? { background: def.color, borderColor: def.color, color: def.fg || '#fff' }
-                              : undefined
-                          return (
-                            <button
-                              key={i}
-                              type="button"
-                              style={sty}
-                              className={`sc-seg ${cls}${i === stepAt ? ' on' : ''}`}
-                              title={`스텝 ${no || '주석'} · ${
-                                now ? '진행 중' : def?.label || v || (done ? '실행함(판정 없음)' : '미실행')
-                              }`}
-                              onClick={() => setStepAt(i)}
-                            >
-                              {no || '·'}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                    {termOpen && devId && mode !== 'basic' ? (
-                      <TcTerminal
-                        sessions={[devId]}
-                        devById={new Map(devices.map((d) => [d.id, d]))}
-                        sessionNames={[devName || devIp || '장비']}
-                        onAdd={(t) => addTcStep(t)}
-                        onClose={() => setTermOpen(false)}
-                      />
-                    ) : (
-                      <TcStepDetail
-                        step={seqSteps[stepAt] ?? null}
-                        index={stepAt}
-                        total={seqSteps.length}
-                        sessions={[`${devName || '장비'}${devIp ? ` (${devIp})` : ''}`]}
-                        params={{
-                          values: {},
-                          items: [],
-                          loading: false,
-                          empty: '이 화면에는 전역 파라미터가 없습니다',
-                        }}
-                        takenVars={[]}
-                        onChange={(p) => setTcStep(stepAt, p)}
-                        onMove={(dir) => moveTcStep(stepAt, dir)}
-                        onRemove={() => removeTcStep(stepAt)}
-                        onDuplicate={() => dupTcStep(stepAt)}
-                        onRun={running || !devId ? undefined : () => void run(stepAt)}
-                        readOnly={mode === 'basic'}
-                        loopVar={loopVarAt(seqSteps, stepAt)}
-                      />
-                    )}
-                  </section>
-
-                  {/* ── 셋째 칸 · 실행 로그 ─────────────────────────────────
-                      장비가 실제로 무엇을 뱉었는지 **원문**을 보는 자리다.
-                      여태 이 화면만 로그를 버리고 있어서, 판정이 틀렸을 때
-                      까닭을 확인할 길이 없었다(지적).
-
-                      부품은 Coverage 가 쓰는 RunLog 를 그대로 쓴다 — 머리줄도
-                      빈 문구도 그 안에 이미 있다. 새로 짓지 않는다. */}
-                  {/* 이 판은 **오른쪽 끝**에 붙어 있으므로 폭이 거꾸로다 —
-                      손잡이를 왼쪽으로 끌수록 넓어진다. Resizer 는 늘
-                      `clientX - origin` 을 주므로 기준을 이 판의 오른쪽 모서리로
-                      잡고 부호를 뒤집는다. 화면 폭으로 셈하면 오른쪽에 여백이
-                      있을 때 손잡이와 판이 어긋난다. */}
-                  <Resizer
-                    label="실행 로그 폭 조절"
-                    onResize={(x) => setLogW(-x)}
-                    getOrigin={() => logRef.current?.getBoundingClientRect().right ?? 0}
-                  />
-                  <section
-                    className="panel tc-logcol"
-                    style={{ flexBasis: logW, width: logW }}
-                    ref={logRef}
-                  >
-                    <RunLog
-                      lines={logs}
-                      /* 번호는 **표가 매긴 것**을 쓴다 — 로그가 1,2,3 으로 새로
-                         세면 표의 1.3.1 을 찾을 길이 없다 */
-                      nos={stripNos}
-                      only={logOnly}
-                      onOnly={setLogOnly}
-                      onClear={() => setLogs([])}
-                      onPick={(i) => {
-                        if (i >= 0) setStepAt(i)
-                      }}
-                    />
-                  </section>
-                </div>
-              </div>
-            </section>
-          </div>
-        </div>
-      )}
-          </main>
-
-          </div>
-        </div>
-          {/* 입력줄은 **캔버스 칸 안에** 떠 있다(지시) — 작업 흐름까지 걸치고
-              위에 실선을 그으면 칸이 각져 보인다. 여백과 그림자로 띄운다. */}
-          {/* 아래 고정 입력줄 — 일이 시작된 뒤에만. 첫 화면에는 큰 입력이 따로 있다 */}
-          {(draft || making) && (
-          <div className="ask-askbar">
-          <div className="ask-askbox">
-            <input
-              className="ask-in"
-              value={text}
-              placeholder={
-                draft && mode === 'basic'
-                  ? '다른 시험을 찾으려면 적으세요 — 예) E6100 SNMP'
-                  : draft
-                  ? '고칠 것을 말하세요 — 예) 부하를 50%로 올려줘'
-                  : mode === 'basic'
-                    ? '무엇을 시험할지 적으면 등록된 시험에서 찾아 드립니다'
-                    : '무엇을 시험할지 한국어로 적으세요 — 없는 시험을 새로 짓습니다'
-              }
-              onChange={(e) => setText(e.target.value)}
-              onBlur={() => void findLike(text)}
-              onKeyDown={(e) => {
-                if (e.nativeEvent.isComposing) return
-                if (e.key === 'Enter') void submit()
-              }}
-            />
-            <button
-              className="ask-send"
-              type="button"
-              title="보내기 (Enter)"
-              disabled={busy || !text.trim()}
-              onClick={() => void submit()}
-            >
-              {busy ? '…' : '➤'}
-            </button>
-          </div>
-          </div>
-          )}
-      </div>
-
-      {/* ⓪ 어느 모델의 시험인가 — 항목보다 먼저 고른다(지시) */}
-      {pickModelOpen && (() => {
-        /* 모델은 **등록된 장비**에서 온다(지시) — 「공용」 이라는 모델은 없다.
-           시험 건수는 그 모델로 못 박힌 항목만 센다. */
-        const cnt = new Map<string, number>()
-        for (const d of usable) {
-          const m = String(d.model ?? '').trim()
-          if (m && !cnt.has(m)) cnt.set(m, 0)
-        }
-        for (const t of tcAll) {
-          const m = String(t.model ?? '').trim()
-          if (m) cnt.set(m, (cnt.get(m) ?? 0) + 1)
-        }
-        /* 말에서 읽은 모델이 있으면 **맨 앞**에 세운다(지시) */
-        const rows = [...cnt.entries()]
-          .filter(([m]) => m)
-          .sort((a, b) => {
-            const am = a[0] === askModel ? 1 : 0
-            const bm = b[0] === askModel ? 1 : 0
-            if (am !== bm) return bm - am
-            return b[1] - a[1] || a[0].localeCompare(b[0], 'ko')
-          })
-        const devsOf = (m: string) =>
-          usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m.toLowerCase()).length
-        const go = (m: string) => {
-          setAskModel(m)
-          setPickModelOpen(false)
-          setTcOnlyModel(!!m)
-          setTcFind('')
-          setTcPick(new Set())
-          setFlowLog((v) => [...v, { s: 1, t: m ? `모델 ${m} 로 고름` : '공용 항목에서 고름' }])
-          setLikeAsk(true)
-        }
-        return (
-          <div className="modal-back" onMouseDown={cancelAsk}>
-            <div
-              className="modal ask-modelmodal"
-              role="dialog"
-              aria-modal="true"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <div className="modal-head">
-                <div>
-                  <b>어느 모델의 시험인가요?</b>
-                  <div className="muted small">
-                    모델을 고르면 그 모델의 시험 항목만 보여 드립니다.
-                  </div>
-                </div>
-                <span className="sp" />
-                <button className="modal-x" type="button" onClick={cancelAsk}>
-                  ✕
-                </button>
-              </div>
-              <div className="ask-modellist">
-                {rows.map(([m, n]) => (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`ask-modelcard${m === askModel ? ' on' : ''}`}
-                    onClick={() => go(m)}
-                  >
-                    <b>{m}</b>
-                    <span className="muted small">시험 {n}건</span>
-                    <em className={devsOf(m) ? 'ok' : 'no'}>
-                      {devsOf(m) ? `장비 ${devsOf(m)}대` : '장비 없음'}
-                    </em>
-                  </button>
-                ))}
-                {rows.length === 0 && (
-                  <div className="empty">Coverage 에 시험 항목이 없습니다.</div>
-                )}
-              </div>
-              <div className="modal-foot">
-                <span className="muted small">
-                  랩에 등록된 장비의 모델입니다 — 고르면 그 모델의 시험 항목만 보여 드립니다.
-                </span>
-                <span className="sp" />
-                <button className="btn small" type="button" onClick={cancelAsk}>
-                  그만두기
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* ① 같은 모델이 여러 대 — 어느 장비로 보낼지 고른다 */}
-      {pickDev && (() => {
-        const find = pickFind.trim().toLowerCase()
-        const rows = pickDev.cands.filter((d) => {
-          const at = rackMap.get(d.id)
-          if (pickLab && (at?.lab ?? '') !== pickLab) return false
-          if (pickRack && (at?.rack ?? '') !== pickRack) return false
-          if (!find) return true
-          /* 한 칸으로 다 훑는다 — 장비가 수십 대면 눈으로 찾는 것이 일이다 */
-          const hay = [d.name, d.model, d.ip, d.vendor, d.role, at?.lab, at?.rack]
-            .map((v) => String(v ?? '').toLowerCase())
-            .join(' ')
-          return find.split(/\s+/).every((w) => hay.includes(w))
-        })
-        const labs = [...new Set(pickDev.cands.map((d) => rackMap.get(d.id)?.lab ?? '').filter(Boolean))]
-        const racks = [...new Set(pickDev.cands.map((d) => rackMap.get(d.id)?.rack ?? '').filter(Boolean))]
-        // 「구역 · 랙」 으로 묶어 보여준다 — 같은 모델은 이름만으로 안 갈린다
-        const groups = new Map<string, Device[]>()
-        for (const d of rows) {
-          const at = rackMap.get(d.id)
-          const key = at ? `${at.lab} · ${at.rack}` : '자리 미지정'
-          groups.set(key, [...(groups.get(key) ?? []), d])
-        }
-        return (
-          <div className="modal-back" onMouseDown={cancelAsk}>
-            <div
-              className="modal ask-pick"
-              role="dialog"
-              aria-modal="true"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <div className="modal-head">
-                <div>
-                  <b>
-                    {pickDev.model
-                      ? `${pickDev.model} 이(가) ${pickDev.cands.length}대 있어요`
-                      : '어느 장비로 시험할까요?'}
-                  </b>
-                  <div className="muted small">
-                    {pickDev.model
-                      ? '어느 장비로 보낼지 골라 주세요.'
-                      : '말에 모델 이름이 없어서 여쭙습니다 — 고른 장비로 명령이 나갑니다.'}
-                  </div>
-                </div>
-                <span className="sp" />
-                <input
-                  className="ask-pickfind"
-                  value={pickFind}
-                  autoFocus
-                  placeholder="찾기 — 이름 · 모델 · IP · 구역 · 랙"
-                  onChange={(e) => setPickFind(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape' && pickFind) {
-                      e.stopPropagation()
-                      setPickFind('')
-                    }
-                  }}
-                />
-                {pickFind && (
-                  <span className="muted small ask-pickn">{rows.length}대</span>
-                )}
-                <button className="modal-x" type="button" onClick={cancelAsk}>
-                  ✕
-                </button>
-              </div>
-              <div className="ask-pickbody">
-                <aside className="ask-pickside">
-                  <div className="ask-pickgrp">구역</div>
-                  <button className={`ask-pickf${pickLab === '' ? ' on' : ''}`} type="button" onClick={() => setPickLab('')}>
-                    전체 구역<i>{pickDev.cands.length}</i>
-                  </button>
-                  {labs.map((l) => (
-                    <button key={l} className={`ask-pickf${pickLab === l ? ' on' : ''}`} type="button" onClick={() => setPickLab(l)}>
-                      {l}
-                      <i>{pickDev.cands.filter((d) => rackMap.get(d.id)?.lab === l).length}</i>
-                    </button>
-                  ))}
-                  <div className="ask-pickgrp">랙</div>
-                  <button className={`ask-pickf${pickRack === '' ? ' on' : ''}`} type="button" onClick={() => setPickRack('')}>
-                    전체 랙<i>{pickDev.cands.length}</i>
-                  </button>
-                  {racks.map((r3) => (
-                    <button key={r3} className={`ask-pickf${pickRack === r3 ? ' on' : ''}`} type="button" onClick={() => setPickRack(r3)}>
-                      {r3}
-                      <i>{pickDev.cands.filter((d) => rackMap.get(d.id)?.rack === r3).length}</i>
-                    </button>
-                  ))}
-                </aside>
-                <div className="ask-picklist">
-                  {[...groups.entries()].map(([g, ds]) => (
-                    <div key={g}>
-                      <div className="ask-pickgh">
-                        {g} <i>{ds.length}대</i>
-                      </div>
-                      <div className="ask-pickcards">
-                        {ds.map((d) => {
-                          const at = rackMap.get(d.id)
-                          return (
-                            <button
-                              key={d.id}
-                              type="button"
-                              className={`ask-pickcard${pickSel === d.id ? ' on' : ''}`}
-                              onClick={() => setPickSel(d.id)}
-                              onDoubleClick={() => {
-                                setDevId(d.id)
-                                setPickDev(null)
-                                if (afterPick) {
-                                  const ap = afterPick
-                                  setAfterPick(null)
-                                  void takeTc(ap.tcid, d, ap.model)
-                                  return
-                                }
-                                /* Advanced 는 고르는 갈래가 아니다 — 장비가
-                                   정해졌으니 바로 짓는다(지시) */
-                                if (mode === 'adv') {
-                                  void makePlan(asked, d)
-                                  return
-                                }
-                                setAskModel(String(d.model ?? ''))
-                                setTcOnlyModel(true)
-                                void findLike(asked, d).then(() => {
-                                  setTcFind('')
-                                  const fd = foldOf(asked, String(d.model ?? ''))
-                                  setTcFold(fd)
-                                  setQFold(fd)
-                                  setTcOpen(openFor(fd))
-                                  if (fd)
-                                    setFlowLog((v) => [
-                                      ...v,
-                                      {
-                                        s: 1,
-                                        t: `Coverage 트리의 「${tcTree.find((n) => n.id === fd)?.name ?? ''}」 를 폄`,
-                                      },
-                                    ])
-                                  setLikeAsk(true)
-                                })
-                              }}
-                            >
-                              {/* 장비명이 주인공 — 이름이 없으면 모델을 세운다.
-                                  IP 는 아래 한 번만(전에는 제목과 두 번 나왔다) */}
-                              <b>{d.name || d.model || d.ip}</b>
-                              <span>
-                                {d.role ? <i className="r">{d.role}</i> : null}
-                                {at ? (
-                                  <i className="p">
-                                    {at.lab} · {at.rack}
-                                    {at.pos ? ` · ${at.pos}U` : ''}
-                                  </i>
-                                ) : null}
-                              </span>
-                              <em className="ask-pickip">{d.ip}</em>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                  {rows.length === 0 && (
-                    <div className="empty">
-                      {find ? `「${pickFind.trim()}」 에 맞는 장비가 없습니다.` : '고른 조건에 맞는 장비가 없습니다.'}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="modal-foot">
-                <span className="muted small">장비를 누르고 「이 장비로 시험 만들기」 를 누르세요.</span>
-                {/* 단추는 한 묶음 — 안 묶으면 space-between 이 둘 사이를 벌린다 */}
-                <span className="ask-footbtns">
-                <button className="btn small" type="button" onClick={cancelAsk}>
-                  그만두기
-                </button>
-                <button
-                  className="btn primary small"
-                  type="button"
-                  disabled={!pickSel}
-                  onClick={() => {
-                    setDevId(pickSel)
-                    const d2 = pickDev.cands.find((x) => x.id === pickSel)
-                    setFlowLog((v) => [
-                      ...v,
-                      { s: 1, t: '그중에서 고름' },
-                      { s: 1, t: `보낼 장비 ${d2?.ip ?? ''} 확정` },
-                    ])
-                    setFlowVals(
-                      [
-                        // 말에 모델이 없어 물어본 때는 고른 장비의 모델을 적는다
-                        { k: '모델', v: pickDev.model || String(d2?.model ?? '') },
-                        { k: '대상', v: d2?.ip ?? '' },
-                      ].filter((x) => x.v),
-                    )
-                    setPickDev(null)
-                    /* 무엇으로 정했는지 대화에 남긴다(지시: 목업) — 창이 닫히고
-                       나면 어느 장비로 갔는지 화면 어디에도 안 남았다. */
-                    say(
-                      'a',
-                      `<p class="ln"><b>${hesc(String(d2?.model || d2?.name || ''))} (${hesc(String(d2?.ip ?? ''))})</b> 로 정했습니다.</p>`,
-                    )
-                    /* 항목을 먼저 고른 뒤 장비를 물은 것이면 그 항목으로 잇는다(지시) */
-                    if (afterPick) {
-                      const ap = afterPick
-                      setAfterPick(null)
-                      void takeTc(ap.tcid, d2, ap.model)
-                      return
-                    }
-                    if (mode === 'adv') {
-                      void makePlan(asked, d2)
-                      return
-                    }
-                    say(
-                      'a',
-                      '<p class="ln"><b>2단계 · 시험 항목 고르기</b><br>' +
-                        `<b>${hesc(String(d2?.model || d2?.name || ''))}</b> 에서 돌릴 수 있는 항목만 추려 두었습니다. ` +
-                        '목록에서 하나를 고르면 바로 절차를 짓습니다.</p>' +
-                        '<button type="button" class="btnsm js-picktc">🔍 시험 항목 고르기</button>',
-                    )
-                    setAskModel(String(d2?.model ?? pickDev.model ?? ''))
-                    setTcOnlyModel(true)
-                    void findLike(asked, d2).then(() => {
-                      setTcFind('')
-                      const fd = foldOf(asked, String(d2?.model ?? pickDev.model ?? ''))
-                      setTcFold(fd)
-                      setQFold(fd)
-                      setTcOpen(openFor(fd))
-                      if (fd)
-                        setFlowLog((v) => [
-                          ...v,
-                          {
-                            s: 1,
-                            t: `Coverage 트리의 「${tcTree.find((n) => n.id === fd)?.name ?? ''}」 를 폄`,
-                          },
-                        ])
-                      setLikeAsk(true)
-                    })
-                  }}
-                >
-                  이 장비로 시험 만들기
-                </button>
-                </span>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* ② 시험 항목 고르기 — **Coverage 에 있는 항목에서만** 고른다.
-             없는 항목을 지어내지 않는다(지시). 말과 비슷한 것을 위에 올려
-             주고, 그 아래로 전체를 찾아볼 수 있게 둔다. */}
-      {likeAsk && (
-        <div className="modal-back" onMouseDown={cancelAsk}>
-          <div
-            className="modal ask-likemodal"
-            role="dialog"
-            aria-modal="true"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="modal-head">
-              <div>
-                <b>어느 시험 항목으로 할까요?</b>
-                <div className="muted small">
-                  고르면 그 항목의 절차를 <b>{askModel || curDev?.model || '고른 장비'}</b> 에 맞춰
-                  옮겨 줍니다.
-                  <button
-                    type="button"
-                    className="ask-likeall"
-                    onClick={() => {
-                      setLikeAsk(false)
-                      setPickModelOpen(true)
-                    }}
-                  >
-                    모델 바꾸기
-                  </button>
-                </div>
-              </div>
-              <span className="sp" />
-              <button className="modal-x" type="button" onClick={cancelAsk}>
-                ✕
-              </button>
-            </div>
             <div className="ask-tcfind">
               {/* 창이 열리면 여기에 커서가 온다. 자리가 안 잡히면 사람이
                   키보드로 곧바로 찾을 수가 없어 마우스로 다시 눌러야 한다. */}
               <input
-                autoFocus
+                autoFocus={!inPanel}
                 value={tcFind}
                 placeholder="항목 이름 · TC 번호 · REQ · 모델로 찾기"
                 onChange={(e) => setTcFind(e.target.value)}
@@ -4464,9 +2914,11 @@ export default function AskBar({ devices }: Props) {
                 이어 붙입니다.
               </span>
               <span className="ask-footbtns">
-                <button className="btn small" type="button" onClick={cancelAsk}>
-                  그만두기
-                </button>
+                {!inPanel && (
+                  <button className="btn small" type="button" onClick={cancelAsk}>
+                    그만두기
+                  </button>
+                )}
                 <button
                   className="btn primary small"
                   type="button"
@@ -4485,6 +2937,1618 @@ export default function AskBar({ devices }: Props) {
                 </button>
               </span>
             </div>
+    </>
+  )
+
+  return (
+    /* 세 칸 + 아래 입력줄 — 옮겨 온 화면의 짜임을 우리 꼴(panel·btn·토큰)로 다시 그렸다.
+       왼쪽 기록 · 가운데 작업 흐름 · 오른쪽 캔버스, 입력은 흐름부터 오른쪽 끝까지. */
+    <div className={`ask${!draft && !making ? ' athome' : ''}`}>
+      {/* 왼쪽 「새 시험 만들기 · 최근」 칸은 걷어냈다(지시) — 첫 화면이
+          한가운데에 서야 해서, 옆에 칸이 있으면 그만큼 밀린다. */}
+
+      <div className="ask-main">
+        {/* 맨 위 줄 — 지금 무엇을 하고 있나(목업). 일이 시작된 뒤에만 뜬다.
+            물어본 말을 늘 곁에 두어야 「내가 뭘 시켰더라」 를 안 잊는다. */}
+        {(draft || making) && (
+          <div className="ask-top">
+            <b className="ask-top-t">AI 자연어 시험</b>
+            <span className={`ask-top-b${mode === 'adv' ? ' adv' : ''}`}>
+              {mode === 'adv' ? 'Advanced AI Assistant' : 'General AI Assistant'}
+            </span>
+            {asked && <span className="ask-top-q" title={asked}>{asked}</span>}
+            {/* 지금 어느 단계인가(목업의 배지) — 판 머리와 같은 알약 */}
+            <span className="askp-stage">
+              {making
+                ? '절차 생성'
+                : running
+                  ? '3단계 · 실행'
+                  : ran && ran.some((x) => x && (x.status || x.repeatResult))
+                    ? '결과'
+                    : '3단계 · 실행 확인'}
+            </span>
+            <span className="sp" />
+            <button
+              className="btn small"
+              type="button"
+              title="첫 화면으로 돌아갑니다 — 만든 절차와 물어본 말이 버려집니다"
+              onClick={() => {
+                setDraft(null)
+                setBuilt(null)
+                setRan(null)
+                setAsked('')
+                setErr('')
+                /* **이번 판의 찌꺼기까지 비운다**(지적: 눌러도 앞의 것이 남는다).
+                   흐름 기록·고른 스텝·물어본 글이 남으면 다음 물음이 그 위에서
+                   굴러간다. 다만 고른 장비(devId)와 켠 도구(tOn)는 **남긴다** —
+                   그 둘은 계정 설정을 따라가는 값이라, 여기서 비우면 「내 설정이
+                   사라졌다」 가 된다. */
+                setFlowLogRaw([])
+                setPicked(new Set())
+                setLike([])
+                setText('')
+                setMsgs([])
+                setPane('')
+              }}
+            >
+              ↺ 처음으로
+            </button>
+          </div>
+        )}
+        {/* 슬롯 줄 — 목업처럼 **머리 바로 아래**, 판들 바깥이다.
+            판 안에 있으면 세 판의 머리 높이가 어긋난다(지적). */}
+        {draft && (
+        <div className="ask-slots">
+          {/* 이 시험이 Coverage 트리의 **어디에 있는지**를 그대로 보여 준다
+              (지시 사진) — 사업자 › 폴더 › 요구사항 › 시험 번호.
+              누르면 그 자리로 간다. 장비는 오른쪽 끝 알약이 쥔다. */}
+          <nav className="bcrumb" aria-label="경로">
+            <span className="bc-root">Coverage</span>
+            {(pathQ.data?.cats ?? []).map((c) => (
+              <Fragment key={c.id}>
+                <span className="bc-sep" aria-hidden="true">
+                  ›
+                </span>
+                <span className="bc-a bc-plain">{c.name}</span>
+              </Fragment>
+            ))}
+            {pathQ.data?.req && (
+              <>
+                <span className="bc-sep" aria-hidden="true">
+                  ›
+                </span>
+                <a
+                  className="bc-a"
+                  href={gotoHref('req', pathQ.data.req.id)}
+                  title="이 요구사항으로 갑니다"
+                  onClick={(e) => gotoClick(e, 'req', pathQ.data?.req?.id ?? '')}
+                >
+                  {pathQ.data.req.title || pathQ.data.req.reqid}
+                </a>
+              </>
+            )}
+            <span className="bc-sep" aria-hidden="true">
+              ›
+            </span>
+            {tcOf(draft) ? (
+              <a
+                className="bc-cur"
+                href={gotoHref('tc', tcOf(draft))}
+                title="Coverage 에서 이 시험을 엽니다"
+                onClick={(e) => gotoClick(e, 'tc', tcOf(draft))}
+              >
+                {tcOf(draft)}
+              </a>
+            ) : (
+              <span className="bc-cur">{draft.name}</span>
+            )}
+            {tcOf(draft) && draft.name && (
+              <span className="bc-id" title={draft.name}>
+                {draft.name}
+              </span>
+            )}
+          </nav>
+          {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
+          <span className="sp" />
+          {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}
+          <button
+            type="button"
+            className="btn small ask-devchip"
+            title="다른 장비로 바꿉니다"
+            onClick={() => {
+              setPickSel(devId || usable[0]?.id || '')
+              setPickLab('')
+              setPickRack('')
+              setPickDev({ model: '', cands: usable })
+            }}
+          >
+            ▭ {curDev ? `${curDev.model || curDev.name || ''} · ${curDev.ip}` : '장비를 고르세요'}
+          </button>
+          {/* **여기부터**(지시) — 가운데서 깨졌을 때 처음부터 다시 돌리지 않게.
+              엔진은 이미 구간을 받는다(run(only, from, to)), 단추만 없었다. */}
+          {!running && stepAt > 0 && (
+            <button
+              className="btn small"
+              type="button"
+              disabled={!draft.steps.length || !devId}
+              title={`고른 ${stepAt + 1}번 줄부터 끝까지 돌립니다`}
+              onClick={() => void run(undefined, stepAt)}
+            >
+              ▶ 여기부터
+            </button>
+          )}
+          {running ? (
+            <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
+              ⏹ 멈추기
+            </button>
+          ) : (
+            <button
+              className="btn primary ask-runbig"
+              type="button"
+              disabled={!draft.steps.length || !devId}
+              onClick={() => void run()}
+            >
+              {/* 다 돌린 뒤에도 「시험 시작」 이면 끝났는지 아직인지 모른다(지적) */}
+              {ran && ran.some((x) => x && (x.status || x.repeatResult)) ? '▷ 다시 시험' : '▷ 시험 시작'}
+            </button>
+          )}
+          {ran && !running && (
+            <button className="btn small" type="button" onClick={() => void save()}>
+              시험으로 저장
+            </button>
+          )}
+          <button
+            className="btn small ask-trash"
+            type="button"
+            title="버리기 — 만든 절차를 지웁니다"
+            aria-label="버리기"
+            onClick={() => {
+              /* 한 번 물어본다(지시) — 스텝과 돌린 결과가 함께 사라진다 */
+              const n = draft.steps.length
+              const hasRun = (ran ?? []).some((r) => r && (r.repeatResult || r.status))
+              if (
+                !window.confirm(
+                  `만든 절차 ${n}스텝을 버릴까요?` +
+                    (hasRun ? '\n돌린 결과도 함께 사라집니다.' : ''),
+                )
+              )
+                return
+              setDraft(null)
+              setRan(null)
+            }}
+          >
+            <IconTrash />
+          </button>
+        </div>
+        )}
+        <div className="ask-cols">
+          {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
+          {/* 작업 흐름 — 아직 아무 일도 없으면 빈 판이라 첫 화면을 좁힐 뿐이다 */}
+          {/* 작업 흐름 레일은 걷었다(지시: 필요 없어) — 한 일은 대화 말풍선이 이미 말한다 */}
+
+          <div className={`ask-canvaswrap${draft ? ' plan' : ''}`}>
+          <main className={`ask-canvas${draft ? ' plan' : ''}${busy ? ' busy' : ''}${twoPane ? ' console' : ''}`}>
+            {/* 고치는 동안 뜨는 표 — **일하는 자리 한가운데**(지시).
+                판마다 띄우면 둘로 보이고, 한쪽에만 띄우면 왼쪽으로 쏠린다. */}
+            {busy && draft && (
+              <div className="ask-busy" role="status" aria-live="polite">
+                <span className="ask-busy-box">
+                  <i className="ask-spin" aria-hidden="true" />
+                  <b>AI 수정 중…</b>
+                  <em>지금 절차를 고치고 있습니다</em>
+                </span>
+              </div>
+            )}
+
+      {/* 만드는 중 — 첫 화면을 **치운다**.
+          초안은 기준까지 다 채운 뒤에 나오므로 그때까지 이 자리가 빈다.
+          질문 보기를 그대로 두면 다 만든 줄 모르고 다른 예시를 눌러 같은
+          일이 두 번 시작된다(가져오기 중에는 busy 가 꺼져 있어 막히지도
+          않았다). 지금 무엇을 하고 있는지만 보인다. */}
+      {!draft && making && (
+        <div className="ask-making">
+          <h1>
+            <span className="ask-spin" aria-hidden="true" />
+            AI 생성 중…
+          </h1>
+          <p className="muted">
+            {asked.trim() ? `“${asked.trim()}”` : '고른 시험 항목으로 절차를 짓는 중입니다'}
+          </p>
+          <div className="ask-mksay">
+            <i />
+            <span>{genSay || '만드는 중…'}</span>
+            {elapsed > 4 && <em className="muted">{elapsed}초째</em>}
+          </div>
+          {/* 절차가 지어졌으면 **그것을 보여 준다.** 레일에는 스텝이 다 찼는데
+              여기만 회색 뼈대면 「스텝이 안 만들어졌다」 로 보인다(지적) — 실은
+              기준을 잡느라 몇 초에서 몇십 초가 걸리는 참이다. */}
+          {built && built.steps.length > 0 ? (
+            <ol className="ask-mkstep">
+              {built.steps.map((x, i) => (
+                <li key={i}>
+                  <i>{i + 1}</i>
+                  <span>
+                    <b>{x.desc || x.cli}</b>
+                    {x.cli && x.desc ? <code>{x.cli}</code> : null}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="ask-skel" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <div className="ask-skelrow" key={i}>
+                  <b />
+                  <em />
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="ask-note muted small">
+            {built && built.steps.length > 0 ? (
+              <>
+                절차 <b>{built.steps.length}스텝</b> 은 다 나왔습니다. 지금은 <b>판정 기준</b> 을 잡는
+                중입니다 — 다 채우면 이 절차가 고칠 수 있는 꼴로 열립니다.
+              </>
+            ) : (
+              <>
+                <b>판정 기준</b> 까지 채운 뒤에 절차가 한 번에 나옵니다.
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
+      {/* 첫 화면 — 보내 주신 목업 그대로(지시).
+          제목 · 입력칸(모드 고르개가 그 안에) · 오프너 셋.
+          관리자는 ⚙ 로 오프너를 이 자리에서 고친다. */}
+        <div
+          className={`ask-home${exEdit ? ' editing' : ''}${twoPane ? ' chat' : ''}`}
+          data-theme={theme}
+        >
+          {/* 대화 머리(목업) — 콘솔 모드에서 이 기둥이 무엇인지 말한다 */}
+          {twoPane && (
+            <div className="ask-chathd">
+              <span className="ask-chatlogo" aria-hidden="true">AI</span>
+              <div className="ask-chattt">
+                <b>Test AI</b>
+                <span>대화로 진행 · 자세한 것은 오른쪽 판에</span>
+              </div>
+            </div>
+          )}
+          {exEdit && <span className="ask-edbadge">오프너 편집 모드</span>}
+          <div className="ask-hometools">
+            {!exEdit && (
+              <span className="ask-themewrap">
+                <button
+                  className="ask-gearbtn"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded={themeOpen}
+                  title="첫 화면 테마 — 계절·명절 색으로 바꿉니다"
+                  onClick={() => setThemeOpen((v) => !v)}
+                >
+                  {THEMES.find(([k]) => k === theme)?.[2]} 테마
+                </button>
+                {themeOpen && (
+                  <>
+                    <span className="ask-modeback" onClick={() => setThemeOpen(false)} />
+                    <span className="ask-thememenu" role="menu">
+                      {THEMES.map(([k, nm, emo]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={theme === k}
+                          className={`ask-thmi${theme === k ? ' on' : ''}`}
+                          onClick={() => {
+                            setTheme(k)
+                            setThemeOpen(false)
+                          }}
+                        >
+                          <i aria-hidden="true">{emo}</i>
+                          {nm}
+                          {theme === k && <b aria-hidden="true">✔</b>}
+                        </button>
+                      ))}
+                    </span>
+                  </>
+                )}
+              </span>
+            )}
+            {amAdmin && !exEdit && (
+              <button
+                className="ask-gearbtn"
+                type="button"
+                title="오프너 문구를 이 자리에서 바로 고칩니다"
+                onClick={() => {
+                  exBack.current = examples.map((x) => ({ ...x }))
+                  setExEdit(true)
+                }}
+              >
+                <IconSettings /> 설정
+              </button>
+            )}
+            {exEdit && (
+              <button
+                className="ask-edcancel"
+                type="button"
+                onClick={() => {
+                  setExamples(exBack.current.map((x) => ({ ...x })))
+                  setExEdit(false)
+                }}
+              >
+                ✕ 편집 취소
+              </button>
+            )}
+          </div>
+
+          <div className="ask-homewrap">
+            {/* A안 오로라(승인) — 빛무리 셋과 점 격자. 그림일 뿐이라
+                보조기기에는 없는 것으로 친다. 움직임은 CSS 가 갖고 있고
+                prefers-reduced-motion 이면 멎는다. */}
+            <div className="ask-sky" aria-hidden="true">
+              <i className="o1" />
+              <i className="o2" />
+              <i className="o3" />
+              <i className="dots" />
+              {/* 계절의 「것」 — 벚꽃·물방울·낙엽·눈·별·연. 무엇이 될지는
+                  테마 CSS 가 정하고, 여기는 자리 열여섯만 뿌린다. */}
+              <span className="fx">
+                {Array.from({ length: 16 }, (_, i) => (
+                  <i key={i} style={{ '--i': i } as CSSProperties} />
+                ))}
+              </span>
+            </div>
+            <span className="ask-aibadge">
+              <i aria-hidden="true">✦</i>UBIQUOSS Test Assistant
+            </span>
+            <h1 className="ask-hometitle">무엇을 도와드릴까요?</h1>
+            {/* 부제는 **고른 갈래를 따라간다**(지시) — 두 갈래가 하는 일이
+                다른데 한 줄로 뭉뚱그리면, 무엇을 골라야 할지는 결국 눌러
+                봐야 안다. 아래 모드 칩과 같은 말을 쓴다. */}
+            <p className="ask-homesub">
+              {mode === 'adv'
+                ? '자연어로 시험 항목을 만들고 실행합니다'
+                : '자연어로 장비를 선택하고 항목을 찾고 실행합니다'}
+            </p>
+
+            {/* 입력 + 모드 — 한 상자 안이다(목업) */}
+            {/* 2행 캡슐(승인) — 1행 질문 · 2행 첨부·도구·핀 칩 | 모드·음성·보내기 */}
+            {/* ── 대화 ─────────────────────────────────────────────────
+                물어본 말과 AI 가 정한 것이 여기 쌓인다. 첫 화면에서는 안 보이고
+                (msgs 가 비어 있다) 한 번 물으면 제목·부제·오프너 자리를 이 판이
+                넘겨받는다 — 목업 그대로다. */}
+            {msgs.length > 0 && (
+              <div
+                className="ask-msgs"
+                ref={msgsRef}
+                /* 말풍선 안의 「📟 장비 고르기」·「🔍 시험 항목 고르기」 —
+                   글 속에 심은 단추라 한 자리에서 받는다 */
+                onClick={(e) => {
+                  const t = e.target as HTMLElement
+                  /* 추천 카드·후보 줄 — 누르면 그 자리에서 정해진다(승인: 단순안) */
+                  const dv = t.closest('.js-devpick') as HTMLElement | null
+                  if (dv) {
+                    pickInlineDev(dv.dataset.id || '')
+                    return
+                  }
+                  const tc = t.closest('.js-tcpick') as HTMLElement | null
+                  if (tc) {
+                    pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
+                    return
+                  }
+                  /* 「전체 열기」 — 오른쪽 판이 그 표를 편다(목업) */
+                  if (t.closest('.js-pickdev')) {
+                    afterDevRef.current = 'tc'
+                    setPane('dev')
+                  } else if (t.closest('.js-picktc')) setPane('tc')
+                }}
+              >
+                {msgs.map((m, i) =>
+                  m.who === 'u' ? (
+                    <div className="msg u" key={i}>
+                      <b>{m.html}</b>
+                    </div>
+                  ) : (
+                    <div className="msg a" key={i}>
+                      <span className="av" aria-hidden="true">✦</span>
+                      <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
+            <div className="ask-askbox2 two">
+              <div className="ask-r1">
+              <input
+                ref={askInRef}
+                className="ask-askin2"
+                value={text}
+                disabled={exEdit}
+                placeholder={
+                  mode === 'adv'
+                    ? '만들 시험을 설명하세요 — 대상 장비, 스텝, 판정 기준'
+                    : 'UBIQUOSS Test Assistant'
+                }
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return
+                  if (e.key === 'Enter' && text.trim()) void submit()
+                }}
+              />
+              </div>
+
+              <div className="ask-r2">
+              {/* **＋ 하나**로 모은다(지시: 목업). 파일(📎)과 도구(⚙)를 따로 두면
+                  입력줄 앞이 단추 둘로 시작해 무엇을 눌러야 할지 묻게 된다.
+                  붙일 것도 켤 것도 다 이 안에 있다. */}
+              <span className="ask-toolwrap">
+                <button
+                  className={`ask-plus${toolsOpen ? ' on' : ''}`}
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded={toolsOpen}
+                  title="파일 붙이기 · 도구 추가"
+                  onClick={() => setToolsOpen((v) => !v)}
+                >
+                  ＋
+                </button>
+                {toolsOpen && (
+                  <>
+                    <span className="ask-modeback" onClick={() => setToolsOpen(false)} />
+                    <span className="ask-toolmenu" role="menu">
+                      {/* 파일이 먼저다 — 「무엇을 붙일까」 가 「무엇을 켤까」 보다 앞선다 */}
+                      <span className="ask-tmi off file" aria-disabled="true">
+                        <i>📎</i>파일 업로드<em className="soon">CSV · 로그 · 캡처 · 나중</em>
+                      </span>
+                      <span className="tsep" aria-hidden="true" />
+                      {/* **메뉴는 꽂기만 한다**(지시). 전에는 항목을 누르면 그
+                          자리에서 켜지거나 장비 팝업이 떴고, 입력줄에 칩으로
+                          세우려면 📌 를 따로 눌러야 했다 — 한 줄에 누르는 자리가
+                          둘이라 어느 쪽이 무엇인지 알 수 없었다. 이제 여기서는
+                          꽂고 빼기만 하고, **쓰는 것은 입력줄의 칩**으로 한다.
+                          여러 개를 이어서 꽂을 수 있게 고른 뒤에도 닫지 않는다. */}
+                      {TOOLDEF.map(([k, emo, nm, d]) => {
+                        const on = pins.includes(k)
+                        return (
+                          <span
+                            key={k}
+                            role="menuitemcheckbox"
+                            aria-checked={on}
+                            tabIndex={0}
+                            className={`ask-tmi${on ? ' on' : ''}`}
+                            title={on ? `${d} \u00b7 다시 누르면 뺍니다` : `${d} \u00b7 누르면 입력줄에 꽂힙니다`}
+                            onClick={() => pinTool(k)}
+                            onKeyDown={(e) => e.key === 'Enter' && pinTool(k)}
+                          >
+                            <i>{emo}</i>
+                            {nm}
+                            {on && <em className="ck">✓</em>}
+                          </span>
+                        )
+                      })}
+                    </span>
+                  </>
+                )}
+              </span>
+              {/* **도구 칩은 ＋ 바로 옆**(지시: 목업 입력창). 아래 줄로 내리면
+                  ＋ 와 칩이 갈라져 「무엇을 켜 두었나」 가 한눈에 안 들어온다.
+                  핀이 많아 넘치면 줄이 접힌다 — 모드·마이크·보내기는 안 밀린다. */}
+              <div className="ask-r3">
+                {pins.map((k) => {
+                  const t = TOOLDEF.find(([x]) => x === k)
+                  if (!t) return null
+                  const [key, emo, nm, d] = t
+                  /* 고른 것이 있으면 **고른 것만** 지운다(지적). 여태 ✕ 는
+                     언제나 도구를 통째로 뺐다 — 고른 장비만 지우려고 눌렀다가
+                     칩 자체가 사라져 다시 ⚙ 에서 꽂아야 했다. */
+                  const chose = key === 'dev' ? !!tDev : key === 'find' ? tcPick.size > 0 : false
+                  const off = (
+                    <i
+                      className="chx"
+                      title={chose ? '고른 것 지우기' : '도구 빼기'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (chose) {
+                          if (key === 'dev') {
+                            setTDev('')
+                            setDevId('')
+                          } else setTcPick(new Set())
+                          return
+                        }
+                        setPins((prev) => prev.filter((x) => x !== key))
+                        setTOn((prev) => {
+                          const nx = new Set(prev)
+                          nx.delete(key)
+                          return nx
+                        })
+                      }}
+                    >
+                      ✕
+                    </i>
+                  )
+                  if (key === 'dev')
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`ask-chip${tDev ? ' on sel' : ''}`}
+                        title={d}
+                        onClick={() => setDevOpen((v) => !v)}
+                      >
+                        {/* 모델명만 보이면 같은 모델이 열 대인 LAB 에서 어느
+                            것을 골랐는지 모른다 — IP 까지 적는다 */}
+                        {emo} {tDev ? `${tDev}${curDev?.ip ? ` (${curDev.ip})` : ''}` : nm}
+                        {off}
+                      </button>
+                    )
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`ask-chip${tOn.has(key) ? ' on' : ''}${key === 'find' && tcPick.size ? ' sel' : ''}`}
+                      title={key === 'find' ? `${d} \u00b7 눌러서 항목을 고릅니다` : d}
+                      onClick={() => {
+                        flipTool(key)
+                        /* **칩을 누르면 그 도구가 하는 일이 열린다**(지시).
+                           「장비 고르기」 는 고르개가 뜨는데 「시험 항목 찾기」 는
+                           켜지기만 해서, 같은 줄의 두 칩이 서로 다르게 굴었다.
+                           끌 때는 열지 않는다 — 끄려고 누른 사람 앞에 창이 뜬다. */
+                        if (key === 'find' && !tOn.has(key)) setLikeAsk(true)
+                      }}
+                    >
+                      {/* 몇 건을 골랐는지 칩에서 바로 보인다(지적) */}
+                      {emo}{' '}
+                      {key === 'find' && tcPick.size
+                        ? `${[...tcPick][0]}${tcPick.size > 1 ? ` 외 ${tcPick.size - 1}건` : ''}`
+                        : nm}
+                      {off}
+                    </button>
+                  )
+                })}
+                {!pins.length && (
+                  <button
+                    type="button"
+                    className={`ask-more${toolsOpen ? ' on' : ''}`}
+                    title="쓸 도구를 골라 이 줄에 꽂습니다"
+                    onClick={() => setToolsOpen((v) => !v)}
+                  >
+                    ＋ 도구 추가
+                  </button>
+                )}
+              </div>
+              {/* 빈 공간은 **모드 뒤**다(지시: 모드는 ＋ 옆). 앞에 두면 모드가
+                  오른쪽 끝으로 밀려 마이크·보내기와 한 덩이로 읽힌다. */}
+              <span className="ask-rsp" />
+              {/* 모드 — **드롭다운**(지시). 세그먼트 토글이던 것을 되돌린다:
+                  오른쪽 끝에 AI 고르개가 서면서 두 고르개의 생김새가 같아야
+                  한 벌로 읽힌다. 지금 무엇인지는 단추에 그대로 적는다. */}
+              <span className="ta-pick">
+                <button
+                  type="button"
+                  className={`ta-pickb${modeOpen ? ' open' : ''}`}
+                  disabled={exEdit}
+                  title={
+                    mode === 'basic'
+                      ? 'General — 이미 만들어진 시험 항목을 찾아 그대로 실행합니다 · 명령을 몰라도 됩니다'
+                      : 'Advanced — 없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다 · 장비를 아는 사람이'
+                  }
+                  aria-expanded={modeOpen}
+                  onClick={() => {
+                    setModeOpen((v) => !v)
+                    setLlmOpen(false)
+                  }}
+                >
+                  <i className="sico" aria-hidden="true">{mode === 'basic' ? '\u25b6' : '\u270e'}</i>
+                  <span className="mlb">{mode === 'basic' ? 'General' : 'Advanced'}</span>
+                  <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+                {modeOpen && (
+                  <>
+                    <span className="ta-pickveil" onClick={() => setModeOpen(false)} />
+                    <span className="ta-pickmenu">
+                      {(
+                        [
+                          ['basic', 'General', '\u25b6', '있는 시험을 찾아 바로 실행'],
+                          ['adv', 'Advanced', '\u270e', '없는 시험을 새로 만들어 실행'],
+                        ] as const
+                      ).map(([k, label, ico, sub]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          className={`ta-pickit${mode === k ? ' on' : ''}`}
+                          onClick={() => {
+                            setMode(k)
+                            setModeOpen(false)
+                          }}
+                        >
+                          <i className="sico" aria-hidden="true">{ico}</i>
+                          <b>{label}</b>
+                          <span className="sub">{sub}</span>
+                          {mode === k && <svg className="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
+                        </button>
+                      ))}
+                    </span>
+                  </>
+                )}
+              </span>
+              {/* 쓸 AI — **오른쪽 끝**(지시). 마이크·보내기 바로 앞이라
+                  「무엇으로 답하는가」 가 보내는 손과 한자리에 있다. */}
+              {llms.length > 0 && (
+                <span className="ta-pick ta-ai">
+                  <button
+                    type="button"
+                    className={`ta-pickb ai${llmOpen ? ' open' : ''}`}
+                    disabled={exEdit}
+                    title={`이 물음에 답할 AI — 지금은 ${llmNow?.name ?? '기본'}${llmNow?.model ? ` (${llmNow.model})` : ''}`}
+                    aria-expanded={llmOpen}
+                    onClick={() => {
+                      setLlmOpen((v) => !v)
+                      setModeOpen(false)
+                    }}
+                  >
+                    {/* **이름만 세운다**(목업). 모델 번호까지 달면 「Local LLM
+                        gemma-4-31b-it」 처럼 길어져 입력줄의 절반을 먹는다 —
+                        모델은 풍선말과 고름표 안에서 본다. */}
+                    <span className="mlb">{llmNow?.name ?? 'AI 고르기'}</span>
+                    <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                  </button>
+                  {llmOpen && (
+                    <>
+                      <span className="ta-pickveil" onClick={() => setLlmOpen(false)} />
+                      <span className="ta-pickmenu right">
+                        {llms.map((x) => (
+                          <button
+                            key={x.id}
+                            type="button"
+                            className={`ta-pickit${x.id === llmId ? ' on' : ''}`}
+                            onClick={() => {
+                              setLlmId(x.id)
+                              setLlmOpen(false)
+                            }}
+                          >
+                            <b>{x.name}</b>
+                            {!!x.model && <span className="sub">{x.model}</span>}
+                            {x.id === llmId && <svg className="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>}
+                          </button>
+                        ))}
+                      </span>
+                    </>
+                  )}
+                </span>
+              )}
+              <button
+                className={`ask-tb mic${listening ? ' rec' : ''}`}
+                type="button"
+                title={listening ? '듣는 중 — 누르면 멈춥니다' : '음성으로 묻기'}
+                disabled={exEdit}
+                onClick={micToggle}
+              >
+                {listening ? '🔴' : '🎤'}
+              </button>
+              <button
+                className={`ask-send2${text.trim() && !exEdit ? ' on' : ''}`}
+                type="button"
+                title="보내기 (Enter)"
+                disabled={exEdit || !text.trim()}
+                onClick={() => void submit()}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h13M13 6l6 6-6 6" />
+                </svg>
+              </button>
+              </div>
+
+
+              {/* 장비 고르개 — **표로 고른다**(지시: 목업).
+                  이름만 늘어놓으면 같은 모델이 열 대씩 있는 LAB 에서 어느 것을
+                  고를지 알 수 없다. 거르개(LAB·사업자·벤더·모델그룹)는 열 머리를
+                  눌러 쓰고, 오른쪽 끝의 연결 상태가 지금 붙을 수 있는지 말한다. */}
+              {devOpen && (
+                <>
+                  <span className="ask-modeback" onClick={() => setDevOpen(false)} />
+                  {devPickUI(false)}
+                                </>
+              )}
+            </div>
+
+            {/* 모드 안내는 걷었다(지시) — 고르개가 같은 말을 이미 하고,
+                부제도 갈래를 따라 바뀐다. 한 화면에서 같은 말이 세 번 나면
+                어느 것이 지금 상태인지 되레 헷갈린다. */}
+
+            {/* 오프너 — 눌러서 무엇을 시킬 수 있는지 안다.
+                머리를 다는 까닭: 줄만 늘어놓으면 「이미 한 말」 인지 「눌러 보는
+                보기」 인지 갈리지 않는다(목업). 고치는 중에는 편집 배지가 그
+                몫을 하므로 달지 않는다. */}
+            {!exEdit && examples.some((x) => x.q.trim() && !exHide.includes(x.q)) && (
+              <div className="ask-opsh">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+                </svg>
+                Suggested
+              </div>
+            )}
+            <div className="ask-ops">
+              {exEdit
+                ? examples.map((x, i) => (
+                    <div className="ask-oprow ed" key={i}>
+                      <span className="ask-op-ic">✦</span>
+                      <input
+                        className="ask-op-in"
+                        value={x.q}
+                        placeholder="오프너 문구"
+                        onChange={(e) => exSet(i, { q: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        className="ask-op-x on"
+                        title="이 오프너 지우기"
+                        onClick={() => exDel(i)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                : examples
+                    .filter((x) => x.q.trim() && !exHide.includes(x.q))
+                    .map((x, i) => (
+                      <div className="ask-oprow" key={x.q || i}>
+                        <button
+                          type="button"
+                          className="ask-op"
+                          title={x.d || x.q}
+                          onClick={() => {
+                            /* 채워 넣기만 한다(지시) — 시작은 보내기 단추로.
+                               바로 보내면 고쳐 물을 틈이 없다. */
+                            setText(x.q)
+                            askInRef.current?.focus()
+                          }}
+                        >
+                          <span className="ask-op-ic">✦</span>
+                          <span className="ask-op-tx">{x.q}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="ask-op-x"
+                          title="이 오프너 숨기기 (내 화면에서만)"
+                          onClick={() => setExHide((v) => [...v, x.q])}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+              {exEdit && (
+                <button className="ask-opadd" type="button" onClick={exAdd}>
+                  <span className="ask-op-ic plus">＋</span>오프너 추가
+                </button>
+              )}
+              {!exEdit && exHide.length > 0 && (
+                <button
+                  className="ask-opshow"
+                  type="button"
+                  onClick={() => setExHide([])}
+                >
+                  숨긴 오프너 {exHide.length}개 다시 보기
+                </button>
+              )}
+            </div>
+
+            {/* 처음 온 사람에게 이 화면이 무엇을 하는지 — 누르는 것이 아니라
+                말해 주는 줄이다(A안). 편집 중에는 자리를 오프너에 내준다. */}
+            {!exEdit && (
+              <div className="ask-cando">
+                <small>TEST AI 가 하는 일</small>
+                <div className="ask-cando-row">
+                  <span className="ask-cd t1">
+                    <i>
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                    </i>
+                    기존 항목 실행
+                  </span>
+                  <span className="ask-cd t2">
+                    <i>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg>
+                    </i>
+                    새 시험 만들기
+                  </span>
+                  <span className="ask-cd t3">
+                    <i>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-8M21 19H3" /></svg>
+                    </i>
+                    결과 분석
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {err && <div className="ask-err">{err}</div>}
+
+          {exEdit && (
+            <div className="ask-edbar">
+              <button
+                className="btn"
+                type="button"
+                onClick={() =>
+                  setExamples([
+                    { q: 'E6100 시스템 정보 조회 시험해줘' },
+                    { q: 'E6100 SNMP 시험해줘' },
+                    { q: 'E6100 인터페이스 1번 shutdown 반복 시험 3회' },
+                  ])
+                }
+              >
+                기본값으로
+              </button>
+              <span className="sp" />
+              {exSay && <span className="muted small">{exSay}</span>}
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  setExamples(exBack.current.map((x) => ({ ...x })))
+                  setExEdit(false)
+                }}
+              >
+                취소
+              </button>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={() => {
+                  void exSave().then((ok) => {
+                    if (ok) setExEdit(false)
+                  })
+                }}
+              >
+                변경사항 저장
+              </button>
+            </div>
+          )}
+        </div>
+
+      {/* 「설정 시험 허용」 스위치는 없앴다(지시: 그냥 생성되도록).
+          만들기만으로는 장비에 아무것도 안 나간다 — 명령은 [실행] 을 눌렀을
+          때만 나가므로, 사람이 절차를 보고 고른 뒤에 나간다. */}
+
+      {/* ── 오른쪽 · 자세히 보기 판(목업 「Test AI 시험 콘솔」) ──────────
+          1·2단계의 표가 여기 선다. 절차(draft)·생성 중(making)은 저희 판이
+          이 자리를 그대로 차지하므로 그때는 나서지 않는다. */}
+      {twoPane && !draft && !making && (
+        <section className="askp" aria-label="자세히 보기">
+          <header className="askp-hd">
+            <span className="askp-ic" aria-hidden="true">
+              {pane === 'dev' ? '🖧' : pane === 'tc' ? '☰' : '▤'}
+            </span>
+            <div className="askp-tt">
+              <b>{pane === 'dev' ? '장비 고르기' : pane === 'tc' ? '시험 항목 고르기' : '자세히 보기'}</b>
+              <span>
+                {pane === 'dev'
+                  ? '점유·통신 상태를 함께 봅니다 — 줄을 누르면 그 장비로 정해집니다'
+                  : pane === 'tc'
+                    ? `${curDev ? `${devName} 에서 돌릴 항목` : '고른 장비에서 돌릴 항목'} — 줄을 누르면 절차를 짓습니다`
+                    : '대화가 진행되면 여기에 표·절차·로그가 뜹니다'}
+              </span>
+            </div>
+            {pane && (
+              <span className="askp-stage">{pane === 'dev' ? '1단계 · 장비' : '2단계 · 항목'}</span>
+            )}
+          </header>
+          <div className="askp-body">
+            {pane === 'dev' ? (
+              <div className="askp-fill">{devPickUI(true)}</div>
+            ) : pane === 'tc' ? (
+              <div className="askp-fill ask-likewrap">{tcPickBody(true)}</div>
+            ) : (
+              <div className="askp-empty">
+                <i aria-hidden="true">▤</i>
+                왼쪽에서 시험을 말로 요청하면
+                <br />
+                장비 표 · 시험 항목 · 실행 로그가 여기에 열립니다
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {draft && (
+        <div className="ask-plan">
+          {(draft.cut?.length ?? 0) > 0 && (
+            <div className="ask-drop">
+              조회가 아닌 명령 {draft.cut?.length}개는 뺐습니다 — {draft.cut?.join(' · ')}
+            </div>
+          )}
+
+          {/* 왼쪽 스텝 목록 · 오른쪽 그 스텝의 속(명령·기준·응답).
+              위아래로 두면 응답을 보려고 내리는 순간 고치던 칸이 사라진다. */}
+          {/* 목업 그대로 — 한 판 안에서 왼쪽 목록 · 조절바 · 오른쪽 세부.
+              둘 다 Coverage(TC 화면)와 **같은 부품**이라 꼴이 한 벌이다. */}
+          <div className="ask-two railbox">
+            <section className="railsec" data-sec="steps">
+              <div className="railsec-b">
+                <div className="tc-inner">
+                  <section className="panel tc-seqcol" style={{ flexBasis: seqW }} ref={seqRef}>
+                    <div className="tc-title">
+                      {/* 한 건이면 번호를 세우고, 여러 건이면 「고른 시험 n건」
+                          한 마디로 족하다(지시) */}
+                      {draft.object && /^TC-/i.test(draft.object) && (
+                        <>
+                          <span className="tc-tid">{draft.object}</span>
+                          <span className="tc-title-div" aria-hidden="true" />
+                        </>
+                      )}
+                      <b title={draft.name}>{draft.name}</b>
+                      <span className="sp" />
+                      {(() => {
+                        const done = (ran ?? []).filter((r) => r && (r.repeatResult || r.status)).length
+                        const pass = (ran ?? []).filter(
+                          (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
+                        ).length
+                        const fail = (ran ?? []).filter(
+                          (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
+                        ).length
+                        if (!done)
+                          return <span className="muted small">{draft.steps.length} 스텝</span>
+                        return (
+                          <span className="muted small">
+                            {done}/{draft.steps.length} · <b className="status pass">PASS {pass}</b> ·{' '}
+                            <b className="status fail">FAIL {fail}</b>
+                          </span>
+                        )
+                      })()}
+                    </div>
+                    {(() => {
+                      /*
+                       * 여러 시험을 이어 붙였으면 **시험마다 카드**로 나눈다
+                       * (지시 사진). 카드 하나가 곧 한 시험이라
+                       *   · 번호가 그 시험 안에서 1 부터 다시 매겨지고,
+                       *   · 머리에 그 시험의 셈과 ▶(그 시험만 돌리기)이 서고,
+                       *   · 접으면 통째로 숨는다.
+                       * 목록 부품은 그대로 쓰고 **자리 번호만 옮겨 준다** —
+                       * 고르기·실행이 전부 원본 자리로 돌아가야 한다.
+                       */
+                      const heads = seqSteps
+                        .map((x, i) => (x.head ? i : -1))
+                        .filter((i) => i >= 0)
+                      /* 「일반」 은 있는 시험을 **그대로 도는** 갈래라 고치지
+                         않는다(지시) — 고칠 것이 있으면 Coverage 에서 고친다 */
+                      const ro = mode === 'basic'
+                      const seq = (from: number, to: number, addable: boolean) => (
+                        <TcSequence
+                          /* 이 판에는 목록이 시험마다 하나씩 여럿 뜬다 —
+                             머리줄을 켜면 묶음마다 서고 전부 sticky 라
+                             스크롤할 때 서로 겹친다 */
+                          head={false}
+                          /* 판정◎·결과서▤·로그☰ 칸은 걷는다(지시) — 이 화면엔
+                             결과서도 판정 편집도 없어 늘 죽은 칸이었다 */
+                          slim
+                          steps={seqSteps.slice(from, to)}
+                          selected={stepAt >= from && stepAt < to ? stepAt - from : -1}
+                          onSelect={(i) => setStepAt(from + i)}
+                          onAdd={(k) => addStep(k)}
+                          sessionName={() => devName || '장비'}
+                          runningAt={at >= from && at < to ? at - from : -1}
+                          picked={new Set([...picked].filter((i) => i >= from && i < to).map((i) => i - from))}
+                          onPick={(i) =>
+                            setPicked((v) => {
+                              const n = new Set(v)
+                              const g = from + i
+                              if (n.has(g)) n.delete(g)
+                              else n.add(g)
+                              return n
+                            })
+                          }
+                          onRun={running || !devId ? undefined : (i) => void run(from + i)}
+                          hide={addable ? undefined : (x) => !!x.head}
+                          readOnly={ro}
+                        />
+                      )
+                      if (heads.length < 2) return seq(0, seqSteps.length, true)
+                      return (
+                        <div className="ask-grps">
+                          {heads.map((h, gi) => {
+                            const from = h + 1
+                            const to = heads[gi + 1] ?? seqSteps.length
+                            const mine = (ran ?? []).slice(from, to)
+                            const done = mine.filter((r) => r && (r.repeatResult || r.status)).length
+                            const pass = mine.filter(
+                              (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
+                            ).length
+                            const fail = mine.filter(
+                              (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
+                            ).length
+                            const hd = seqSteps[h]
+                            const open = !foldGrp.has(h)
+                            return (
+                              <section className={`ask-grp${open ? '' : ' folded'}`} key={h}>
+                                <div className="ask-grph">
+                                  <button
+                                    type="button"
+                                    className="ask-grpcar"
+                                    aria-label={open ? '접기' : '펼치기'}
+                                    onClick={() =>
+                                      setFoldGrp((v) => {
+                                        const n = new Set(v)
+                                        if (n.has(h)) n.delete(h)
+                                        else n.add(h)
+                                        return n
+                                      })
+                                    }
+                                  >
+                                    {open ? '▾' : '▸'}
+                                  </button>
+                                  <i className="ask-grpn">{gi + 1}</i>
+                                  <b className="ell" title={hd?.step ? `${hd.text} · ${hd.step}` : hd?.text}>
+                                    {hd?.text || hd?.step || '시험'}
+                                  </b>
+                                  <span className="sp" />
+                                  <span className="muted small">
+                                    {done}/{to - from}
+                                    {done > 0 && (
+                                      <>
+                                        {' · '}
+                                        <b className="status pass">PASS {pass}</b>
+                                        {fail > 0 && (
+                                          <>
+                                            {' · '}
+                                            <b className="status fail">FAIL {fail}</b>
+                                          </>
+                                        )}
+                                      </>
+                                    )}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="ask-grprun"
+                                    title="이 시험만 돌립니다"
+                                    disabled={running || !devId}
+                                    onClick={() => void run(undefined, from, to)}
+                                  >
+                                    ▶
+                                  </button>
+                                </div>
+                                {open && seq(from, to, gi === heads.length - 1)}
+                              </section>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
+                    {/* **고른 줄 띠**(지시) — 체크는 그려지는데 그 다음에 누를
+                        단추가 없어서 여러 줄 고르기가 아무 일도 안 했다.
+                        목록 **아래**에 둔다: 위에 두면 띠가 서는 순간 방금 누른
+                        칸이 손 밑에서 아래로 달아난다. */}
+                    {picked.size > 0 && (
+                      <div className="ask-sqbulk">
+                        <b>스텝 {picked.size}개</b>
+                        <span className="sp" />
+                        <button
+                          className="btn small primary"
+                          type="button"
+                          disabled={running || !devId}
+                          title="고른 줄 중 첫 줄부터 끝까지 돌립니다"
+                          onClick={() => void run(undefined, Math.min(...picked))}
+                        >
+                          ▶ 고른 것만
+                        </button>
+                        <button className="btn small" type="button" onClick={() => setPicked(new Set())}>
+                          해제
+                        </button>
+                      </div>
+                    )}
+                  </section>
+
+                  <Resizer
+                    label="스텝 목록 폭 조절"
+                    onResize={setSeqW}
+                    getOrigin={() => seqRef.current?.getBoundingClientRect().left ?? 0}
+                  />
+
+                  <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
+                    <div className="tc-colh">
+                      <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
+                      <span className="sp" />
+                      {mode !== 'basic' && (
+                      <button
+                        className={`btn tc-dots tc-termbtn${termOpen ? ' on' : ''}`}
+                        type="button"
+                        aria-pressed={termOpen}
+                        disabled={!devId}
+                        title={
+                          termOpen
+                            ? '명령어 캡쳐 닫기'
+                            : '명령어 캡쳐 — 장비에 붙어 명령을 치면 그대로 스텝이 됩니다'
+                        }
+                        onClick={() => setTermOpen((v) => !v)}
+                      >
+                        <IconCli />
+                      </button>
+                      )}
+                    </div>
+                    {/* ── 스텝 상태 띠(지시) ────────────────────────────────
+                        스텝이 수십 개면 어디까지 돌았고 어디서 깨졌는지 표를
+                        끝까지 긁어야 안다. 부품(.sc-strip)은 Coverage 가 쓰는
+                        그것이고 CSS 도 이미 있다 — 새로 짓지 않는다.
+
+                        번호는 **표가 매긴 것**을 그대로 쓴다. 여기서 i+1 로 새로
+                        세면 주석이 번호를 안 먹는 표와 어긋나, 「스텝 5」 를 눌러
+                        놓고 표에서는 1.1 을 찾게 된다. */}
+                    {!termOpen && seqSteps.length > 1 && (
+                      <div className="sc-strip tc-strip">
+                        <span className="sc-strip-lab">스텝</span>
+                        {seqSteps.map((s2, i) => {
+                          const no = stripNos[i] || ''
+                          const v = stepVerdict((ran?.[i] ?? s2) as TcStep)
+                          const def = resDefs.find((r) => r.v === v)
+                          const done = !!ran?.[i]?.executed_at || !!ran?.[i]?.output
+                          const now = i === at
+                          const cls = now ? 'now' : def ? 'def' : v ? 'part' : done ? 'ran' : ''
+                          const sty =
+                            !now && def?.color
+                              ? { background: def.color, borderColor: def.color, color: def.fg || '#fff' }
+                              : undefined
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              style={sty}
+                              className={`sc-seg ${cls}${i === stepAt ? ' on' : ''}`}
+                              title={`스텝 ${no || '주석'} · ${
+                                now ? '진행 중' : def?.label || v || (done ? '실행함(판정 없음)' : '미실행')
+                              }`}
+                              onClick={() => setStepAt(i)}
+                            >
+                              {no || '·'}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {termOpen && devId && mode !== 'basic' ? (
+                      <TcTerminal
+                        sessions={[devId]}
+                        devById={new Map(devices.map((d) => [d.id, d]))}
+                        sessionNames={[devName || devIp || '장비']}
+                        onAdd={(t) => addTcStep(t)}
+                        onClose={() => setTermOpen(false)}
+                      />
+                    ) : (
+                      <TcStepDetail
+                        step={seqSteps[stepAt] ?? null}
+                        index={stepAt}
+                        total={seqSteps.length}
+                        sessions={[`${devName || '장비'}${devIp ? ` (${devIp})` : ''}`]}
+                        params={{
+                          values: {},
+                          items: [],
+                          loading: false,
+                          empty: '이 화면에는 전역 파라미터가 없습니다',
+                        }}
+                        takenVars={[]}
+                        onChange={(p) => setTcStep(stepAt, p)}
+                        onMove={(dir) => moveTcStep(stepAt, dir)}
+                        onRemove={() => removeTcStep(stepAt)}
+                        onDuplicate={() => dupTcStep(stepAt)}
+                        onRun={running || !devId ? undefined : () => void run(stepAt)}
+                        readOnly={mode === 'basic'}
+                        loopVar={loopVarAt(seqSteps, stepAt)}
+                      />
+                    )}
+                  </section>
+
+                  {/* ── 셋째 칸 · 실행 로그 ─────────────────────────────────
+                      장비가 실제로 무엇을 뱉었는지 **원문**을 보는 자리다.
+                      여태 이 화면만 로그를 버리고 있어서, 판정이 틀렸을 때
+                      까닭을 확인할 길이 없었다(지적).
+
+                      부품은 Coverage 가 쓰는 RunLog 를 그대로 쓴다 — 머리줄도
+                      빈 문구도 그 안에 이미 있다. 새로 짓지 않는다. */}
+                  {/* 이 판은 **오른쪽 끝**에 붙어 있으므로 폭이 거꾸로다 —
+                      손잡이를 왼쪽으로 끌수록 넓어진다. Resizer 는 늘
+                      `clientX - origin` 을 주므로 기준을 이 판의 오른쪽 모서리로
+                      잡고 부호를 뒤집는다. 화면 폭으로 셈하면 오른쪽에 여백이
+                      있을 때 손잡이와 판이 어긋난다. */}
+                  <Resizer
+                    label="실행 로그 폭 조절"
+                    onResize={(x) => setLogW(-x)}
+                    getOrigin={() => logRef.current?.getBoundingClientRect().right ?? 0}
+                  />
+                  <section
+                    className="panel tc-logcol"
+                    style={{ flexBasis: logW, width: logW }}
+                    ref={logRef}
+                  >
+                    <RunLog
+                      lines={logs}
+                      /* 번호는 **표가 매긴 것**을 쓴다 — 로그가 1,2,3 으로 새로
+                         세면 표의 1.3.1 을 찾을 길이 없다 */
+                      nos={stripNos}
+                      only={logOnly}
+                      onOnly={setLogOnly}
+                      onClear={() => setLogs([])}
+                      onPick={(i) => {
+                        if (i >= 0) setStepAt(i)
+                      }}
+                    />
+                  </section>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+          </main>
+
+          </div>
+        </div>
+          {/* 아래 고정 입력줄은 걷었다(목업) — 대화 기둥의 캡슐이 그 몫을 한다 */}
+      </div>
+
+      {/* ⓪ 어느 모델의 시험인가 — 항목보다 먼저 고른다(지시) */}
+      {pickModelOpen && (() => {
+        /* 모델은 **등록된 장비**에서 온다(지시) — 「공용」 이라는 모델은 없다.
+           시험 건수는 그 모델로 못 박힌 항목만 센다. */
+        const cnt = new Map<string, number>()
+        for (const d of usable) {
+          const m = String(d.model ?? '').trim()
+          if (m && !cnt.has(m)) cnt.set(m, 0)
+        }
+        for (const t of tcAll) {
+          const m = String(t.model ?? '').trim()
+          if (m) cnt.set(m, (cnt.get(m) ?? 0) + 1)
+        }
+        /* 말에서 읽은 모델이 있으면 **맨 앞**에 세운다(지시) */
+        const rows = [...cnt.entries()]
+          .filter(([m]) => m)
+          .sort((a, b) => {
+            const am = a[0] === askModel ? 1 : 0
+            const bm = b[0] === askModel ? 1 : 0
+            if (am !== bm) return bm - am
+            return b[1] - a[1] || a[0].localeCompare(b[0], 'ko')
+          })
+        const devsOf = (m: string) =>
+          usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m.toLowerCase()).length
+        const go = (m: string) => {
+          setAskModel(m)
+          setPickModelOpen(false)
+          setTcOnlyModel(!!m)
+          setTcFind('')
+          setTcPick(new Set())
+          setFlowLog((v) => [...v, { s: 1, t: m ? `모델 ${m} 로 고름` : '공용 항목에서 고름' }])
+          setLikeAsk(true)
+        }
+        return (
+          <div className="modal-back" onMouseDown={cancelAsk}>
+            <div
+              className="modal ask-modelmodal"
+              role="dialog"
+              aria-modal="true"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="modal-head">
+                <div>
+                  <b>어느 모델의 시험인가요?</b>
+                  <div className="muted small">
+                    모델을 고르면 그 모델의 시험 항목만 보여 드립니다.
+                  </div>
+                </div>
+                <span className="sp" />
+                <button className="modal-x" type="button" onClick={cancelAsk}>
+                  ✕
+                </button>
+              </div>
+              <div className="ask-modellist">
+                {rows.map(([m, n]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`ask-modelcard${m === askModel ? ' on' : ''}`}
+                    onClick={() => go(m)}
+                  >
+                    <b>{m}</b>
+                    <span className="muted small">시험 {n}건</span>
+                    <em className={devsOf(m) ? 'ok' : 'no'}>
+                      {devsOf(m) ? `장비 ${devsOf(m)}대` : '장비 없음'}
+                    </em>
+                  </button>
+                ))}
+                {rows.length === 0 && (
+                  <div className="empty">Coverage 에 시험 항목이 없습니다.</div>
+                )}
+              </div>
+              <div className="modal-foot">
+                <span className="muted small">
+                  랩에 등록된 장비의 모델입니다 — 고르면 그 모델의 시험 항목만 보여 드립니다.
+                </span>
+                <span className="sp" />
+                <button className="btn small" type="button" onClick={cancelAsk}>
+                  그만두기
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ① 같은 모델이 여러 대 — 어느 장비로 보낼지 고른다 */}
+      {pickDev && (() => {
+        const find = pickFind.trim().toLowerCase()
+        const rows = pickDev.cands.filter((d) => {
+          const at = rackMap.get(d.id)
+          if (pickLab && (at?.lab ?? '') !== pickLab) return false
+          if (pickRack && (at?.rack ?? '') !== pickRack) return false
+          if (!find) return true
+          /* 한 칸으로 다 훑는다 — 장비가 수십 대면 눈으로 찾는 것이 일이다 */
+          const hay = [d.name, d.model, d.ip, d.vendor, d.role, at?.lab, at?.rack]
+            .map((v) => String(v ?? '').toLowerCase())
+            .join(' ')
+          return find.split(/\s+/).every((w) => hay.includes(w))
+        })
+        const labs = [...new Set(pickDev.cands.map((d) => rackMap.get(d.id)?.lab ?? '').filter(Boolean))]
+        const racks = [...new Set(pickDev.cands.map((d) => rackMap.get(d.id)?.rack ?? '').filter(Boolean))]
+        // 「구역 · 랙」 으로 묶어 보여준다 — 같은 모델은 이름만으로 안 갈린다
+        const groups = new Map<string, Device[]>()
+        for (const d of rows) {
+          const at = rackMap.get(d.id)
+          const key = at ? `${at.lab} · ${at.rack}` : '자리 미지정'
+          groups.set(key, [...(groups.get(key) ?? []), d])
+        }
+        return (
+          <div className="modal-back" onMouseDown={cancelAsk}>
+            <div
+              className="modal ask-pick"
+              role="dialog"
+              aria-modal="true"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="modal-head">
+                <div>
+                  <b>
+                    {pickDev.model
+                      ? `${pickDev.model} 이(가) ${pickDev.cands.length}대 있어요`
+                      : '어느 장비로 시험할까요?'}
+                  </b>
+                  <div className="muted small">
+                    {pickDev.model
+                      ? '어느 장비로 보낼지 골라 주세요.'
+                      : '말에 모델 이름이 없어서 여쭙습니다 — 고른 장비로 명령이 나갑니다.'}
+                  </div>
+                </div>
+                <span className="sp" />
+                <input
+                  className="ask-pickfind"
+                  value={pickFind}
+                  autoFocus
+                  placeholder="찾기 — 이름 · 모델 · IP · 구역 · 랙"
+                  onChange={(e) => setPickFind(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && pickFind) {
+                      e.stopPropagation()
+                      setPickFind('')
+                    }
+                  }}
+                />
+                {pickFind && (
+                  <span className="muted small ask-pickn">{rows.length}대</span>
+                )}
+                <button className="modal-x" type="button" onClick={cancelAsk}>
+                  ✕
+                </button>
+              </div>
+              <div className="ask-pickbody">
+                <aside className="ask-pickside">
+                  <div className="ask-pickgrp">구역</div>
+                  <button className={`ask-pickf${pickLab === '' ? ' on' : ''}`} type="button" onClick={() => setPickLab('')}>
+                    전체 구역<i>{pickDev.cands.length}</i>
+                  </button>
+                  {labs.map((l) => (
+                    <button key={l} className={`ask-pickf${pickLab === l ? ' on' : ''}`} type="button" onClick={() => setPickLab(l)}>
+                      {l}
+                      <i>{pickDev.cands.filter((d) => rackMap.get(d.id)?.lab === l).length}</i>
+                    </button>
+                  ))}
+                  <div className="ask-pickgrp">랙</div>
+                  <button className={`ask-pickf${pickRack === '' ? ' on' : ''}`} type="button" onClick={() => setPickRack('')}>
+                    전체 랙<i>{pickDev.cands.length}</i>
+                  </button>
+                  {racks.map((r3) => (
+                    <button key={r3} className={`ask-pickf${pickRack === r3 ? ' on' : ''}`} type="button" onClick={() => setPickRack(r3)}>
+                      {r3}
+                      <i>{pickDev.cands.filter((d) => rackMap.get(d.id)?.rack === r3).length}</i>
+                    </button>
+                  ))}
+                </aside>
+                <div className="ask-picklist">
+                  {[...groups.entries()].map(([g, ds]) => (
+                    <div key={g}>
+                      <div className="ask-pickgh">
+                        {g} <i>{ds.length}대</i>
+                      </div>
+                      <div className="ask-pickcards">
+                        {ds.map((d) => {
+                          const at = rackMap.get(d.id)
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              className={`ask-pickcard${pickSel === d.id ? ' on' : ''}`}
+                              onClick={() => setPickSel(d.id)}
+                              onDoubleClick={() => {
+                                setDevId(d.id)
+                                setPickDev(null)
+                                if (afterPick) {
+                                  const ap = afterPick
+                                  setAfterPick(null)
+                                  void takeTc(ap.tcid, d, ap.model)
+                                  return
+                                }
+                                /* Advanced 는 고르는 갈래가 아니다 — 장비가
+                                   정해졌으니 바로 짓는다(지시) */
+                                if (mode === 'adv') {
+                                  void makePlan(asked, d)
+                                  return
+                                }
+                                setAskModel(String(d.model ?? ''))
+                                setTcOnlyModel(true)
+                                void findLike(asked, d).then(() => {
+                                  setTcFind('')
+                                  const fd = foldOf(asked, String(d.model ?? ''))
+                                  setTcFold(fd)
+                                  setQFold(fd)
+                                  setTcOpen(openFor(fd))
+                                  if (fd)
+                                    setFlowLog((v) => [
+                                      ...v,
+                                      {
+                                        s: 1,
+                                        t: `Coverage 트리의 「${tcTree.find((n) => n.id === fd)?.name ?? ''}」 를 폄`,
+                                      },
+                                    ])
+                                  setLikeAsk(true)
+                                })
+                              }}
+                            >
+                              {/* 장비명이 주인공 — 이름이 없으면 모델을 세운다.
+                                  IP 는 아래 한 번만(전에는 제목과 두 번 나왔다) */}
+                              <b>{d.name || d.model || d.ip}</b>
+                              <span>
+                                {d.role ? <i className="r">{d.role}</i> : null}
+                                {at ? (
+                                  <i className="p">
+                                    {at.lab} · {at.rack}
+                                    {at.pos ? ` · ${at.pos}U` : ''}
+                                  </i>
+                                ) : null}
+                              </span>
+                              <em className="ask-pickip">{d.ip}</em>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {rows.length === 0 && (
+                    <div className="empty">
+                      {find ? `「${pickFind.trim()}」 에 맞는 장비가 없습니다.` : '고른 조건에 맞는 장비가 없습니다.'}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="modal-foot">
+                <span className="muted small">장비를 누르고 「이 장비로 시험 만들기」 를 누르세요.</span>
+                {/* 단추는 한 묶음 — 안 묶으면 space-between 이 둘 사이를 벌린다 */}
+                <span className="ask-footbtns">
+                <button className="btn small" type="button" onClick={cancelAsk}>
+                  그만두기
+                </button>
+                <button
+                  className="btn primary small"
+                  type="button"
+                  disabled={!pickSel}
+                  onClick={() => {
+                    setDevId(pickSel)
+                    const d2 = pickDev.cands.find((x) => x.id === pickSel)
+                    setFlowLog((v) => [
+                      ...v,
+                      { s: 1, t: '그중에서 고름' },
+                      { s: 1, t: `보낼 장비 ${d2?.ip ?? ''} 확정` },
+                    ])
+                    setFlowVals(
+                      [
+                        // 말에 모델이 없어 물어본 때는 고른 장비의 모델을 적는다
+                        { k: '모델', v: pickDev.model || String(d2?.model ?? '') },
+                        { k: '대상', v: d2?.ip ?? '' },
+                      ].filter((x) => x.v),
+                    )
+                    setPickDev(null)
+                    /* 무엇으로 정했는지 대화에 남긴다(지시: 목업) — 창이 닫히고
+                       나면 어느 장비로 갔는지 화면 어디에도 안 남았다. */
+                    say(
+                      'a',
+                      `<p class="ln"><b>${hesc(String(d2?.model || d2?.name || ''))} (${hesc(String(d2?.ip ?? ''))})</b> 로 정했습니다.</p>`,
+                    )
+                    /* 항목을 먼저 고른 뒤 장비를 물은 것이면 그 항목으로 잇는다(지시) */
+                    if (afterPick) {
+                      const ap = afterPick
+                      setAfterPick(null)
+                      void takeTc(ap.tcid, d2, ap.model)
+                      return
+                    }
+                    if (mode === 'adv') {
+                      void makePlan(asked, d2)
+                      return
+                    }
+                    say(
+                      'a',
+                      '<p class="ln"><b>2단계 · 시험 항목 고르기</b><br>' +
+                        `<b>${hesc(String(d2?.model || d2?.name || ''))}</b> 에서 돌릴 수 있는 항목만 추려 두었습니다. ` +
+                        '목록에서 하나를 고르면 바로 절차를 짓습니다.</p>' +
+                        '<button type="button" class="btnsm js-picktc">🔍 시험 항목 고르기</button>',
+                    )
+                    setAskModel(String(d2?.model ?? pickDev.model ?? ''))
+                    setTcOnlyModel(true)
+                    void findLike(asked, d2).then(() => {
+                      setTcFind('')
+                      const fd = foldOf(asked, String(d2?.model ?? pickDev.model ?? ''))
+                      setTcFold(fd)
+                      setQFold(fd)
+                      setTcOpen(openFor(fd))
+                      if (fd)
+                        setFlowLog((v) => [
+                          ...v,
+                          {
+                            s: 1,
+                            t: `Coverage 트리의 「${tcTree.find((n) => n.id === fd)?.name ?? ''}」 를 폄`,
+                          },
+                        ])
+                      setLikeAsk(true)
+                    })
+                  }}
+                >
+                  이 장비로 시험 만들기
+                </button>
+                </span>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ② 시험 항목 고르기 — **Coverage 에 있는 항목에서만** 고른다.
+             없는 항목을 지어내지 않는다(지시). 말과 비슷한 것을 위에 올려
+             주고, 그 아래로 전체를 찾아볼 수 있게 둔다. */}
+      {likeAsk && (
+        <div className="modal-back" onMouseDown={cancelAsk}>
+          <div
+            className="modal ask-likemodal"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-head">
+              <div>
+                <b>어느 시험 항목으로 할까요?</b>
+                <div className="muted small">
+                  고르면 그 항목의 절차를 <b>{askModel || curDev?.model || '고른 장비'}</b> 에 맞춰
+                  옮겨 줍니다.
+                  <button
+                    type="button"
+                    className="ask-likeall"
+                    onClick={() => {
+                      setLikeAsk(false)
+                      setPickModelOpen(true)
+                    }}
+                  >
+                    모델 바꾸기
+                  </button>
+                </div>
+              </div>
+              <span className="sp" />
+              <button className="modal-x" type="button" onClick={cancelAsk}>
+                ✕
+              </button>
+            </div>
+            {tcPickBody(false)}
           </div>
         </div>
       )}

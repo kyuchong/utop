@@ -9544,3 +9544,182 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* Test AI 스텝 표의 가로 줄 선(지적: 없다) — 선은 있었지만 #dde3e9 는
    「있는 줄 모르는」 색이었다. 이 화면에서만 한 단 진하게 올린다. */
 .ask-two .sq { --sq-line: #c6ced6; }
+
+/* ══════════════════════════════════════════════════════════════════
+   Test AI 콘솔(승인: 목업 「Test AI 시험 콘솔」).
+   대화가 시작되면 캔버스가 두 기둥이 된다 — 왼쪽은 대화(짧게), 오른쪽은
+   「자세히 보기」 판: 장비 표 · 항목 목록 · 절차 · 실행 로그가 단계 배지와
+   함께 여기 선다. 이름은 askp- 로 가둔다(겹치면 남의 화면이 조용히 깨진다). */
+.ask-canvas.console:not(.plan) {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+/* 대화 기둥 — 목업의 clamp. making 블록이 DOM 상 홈보다 앞에 있어도
+   대화가 늘 왼쪽에 서도록 순서를 못 박는다. */
+.ask-canvas.console > .ask-home {
+  order: -1;
+  flex: 0 0 clamp(340px, 36%, 560px);
+  min-width: 0;
+  border-right: 1px solid var(--c-border);
+  overflow: hidden;
+}
+/* 절차 모드 — 캔버스 사슬이 display:contents 로 누워 판들이 .ask-cols 의
+   형제가 된다. 대화 기둥도 그 형제 줄 맨 왼쪽에 카드로 선다. */
+.ask-canvas.plan.console > .ask-home {
+  order: -1;
+  flex: 0 0 clamp(300px, 26%, 440px);
+  min-width: 0;
+  align-self: stretch;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 11px;
+  background: var(--c-surface);
+  overflow: hidden;
+}
+/* 「AI 생성 중」 도 오른쪽 자리(대화 옆)를 다 쓴다 */
+.ask-canvas.console:not(.plan) > .ask-making {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+/* ── 대화 기둥 속 — 좁은 기둥에서 하늘·테마 도구는 소음이다 ── */
+.ask-canvas.console .ask-home .ask-sky,
+.ask-canvas.console .ask-home .ask-hometools { display: none; }
+.ask-canvas.console .ask-home.chat .ask-homewrap {
+  background: var(--c-surface);
+  padding-left: 14px;
+  padding-right: 14px;
+  padding-top: 10px;
+}
+.ask-canvas.console .ask-msgs { width: 100%; }
+
+/* 대화 머리 — 이 기둥이 무엇인지 */
+.ask-chathd {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: var(--c-surface);
+  position: relative;
+  z-index: 2;
+}
+.ask-chatlogo {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--c-primary);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 12.5px;
+  flex: none;
+}
+.ask-chattt { min-width: 0; }
+.ask-chattt > b { display: block; font-size: var(--fs-md); line-height: 1.2; }
+.ask-chattt > span { color: var(--c-text-faint); font-size: var(--fs-xs); }
+
+/* ── 오른쪽 · 자세히 보기 판 ── */
+.askp {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-app-bg);
+}
+.askp-hd {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: var(--c-surface);
+}
+.askp-ic {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border-soft);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  flex: none;
+}
+.askp-tt { min-width: 0; }
+.askp-tt > b {
+  display: block;
+  font-size: var(--fs-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.askp-tt > span { color: var(--c-text-faint); font-size: var(--fs-xs); }
+.askp-stage {
+  margin-left: auto;
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--c-primary);
+  background: var(--c-primary-bg);
+  border: 1px solid var(--c-primary);
+  border-radius: 99px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+/* 절차 머리줄(ask-top)에 서는 같은 배지 — 오른쪽 끝으로 밀지 않는다 */
+.ask-top .askp-stage { margin-left: 6px; }
+.askp-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px 20px;
+}
+.askp-fill { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.askp-empty { margin: auto; text-align: center; color: var(--c-text-faint); line-height: 1.8; }
+.askp-empty > i { display: block; font-style: normal; font-size: 34px; opacity: 0.5; margin-bottom: 10px; }
+
+/* 장비 표를 판 안에 심는다 — 가운데 뜨는 창 꼴(fixed·그림자)을 벗긴다 */
+.askp-fill > .ask-devmenu.big.inpanel {
+  position: static;
+  transform: none;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  z-index: auto;
+  box-shadow: none;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 11px;
+}
+/* 항목 고르개를 판 안에 — 창 높이 규칙 없이 판 높이를 따른다 */
+.askp-fill.ask-likewrap {
+  border: 1px solid var(--c-border-soft);
+  border-radius: 11px;
+  background: var(--c-surface);
+  overflow: hidden;
+}
+.ask-likewrap > .modal-foot { flex: none; }
+.askp-note {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 0;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+@media (max-width: 1200px) {
+  .ask-canvas.console > .ask-home { flex-basis: clamp(300px, 34%, 420px); }
+  .ask-canvas.plan.console > .ask-home { flex-basis: 300px; }
+}
