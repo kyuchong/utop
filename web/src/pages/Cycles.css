@@ -10275,3 +10275,12 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-msgs .ask-inhero .ask-intt { flex: 1; }
 .ask-msgs .ask-inhero > .nm { flex: 1; }
 .ask-msgs .ask-inbtn { align-self: center; margin-left: auto; flex: none; padding: 5px 12px; white-space: nowrap; }
+
+/* 선택한 카드(✓) — 누를 거리 없는 확정 카드 */
+.ask-msgs .ask-inhero.done { cursor: default; border-color: var(--cl-line); }
+.ask-msgs .ask-inhero.done:hover { box-shadow: none; }
+.ask-msgs .ask-inhero.done .ask-inbtn,
+.ask-msgs .ask-inhero.done:hover .ask-inbtn {
+  background: #e8f5ed;
+  color: #12643a;
+}

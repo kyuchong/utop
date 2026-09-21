@@ -1021,8 +1021,8 @@ export default function AskBar({ devices }: Props) {
   const unThink = () =>
     setMsgs((v) => v.filter((m) => !(m.who === 'a' && m.html.includes('ask-think'))))
 
-  /** 고르면 **고른 것만 남는다**(지시) — 1·2단계 추천 블록(추천 카드·후보
-      줄·칩)을 확정 한 줄로 갈아 끼운다. 블록이 없으면 한 줄을 새로 단다. */
+  /** 고르면 **선택한 카드만 남는다**(지시) — 1·2단계 추천 블록(추천 카드·
+      후보 줄·칩)을 고른 카드 하나로 갈아 끼운다. 블록이 없으면 새로 단다. */
   const pickedLine = (kind: 'dev' | 'tc', line: string) =>
     setMsgs((v) => {
       const mark = `data-pick="${kind}"`
@@ -1031,6 +1031,19 @@ export default function AskBar({ devices }: Props) {
         ? v.map((m) => (m.who === 'a' && m.html.includes(mark) ? { ...m, html: line } : m))
         : [...v, { who: 'a' as const, html: line }]
     })
+  /** 고른 장비 카드 — 추천 카드와 같은 꼴, 누를 거리 없이 ✓ 만 단다 */
+  const devDoneCard = (nm: string, ip: string, k: string, label: string) =>
+    `<p class="ln"><b>1단계 · 장비</b> — 이 장비로 정했습니다.</p>` +
+    `<div class="ask-inb"><span class="ask-inhero done"><span class="ask-intt">` +
+    `<b class="nm">${hesc(nm)}</b><i>${hesc(ip)}</i><em class="st ${k}">● ${hesc(label)}</em></span>` +
+    `<span class="ask-inbtn done">✓ 선택됨</span></span></div>`
+  /** 고른 항목 카드 — 위와 같은 꼴 */
+  const tcDoneCard = (tcid: string, name: string, meta: string) =>
+    `<p class="ln"><b>2단계 · 시험 항목</b> — 이 항목으로 <b>3단계 · 절차 만들기</b> 를 시작합니다.</p>` +
+    `<div class="ask-inb"><span class="ask-inhero done"><span class="ask-intt"><code>${hesc(tcid)}</code>` +
+    (meta ? `<i>${hesc(meta)}</i>` : '') +
+    `</span><b class="nm">${hesc(name)}</b>` +
+    `<span class="ask-inbtn done">✓ 선택됨</span></span></div>`
 
   /** 장비 하나의 상태 — 고르개 창의 판정을 요약한 것(통신 + 점유) */
   const devStat = (d: Device) => {
@@ -1174,22 +1187,26 @@ export default function AskBar({ devices }: Props) {
         { k: '대상', v: String(d.ip ?? '') },
       ].filter((x) => x.v),
     )
-    /* 고른 것만 남긴다(지시) — 추천 블록이 확정 한 줄로 접힌다 */
-    pickedLine(
-      'dev',
-      `<p class="ln"><b>1단계 · 장비</b> — <b>${hesc(nm)} (${hesc(String(d.ip ?? ''))})</b> 로 정했습니다.</p>`,
-    )
+    /* 선택한 카드만 남긴다(지시) — 추천 블록이 고른 카드 하나로 접힌다 */
+    const st0 = devStat(d)
+    pickedLine('dev', devDoneCard(nm, String(d.ip ?? ''), st0.k, st0.label))
     void stepTc(d, asked || text)
   }
 
   /** 대화 속 추천에서 항목을 골랐다 — 바로 3단계 */
   const pickInlineTc = (tcid: string, model: string) => {
     if (adopting) return
-    pickedLine(
-      'tc',
-      `<p class="ln"><b>2단계 · 시험 항목</b> — <b>${hesc(tcid)}</b> 으로 정했습니다. ` +
-        '<b>3단계 · 절차 만들기</b> 를 시작합니다.</p>',
-    )
+    {
+      /* 선택한 카드만 남긴다(지시) — 이름·방식·스텝 수까지 추천 카드 그대로 */
+      const hm = tcAll.find((t) => t.tcid === tcid)
+      const nm2 = hm?.name || like.find((x) => x.tcid === tcid)?.name || tcid
+      const man2 = /manual|수동/i.test(String(hm?.type ?? ''))
+      const nStep2 = Number(hm?.steps || like.find((x) => x.tcid === tcid)?.steps || 0)
+      pickedLine(
+        'tc',
+        tcDoneCard(tcid, nm2, `${man2 ? '수동' : '자동'}${nStep2 ? ` · ${nStep2}스텝` : ''}`),
+      )
+    }
     void (mode === 'basic' ? takeTc(tcid, undefined, model) : adopt(tcid))
   }
 
@@ -2703,7 +2720,7 @@ export default function AskBar({ devices }: Props) {
                                       setDevOpen(false)
                                       pickedLine(
                                         'dev',
-                                        `<p class="ln"><b>1단계 · 장비</b> — <b>${hesc(nm)} (${hesc(String(d.ip ?? ''))})</b> 로 정했습니다.</p>`,
+                                        devDoneCard(nm, String(d.ip ?? ''), R.k, R.label),
                                       )
                                       /* 질문 흐름에서 열었으면 그대로 2단계로 잇는다 */
                                       if (afterDevRef.current === 'tc') {
@@ -3108,8 +3125,11 @@ export default function AskBar({ devices }: Props) {
                               /* 무엇으로 정했는지 남기고 3단계로(지시: 목업) */
                               pickedLine(
                                 'tc',
-                                `<p class="ln"><b>2단계 · 시험 항목</b> — <b>${hesc(x.tcid)}</b> · ${hesc(x.name)} 으로 정했습니다. ` +
-                                  '<b>3단계 · 절차 만들기</b> 를 시작합니다.</p>',
+                                tcDoneCard(
+                                  x.tcid,
+                                  x.name,
+                                  `${/manual|수동/i.test(String(x.type || '')) ? '수동' : '자동'} · ${x.steps}스텝`,
+                                ),
                               )
                               /* 일반 = 있는 것을 그대로, 고급 = 이 장비에 맞춰 옮겨 짓기 */
                               void (mode === 'basic'
