@@ -2556,9 +2556,16 @@ export default function AskBar({ devices }: Props) {
         { who: 'u', html: hesc(title) },
         {
           who: 'a',
-          html: `<p class="ln">기록을 열었습니다 — <b>${hesc(String(plan.name ?? ''))}</b> · ${plan.steps.length}스텝${
-            b.chat?.at ? ` · ${hesc(String(b.chat.at).slice(0, 16))}` : ''
-          }</p>`,
+          /* 3열은 실행부터 열린다(지시) — 기록에도 시작 단추와 칩을 준다.
+             없으면 되살린 절차를 돌릴 길이 없다. */
+          html:
+            `<p class="ln">기록을 열었습니다 — <b>${hesc(String(plan.name ?? ''))}</b> · ${plan.steps.length}스텝${
+              b.chat?.at ? ` · ${hesc(String(b.chat.at).slice(0, 16))}` : ''
+            }</p>` +
+            `<p class="ln"><button type="button" class="btnsm js-runnow">▷ 시험 시작</button></p>` +
+            `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
+            `<span class="tx"><b>${hesc(String(plan.name ?? ''))} — Response</b>` +
+            `<em>${plan.steps.length}스텝 · 실행 준비</em></span></button>`,
         },
       ])
       const keptFlow = (b.chat?.flow ?? [])
@@ -4056,8 +4063,9 @@ export default function AskBar({ devices }: Props) {
                     setArtOpen(true)
                     void run()
                   } else if (t.closest('.js-openresp')) {
-                    setArtOpen(true)
+                    /* 아티팩트 칩은 3열을 **여닫는다**(지시) — 열려 있으면 다시 숨긴다 */
                     setRunView(true)
+                    setArtOpen((v) => !v)
                   }
                 }}
               >
@@ -4075,22 +4083,8 @@ export default function AskBar({ devices }: Props) {
                     <div className="msg a" key={i}>
                       <span className="av" aria-hidden="true">✦</span>
                       <div className="bdw">
+                        {/* 답 복사 단추는 걷었다(지시) */}
                         <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
-                        {/* 답 아래 동작 줄(클로드) — 지금은 복사 하나 */}
-                        <div className="aacts">
-                          <button
-                            type="button"
-                            title="답 복사"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              void navigator.clipboard?.writeText(
-                                m.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
-                              )
-                            }}
-                          >
-                            ⧉
-                          </button>
-                        </div>
                       </div>
                     </div>
                   ),
