@@ -645,6 +645,33 @@ export default function AskBar({ devices }: Props) {
     })()
   }, [])
   const myInit = (me.name || '나').slice(0, 1)
+  /* 목록 동작은 Knowledge AI 의 대화 목록과 같은 문법(지시) —
+     줄마다 ⋯ 메뉴(이름 바꾸기·지우기), 최근 12개만 펴고 「더 보기」 */
+  const [listAll, setListAll] = useState(false)
+  const [thMenu, setThMenu] = useState('')
+  useEffect(() => {
+    if (!thMenu) return
+    const close = () => setThMenu('')
+    window.addEventListener('mousedown', close)
+    return () => window.removeEventListener('mousedown', close)
+  }, [thMenu])
+  /** 이름 바꾸기 — 기록 전문을 읽어 제목만 갈아 다시 담는다(같은 id 덮어쓰기) */
+  const renameChat = async (cid: string, cur: string) => {
+    const nm = window.prompt('대화 이름', cur)
+    if (!nm?.trim() || nm.trim() === cur) return
+    try {
+      const r = await apiFetch(`/api/ai/nl-chats/${encodeURIComponent(cid)}`)
+      const b = (await r.json()) as { ok?: boolean; chat?: Record<string, unknown> }
+      if (!b.ok || !b.chat) throw new Error('기록을 읽지 못했습니다')
+      await apiFetch('/api/ai/nl-chats', {
+        method: 'POST',
+        body: JSON.stringify({ ...b.chat, id: cid, title: nm.trim() }),
+      })
+      setRecent((v) => v.map((x) => (x.cid === cid ? { ...x, title: nm.trim() } : x)))
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    }
+  }
   useEffect(() => {
     void (async () => {
       try {
@@ -3188,12 +3215,22 @@ export default function AskBar({ devices }: Props) {
         <button className="ask-hnew" type="button" onClick={newChat}>
           <span className="pl" aria-hidden="true">＋</span>새 채팅
         </button>
-        <div className="ask-eyebrow">최근 항목</div>
+        <div className="ask-eyebrow">
+          <span>대화</span>
+          <button
+            type="button"
+            className="ask-sec-add"
+            title={listAll ? '최근 것만 보기' : '모든 대화 보기'}
+            onClick={() => setListAll((v) => !v)}
+          >
+            ⇅
+          </button>
+        </div>
         <div className="ask-slist">
           {recent.length === 0 ? (
             <span className="muted small">아직 대화가 없습니다.</span>
           ) : (
-            recent.map((x) => (
+            (listAll ? recent : recent.slice(0, 12)).map((x) => (
               <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}`} key={x.cid}>
                 <button
                   type="button"
@@ -3202,18 +3239,54 @@ export default function AskBar({ devices }: Props) {
                   onClick={() => void openChat(x.cid, x.title)}
                 >
                   <b>{x.title}</b>
-                  {x.at && <em>{String(x.at).slice(5, 16).replace('T', ' ')}</em>}
                 </button>
                 <button
                   type="button"
-                  className="ask-sdel"
-                  title="이 대화 지우기"
-                  onClick={() => void dropChat(x.cid)}
+                  className="mo"
+                  title="이름 바꾸기 · 지우기"
+                  aria-haspopup="menu"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setThMenu((v) => (v === x.cid ? '' : x.cid))
+                  }}
                 >
-                  ✕
+                  ⋯
                 </button>
+                {thMenu === x.cid && (
+                  <div
+                    className="ask-thmenu"
+                    role="menu"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setThMenu('')
+                        void renameChat(x.cid, x.title)
+                      }}
+                    >
+                      이름 바꾸기
+                    </button>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={() => {
+                        setThMenu('')
+                        if (window.confirm('이 대화를 지웁니다.')) void dropChat(x.cid)
+                      }}
+                    >
+                      지우기
+                    </button>
+                  </div>
+                )}
               </div>
             ))
+          )}
+          {!listAll && recent.length > 12 && (
+            <button type="button" className="ask-smore" onClick={() => setListAll(true)}>
+              {recent.length - 12}개 더 보기
+            </button>
           )}
         </div>
         {me.name && (

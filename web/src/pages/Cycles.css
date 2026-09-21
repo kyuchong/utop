@@ -10115,3 +10115,76 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-msgs .ask-inrow:hover { border-color: var(--cl-accent); }
 .ask-inlnk, .seelnk { color: var(--cl-accent); }
 .ask .ask-dmtab[data-f='all'] { --tab-c: var(--cl-accent); }
+
+/* ── 대화 목록을 Knowledge AI 목록의 문법으로(지시) —
+   섹션 머리 토글 · 줄마다 ⋯ 메뉴(이름 바꾸기·지우기) · 최근 12개 + 더 보기 ── */
+.ask-eyebrow { display: flex; align-items: center; justify-content: space-between; }
+.ask-sec-add {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  background: none;
+  border-radius: 5px;
+  color: var(--cl-sub);
+  display: grid;
+  place-items: center;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ask-sec-add:hover { background: var(--cl-hover); color: var(--cl-ink); }
+/* 옛 카드 시절의 overflow:hidden 이 ⋯ 메뉴를 잘라 먹는다 — 걷는다 */
+.ask-sitem { position: relative; overflow: visible; }
+.ask-sitem .mo {
+  visibility: hidden;
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--cl-sub);
+  font: inherit;
+  font-size: 13px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.ask-sitem:hover .mo { visibility: visible; }
+.ask-sitem .mo:hover { background: var(--cl-hover); color: var(--cl-ink); }
+.ask-thmenu {
+  position: absolute;
+  right: 4px;
+  top: calc(100% + 2px);
+  z-index: 40;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--cl-card);
+  border: 1px solid var(--cl-line);
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgb(80 70 40 / 16%);
+}
+.ask-thmenu button {
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 6px 9px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--cl-ink);
+  cursor: pointer;
+}
+.ask-thmenu button:hover { background: var(--cl-bg); }
+.ask-thmenu button.danger { color: #b3372c; }
+.ask-smore {
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--cl-sub);
+  cursor: pointer;
+}
+.ask-smore:hover { background: var(--cl-hover); color: var(--cl-ink); }
