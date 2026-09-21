@@ -21,6 +21,7 @@ import TcTerminal from '@/components/tc/TcTerminal'
 import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import RespView, { asStep } from '@/components/run/RespView'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
+import { buildSlides, type LguTc } from '@/components/cycle/lgu'
 import { IconCli } from '@/components/icons'
 import { stepNumbers, stepVerdict, type StepKind, type TcStep } from '@/components/tc/types'
 import { useResults } from '@/pages/Cycles'
@@ -647,6 +648,8 @@ export default function AskBar({ devices }: Props) {
   const myInit = (meName || '나').slice(0, 1)
   /** 내보내기 미리보기(지시) — 내용을 팝업으로 보고 나서 내려받는다 */
   const [expPrev, setExpPrev] = useState<'' | 'pdf' | 'pptx'>('')
+  /** PDF 미리보기에서 보고 있는 장(0부터) — 왼쪽 썸네일이 고른다 */
+  const [prevAt, setPrevAt] = useState(0)
   /** 1열 접기(지시) — 접으면 아이콘 레일만 남는다. 계정에 남긴다. */
   const [railShut, setRailShut] = useState(() => prefGet('utop.ai.railshut') === '1')
   useEffect(() => {
@@ -2463,46 +2466,19 @@ export default function AskBar({ devices }: Props) {
 
   /* 진행 플로우는 걷었다(지시) */
 
-  /** 결과서 HTML — PDF 저장이 쓴다(서버 /api/wiki/pdf 가 PDF 로 바꿔 준다) */
-  const reportHtml = () => {
-    const passN = autoSteps.filter((s) => /pass/i.test(String(s.mark ?? ''))).length
-    const failN = autoSteps.filter((s) => /fail/i.test(String(s.mark ?? ''))).length
-    const at = new Date().toLocaleString('ko-KR')
-    const body = autoSteps
-      .map((s) => {
-        const quiet = s.kind === 'comment' || s.kind === 'message'
-        const mark = String(s.mark ?? '')
-        const mk = mark
-          ? `<b class="${/pass/i.test(mark) ? 'ok' : 'bad'}">${/pass/i.test(mark) ? 'PASS' : 'FAIL'}</b>`
-          : quiet
-            ? ''
-            : '<span class="k">판정 없음</span>'
-        const head = `<div class="sh"><span>${quiet ? '주석' : `Step ${s.no}`}</span><span class="cmd">${hesc(
-          s.cmd || s.t || '',
-        )}</span><span class="sp"></span>${mk}</div>`
-        if (quiet) return `<div class="st">${head}</div>`
-        const why =
-          (s.expected && s.expected !== '—' ? `<div><span class="k">판정 기준</span> ${hesc(s.expected)}</div>` : '') +
-          (s.reason ? `<div><span class="k">RCA</span> ${hesc(String(s.reason))}</div>` : '')
-        const out = s.out ? `<pre>${hesc(String(s.out).slice(0, 4000))}</pre>` : ''
-        return `<div class="st">${head}${why || out ? `<div class="sb">${why}${out}</div>` : ''}</div>`
-      })
-      .join('')
-    return (
-      `<style>body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:12px;color:#222;margin:24px}` +
-      `h1{font-size:18px;margin:0 0 4px}.meta{color:#666;margin:0 0 14px}` +
-      `.st{border:1px solid #ddd;border-radius:6px;margin:0 0 10px;page-break-inside:avoid}` +
-      `.sh{display:flex;gap:10px;align-items:center;padding:6px 10px;background:#f5f5f2;border-bottom:1px solid #ddd;font-weight:700}` +
-      `.sh .cmd{font-family:Consolas,monospace;font-weight:400}.sh .sp{flex:1}` +
-      `.ok{color:#12643a}.bad{color:#b3372c}.k{color:#888;font-weight:400}` +
-      `.sb{padding:8px 10px;line-height:1.6}` +
-      `pre{white-space:pre-wrap;word-break:break-all;background:#fafaf7;border:1px solid #eee;padding:6px 8px;border-radius:4px;font-family:Consolas,monospace;font-size:11px;margin:6px 0 0}</style>` +
-      `<h1>${hesc(draft?.name || draft?.object || '시험')} — 결과서</h1>` +
-      `<p class="meta">${hesc(draft?.object || '')} · 장비 ${hesc(devName)} · ${hesc(devIp)} · ${hesc(at)}` +
-      ` · <b class="ok">PASS ${passN}</b> / <b class="bad">FAIL ${failN}</b></p>` +
-      body
-    )
-  }
+  /** 결과서 장들 — Cycles 결과서와 **같은 부품**(lgu.buildSlides)으로
+      짓는다(지시: 실제 PDF 출력 형태 그대로). 미리보기와 저장이 같은
+      장을 본다. */
+  const pdfSlides = () =>
+    buildSlides([
+      {
+        tcid: draft?.object ?? '',
+        name: draft?.name ?? '',
+        prompt: devName,
+        remark: `${devName} · ${devIp}`,
+        steps: seqSteps as unknown as LguTc['steps'],
+      },
+    ])
 
   /** 받은 파일을 내려받는다 — PDF(base64)·PPTX(blob) 공용 */
   const downBlob = (blob: Blob, name: string) => {
@@ -2514,15 +2490,26 @@ export default function AskBar({ devices }: Props) {
     URL.revokeObjectURL(url)
   }
 
-  /** PDF 저장(지시) — 결과서 HTML 을 서버가 PDF 로 바꿔 준다 */
+  /** PDF 저장(지시) — 미리보기와 같은 장들을 서버가 PDF 로 바꿔 준다.
+      쪽 CSS(1280×720·안 여백·글꼴)도 미리보기 iframe 과 같은 값이다. */
   const savePdf = async () => {
     setErr('')
     try {
+      const html =
+        `<style>html,body{margin:0;padding:0}` +
+        `.pg{width:1280px;height:720px;overflow:hidden;page-break-after:always;` +
+        `padding:4px 30px;box-sizing:border-box;` +
+        `font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}` +
+        `.pg:last-child{page-break-after:auto}</style>` +
+        pdfSlides()
+          .map((h) => `<div class="pg">${h}</div>`)
+          .join('')
       const r = await apiFetch('/api/wiki/pdf', {
         method: 'POST',
         body: JSON.stringify({
-          html: reportHtml(),
+          html,
           title: `${draft?.object || draft?.name || '시험'}_결과서`,
+          slide: true,
         }),
       })
       const j = (await r.json()) as { ok?: boolean; name?: string; data?: string; error?: string }
@@ -3629,11 +3616,37 @@ export default function AskBar({ devices }: Props) {
                 ✕
               </button>
             </div>
-            <iframe
-              className="ask-previfr"
-              title="결과서 미리보기"
-              srcDoc={expPrev === 'pdf' ? reportHtml() : pptxPrevHtml()}
-            />
+            {expPrev === 'pdf' ? (
+              (() => {
+                /* Cycles 결과서처럼(지시) — 왼쪽 장 썸네일 · 오른쪽 그 장 크게.
+                   장은 실제 PDF 와 같은 것(pdfSlides)이다. */
+                const sl = pdfSlides()
+                const at = Math.min(prevAt, Math.max(0, sl.length - 1))
+                return (
+                  <div className="ask-prevbody">
+                    <div className="ask-prevside">
+                      {sl.map((h, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className={`ask-prevth${i === at ? ' on' : ''}`}
+                          title={`${i + 1}장`}
+                          onClick={() => setPrevAt(i)}
+                        >
+                          <AskSlide html={h} w={150} />
+                          <em>{i + 1}</em>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="ask-prevmain">
+                      <AskSlide html={sl[at] ?? ''} w={720} />
+                    </div>
+                  </div>
+                )
+              })()
+            ) : (
+              <iframe className="ask-previfr" title="결과서 미리보기" srcDoc={pptxPrevHtml()} />
+            )}
             <div className="modal-foot">
               <span className="sp" />
               <span className="ask-footbtns">
@@ -4440,7 +4453,10 @@ export default function AskBar({ devices }: Props) {
                 className="btn small"
                 type="button"
                 title="절차와 결과를 PDF 결과서로 저장합니다 — 미리보기가 먼저 뜹니다"
-                onClick={() => setExpPrev('pdf')}
+                onClick={() => {
+                  setPrevAt(0)
+                  setExpPrev('pdf')
+                }}
               >
                 PDF 저장
               </button>
@@ -5363,5 +5379,30 @@ export default function AskBar({ devices }: Props) {
         </div>
       )}
     </div>
+  )
+}
+
+/** 결과서 장 하나 — Cycles 결과서와 같은 격리 iframe(배율로 줄여 그린다).
+    앱 CSS 가 못 들어와 표가 깨질 일이 없고, 미리보기가 곧 출력이다. */
+function AskSlide({ html, w }: { html: string; w: number }) {
+  const k = w / 1280
+  const h = Math.round(720 * k)
+  return (
+    <span className="ask-slidebox" style={{ width: w, height: h }}>
+      <iframe
+        title="결과서 장"
+        sandbox=""
+        scrolling="no"
+        style={{ width: w, height: h, border: 0, display: 'block' }}
+        srcDoc={
+          '<!doctype html><meta charset="utf-8">' +
+          '<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}' +
+          '.p{width:1280px;height:720px;padding:4px 30px;box-sizing:border-box;' +
+          `overflow:hidden;transform:scale(${k});transform-origin:top left;` +
+          "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
+          `<div class="p">${html}</div>`
+        }
+      />
+    </span>
   )
 }

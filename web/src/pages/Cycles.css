@@ -10489,3 +10489,56 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   flex-direction: column;
 }
 .ask-previfr { flex: 1; min-height: 0; border: 0; background: #e8e6dc; }
+
+/* PDF 미리보기 — Cycles 처럼 왼쪽 장 썸네일 · 오른쪽 그 장 크게(지시) */
+.ask-prevbody { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+.ask-prevside {
+  flex: none;
+  width: 182px;
+  overflow: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--cl-bg);
+  border-right: 1px solid var(--cl-line);
+}
+.ask-prevth {
+  position: relative;
+  border: 1px solid var(--cl-line);
+  border-radius: 6px;
+  background: #fff;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  flex: none;
+}
+.ask-prevth.on { outline: 2px solid var(--cl-accent); outline-offset: 1px; }
+.ask-prevth em {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font-style: normal;
+  font-size: 10px;
+  color: var(--cl-sub);
+  background: rgb(255 255 255 / 88%);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.ask-prevmain {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 14px;
+  background: #e8e6dc;
+}
+.ask-slidebox {
+  display: block;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 15%);
+  flex: none;
+}
