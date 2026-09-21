@@ -10252,3 +10252,14 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask .resizer-grip { background: var(--cl-line); }
 .ask .resizer:hover .resizer-grip,
 .ask .resizer.on .resizer-grip { background: var(--cl-accent); }
+
+/* ── 열 사이 틈 색(지시: 다르다) — 크림 대신 다른 화면들과 같은 페이지
+   바탕(app-bg)으로. REQ-Coverage 의 틈과 완전히 같은 색이 된다. ── */
+.ask, .ask.console { background: var(--c-app-bg); }
+.ask.console .ask-cols,
+.ask.console .ask-canvaswrap,
+.ask.console .ask-canvas { background: var(--c-app-bg); }
+/* 손잡이 선도 그 화면과 같은 값으로 — 잡으면 코랄은 유지 */
+.ask .resizer-grip { background: #d4dae4; }
+.ask .resizer:hover .resizer-grip,
+.ask .resizer.on .resizer-grip { background: var(--cl-accent); }
