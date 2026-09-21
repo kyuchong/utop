@@ -20,6 +20,7 @@ import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTerminal from '@/components/tc/TcTerminal'
 import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import RespView, { asStep } from '@/components/run/RespView'
+import PdfRail from '@/components/PdfRail'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IconCli } from '@/components/icons'
 import { stepNumbers, stepVerdict, type StepKind, type TcStep } from '@/components/tc/types'
@@ -646,11 +647,21 @@ export default function AskBar({ devices }: Props) {
   }, [])
   const myInit = (meName || '나').slice(0, 1)
   /** 내보내기 미리보기(지시) — 내용을 팝업으로 보고 나서 내려받는다 */
-  const [expPrev, setExpPrev] = useState<'' | 'pdf' | 'pptx'>('')
-  /** PDF 미리보기에서 보고 있는 장(0부터) — 왼쪽 썸네일이 고른다 */
-  const [prevAt, setPrevAt] = useState(0)
-  /** 본판 스크롤 통 — 썸네일이 이걸 굴린다 */
-  const prevMainRef = useRef<HTMLDivElement>(null)
+  const [expPrev, setExpPrev] = useState<'' | 'pptx'>('')
+  /** PDF 미리보기 — WIKI 와 같은 문법(지시): 진짜 PDF 를 먼저 굽고
+      내장 뷰어 + 쪽 목록(PdfRail)으로 보여 준다. blob 주소는 닫을 때 거둔다. */
+  const [pdfUrl, setPdfUrl] = useState('')
+  const [pdfNm, setPdfNm] = useState('')
+  const [pdfBusy, setPdfBusy] = useState(false)
+  /** 미리보기가 짚고 있는 쪽(1부터) — 쪽 목록에서 고른다 */
+  const [prevAt, setPrevAt] = useState(1)
+  /* 화면을 떠나거나 주소가 바뀔 때 옛 blob 을 거둔다 — 안 거두면 탭이 사는 동안 남는다 */
+  useEffect(
+    () => () => {
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl)
+    },
+    [pdfUrl],
+  )
   /** 1열 접기(지시) — 접으면 아이콘 레일만 남는다. 계정에 남긴다. */
   const [railShut, setRailShut] = useState(() => prefGet('utop.ai.railshut') === '1')
   useEffect(() => {
@@ -2502,11 +2513,8 @@ export default function AskBar({ devices }: Props) {
     return [head, ...steps]
   }
 
-  /** A4 쪽 나누기 — 블록을 실제로 그려 높이를 재고 한 쪽(1043px)씩 담는다.
-      미리보기 쪽과 저장 쪽이 같은 나누기라 **보이는 그대로 PDF** 가 된다. */
-  const [pdfPages, setPdfPages] = useState<string[]>([])
-  useEffect(() => {
-    if (expPrev !== 'pdf') return
+  /** A4 쪽 나누기 — 블록을 실제로 그려 높이를 재고 한 쪽(1043px)씩 담는다. */
+  const bakePages = () => {
     const blocks = reportBlocks()
     const holder = document.createElement('div')
     holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:714px;visibility:hidden'
@@ -2532,9 +2540,8 @@ export default function AskBar({ devices }: Props) {
     })
     if (cur.length) pages.push(cur.join(''))
     holder.remove()
-    setPdfPages(pages)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expPrev])
+    return pages
+  }
 
   /** 받은 파일을 내려받는다 — PDF(base64)·PPTX(blob) 공용 */
   const downBlob = (blob: Blob, name: string) => {
@@ -2546,16 +2553,19 @@ export default function AskBar({ devices }: Props) {
     URL.revokeObjectURL(url)
   }
 
-  /** PDF 저장(지시) — 미리보기와 **같은 쪽**을 그대로 A4 로 굳힌다 */
-  const savePdf = async () => {
+  /** PDF 저장(지시: WIKI 미리보기처럼) — 진짜 PDF 를 먼저 굽고 그 파일을
+      내장 뷰어로 보여 준다. 내려받기는 보고 있는 그 바이트 그대로다. */
+  const openPdfPrev = async () => {
     setErr('')
+    setPdfBusy(true)
     try {
+      const pages = bakePages()
       const html =
         `<style>html,body{margin:0;padding:0}` +
         `.pg{width:794px;height:1123px;overflow:hidden;page-break-after:always;` +
         `padding:40px;box-sizing:border-box}` +
         `.pg:last-child{page-break-after:auto}${REPORT_CSS}</style>` +
-        pdfPages.map((pgh) => `<div class="pg rpt">${pgh}</div>`).join('')
+        pages.map((pgh) => `<div class="pg rpt">${pgh}</div>`).join('')
       const r = await apiFetch('/api/wiki/pdf', {
         method: 'POST',
         body: JSON.stringify({
@@ -2568,11 +2578,18 @@ export default function AskBar({ devices }: Props) {
       const bin = atob(j.data)
       const buf = new Uint8Array(bin.length)
       for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
-      downBlob(new Blob([buf], { type: 'application/pdf' }), j.name || '결과서.pdf')
+      setPdfNm(j.name || '결과서.pdf')
+      setPrevAt(1)
+      setPdfUrl(URL.createObjectURL(new Blob([buf], { type: 'application/pdf' })))
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'PDF 저장에 실패했습니다')
+    } finally {
+      setPdfBusy(false)
     }
   }
+
+  /** 미리보기를 닫는다 — blob 주소는 위 효과의 청소가 거둔다 */
+  const closePdfPrev = () => setPdfUrl('')
 
   /** PPTX 에 실을 내용 한 벌 — 저장과 미리보기가 같은 것을 본다 */
   const pptxParts = () => {
@@ -3644,8 +3661,58 @@ export default function AskBar({ devices }: Props) {
         </div>
       )}
 
-      {/* 내보내기 미리보기(지시) — 확인하고 내려받는다 */}
-      {expPrev && draft && (
+      {/* PDF 미리보기(지시: WIKI 처럼) — 구운 진짜 PDF 를 내장 뷰어 + 쪽 목록으로 */}
+      {!!pdfUrl && (
+        <div
+          className="wke-pvback"
+          role="presentation"
+          onClick={(e) => e.target === e.currentTarget && closePdfPrev()}
+        >
+          <div className="wke-pv" role="dialog" aria-modal="true" aria-label="PDF 미리보기">
+            <div className="wke-pvhead">
+              <b>PDF 미리보기</b>
+              <span className="wke-pvname">{pdfNm}</span>
+              <span className="wke-pvsp" />
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => {
+                  /* 보고 있는 그 파일을 그대로 떨군다 — 다시 굽지 않는다 */
+                  const a = document.createElement('a')
+                  a.href = pdfUrl
+                  a.download = pdfNm
+                  a.click()
+                }}
+              >
+                내려받기
+              </button>
+              <button type="button" className="wke-pvx" title="닫기" onClick={closePdfPrev}>
+                ✕
+              </button>
+            </div>
+            {navigator.pdfViewerEnabled === false ? (
+              <div className="wke-pvnone">
+                <b>이 브라우저는 PDF 를 화면에서 열지 못합니다.</b>
+                <span>파일로 내려받아 보세요 — 내용은 같습니다.</span>
+              </div>
+            ) : (
+              <div className="wke-pvbody">
+                <PdfRail url={pdfUrl} at={prevAt} onPick={setPrevAt} />
+                {/* key=쪽 — 해시만 바꾸면 크롬 PDF 뷰어가 무시한다(WIKI 실측) */}
+                <iframe
+                  key={prevAt}
+                  className="wke-pvframe"
+                  src={`${pdfUrl}#page=${prevAt}&navpanes=0`}
+                  title="PDF 미리보기"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* PPTX 미리보기(지시) — 확인하고 내려받는다 */}
+      {expPrev === 'pptx' && draft && (
         <div className="modal-back" onMouseDown={() => setExpPrev('')}>
           <div
             className="modal ask-prevmodal"
@@ -3655,63 +3722,15 @@ export default function AskBar({ devices }: Props) {
           >
             <div className="modal-head">
               <div>
-                <b>{expPrev === 'pdf' ? 'PDF 결과서 미리보기' : 'PPTX 결과서 미리보기'}</b>
-                <div className="muted small">
-                  {expPrev === 'pdf'
-                    ? '이 내용 그대로 PDF 로 저장됩니다.'
-                    : '실제 파일은 고객사 양식(PPTX)에 이 내용이 채워져 나옵니다.'}
-                </div>
+                <b>PPTX 결과서 미리보기</b>
+                <div className="muted small">실제 파일은 고객사 양식(PPTX)에 이 내용이 채워져 나옵니다.</div>
               </div>
               <span className="sp" />
               <button className="modal-x" type="button" onClick={() => setExpPrev('')}>
                 ✕
               </button>
             </div>
-            {expPrev === 'pdf' ? (
-              (() => {
-                /* 왼쪽 쪽 썸네일 · 오른쪽은 **모든 쪽을 세로로**(지시:
-                   스크롤로도 넘기게). 썸네일을 누르면 그 쪽으로 굴러가고,
-                   굴리면 지금 쪽이 썸네일에 표시된다 — Cycles 와 같은 문법. */
-                const sl = pdfPages
-                const at = Math.min(prevAt, Math.max(0, sl.length - 1))
-                const oneH = Math.round((1123 * 520) / 794) + 14
-                return (
-                  <div className="ask-prevbody">
-                    <div className="ask-prevside">
-                      {sl.map((h, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          className={`ask-prevth${i === at ? ' on' : ''}`}
-                          title={`${i + 1}쪽`}
-                          onClick={() => {
-                            setPrevAt(i)
-                            prevMainRef.current?.scrollTo({ top: i * oneH, behavior: 'smooth' })
-                          }}
-                        >
-                          <AskPage html={h} w={130} />
-                          <em>{i + 1}</em>
-                        </button>
-                      ))}
-                    </div>
-                    <div
-                      className="ask-prevmain col"
-                      ref={prevMainRef}
-                      onScroll={(e) => {
-                        const t = (e.target as HTMLElement).scrollTop
-                        setPrevAt(Math.min(sl.length - 1, Math.max(0, Math.round(t / oneH))))
-                      }}
-                    >
-                      {sl.map((h, i) => (
-                        <AskPage key={i} html={h} w={520} />
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()
-            ) : (
-              <iframe className="ask-previfr" title="결과서 미리보기" srcDoc={pptxPrevHtml()} />
-            )}
+            <iframe className="ask-previfr" title="결과서 미리보기" srcDoc={pptxPrevHtml()} />
             <div className="modal-foot">
               <span className="sp" />
               <span className="ask-footbtns">
@@ -3722,9 +3741,8 @@ export default function AskBar({ devices }: Props) {
                   className="btn primary small"
                   type="button"
                   onClick={() => {
-                    const k = expPrev
                     setExpPrev('')
-                    void (k === 'pdf' ? savePdf() : savePptx())
+                    void savePptx()
                   }}
                 >
                   ⬇ 내려받기
@@ -4518,12 +4536,10 @@ export default function AskBar({ devices }: Props) {
                 className="btn small"
                 type="button"
                 title="절차와 결과를 PDF 결과서로 저장합니다 — 미리보기가 먼저 뜹니다"
-                onClick={() => {
-                  setPrevAt(0)
-                  setExpPrev('pdf')
-                }}
+                disabled={pdfBusy}
+                onClick={() => void openPdfPrev()}
               >
-                PDF 저장
+                {pdfBusy ? 'PDF 만드는 중…' : 'PDF 저장'}
               </button>
               <button
                 className="btn small"
@@ -5461,27 +5477,5 @@ const REPORT_CSS =
   `.rpt .sb{padding:8px 10px}` +
   `.rpt pre{white-space:pre-wrap;word-break:break-all;background:#fafaf7;border:1px solid #eee;padding:6px 8px;border-radius:4px;font-family:Consolas,monospace;font-size:11px;margin:6px 0 0}`
 
-/** A4 쪽 하나 — 격리 iframe(배율 축소). 미리보기가 곧 출력이다 */
-function AskPage({ html, w }: { html: string; w: number }) {
-  const k = w / 794
-  const h = Math.round(1123 * k)
-  return (
-    <span className="ask-slidebox" style={{ width: w, height: h }}>
-      <iframe
-        title="결과서 쪽"
-        sandbox=""
-        scrolling="no"
-        /* 클릭은 겉(단추·스크롤)이 받는다 — iframe 이 삼키면 썸네일의
-           테두리 밖을 눌러야만 넘어간다(지적) */
-        style={{ width: w, height: h, border: 0, display: 'block', pointerEvents: 'none' }}
-        srcDoc={
-          '<!doctype html><meta charset="utf-8">' +
-          `<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}` +
-          `.pgv{width:794px;height:1123px;padding:40px;box-sizing:border-box;` +
-          `overflow:hidden;transform:scale(${k});transform-origin:top left}${REPORT_CSS}</style>` +
-          `<div class="pgv rpt">${html}</div>`
-        }
-      />
-    </span>
-  )
-}
+/* 손수 그리던 쪽 미리보기(AskPage)는 걷었다(지시) — WIKI 처럼 진짜 PDF 를
+   구워 내장 뷰어 + PdfRail 로 보여 준다. */

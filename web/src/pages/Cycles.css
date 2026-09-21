@@ -10357,6 +10357,9 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* 대화 줄 오른쪽 단추 무리 — 검색 · 모든 대화 보기 */
 .ask-eyebrow .eyebtns { display: flex; align-items: center; gap: 2px; }
 .ask-sec-add.on { background: var(--cl-hover); color: var(--cl-ink); }
+/* 돋보기(15px SVG)가 ⇅(12px 글자)보다 크고 처져 보였다(지적) — 한 치수로 */
+.ask-eyebrow .ask-sec-add svg { width: 13px; height: 13px; display: block; }
+.ask-eyebrow .ask-sec-add { font-size: 13px; line-height: 1; }
 
 /* ── 대화 검색 팝업(지시) ── */
 .modal.ask-findmodal {
