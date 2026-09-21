@@ -10222,3 +10222,16 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   border-radius: var(--r-box, 6px);
   box-shadow: none;
 }
+
+/* ── 첫 화면도 카드로(지시) — 대화 목록과 본판이 콘솔과 같은 납작 카드다 ── */
+.ask { padding: 8px 10px 10px; }
+.ask > .ask-sess {
+  border: 1px solid var(--cl-line);
+  border-radius: var(--r-box, 6px);
+}
+.ask:not(.console) .ask-canvas {
+  border: 1px solid var(--cl-line);
+  border-radius: var(--r-box, 6px);
+  overflow: hidden;
+  background: var(--cl-bg);
+}
