@@ -441,6 +441,9 @@ export default function AskBar({ devices }: Props) {
      것은 오른쪽 판에 단계 배지와 함께 열린다. 이 값은 1·2단계에 무엇을
      펼칠지다 — 절차(draft)·생성 중(making)은 저희 자리가 따로 있다. */
   const [pane, setPane] = useState<'' | 'dev' | 'tc'>('')
+  /** 3열(아티팩트 판)을 열었나 — basic 은 절차가 준비돼도 바로 안 열고(지시)
+      **실행부터** 연다. 대화 속 ▷ 시험 시작·Response 칩이 켠다. */
+  const [artOpen, setArtOpen] = useState(false)
   /** 남이 지은 글(장비 이름·항목 제목)을 html 에 실을 때 — 꺾쇠를 막는다 */
   const hesc = (t: string) =>
     String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -1544,7 +1547,10 @@ export default function AskBar({ devices }: Props) {
          다른 단계를 보다가도 이 칩으로 Response 에 돌아온다 */
       say(
         'a',
-        `<p class="ln">절차가 준비됐습니다 — 오른쪽에서 확인하고 <b>▷ 시험 시작</b>을 누르세요.</p>` +
+        /* 3열은 실행부터 열린다(지시) — 시작 단추를 대화에 둔다.
+           칩은 실행 전에 절차를 미리 보고 싶은 사람의 길이다. */
+        `<p class="ln">절차가 준비됐습니다 — <b>▷ 시험 시작</b>을 누르면 실행하며 결과 판이 열립니다.</p>` +
+          `<p class="ln"><button type="button" class="btnsm js-runnow">▷ 시험 시작</button></p>` +
           `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
           `<span class="tx"><b>${hesc(tcName)} — Response</b>` +
           `<em>${raw.length}스텝 · 실행 준비</em></span></button>`,
@@ -2167,6 +2173,7 @@ export default function AskBar({ devices }: Props) {
     logN.current = 0
     setRunning(true)
     setRunView(true)
+    setArtOpen(true)
     setAt(-1)
     try {
       await runSteps(
@@ -2448,6 +2455,7 @@ export default function AskBar({ devices }: Props) {
     setText('')
     setMsgs([])
     setPane('')
+    setArtOpen(false)
     setRunView(false)
     setLogs([])
     setStepAt(0)
@@ -2501,6 +2509,7 @@ export default function AskBar({ devices }: Props) {
       setStepAt(0)
       setFlowAt(0)
       setPane('')
+      setArtOpen(false)
       /* 대화 기둥에도 그 대화를 되살린다 — 물어본 말 한 줄과 연 흔적 */
       setMsgs([
         { who: 'u', html: hesc(title) },
@@ -2553,6 +2562,10 @@ export default function AskBar({ devices }: Props) {
 
   /** 콘솔 모드(목업) — 대화가 시작되면 왼쪽 대화 기둥 + 오른쪽 자세히 보기 판 */
   const twoPane = msgs.length > 0 || !!draft || making
+  /* 3열을 세울 때(지시: 실행까지 하면 나오게) — basic 은 절차가 준비된 뒤에는
+     artOpen(실행·칩)이 켜야 열린다. 고르는 동안(장비·항목 판)과 만드는 중,
+     그리고 Advanced(절차를 봐야 고친다)는 지금처럼 바로 선다. */
+  const artShow = twoPane && (mode !== 'basic' || !draft || artOpen)
 
   /* 진행 플로우는 걷었다(지시) */
 
@@ -3848,7 +3861,8 @@ export default function AskBar({ devices }: Props) {
           className={`ask-home${exEdit ? ' editing' : ''}${twoPane ? ' chat' : ''}`}
           data-theme={theme}
           ref={homeRef}
-          style={twoPane ? { flex: `0 0 ${chatW}px` } : undefined}
+          /* 3열이 닫혀 있으면 대화가 남은 폭을 다 갖는다(지시) */
+          style={artShow ? { flex: `0 0 ${chatW}px` } : twoPane ? { flex: 1 } : undefined}
         >
           {/* 대화 머리(지시) — 지금 어떤 대화인지 제목이 선다 */}
           {twoPane && (
@@ -3996,7 +4010,14 @@ export default function AskBar({ devices }: Props) {
                     afterDevRef.current = 'tc'
                     setPane('dev')
                   } else if (t.closest('.js-picktc')) setPane('tc')
-                  else if (t.closest('.js-openresp')) setRunView(true)
+                  else if (t.closest('.js-runnow')) {
+                    /* 대화 속 시작 단추(지시) — 실행하면서 3열이 열린다 */
+                    setArtOpen(true)
+                    void run()
+                  } else if (t.closest('.js-openresp')) {
+                    setArtOpen(true)
+                    setRunView(true)
+                  }
                 }}
               >
                 {msgs.map((m, i) =>
@@ -4489,7 +4510,7 @@ export default function AskBar({ devices }: Props) {
           때만 나가므로, 사람이 절차를 보고 고른 뒤에 나간다. */}
 
       {/* 2열 ↔ 3열 사이 폭 조절 손잡이(지시) */}
-      {twoPane && (
+      {artShow && (
         <Resizer
           label="대화 폭 조절"
           onResize={setChatW}
@@ -4499,7 +4520,7 @@ export default function AskBar({ devices }: Props) {
       {/* ── 3열 · 아티팩트(지시: 클로드처럼) ──────────────────────
           맨 위는 슬롯 줄(경로·장비·실행 단추) — 이 기둥의 머리다.
           그 아래로 만드는 중 · 자세히 보기 판 · 절차가 갈아 든다. */}
-      {twoPane && (
+      {artShow && (
         <section className="ask-art">
         {/* 슬롯 줄 — 목업처럼 **머리 바로 아래**, 판들 바깥이다.
             판 안에 있으면 세 판의 머리 높이가 어긋난다(지적). */}
