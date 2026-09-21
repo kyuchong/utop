@@ -3000,7 +3000,7 @@ export default function AskBar({ devices }: Props) {
           <div className="ask-top">
             <b className="ask-top-t">AI 자연어 시험</b>
             <span className={`ask-top-b${mode === 'adv' ? ' adv' : ''}`}>
-              {mode === 'adv' ? 'Advanced AI Assistant' : 'General AI Assistant'}
+              {mode === 'adv' ? 'Advanced AI Assistant' : 'Basic AI Assistant'}
             </span>
             {asked && <span className="ask-top-q" title={asked}>{asked}</span>}
             {/* 지금 어느 단계인가(목업의 배지) — 판 머리와 같은 알약 */}
@@ -3259,7 +3259,7 @@ export default function AskBar({ devices }: Props) {
             <div className="ask-chathd">
               <span className="ask-chatlogo" aria-hidden="true">AI</span>
               <div className="ask-chattt">
-                <b>Test AI</b>
+                <b>Coverage AI</b>
                 <span>대화로 진행 · 자세한 것은 오른쪽 판에</span>
               </div>
             </div>
@@ -3352,13 +3352,23 @@ export default function AskBar({ devices }: Props) {
               <i aria-hidden="true">✦</i>UBIQUOSS Test Assistant
             </span>
             <h1 className="ask-hometitle">무엇을 도와드릴까요?</h1>
-            {/* 부제는 **고른 갈래를 따라간다**(지시) — 두 갈래가 하는 일이
-                다른데 한 줄로 뭉뚱그리면, 무엇을 골라야 할지는 결국 눌러
-                봐야 안다. 아래 모드 칩과 같은 말을 쓴다. */}
+            {/* 부제는 **고른 갈래를 따라간다**(지시) — Basic 은 있는 Coverage
+                항목을 돌리는 자리, Advanced 는 새로 지어 돌리는 자리다. */}
             <p className="ask-homesub">
-              {mode === 'adv'
-                ? '자연어로 시험 항목을 만들고 실행합니다'
-                : '자연어로 장비를 선택하고 항목을 찾고 실행합니다'}
+              {mode === 'adv' ? (
+                <>
+                  Coverage 항목을 신규로 작성해서 테스트할 수 있습니다.
+                  <br />
+                  자연어로 모델명과 시험항목을 요청하시면 Coverage AI가 전 과정을 지원합니다.
+                </>
+              ) : (
+                <>
+                  기존에 작성된 Coverage 항목을 테스트할 수 있습니다.
+                  <br />
+                  Basic mode를 선택하신 후 자연어로 모델명과 시험항목을 요청하시면 Coverage AI가
+                  전 과정을 지원합니다.
+                </>
+              )}
             </p>
 
             {/* 입력 + 모드 — 한 상자 안이다(목업) */}
@@ -3579,7 +3589,7 @@ export default function AskBar({ devices }: Props) {
                   disabled={exEdit}
                   title={
                     mode === 'basic'
-                      ? 'General — 이미 만들어진 시험 항목을 찾아 그대로 실행합니다 · 명령을 몰라도 됩니다'
+                      ? 'Basic — 이미 만들어진 시험 항목을 찾아 그대로 실행합니다 · 명령을 몰라도 됩니다'
                       : 'Advanced — 없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다 · 장비를 아는 사람이'
                   }
                   aria-expanded={modeOpen}
@@ -3589,7 +3599,7 @@ export default function AskBar({ devices }: Props) {
                   }}
                 >
                   <i className="sico" aria-hidden="true">{mode === 'basic' ? '\u25b6' : '\u270e'}</i>
-                  <span className="mlb">{mode === 'basic' ? 'General' : 'Advanced'}</span>
+                  <span className="mlb">{mode === 'basic' ? 'Basic' : 'Advanced'}</span>
                   <svg className="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
                 </button>
                 {modeOpen && (
@@ -3598,7 +3608,7 @@ export default function AskBar({ devices }: Props) {
                     <span className="ta-pickmenu">
                       {(
                         [
-                          ['basic', 'General', '\u25b6', '있는 시험을 찾아 바로 실행'],
+                          ['basic', 'Basic', '\u25b6', '있는 시험을 찾아 바로 실행'],
                           ['adv', 'Advanced', '\u270e', '없는 시험을 새로 만들어 실행'],
                         ] as const
                       ).map(([k, label, ico, sub]) => (
@@ -3786,7 +3796,7 @@ export default function AskBar({ devices }: Props) {
                 말해 주는 줄이다(A안). 편집 중에는 자리를 오프너에 내준다. */}
             {!exEdit && (
               <div className="ask-cando">
-                <small>TEST AI 가 하는 일</small>
+                <small>COVERAGE AI 가 하는 일</small>
                 <div className="ask-cando-row">
                   <span className="ask-cd t1">
                     <i>

@@ -111,7 +111,8 @@ export const NAV: NavGroup[] = [
          **전에 한 번 뺀 자리다**: 화면도 자료도 없이 메뉴에만 두어 누를
          때마다 「아직 안 옮겼습니다」 벽을 만났다(지적). 그래서 이번에는
          **무엇을 하는 자리인지 적힌 안내**를 함께 둔다 — 벽 대신 길잡이. */
-      { key: 'ai-tc', label: 'Test AI', Icon: IconSparkle },
+      /* 이름은 Coverage AI(지시) — Coverage 항목을 찾고·짓고·돌리는 자리다 */
+      { key: 'ai-tc', label: 'Coverage AI', Icon: IconSparkle },
       { key: 'ai-kb', label: 'Knowledge AI', Icon: IconSearch },
     ],
   },
