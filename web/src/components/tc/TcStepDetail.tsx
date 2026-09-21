@@ -256,6 +256,14 @@ export default function TcStepDetail({
   const kind = (step.kind || 'cli') as StepKind
   const info = stepKindInfo(kind)
   const result = stepResult(step)
+  /* 응답이 **총 몇 줄인지**(지적: 카운트가 안 보인다) — 판정과 같은 눈으로
+     줄제외를 적용하고 비어 있지 않은 줄을 센다. 「줄 수」 칩의 기준값을
+     채울 때 이 수를 보고 적는다(iTest 의 Queries rowCount() 자리). */
+  const respLineN = result
+    ? applySkips(String(result), step)
+        .split(/\r?\n/)
+        .filter((l) => l.trim() !== '').length
+    : 0
   /**
    * 숫자가 **글자 그대로** 박힌 뽑기 식인가.
    *
@@ -1644,6 +1652,17 @@ export default function TcStepDetail({
                       title={c.v.includes('$') ? `지금 값: ${subVars(c.v, gp.values)}` : undefined}
                       onChange={(e) => set({ v: e.target.value })}
                     />
+                    {/* 지금 응답이 몇 줄인지 그 자리에서 보인다(지적) — 누르면 채워진다 */}
+                    {c.t === 'rowcount' && result ? (
+                      <button
+                        type="button"
+                        className="sd-jr-mini"
+                        title="지금 응답의 줄 수(줄제외 적용, 빈 줄 제외) — 눌러서 기준값으로 채웁니다"
+                        onClick={() => set({ v: String(respLineN) })}
+                      >
+                        지금 {respLineN}줄
+                      </button>
+                    ) : null}
 
                     {/* ── 견줌 꼬리 ── */}
                     {cmpOn && (
@@ -2011,6 +2030,12 @@ export default function TcStepDetail({
                     긴 출력을 다 지나 내려가야 보인다 — 정작 누를 것은 표를
                     보는 그 자리에서 누른다. */}
                 <div className="sd-pick">
+                  {/* 응답 총 줄 수(지적: 카운트가 안 보인다) — 줄제외 적용·빈 줄 제외 */}
+                  {result ? (
+                    <span className="muted small" title="줄제외 칩 적용 후, 비어 있지 않은 줄 수입니다">
+                      응답 {respLineN}줄
+                    </span>
+                  ) : null}
                   {/* 표 응답은 끌어서 고를 것이 아니다. `show int status` 를
                       contains 로 보면 28포트 중 아무 줄의 connected 나 걸려서
                       하나만 죽어도 합격이 나온다. */}

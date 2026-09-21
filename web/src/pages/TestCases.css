@@ -1307,7 +1307,8 @@ button.sq-caret svg { width: 11px; height: 11px; }
 /* 기준을 어떻게 묶나 — 기준이 둘 이상일 때만 나온다 */
 .sd-join { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
 .sd-join select { flex: none; width: 168px; }
-.sd-jr .sd-jr-t { flex: none; width: 78px; }
+/* 「있으면(줄)」 이 78px 에서 잘렸다(지적) — 제일 긴 이름에 맞춰 늘린다 */
+.sd-jr .sd-jr-t { flex: none; width: auto; min-width: 78px; }
 .sd-jr .sd-jr-t.fixed {
   display: inline-flex;
   align-items: center;
