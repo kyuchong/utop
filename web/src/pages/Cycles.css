@@ -10235,3 +10235,10 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   overflow: hidden;
   background: var(--cl-bg);
 }
+
+/* ── 카드는 흰색 · 가장자리까지(지시) — 바깥 여백을 걷어 카드가 화면
+   테두리까지 차고, 카드 사이 이동바 틈으로만 바탕이 비친다 ── */
+.ask, .ask.console { padding: 0; }
+.ask > .ask-sess { background: var(--cl-card); }
+.ask:not(.console) .ask-canvas { background: var(--cl-card); }
+.ask-home[data-theme='aurora'] .ask-homewrap { background: var(--cl-card); }
