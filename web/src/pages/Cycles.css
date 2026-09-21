@@ -10475,3 +10475,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .fl-s.done b { background: #e8f5ed; color: #12643a; }
 .fl-ln { width: 14px; height: 2px; border-radius: 2px; background: #e5e2d5; }
 .fl-ln.on { background: #bfe0cd; }
+
+/* 2열 스크롤(지적: 질문 많으면 스크롤이 안 생긴다) — flex 기둥에서
+   min-height:0 이 없으면 자식(.ask-msgs)이 줄지 못해 넘쳐도 안 구른다 */
+.ask.console .ask-home.chat .ask-homewrap { min-height: 0; }
