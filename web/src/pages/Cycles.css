@@ -10660,3 +10660,14 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* ── 아티팩트 칩이 대화 전폭으로 늘어졌다(지시: 너무 길어) —
    추천 카드와 같은 420px 까지만 ── */
 .ask-msgs .ask-artchip { width: auto; max-width: 420px; }
+
+/* ── 추천 카드 한 줄·랩 위치(지시) — TC 번호·메타가 420px 에서 줄바꿈됐다.
+   카드 폭을 520px 로 늘리고 아티팩트 칩도 같은 폭으로 맞춘다. ── */
+.ask-msgs .ask-inb { max-width: 520px; }
+.ask-msgs .ask-artchip { width: 100%; max-width: 520px; }
+/* 번호·메타·상태는 줄을 안 바꾼다 — 남는 폭은 이름이 말줄임으로 흡수 */
+.ask-msgs .ask-inhero .ask-intt code,
+.ask-msgs .ask-inhero .ask-intt i,
+.ask-msgs .ask-inhero .ask-intt .st { white-space: nowrap; flex: none; }
+/* 랩 위치 — IP 곁의 흐린 글 */
+.ask-msgs .ask-inb .loc { font-style: normal; font-size: var(--fs-xs); color: var(--cl-sub, var(--c-text-faint)); white-space: nowrap; }

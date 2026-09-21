@@ -1087,13 +1087,21 @@ export default function AskBar({ devices }: Props) {
     const hero = sorted[0]
     const heroSt = hero ? devStat(hero) : null
     const canHero = !!hero && (heroSt!.k === 'ok' || heroSt!.k === 'part')
+    /* 랩 위치(지시) — 같은 모델은 자리로 갈린다: 구역 · 랙 · U */
+    const locOf = (d: Device) => {
+      const l = rackMap.get(String(d.id))
+      return l ? `${l.lab} · ${l.rack}${l.pos ? ` · ${l.pos}U` : ''}` : ''
+    }
     const row = (d: Device) => {
       const st = devStat(d)
       const dead = st.k === 'busy' || st.k === 'no'
       const nm = hesc(String(d.model || d.name || d.ip))
+      const lc = locOf(d)
       return (
         `<span class="ask-inrow${dead ? ' dis' : ' js-devpick'}" data-id="${hesc(String(d.id))}">` +
-        `<span class="nm"><b>${nm}</b></span><i>${hesc(String(d.ip ?? ''))}</i>` +
+        `<span class="nm"><b>${nm}</b></span>` +
+        `<i>${hesc(String(d.ip ?? ''))}</i>` +
+        (lc ? `<i class="loc">${hesc(lc)}</i>` : '') +
         `<em class="st ${st.k}">● ${hesc(st.label)}</em></span>`
       )
     }
@@ -1101,10 +1109,12 @@ export default function AskBar({ devices }: Props) {
     const head = m0
       ? `${hesc(m0)} 이(가) ${cands.length}대 있습니다${canHero ? ' — 비어 있는 이것으로 할까요?' : ' — 지금 비어 있는 것이 없습니다.'}`
       : '어느 장비에서 돌릴까요?'
+    const heroLoc = hero ? locOf(hero) : ''
     const heroHtml = canHero && hero
       ? `<span class="ask-inhero js-devpick" data-id="${hesc(String(hero.id))}">` +
         `<span class="ask-intt"><b class="nm">${hesc(String(hero.model || hero.name || ''))}</b>` +
         `<i>${hesc(String(hero.ip ?? ''))}</i>` +
+        (heroLoc ? `<i class="loc">${hesc(heroLoc)}</i>` : '') +
         `<em class="st ${heroSt!.k}">● ${hesc(heroSt!.label)}</em></span>` +
         `<span class="ask-inbtn">이 장비로</span></span>`
       : ''
@@ -1540,10 +1550,10 @@ export default function AskBar({ devices }: Props) {
          다른 단계를 보다가도 이 칩으로 Response 에 돌아온다 */
       say(
         'a',
-        /* 3열은 실행부터 열린다(지시) — 시작 단추를 대화에 둔다.
-           칩은 실행 전에 절차를 미리 보고 싶은 사람의 길이다. */
-        `<p class="ln">절차가 준비됐습니다 — <b>▷ 시험 시작</b>을 누르면 실행하며 결과 판이 열립니다.</p>` +
-          `<p class="ln"><button type="button" class="btnsm js-runnow">▷ 시험 시작</button></p>` +
+        /* 시작 단추는 채팅에 안 둔다(지시) — 카드가 3열을 열고,
+           ▷ 시험 시작은 그 판 머리에 있다. */
+        `<p class="ln">절차가 준비됐습니다 — 아래 카드를 누르면 결과 판이 열립니다. ` +
+          `<b>▷ 시험 시작</b>은 그 판에 있습니다.</p>` +
           `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
           `<span class="tx"><b>${hesc(tcName)} — Response</b>` +
           `<em>${raw.length}스텝 · 실행 준비</em></span></button>`,
@@ -2534,13 +2544,12 @@ export default function AskBar({ devices }: Props) {
         { who: 'u', html: hesc(title) },
         {
           who: 'a',
-          /* 3열은 실행부터 열린다(지시) — 기록에도 시작 단추와 칩을 준다.
-             없으면 되살린 절차를 돌릴 길이 없다. */
+          /* 시작 단추는 채팅에 안 둔다(지시) — 칩이 3열을 열고,
+             ▷ 시험 시작은 그 판 머리에 있다. */
           html:
             `<p class="ln">기록을 열었습니다 — <b>${hesc(String(plan.name ?? ''))}</b> · ${plan.steps.length}스텝${
               b.chat?.at ? ` · ${hesc(String(b.chat.at).slice(0, 16))}` : ''
             }</p>` +
-            `<p class="ln"><button type="button" class="btnsm js-runnow">▷ 시험 시작</button></p>` +
             `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
             `<span class="tx"><b>${hesc(String(plan.name ?? ''))} — Response</b>` +
             `<em>${plan.steps.length}스텝 · 실행 준비</em></span></button>`,
@@ -4036,11 +4045,7 @@ export default function AskBar({ devices }: Props) {
                     afterDevRef.current = 'tc'
                     setDevOpen(true)
                   } else if (t.closest('.js-picktc')) setLikeAsk(true)
-                  else if (t.closest('.js-runnow')) {
-                    /* 대화 속 시작 단추(지시) — 실행하면서 3열이 열린다 */
-                    setArtOpen(true)
-                    void run()
-                  } else if (t.closest('.js-openresp')) {
+                  else if (t.closest('.js-openresp')) {
                     /* 아티팩트 칩은 3열을 **여닫는다**(지시) — 열려 있으면 다시 숨긴다 */
                     setRunView(true)
                     setArtOpen((v) => !v)
