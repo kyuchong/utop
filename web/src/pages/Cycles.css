@@ -10542,3 +10542,10 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   box-shadow: 0 4px 14px rgb(0 0 0 / 15%);
   flex: none;
 }
+/* PDF 미리보기 본판 — 모든 쪽을 세로로, 스크롤이 곧 쪽 넘김(지시) */
+.ask-prevmain.col {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+}

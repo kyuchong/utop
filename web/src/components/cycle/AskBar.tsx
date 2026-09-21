@@ -649,6 +649,8 @@ export default function AskBar({ devices }: Props) {
   const [expPrev, setExpPrev] = useState<'' | 'pdf' | 'pptx'>('')
   /** PDF 미리보기에서 보고 있는 장(0부터) — 왼쪽 썸네일이 고른다 */
   const [prevAt, setPrevAt] = useState(0)
+  /** 본판 스크롤 통 — 썸네일이 이걸 굴린다 */
+  const prevMainRef = useRef<HTMLDivElement>(null)
   /** 1열 접기(지시) — 접으면 아이콘 레일만 남는다. 계정에 남긴다. */
   const [railShut, setRailShut] = useState(() => prefGet('utop.ai.railshut') === '1')
   useEffect(() => {
@@ -3667,10 +3669,12 @@ export default function AskBar({ devices }: Props) {
             </div>
             {expPrev === 'pdf' ? (
               (() => {
-                /* 왼쪽 쪽 썸네일 · 오른쪽 그 쪽 크게(지시: Cycles 처럼).
-                   쪽은 저장될 PDF 와 같은 A4(실측 나누기)다. */
+                /* 왼쪽 쪽 썸네일 · 오른쪽은 **모든 쪽을 세로로**(지시:
+                   스크롤로도 넘기게). 썸네일을 누르면 그 쪽으로 굴러가고,
+                   굴리면 지금 쪽이 썸네일에 표시된다 — Cycles 와 같은 문법. */
                 const sl = pdfPages
                 const at = Math.min(prevAt, Math.max(0, sl.length - 1))
+                const oneH = Math.round((1123 * 520) / 794) + 14
                 return (
                   <div className="ask-prevbody">
                     <div className="ask-prevside">
@@ -3680,15 +3684,27 @@ export default function AskBar({ devices }: Props) {
                           type="button"
                           className={`ask-prevth${i === at ? ' on' : ''}`}
                           title={`${i + 1}쪽`}
-                          onClick={() => setPrevAt(i)}
+                          onClick={() => {
+                            setPrevAt(i)
+                            prevMainRef.current?.scrollTo({ top: i * oneH, behavior: 'smooth' })
+                          }}
                         >
                           <AskPage html={h} w={130} />
                           <em>{i + 1}</em>
                         </button>
                       ))}
                     </div>
-                    <div className="ask-prevmain">
-                      <AskPage html={sl[at] ?? ''} w={520} />
+                    <div
+                      className="ask-prevmain col"
+                      ref={prevMainRef}
+                      onScroll={(e) => {
+                        const t = (e.target as HTMLElement).scrollTop
+                        setPrevAt(Math.min(sl.length - 1, Math.max(0, Math.round(t / oneH))))
+                      }}
+                    >
+                      {sl.map((h, i) => (
+                        <AskPage key={i} html={h} w={520} />
+                      ))}
                     </div>
                   </div>
                 )
@@ -4707,6 +4723,8 @@ export default function AskBar({ devices }: Props) {
                         dut={devName}
                         runStep={running ? at : null}
                         seedKey={draft.object || draft.name}
+                        /* PASS 도 펼친 채로(지시) — 자동 실행 화면은 기본(부적합만) 유지 */
+                        openAll
                       />
                     </div>
                     {!running && (doneN > 0 || pass > 0 || fail > 0) && (
@@ -5453,7 +5471,9 @@ function AskPage({ html, w }: { html: string; w: number }) {
         title="결과서 쪽"
         sandbox=""
         scrolling="no"
-        style={{ width: w, height: h, border: 0, display: 'block' }}
+        /* 클릭은 겉(단추·스크롤)이 받는다 — iframe 이 삼키면 썸네일의
+           테두리 밖을 눌러야만 넘어간다(지적) */
+        style={{ width: w, height: h, border: 0, display: 'block', pointerEvents: 'none' }}
         srcDoc={
           '<!doctype html><meta charset="utf-8">' +
           `<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}` +

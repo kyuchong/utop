@@ -173,6 +173,7 @@ export default function RespView({
   runStep,
   waitAt,
   seedKey,
+  openAll,
 }: {
   steps: AutoStep[]
   stepAt: number
@@ -186,6 +187,8 @@ export default function RespView({
   waitAt?: number | null
   /** 접힘 초기화 열쇠 — 바뀌면 「부적합만 펴 둠」 기본으로 돌아간다 */
   seedKey?: string
+  /** 처음부터 전부 편다 — Coverage AI(지시). 자동 실행 화면은 기본(부적합만) */
+  openAll?: boolean
 }) {
   /** 시험 항목 표와 같은 번호 — 주석은 번호를 안 먹는다 */
   const nos = useMemo(() => {
@@ -214,11 +217,12 @@ export default function RespView({
     if (foldSeed.current === key) return
     foldSeed.current = key
     const next = new Set<number>()
-    steps.forEach((s2, i3) => {
-      if (!/fail/i.test(String(s2.mark ?? ''))) next.add(i3)
-    })
+    if (!openAll)
+      steps.forEach((s2, i3) => {
+        if (!/fail/i.test(String(s2.mark ?? ''))) next.add(i3)
+      })
     setFolded(next)
-  }, [seedKey, steps])
+  }, [seedKey, steps, openAll])
 
 
   /** 반복 스텝에서 **몇 회차를 보고 있나**(지시) — -1 이면 마지막 회차 */
