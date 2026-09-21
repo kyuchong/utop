@@ -10284,3 +10284,40 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   background: #e8f5ed;
   color: #12643a;
 }
+
+/* ── 1열 상단 줄(지시) — 새 채팅 왼쪽, 검색·접기 아이콘 오른쪽 ── */
+.ask-stop { display: flex; align-items: center; gap: 2px; }
+.ask-stop .ask-hnew { flex: 1; min-width: 0; }
+.ask-ico {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: none;
+  border-radius: 7px;
+  color: var(--cl-sub);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.ask-ico:hover, .ask-ico.on { background: var(--cl-hover); color: var(--cl-ink); }
+
+/* 내 질문은 오른쪽(지시) — 아바타 없이 말풍선만 */
+.ask.console .ask-msgs .msg.u { justify-content: flex-end; gap: 0; }
+
+/* 접힌 1열 — 아이콘 레일 */
+.ask-rail2 {
+  flex: none;
+  width: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0;
+  background: var(--cl-card);
+  border: 1px solid var(--cl-line);
+  border-radius: var(--r-box, 6px);
+  margin-right: 8px;
+}
+.ask-rail2 .ask-ico { width: 32px; height: 32px; }
+.ask-rail2 .plus2 { color: var(--cl-accent); font-weight: 700; font-size: 17px; }

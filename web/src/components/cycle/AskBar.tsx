@@ -8,6 +8,7 @@ import {
   IconFolder,
   IconProject,
   IconReqDoc,
+  IconPanelToggle,
   IconSearch,
   IconSettings,
   IconTrash,
@@ -631,26 +632,12 @@ export default function AskBar({ devices }: Props) {
      서버가 남겨 온 대화(nl-chats)를 왼쪽 기둥에 편다 — 누르면 그 절차를
      그대로 되살리고, ✕ 로 지운다. 목록은 제목·시각만 온다(가벼워야 한다). */
   const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string }>>([])
-  /** 로그인한 사람 — 말풍선 아바타와 왼쪽 프로필 칩(클로드)이 쓴다 */
-  const [me, setMe] = useState<{ name?: string; team?: string; dept?: string }>({})
+  /* 말풍선 아바타·프로필 칩은 걷었다(지시) — /api/me 도 더는 안 읽는다 */
+  /** 1열 접기(지시) — 접으면 아이콘 레일만 남는다. 계정에 남긴다. */
+  const [railShut, setRailShut] = useState(() => prefGet('utop.ai.railshut') === '1')
   useEffect(() => {
-    void (async () => {
-      try {
-        const r = await apiFetch('/api/me')
-        const b = (await r.json()) as {
-          user?: { name?: string; username?: string; team?: string; dept?: string }
-        }
-        setMe({
-          name: b.user?.name || b.user?.username || '',
-          team: b.user?.team,
-          dept: b.user?.dept,
-        })
-      } catch {
-        /* 이름이 없어도 화면은 돈다 */
-      }
-    })()
-  }, [])
-  const myInit = (me.name || '나').slice(0, 1)
+    prefSet('utop.ai.railshut', railShut ? '1' : '0')
+  }, [railShut])
   /* 목록 동작은 Knowledge AI 의 대화 목록과 같은 문법(지시) —
      줄마다 ⋯ 메뉴(이름 바꾸기·지우기), 최근 12개만 펴고 「더 보기」 */
   const [listAll, setListAll] = useState(false)
@@ -3264,22 +3251,61 @@ export default function AskBar({ devices }: Props) {
 
       {/* ── 1열 · 대화 목록(지시: 클로드·GPT 처럼) ────────────────────
           새 대화 · 지난 대화. 누르면 그 절차가 되살아나고 ✕ 로 지운다. */}
+      {/* 접힘 — 아이콘 레일만 남는다(지시) */}
+      {railShut && (
+        <aside className="ask-rail2" aria-label="대화 목록(접힘)">
+          <button
+            className="ask-ico"
+            type="button"
+            title="사이드바 펴기"
+            onClick={() => setRailShut(false)}
+          >
+            <IconPanelToggle />
+          </button>
+          <button className="ask-ico plus2" type="button" title="새 채팅" onClick={newChat}>
+            ＋
+          </button>
+          <button
+            className="ask-ico"
+            type="button"
+            title="대화 검색"
+            onClick={() => {
+              setRailShut(false)
+              setFindOn(true)
+              setFindQ('')
+            }}
+          >
+            <IconSearch />
+          </button>
+        </aside>
+      )}
+      {!railShut && (
       <aside className="ask-sess" aria-label="대화 목록" ref={sessRef} style={{ width: sessW }}>
-        {/* 로고 줄은 걷었다(지시) — 왼쪽 UTOP 메뉴가 이미 Coverage AI 를 말한다 */}
-        <button className="ask-hnew" type="button" onClick={newChat}>
-          <span className="pl" aria-hidden="true">＋</span>새 채팅
-        </button>
-        <button
-          className={`ask-hnew sub${findOn ? ' on' : ''}`}
-          type="button"
-          onClick={() => {
-            setFindOn((v) => !v)
-            setFindQ('')
-          }}
-        >
-          {/* 테두리만 있는 돋보기(지시) — 이모지 대신 선 아이콘 */}
-          <span className="pl s" aria-hidden="true"><IconSearch /></span>대화 검색
-        </button>
+        {/* 상단 줄 — 새 채팅 · 오른쪽에 검색·접기 아이콘(지시) */}
+        <div className="ask-stop">
+          <button className="ask-hnew" type="button" onClick={newChat}>
+            <span className="pl" aria-hidden="true">＋</span>새 채팅
+          </button>
+          <button
+            className={`ask-ico${findOn ? ' on' : ''}`}
+            type="button"
+            title="대화 검색"
+            onClick={() => {
+              setFindOn((v) => !v)
+              setFindQ('')
+            }}
+          >
+            <IconSearch />
+          </button>
+          <button
+            className="ask-ico"
+            type="button"
+            title="사이드바 접기"
+            onClick={() => setRailShut(true)}
+          >
+            <IconPanelToggle />
+          </button>
+        </div>
         {findOn && (
           <input
             className="ask-sfind"
@@ -3373,11 +3399,14 @@ export default function AskBar({ devices }: Props) {
         </div>
         {/* 프로필 칩도 걷었다(지시) — 상단바가 이미 로그인한 사람을 말한다 */}
       </aside>
-      <Resizer
-        label="대화 목록 폭 조절"
-        onResize={setSessW}
-        getOrigin={() => sessRef.current?.getBoundingClientRect().left ?? 0}
-      />
+      )}
+      {!railShut && (
+        <Resizer
+          label="대화 목록 폭 조절"
+          onResize={setSessW}
+          getOrigin={() => sessRef.current?.getBoundingClientRect().left ?? 0}
+        />
+      )}
 
       <div className="ask-main">
         <div className="ask-cols">
@@ -3550,9 +3579,8 @@ export default function AskBar({ devices }: Props) {
               >
                 {msgs.map((m, i) =>
                   m.who === 'u' ? (
-                    /* 내 말 — 클로드처럼 왼쪽 아바타 + 둥근 통 */
+                    /* 내 말 — 오른쪽 정렬(지시: 왼쪽에 뜨는 문제) */
                     <div className="msg u" key={i}>
-                      <span className="uav" aria-hidden="true">{myInit}</span>
                       <b>{m.html}</b>
                     </div>
                   ) : (
