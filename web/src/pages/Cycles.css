@@ -9726,6 +9726,34 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 }
 .ask-msgs .acr-go:hover { filter: brightness(1.06); }
 
+/* ── 전체 요약 카드(지시) — 장비 · 시험 항목 · 결과 · AI 요약 한눈에 ─── */
+.askr-ov {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 8px 12px 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+.askr-ov.ok { border-color: var(--c-pass, #16a34a); background: var(--c-pass-soft, #f0faf3); }
+.askr-ov.bad { border-color: var(--c-fail, #dc2626); background: var(--c-fail-soft, #fdf2f2); }
+.askr-ov > .k { color: var(--c-muted); font-size: var(--fs-xs); font-weight: 600; padding-top: 1px; }
+.askr-ov > .v { min-width: 0; color: var(--c-text, #1f2937); overflow-wrap: anywhere; }
+.askr-ov > .v b { font-weight: 700; }
+.askr-ov .ov-b {
+  font-style: normal;
+  font-weight: 700;
+  margin-right: 4px;
+  color: var(--c-muted);
+}
+.askr-ov .ov-b.ok { color: var(--c-pass, #16a34a); }
+.askr-ov .ov-b.bad { color: var(--c-fail, #dc2626); }
+.askr-ov .ov-b.run { color: var(--c-primary, #2563eb); }
+
 /* ── 결과 요약 배너(사용자 결정) — 응답 판 머리에 LLM 요약을 세운다 ──── */
 .askr-summ {
   display: flex;

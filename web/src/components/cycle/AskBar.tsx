@@ -5174,25 +5174,62 @@ export default function AskBar({ devices }: Props) {
                         }}
                       />
                     </div>
-                    {/* 결과 요약 배너 — **LLM 이 지은 한 마디**(사용자 결정).
-                        실행이 끝나면 판 머리에 서서, 스텝을 뒤지기 전에 무엇이
-                        왜 합·불인지 한눈에 보인다. */}
-                    {summing && !summ && (
-                      <div className="askr-summ wait">
-                        <span className="ask-spin" aria-hidden="true" />
-                        결과를 요약하는 중…
-                      </div>
-                    )}
-                    {summ && (
-                      <div className={`askr-summ${summ.fail > 0 ? ' bad' : ' ok'}`}>
-                        <b>{summ.fail > 0 ? '✖ 불합격' : '✔ 합격'}</b>
-                        <p>{summ.text}</p>
-                        <em>
-                          합격 {summ.pass} · 불합격 {summ.fail}
-                          {summ.ai ? ' · AI 요약' : ''}
-                        </em>
-                      </div>
-                    )}
+                    {/* **전체 요약**(지시) — 시험 결과만이 아니라 어떤 장비로
+                        어떤 항목을 돌렸고 결과가 어떤지가 판 머리에 한눈에.
+                        AI 요약도 이 카드 안에 함께 선다. */}
+                    <div
+                      className={`askr-ov${
+                        !running && (pass > 0 || fail > 0) ? (fail > 0 ? ' bad' : ' ok') : ''
+                      }`}
+                    >
+                      <span className="k">장비</span>
+                      <span className="v">
+                        <b>{devName}</b>
+                        {devIp ? ` · ${devIp}` : ''}
+                        {[curDev?.lab, curDev?.operator, curDev?.vendor, curDev?.model_group]
+                          .map((x) => String(x ?? '').trim())
+                          .filter(Boolean)
+                          .map((x) => ` · ${x}`)
+                          .join('')}
+                      </span>
+                      <span className="k">시험 항목</span>
+                      <span className="v">
+                        <b>{draft.object || ''}</b>
+                        {draft.name && draft.name !== draft.object ? ` — ${draft.name}` : ''}
+                        {` · ${runnableN}스텝`}
+                      </span>
+                      <span className="k">시험 결과</span>
+                      <span className="v">
+                        {running ? (
+                          <i className="ov-b run">● 실행 중</i>
+                        ) : fail > 0 ? (
+                          <i className="ov-b bad">✖ 불합격</i>
+                        ) : doneN >= runnableN && pass > 0 ? (
+                          <i className="ov-b ok">✔ 합격</i>
+                        ) : doneN > 0 ? (
+                          <i className="ov-b">중단됨</i>
+                        ) : (
+                          <i className="ov-b">실행 전</i>
+                        )}
+                        {doneN > 0 || pass > 0 || fail > 0
+                          ? ` 합격 ${pass} · 불합격 ${fail} · 미실행 ${Math.max(0, runnableN - doneN)}`
+                          : ' ▷ 시험 시작을 누르면 여기에 결과가 담깁니다'}
+                      </span>
+                      {(summing || summ) && (
+                        <>
+                          <span className="k">AI 요약</span>
+                          <span className="v">
+                            {summ ? (
+                              summ.text
+                            ) : (
+                              <>
+                                <span className="ask-spin" aria-hidden="true" /> 결과를 요약하는 중…
+                              </>
+                            )}
+                          </span>
+                        </>
+                      )}
+                    </div>
                     {/* Response 판 — 사이클 자동 실행 화면과 **한 몸**(지시).
                         스텝 카드(명령·판정 기준·변수·RCA·출력 강조)가 그대로 선다. */}
                     <div className="askr-resp">
