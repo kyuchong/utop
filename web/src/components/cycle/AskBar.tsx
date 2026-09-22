@@ -1619,6 +1619,14 @@ export default function AskBar({ devices }: Props) {
       setBuilt(d2)
       setDevId(picked?.id ?? '')
       await holdMaking(t0)
+      /* **이전 실행 자국을 비운다**(지적: 새 항목을 골랐는데 앞 시험의
+         결과·「실행 끝」 이 그대로 남았다) — 결과·로그·요약·진행 자리까지.
+         안 비우면 Response(seqSteps)가 draft 대신 옛 ran 을 그린다. */
+      setRan(null)
+      setLogs([])
+      logN.current = 0
+      setSumm(null)
+      setAt(-1)
       setDraft(d2)
       /* 대화에도 **아티팩트 칩**(클로드)으로 남긴다 — 오른쪽 판이 닫혔거나
          다른 단계를 보다가도 이 칩으로 Response 에 돌아온다 */
@@ -1754,6 +1762,12 @@ export default function AskBar({ devices }: Props) {
       /* 「일반」 갈래는 있는 시험을 그대로 도는 자리라 기준을 채우지 않는다 —
          한 건 가져올 때와 같은 길이다. */
       await holdMaking(t0)
+      /* 이전 실행 자국 비우기(지적) — takeTc 와 같은 까닭 */
+      setRan(null)
+      setLogs([])
+      logN.current = 0
+      setSumm(null)
+      setAt(-1)
       setDraft(d2)
       void keepChat(d2.name, d2, picked?.ip ?? '')
       setLike([])
