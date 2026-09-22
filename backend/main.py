@@ -7606,13 +7606,17 @@ def run_cli(payload: dict):
                 _wait_only_sec = 0.0
             # 프롬프트까지 기다려 읽기 (빠른 연속 전송에도 출력 온전히 — 출력 누락 방지)
             import re as _re
+            # 첫 명령이 y/n 답이면(지적: y 가 안 먹음) 세션이 [y/n] 확인에 서
+            # 있다 — find_prompt(개행)를 보내면 그 개행이 확인을 삼킨다.
+            _first_yn = bool(commands) and str(commands[0] or "").strip().lower() in ("y", "yes", "n", "no")
             try:
                 # 프롬프트는 캐시(연결 시점) 대신 항상 재탐지 — 시험 중 hostname 변경 시
                 # 옛 프롬프트를 기다리다 read_timeout(약 25초)을 까먹는 지연을 방지
                 # 호스트명만 추출(config 모드 괄호 제거) → enable/config/config-if 어느 레벨이든 매칭되게
                 _bp = ""
-                try: _bp = (conn.find_prompt() or "").strip().rstrip("#>$ ").split("(")[0].strip()
-                except Exception: _bp = ""
+                if not _first_yn:
+                    try: _bp = (conn.find_prompt() or "").strip().rstrip("#>$ ").split("(")[0].strip()
+                    except Exception: _bp = ""
                 if not _bp:
                     _bp = (getattr(conn, "base_prompt", "") or "").strip().rstrip("#>$ ").split("(")[0].strip()
             except Exception:
@@ -7627,8 +7631,12 @@ def run_cli(payload: dict):
             outputs = []
             _skip_next = False   # 확인 프롬프트에 자동응답한 다음 명령(yes/no 그 자체)은 건너뜀 — 중복 전송 방지
             for _ci, cmd in enumerate(commands):
-                # 스텝을 나눠 보내면 그 사이 설정 모드가 풀릴 수 있다 — 되밟는다(지시)
-                _cfg_ctx_keep(conn, ent, cmd)
+                # 스텝을 나눠 보내면 그 사이 설정 모드가 풀릴 수 있다 — 되밟는다(지시).
+                # 단 y/n 답·직전 Password: 답 명령은 건너뛴다(지적) — 되밟기의
+                # find_prompt(개행)가 확인/암호 물음을 삼킨다.
+                _after_pw0 = bool(ent.pop("await_pw", False))
+                if not _after_pw0 and str(cmd or "").strip().lower() not in ("y", "yes", "n", "no"):
+                    _cfg_ctx_keep(conn, ent, cmd)
                 _cfg_ctx_note(ent, cmd)
                 if _skip_next:
                     _skip_next = False
@@ -7997,11 +8005,22 @@ async def run_cli_stream(payload: dict):
                     # 장비가 안 보낸 것이고, 오래 걸렸으면 기다리다 끝난 것이다.
                     _cli_t0 = _tstr.time(); _cli_n = 0
                     await asyncio.sleep(0)
-                    # 스텝을 나눠 보내면 그 사이 설정 모드가 풀릴 수 있다 —
-                    # 풀렸으면 쌓아 둔 문맥을 조용히 되밟는다(지시: 프롬프트 유지)
-                    await asyncio.to_thread(_cfg_ctx_keep, conn, ent, cmd)
-                    try: await asyncio.to_thread(conn.read_channel)
-                    except Exception: pass
+                    # ── y/n 답 스텝(지적: y 가 안 먹음) ──────────────────────
+                    # 세션이 「Proceed ? [y/n] :」 확인에 서 있는 상태다. 여기서
+                    # _cfg_ctx_keep 가 find_prompt(개행)를 먼저 보내면 그 개행이
+                    # 확인을 빈 답으로 삼켜 버리고, y 는 일반 프롬프트에 떨어져
+                    # 「% invalid input」 이 된다 — 셀 암호(Password:) 때와 같은
+                    # 병이다. y/n 답 명령은 되밟기를 통째로 건너뛴다.
+                    _is_yn_cmd = (cmd or "").strip().lower() in ("y", "yes", "n", "no")
+                    # 직전 스텝이 Password: 에 세워 두었으면(지적: 셀 암호) 이 스텝은
+                    # 그 물음의 답이다 — y/n 과 똑같이 되밟기·드레인을 건너뛴다.
+                    _after_pw = bool(ent.pop("await_pw", False))
+                    if not _is_yn_cmd and not _after_pw:
+                        # 스텝을 나눠 보내면 그 사이 설정 모드가 풀릴 수 있다 —
+                        # 풀렸으면 쌓아 둔 문맥을 조용히 되밟는다(지시: 프롬프트 유지)
+                        await asyncio.to_thread(_cfg_ctx_keep, conn, ent, cmd)
+                        try: await asyncio.to_thread(conn.read_channel)
+                        except Exception: pass
                     await asyncio.to_thread(conn.write_channel, cmd + "\n")
                     _cfg_ctx_note(ent, cmd)
                     echo_done = False; pending = ""; idle = 0; dl = _tstr.time() + 30
@@ -8052,6 +8071,19 @@ async def run_cli_stream(payload: dict):
                             # 사용자가 다음 줄에 암호를 치면 그대로 들어간다.
                             if pending and _restr.search(r"pass\s*word\s*:?\s*$", pending.strip(), _restr.I):
                                 if pending: yield _sse({"o": pending})
+                                # 세션이 Password: 에 서 있다(지적: 셀 암호가 안 먹음) —
+                                # 다음 스텝(암호)은 find_prompt(개행)를 보내면 안 된다.
+                                ent["await_pw"] = True
+                                pending = ""; break
+                            # 확인 물음(「Proceed ? [y/n] :」 등)도 같다(지적: y 가 안 먹음) —
+                            # 프롬프트를 기다리며 idle 시간을 다 태우지 않고 여기서 스텝을
+                            # 끝낸다. 세션은 확인에 선 채 남아, 다음 스텝의 y/n 이 그
+                            # 자리에 바로 들어간다.
+                            if pending and _restr.search(
+                                r"(?:\(y/n\)|\[y/n\]|\(yes/no\)|\[yes/no\])\s*[:?]?\s*$",
+                                pending.strip(), _restr.I,
+                            ):
+                                if pending: yield _sse({"o": pending})
                                 pending = ""; break
                             if pr and pending.strip() and _restr.search(pr, pending.strip()):
                                 _quiet_dl = _tstr.time() + _quiet_wait
@@ -8078,10 +8110,11 @@ async def run_cli_stream(payload: dict):
                         else:
                             if echo_done and pending.strip():
                                 _ps = pending.strip()
-                                if (pr and _restr.search(pr, _ps)) or _restr.search(r"\S+[#>]\s*$", _ps):
+                                # 셀 프롬프트($)도 스텝 끝으로 본다(지적: 셀 진입 뒤 멈춤)
+                                if (pr and _restr.search(pr, _ps)) or _restr.search(r"\S+[#>$]\s*$", _ps):
                                     try:
                                         _np = _ps.split("\n")[-1].strip().rstrip("#>$ ")
-                                        if _np: pr = _restr.escape(_np) + r"\S*[#>]\s*$"
+                                        if _np: pr = _restr.escape(_np) + r"\S*[#>$]\s*$"
                                     except Exception: pass
                                     pending = ""; break
                             idle += 1

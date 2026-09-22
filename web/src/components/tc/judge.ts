@@ -279,6 +279,28 @@ function tableLayoutByHead(lines: string[]): TblLayout | null {
        아니라 KV 다 — 표로 안 삼으면 KV 줄로 그려져 값이 눌린다. */
     if (cells.some((c) => c.w.trim() === ':')) continue
     const starts = cells.map((c) => c.at)
+    /* 머리줄은 **이름들이지 값들이 아니다**(지적: `| include` 로 거른 출력은
+       머리줄이 없어 첫 자료 줄(1/1-1 …)이 머리글로 오인돼 블럭이 안 잡혔다).
+       셀 절반 이상이 숫자로 시작하면 자료 줄이다 — 그때는 이 줄부터 전부
+       자료인 **머리 없는 표**로 본다(headIdx -1). */
+    const digity = cells.filter((c) => /^\d/.test(c.w)).length
+    if (digity * 2 >= cells.length) {
+      const bodyIdx0: number[] = []
+      for (let i = h; i < lines.length; i++) {
+        const ln = lines[i] ?? ''
+        if (!ln.trim()) continue
+        if (isPromptLine(ln)) continue
+        if (cut(ln).length < 2) continue
+        bodyIdx0.push(i)
+      }
+      /* 한 줄뿐이면 표가 아니다 — 자유 줄(토큰) 규칙이 더 잘 맞는다 */
+      if (bodyIdx0.length < 2) return null
+      const cols0: Array<[number, number]> = starts.map((st, c) => [
+        st,
+        c === starts.length - 1 ? -1 : (starts[c + 1] ?? -1),
+      ])
+      return { headIdx: -1, sepIdx: -1, cols: cols0, bodyIdx: bodyIdx0 }
+    }
     const bodyIdx: number[] = []
     for (let i = h + 1; i < lines.length; i++) {
       const ln = lines[i] ?? ''
