@@ -1173,10 +1173,33 @@ export default function AskBar({ devices }: Props) {
         /* 「추천」 은 배지 하나로만 — 글자로도 적으면 두 번 찍힌다(검증에서 발견) */
         const meta = [whyById.get(d.id) || '', st.label].filter(Boolean).join(' · ')
         const nm = String(d.model || d.name || '')
+        /* 장비 표의 칸을 카드에도 싣는다(지시: 어느 고객용인지 알아야) —
+           LAB · 사업자 · 벤더 · 제품군 · 모델그룹, 그리고 T/S/C/N 통신 상태 */
+        const facts = [d.lab, d.operator, d.vendor, d.device_group, d.model_group]
+          .map((x) => String(x ?? '').trim())
+          .filter(Boolean)
+          .join(' · ')
+        const lk = (proto: string) => {
+          const a = (d.access ?? []).find((x) => String(x.protocol ?? '').toLowerCase() === proto)
+          if (!a || a.enabled === false) return 'na'
+          return a.last_status === 'ok' ? 'on' : a.last_status === 'fail' ? 'off' : 'idle'
+        }
+        const tscn = (
+          [
+            ['T', 'telnet', 'Telnet'],
+            ['S', 'ssh', 'SSH'],
+            ['C', 'console', 'Console'],
+            ['N', 'snmp', 'SNMP'],
+          ] as const
+        )
+          .map(([k, p, label]) => `<i class="lk ${lk(p)}" title="${label}">${k}</i>`)
+          .join('')
         return (
           /* 한 줄 카드(지시: 1열) — 이유가 잘리면 title 로 읽는다 */
           `<button type="button" class="ask-cand${i === 0 ? ' top' : ''} js-devpick" data-id="${hesc(d.id)}" title="${hesc(meta)}">` +
           `<span class="cn"><i class="dot ${st.k}"></i><b>${hesc(nm)}</b> <em>${hesc(String(d.ip ?? ''))}</em></span>` +
+          (facts ? `<span class="cf">${hesc(facts)}</span>` : '') +
+          `<span class="ct">${tscn}</span>` +
           `<span class="cw">${i === 0 ? '<i class="rec">추천</i>' : ''}${hesc(meta)}</span>` +
           `</button>`
         )

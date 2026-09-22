@@ -9638,6 +9638,35 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   padding: 1px 6px;
   border-radius: 10px;
 }
+/* 장비 표 칸(지시: 어느 고객용인지) — LAB · 사업자 · 벤더 · 제품군 · 모델그룹 */
+.ask-msgs .ask-cand .cf {
+  font-size: 11px;
+  color: var(--c-muted);
+  flex: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 34%;
+}
+/* T/S/C/N 통신 상태 — 표의 점을 글자 칩으로 */
+.ask-msgs .ask-cand .ct { display: flex; gap: 3px; flex: none; }
+.ask-msgs .ask-cand .ct .lk {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--c-border);
+  color: var(--c-muted);
+  background: var(--c-bg, #fff);
+}
+.ask-msgs .ask-cand .ct .lk.on { color: var(--c-pass, #16a34a); border-color: var(--c-pass, #16a34a); background: var(--c-pass-soft, #f0faf3); }
+.ask-msgs .ask-cand .ct .lk.off { color: var(--c-fail, #dc2626); border-color: var(--c-fail, #dc2626); background: var(--c-fail-soft, #fdf2f2); }
+.ask-msgs .ask-cand .ct .lk.idle { color: var(--c-warn, #d97706); border-color: var(--c-warn, #d97706); }
+.ask-msgs .ask-cand .ct .lk.na { opacity: 0.35; }
 .ask-msgs .ask-cand .cn .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--c-muted); }
 .ask-msgs .ask-cand .cn .dot.ok { background: var(--c-pass, #16a34a); }
 .ask-msgs .ask-cand .cn .dot.busy { background: var(--c-warn, #d97706); }
