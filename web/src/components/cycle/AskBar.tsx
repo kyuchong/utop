@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState , type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState , type CSSProperties, type ReactNode } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { prefGet, prefSet } from '@/lib/prefs'
@@ -308,6 +308,8 @@ export default function AskBar({ devices }: Props) {
   /** 채팅 속 실행(지시: 시험 진행이 채팅창에서) — 켜지면 대화 줄의
       표식(data-chatrun) 자리에 Response 가 서고 3열은 안 연다. */
   const [chatRun, setChatRun] = useState(false)
+  /** 결과 보기의 「질문부터 결과까지」 타임라인 — 펼쳐 둔 단계 번호(지시: 목업) */
+  const [tlOpen, setTlOpen] = useState<Set<number>>(new Set([5]))
   /* ── 실행 응답 화면(지시: 사이클 자동 실행처럼) ──────────────────────
      실행을 걸면 편집용 세 판 대신 **응답이 주인공**인 화면으로 바뀐다 —
      상태 밴드 · 진행 막대 · 왼쪽 스텝 큐 · 오른쪽 큰 실행 로그.
@@ -5133,118 +5135,299 @@ export default function AskBar({ devices }: Props) {
                 ).length
                 return (
                   <>
-                    {/* 상태 글줄은 빵부스러기 줄로 올렸다(지시) — 이 밴드는
-                        **시험 흐름**을 그린다: 장비 → 항목 → 절차 → 실행 → 결과 */}
-                    <div className={`askr-band${running ? '' : ' done'}`}>
-                      {running && <span className="askr-dot" aria-hidden="true" />}
-                      <ol className="askr-flow" aria-label="시험 흐름">
-                        <li className="ok"><i>✓</i>장비 고르기</li>
-                        <li className="ok"><i>✓</i>시험 항목</li>
-                        <li className="ok"><i>✓</i>절차 준비</li>
-                        <li className={running ? 'on' : doneN > 0 ? 'ok' : 'next'}>
-                          <i>{running ? '●' : doneN > 0 ? '✓' : '▷'}</i>
-                          {running && at >= 0 ? `실행 (스텝 ${stripNos[at] || at + 1})` : '실행'}
-                        </li>
-                        <li className={!running && doneN > 0 ? 'ok' : ''}>
-                          <i>{!running && doneN > 0 ? '✓' : '▤'}</i>결과
-                        </li>
-                      </ol>
-                      <span className="sp" />
-                      {running ? (
-                        <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
-                          ⏹ 멈추기
-                        </button>
-                      ) : mode === 'adv' ? (
-                        /* 편집은 Advanced 의 일이다 — General 은 읽기 전용이라
-                           response 화면만 쓴다(지시) */
-                        <button
-                          className="btn small"
-                          type="button"
-                          title="스텝 표·상세 편집 화면으로 돌아갑니다 — 결과와 로그는 남습니다"
-                          onClick={() => setRunView(false)}
-                        >
-                          ↩ 절차·상세 보기
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="askr-prog" aria-hidden="true">
-                      <span
-                        style={{
-                          width: `${runnableN ? Math.round((doneN / runnableN) * 100) : 0}%`,
-                        }}
-                      />
-                    </div>
-                    {/* **전체 요약**(지시) — 시험 결과만이 아니라 어떤 장비로
-                        어떤 항목을 돌렸고 결과가 어떤지가 판 머리에 한눈에.
-                        AI 요약도 이 카드 안에 함께 선다. */}
-                    <div
-                      className={`askr-ov${
-                        !running && (pass > 0 || fail > 0) ? (fail > 0 ? ' bad' : ' ok') : ''
-                      }`}
-                    >
-                      <span className="k">장비</span>
-                      <span className="v">
-                        <b>{devName}</b>
-                        {devIp ? ` · ${devIp}` : ''}
-                        {[curDev?.lab, curDev?.operator, curDev?.vendor, curDev?.model_group]
-                          .map((x) => String(x ?? '').trim())
-                          .filter(Boolean)
-                          .map((x) => ` · ${x}`)
-                          .join('')}
-                      </span>
-                      <span className="k">시험 항목</span>
-                      <span className="v">
-                        <b>{draft.object || ''}</b>
-                        {draft.name && draft.name !== draft.object ? ` — ${draft.name}` : ''}
-                        {` · ${runnableN}스텝`}
-                      </span>
-                      <span className="k">시험 결과</span>
-                      <span className="v">
-                        {running ? (
-                          <i className="ov-b run">● 실행 중</i>
-                        ) : fail > 0 ? (
-                          <i className="ov-b bad">✖ 불합격</i>
-                        ) : doneN >= runnableN && pass > 0 ? (
-                          <i className="ov-b ok">✔ 합격</i>
-                        ) : doneN > 0 ? (
-                          <i className="ov-b">중단됨</i>
-                        ) : (
-                          <i className="ov-b">실행 전</i>
-                        )}
-                        {doneN > 0 || pass > 0 || fail > 0
-                          ? ` 합격 ${pass} · 불합격 ${fail} · 미실행 ${Math.max(0, runnableN - doneN)}`
-                          : ' ▷ 시험 시작을 누르면 여기에 결과가 담깁니다'}
-                      </span>
-                      {(summing || summ) && (
+                    {/* 실행 중에만 밴드·진행 막대(지시: 목업은 결과 화면) */}
+                    {running && (
+                      <>
+                        <div className="askr-band">
+                          <span className="askr-dot" aria-hidden="true" />
+                          <b>{at >= 0 ? `실행 중 — 스텝 ${stripNos[at] || at + 1}` : '실행 중…'}</b>
+                          <span className="sp" />
+                          <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
+                            ⏹ 멈추기
+                          </button>
+                        </div>
+                        <div className="askr-prog" aria-hidden="true">
+                          <span
+                            style={{
+                              width: `${runnableN ? Math.round((doneN / runnableN) * 100) : 0}%`,
+                            }}
+                          />
+                        </div>
+                      </>
+                    )}
+                    {/* ── 결과 보기(지시: 첨부 목업 적용) ────────────────────
+                        머리(제목·배지·메타) → 판정 요약(합불·수·비율·AI) →
+                        질문부터 결과까지(타임라인) → 스텝별 판정(RespView). */}
+                    {(() => {
+                      const done = !running && (pass > 0 || fail > 0 || doneN > 0)
+                      const allPass = done && fail === 0 && pass > 0 && doneN >= runnableN
+                      const failIdx = (ran ?? []).findIndex((r3) =>
+                        /fail/i.test(String(r3?.status ?? r3?.repeatResult ?? '')),
+                      )
+                      const fs = failIdx >= 0 ? (ran ?? [])[failIdx] : null
+                      const fsCrit = String(fs?.criteria ?? '').trim()
+                      const fsRca = String((fs as { reason?: string } | null)?.reason ?? '').trim()
+                      const facts = [curDev?.lab, curDev?.operator, curDev?.vendor, curDev?.model_group]
+                        .map((x) => String(x ?? '').trim())
+                        .filter(Boolean)
+                        .join(' · ')
+                      const flow = flowRef.current
+                      /* 타임라인 줄들 — 단계 요약 + 펼치면 흐름 기록(flowLog) */
+                      const tlRows: Array<{
+                        id: number
+                        n: string
+                        k: string
+                        bad?: boolean
+                        v: ReactNode
+                        sub: string
+                        who: string
+                        logs: string[]
+                      }> = [
+                        {
+                          id: 0, n: '?', k: '질문', who: '입력',
+                          v: <q>“{asked || draft.name}”</q>,
+                          sub: `Coverage AI · ${mode === 'adv' ? 'Advanced' : 'Basic'}`,
+                          logs: [],
+                        },
+                        {
+                          id: 1, n: '1', k: '장비', who: '선택',
+                          v: <><b>{devName}</b>{devIp ? <> · <code>{devIp}</code></> : null}</>,
+                          sub: facts,
+                          logs: flow.filter((x) => x.s === 1).map((x) => x.t),
+                        },
+                        {
+                          id: 2, n: '2', k: '시험 항목', who: '선택',
+                          v: <><code>{draft.object || ''}</code> <b>{draft.name}</b></>,
+                          sub: '',
+                          logs: [],
+                        },
+                        {
+                          id: 3, n: '3', k: '절차', who: '',
+                          v: <b>{`가져온 시험 그대로 · ${runnableN}스텝`}</b>,
+                          sub: `세션 S01 → ${devName}${devIp ? ` (${devIp})` : ''}`,
+                          logs: flow.filter((x) => x.s === 5).map((x) => x.t),
+                        },
+                        {
+                          id: 4, n: '▶', k: '실행', who: 'UTOP',
+                          v: <b>{running ? `실행 중 — ${doneN}/${runnableN} 스텝` : done ? `${doneN} / ${runnableN} 스텝` : '실행 전'}</b>,
+                          sub: done ? `걸린 시간 ${runSec}s` : '',
+                          logs: [],
+                        },
+                        {
+                          id: 5, n: fail > 0 ? '✕' : done ? '✓' : '—', k: '결과', who: '판정', bad: fail > 0,
+                          v: (
+                            <b style={fail > 0 ? { color: 'var(--c-fail)' } : allPass ? { color: 'var(--c-pass)' } : undefined}>
+                              {running ? '실행 중' : fail > 0 ? '불합격' : allPass ? '합격' : done ? '중단됨' : '실행 전'}
+                              {done ? ` · 합격 ${pass} · 불합격 ${fail} · 미실행 ${Math.max(0, runnableN - doneN)}` : ''}
+                            </b>
+                          ),
+                          sub: fail > 0 ? `불합격 스텝 ${stripNos[failIdx] || failIdx + 1} — 판정 요약 참고` : '',
+                          logs: fail > 0 && fsRca ? [fsRca] : [],
+                        },
+                      ]
+                      const tlAll = tlRows.every((r3) => tlOpen.has(r3.id))
+                      return (
                         <>
-                          <span className="k">AI 요약</span>
-                          <span className="v">
-                            {summ ? (
-                              summ.text
-                            ) : (
-                              <>
-                                <span className="ask-spin" aria-hidden="true" /> 결과를 요약하는 중…
-                              </>
+                          {/* 머리 — 제목·배지·메타 */}
+                          <div className="askv-rh">
+                            <h2>결과 보기 · {draft.name}</h2>
+                            {done && (
+                              <span className={`askv-vd ${fail > 0 ? 'fail' : 'pass'}`}>
+                                {fail > 0 ? 'FAIL' : allPass ? 'PASS' : '중단'}
+                              </span>
                             )}
-                          </span>
+                            <span className="sp" />
+                            {!running && mode === 'adv' && (
+                              <button
+                                className="btn small"
+                                type="button"
+                                title="스텝 표·상세 편집 화면으로 돌아갑니다 — 결과와 로그는 남습니다"
+                                onClick={() => setRunView(false)}
+                              >
+                                ↩ 절차·상세 보기
+                              </button>
+                            )}
+                          </div>
+                          <div className="askv-meta">
+                            <code>{draft.object || ''}</code>
+                            {` · ${devName}${devIp ? ` (${devIp})` : ''}`}
+                            {facts ? ` · ${facts}` : ''}
+                            {` · ${runnableN}스텝`}
+                            {done ? ` · ${runSec}s` : ''}
+                          </div>
+
+                          {/* 1. 판정 요약 */}
+                          <div className="askv-card">
+                            <div className="askv-sumrow">
+                              <div className="askv-big">
+                                <i className={`mk ${running ? 'run' : fail > 0 ? 'fail' : allPass ? 'pass' : ''}`}>
+                                  {running ? '●' : fail > 0 ? '✕' : allPass ? '✓' : '▷'}
+                                </i>
+                                <span>
+                                  <b className={running ? 'run' : fail > 0 ? 'fail' : allPass ? 'pass' : ''}>
+                                    {running ? '실행 중' : fail > 0 ? '불합격' : allPass ? '합격' : done ? '중단됨' : '실행 전'}
+                                  </b>
+                                  <small>
+                                    {running
+                                      ? `${doneN}/${runnableN} 스텝 진행`
+                                      : fail > 0
+                                        ? `${runnableN}스텝 중 ${fail}스텝이 기준을 못 넘었습니다`
+                                        : allPass
+                                          ? `${runnableN}스텝 모두 기준을 넘었습니다`
+                                          : done
+                                            ? '중간에 멈췄습니다'
+                                            : '▷ 시험 시작을 누르면 결과가 담깁니다'}
+                                  </small>
+                                </span>
+                              </div>
+                              <div className="askv-cnts">
+                                <span className="p"><b>{pass}</b><small>합격</small></span>
+                                <span className="f"><b>{fail}</b><small>불합격</small></span>
+                                <span className="i"><b>{Math.max(0, runnableN - doneN)}</b><small>미실행</small></span>
+                                {done && <span><b>{runSec}s</b><small>걸린 시간</small></span>}
+                              </div>
+                            </div>
+                            {(pass > 0 || fail > 0) && (
+                              <div className="askv-bar" aria-hidden="true">
+                                <i className="p" style={{ width: `${runnableN ? (pass / runnableN) * 100 : 0}%` }} />
+                                <i className="f" style={{ width: `${runnableN ? (fail / runnableN) * 100 : 0}%` }} />
+                              </div>
+                            )}
+                            {(summing || summ || fs) && (
+                              <div className="askv-ai">
+                                <i>AI</i>
+                                <div className="c">
+                                  {summ ? (
+                                    <p>{summ.text}</p>
+                                  ) : summing ? (
+                                    <p><span className="ask-spin" aria-hidden="true" /> 결과를 요약하는 중…</p>
+                                  ) : null}
+                                  {fs && (
+                                    <dl className="askv-kv">
+                                      <dt>불합격 스텝</dt>
+                                      <dd>
+                                        <span className="askv-vd fail">FAIL</span> Step {stripNos[failIdx] || failIdx + 1}
+                                        {' · '}
+                                        <code>{String(fs.cli || fs.step || '')}</code>
+                                      </dd>
+                                      {fsCrit && (
+                                        <>
+                                          <dt>판정 기준</dt>
+                                          <dd><code>{fsCrit}</code></dd>
+                                        </>
+                                      )}
+                                      {fsRca && (
+                                        <>
+                                          <dt>발견</dt>
+                                          <dd><code className="bad">{fsRca}</code></dd>
+                                        </>
+                                      )}
+                                    </dl>
+                                  )}
+                                  {fs && !running && (
+                                    <div className="askv-acts">
+                                      <button
+                                        className="btn small"
+                                        type="button"
+                                        title="불합격 스텝 하나만 다시 돌립니다"
+                                        onClick={() => {
+                                          setStepAt(failIdx)
+                                          void run(failIdx)
+                                        }}
+                                      >
+                                        ▷ 이 스텝만 다시
+                                      </button>
+                                      <button
+                                        className="btn small"
+                                        type="button"
+                                        title="아래 스텝별 판정에서 그 스텝을 짚습니다"
+                                        onClick={() => setStepAt(failIdx)}
+                                      >
+                                        판정 기준 보기
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 2. 질문부터 결과까지 */}
+                          <div className="askv-card">
+                            <div className="askv-ch">
+                              질문부터 결과까지 <span className="muted">단계별 기록</span>
+                              <button
+                                type="button"
+                                className="askv-fold"
+                                onClick={() =>
+                                  setTlOpen(tlAll ? new Set() : new Set(tlRows.map((r3) => r3.id)))
+                                }
+                              >
+                                {tlAll ? '모두 접기' : '모두 펼치기'}
+                              </button>
+                            </div>
+                            <ol className="askv-tl">
+                              {tlRows.map((r3) => {
+                                const open = tlOpen.has(r3.id)
+                                const canOpen = r3.logs.length > 0
+                                return (
+                                  <li key={r3.id} className={`${r3.bad ? 'bad' : ''}${open ? ' open' : ''}`}>
+                                    <div
+                                      className={`askv-tlh${canOpen ? ' hit' : ''}`}
+                                      role={canOpen ? 'button' : undefined}
+                                      tabIndex={canOpen ? 0 : undefined}
+                                      onClick={
+                                        canOpen
+                                          ? () =>
+                                              setTlOpen((s3) => {
+                                                const n3 = new Set(s3)
+                                                if (n3.has(r3.id)) n3.delete(r3.id)
+                                                else n3.add(r3.id)
+                                                return n3
+                                              })
+                                          : undefined
+                                      }
+                                    >
+                                      <span className="dot">{r3.n}</span>
+                                      <span className="k">{r3.k}</span>
+                                      <span className="v">
+                                        {r3.v}
+                                        {r3.sub && <small>{r3.sub}</small>}
+                                      </span>
+                                      <span className="who">{r3.who}</span>
+                                    </div>
+                                    {open && canOpen && (
+                                      <ol className="askv-tld">
+                                        {r3.logs.map((t3, i3) => (
+                                          <li key={i3}>{t3}</li>
+                                        ))}
+                                      </ol>
+                                    )}
+                                  </li>
+                                )
+                              })}
+                            </ol>
+                          </div>
+
+                          {/* 3. 스텝별 판정 — Response 판(사이클과 한 몸) 그대로 */}
+                          <div className="askv-card">
+                            <div className="askv-ch">스텝별 판정</div>
+                            <div className="askr-resp">
+                              <RespView
+                                steps={autoSteps}
+                                stepAt={stepAt}
+                                onStep={setStepAt}
+                                dut={devName}
+                                runStep={running ? at : null}
+                                seedKey={draft.object || draft.name}
+                                openAll
+                                preview
+                              />
+                            </div>
+                          </div>
                         </>
-                      )}
-                    </div>
-                    {/* Response 판 — 사이클 자동 실행 화면과 **한 몸**(지시).
-                        스텝 카드(명령·판정 기준·변수·RCA·출력 강조)가 그대로 선다. */}
-                    <div className="askr-resp">
-                      <RespView
-                        steps={autoSteps}
-                        stepAt={stepAt}
-                        onStep={setStepAt}
-                        dut={devName}
-                        runStep={running ? at : null}
-                        seedKey={draft.object || draft.name}
-                        /* PASS 도 펼친 채로(지시) — 자동 실행 화면은 기본(부적합만) 유지 */
-                        openAll
-                        preview
-                      />
-                    </div>
+                      )
+                    })()}
                     {!running && (doneN > 0 || pass > 0 || fail > 0) && (
                       <div className="askr-sum">
                         {fail > 0 ? (

@@ -9726,6 +9726,158 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 }
 .ask-msgs .acr-go:hover { filter: brightness(1.06); }
 
+/* ══ 결과 보기(지시: 첨부 목업) — 머리·판정 요약·타임라인·스텝별 판정 ══
+   이름은 askv- 로 가둔다(겹치면 남의 화면이 조용히 깨진다). */
+.askr .askv-rh { display: flex; align-items: center; gap: 8px; padding: 14px 16px 0; }
+.askr .askv-rh h2 { margin: 0; font-size: 17px; letter-spacing: -0.3px; }
+.askv-vd {
+  padding: 0 7px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  line-height: 18px;
+}
+.askv-vd.fail { color: var(--c-fail, #cf222e); }
+.askv-vd.pass { color: var(--c-pass, #1a7f37); }
+.askr .askv-meta { padding: 4px 16px 0; font-size: 12.5px; color: var(--c-text-faint); }
+.askr .askv-meta code { font-family: var(--font-mono); color: var(--c-text-muted); }
+.askr .askv-card { margin: 0 16px; padding: 14px 0 16px; border-bottom: 1px solid var(--c-border-soft); }
+.askr .askv-card:last-child { border-bottom: 0; }
+.askv-ch { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; font-weight: 700; font-size: 15px; }
+.askv-ch .muted { font-weight: 400; font-size: 12.5px; }
+.askv-fold {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--c-border);
+  text-underline-offset: 3px;
+}
+
+/* 판정 요약 */
+.askv-sumrow { display: flex; align-items: center; gap: 16px; }
+.askv-big { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.askv-big .mk {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid var(--c-border);
+  font-style: normal;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--c-text-muted);
+}
+.askv-big .mk.fail { border-color: var(--c-fail); color: var(--c-fail); }
+.askv-big .mk.pass { border-color: var(--c-pass); color: var(--c-pass); }
+.askv-big .mk.run { border-color: var(--c-primary); color: var(--c-primary); }
+.askv-big b { display: block; font-size: 18px; }
+.askv-big b.fail { color: var(--c-fail); }
+.askv-big b.pass { color: var(--c-pass); }
+.askv-big b.run { color: var(--c-primary); }
+.askv-big small { color: var(--c-text-faint); }
+.askv-cnts { display: flex; gap: 18px; flex: none; }
+.askv-cnts span { text-align: right; }
+.askv-cnts b { display: block; font-size: 16px; }
+.askv-cnts small { font-size: 11px; color: var(--c-text-faint); }
+.askv-cnts .p b { color: var(--c-pass); }
+.askv-cnts .f b { color: var(--c-fail); }
+.askv-cnts .i b { color: var(--c-idle, #8b949e); }
+.askv-bar { display: flex; height: 4px; margin-top: 12px; border-radius: 999px; overflow: hidden; background: var(--c-surface-alt, #f5f7f9); }
+.askv-bar i { display: block; height: 100%; }
+.askv-bar .p { background: var(--c-pass); }
+.askv-bar .f { background: var(--c-fail); }
+.askv-ai {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: #fafbfc;
+  line-height: 1.6;
+}
+.askv-ai > i { flex: none; font-style: normal; font-size: 11px; font-weight: 700; color: var(--c-text-muted); padding-top: 2px; }
+.askv-ai .c { flex: 1; min-width: 0; }
+.askv-ai .c p { margin: 0; }
+.askv-kv {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 7px 10px;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--c-border-soft);
+  font-size: 12.5px;
+}
+.askv-kv dt { color: var(--c-text-muted); }
+.askv-kv dd { margin: 0; overflow-wrap: anywhere; }
+.askv-kv code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f6f8fa;
+  border: 1px solid var(--c-border-soft);
+}
+.askv-kv code.bad { color: var(--c-fail); }
+.askv-kv .askv-vd { margin-right: 4px; vertical-align: 1px; }
+.askv-acts { display: flex; gap: 6px; margin-top: 10px; }
+
+/* 질문부터 결과까지 — 타임라인 */
+.askv-tl { margin: 0; padding: 0; list-style: none; position: relative; }
+.askv-tl::before { content: ''; position: absolute; left: 12px; top: 10px; bottom: 10px; width: 1px; background: var(--c-border); }
+.askv-tl > li { position: relative; }
+.askv-tlh {
+  display: grid;
+  grid-template-columns: 26px 64px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 8px 2px 8px 0;
+  border-radius: 8px;
+}
+.askv-tlh.hit { cursor: pointer; }
+.askv-tlh.hit:hover .dot { box-shadow: 0 0 0 3px #eef1f4; }
+.askv-tl .dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--c-border);
+  color: var(--c-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.askv-tl > li.bad .dot { border-color: #f0b8bc; color: var(--c-fail); }
+.askv-tl > li.open .dot { background: var(--c-text); border-color: var(--c-text); color: #fff; }
+.askv-tl > li.open.bad .dot { background: var(--c-fail); border-color: var(--c-fail); }
+.askv-tl .k { padding-top: 4px; font-size: 12px; font-weight: 600; color: var(--c-text-muted); }
+.askv-tl .v { min-width: 0; padding-top: 2px; line-height: 1.5; }
+.askv-tl .v b { font-weight: 600; }
+.askv-tl .v q { quotes: none; font-weight: 600; }
+.askv-tl .v code { font-family: var(--font-mono); font-size: 12px; color: var(--c-primary); }
+.askv-tl .v small { display: block; margin-top: 2px; font-size: 12px; color: var(--c-text-faint); }
+.askv-tl .who { padding-top: 4px; font-size: 11px; font-weight: 500; color: var(--c-text-faint); white-space: nowrap; }
+.askv-tld {
+  margin: 0 0 6px 38px;
+  padding: 4px 0 4px 14px;
+  list-style: none;
+  border-left: 1px solid var(--c-border);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--c-text-muted);
+}
+
 /* ── 전체 요약 카드(지시) — 장비 · 시험 항목 · 결과 · AI 요약 한눈에 ─── */
 .askr-ov {
   display: grid;
