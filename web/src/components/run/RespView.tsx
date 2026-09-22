@@ -506,65 +506,6 @@ export default function RespView({
                     <span className="ra-bnone">판정 없음</span>
                   )}
                 </div>
-                {/* **판정 기준 · 변수 · RCA**(승인) — 무엇으로 보았고, 무엇을
-                    담았고, 그래서 어떻게 판정됐나. 셋을 한 격자에 두어 라벨이
-                    세로로 맞는다. 접으면 머리만 남는다. */}
-                {!folded.has(seeUpTo) &&
-                  (() => {
-                  const quiet2 = s2.kind === 'comment' || s2.kind === 'message'
-                  if (quiet2) return null
-                  const crit = String(s2.expected ?? '').trim()
-                  const rca = String(rd?.reason ?? s2.reason ?? '').trim()
-                  const vs = s2.vars ?? []
-                  if (!crit && !rca && !vs.length) return null
-                  /* 기준을 안 적은 스텝 — 조회 명령인지 아닌지로 말을 가른다(합의) */
-                  const c0 = String(s2.cmd ?? '').trim().toLowerCase()
-                  const calc = ['diff', 'map', 'wait', 'if', 'else', 'loop'].includes(String(s2.kind ?? ''))
-                  const look = /^(show|display|get|dir|more)\b/.test(c0) || s2.action === 'SNMP Public'
-                  return (
-                    <div className="ra-why">
-                      <span className="k">판정 기준</span>
-                      <span
-                        className={
-                          crit && crit !== '—' ? (mk && /fail/i.test(mk) ? 'bad' : '') : 'dim'
-                        }
-                      >
-                        {crit && crit !== '—'
-                          ? crit
-                          : calc
-                            ? '없음 — 판정하지 않습니다'
-                            : look
-                              ? '없음 — 조회만 합니다'
-                              : '없음 — 클리어 및 실행만 합니다'}
-                      </span>
-                      {vs.length > 0 && (
-                        <>
-                          <span className="k">변수</span>
-                          <span>
-                            {vs.map((v, vi) => (
-                              <span key={v.name}>
-                                {vi > 0 ? ' · ' : ''}
-                                <code>{v.name}</code>
-                                {v.rule ? <i className="ra-vrule">{v.rule}</i> : null}
-                              </span>
-                            ))}
-                          </span>
-                        </>
-                      )}
-                      {!!rca && (
-                        <>
-                          <span className="k">RCA</span>
-                          <span className={mk ? (/pass/i.test(mk) ? 'ok' : 'bad') : 'dim'}>
-                            {/* 판정을 **글자 앞에 세운다**(지적: 가시성) — 62 줄을
-                                훑을 때 색만으로는 눈에 안 걸린다 */}
-                            {mk ? <i className="ra-rmk">{/pass/i.test(mk) ? '✓' : '✕'}</i> : null}
-                            {rca}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  )
-                })()}
                 {!folded.has(seeUpTo) && rds.length > 1 && (
                   <div className="ra-rds">
                     <span className="l">회차 {rds.length}회</span>
@@ -632,6 +573,67 @@ export default function RespView({
                     />
                   </pre>
                 )}
+                {/* **판정 기준 · 변수 · RCA**(승인) — 무엇으로 보았고, 무엇을
+                    담았고, 그래서 어떻게 판정됐나. 셋을 한 격자에 두어 라벨이
+                    세로로 맞는다. 접으면 머리만 남는다.
+                    자리는 **출력 아래**(지시) — 명령의 결과를 먼저 읽고,
+                    그것을 무엇으로 판정했는지가 그다음이다. */}
+                {!folded.has(seeUpTo) &&
+                  (() => {
+                  const quiet2 = s2.kind === 'comment' || s2.kind === 'message'
+                  if (quiet2) return null
+                  const crit = String(s2.expected ?? '').trim()
+                  const rca = String(rd?.reason ?? s2.reason ?? '').trim()
+                  const vs = s2.vars ?? []
+                  if (!crit && !rca && !vs.length) return null
+                  /* 기준을 안 적은 스텝 — 조회 명령인지 아닌지로 말을 가른다(합의) */
+                  const c0 = String(s2.cmd ?? '').trim().toLowerCase()
+                  const calc = ['diff', 'map', 'wait', 'if', 'else', 'loop'].includes(String(s2.kind ?? ''))
+                  const look = /^(show|display|get|dir|more)\b/.test(c0) || s2.action === 'SNMP Public'
+                  return (
+                    <div className="ra-why below">
+                      <span className="k">판정 기준</span>
+                      <span
+                        className={
+                          crit && crit !== '—' ? (mk && /fail/i.test(mk) ? 'bad' : '') : 'dim'
+                        }
+                      >
+                        {crit && crit !== '—'
+                          ? crit
+                          : calc
+                            ? '없음 — 판정하지 않습니다'
+                            : look
+                              ? '없음 — 조회만 합니다'
+                              : '없음 — 클리어 및 실행만 합니다'}
+                      </span>
+                      {vs.length > 0 && (
+                        <>
+                          <span className="k">변수</span>
+                          <span>
+                            {vs.map((v, vi) => (
+                              <span key={v.name}>
+                                {vi > 0 ? ' · ' : ''}
+                                <code>{v.name}</code>
+                                {v.rule ? <i className="ra-vrule">{v.rule}</i> : null}
+                              </span>
+                            ))}
+                          </span>
+                        </>
+                      )}
+                      {!!rca && (
+                        <>
+                          <span className="k">RCA</span>
+                          <span className={mk ? (/pass/i.test(mk) ? 'ok' : 'bad') : 'dim'}>
+                            {/* 판정을 **글자 앞에 세운다**(지적: 가시성) — 62 줄을
+                                훑을 때 색만으로는 눈에 안 걸린다 */}
+                            {mk ? <i className="ra-rmk">{/pass/i.test(mk) ? '✓' : '✕'}</i> : null}
+                            {rca}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
               )})}
             {!steps.length && <pre>아직 출력이 없습니다.</pre>}
