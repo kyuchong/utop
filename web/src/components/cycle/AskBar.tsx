@@ -3263,7 +3263,7 @@ export default function AskBar({ devices }: Props) {
                                         role="menuitem"
                                         tabIndex={dead ? -1 : 0}
                                         aria-disabled={dead || undefined}
-                                        className={`ask-dmi${tDev === nm ? ' on' : ''}${
+                                        className={`ask-dmi${devId === d.id ? ' on' : ''}${
                                           R.k === 'busy' ? ' busy' : ''
                                         }${dead ? ' dis' : ''}`}
                                         onClick={pick}
