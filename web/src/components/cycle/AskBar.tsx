@@ -670,6 +670,9 @@ export default function AskBar({ devices }: Props) {
      서버가 남겨 온 대화(nl-chats)를 왼쪽 기둥에 편다 — 누르면 그 절차를
      그대로 되살리고, ✕ 로 지운다. 목록은 제목·시각만 온다(가벼워야 한다). */
   const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string }>>([])
+  /** 대화 여러 개 고르기(지시: 한 번에 지우기) — 켜면 줄마다 체크가 선다 */
+  const [selMode, setSelMode] = useState(false)
+  const [selChats, setSelChats] = useState<Set<string>>(new Set())
   /** 로그인한 사람 — 말풍선 오른쪽의 「누가 물었나」 아바타(지시) */
   const [meName, setMeName] = useState('')
   useEffect(() => {
@@ -2098,7 +2101,7 @@ export default function AskBar({ devices }: Props) {
       /* 창을 먼저 띄우지 않는다(승인: 단순안) — 추천 한 장과 후보 몇 줄이면
          대부분 끝난다. 점유를 새로 읽는 동안 스피너가 돈다(지시). */
       afterDevRef.current = 'tc'
-      sayThink('쓸 수 있는 장비를 고르는 중…')
+      sayThink('사용 가능한 장비 검색 중…')
       try {
         await lockQ.refetch()
       } catch {
@@ -2729,6 +2732,23 @@ export default function AskBar({ devices }: Props) {
       await apiFetch(`/api/ai/nl-chats/${encodeURIComponent(cid)}`, { method: 'DELETE' })
     } catch {
       /* 못 지워도 목록에서는 빠진다 — 다음에 다시 읽으면 돌아온다 */
+    }
+  }
+
+  /** 여러 개 한 번에 지우기(지시) — 고른 것들을 한 확인으로 지운다 */
+  const dropChats = async (ids: Set<string>) => {
+    if (!ids.size) return
+    if (!window.confirm(`고른 대화 ${ids.size}개를 지웁니다.`)) return
+    setRecent((v) => v.filter((x) => !ids.has(x.cid)))
+    if (chatId && ids.has(chatId)) newChat()
+    setSelChats(new Set())
+    setSelMode(false)
+    for (const cid of ids) {
+      try {
+        await apiFetch(`/api/ai/nl-chats/${encodeURIComponent(cid)}`, { method: 'DELETE' })
+      } catch {
+        /* 못 지운 것은 다음 목록 읽기에서 돌아온다 */
+      }
     }
   }
 
@@ -3829,6 +3849,19 @@ export default function AskBar({ devices }: Props) {
             >
               ⇅
             </button>
+            {/* 여러 개 지우기(지시) — 켜면 줄마다 체크가 선다 */}
+            <button
+              type="button"
+              className={`ask-sec-add${selMode ? ' on' : ''}`}
+              title={selMode ? '고르기 끝내기' : '여러 개 골라 지우기'}
+              onClick={() => {
+                setSelMode((v) => !v)
+                setSelChats(new Set())
+                setThMenu('')
+              }}
+            >
+              ☑
+            </button>
           </span>
         </div>
         {/* 찾기 칸은 걷었다 — 검색은 팝업으로(지시) */}
@@ -3837,15 +3870,44 @@ export default function AskBar({ devices }: Props) {
             <span className="muted small">아직 대화가 없습니다.</span>
           ) : (
             shownChats.map((x) => (
-              <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}`} key={x.cid}>
+              <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}${selMode && selChats.has(x.cid) ? ' sel' : ''}`} key={x.cid}>
+                {/* 고르기 모드(지시) — 줄을 누르면 열지 않고 체크만 오간다 */}
+                {selMode && (
+                  <input
+                    type="checkbox"
+                    className="ask-scheck"
+                    checked={selChats.has(x.cid)}
+                    onChange={() =>
+                      setSelChats((s) => {
+                        const n = new Set(s)
+                        if (n.has(x.cid)) n.delete(x.cid)
+                        else n.add(x.cid)
+                        return n
+                      })
+                    }
+                    aria-label={`${x.title} 고르기`}
+                  />
+                )}
                 <button
                   type="button"
                   className="ask-sbtn"
                   title={x.at ? `${x.title} · ${String(x.at).slice(0, 16)}` : x.title}
-                  onClick={() => void openChat(x.cid, x.title)}
+                  onClick={() => {
+                    if (selMode) {
+                      setSelChats((s) => {
+                        const n = new Set(s)
+                        if (n.has(x.cid)) n.delete(x.cid)
+                        else n.add(x.cid)
+                        return n
+                      })
+                      return
+                    }
+                    void openChat(x.cid, x.title)
+                  }}
                 >
                   <b>{x.title}</b>
                 </button>
+                {!selMode && (
                 <button
                   type="button"
                   className="mo"
@@ -3859,6 +3921,7 @@ export default function AskBar({ devices }: Props) {
                 >
                   ⋯
                 </button>
+                )}
                 {thMenu === x.cid && (
                   <div
                     className="ask-thmenu"
@@ -3895,6 +3958,40 @@ export default function AskBar({ devices }: Props) {
             </button>
           )}
         </div>
+        {/* 고르기 모드의 발치 — 전체 선택 · N개 지우기 · 취소(지시) */}
+        {selMode && (
+          <div className="ask-selbar">
+            <label>
+              <input
+                type="checkbox"
+                checked={shownChats.length > 0 && shownChats.every((x) => selChats.has(x.cid))}
+                onChange={(e) =>
+                  setSelChats(e.target.checked ? new Set(shownChats.map((x) => x.cid)) : new Set())
+                }
+              />
+              전체
+            </label>
+            <span className="n">{selChats.size}개 선택</span>
+            <span className="sp" />
+            <button
+              type="button"
+              className="danger"
+              disabled={!selChats.size}
+              onClick={() => void dropChats(selChats)}
+            >
+              지우기
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelMode(false)
+                setSelChats(new Set())
+              }}
+            >
+              취소
+            </button>
+          </div>
+        )}
         {/* 프로필 칩도 걷었다(지시) — 상단바가 이미 로그인한 사람을 말한다 */}
       </aside>
       )}

@@ -10049,6 +10049,35 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* 날짜 줄은 걷는다(클로드) — 풍선말이 대신 말한다 */
 .ask-sbtn em { display: none; }
 
+/* ── 대화 여러 개 골라 지우기(지시) ── */
+.ask-scheck { flex: none; margin: 0 0 0 8px; accent-color: var(--c-primary, #2563eb); cursor: pointer; }
+.ask-sitem.sel { background: var(--c-primary-bg); }
+.ask-selbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
+  flex: none;
+  white-space: nowrap;
+}
+.ask-selbar label { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--c-text-muted); }
+.ask-selbar label input { accent-color: var(--c-primary, #2563eb); }
+.ask-selbar .n { color: var(--c-text-muted); }
+.ask-selbar .sp { flex: 1; }
+.ask-selbar button {
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-bg, #fff);
+  padding: 4px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.ask-selbar button.danger { color: var(--c-fail, #dc2626); border-color: var(--c-fail, #dc2626); }
+.ask-selbar button.danger:disabled { opacity: 0.4; cursor: default; }
+
 /* ── 2열 · 대화 — 민짜 글, 글자 한 단(--fs-md) ── */
 .ask.console .ask-msgs .msg { margin-bottom: 14px; }
 .ask.console .ask-msgs .msg.u b {
