@@ -1594,19 +1594,21 @@ export default function AskBar({ devices }: Props) {
       setDraft(d2)
       /* 대화에도 **아티팩트 칩**(클로드)으로 남긴다 — 오른쪽 판이 닫혔거나
          다른 단계를 보다가도 이 칩으로 Response 에 돌아온다 */
-      say(
-        'a',
-        /* 시작 단추를 **채팅에도** 둔다(지시: 시험도 채팅창에서 실행) —
-           누르면 결과 판이 열리며 바로 돈다. Response 카드는 판만 연다. */
-        `<p class="ln"><b>3단계 · 절차</b> — 절차가 준비됐습니다. ` +
-          `<b>▷ 시험 시작</b>을 누르면 바로 실행됩니다.</p>` +
-          `<button type="button" class="ask-artchip go js-runstart"><span class="ic">▷</span>` +
-          `<span class="tx"><b>시험 시작</b>` +
-          `<em>${hesc(tcName)} · ${raw.length}스텝</em></span></button>` +
-          `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
-          `<span class="tx"><b>${hesc(tcName)} — Response</b>` +
-          `<em>${raw.length}스텝 · 실행 준비</em></span></button>`,
-      )
+      /* Response 를 **바로 채팅에** 세운다(지시: 버튼 눌러야 생기면 안 됨) —
+         절차가 준비되는 순간 스텝 목록이 실행 준비 상태로 서고,
+         ▷ 시험 시작은 그 카드 머리에 있다. */
+      setMsgs((v) => [
+        ...v.filter((m) => !m.html.includes('data-chatrun')),
+        {
+          who: 'a' as const,
+          html:
+            `<p class="ln"><b>3단계 · 절차</b> — <b>${hesc(tcName)}</b> 절차가 준비됐습니다. ` +
+            `아래 <b>▷ 시험 시작</b>을 누르면 이 자리에서 바로 실행됩니다.</p>`,
+          at: hhmm(),
+        },
+        { who: 'a' as const, html: '<i data-chatrun></i>' },
+      ])
+      setChatRun(true)
       /* 다 실었다 — 5단계를 끈다. 안 끄면 스텝이 다 나왔는데도 작업 흐름은
          「● 진행 중」 으로 남는다(지적). 기준을 채우는 길이 없는 갈래라
          여기가 끝이다. */
@@ -2268,14 +2270,15 @@ export default function AskBar({ devices }: Props) {
     setRunning(true)
     setRunView(true)
     /* 채팅 실행(지시) — 3열을 열지 않고 **대화 안에서** Response 가 돈다.
-       실행 자리는 대화 줄에 표식으로 남겨, 완료 줄이 그 아래에 이어진다. */
+       표식은 takeTc 가 이미 심었다 — 자리를 옮기지 않고, 없을 때만 단다. */
     if (opts?.chat) {
       setChatRun(true)
       setArtOpen(false)
-      setMsgs((v) => [
-        ...v.filter((m) => !m.html.includes('data-chatrun')),
-        { who: 'a' as const, html: '<i data-chatrun></i>', at: hhmm() },
-      ])
+      setMsgs((v) =>
+        v.some((m) => m.html.includes('data-chatrun'))
+          ? v
+          : [...v, { who: 'a' as const, html: '<i data-chatrun></i>', at: hhmm() }],
+      )
     } else {
       setChatRun(false)
       setArtOpen(true)
@@ -4149,12 +4152,6 @@ export default function AskBar({ devices }: Props) {
                     pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
                     return
                   }
-                  /* 채팅 속 ▷ 시험 시작(지시) — **채팅 안에서** 돈다.
-                     3열은 안 열고, 요약은 결과 보기가 연다. */
-                  if (t.closest('.js-runstart')) {
-                    if (!running) void run(undefined, undefined, undefined, { chat: true })
-                    return
-                  }
                   /* 고르기 칩은 **팝업**을 연다(지시) — 3열은 아티팩트의 몫 */
                   if (t.closest('.js-pickdev')) {
                     afterDevRef.current = 'tc'
@@ -4186,49 +4183,69 @@ export default function AskBar({ devices }: Props) {
                       <span className="av" aria-hidden="true">✦</span>
                       <div className="bdw">
                         <div className="bd">
-                          {chatRun && (running || (ran?.length ?? 0) > 0) ? (
-                            <div className="acr">
-                              <div className={`acr-band${running ? '' : ' done'}`}>
-                                {running && <span className="askr-dot" aria-hidden="true" />}
-                                <b>
-                                  {running
-                                    ? at >= 0
-                                      ? `실행 중 — 스텝 ${stripNos[at] || at + 1}`
-                                      : '실행 중…'
-                                    : '실행 끝'}
-                                </b>
-                                <span className="sp" />
-                                {running && (
-                                  <button
-                                    className="btn small"
-                                    type="button"
-                                    onClick={() => abortRef.current?.abort()}
-                                  >
-                                    ⏹ 멈추기
-                                  </button>
-                                )}
-                              </div>
-                              <div className="acr-prog" aria-hidden="true">
-                                <span
-                                  style={{
-                                    width: `${runnableN ? Math.round((doneN / runnableN) * 100) : 0}%`,
-                                  }}
-                                />
-                              </div>
-                              <div className="acr-resp">
-                                <RespView
-                                  steps={autoSteps}
-                                  stepAt={stepAt}
-                                  onStep={setStepAt}
-                                  dut={devName}
-                                  runStep={running ? at : null}
-                                  seedKey={draft?.object || draft?.name || ''}
-                                  openAll
-                                />
-                              </div>
-                            </div>
+                          {chatRun && draft ? (
+                            (() => {
+                              /* 실행 전이라도 결과 자국이 있으면 「끝」 으로 본다 */
+                              const hasRun =
+                                !running &&
+                                (ran ?? []).some((r) => String(r?.status ?? r?.repeatResult ?? '').trim())
+                              return (
+                                <div className="acr">
+                                  <div className={`acr-band${!running && hasRun ? ' done' : ''}`}>
+                                    {running && <span className="askr-dot" aria-hidden="true" />}
+                                    <b>
+                                      {running
+                                        ? at >= 0
+                                          ? `실행 중 — 스텝 ${stripNos[at] || at + 1}`
+                                          : '실행 중…'
+                                        : hasRun
+                                          ? '실행 끝'
+                                          : `실행 준비 — ${autoSteps.length}스텝`}
+                                    </b>
+                                    <span className="sp" />
+                                    {running ? (
+                                      <button
+                                        className="btn small"
+                                        type="button"
+                                        onClick={() => abortRef.current?.abort()}
+                                      >
+                                        ⏹ 멈추기
+                                      </button>
+                                    ) : (
+                                      /* 시작 단추는 **이 카드 머리**에(지시) — 채팅에
+                                         Response 가 먼저 서 있고, 여기서 바로 돈다 */
+                                      <button
+                                        className="btn small acr-go"
+                                        type="button"
+                                        onClick={() => void run(undefined, undefined, undefined, { chat: true })}
+                                      >
+                                        {hasRun ? '▷ 다시 시험' : '▷ 시험 시작'}
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="acr-prog" aria-hidden="true">
+                                    <span
+                                      style={{
+                                        width: `${runnableN ? Math.round((doneN / runnableN) * 100) : 0}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="acr-resp">
+                                    <RespView
+                                      steps={autoSteps}
+                                      stepAt={stepAt}
+                                      onStep={setStepAt}
+                                      dut={devName}
+                                      runStep={running ? at : null}
+                                      seedKey={draft?.object || draft?.name || ''}
+                                      openAll
+                                    />
+                                  </div>
+                                </div>
+                              )
+                            })()
                           ) : (
-                            <p className="ln">실행 기록이 지워졌습니다 — 다시 시험으로 새로 돌립니다.</p>
+                            <p className="ln">실행 기록이 지워졌습니다 — 항목을 다시 골라 주세요.</p>
                           )}
                         </div>
                       </div>

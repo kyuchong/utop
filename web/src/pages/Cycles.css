@@ -9625,6 +9625,13 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-msgs .acr-prog { height: 3px; background: var(--c-border); }
 .ask-msgs .acr-prog span { display: block; height: 100%; background: var(--c-primary, #2563eb); transition: width 0.3s; }
 .ask-msgs .acr-resp { padding: 8px 10px 10px; }
+.ask-msgs .acr-go {
+  background: var(--c-pass, #16a34a);
+  border-color: var(--c-pass, #16a34a);
+  color: #fff;
+  font-weight: 600;
+}
+.ask-msgs .acr-go:hover { filter: brightness(1.06); }
 
 /* ── 결과 요약 배너(사용자 결정) — 응답 판 머리에 LLM 요약을 세운다 ──── */
 .askr-summ {
