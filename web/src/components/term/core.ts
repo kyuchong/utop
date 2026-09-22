@@ -14,6 +14,8 @@ export async function streamCli(
   cmd: string,
   onChunk: (s: string) => void,
   onError: (s: string) => void,
+  /** 명령이 끝난 뒤의 **현재 프롬프트**(모드) — ubidjemals·config 로 바뀐다 */
+  onPrompt?: (p: string) => void,
 ): Promise<void> {
   const r = await apiFetch('/api/run-cli-stream', {
     method: 'POST',
@@ -33,14 +35,15 @@ export async function streamCli(
       const evt = buf.slice(0, cut)
       buf = buf.slice(cut + 2)
       if (!evt.startsWith('data: ')) continue
-      let o: { o?: string; err?: string }
+      let o: { o?: string; err?: string; pr?: string }
       try {
-        o = JSON.parse(evt.slice(6)) as { o?: string; err?: string }
+        o = JSON.parse(evt.slice(6)) as { o?: string; err?: string; pr?: string }
       } catch {
         continue
       }
       if (o.o != null) onChunk(o.o)
       else if (o.err) onError(o.err)
+      else if (o.pr && onPrompt) onPrompt(o.pr)
     }
   }
 }

@@ -252,6 +252,8 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
           setBlocks((v) =>
             v.map((b, i) => (i === at ? { ...b, out: `${b.out}[오류] ${err}`, error: true } : b)),
           ),
+        /* 명령 뒤 바뀐 프롬프트(모드)로 맞춘다 — ubidjemals·config·exit */
+        (p) => setPrompt(p),
       )
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

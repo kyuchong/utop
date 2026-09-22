@@ -8232,6 +8232,22 @@ async def run_cli_stream(payload: dict):
                     if pending.strip() and not (pr and _restr.search(pr, pending.strip())):
                         yield _sse({"o": pending})
                         await asyncio.sleep(0)
+                    # 명령이 끝나면 **지금 프롬프트를 알린다**(지적: ubidjemals 로
+                    # (admin) 모드로 바뀌었는데 화면이 안 바뀐다). 모드 바꾸는
+                    # 명령(ubidjemals·config·exit)은 출력이 없어 pr 이 안 나갔다.
+                    # Password: 등에 서 있으면(await_pw) 프롬프트가 아니니 건너뛴다.
+                    if not ent.get("await_pw"):
+                        try:
+                            _cp = await asyncio.to_thread(conn.find_prompt)
+                            _cp = (_cp or "").strip()
+                            if _cp:
+                                yield _sse({"pr": _cp})
+                                _bp2 = _cp.rstrip("#>$ ").split("(")[0].strip()
+                                if _bp2:
+                                    conn.base_prompt = _bp2
+                                    pr = _restr.escape(_bp2) + r"\S*[#>$]\s*$"
+                        except Exception:
+                            pass
                     _cli_ms = int((_tstr.time() - _cli_t0) * 1000)
                     print(
                         f"[cli] {params.get('host')} sess={payload.get('sess')} "
@@ -8440,6 +8456,59 @@ def session_close(payload: dict):
         ent["conn"] = None
         ent["ts"] = 0.0
         return {"ok": True}
+
+
+@app.post("/api/session-write")
+def session_write(payload: dict):
+    """열려 있는 세션에 **글자 한 줄을 바로 써 보낸다**(지시: 셀 암호 입력할
+    시간이 없다). start-shell 뒤 `Password:` 에 서 있는 세션에, 왕복 없이
+    암호를 즉시 넣기 위한 빠른 길 — 재접속·문맥 되밟기 없이 write 만 하고
+    짧게 응답을 읽어 돌려준다. 마스크된 값이라 로그엔 안 남긴다."""
+    params = _netmiko_params(payload)
+    text = str(payload.get("text") or "")
+    ent = _get_conn_entry(params)
+    conn = ent.get("conn")
+    if not conn:
+        return {"ok": False, "error": "세션이 없습니다 — 먼저 접속하세요"}
+    try:
+        import time as _tw
+        try:
+            conn.read_channel()   # 물음 뒤 잔여를 비운다(암호 에코 방지)
+        except Exception:
+            pass
+        conn.write_channel(text + "\n")
+        out = ""
+        t0 = _tw.time()
+        tail = ""
+        while _tw.time() - t0 < 6.0:
+            try:
+                ch = conn.read_channel() or ""
+            except Exception:
+                ch = ""
+            if ch:
+                out += ch
+                tail = (tail + ch)[-160:]
+                # 셀·일반 프롬프트나 실패 문구가 오면 끝
+                if _re.search(r"[#>$]\s*$", tail.strip()) or _re.search(r"incorrect|denied|fail", tail, _re.I):
+                    _tw.sleep(0.2)
+                    try:
+                        out += conn.read_channel() or ""
+                    except Exception:
+                        pass
+                    break
+            else:
+                _tw.sleep(0.08)
+        ent["ts"] = _tw.time()
+        ent["cfg_ctx"] = []   # 셀로 갈아탔으면 설정 문맥은 뜻이 없다
+        try:
+            _np = conn.find_prompt()
+            if _np:
+                conn.base_prompt = _np.strip().rstrip("#>$ ").split("(")[0].strip()
+        except Exception:
+            pass
+        return {"ok": True, "out": out}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
 
 
 @app.post("/api/session-break")

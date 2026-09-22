@@ -33,6 +33,8 @@ interface Block {
   error?: boolean
   /** `?` 도움말 덩어리 — 스텝 담기 대상이 아니다 */
   help?: boolean
+  /** 이 명령을 **어느 프롬프트에서** 쳤나 — 모드가 바뀌어도 기록은 그대로 */
+  pr?: string
 }
 
 /**
@@ -173,7 +175,8 @@ export default function TcTerminal({
     setBusy(true)
     const at = blocks.length
     const sess = idx
-    setBlocks((v) => [...v, { cmd, out: '', taken: false, sess }])
+    /* 이 명령을 친 그 순간의 프롬프트(모드)를 덩어리에 박아 둔다 */
+    setBlocks((v) => [...v, { cmd, out: '', taken: false, sess, pr: prompt || undefined }])
 
     try {
       await streamCli(
@@ -185,6 +188,9 @@ export default function TcTerminal({
           setBlocks((v) =>
             v.map((b, i) => (i === at ? { ...b, out: `${b.out}[오류] ${err}`, error: true } : b)),
           ),
+        /* 명령이 끝난 뒤 바뀐 프롬프트(모드)로 입력줄을 맞춘다 —
+           ubidjemals → (admin)#, config → (config)#, exit → 위로 */
+        (p) => setPrompts((m) => ({ ...m, [idx]: p })),
       )
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -369,7 +375,7 @@ export default function TcTerminal({
               <span className="tm-s" data-s={b.sess % 4} title={sessLabel(b.sess)}>
                 S{b.sess + 1}
               </span>
-              <span className="tm-p">{prompts[b.sess] || '$'}</span>
+              <span className="tm-p">{b.pr || prompts[b.sess] || '$'}</span>
               {b.cmd}
               {/* 기록이 꺼져 있을 때만 손으로 담는다. 켜져 있으면 이미 담겼다.
                   빈 엔터·도움말 줄에는 아무 단추도 안 단다. */}
