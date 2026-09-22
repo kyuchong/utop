@@ -2785,10 +2785,49 @@ export default function AskBar({ devices }: Props) {
     const passN = autoSteps.filter((s3) => /pass/i.test(String(s3.mark ?? ''))).length
     const failN = autoSteps.filter((s3) => /fail/i.test(String(s3.mark ?? ''))).length
     const at = new Date().toLocaleString('ko-KR')
+    const facts = [curDev?.lab, curDev?.operator, curDev?.vendor, curDev?.model_group]
+      .map((x) => String(x ?? '').trim())
+      .filter(Boolean)
+      .join(' · ')
     const head =
       `<h1>${hesc(draft?.name || draft?.object || '시험')} — 결과서</h1>` +
-      `<p class="meta">${hesc(draft?.object || '')} · 장비 ${hesc(devName)} · ${hesc(devIp)} · ${hesc(at)}` +
+      `<p class="meta">${hesc(draft?.object || '')} · 장비 ${hesc(devName)} · ${hesc(devIp)}` +
+      `${facts ? ` · ${hesc(facts)}` : ''} · ${hesc(at)}` +
       ` · <b class="ok">PASS ${passN}</b> / <b class="bad">FAIL ${failN}</b></p>`
+    /* 판정 요약(지적: PDF·HTML 이 결과 화면대로 안 나온다) — 결과 보기의
+       판정 요약 카드를 결과서에도 그대로 싣는다. */
+    const idleN = Math.max(0, runnableN - doneN)
+    const failStep = autoSteps.find((s3) => /fail/i.test(String(s3.mark ?? '')))
+    const sumBlock =
+      `<div class="rsum ${failN > 0 ? 'bad' : passN > 0 ? 'ok' : ''}">` +
+      `<div class="rsum-t"><b>${failN > 0 ? '✕ 불합격' : passN > 0 ? '✓ 합격' : '실행 전'}</b>` +
+      `<span class="rsum-c"><i>합격 ${passN}</i><i>불합격 ${failN}</i><i>미실행 ${idleN}</i><i>${runSec}s</i></span></div>` +
+      (summ?.text ? `<p class="rsum-ai"><b>AI</b> ${hesc(summ.text)}</p>` : '') +
+      (failStep
+        ? `<dl class="rsum-kv">` +
+          `<dt>불합격 스텝</dt><dd>Step ${failStep.no ?? ''} · <code>${hesc(String(failStep.cmd || failStep.t || ''))}</code></dd>` +
+          (failStep.expected && failStep.expected !== '—'
+            ? `<dt>판정 기준</dt><dd><code>${hesc(String(failStep.expected))}</code></dd>`
+            : '') +
+          (failStep.reason ? `<dt>발견</dt><dd class="bad">${hesc(String(failStep.reason))}</dd>` : '') +
+          `</dl>`
+        : '') +
+      `</div>`
+    /* 질문부터 결과까지 — 타임라인(결과 화면과 같은 축) */
+    const flow = flowRef.current
+    const tlLines = [
+      `<b>질문</b> “${hesc(asked || draft?.name || '')}”`,
+      `<b>장비</b> ${hesc(devName)}${devIp ? ` · ${hesc(devIp)}` : ''}${facts ? ` · ${hesc(facts)}` : ''}`,
+      `<b>시험 항목</b> ${hesc(draft?.object || '')} ${hesc(draft?.name || '')}`,
+      `<b>절차</b> 가져온 시험 그대로 · ${runnableN}스텝`,
+      `<b>실행</b> ${doneN} / ${runnableN} 스텝 · ${runSec}s`,
+      `<b class="${failN > 0 ? 'bad' : 'ok'}">결과</b> ${failN > 0 ? '불합격' : passN > 0 ? '합격' : '실행 전'} · 합격 ${passN} · 불합격 ${failN} · 미실행 ${idleN}`,
+    ]
+    const flow1 = flow.filter((x) => x.s === 1).map((x) => x.t)
+    if (flow1.length) tlLines.splice(2, 0, ...flow1.map((t) => `<span class="sub">${hesc(t)}</span>`))
+    const tlBlock = `<div class="rtl"><h2>질문부터 결과까지</h2>${tlLines
+      .map((l) => `<div class="rtl-l">${l}</div>`)
+      .join('')}</div>`
     const steps = autoSteps.map((s3) => {
       const quiet = s3.kind === 'comment' || s3.kind === 'message'
       const mark = String(s3.mark ?? '')
@@ -2811,7 +2850,7 @@ export default function AskBar({ devices }: Props) {
         : ''
       return `<div class="st">${sh}${why || out ? `<div class="sb">${why}${out}</div>` : ''}</div>`
     })
-    return [head, ...steps]
+    return [head, sumBlock, tlBlock, `<h2 class="rsec">스텝별 판정</h2>`, ...steps]
   }
 
   /** A4 쪽 나누기 — 블록을 실제로 그려 높이를 재고 한 쪽(1043px)씩 담는다. */
@@ -6161,7 +6200,25 @@ const REPORT_CSS =
   `.rpt .sh .cmd{font-family:Consolas,monospace;font-weight:400}.rpt .sh .spx{flex:1}` +
   `.rpt .ok{color:#12643a}.rpt .bad{color:#b3372c}.rpt .k{color:#888;font-weight:400}` +
   `.rpt .sb{padding:8px 10px}` +
-  `.rpt pre{white-space:pre-wrap;word-break:break-all;background:#fafaf7;border:1px solid #eee;padding:6px 8px;border-radius:4px;font-family:Consolas,monospace;font-size:11px;margin:6px 0 0}`
+  `.rpt pre{white-space:pre-wrap;word-break:break-all;background:#fafaf7;border:1px solid #eee;padding:6px 8px;border-radius:4px;font-family:Consolas,monospace;font-size:11px;margin:6px 0 0}` +
+  /* 판정 요약 카드 */
+  `.rpt .rsum{border:1px solid #ddd;border-radius:8px;padding:12px 14px;margin:0 0 12px}` +
+  `.rpt .rsum.bad{border-color:#e6b8b8;background:#fdf5f5}.rpt .rsum.ok{border-color:#b8dcc4;background:#f4faf6}` +
+  `.rpt .rsum-t{display:flex;align-items:center;gap:12px}.rpt .rsum-t>b{font-size:15px}` +
+  `.rpt .rsum.bad .rsum-t>b{color:#b3372c}.rpt .rsum.ok .rsum-t>b{color:#12643a}` +
+  `.rpt .rsum-c{margin-left:auto;display:flex;gap:12px}.rpt .rsum-c i{font-style:normal;color:#555;font-size:12px}` +
+  `.rpt .rsum-ai{margin:10px 0 0;padding-top:10px;border-top:1px solid #e5e5e0;line-height:1.55}` +
+  `.rpt .rsum-ai>b{color:#8a5a3c;margin-right:6px}` +
+  `.rpt .rsum-kv{display:grid;grid-template-columns:72px 1fr;gap:5px 10px;margin:8px 0 0;font-size:12px}` +
+  `.rpt .rsum-kv dt{color:#888}.rpt .rsum-kv dd{margin:0}.rpt .rsum-kv dd.bad{color:#b3372c}` +
+  `.rpt .rsum-kv code,.rpt .rsum-t code{font-family:Consolas,monospace;background:#f1f1ee;padding:1px 5px;border-radius:3px}` +
+  /* 타임라인 */
+  `.rpt h2{font-size:14px;margin:16px 0 8px}.rpt .rsec{margin-top:18px}` +
+  `.rpt .rtl{border:1px solid #eee;border-radius:8px;padding:10px 14px;margin:0 0 12px}` +
+  `.rpt .rtl h2{margin:0 0 8px}` +
+  `.rpt .rtl-l{padding:4px 0;border-top:1px solid #f0f0ec;line-height:1.5}.rpt .rtl-l:first-of-type{border-top:0}` +
+  `.rpt .rtl-l>b{display:inline-block;min-width:64px;color:#555}` +
+  `.rpt .rtl-l .sub{display:block;color:#999;font-size:11px;padding-left:64px}`
 
 /* 손수 그리던 쪽 미리보기(AskPage)는 걷었다(지시) — WIKI 처럼 진짜 PDF 를
    구워 내장 뷰어 + PdfRail 로 보여 준다. */
