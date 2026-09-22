@@ -1168,7 +1168,8 @@ export default function AskBar({ devices }: Props) {
         const meta = [whyById.get(d.id) || '', st.label].filter(Boolean).join(' · ')
         const nm = String(d.model || d.name || '')
         return (
-          `<button type="button" class="ask-cand${i === 0 ? ' top' : ''} js-devpick" data-id="${hesc(d.id)}">` +
+          /* 한 줄 카드(지시: 1열) — 이유가 잘리면 title 로 읽는다 */
+          `<button type="button" class="ask-cand${i === 0 ? ' top' : ''} js-devpick" data-id="${hesc(d.id)}" title="${hesc(meta)}">` +
           `<span class="cn"><i class="dot ${st.k}"></i><b>${hesc(nm)}</b> <em>${hesc(String(d.ip ?? ''))}</em></span>` +
           `<span class="cw">${i === 0 ? '<i class="rec">추천</i>' : ''}${hesc(meta)}</span>` +
           `</button>`
@@ -1198,7 +1199,8 @@ export default function AskBar({ devices }: Props) {
           .filter(Boolean)
           .join(' · ')
         return (
-          `<button type="button" class="ask-cand${i === 0 ? ' top' : ''} js-tcpick" data-tcid="${hesc(it.tcid)}" data-model="${hesc(String(it.model ?? ''))}">` +
+          /* 한 줄 카드(지시: 1열) — 이유가 잘리면 title 로 읽는다 */
+          `<button type="button" class="ask-cand${i === 0 ? ' top' : ''} js-tcpick" data-tcid="${hesc(it.tcid)}" data-model="${hesc(String(it.model ?? ''))}" title="${hesc(meta)}">` +
           `<span class="cn"><b>${hesc(it.name || it.tcid)}</b> <em>${hesc(it.tcid)}</em></span>` +
           `<span class="cw">${i === 0 ? '<i class="rec">추천</i>' : ''}${hesc(meta)}</span>` +
           `</button>`

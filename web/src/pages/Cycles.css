@@ -9552,30 +9552,39 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
    순서 그대로, 맨 위(.top)가 추천. 눌러 고르면 pickedLine 이 이 블록을 고른
    카드 한 줄로 접는다. 이름은 ask-cand 로 가둔다(css 이름 겹침 주의). */
 .ask-msgs .ask-cands { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 2px; }
+/* 카드 한 장 = **한 줄**(지시: 1열 형태) — 이름·IP 왼쪽, 이유·상태 오른쪽.
+   이유가 길면 말줄임하고 전체는 title(마우스 올림)로 읽는다. */
 .ask-msgs .ask-cand {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   text-align: left;
   border: 1px solid var(--c-border);
   border-radius: var(--r-card, 8px);
   background: var(--c-bg, #fff);
-  padding: 8px 11px;
+  padding: 7px 11px;
   cursor: pointer;
   transition: border-color 0.12s, background 0.12s;
 }
 .ask-msgs .ask-cand:hover { border-color: var(--c-primary, #2563eb); background: var(--c-hover, #f6f8fb); }
 .ask-msgs .ask-cand.top { border-color: var(--c-primary, #2563eb); box-shadow: 0 0 0 1px var(--c-primary, #2563eb) inset; }
-.ask-msgs .ask-cand.more {
-  border-style: dashed;
-  color: var(--c-muted);
-  align-items: flex-start;
-}
-.ask-msgs .ask-cand .cn { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.ask-msgs .ask-cand.more { border-style: dashed; color: var(--c-muted); }
+.ask-msgs .ask-cand .cn { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); flex: none; min-width: 0; }
 .ask-msgs .ask-cand .cn b { font-weight: 600; }
 .ask-msgs .ask-cand .cn em { font-style: normal; font-family: var(--font-mono); font-size: 11px; color: var(--c-muted); }
-.ask-msgs .ask-cand .cw { font-size: 11.5px; color: var(--c-muted); display: flex; align-items: center; gap: 5px; }
+.ask-msgs .ask-cand .cw {
+  font-size: 11.5px;
+  color: var(--c-muted);
+  display: block;
+  margin-left: auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ask-msgs .ask-cand .cw .rec { margin-right: 5px; }
 .ask-msgs .ask-cand .cw .rec {
   font-style: normal;
   font-size: 10.5px;
