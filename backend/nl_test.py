@@ -1754,6 +1754,246 @@ async def ai_nl_tc_like(text: str = "", model: str = "", limit: int = 3):
     return {"ok": True, "items": scored[:lim]}
 
 
+# ══ LLM 이 고른다 — 장비·항목·요약 (사용자 결정 2026-09-22) ═══════════════
+#
+# Coverage AI Basic 을 LLM 흐름으로: **장비 찾기·항목 찾기·결과 요약**을 LLM 이
+# 맡는다. 실행은 automation 그대로다(LLM 관여 0). 환각(없는 장비/TC 지어내기)은
+# **규칙이 추린 후보 안에서만 고르게** 해 원천 차단한다 — LLM 은 목록 밖 id 를
+# 못 쓴다. LLM 이 없거나 답을 못 주면 규칙 순서로 물러선다.
+
+
+@app.post("/api/ai/pick-device")
+async def ai_pick_device(payload: dict):
+    """후보 장비 중 지시에 가장 맞는 것을 LLM 이 고르고 이유를 단다.
+
+    장비 목록은 화면이 넘긴다 — 여기서 접속하지 않는다. 후보 밖 id 는 버린다
+    (지어낸 장비 차단). LLM 이 없으면 받은 순서 그대로 돌려준다.
+    """
+    q = str((payload or {}).get("q") or "").strip()
+    devs = (payload or {}).get("devices") or []
+
+    def _one(d):
+        return {
+            "id": str(d.get("id") or ""),
+            "model": str(d.get("model") or ""),
+            "ip": str(d.get("ip") or ""),
+            "name": str(d.get("name") or ""),
+            "state": str(d.get("state") or ""),
+        }
+
+    cand = [_one(d) for d in devs if isinstance(d, dict) and d.get("id")]
+    if not cand:
+        return {"ok": True, "items": []}
+    ids = [c["id"] for c in cand]
+    plain = [{"id": c["id"], "why": ""} for c in cand]
+    if len(cand) == 1 or not q:
+        return {"ok": True, "items": plain, "order": ids}
+    try:
+        from main import _llm_pick, _llm_json   # 늦은 수입 — 순환 막기
+        llm = _llm_pick("cai_basic")
+    except Exception:
+        llm = None
+    if not llm:
+        return {"ok": True, "items": plain, "order": ids}
+    schema = {
+        "type": "object",
+        "properties": {"picks": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"id": {"type": "string"}, "why": {"type": "string"}},
+            "required": ["id"]}}},
+        "required": ["picks"],
+    }
+    sys_p = (
+        "너는 네트워크 장비 시험 도우미다. 사람의 지시에 가장 맞는 장비를 "
+        "**주어진 후보 목록에서만** 고른다.\n"
+        "규칙:\n"
+        "1) 목록에 있는 id 만 쓴다 — 새 id 를 지어내지 마라.\n"
+        "2) 가장 맞는 것부터 순서대로. why 는 왜 골랐는지 한국어 한 줄(모델·상태·주소 근거).\n"
+        "3) 연결 가능한(state 사용가능) 장비를 앞에 둔다.\n"
+        "4) JSON 만 출력한다. 설명·코드펜스 금지."
+    )
+    user_p = (
+        "후보 장비:\n" + json.dumps(cand, ensure_ascii=False) +
+        "\n\n사람의 지시:\n" + q +
+        "\n\n{\"picks\":[{\"id\":\"...\",\"why\":\"...\"}]} 로만, 맞는 순서대로 출력하라."
+    )
+    try:
+        got = await _llm_json(llm, sys_p, user_p, schema, timeout=60, purpose="cai_basic")
+        seen, out = set(), []
+        for p in (got.get("picks") or []):
+            i = str(p.get("id") or "")
+            if i in ids and i not in seen:
+                seen.add(i)
+                out.append({"id": i, "why": str(p.get("why") or "").strip()})
+        for i in ids:            # LLM 이 빠뜨린 후보는 뒤에 그대로 붙인다
+            if i not in seen:
+                out.append({"id": i, "why": ""})
+        return {"ok": True, "items": out, "order": [x["id"] for x in out], "ai": bool(seen)}
+    except Exception as e:
+        return {"ok": True, "items": plain, "order": ids, "error": str(e)[:200]}
+
+
+@app.post("/api/ai/pick-tc")
+async def ai_pick_tc(payload: dict):
+    """지시와 가까운 TC 를 규칙으로 넉넉히 추린 뒤 LLM 이 고른다.
+
+    규칙 추림은 nl-tc-like 와 같다(스텝 없는 TC 는 뺀다). 그중 최대 30건을
+    LLM 에게 보여 뜻으로 고르게 한다 — 낱말이 안 겹쳐도 뜻이 닿는 것을 잡는다.
+    LLM 이 없거나 답을 못 주면 규칙 점수 순서 그대로다.
+    """
+    text = str((payload or {}).get("text") or "").strip()
+    model = str((payload or {}).get("model") or "").strip()
+    try:
+        limit = max(1, min(int((payload or {}).get("limit") or 5), 8))
+    except Exception:
+        limit = 5
+    words = _tc_words(text)
+    if not words:
+        return {"ok": True, "items": []}
+    try:
+        rows = await db.tc_list_meta()
+    except Exception:
+        return {"ok": False, "error": "TC 목록을 읽지 못했습니다", "items": []}
+    scored = []
+    for m in (rows or []):
+        if not isinstance(m, dict):
+            continue
+        try:
+            n = int(m.get("_cli_count") or 0)
+        except Exception:
+            n = 0
+        if n <= 0:
+            continue
+        sc, hits = _tc_score(m, words, model)
+        if sc < _TC_MIN_SCORE:
+            continue
+        scored.append({"tcid": str(m.get("tcid") or ""), "name": m.get("name") or m.get("tcid"),
+                       "req": m.get("req_id") or "", "model": m.get("model") or "",
+                       "steps": n, "score": sc})
+    scored.sort(key=lambda x: (-x["score"], -x["steps"]))
+    top = scored[:30]
+    if not top:
+        return {"ok": True, "items": []}
+    byid = {t["tcid"]: t for t in top}
+    picked_ids, whymap = [], {}
+    if len(top) > 1:
+        try:
+            from main import _llm_pick, _llm_json
+            llm = _llm_pick("similar")
+        except Exception:
+            llm = None
+        if llm:
+            brief = [{"tcid": t["tcid"], "name": t["name"], "req": t["req"], "model": t["model"]}
+                     for t in top]
+            schema = {
+                "type": "object",
+                "properties": {"picks": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {"tcid": {"type": "string"}, "why": {"type": "string"}},
+                    "required": ["tcid"]}}},
+                "required": ["picks"],
+            }
+            sys_p = (
+                "너는 네트워크 시험 담당자다. 사람이 하려는 시험과 가장 가까운 것을 "
+                "**주어진 목록에서만** 고른다.\n"
+                "규칙:\n"
+                "1) 목록에 있는 tcid 만 쓴다 — 새로 만들지 마라.\n"
+                "2) 가까운 것부터 최대 %d개. why 는 왜 가까운지 한국어 한 줄.\n"
+                "3) 가까운 것이 없으면 빈 배열. 억지로 채우지 마라.\n"
+                "4) JSON 만 출력한다. 설명·코드펜스 금지." % limit
+            )
+            user_p = (
+                "시험 목록:\n" + json.dumps(brief, ensure_ascii=False) +
+                "\n\n사람이 하려는 것:\n" + text +
+                (("\n대상 모델: " + model) if model else "") +
+                "\n\n{\"picks\":[{\"tcid\":\"...\",\"why\":\"...\"}]} 로만 출력하라."
+            )
+            try:
+                got = await _llm_json(llm, sys_p, user_p, schema, timeout=60, purpose="similar")
+                for p in (got.get("picks") or []):
+                    tid = str(p.get("tcid") or "")
+                    if tid in byid and tid not in whymap:
+                        whymap[tid] = str(p.get("why") or "").strip()
+                        picked_ids.append(tid)
+            except Exception:
+                picked_ids = []
+    pset = set(picked_ids)
+    order = [byid[i] for i in picked_ids] + [t for t in top if t["tcid"] not in pset]
+    out = []
+    for t in order[:limit]:
+        tid = t["tcid"]
+        out.append({
+            "tcid": tid, "name": t["name"], "model": t["model"], "steps": t["steps"],
+            "why": whymap.get(tid) or ("AI 가 고름" if tid in pset else "이름이 닮음"),
+        })
+    return {"ok": True, "items": out, "ai": bool(pset)}
+
+
+@app.post("/api/ai/run-summary")
+async def ai_run_summary(payload: dict):
+    """실행이 끝난 스텝 결과를 LLM 이 사람 말로 요약한다.
+
+    스텝별 판정·응답만 읽는다 — 장비에 접속하지 않는다. LLM 이 없으면
+    합격·불합격 수만 세어 돌려준다.
+    """
+    steps = (payload or {}).get("steps") or []
+    title = str((payload or {}).get("title") or "").strip()
+    model = str((payload or {}).get("model") or "").strip()
+
+    def _mk(s):
+        return str((s or {}).get("mark") or "").strip()
+
+    def _is_fail(s):
+        m = _mk(s).lower()
+        return "fail" in m or _mk(s) in ("불합격", "실패", "F")
+
+    def _is_pass(s):
+        m = _mk(s).lower()
+        return "pass" in m or _mk(s) in ("합격", "OK", "P")
+
+    npass = sum(1 for s in steps if _is_pass(s))
+    nfail = sum(1 for s in steps if _is_fail(s))
+    base = "합격 %d · 불합격 %d" % (npass, nfail)
+    try:
+        from main import _llm_pick, _llm_json
+        llm = _llm_pick("cai_basic")
+    except Exception:
+        llm = None
+    if not llm or not steps:
+        tail = " — 불합격 없음" if not nfail else ""
+        return {"ok": True, "summary": base + tail, "pass": npass, "fail": nfail, "ai": False}
+    brief = []
+    for s in steps[:60]:
+        brief.append({
+            "desc": str((s or {}).get("desc") or "")[:120],
+            "mark": _mk(s),
+            "resp": str((s or {}).get("resp") or (s or {}).get("value") or "")[:200],
+            "criteria": str((s or {}).get("criteria") or "")[:120],
+        })
+    schema = {"type": "object", "properties": {"summary": {"type": "string"}},
+              "required": ["summary"]}
+    sys_p = (
+        "너는 네트워크 장비 시험 결과를 사람에게 알려 주는 도우미다. "
+        "스텝별 판정(mark)·응답(resp)을 읽고 한국어로 짧게 요약한다.\n"
+        "규칙:\n"
+        "1) 첫 문장에 전체 합·불을 적고, 불합격이 있으면 무엇이 왜 불합격인지(값·기준) 짚는다.\n"
+        "2) 응답·기준에 있는 값만 쓴다 — 지어내지 마라.\n"
+        "3) 2~4문장으로 짧게. 표·코드펜스 금지."
+    )
+    user_p = (
+        "시험: %s / 대상 모델: %s\n집계: %s\n\n스텝:\n" % (title, model, base) +
+        json.dumps(brief, ensure_ascii=False) +
+        "\n\n{\"summary\":\"...\"} 로만 출력하라."
+    )
+    try:
+        got = await _llm_json(llm, sys_p, user_p, schema, timeout=60, purpose="cai_basic")
+        summ = str(got.get("summary") or "").strip() or base
+        return {"ok": True, "summary": summ, "pass": npass, "fail": nfail, "ai": True}
+    except Exception as e:
+        return {"ok": True, "summary": base, "pass": npass, "fail": nfail,
+                "ai": False, "error": str(e)[:200]}
+
+
 @app.post("/api/ai/nl-tc-adopt")
 async def ai_nl_tc_adopt(payload: dict):
     """고른 TC 를 **선택한 장비에 맞게 옮겨** 절차로 돌려준다. 장비에 접속하지 않는다."""

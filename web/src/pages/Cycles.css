@@ -9547,6 +9547,70 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
    「있는 줄 모르는」 색이었다. 이 화면에서만 한 단 진하게 올린다. */
 .ask-two .sq { --sq-line: #c6ced6; }
 
+/* ── 대화 속 후보 카드(사용자 결정 2026-09-22) ──────────────────────────
+   장비·항목 고르기를 팝업이 아니라 **대화 안 카드**로 편다. LLM 이 고른
+   순서 그대로, 맨 위(.top)가 추천. 눌러 고르면 pickedLine 이 이 블록을 고른
+   카드 한 줄로 접는다. 이름은 ask-cand 로 가둔다(css 이름 겹침 주의). */
+.ask-msgs .ask-cands { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 2px; }
+.ask-msgs .ask-cand {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+  padding: 8px 11px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.ask-msgs .ask-cand:hover { border-color: var(--c-primary, #2563eb); background: var(--c-hover, #f6f8fb); }
+.ask-msgs .ask-cand.top { border-color: var(--c-primary, #2563eb); box-shadow: 0 0 0 1px var(--c-primary, #2563eb) inset; }
+.ask-msgs .ask-cand.more {
+  border-style: dashed;
+  color: var(--c-muted);
+  align-items: flex-start;
+}
+.ask-msgs .ask-cand .cn { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.ask-msgs .ask-cand .cn b { font-weight: 600; }
+.ask-msgs .ask-cand .cn em { font-style: normal; font-family: var(--font-mono); font-size: 11px; color: var(--c-muted); }
+.ask-msgs .ask-cand .cw { font-size: 11.5px; color: var(--c-muted); display: flex; align-items: center; gap: 5px; }
+.ask-msgs .ask-cand .cw .rec {
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--c-primary, #2563eb);
+  background: color-mix(in srgb, var(--c-primary, #2563eb) 12%, transparent);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+.ask-msgs .ask-cand .cn .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--c-muted); }
+.ask-msgs .ask-cand .cn .dot.ok { background: var(--c-pass, #16a34a); }
+.ask-msgs .ask-cand .cn .dot.busy { background: var(--c-warn, #d97706); }
+.ask-msgs .ask-cand .cn .dot.part { background: var(--c-warn, #d97706); }
+.ask-msgs .ask-cand .cn .dot.no { background: var(--c-fail, #dc2626); }
+
+/* ── 결과 요약 배너(사용자 결정) — 응답 판 머리에 LLM 요약을 세운다 ──── */
+.askr-summ {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 8px 12px 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+}
+.askr-summ.ok { border-color: var(--c-pass, #16a34a); background: var(--c-pass-soft); }
+.askr-summ.bad { border-color: var(--c-fail, #dc2626); background: var(--c-fail-soft); }
+.askr-summ.wait { flex-direction: row; align-items: center; gap: 8px; color: var(--c-muted); font-size: var(--fs-sm); }
+.askr-summ > b { font-size: var(--fs-sm); font-weight: 700; }
+.askr-summ.ok > b { color: var(--c-pass, #16a34a); }
+.askr-summ.bad > b { color: var(--c-fail, #dc2626); }
+.askr-summ > p { margin: 0; font-size: var(--fs-sm); line-height: 1.55; color: var(--c-text, #1f2937); }
+.askr-summ > em { font-style: normal; font-size: 11.5px; color: var(--c-muted); }
+
 /* ══════════════════════════════════════════════════════════════════
    Test AI 콘솔(승인: 목업 「Test AI 시험 콘솔」).
    대화가 시작되면 캔버스가 두 기둥이 된다 — 왼쪽은 대화(짧게), 오른쪽은

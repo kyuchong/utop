@@ -301,6 +301,10 @@ export default function AskBar({ devices }: Props) {
   const [at, setAt] = useState(-1)
   const [running, setRunning] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  /** 실행이 끝난 뒤 **LLM 이 지은 요약**(사용자 결정) — 응답 판 머리에
+      배너로 서고, 대화에도 한 줄로 남는다. null 이면 아직 안 지었다. */
+  const [summ, setSumm] = useState<{ text: string; pass: number; fail: number; ai?: boolean } | null>(null)
+  const [summing, setSumming] = useState(false)
   /* ── 실행 응답 화면(지시: 사이클 자동 실행처럼) ──────────────────────
      실행을 걸면 편집용 세 판 대신 **응답이 주인공**인 화면으로 바뀐다 —
      상태 밴드 · 진행 막대 · 왼쪽 스텝 큐 · 오른쪽 큰 실행 로그.
@@ -329,7 +333,7 @@ export default function AskBar({ devices }: Props) {
   /** 첫 화면 질문 보기 — 무엇을 시킬 수 있는지 눌러서 안다 */
   const [examples, setExamples] = useState<Array<{ q: string; d?: string }>>([])
   /** 비슷한 기존 시험 — 새로 짓기 전에 있는 것부터 본다 */
-  const [like, setLike] = useState<Array<{ tcid: string; name: string; model?: string; steps?: number }>>([])
+  const [like, setLike] = useState<Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>>([])
   const [adopting, setAdopting] = useState('')
   /** 질문 보기 고치기 — 관리자만. ⚙ 로 켠다 */
   const [exEdit, setExEdit] = useState(false)
@@ -1017,27 +1021,47 @@ export default function AskBar({ devices }: Props) {
   const findLike = async (
     q: string,
     dev?: Device,
-  ): Promise<Array<{ tcid: string; name: string; model?: string; steps?: number }>> => {
+  ): Promise<Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>> => {
     if (!q.trim()) {
       setLike([])
       return []
     }
+    const picked = dev ?? usable.find((x) => x.id === devId)
     try {
-      const picked = dev ?? usable.find((x) => x.id === devId)
-      const r = await apiFetch(
-        `/api/ai/nl-tc-like?text=${encodeURIComponent(q.trim())}&model=${encodeURIComponent(picked?.model ?? '')}&limit=5`,
-      )
+      /* 항목 찾기는 **LLM 이 고른다**(사용자 결정) — 규칙이 넉넉히 추린 뒤
+         그 안에서 뜻으로 고르고 why 를 단다. LLM 이 없으면 서버가 규칙
+         순서로 물러선다. */
+      const r = await apiFetch('/api/ai/pick-tc', {
+        method: 'POST',
+        body: JSON.stringify({ text: q.trim(), model: picked?.model ?? '', limit: 5 }),
+      })
+      if (!r.ok) throw new Error(String(r.status))
       const b = (await r.json()) as {
         ok?: boolean
-        items?: Array<{ tcid: string; name: string; model?: string; steps?: number }>
+        items?: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>
       }
       /* 다섯까지 본다(목업) — 셋만 보이면 넷째·다섯째에 있던 정답을 못 만난다 */
       const items = b.ok && Array.isArray(b.items) ? b.items.slice(0, 5) : []
       setLike(items)
       return items
     } catch {
-      setLike([])
-      return []
+      /* 새 길이 없으면(옛 백엔드) 규칙 검색으로 물러선다 — 웹만 먼저
+         갱신된 판에서도 항목 찾기가 끊기면 안 된다 */
+      try {
+        const r2 = await apiFetch(
+          `/api/ai/nl-tc-like?text=${encodeURIComponent(q.trim())}&model=${encodeURIComponent(picked?.model ?? '')}&limit=5`,
+        )
+        const b2 = (await r2.json()) as {
+          ok?: boolean
+          items?: Array<{ tcid: string; name: string; model?: string; steps?: number }>
+        }
+        const items2 = b2.ok && Array.isArray(b2.items) ? b2.items.slice(0, 5) : []
+        setLike(items2)
+        return items2
+      } catch {
+        setLike([])
+        return []
+      }
     }
   }
 
@@ -1095,40 +1119,98 @@ export default function AskBar({ devices }: Props) {
     return { k: 'part' as const, label: '일부 연결' }
   }
 
-  /** 1단계 말풍선 — 비어 있는 장비 한 대를 추천하고, 나머지는 줄로.
-      같은 순간 오른쪽 판에는 전체 장비 표가 선다(목업: 1단계 · 장비). */
-  const sayDevBlock = (cands: Device[], m0: string) => {
-    /* 3열은 안 편다(지시: 고르기는 팝업) — 칩이 여는 창의 표를 미리 좁힌다.
-       「필터 지우기」 로 언제든 전체로 돌아간다 */
+  /** 1단계 말풍선 — **후보 장비를 대화 안에 카드로** 편다(사용자 결정).
+      LLM 이 지시를 읽고 순서를 매기고 왜 그 장비인지 이유를 단다 — 맨 위가
+      추천. 눌러 고르면 그 카드 하나로 접힌다. 「전체에서 고르기」 는 옛
+      표(팝업)로 물러서는 길이다. 후보 밖 장비는 LLM 도 못 고른다. */
+  const sayDevBlock = async (cands: Device[], m0: string, q = '') => {
     setDevQ(m0)
     /* 상태 탭은 질문마다 「사용 가능」 부터(지시) — 고를 수 있는 것이 먼저다 */
     setDevTab('ok')
-    /* 추천 카드는 걷었다(지시: 장비 고르기만) — 칩 하나가 창을 연다 */
-    const nOk = cands.filter((d) => devStat(d).k === 'ok').length
-    const nBusy = cands.filter((d) => devStat(d).k === 'busy').length
-    const nNo = cands.filter((d) => devStat(d).k === 'no').length
+    let order = cands
+    const whyById = new Map<string, string>()
+    if (cands.length > 1) {
+      try {
+        const r = await apiFetch('/api/ai/pick-device', {
+          method: 'POST',
+          body: JSON.stringify({
+            q: q || asked || text,
+            devices: cands.map((d) => ({
+              id: d.id,
+              model: String(d.model ?? ''),
+              ip: String(d.ip ?? ''),
+              name: String(d.name ?? ''),
+              state: devStat(d).label,
+            })),
+          }),
+        })
+        const b = (await r.json()) as { ok?: boolean; items?: Array<{ id: string; why?: string }> }
+        if (b.ok && Array.isArray(b.items) && b.items.length) {
+          const byId = new Map(cands.map((d) => [d.id, d]))
+          const seq = b.items.map((x) => byId.get(x.id)).filter((d): d is Device => !!d)
+          if (seq.length) order = seq
+          b.items.forEach((x) => {
+            if (x.why) whyById.set(x.id, x.why)
+          })
+        }
+      } catch {
+        /* LLM 이 없거나 실패 — 받은 순서 그대로 편다 */
+      }
+    }
+    unThink()
     const head = m0
-      ? `${hesc(m0)} 이(가) ${cands.length}대 있습니다 — 아래에서 골라 주세요.`
-      : '어느 장비에서 돌릴까요? — 아래에서 골라 주세요.'
+      ? `${hesc(m0)} 이(가) ${cands.length}대 있습니다 — 눌러서 고르세요.`
+      : '어느 장비에서 돌릴까요? — 눌러서 고르세요.'
+    const rows = order
+      .map((d, i) => {
+        const st = devStat(d)
+        /* 「추천」 은 배지 하나로만 — 글자로도 적으면 두 번 찍힌다(검증에서 발견) */
+        const meta = [whyById.get(d.id) || '', st.label].filter(Boolean).join(' · ')
+        const nm = String(d.model || d.name || '')
+        return (
+          `<button type="button" class="ask-cand${i === 0 ? ' top' : ''} js-devpick" data-id="${hesc(d.id)}">` +
+          `<span class="cn"><i class="dot ${st.k}"></i><b>${hesc(nm)}</b> <em>${hesc(String(d.ip ?? ''))}</em></span>` +
+          `<span class="cw">${i === 0 ? '<i class="rec">추천</i>' : ''}${hesc(meta)}</span>` +
+          `</button>`
+        )
+      })
+      .join('')
     say(
       'a',
       `<p class="ln"><b>1단계 · 장비</b> — ${head}</p>` +
-        `<div data-pick="dev"><button type="button" class="ask-artchip js-pickdev"><span class="ic">🖧</span>` +
-        `<span class="tx"><b>장비 고르기</b>` +
-        `<em>사용 가능 ${nOk} · 사용중 ${nBusy} · 사용 불가 ${nNo}</em></span></button></div>`,
+        `<div data-pick="dev" class="ask-cands">${rows}` +
+        `<button type="button" class="ask-cand more js-pickdev"><span class="cn">전체에서 고르기</span>` +
+        `<span class="cw">상태·랙으로 표에서 고르기</span></button></div>`,
     )
   }
 
-  /** 2단계 말풍선 — 추천 카드는 걷었다(지시: 고르기 칩만). 칩이 창을 연다 */
+  /** 2단계 말풍선 — **후보 항목을 대화 안에 카드로** 편다(사용자 결정).
+      LLM 이 고른 순서 그대로 — 맨 위가 추천. 눌러 고르면 그 카드 하나로
+      접힌다. 「전체에서 검색」 은 옛 표(팝업)로 물러서는 길이다. */
   const sayTcBlock = (
-    items: Array<{ tcid: string; name: string; model?: string; steps?: number }>,
+    items: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>,
   ) => {
+    const rows = items
+      .map((it, i) => {
+        /* 「추천」 은 배지 하나로만 — 「AI 가 고름」 같은 why 만 글자로 남긴다 */
+        const why = it.why === '추천' ? '' : it.why || ''
+        const meta = [why, it.steps ? `${it.steps}스텝` : '', String(it.model || '')]
+          .filter(Boolean)
+          .join(' · ')
+        return (
+          `<button type="button" class="ask-cand${i === 0 ? ' top' : ''} js-tcpick" data-tcid="${hesc(it.tcid)}" data-model="${hesc(String(it.model ?? ''))}">` +
+          `<span class="cn"><b>${hesc(it.name || it.tcid)}</b> <em>${hesc(it.tcid)}</em></span>` +
+          `<span class="cw">${i === 0 ? '<i class="rec">추천</i>' : ''}${hesc(meta)}</span>` +
+          `</button>`
+        )
+      })
+      .join('')
     say(
       'a',
-      '<p class="ln"><b>2단계 · 시험 항목</b> — 아래에서 골라 주세요.</p>' +
-        `<div data-pick="tc"><button type="button" class="ask-artchip js-picktc"><span class="ic">☰</span>` +
-        `<span class="tx"><b>시험 항목 고르기</b>` +
-        `<em>말과 가까운 ${items.length}건 · 전체에서 검색</em></span></button></div>`,
+      '<p class="ln"><b>2단계 · 시험 항목</b> — 말씀과 가까운 항목입니다. 눌러서 고르세요.</p>' +
+        `<div data-pick="tc" class="ask-cands">${rows}` +
+        `<button type="button" class="ask-cand more js-picktc"><span class="cn">전체에서 검색</span>` +
+        `<span class="cw">전체 목록에서 직접 고르기</span></button></div>`,
     )
   }
 
@@ -1980,14 +2062,14 @@ export default function AskBar({ devices }: Props) {
       /* 창을 먼저 띄우지 않는다(승인: 단순안) — 추천 한 장과 후보 몇 줄이면
          대부분 끝난다. 점유를 새로 읽는 동안 스피너가 돈다(지시). */
       afterDevRef.current = 'tc'
-      sayThink('쓸 수 있는 장비를 찾는 중…')
+      sayThink('쓸 수 있는 장비를 고르는 중…')
       try {
         await lockQ.refetch()
       } catch {
         /* 점유를 못 읽어도 장비는 보여 준다 */
       }
-      unThink()
-      sayDevBlock(cands, m0)
+      /* 스피너는 sayDevBlock 이 LLM 순서를 받은 뒤 걷는다 */
+      await sayDevBlock(cands, m0, said)
       return
     }
 
@@ -2170,13 +2252,15 @@ export default function AskBar({ devices }: Props) {
     /* 「일반」 갈래는 원본을 그대로 넘긴다 — 옮겨 적는 순간 무언가 빠진다 */
     const steps: TcStep[] = toTcSteps(draft)
     setRan(steps.slice())
-    /* 새로 돌리면 앞 판 로그는 지운다 — 섞이면 어느 실행의 응답인지 모른다 */
+    /* 새로 돌리면 앞 판 로그·요약은 지운다 — 섞이면 어느 실행의 응답인지 모른다 */
     setLogs([])
+    setSumm(null)
     logN.current = 0
     setRunning(true)
     setRunView(true)
     setArtOpen(true)
     setAt(-1)
+    const fullRun = typeof only !== 'number' && typeof from !== 'number'
     try {
       await runSteps(
         {
@@ -2225,9 +2309,53 @@ export default function AskBar({ devices }: Props) {
         typeof only === 'number',
         to,
       )
+      /* 전체 실행이 끝나면 **LLM 이 요약한다**(사용자 결정) — 멈춘(abort)
+         것이면 짓지 않는다. 응답 판 머리 배너 + 대화 한 줄로 남는다. */
+      if (fullRun && !ac.signal.aborted) void summarizeRun(steps)
     } finally {
       setRunning(false)
       setAt(-1)
+    }
+  }
+
+  /** 실행 결과를 LLM 에게 요약시켜 배너·대화에 남긴다. 실패해도 실행엔
+      영향 없다 — 요약이 없으면 스텝 판정만 보면 된다. */
+  const summarizeRun = async (steps: TcStep[]) => {
+    const payload = steps.map((s) => ({
+      desc: String(s.step ?? ''),
+      mark: String(s.status ?? s.repeatResult ?? ''),
+      resp: String(s.output ?? s.response ?? ''),
+      criteria: String(s.criteria ?? ''),
+    }))
+    if (!payload.some((p) => p.mark)) return   // 아무 스텝도 판정이 없으면 요약할 것이 없다
+    setSumming(true)
+    try {
+      const r = await apiFetch('/api/ai/run-summary', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: draft?.name ?? '',
+          model: usable.find((x) => x.id === devId)?.model ?? '',
+          steps: payload,
+        }),
+      })
+      const b = (await r.json()) as { ok?: boolean; summary?: string; pass?: number; fail?: number; ai?: boolean }
+      if (b.ok && b.summary) {
+        const s0 = { text: b.summary, pass: b.pass ?? 0, fail: b.fail ?? 0, ai: b.ai }
+        setSumm(s0)
+        /* 대화에도 한 줄 — 눌러 결과 판(3열 아티팩트)을 연다 */
+        const tag = s0.fail > 0 ? '불합격' : '합격'
+        say(
+          'a',
+          `<p class="ln"><b>✓ 결과</b> — ${hesc(b.summary)}</p>` +
+            `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
+            `<span class="tx"><b>결과 보기 — ${hesc(draft?.name ?? '')}</b>` +
+            `<em>${tag} · 합격 ${s0.pass} · 불합격 ${s0.fail}</em></span></button>`,
+        )
+      }
+    } catch {
+      /* 요약을 못 지어도 실행 결과는 스텝 판정으로 남아 있다 */
+    } finally {
+      setSumming(false)
     }
   }
 
@@ -4742,6 +4870,25 @@ export default function AskBar({ devices }: Props) {
                         }}
                       />
                     </div>
+                    {/* 결과 요약 배너 — **LLM 이 지은 한 마디**(사용자 결정).
+                        실행이 끝나면 판 머리에 서서, 스텝을 뒤지기 전에 무엇이
+                        왜 합·불인지 한눈에 보인다. */}
+                    {summing && !summ && (
+                      <div className="askr-summ wait">
+                        <span className="ask-spin" aria-hidden="true" />
+                        결과를 요약하는 중…
+                      </div>
+                    )}
+                    {summ && (
+                      <div className={`askr-summ${summ.fail > 0 ? ' bad' : ' ok'}`}>
+                        <b>{summ.fail > 0 ? '✖ 불합격' : '✔ 합격'}</b>
+                        <p>{summ.text}</p>
+                        <em>
+                          합격 {summ.pass} · 불합격 {summ.fail}
+                          {summ.ai ? ' · AI 요약' : ''}
+                        </em>
+                      </div>
+                    )}
                     {/* Response 판 — 사이클 자동 실행 화면과 **한 몸**(지시).
                         스텝 카드(명령·판정 기준·변수·RCA·출력 강조)가 그대로 선다. */}
                     <div className="askr-resp">
