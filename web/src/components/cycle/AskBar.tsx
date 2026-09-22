@@ -1084,7 +1084,9 @@ export default function AskBar({ devices }: Props) {
       ...v,
       {
         who: 'a',
-        html: `<p class="ln"><span class="ask-think"><i class="ask-spin" aria-hidden="true"></i>${hesc(txt)}</span></p>`,
+        /* 스피너는 **AI 답게 현란하게**(지시) — 무지개 고리가 돌고
+           글자는 빛이 흐르듯 반짝인다. 움직임 줄임 설정이면 멎는다. */
+        html: `<p class="ln"><span class="ask-think"><i class="ask-spin2" aria-hidden="true"></i><em class="ask-shine">${hesc(txt)}</em></span></p>`,
       },
     ])
   const unThink = () =>
@@ -1942,7 +1944,7 @@ export default function AskBar({ devices }: Props) {
        답한다. 절차를 고치는 중(Advanced)의 말은 고치는 말이라 안 묻는다.
        서버가 못 가르면 test=true 로 돌아와 원래 흐름 그대로다. */
     if (!(draft && mode !== 'basic')) {
-      sayThink('말을 읽는 중…')
+      sayThink('요청을 분석하는 중…')
       /* 현황 요약(지적: 「시험 가능한 장비는?」 에 지어낸 「없습니다」) —
          장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
          현황 질문에는 LLM 이 이것만 보고 답하게 한다. */

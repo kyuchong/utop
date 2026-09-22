@@ -9542,6 +9542,50 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   font-size: var(--fs-md);
 }
 .ask-msgs .ask-think .ask-spin { width: 14px; height: 14px; flex: none; }
+/* **현란한 스피너**(승인: B안) — 파랑·보라·분홍 점 셋이 차례로 튀고
+   글자엔 빛이 흐른다. 몸통이 가운데 점, before·after 가 양옆 점이다. */
+.ask-msgs .ask-think .ask-spin2 {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #9333ea;
+  position: relative;
+  margin: 0 12px;
+  animation: ask-bnc 0.9s ease-in-out 0.15s infinite;
+}
+.ask-msgs .ask-think .ask-spin2::before,
+.ask-msgs .ask-think .ask-spin2::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  animation: ask-bnc 0.9s ease-in-out infinite;
+}
+.ask-msgs .ask-think .ask-spin2::before { left: -11px; background: #2563eb; }
+.ask-msgs .ask-think .ask-spin2::after { left: 11px; background: #ec4899; animation-delay: 0.3s; }
+@keyframes ask-bnc {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
+.ask-msgs .ask-think .ask-shine {
+  font-style: normal;
+  background: linear-gradient(90deg, #7c8792 25%, #2563eb 42%, #9333ea 50%, #ec4899 58%, #7c8792 75%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ask-shinew 1.6s linear infinite;
+}
+@keyframes ask-shinew { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .ask-msgs .ask-think .ask-spin2,
+  .ask-msgs .ask-think .ask-spin2::before,
+  .ask-msgs .ask-think .ask-spin2::after { animation: none; }
+  .ask-msgs .ask-think .ask-shine { animation: none; color: var(--c-text-faint); background: none; }
+}
 
 /* Test AI 스텝 표의 가로 줄 선(지적: 없다) — 선은 있었지만 #dde3e9 는
    「있는 줄 모르는」 색이었다. 이 화면에서만 한 단 진하게 올린다. */
