@@ -2965,6 +2965,8 @@ export default function AskBar({ devices }: Props) {
                           ['lab', 'LAB', 'dv-lab'],
                           ['operator', '사업자', 'dv-cu'],
                           ['vendor', '벤더', 'dv-vd'],
+                          /* 제품군도 편다(지시: Devices 표처럼) — 좁은 판 안 버전은 CSS 가 감춘다 */
+                          ['device_group', '제품군', 'dv-fm'],
                           ['model_group', '모델그룹', 'dv-gp'],
                         ]
                         const val = (d: Device, k: string) =>
@@ -3173,6 +3175,11 @@ export default function AskBar({ devices }: Props) {
                                   {COLS.map(([k, label, cls]) => hf(k, label, cls, opts(k)))}
                                   <b className="dv-nm">모델명</b>
                                   <span className="dv-ip">IP</span>
+                                  {/* Devices 표의 칸(지시) — 통신 넷·커뮤니티·인터페이스 */}
+                                  <span className="dv-tscn">T·S·C·N</span>
+                                  <span className="dv-ro">RO</span>
+                                  <span className="dv-rw">RW</span>
+                                  <span className="dv-if">인터페이스</span>
                                   {hf('ready', '상태', 'dv-ready hd', ['사용 가능', '사용중', '일부 연결', '사용 불가능'])}
                                 </span>
                                 {rows.length ? (
@@ -3234,12 +3241,44 @@ export default function AskBar({ devices }: Props) {
                                         <span className="dv-lab">{d.lab || '—'}</span>
                                         <span className="dv-cu">{d.operator || '—'}</span>
                                         <span className="dv-vd">{d.vendor || '—'}</span>
+                                        <span className="dv-fm">{d.device_group || '—'}</span>
                                         <span className="dv-gp">{d.model_group || '—'}</span>
                                         <b className="dv-nm" title={String(d.name || nm)}>
                                           {nm}
                                         </b>
                                         <span className={`dv-ip${noip ? ' none' : ''}`}>
                                           {noip ? 'IP 미설정' : d.ip}
+                                        </span>
+                                        {/* Devices 표의 칸(지시) — T/S/C/N 점 넷 · RO/RW · 인터페이스 */}
+                                        <span className="dv-tscn" aria-label="통신 상태">
+                                          {(
+                                            [
+                                              ['Telnet', L.T],
+                                              ['SSH', L.S],
+                                              ['Console', L.C],
+                                              ['SNMP', L.N],
+                                            ] as const
+                                          ).map(([lb, v]) => (
+                                            <i key={lb} className={`tl ${v}`} title={`${lb} — ${v === 'on' ? '정상' : v === 'off' ? '실패' : v === 'idle' ? '미확인' : '등록 안 함'}`} />
+                                          ))}
+                                        </span>
+                                        {(() => {
+                                          const sn = (d.access ?? []).find(
+                                            (x) => String(x.protocol ?? '').toLowerCase() === 'snmp',
+                                          )
+                                          const ro = String(sn?.community ?? '').trim() || 'public'
+                                          const rw =
+                                            String((sn?.params as Record<string, unknown> | null)?.community_rw ?? '').trim() ||
+                                            'private'
+                                          return (
+                                            <>
+                                              <span className="dv-ro" title={`SNMP 읽기 community — ${ro}`}>{ro}</span>
+                                              <span className="dv-rw" title={`SNMP 쓰기 community — ${rw}`}>{rw}</span>
+                                            </>
+                                          )
+                                        })()}
+                                        <span className="dv-if" title={d.if_brief || ''}>
+                                          {d.if_brief ? `${d.if_brief}${d.if_count ? ` ${d.if_count}` : ''}` : '—'}
                                         </span>
                                         <span className={`dv-ready ${R.k}`}>
                                           <span className="rd-chip">

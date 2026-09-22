@@ -9354,19 +9354,39 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 
 .dmlg.busy { background: var(--c-draft); }
 
-/* ── 장비 고르개를 목업의 **세 칸**으로 ────────────────────────────────
-   LAB·사업자·벤더·모델그룹까지 일곱 칸이면 이름과 IP 가 눌려 읽기 어렵다.
-   그 넷은 **검색이 이미 받는다**(이름·IP·LAB·사업자·벤더·모델그룹을 한 번에
-   훑는다) — 화면에서는 걷고 찾기로 남긴다. */
-.ask-devmenu.big .ask-dmhdr,
-.ask-devmenu.big .ask-dmi {
-  grid-template-columns: minmax(220px, 1fr) 180px 104px;
-  gap: 18px;
+/* ── 「전체에서 고르기」 팝업은 **Devices 표 그대로**(지시) ─────────────
+   LAB·사업자·벤더·제품군·모델그룹·모델명·IP·T/S/C/N·RO/RW·인터페이스·상태.
+   좁은 3열 판 안(inpanel) 버전만 예전 세 칸으로 줄인다. */
+.ask-devmenu.big:not(.inpanel) { width: min(1380px, 96vw); }
+.ask-devmenu.big .dv-tscn { width: 66px; flex: none; display: flex; gap: 5px; align-items: center; }
+.ask-devmenu.big .dv-tscn .tl { width: 9px; height: 9px; border-radius: 50%; background: #cfd6dc; }
+.ask-devmenu.big .dv-tscn .tl.on { background: var(--c-pass, #16a34a); }
+.ask-devmenu.big .dv-tscn .tl.off { background: var(--c-fail, #dc2626); }
+.ask-devmenu.big .dv-tscn .tl.idle { background: #d9dee3; }
+.ask-devmenu.big .dv-tscn .tl.na { background: transparent; border: 1px solid #cfd6dc; width: 8px; height: 8px; }
+.ask-dmhdr .dv-tscn { font-size: var(--fs-xs); color: var(--c-text-faint); font-weight: 600; }
+.ask-devmenu.big .dv-ro,
+.ask-devmenu.big .dv-rw {
+  width: 62px; flex: none; font-family: var(--font-mono); font-size: 11px;
+  color: var(--c-text-muted); overflow: hidden; text-overflow: ellipsis;
 }
-.ask-devmenu.big .dv-lab,
-.ask-devmenu.big .dv-cu,
-.ask-devmenu.big .dv-vd,
-.ask-devmenu.big .dv-gp { display: none; }
+.ask-devmenu.big .dv-if {
+  width: 130px; flex: none; font-size: var(--fs-xs); color: var(--c-text-muted);
+  overflow: hidden; text-overflow: ellipsis;
+}
+.ask-dmhdr .dv-ro, .ask-dmhdr .dv-rw, .ask-dmhdr .dv-if {
+  font-family: inherit; font-weight: 600; color: var(--c-text-faint);
+}
+/* 판 안 버전 — 좁아서 예전 세 칸(모델명·IP·상태)으로 */
+.ask-devmenu.big.inpanel .dv-lab,
+.ask-devmenu.big.inpanel .dv-cu,
+.ask-devmenu.big.inpanel .dv-vd,
+.ask-devmenu.big.inpanel .dv-fm,
+.ask-devmenu.big.inpanel .dv-gp,
+.ask-devmenu.big.inpanel .dv-tscn,
+.ask-devmenu.big.inpanel .dv-ro,
+.ask-devmenu.big.inpanel .dv-rw,
+.ask-devmenu.big.inpanel .dv-if { display: none; }
 
 /* ══ Test AI · 대화 ═══════════════════════════════════════════════════
    물어본 말과 AI 가 정한 것이 쌓이는 자리. 한 번 물으면 제목·부제·오프너·
