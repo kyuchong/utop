@@ -394,6 +394,11 @@
   border: 1px solid #c9dee3; border-radius: 6px; background: #fff;
 }
 .ra-blk + .ra-blk { margin-top: 6px; }
+/* compact(채팅쪽) — 스텝과 판정만, 촘촘하게. 상세는 3열에서 본다(지시) */
+.ra-con.compact { padding: 4px 0; }
+.ra-con.compact .ra-blk { border-radius: 5px; }
+.ra-con.compact .ra-blk + .ra-blk { margin-top: 4px; }
+.ra-con.compact .ra-cmd { padding-top: 5px; padding-bottom: 5px; }
 /* 지금 보는 스텝 — 왼쪽에 파란 획, 머리도 한 겹 진하게 */
 .ra-blk.on { border-color: #b9d5f4; box-shadow: inset 3px 0 0 #3f80e5; }
 .ra-blk.on .ra-cmd { background: #dcebfa; color: #17548f; }

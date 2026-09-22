@@ -4473,6 +4473,8 @@ export default function AskBar({ devices }: Props) {
                                     />
                                   </div>
                                   <div className="acr-resp">
+                                    {/* 채팅쪽은 **스텝과 판정만**(지시) — 상세는
+                                        「결과 보기」 3열의 스텝별 판정에서 본다 */}
                                     <RespView
                                       steps={autoSteps}
                                       stepAt={stepAt}
@@ -4480,8 +4482,8 @@ export default function AskBar({ devices }: Props) {
                                       dut={devName}
                                       runStep={running ? at : null}
                                       seedKey={draft?.object || draft?.name || ''}
-                                      openAll
                                       preview
+                                      compact
                                     />
                                   </div>
                                 </div>

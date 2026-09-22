@@ -186,6 +186,7 @@ export default function RespView({
   seedKey,
   openAll,
   preview,
+  compact,
 }: {
   steps: AutoStep[]
   stepAt: number
@@ -205,6 +206,9 @@ export default function RespView({
       — 명령·판정 기준을 다 그리고, 출력 자리엔 「아직 안 보냄」 을 적는다.
       자동 실행 화면은 기본(안 돌았으면 안 그림)을 그대로 둔다. */
   preview?: boolean
+  /** **스텝과 판정만**(지시: 채팅쪽은 요약, 상세는 3열에서) — 출력·판정
+      기준·RCA·회차를 안 그리고 머리 줄(Step N · 명령 · PASS/FAIL)만 남긴다. */
+  compact?: boolean
 }) {
   /** 시험 항목 표와 같은 번호 — 주석은 번호를 안 먹는다 */
   const nos = useMemo(() => {
@@ -354,8 +358,9 @@ export default function RespView({
               지금 보는 스텝까지를 차례로 쌓고, 그 자리로 끌어 준다. */}
           {/* **스텝 번호 줄**(지시) — 판정이 걸린 줄은 초록, 깨진 줄은 빨강,
               그 밖은 흰 칩이다. 누르면 그 줄로 간다. 62 스텝을 훑을 때
-              카드를 스크롤하지 않고도 깨진 자리로 바로 갈 수 있다. */}
-          <div className="ra-sbar">
+              카드를 스크롤하지 않고도 깨진 자리로 바로 갈 수 있다.
+              compact(채팅쪽)은 손잡이 줄을 걷는다 — 상세는 3열에서 본다. */}
+          {!compact && <div className="ra-sbar">
             {/* 62 스텝을 훑는 두 손잡이(승인) — 접으면 머리만 남고, 부적합만
                 고르면 그 자리만 선다. 실행 스텝 표가 하던 일이다.
                 말은 시험 항목 실행 로그의 단추와 맞춘다(지시). */}
@@ -397,8 +402,8 @@ export default function RespView({
                 </button>
               ),
             )}
-          </div>
-          <div className="ra-con" ref={conRef} onScroll={onConScroll}>
+          </div>}
+          <div className={`ra-con${compact ? ' compact' : ''}`} ref={conRef} onScroll={onConScroll}>
             {/* 지난 실행 — 다시 돌릴 때마다 콘솔이 초기화되던 것을 고쳤다(지시).
                 흐리게 그리고 가름선에 시각을 적어, 지금 것과 안 섞이게 한다. */}
             {/* 지난 실행 블록도 걷었다(지시) — 「이번 실행」 라벨 위로 지난 것이
@@ -459,8 +464,9 @@ export default function RespView({
                   {/* 주석은 번호를 안 먹는다(nos 가 비어 있다). 그때 s2.no 로
                       떨어지면 **다음 줄과 같은 번호**가 붙어 같은 스텝이 두
                       번 나온 것처럼 보였다(지적). 번호가 없으면 안 적는다. */}
-                  {/* 펼 것이 있는 줄에만 화살표를 둔다 — 주석·메시지는 잴 것이 없다 */}
-                  {s2.kind === 'comment' || s2.kind === 'message' ? (
+                  {/* 펼 것이 있는 줄에만 화살표를 둔다 — 주석·메시지는 잴 것이 없다.
+                      compact(채팅쪽)은 펼 것이 없으니 화살표를 걷는다. */}
+                  {compact || s2.kind === 'comment' || s2.kind === 'message' ? (
                     <span className="ra-bcar" />
                   ) : (
                     <button
@@ -516,7 +522,7 @@ export default function RespView({
                     <span className="ra-bnone">판정 없음</span>
                   )}
                 </div>
-                {!folded.has(seeUpTo) && rds.length > 1 && (
+                {!compact && !folded.has(seeUpTo) && rds.length > 1 && (
                   <div className="ra-rds">
                     <span className="l">회차 {rds.length}회</span>
                     {rds.map((r, k) => (
@@ -532,7 +538,7 @@ export default function RespView({
                     ))}
                   </div>
                 )}
-                {folded.has(seeUpTo) ? null : isWait(s2) ? (
+                {compact || folded.has(seeUpTo) ? null : isWait(s2) ? (
                   <pre className="ra-wait">{waitLine(s2, seeUpTo)}</pre>
                 ) : (
                   /* 시험 항목 화면과 **같은 부품**으로 그린다(지시: 실행
@@ -588,7 +594,7 @@ export default function RespView({
                     세로로 맞는다. 접으면 머리만 남는다.
                     자리는 **출력 아래**(지시) — 명령의 결과를 먼저 읽고,
                     그것을 무엇으로 판정했는지가 그다음이다. */}
-                {!folded.has(seeUpTo) &&
+                {!compact && !folded.has(seeUpTo) &&
                   (() => {
                   const quiet2 = s2.kind === 'comment' || s2.kind === 'message'
                   if (quiet2) return null
