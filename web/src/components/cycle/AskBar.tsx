@@ -4943,20 +4943,8 @@ export default function AskBar({ devices }: Props) {
           </span>
           {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
           <span className="sp" />
-          {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}
-          <button
-            type="button"
-            className="btn small ask-devchip"
-            title="다른 장비로 바꿉니다"
-            onClick={() => {
-              setPickSel(devId || usable[0]?.id || '')
-              setPickLab('')
-              setPickRack('')
-              setPickDev({ model: '', cands: usable })
-            }}
-          >
-            ▭ {curDev ? `${curDev.model || curDev.name || ''} · ${curDev.ip}` : '장비를 고르세요'}
-          </button>
+          {/* 장비 칩은 걷었다(지시) — 어느 장비인지는 결과 보기 메타줄·입력칸
+              칩이 이미 말한다. 장비 바꾸기는 입력칸 칩의 몫. */}
           {/* **여기부터**(지시) — 가운데서 깨졌을 때 처음부터 다시 돌리지 않게.
               엔진은 이미 구간을 받는다(run(only, from, to)), 단추만 없었다. */}
           {!running && stepAt > 0 && (
@@ -5006,6 +4994,18 @@ export default function AskBar({ devices }: Props) {
                 HTML 저장
               </button>
             </>
+          )}
+          {/* ✕ 닫기(지시) — 3열을 접고 채팅만 남긴다. 결과 보기 칩으로 다시 연다.
+              Advanced 는 판이 늘 서는 갈래라 닫기가 없다. */}
+          {mode === 'basic' && (
+            <button
+              className="btn small ask-artx"
+              type="button"
+              title="결과 판을 닫습니다 — 대화의 「결과 보기」 로 다시 엽니다"
+              onClick={() => setArtOpen(false)}
+            >
+              ✕
+            </button>
           )}
           {/* 버리기 단추는 걷었다(지시) — 새 채팅이 그 몫을 한다 */}
         </div>

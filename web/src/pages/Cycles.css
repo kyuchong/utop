@@ -9728,6 +9728,10 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 
 /* ══ 결과 보기(지시: 첨부 목업) — 머리·판정 요약·타임라인·스텝별 판정 ══
    이름은 askv- 로 가둔다(겹치면 남의 화면이 조용히 깨진다). */
+/* ✕ 닫기(지시) — HTML 저장 옆, 판을 접는다 */
+.ask-slots .ask-artx { width: 28px; padding: 0; color: var(--c-text-faint); }
+.ask-slots .ask-artx:hover { color: var(--c-text); }
+
 /* 결과 몸통 — 판 높이를 넘으면 여기서 세로 스크롤(지적: 스크롤 바 없음) */
 .askr .askv-body { flex: 1; min-height: 0; overflow-y: auto; }
 /* 몸통이 스크롤을 가지므로 안의 Response 는 제 높이대로 자란다 */
