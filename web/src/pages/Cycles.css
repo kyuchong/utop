@@ -9615,7 +9615,9 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
    장비·항목 고르기를 팝업이 아니라 **대화 안 카드**로 편다. LLM 이 고른
    순서 그대로, 맨 위(.top)가 추천. 눌러 고르면 pickedLine 이 이 블록을 고른
    카드 한 줄로 접는다. 이름은 ask-cand 로 가둔다(css 이름 겹침 주의). */
-.ask-msgs .ask-cands { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 2px; }
+/* 행이 화면 폭을 다 차지해 길다(지적) — 후보 카드·실행 블록에 최대 폭을 준다 */
+.ask-msgs .ask-cands { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 2px; max-width: 760px; }
+.ask-msgs .acr { max-width: 760px; }
 /* 카드 한 장 = **한 줄**(지시: 1열 형태) — 이름·IP 왼쪽, 이유·상태 오른쪽.
    이유가 길면 말줄임하고 전체는 title(마우스 올림)로 읽는다. */
 .ask-msgs .ask-cand {
