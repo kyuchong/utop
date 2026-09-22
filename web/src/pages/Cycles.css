@@ -9600,6 +9600,32 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-msgs .ask-cand .cn .dot.part { background: var(--c-warn, #d97706); }
 .ask-msgs .ask-cand .cn .dot.no { background: var(--c-fail, #dc2626); }
 
+/* ── 채팅 속 실행(지시: Cycles 의 response 처럼 채팅창에서) ──────────────
+   시험 시작을 누른 자리에 Response 가 선다 — 머리 밴드(진행·멈추기) +
+   진행 막대 + 스텝 카드. 3열은 요약(결과 보기)의 몫. */
+.ask-msgs .ask-chatrun .bdw { flex: 1; min-width: 0; }
+.ask-msgs .acr {
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+  overflow: hidden;
+  margin: 4px 0 2px;
+}
+.ask-msgs .acr-band {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: var(--fs-sm);
+  background: var(--c-hover, #f6f8fb);
+  border-bottom: 1px solid var(--c-border);
+}
+.ask-msgs .acr-band.done { background: var(--c-pass-soft, #f0faf3); }
+.ask-msgs .acr-band .sp { flex: 1; }
+.ask-msgs .acr-prog { height: 3px; background: var(--c-border); }
+.ask-msgs .acr-prog span { display: block; height: 100%; background: var(--c-primary, #2563eb); transition: width 0.3s; }
+.ask-msgs .acr-resp { padding: 8px 10px 10px; }
+
 /* ── 결과 요약 배너(사용자 결정) — 응답 판 머리에 LLM 요약을 세운다 ──── */
 .askr-summ {
   display: flex;

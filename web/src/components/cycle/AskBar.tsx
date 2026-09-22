@@ -305,6 +305,9 @@ export default function AskBar({ devices }: Props) {
       배너로 서고, 대화에도 한 줄로 남는다. null 이면 아직 안 지었다. */
   const [summ, setSumm] = useState<{ text: string; pass: number; fail: number; ai?: boolean } | null>(null)
   const [summing, setSumming] = useState(false)
+  /** 채팅 속 실행(지시: 시험 진행이 채팅창에서) — 켜지면 대화 줄의
+      표식(data-chatrun) 자리에 Response 가 서고 3열은 안 연다. */
+  const [chatRun, setChatRun] = useState(false)
   /* ── 실행 응답 화면(지시: 사이클 자동 실행처럼) ──────────────────────
      실행을 걸면 편집용 세 판 대신 **응답이 주인공**인 화면으로 바뀐다 —
      상태 밴드 · 진행 막대 · 왼쪽 스텝 큐 · 오른쪽 큰 실행 로그.
@@ -481,13 +484,14 @@ export default function AskBar({ devices }: Props) {
       if (i >= text.length) window.clearInterval(t)
     }, 30)
   }
-  /* 새 줄이 붙으면 아래로 따라간다 — 사람이 위로 올려 읽는 중이면 그대로 둔다 */
+  /* 새 줄이 붙으면 아래로 따라간다 — 사람이 위로 올려 읽는 중이면 그대로 둔다.
+     채팅 속 실행(지시)은 스텝 출력이 msgs 밖에서 자라므로 ran·at 도 따른다. */
   useEffect(() => {
     const el = msgsRef.current
     if (!el) return
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120
     if (near) el.scrollTop = el.scrollHeight
-  }, [msgs])
+  }, [msgs, ran, at])
 
   /** 장비 고르개의 상태 탭 — 전체 · 연결됨 · 점검 · 연결안됨.
       열 머리 드롭다운에도 같은 거르개가 있지만, 가장 자주 쓰는 거르개가
@@ -2247,7 +2251,7 @@ export default function AskBar({ devices }: Props) {
   }
 
   /** `only` 는 그 줄 하나만, `from` 은 그 줄부터 끝까지(지시) */
-  const run = async (only?: number, from?: number, to?: number) => {
+  const run = async (only?: number, from?: number, to?: number, opts?: { chat?: boolean }) => {
     if (!draft || !devId) return
     const ac = new AbortController()
     abortRef.current = ac
@@ -2263,7 +2267,19 @@ export default function AskBar({ devices }: Props) {
     logN.current = 0
     setRunning(true)
     setRunView(true)
-    setArtOpen(true)
+    /* 채팅 실행(지시) — 3열을 열지 않고 **대화 안에서** Response 가 돈다.
+       실행 자리는 대화 줄에 표식으로 남겨, 완료 줄이 그 아래에 이어진다. */
+    if (opts?.chat) {
+      setChatRun(true)
+      setArtOpen(false)
+      setMsgs((v) => [
+        ...v.filter((m) => !m.html.includes('data-chatrun')),
+        { who: 'a' as const, html: '<i data-chatrun></i>', at: hhmm() },
+      ])
+    } else {
+      setChatRun(false)
+      setArtOpen(true)
+    }
     setAt(-1)
     const fullRun = typeof only !== 'number' && typeof from !== 'number'
     try {
@@ -4133,9 +4149,10 @@ export default function AskBar({ devices }: Props) {
                     pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
                     return
                   }
-                  /* 채팅 속 ▷ 시험 시작(지시) — 결과 판을 열며 바로 돈다 */
+                  /* 채팅 속 ▷ 시험 시작(지시) — **채팅 안에서** 돈다.
+                     3열은 안 열고, 요약은 결과 보기가 연다. */
                   if (t.closest('.js-runstart')) {
-                    if (!running) void run()
+                    if (!running) void run(undefined, undefined, undefined, { chat: true })
                     return
                   }
                   /* 고르기 칩은 **팝업**을 연다(지시) — 3열은 아티팩트의 몫 */
@@ -4159,6 +4176,62 @@ export default function AskBar({ devices }: Props) {
                       <span className="uav" aria-hidden="true" title={meName || undefined}>
                         {myInit}
                       </span>
+                    </div>
+                  ) : m.html.includes('data-chatrun') ? (
+                    /* ── 채팅 속 실행(지시: Cycles 의 response 처럼) ──────────
+                       시험 시작을 누른 그 자리에 Response 가 선다 — 스텝별
+                       CLI 입·출력이 실시간으로 흐르고, 끝나면 완료 줄이
+                       아래에 이어진다. 요약 본문은 결과 보기(3열)의 몫. */
+                    <div className="msg a ask-chatrun" key={i}>
+                      <span className="av" aria-hidden="true">✦</span>
+                      <div className="bdw">
+                        <div className="bd">
+                          {chatRun && (running || (ran?.length ?? 0) > 0) ? (
+                            <div className="acr">
+                              <div className={`acr-band${running ? '' : ' done'}`}>
+                                {running && <span className="askr-dot" aria-hidden="true" />}
+                                <b>
+                                  {running
+                                    ? at >= 0
+                                      ? `실행 중 — 스텝 ${stripNos[at] || at + 1}`
+                                      : '실행 중…'
+                                    : '실행 끝'}
+                                </b>
+                                <span className="sp" />
+                                {running && (
+                                  <button
+                                    className="btn small"
+                                    type="button"
+                                    onClick={() => abortRef.current?.abort()}
+                                  >
+                                    ⏹ 멈추기
+                                  </button>
+                                )}
+                              </div>
+                              <div className="acr-prog" aria-hidden="true">
+                                <span
+                                  style={{
+                                    width: `${runnableN ? Math.round((doneN / runnableN) * 100) : 0}%`,
+                                  }}
+                                />
+                              </div>
+                              <div className="acr-resp">
+                                <RespView
+                                  steps={autoSteps}
+                                  stepAt={stepAt}
+                                  onStep={setStepAt}
+                                  dut={devName}
+                                  runStep={running ? at : null}
+                                  seedKey={draft?.object || draft?.name || ''}
+                                  openAll
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="ln">실행 기록이 지워졌습니다 — 다시 시험으로 새로 돌립니다.</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div className="msg a" key={i}>
