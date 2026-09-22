@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
 import { connParams, deviceLabel, deviceShort } from './device'
-import { cmdHistory, parseKeyEcho, saveTermLog, sendKeys, streamCli } from '@/components/term/core'
+import { breakCli, cmdHistory, parseKeyEcho, saveTermLog, sendKeys, streamCli } from '@/components/term/core'
 import type { TcStep } from './types'
 
 interface Props {
@@ -423,6 +423,13 @@ export default function TcTerminal({
               onKeyDown={(e) => {
                 e.stopPropagation()
                 if (e.nativeEvent.isComposing) return
+                /* Ctrl+C(지시: ping 이 안 멈춘다) — 진짜 터미널처럼 도는 명령을
+                   끊는다. 글자를 골라 둔 상태면 복사 뜻이므로 건드리지 않는다. */
+                if (e.ctrlKey && (e.key === 'c' || e.key === 'C') && !window.getSelection()?.toString()) {
+                  e.preventDefault()
+                  if (dev) void breakCli(connParams(dev) as unknown as Record<string, unknown>)
+                  return
+                }
                 if (busy && (e.key === 'Enter' || e.key === 'Tab' || e.key === '?')) {
                   // 도는 중의 실행 키는 삼킨다 — 미리 쳐 둔 글자는 살아 있다
                   e.preventDefault()

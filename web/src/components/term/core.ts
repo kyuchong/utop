@@ -45,6 +45,22 @@ export async function streamCli(
   }
 }
 
+/** Ctrl+C(지시: ping 이 안 멈춘다) — 도는 명령에 \x03 을 보내 끊는다.
+    도는 스트림이 세션을 쥔 채라 잠금 없는 길(/api/session-break)로 쓴다. */
+export async function breakCli(params: Record<string, unknown>): Promise<boolean> {
+  try {
+    const r = await apiFetch('/api/session-break', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    })
+    const b = (await r.json()) as { ok?: boolean }
+    return !!b.ok
+  } catch {
+    return false
+  }
+}
+
 /** ↑↓ 명령 히스토리 — 같은 명령은 한 번만 남고, 아래 끝을 지나면 비운다 */
 export function cmdHistory() {
   const hist: string[] = []

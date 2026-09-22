@@ -7635,7 +7635,8 @@ def run_cli(payload: dict):
                 # 단 y/n 답·직전 Password: 답 명령은 건너뛴다(지적) — 되밟기의
                 # find_prompt(개행)가 확인/암호 물음을 삼킨다.
                 _after_pw0 = bool(ent.pop("await_pw", False))
-                if not _after_pw0 and str(cmd or "").strip().lower() not in ("y", "yes", "n", "no"):
+                _c0 = str(cmd or "").strip().lower()
+                if not _after_pw0 and _c0 not in ("y", "yes", "n", "no") and not re.match(r"^\^c(?:\s|$)", _c0):
                     _cfg_ctx_keep(conn, ent, cmd)
                 _cfg_ctx_note(ent, cmd)
                 if _skip_next:
@@ -7661,8 +7662,27 @@ def run_cli(payload: dict):
                     # 단일 y/yes/n/no 명령은 직전에 [y/n]이 있었을 가능성 → send_command 대신 write_channel + 3초 대기.
                     _cmd_stripped_pre = (cmd or "").strip().lower()
                     _is_yn_only = _cmd_stripped_pre in ("y", "yes", "n", "no")
+                    # `^C` 명령 줄(지시: ping 멈춤) — Ctrl+C(\x03) 를 개행 없이 보낸다
+                    _is_break = bool(_re.match(r"^\^c(?:\s+\d+(?:\.\d+)?)?$", _cmd_stripped_pre))
                     try:
-                        if _wait_only_sec > 0:
+                        if _is_break:
+                            conn.write_channel("\x03")
+                            _bk_buf = ""; _bk_dl = _t.time() + 8.0; _bk_tail = ""
+                            while _t.time() < _bk_dl:
+                                try: _cbk = conn.read_channel() or ""
+                                except Exception: _cbk = ""
+                                if _cbk:
+                                    _bk_buf += _cbk
+                                    _bk_tail = (_bk_tail + _cbk)[-160:]
+                                    if _re.search(r"[#>$]\s*$", _bk_tail.strip()):
+                                        _t.sleep(0.25)
+                                        try: _bk_buf += conn.read_channel() or ""
+                                        except Exception: pass
+                                        break
+                                else:
+                                    _t.sleep(0.08)
+                            out = "^C\n" + _bk_buf.strip()
+                        elif _wait_only_sec > 0:
                             try:
                                 conn.write_channel(cmd + "\n")
                             except Exception as ce_wr:
@@ -7943,8 +7963,69 @@ async def run_cli_stream(payload: dict):
                 # 셀($) 프롬프트도 프롬프트로 본다(지시: 셀 진입 뒤 다음 스텝).
                 # 장비 이름(bp)으로 시작하는 줄에만 걸려 오탐이 드물다.
                 pr = (_restr.escape(bp) + r"\S*[#>$]\s*$") if bp else None
-                for cmd in commands:
+                # ── Ctrl+C(지시: ping 을 5초 뒤 멈춤) ─────────────────────
+                # `^C` 명령 줄 = Ctrl+C(\x03) 를 보낸다. ping 처럼 안 끝나는
+                # 명령은 **다음 줄에 `^C 5`** 라 적는다 — 앞 명령을 프롬프트
+                # 대기 없이 5초(숫자 생략 시 5) 흘려보내고 끊은 뒤 프롬프트를
+                # 되찾는다. 홀로 선 `^C` 는 그 자리에서 바로 끊는다.
+                _BRK = _restr.compile(r"^\^c(?:\s+(\d+(?:\.\d+)?))?$", _restr.I)
+
+                async def _read_back_prompt(max_s=8.0):
+                    """\x03 뒤 프롬프트가 돌아올 때까지 읽어 흘린다."""
+                    _t0b = _tstr.time(); _tailb = ""
+                    while _tstr.time() - _t0b < max_s:
+                        try: _cb = conn.read_channel() or ""
+                        except Exception: _cb = ""
+                        if _cb:
+                            _tailb = (_tailb + _cb)[-160:]
+                            yield _cb
+                            if _restr.search(r"[#>$]\s*$", _tailb.strip()):
+                                await asyncio.sleep(0.25)
+                                try: _cb2 = conn.read_channel() or ""
+                                except Exception: _cb2 = ""
+                                if _cb2: yield _cb2
+                                break
+                        else:
+                            await asyncio.sleep(0.08)
+
+                _consumed_ci = set()
+                for _ci2, cmd in enumerate(commands):
+                    if _ci2 in _consumed_ci:
+                        continue
                     yield _sse({"cmd": cmd})       # 명령 입력 표시(라이브 터미널에 '$ cmd')
+
+                    # 홀로 선 ^C — 지금 도는 것을 끊는다
+                    if _BRK.match(str(cmd or "").strip()):
+                        await asyncio.to_thread(conn.write_channel, "\x03")
+                        yield _sse({"o": "^C\n"})
+                        async for _ob in _read_back_prompt():
+                            yield _sse({"o": _ob}); await asyncio.sleep(0)
+                        ent["ts"] = _t.time()
+                        continue
+                    # 다음 줄이 ^C — 이 명령은 프롬프트를 기다리지 않고
+                    # 지정 초만 흘려보낸 뒤 끊는다 (ping · 연속 조회)
+                    _mnx = _BRK.match(str(commands[_ci2 + 1] or "").strip()) if _ci2 + 1 < len(commands) else None
+                    if _mnx:
+                        _consumed_ci.add(_ci2 + 1)
+                        _run_s = min(600.0, float(_mnx.group(1) or 5))
+                        try: await asyncio.to_thread(conn.read_channel)
+                        except Exception: pass
+                        await asyncio.to_thread(conn.write_channel, cmd + "\n")
+                        _cfg_ctx_note(ent, cmd)
+                        _dl_r = _tstr.time() + _run_s
+                        while _tstr.time() < _dl_r:
+                            try: _cr = conn.read_channel() or ""
+                            except Exception: _cr = ""
+                            if _cr:
+                                yield _sse({"o": _cr}); await asyncio.sleep(0)
+                            else:
+                                await asyncio.sleep(0.08)
+                        await asyncio.to_thread(conn.write_channel, "\x03")
+                        yield _sse({"o": "^C\n"})
+                        async for _ob in _read_back_prompt():
+                            yield _sse({"o": _ob}); await asyncio.sleep(0)
+                        ent["ts"] = _t.time()
+                        continue
 
                     # ── 셀 진입(지시) — 대화형 암호 처리 ──────────────────
                     # 「start-shell → Password: → 암호 → 셀 프롬프트」. 여기서
@@ -8333,6 +8414,24 @@ def session_close(payload: dict):
         ent["conn"] = None
         ent["ts"] = 0.0
         return {"ok": True}
+
+
+@app.post("/api/session-break")
+def session_break(payload: dict):
+    """Ctrl+C(\\x03) 를 지금 세션에 보낸다(지시: ping 이 안 멈춘다).
+
+    도는 명령(스트림)이 세션 잠금을 쥔 채라, **잠금 없이 쓰기만** 한다 —
+    읽기는 도는 쪽 루프가 그대로 받아 프롬프트 복귀까지 흘린다."""
+    params = _netmiko_params(payload)
+    ent = _get_conn_entry(params)
+    conn = ent.get("conn")
+    if not conn:
+        return {"ok": False, "error": "세션이 없습니다 — 먼저 접속하세요"}
+    try:
+        conn.write_channel("\x03")
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
 
 
 @app.post("/api/session-key")

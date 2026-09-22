@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { connParams, deviceLabel, deviceShort } from '@/components/tc/device'
-import { cmdHistory, parseKeyEcho, saveTermLog, sendKeys, streamCli } from '@/components/term/core'
+import { breakCli, cmdHistory, parseKeyEcho, saveTermLog, sendKeys, streamCli } from '@/components/term/core'
 import type { Device } from '@/pages/Devices'
 import './RackTerm.css'
 
@@ -323,6 +323,12 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
             onKeyDown={(e) => {
               e.stopPropagation()
               if (e.nativeEvent.isComposing) return
+              /* Ctrl+C(지시) — 도는 명령 끊기. 골라 둔 글자가 있으면 복사다 */
+              if (e.ctrlKey && (e.key === 'c' || e.key === 'C') && !window.getSelection()?.toString()) {
+                e.preventDefault()
+                void breakCli(params() as unknown as Record<string, unknown>)
+                return
+              }
               // 장비 CLI 의 손맛 — 탭 완성과 ? 도움말(공용 심장부)
               if (e.key === 'Tab') {
                 e.preventDefault()
