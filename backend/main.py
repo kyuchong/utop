@@ -7431,6 +7431,11 @@ def _cfg_ctx_keep(conn, ent, cmd):
             return
 
 
+# 재부팅 명령 — 보내고 나면 다음 진짜 명령에서 강제 재접속한다(지적:
+# 부팅 후 첫 CLI 결과가 안 나온다). reload·reboot·halt·boot·restart 류.
+_REBOOT_RE = re.compile(r"^(reload|reboot|restart|halt|boot(?:\s|$)|system\s+restart)", re.I)
+
+
 def _cfg_ctx_note(ent, cmd):
     """보낸 뒤 — 문맥을 쌓거나 비운다."""
     if ent is None:
@@ -7438,6 +7443,9 @@ def _cfg_ctx_note(ent, cmd):
     c = str(cmd or "").strip()
     if not c:
         return
+    # 재부팅 명령이면 표식 — 다음 진짜 명령이 이걸 보고 새 세션으로 붙는다.
+    if _REBOOT_RE.match(c):
+        ent["reboot_pending"] = True
     ctx = list(ent.get("cfg_ctx") or [])
     if _CFG_LEAVE.match(c):
         ctx = [] if c.lower().startswith("end") else ctx[:-1]
@@ -7451,12 +7459,15 @@ def _cfg_ctx_note(ent, cmd):
     ent["cfg_ctx"] = ctx
 
 
-def _ensure_conn(ent, params):
+def _ensure_conn(ent, params, force=False):
     from netmiko import ConnectHandler
     now = _t.time()
     conn = ent.get("conn")
     if conn is not None:
-        if now - ent.get("ts", 0.0) < _CONN_IDLE_SEC:
+        # 재부팅 뒤 첫 명령(지적: 부팅 후 첫 CLI 결과가 안 나온다) — is_alive 는
+        # reload 로 상대가 죽어도 로컬 소켓만 보고 「살았다」 하므로, 죽은
+        # 세션에 명령이 나가 빈 응답이 된다. force 면 무조건 끊고 새로 붙는다.
+        if not force and now - ent.get("ts", 0.0) < _CONN_IDLE_SEC:
             try:
                 # **프롬프트가 아니라 소켓을 본다.**
                 #
@@ -7560,8 +7571,15 @@ def run_cli(payload: dict):
                 # _ensure_conn 이 바로 그 일을 한다: 쉰 지 얼마 안 됐으면 find_prompt
                 # 로 살았는지 보고, 죽었거나 오래 쉬었으면 끊고 새로 잡는다.
                 _before = ent.get("conn")
+                # 재부팅 뒤 첫 진짜 명령이면 강제 재접속(지적: 부팅 후 첫 CLI 결과
+                # 가 안 나온다). y/n 답은 재부팅을 일으키는 스텝이라 건드리지 않는다.
+                _first_real0 = next((c for c in commands
+                                     if str(c or "").strip().lower() not in ("", "y", "yes", "n", "no")), None)
+                _force_re0 = bool(ent.get("reboot_pending")) and _first_real0 is not None
+                if _force_re0:
+                    ent.pop("reboot_pending", None)
                 try:
-                    conn = _ensure_conn(ent, params)
+                    conn = _ensure_conn(ent, params, _force_re0)
                 except Exception as _re0:
                     return {"ok": False, "error": "세션이 열려 있지 않습니다 — 먼저 Session Open 스텝을 실행하세요 · 자동 재접속 실패: " + _conn_fail_msg(params, _re0), "no_session": True, "outputs": []}
                 # 새 연결로 갈아탔으면 화면에 알린다 — 사람이 「왜 설정이 사라졌지」 를
@@ -7934,8 +7952,16 @@ async def run_cli_stream(payload: dict):
                 #
                 # 두 길이 **같은 함수**를 쓰게 한다 — 규칙이 두 벌이면 한쪽만 고쳐진다.
                 _before_s = ent.get("conn")
+                # 재부팅 뒤 첫 **진짜 명령**이면 강제 재접속(지적: 부팅 후 첫 CLI
+                # 결과가 안 나온다). y/n 답은 재부팅을 「일으키는」 스텝이라
+                # 아직 옛 세션이 물음에 서 있다 — 그건 건드리지 않는다.
+                _first_real = next((c for c in commands
+                                    if str(c or "").strip().lower() not in ("", "y", "yes", "n", "no")), None)
+                _force_re = bool(ent.get("reboot_pending")) and _first_real is not None
+                if _force_re:
+                    ent.pop("reboot_pending", None)
                 try:
-                    conn = await asyncio.to_thread(_ensure_conn, ent, params)
+                    conn = await asyncio.to_thread(_ensure_conn, ent, params, _force_re)
                 except Exception as _re0s:
                     yield _sse({"err": "세션이 열려 있지 않습니다 — 자동 재접속 실패: " + _conn_fail_msg(params, _re0s)}); yield _sse({"done": True}); return
                 ent["ts"] = _t.time()
