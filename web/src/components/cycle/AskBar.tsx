@@ -2829,6 +2829,30 @@ export default function AskBar({ devices }: Props) {
   /** 미리보기를 닫는다 — blob 주소는 위 효과의 청소가 거둔다 */
   const closePdfPrev = () => setPdfUrl('')
 
+  /** HTML 저장(지시: PPTX 대신) — PDF 와 같은 결과서 쪽들을 **한 HTML 파일**로
+      내려받는다. 서버를 안 거치니 바로 받아지고, 브라우저로 열어 보거나
+      그대로 인쇄(PDF 화)할 수 있다. */
+  const saveHtml = () => {
+    if (!draft) return
+    const pages = bakePages()
+    const html =
+      `<!doctype html><html lang="ko"><head><meta charset="utf-8">` +
+      `<title>${hesc(draft.object || draft.name || '시험')} 결과서</title>` +
+      `<style>body{margin:0;background:#e8e6dc;padding:16px 0}` +
+      `.pg{width:794px;min-height:1123px;background:#fff;margin:0 auto 16px;` +
+      `box-shadow:0 4px 14px rgb(0 0 0/12%);padding:40px;box-sizing:border-box}` +
+      `@media print{body{background:#fff;padding:0}` +
+      `.pg{box-shadow:none;margin:0;min-height:auto;page-break-after:always}` +
+      `.pg:last-child{page-break-after:auto}}` +
+      `${REPORT_CSS}</style></head><body>` +
+      pages.map((pgh) => `<div class="pg rpt">${pgh}</div>`).join('') +
+      `</body></html>`
+    downBlob(
+      new Blob([html], { type: 'text/html;charset=utf-8' }),
+      `${draft.object || draft.name || '시험'}_결과서.html`,
+    )
+  }
+
   /** PPTX 에 실을 내용 한 벌 — 저장과 미리보기가 같은 것을 본다 */
   const pptxParts = () => {
     const runnable = autoSteps.filter((s) => s.kind !== 'comment' && s.kind !== 'message')
@@ -4796,10 +4820,10 @@ export default function AskBar({ devices }: Props) {
               <button
                 className="btn small"
                 type="button"
-                title="고객사 양식(PPTX) 결과서로 저장합니다 — 미리보기가 먼저 뜹니다"
-                onClick={() => setExpPrev('pptx')}
+                title="절차와 결과를 HTML 결과서 한 파일로 내려받습니다 — 브라우저로 열어 보고 인쇄할 수 있습니다"
+                onClick={() => saveHtml()}
               >
-                PPTX 저장
+                HTML 저장
               </button>
             </>
           )}
