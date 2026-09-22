@@ -12,6 +12,7 @@ import {
   IconPanelToggle,
   IconSearch,
   IconSettings,
+  IconTrash,
 } from '@/components/icons'
 import { connParams } from '@/components/tc/device'
 import { loopVarAt, runSteps } from '@/components/tc/runner'
@@ -3886,6 +3887,19 @@ export default function AskBar({ devices }: Props) {
         <div className="ask-eyebrow">
           <span>대화</span>
           <span className="eyebtns">
+            {/* 여러 개 지우기(지시: 쓰레기통·검색 왼쪽) — 켜면 줄마다 체크가 선다 */}
+            <button
+              type="button"
+              className={`ask-sec-add${selMode ? ' on' : ''}`}
+              title={selMode ? '고르기 끝내기' : '여러 개 골라 지우기'}
+              onClick={() => {
+                setSelMode((v) => !v)
+                setSelChats(new Set())
+                setThMenu('')
+              }}
+            >
+              <IconTrash />
+            </button>
             {/* 대화 검색은 모든 대화 보기 왼쪽(지시) */}
             <button
               type="button"
@@ -3905,19 +3919,6 @@ export default function AskBar({ devices }: Props) {
               onClick={() => setListAll((v) => !v)}
             >
               ⇅
-            </button>
-            {/* 여러 개 지우기(지시) — 켜면 줄마다 체크가 선다 */}
-            <button
-              type="button"
-              className={`ask-sec-add${selMode ? ' on' : ''}`}
-              title={selMode ? '고르기 끝내기' : '여러 개 골라 지우기'}
-              onClick={() => {
-                setSelMode((v) => !v)
-                setSelChats(new Set())
-                setThMenu('')
-              }}
-            >
-              ☑
             </button>
           </span>
         </div>
