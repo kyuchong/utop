@@ -59,6 +59,12 @@ export default function TcTerminal({
   const [blocks, setBlocks] = useState<Block[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  /** 셀 암호 대기(지시: Password: 뜨면 바로 그 자리에 암호칸) — 장비가
+      Password: 에 서 있으면 그 블럭 자리를 잡아 마스크 입력을 띄운다.
+      왕복 없는 빠른 쓰기(session-write)로 보내 짧은 창을 놓치지 않는다. */
+  const [pwWait, setPwWait] = useState(false)
+  const [pwVal, setPwVal] = useState('')
+  const pwRef = useRef<HTMLInputElement | null>(null)
   /**
    * 세션 자리별 프롬프트. 접속한 자리만 값이 있다.
    *
@@ -197,6 +203,48 @@ export default function TcTerminal({
       setBlocks((v) => v.map((b, i) => (i === at ? { ...b, out: `[오류] ${msg}`, error: true } : b)))
     } finally {
       setBusy(false)
+      /* 출력이 `Password:` 로 끝났으면(start-shell 셀 진입) — 그 자리에 바로
+         마스크 암호칸을 띄운다. 아니면 보통대로 명령줄에 포커스. */
+      let waitPw = false
+      setBlocks((v) => {
+        const last = v[at]
+        if (last && /pass\s*word\s*:?\s*$/i.test(String(last.out).trim())) waitPw = true
+        return v
+      })
+      if (waitPw) {
+        setPwVal('')
+        setPwWait(true)
+        setTimeout(() => pwRef.current?.focus(), 0)
+      } else {
+        inputRef.current?.focus()
+      }
+    }
+  }
+
+  /** 셀 암호 보내기 — 열려 있는 세션에 왕복 없이 바로 쓴다(session-write) */
+  const sendPw = async () => {
+    if (!dev || !pwWait) return
+    const pw = pwVal || connParams(dev).password || ''
+    setPwWait(false)
+    const at = blocks.length
+    setBlocks((v) => [...v, { cmd: '••••••', out: '', taken: true, sess: idx, pr: prompt || undefined }])
+    try {
+      const r = await apiFetch('/api/session-write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...connParams(dev), text: pw }),
+      })
+      const b = (await r.json()) as { ok?: boolean; out?: string; error?: string }
+      const out = b.ok ? String(b.out ?? '') : `[오류] ${b.error ?? '암호를 보내지 못했습니다'}`
+      setBlocks((v) => v.map((x, i) => (i === at ? { ...x, out } : x)))
+      /* 셀 프롬프트로 갈아탔으면 입력줄 프롬프트도 맞춘다 */
+      const m = out.trim().split('\n').pop()?.trim()
+      if (m && /[#>$]\s*$/.test(m)) setPrompts((mm) => ({ ...mm, [idx]: m }))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setBlocks((v) => v.map((x, i) => (i === at ? { ...x, out: `[오류] ${msg}`, error: true } : x)))
+    } finally {
+      setPwVal('')
       inputRef.current?.focus()
     }
   }
@@ -406,7 +454,41 @@ export default function TcTerminal({
           </div>
         )}
 
-        {prompt && (
+        {/* 셀 암호 대기(지시) — Password: 뜨면 그 자리에 마스크 암호칸.
+            엔터로 바로 보내고, Esc 로 취소한다. */}
+        {prompt && pwWait && (
+          <div className="tm-line tm-pwline">
+            <span className="tm-s" data-s={idx % 4}>
+              S{idx + 1}
+            </span>
+            <span className="tm-p">Password:</span>
+            <input
+              ref={pwRef}
+              className="tm-in"
+              type="password"
+              value={pwVal}
+              autoFocus
+              spellCheck={false}
+              autoComplete="off"
+              placeholder="셀 암호 — 엔터로 보냄 · Esc 취소"
+              onChange={(e) => setPwVal(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation()
+                if (e.nativeEvent.isComposing) return
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void sendPw()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setPwWait(false)
+                  setPwVal('')
+                  inputRef.current?.focus()
+                }
+              }}
+            />
+          </div>
+        )}
+        {prompt && !pwWait && (
           <div className="tm-line">
             <span className="tm-s" data-s={idx % 4}>
               S{idx + 1}

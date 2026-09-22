@@ -8489,7 +8489,7 @@ def session_write(payload: dict):
                 out += ch
                 tail = (tail + ch)[-160:]
                 # 셀·일반 프롬프트나 실패 문구가 오면 끝
-                if _re.search(r"[#>$]\s*$", tail.strip()) or _re.search(r"incorrect|denied|fail", tail, _re.I):
+                if re.search(r"[#>$]\s*$", tail.strip()) or re.search(r"incorrect|denied|fail", tail, re.I):
                     _tw.sleep(0.2)
                     try:
                         out += conn.read_channel() or ""
