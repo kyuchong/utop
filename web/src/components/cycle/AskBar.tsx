@@ -5227,7 +5227,8 @@ export default function AskBar({ devices }: Props) {
                       ]
                       const tlAll = tlRows.every((r3) => tlOpen.has(r3.id))
                       return (
-                        <>
+                        /* 몸통이 판 높이를 넘으면 **여기서 스크롤**한다(지적: 스크롤 바 없음) */
+                        <div className="askv-body">
                           {/* 머리 — 제목·배지·메타 */}
                           <div className="askv-rh">
                             <h2>결과 보기 · {draft.name}</h2>
@@ -5425,7 +5426,7 @@ export default function AskBar({ devices }: Props) {
                               />
                             </div>
                           </div>
-                        </>
+                        </div>
                       )
                     })()}
                     {!running && (doneN > 0 || pass > 0 || fail > 0) && (
