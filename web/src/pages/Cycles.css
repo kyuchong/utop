@@ -10129,6 +10129,11 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-msgs .ask-artchip .tx { min-width: 0; }
 .ask-msgs .ask-artchip b { display: block; font-size: 13px; color: var(--cl-ink); }
 .ask-msgs .ask-artchip em { font-style: normal; font-size: 11.5px; color: var(--cl-sub); }
+/* ▷ 시험 시작 칩(지시: 채팅에서 실행) — 실행 단추답게 한 단 진하게 */
+.ask-msgs .ask-artchip.go { border-color: var(--c-pass, #16a34a); }
+.ask-msgs .ask-artchip.go:hover { background: var(--c-pass-soft, #f0faf3); }
+.ask-msgs .ask-artchip.go .ic { background: var(--c-pass, #16a34a); border-color: var(--c-pass, #16a34a); color: #fff; }
+.ask-msgs .ask-artchip.go b { color: var(--c-pass, #16a34a); }
 
 /* ── 시안 그대로: 슬롯 줄을 카드 머리로 붙인다 ── */
 .ask-art > .ask-slots {

@@ -1592,10 +1592,13 @@ export default function AskBar({ devices }: Props) {
          다른 단계를 보다가도 이 칩으로 Response 에 돌아온다 */
       say(
         'a',
-        /* 시작 단추는 채팅에 안 둔다(지시) — 카드가 3열을 열고,
-           ▷ 시험 시작은 그 판 머리에 있다. */
-        `<p class="ln"><b>3단계 · 절차</b> — 절차가 준비됐습니다. 아래 카드를 누르면 결과 판이 열립니다. ` +
-          `<b>▷ 시험 시작</b>은 그 판에 있습니다.</p>` +
+        /* 시작 단추를 **채팅에도** 둔다(지시: 시험도 채팅창에서 실행) —
+           누르면 결과 판이 열리며 바로 돈다. Response 카드는 판만 연다. */
+        `<p class="ln"><b>3단계 · 절차</b> — 절차가 준비됐습니다. ` +
+          `<b>▷ 시험 시작</b>을 누르면 바로 실행됩니다.</p>` +
+          `<button type="button" class="ask-artchip go js-runstart"><span class="ic">▷</span>` +
+          `<span class="tx"><b>시험 시작</b>` +
+          `<em>${hesc(tcName)} · ${raw.length}스텝</em></span></button>` +
           `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
           `<span class="tx"><b>${hesc(tcName)} — Response</b>` +
           `<em>${raw.length}스텝 · 실행 준비</em></span></button>`,
@@ -2344,14 +2347,16 @@ export default function AskBar({ devices }: Props) {
       if (b.ok && b.summary) {
         const s0 = { text: b.summary, pass: b.pass ?? 0, fail: b.fail ?? 0, ai: b.ai }
         setSumm(s0)
-        /* 대화에도 한 줄 — 눌러 결과 판(3열 아티팩트)을 연다 */
-        const tag = s0.fail > 0 ? '불합격' : '합격'
+        /* 대화에는 **짧은 한 줄 + 결과 보기 링크**만(지시) — 요약 본문은
+           3열 아티팩트 머리 배너에서 읽는다. */
+        const tag = s0.fail > 0 ? '불합격 있음' : '전체 합격'
         say(
           'a',
-          `<p class="ln"><b>✓ 결과</b> — ${hesc(b.summary)}</p>` +
+          `<p class="ln"><b>✓ 시험 완료</b> — ${tag} · 합격 ${s0.pass} · 불합격 ${s0.fail}. ` +
+            `자세한 요약은 <b>결과 보기</b>에 있습니다.</p>` +
             `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
             `<span class="tx"><b>결과 보기 — ${hesc(draft?.name ?? '')}</b>` +
-            `<em>${tag} · 합격 ${s0.pass} · 불합격 ${s0.fail}</em></span></button>`,
+            `<em>AI 요약 · 스텝별 판정</em></span></button>`,
         )
       }
     } catch {
@@ -4126,6 +4131,11 @@ export default function AskBar({ devices }: Props) {
                   const tc = t.closest('.js-tcpick') as HTMLElement | null
                   if (tc) {
                     pickInlineTc(tc.dataset.tcid || '', tc.dataset.model || '')
+                    return
+                  }
+                  /* 채팅 속 ▷ 시험 시작(지시) — 결과 판을 열며 바로 돈다 */
+                  if (t.closest('.js-runstart')) {
+                    if (!running) void run()
                     return
                   }
                   /* 고르기 칩은 **팝업**을 연다(지시) — 3열은 아티팩트의 몫 */
