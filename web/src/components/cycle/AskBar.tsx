@@ -4263,6 +4263,7 @@ export default function AskBar({ devices }: Props) {
                                       runStep={running ? at : null}
                                       seedKey={draft?.object || draft?.name || ''}
                                       openAll
+                                      preview
                                     />
                                   </div>
                                 </div>
@@ -5027,6 +5028,7 @@ export default function AskBar({ devices }: Props) {
                         seedKey={draft.object || draft.name}
                         /* PASS 도 펼친 채로(지시) — 자동 실행 화면은 기본(부적합만) 유지 */
                         openAll
+                        preview
                       />
                     </div>
                     {!running && (doneN > 0 || pass > 0 || fail > 0) && (

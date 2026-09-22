@@ -185,6 +185,7 @@ export default function RespView({
   waitAt,
   seedKey,
   openAll,
+  preview,
 }: {
   steps: AutoStep[]
   stepAt: number
@@ -200,6 +201,10 @@ export default function RespView({
   seedKey?: string
   /** 처음부터 전부 편다 — Coverage AI(지시). 자동 실행 화면은 기본(부적합만) */
   openAll?: boolean
+  /** 안 돌린 상태에서도 **절차를 미리 편다**(지시: 실행 준비에 스텝이 안 보임)
+      — 명령·판정 기준을 다 그리고, 출력 자리엔 「아직 안 보냄」 을 적는다.
+      자동 실행 화면은 기본(안 돌았으면 안 그림)을 그대로 둔다. */
+  preview?: boolean
 }) {
   /** 시험 항목 표와 같은 번호 — 주석은 번호를 안 먹는다 */
   const nos = useMemo(() => {
@@ -292,7 +297,10 @@ export default function RespView({
   /** 이번 실행에서 **한 줄도 안 돌았나.** 돌고 있지도 않고 돈 자취도 없으면
    *  콘솔에는 그릴 것이 없다 — 정의만 보고 명령을 미리 찍으면 안 된다. */
   const noneRan = runStep == null && lastRan < 0
+  /** 미리보기(지시) — 안 돌린 절차도 스텝 전부를 편다 */
+  const showAll = !!preview && noneRan
   const seeUpTo = (() => {
+    if (showAll) return Math.max(0, steps.length - 1)
     /* 돌고 있으면 **도는 줄**, 아니면 **고른 줄**이다 */
     /* 안 돌고 있으면 **돈 데까지 전부** 편다(지시: 스텝을 안 눌러도 한 번에
        나왔으면 한다). 고른 줄까지만 그리던 때는 항목을 막 열었을 때 첫 줄
@@ -399,7 +407,7 @@ export default function RespView({
                 예전엔 고른 스텝까지 무조건 그려서, 시작도 안 한 실행에
                 「DUT# show system · (출력 없음)」 이 떠 있었다 — 보낸 적
                 없는 명령이다(지적). */}
-            {noneRan
+            {noneRan && !showAll
               ? <pre className="ra-idle">아직 돌리지 않았습니다.</pre>
               : /* **고른 줄까지 쌓아** 보여 준다(지시) — 한 줄만 그리면 앞 명령의
                    출력이 사라져 무엇 다음에 무엇이 나왔는지 못 읽는다.
@@ -430,9 +438,11 @@ export default function RespView({
                   : s2.out ||
                     (quietKind
                       ? '이 줄은 장비로 나가지 않습니다 — 결과서·로그에 쓰이는 글입니다.'
-                      : seeUpTo === runStep
-                        ? '…'
-                        : '(출력 없음)')
+                      : showAll
+                        ? '(아직 안 보냈습니다 — ▷ 시험 시작을 누르면 여기로 출력이 흐릅니다)'
+                        : seeUpTo === runStep
+                          ? '…'
+                          : '(출력 없음)')
                 const mk = rd ? String(rd.status ?? '') : String(s2.mark ?? '')
                 return (
                 <div
