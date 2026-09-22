@@ -2155,11 +2155,19 @@ export default function TcStepDetail({
                     긴 출력을 다 지나 내려가야 보인다 — 정작 누를 것은 표를
                     보는 그 자리에서 누른다. */}
                 <div className="sd-pick">
-                  {/* 응답 총 줄 수(지적: 카운트가 안 보인다) — 줄제외 적용·빈 줄 제외 */}
+                  {/* 응답 총 줄 수 — **누르면 그 줄 수가 합격 기준**이 된다(지시:
+                      응답 3줄이면 합격하고 싶다). 「줄 수 == N」 칩이 생긴다. */}
                   {result ? (
-                    <span className="muted small" title="줄제외 칩 적용 후, 비어 있지 않은 줄 수입니다">
-                      응답 {respLineN}줄
-                    </span>
+                    <button
+                      className="btn small"
+                      type="button"
+                      title={`줄제외 적용 후 비어 있지 않은 줄 수입니다 — 누르면 「줄 수 == ${respLineN}」 판정 칩이 생깁니다`}
+                      onClick={() =>
+                        writeChips([...chips, { t: 'rowcount', v: String(respLineN), op: '==' }])
+                      }
+                    >
+                      응답 {respLineN}줄이면 합격
+                    </button>
                   ) : null}
                   {/* 표 응답은 끌어서 고를 것이 아니다. `show int status` 를
                       contains 로 보면 28포트 중 아무 줄의 connected 나 걸려서

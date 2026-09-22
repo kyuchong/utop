@@ -281,9 +281,15 @@ function tableLayoutByHead(lines: string[]): TblLayout | null {
     const starts = cells.map((c) => c.at)
     /* 머리줄은 **이름들이지 값들이 아니다**(지적: `| include` 로 거른 출력은
        머리줄이 없어 첫 자료 줄(1/1-1 …)이 머리글로 오인돼 블럭이 안 잡혔다).
-       셀 절반 이상이 숫자로 시작하면 자료 줄이다 — 그때는 이 줄부터 전부
-       자료인 **머리 없는 표**로 본다(headIdx -1). */
-    const digity = cells.filter((c) => /^\d/.test(c.w)).length
+       값 모양 — 숫자로 시작(1/1-1 · 0x246), 대시 자리표시(----), MAC 꼴
+       (7030.5daf.d482) — 이 절반 이상이면 자료 줄이다. 그때는 이 줄부터
+       전부 자료인 **머리 없는 표**로 본다(headIdx -1). */
+    const digity = cells.filter(
+      (c) =>
+        /^\d/.test(c.w) ||
+        /^-+$/.test(c.w) ||
+        /^(?:[0-9a-f]{4}\.){2}[0-9a-f]{4}$/i.test(c.w),
+    ).length
     if (digity * 2 >= cells.length) {
       const bodyIdx0: number[] = []
       for (let i = h; i < lines.length; i++) {
