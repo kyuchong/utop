@@ -2039,8 +2039,11 @@ export default function AskBar({ devices }: Props) {
       }
     }
     /* General 은 **항목부터** 고른다(지시). 장비는 항목이 모델을 정한 뒤에
-       묻는다 — 말에 모델이 있으면 그 모델 것만, 없으면 전체를 보여 준다. */
-    if (mode === 'basic' && !draft) {
+       묻는다 — 말에 모델이 있으면 그 모델 것만, 없으면 전체를 보여 준다.
+       ★ draft 가 있어도 **같은 카드 흐름**이다(지적: 두 번째 질문부터 항목
+       고르기가 팝업으로 떴다) — basic 의 새 질문은 늘 「다시 찾는 말」 이고,
+       새 항목을 고르면 takeTc 가 절차·Response 를 갈아 끼운다. */
+    if (mode === 'basic') {
       /* 이미 장비가 정해져 있으면(칩) 다시 묻지 않는다(지적) — 말에 다른
          모델을 적었을 때만 아래 고르기로 내려간다. */
       const cur0 = usable.find((x) => x.id === devId)
@@ -2112,11 +2115,10 @@ export default function AskBar({ devices }: Props) {
       return
     }
 
-    /* 이미 절차가 있으면 **고치는 말**이다(지시) — 장비를 다시 묻거나
-       시험을 새로 고르지 않고 지금 절차를 고친다.
-       다만 「일반」 갈래는 있는 시험을 그대로 도는 자리라 고치지 않는다 —
-       거기서 적은 말은 **다시 찾는 말**이다(지시). */
-    if (draft && mode !== 'basic') {
+    /* 여기부터는 Advanced 만이다 — basic 은 위 갈래가 전부 받아 돌아갔다.
+       이미 절차가 있으면 **고치는 말**이다(지시) — 장비를 다시 묻거나
+       시험을 새로 고르지 않고 지금 절차를 고친다. */
+    if (draft) {
       setFlowLog((v) => [...v, { s: 5, t: '지금 절차를 고치는 중…' }])
       void makePlan(said, usable.find((x) => x.id === devId))
       return
