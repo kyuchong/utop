@@ -507,6 +507,11 @@ export default function RespView({
                       return c2 ? `${pr}# ${c2}` : s2.t || s2.action || '—'
                     })()}
                   </span>
+                  {/* compact(채팅쪽) — 명령 옆 빈 자리에 **스텝 설명**을 싣는다
+                      (지시: 표의 설명 칸을 이 자리에). 명령과 같으면 안 적는다. */}
+                  {compact && s2.t && s2.t !== (s2.cmd || '') && (
+                    <span className="ra-bdesc" title={s2.t}>{s2.t}</span>
+                  )}
                   {/* 실행 스텝 표가 하던 말을 머리가 받는다(승인) — 동작·세션·
                       걸린 시간. 판을 합치면서 잃을 것이 없어야 한다. */}
                   <span className="ra-bmeta">

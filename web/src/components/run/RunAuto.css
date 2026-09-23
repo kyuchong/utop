@@ -427,7 +427,17 @@
   font-weight: 700;
   min-width: 0;
 }
-.ra-con.compact .ra-bcmd { font-size: 12.5px; color: #1f2328; }
+.ra-con.compact .ra-bcmd { flex: 0 1 auto; max-width: 46%; font-size: 12.5px; color: #1f2328; }
+/* 스텝 설명(지시: 표의 설명 칸을 명령 옆 빈 자리에) */
+.ra-con.compact .ra-bdesc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #6b7480;
+}
 .ra-con.compact .ra-bmeta, .ra-con.compact .ra-btime { color: #9aa4ad; font-size: 11px; }
 .ra-con.compact .ra-st {
   border-radius: 10px;
