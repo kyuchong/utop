@@ -1012,15 +1012,30 @@ export default function NTable(p: NTableProps) {
   }
 
   const allKeys = shown.map((r) => r.__id)
+  /* 도구줄 실제 높이를 재서 머리줄(th)의 sticky top 으로(지적: 스크롤하니
+     보기 탭 줄이 사라짐). 좁은 폭에서 줄이 접혀 높이가 변해도 따라간다. */
+  const ntbRootRef = useRef<HTMLDivElement | null>(null)
+  const ntbBarRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const bar = ntbBarRef.current
+    const root = ntbRootRef.current
+    if (!bar || !root) return
+    const set = () => root.style.setProperty('--ntb-bar-h', `${bar.offsetHeight}px`)
+    set()
+    const ro = new ResizeObserver(set)
+    ro.observe(bar)
+    return () => ro.disconnect()
+  }, [])
+
   const allOn = allKeys.length > 0 && allKeys.every((k) => checked.has(k))
   const curCol = menuAt ? colOf(menuAt.key) : undefined
   const curCell = cellAt ? colOf(cellAt.key) : undefined
   const curRow = cellAt ? rows.find((r) => r.__id === cellAt.row) : undefined
 
   return (
-    <div className="ntb">
+    <div className="ntb" ref={ntbRootRef}>
       {/* ── 도구줄 ── */}
-      <div className="ntb-bar">
+      <div className="ntb-bar" ref={ntbBarRef}>
         {/* 탭이 이 자리에 온다(지시) — 건수는 아래 줄이 이미 말한다 */}
         {toolbarLeft}
         {title && <div className="ntb-title">{title}</div>}
