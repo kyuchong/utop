@@ -1346,9 +1346,14 @@ export default function AskBar({ devices }: Props) {
    * 만든 절차를 기록으로 남긴다 — 왼쪽 「최근」 이 이걸로 채워진다.
    * 저장(시험으로 남기기)과는 다르다: 이건 「무엇을 물었나」 의 기록이다.
    */
+  /** 저장에 함께 실을 지금 대화의 정체 — 대화가 바뀔 때마다 자동 저장이
+      이걸 보고 절차·장비까지 같이 담는다(지적: 새로고침하면 대화가 사라짐) */
+  const saveMetaRef = useRef<{ title: string; plan: Draft; dev: string } | null>(null)
+
   const keepChat = async (title: string, plan: Draft, dev: string) => {
     const id = chatId || `nl-${Date.now().toString(36)}`
     if (!chatId) setChatId(id)
+    saveMetaRef.current = { title, plan, dev }
     /* 왼쪽 대화 목록에도 바로 올린다 — 서버를 다시 읽을 것 없이 */
     setRecent((v) => [{ cid: id, title }, ...v.filter((x) => x.cid !== id)].slice(0, 30))
     try {
@@ -1371,6 +1376,32 @@ export default function AskBar({ devices }: Props) {
       /* 기록을 못 남겨도 절차는 쓸 수 있다 */
     }
   }
+
+  /* 대화가 바뀔 때마다 **통째로 저장**한다(지적: 새로고침하면 대화 이력이
+     사라지고 결과만 남는다). 0.8초 디바운스 — 타자마다 서버를 두드리지
+     않는다. 실행 표식(data-chatrun)은 그대로 담고, 열 때 걷어 낸다. */
+  useEffect(() => {
+    if (!chatId || !saveMetaRef.current || msgs.length === 0) return
+    const t = window.setTimeout(() => {
+      const m = saveMetaRef.current
+      if (!m) return
+      void apiFetch('/api/ai/nl-chats', {
+        method: 'POST',
+        body: JSON.stringify({
+          id: chatId,
+          title: m.title,
+          plan: m.plan,
+          dev: m.dev,
+          msgs: msgs.map((x) => ({ who: x.who, html: x.html, at: x.at })),
+          flow: flowRef.current,
+          vals: valsRef.current,
+          notes: notesRef.current,
+        }),
+      }).catch(() => {})
+    }, 800)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [msgs, chatId])
 
   /**
    * 빈 판정 기준을 **실제 응답으로** 채운다.
@@ -2667,6 +2698,7 @@ export default function AskBar({ devices }: Props) {
           plan?: Draft
           dev?: string
           at?: string
+          msgs?: Array<{ who?: string; html?: string; at?: string }>
           flow?: Array<{ s?: number; t?: string }>
           vals?: Array<{ k?: string; v?: string }>
           notes?: string[]
@@ -2698,22 +2730,47 @@ export default function AskBar({ devices }: Props) {
       setFlowAt(0)
       setPane('')
       setArtOpen(false)
-      /* 대화 기둥에도 그 대화를 되살린다 — 물어본 말 한 줄과 연 흔적 */
-      setMsgs([
-        { who: 'u', html: hesc(title) },
-        {
-          who: 'a',
-          /* 시작 단추는 채팅에 안 둔다(지시) — 칩이 3열을 열고,
-             ▷ 시험 시작은 그 판 머리에 있다. */
-          html:
-            `<p class="ln">기록을 열었습니다 — <b>${hesc(String(plan.name ?? ''))}</b> · ${plan.steps.length}스텝${
-              b.chat?.at ? ` · ${hesc(String(b.chat.at).slice(0, 16))}` : ''
-            }</p>` +
-            `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
-            `<span class="tx"><b>${hesc(String(plan.name ?? ''))} — Response</b>` +
-            `<em>${plan.steps.length}스텝 · 실행 준비</em></span></button>`,
-        },
-      ])
+      /* 대화 기둥을 되살린다(지적: 새로고침하면 대화 이력이 사라짐) —
+         저장해 둔 대화가 있으면 **그대로** 편다. 실행 표식(data-chatrun)은
+         결과(ran)가 안 남으므로 걷어 내고, 대신 절차가 살아 있으니 3단계
+         자리에 실행 준비 카드가 다시 선다(setChatRun). 옛 기록(형태가
+         다름)이면 지금처럼 「기록을 열었습니다」 한 줄로. */
+      const savedMsgs = (b.chat?.msgs ?? []).filter(
+        (m): m is { who: string; html: string; at?: string } =>
+          !!m && (m.who === 'u' || m.who === 'a') && typeof m.html === 'string',
+      )
+      if (savedMsgs.length > 0) {
+        const hadRun = savedMsgs.some((m) => m.html.includes('data-chatrun'))
+        setMsgs([
+          ...savedMsgs
+            .filter((m) => !m.html.includes('data-chatrun'))
+            .map((m) => ({ who: m.who as 'u' | 'a', html: m.html, at: m.at })),
+          /* 실행 자리는 새 표식으로 다시 — 결과는 안 남지만 절차·시험 시작이 선다 */
+          ...(hadRun ? [{ who: 'a' as const, html: '<i data-chatrun></i>' }] : []),
+        ])
+        setChatRun(hadRun)
+      } else {
+        setChatRun(false)
+        setMsgs([
+          { who: 'u', html: hesc(title) },
+          {
+            who: 'a',
+            html:
+              `<p class="ln">기록을 열었습니다 — <b>${hesc(String(plan.name ?? ''))}</b> · ${plan.steps.length}스텝${
+                b.chat?.at ? ` · ${hesc(String(b.chat.at).slice(0, 16))}` : ''
+              }</p>` +
+              `<button type="button" class="ask-artchip js-openresp"><span class="ic">▤</span>` +
+              `<span class="tx"><b>${hesc(String(plan.name ?? ''))} — Response</b>` +
+              `<em>${plan.steps.length}스텝 · 실행 준비</em></span></button>`,
+          },
+        ])
+      }
+      /* 자동 저장이 절차·장비까지 같이 담게 정체를 세워 둔다 */
+      saveMetaRef.current = {
+        title: String(b.chat?.title || plan.name || title),
+        plan,
+        dev: String(b.chat?.dev ?? ''),
+      }
       const keptFlow = (b.chat?.flow ?? [])
         .filter((x) => String(x?.t ?? '').trim())
         .map((x) => ({ s: Number(x.s) || 1, t: String(x.t) }))
