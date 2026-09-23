@@ -1503,6 +1503,30 @@ async def nl_chat_get(cid: str, token: str = ""):
     return {"ok": False, "error": "그 대화를 찾지 못했습니다"}
 
 
+@app.post("/api/ai/feedback")
+async def ai_feedback(payload: dict, token: str = ""):
+    """👍👎 답변 평가(지시: Open WebUI) — 프롬프트 개선 근거로 쌓는다."""
+    me = _nl_chat_me(token)
+    if not me:
+        return {"ok": False, "error": "로그인이 필요합니다"}
+    v = str((payload or {}).get("verdict") or "").strip()
+    if v not in ("up", "down"):
+        return {"ok": False, "error": "verdict 는 up/down 입니다"}
+    d = _kv_load_sync("nl_feedback", {"items": []})
+    items = d.get("items") or []
+    items.insert(0, {
+        "by": me,
+        "at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "verdict": v,
+        "cid": str(payload.get("cid") or "")[:64],
+        "q": str(payload.get("q") or "")[:200],
+        "text": str(payload.get("text") or "")[:400],
+    })
+    d["items"] = items[:1000]
+    _kv_save_sync("nl_feedback", d)
+    return {"ok": True}
+
+
 @app.post("/api/ai/nl-chats")
 async def nl_chat_save(payload: dict, token: str = ""):
     """대화를 저장한다 (같은 id 면 덮어쓴다)."""

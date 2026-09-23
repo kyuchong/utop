@@ -15,6 +15,7 @@ import {
   IconTrash,
 } from '@/components/icons'
 import { connParams } from '@/components/tc/device'
+import { copyText } from '@/lib/copy'
 import { loopVarAt, runSteps } from '@/components/tc/runner'
 import { Fragment } from 'react'
 import TcSequence from '@/components/tc/TcSequence'
@@ -443,7 +444,133 @@ export default function AskBar({ devices }: Props) {
 
      말풍선을 쌓는다 — 내 말은 오른쪽, AI 말은 ✦ 를 단 왼쪽. 단계(장비 →
      항목 → 절차)도 이 줄에 실어, 지금 어디쯤인지 늘 보이게 한다. */
-  const [msgs, setMsgs] = useState<Array<{ who: 'u' | 'a'; html: string; at?: string }>>([])
+  /** 말풍선 한 줄(지시: Open WebUI 도구 전부) — ts 는 호버 시각,
+      redo 는 🔄 다시 생성이 되짚을 자리, fb 는 👍👎 평가 상태 */
+  const [msgs, setMsgs] = useState<
+    Array<{
+      who: 'u' | 'a'
+      html: string
+      at?: string
+      ts?: string
+      redo?: { k: 'dev' | 'tc' | 'chat'; q: string }
+      fb?: 'up' | 'down'
+    }>
+  >([])
+  /** 방금 복사한 말풍선 자리 — ⎘ 가 잠깐 ✓ 로 바뀐다 */
+  const [copiedMsg, setCopiedMsg] = useState(-1)
+
+  /** html 말풍선의 글만 뽑는다 — 복사·편집·피드백이 쓴다 */
+  const msgText = (html: string) => {
+    const d = document.createElement('div')
+    d.innerHTML = html
+    return (d.textContent || '').trim()
+  }
+  /** ⎘ 복사(지시: Open WebUI) — http 에서도 되는 공용 복사 */
+  const copyMsg = async (i: number) => {
+    const m = msgs[i]
+    if (!m) return
+    const ok = await copyText(m.who === 'u' ? m.html : msgText(m.html))
+    if (!ok) return
+    setCopiedMsg(i)
+    window.setTimeout(() => setCopiedMsg((v) => (v === i ? -1 : v)), 1500)
+  }
+  /** ✎ 질문 편집(지시) — 입력칸으로 올려 고쳐서 다시 보낸다 */
+  const editMsg = (i: number) => {
+    const m = msgs[i]
+    if (!m || m.who !== 'u') return
+    setText(msgText(m.html))
+    askInRef.current?.focus()
+  }
+  /** 👍👎 평가(지시) — 상태를 남기고 서버에도 기록한다(프롬프트 개선 근거) */
+  const fbMsg = async (i: number, v: 'up' | 'down') => {
+    const m = msgs[i]
+    if (!m) return
+    const next = m.fb === v ? undefined : v
+    setMsgs((arr) => arr.map((x, j) => (j === i ? { ...x, fb: next } : x)))
+    if (!next) return
+    try {
+      await apiFetch('/api/ai/feedback', {
+        method: 'POST',
+        body: JSON.stringify({
+          cid: chatId,
+          verdict: next,
+          q: asked,
+          text: msgText(m.html).slice(0, 400),
+        }),
+      })
+    } catch {
+      /* 기록을 못 남겨도 표시는 남는다 */
+    }
+  }
+  /** ↻ 다시 생성(지시) — 그 말풍선이 되짚을 자리(redo)로 다시 만든다 */
+  const redoMsg = async (i: number) => {
+    const m = msgs[i]
+    const rd = m?.redo
+    if (!m || !rd) return
+    if (rd.k === 'chat') {
+      /* 그 답만 걷고 같은 질문으로 다시 묻는다 */
+      setMsgs((v) => v.filter((_, j) => j !== i))
+      sayThink('답을 다시 생성하는 중…')
+      try {
+        const r = await apiFetch('/api/ai/cov-chat', {
+          method: 'POST',
+          body: JSON.stringify({ q: rd.q, mode, facts: buildFacts() }),
+        })
+        const b = (await r.json()) as { test?: boolean; answer?: string }
+        unThink()
+        if (b.answer) saySlow(b.answer, rd)
+        else say('a', '<p class="ln">다시 생성하지 못했습니다 — 잠시 뒤 다시 눌러 주세요.</p>')
+      } catch {
+        unThink()
+        say('a', '<p class="ln">다시 생성하지 못했습니다 — 잠시 뒤 다시 눌러 주세요.</p>')
+      }
+      return
+    }
+    if (rd.k === 'tc') {
+      const d = usable.find((x) => x.id === devId)
+      if (!d) return
+      setMsgs((v) => v.filter((_, j) => j !== i))
+      await stepTc(d, rd.q)
+      return
+    }
+    /* dev — 후보를 다시 찾는다(모델은 그 질문에서 다시 읽음) */
+    const model = candsOf(rd.q)?.model ?? ''
+    const cands = model
+      ? usable.filter((x) => String(x.model ?? '').trim().toLowerCase() === model.toLowerCase())
+      : usable
+    if (!cands.length) return
+    setMsgs((v) => v.filter((_, j) => j !== i))
+    sayThink('사용 가능한 장비 검색 중…')
+    await sayDevBlock(cands, model, rd.q)
+  }
+
+  /** 현황 요약 — cov-chat·다시 생성이 같은 사실을 본다(추출) */
+  const buildFacts = () => {
+    const cnt = { ok: 0, busy: 0, part: 0, no: 0 }
+    const okRows: string[] = []
+    usable.forEach((d) => {
+      const k = devStat(d).k
+      cnt[k] += 1
+      if (k === 'ok' && okRows.length < 20)
+        okRows.push(`${String(d.model || d.name || '')}(${String(d.ip ?? '')})`)
+    })
+    const byModel = new Map<string, number>()
+    tcAll.forEach((t) => {
+      const m = String(t.model ?? '').trim() || '공통'
+      byModel.set(m, (byModel.get(m) ?? 0) + 1)
+    })
+    const tcTxt = [...byModel.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(([m, n]) => `${m} ${n}건`)
+      .join(' · ')
+    return (
+      `장비: 전체 ${usable.length}대 — 사용 가능 ${cnt.ok} · 사용중 ${cnt.busy} · ` +
+      `일부 연결 ${cnt.part} · 사용 불가 ${cnt.no}\n` +
+      `사용 가능 장비: ${okRows.join(', ') || '없음'}\n` +
+      `시험 항목(REQ-Coverage): 총 ${tcAll.length}건 — 모델별 ${tcTxt || '없음'}`
+    )
+  }
   const msgsRef = useRef<HTMLDivElement>(null)
   /* ── 오른쪽 「자세히 보기」 판(승인: 목업 「Test AI 시험 콘솔」) ─────────
      대화는 왼쪽 기둥에 짧게 오가고, 장비 표·항목 목록·절차·로그 같은 큰
@@ -464,14 +591,17 @@ export default function AskBar({ devices }: Props) {
     const d = new Date()
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
+  /** 호버 시각(지시: Open WebUI) — 날짜까지 담은 전체 시각 */
+  const nowTs = () => new Date().toLocaleString('ko-KR')
   /** 말풍선 한 줄 — html 은 우리가 짓는 글이라 그대로 싣는다 */
-  const say = (who: 'u' | 'a', html: string) => setMsgs((v) => [...v, { who, html, at: hhmm() }])
+  const say = (who: 'u' | 'a', html: string, redo?: { k: 'dev' | 'tc' | 'chat'; q: string }) =>
+    setMsgs((v) => [...v, { who, html, at: hhmm(), ts: nowTs(), redo }])
   /** AI 답을 **흘려 쓴다**(지시: 스트리밍) — 받은 글을 조금씩 드러낸다 */
-  const saySlow = (text: string) => {
+  const saySlow = (text: string, redo?: { k: 'dev' | 'tc' | 'chat'; q: string }) => {
     let idx = -1
     setMsgs((v) => {
       idx = v.length
-      return [...v, { who: 'a' as const, html: '', at: hhmm() }]
+      return [...v, { who: 'a' as const, html: '', at: hhmm(), ts: nowTs(), redo }]
     })
     let i = 0
     const step = Math.max(2, Math.round(text.length / 60))
@@ -689,7 +819,7 @@ export default function AskBar({ devices }: Props) {
       }
     })()
   }, [])
-  const myInit = (meName || '나').slice(0, 1)
+  /* 첫 글자 아바타는 걷었다(지시) — 질문 옆에 이름을 그대로 적는다 */
   /** 내보내기 미리보기(지시) — 내용을 팝업으로 보고 나서 내려받는다 */
   const [expPrev, setExpPrev] = useState<'' | 'pptx'>('')
   /** PDF 미리보기 — WIKI 와 같은 문법(지시): 진짜 PDF 를 먼저 굽고
@@ -1217,6 +1347,8 @@ export default function AskBar({ devices }: Props) {
         `<div data-pick="dev" class="ask-cands">${rows}` +
         `<button type="button" class="ask-cand more js-pickdev"><span class="cn">전체에서 고르기</span>` +
         `<span class="cw">상태·랙으로 표에서 고르기</span></button></div>`,
+      /* ↻ 다시 생성 — 이 질문으로 장비 후보를 다시 찾는다(지시) */
+      { k: 'dev', q },
     )
   }
 
@@ -1225,6 +1357,7 @@ export default function AskBar({ devices }: Props) {
       접힌다. 「전체에서 검색」 은 옛 표(팝업)로 물러서는 길이다. */
   const sayTcBlock = (
     items: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>,
+    q = '',
   ) => {
     const rows = items
       .map((it, i) => {
@@ -1248,6 +1381,8 @@ export default function AskBar({ devices }: Props) {
         `<div data-pick="tc" class="ask-cands">${rows}` +
         `<button type="button" class="ask-cand more js-picktc"><span class="cn">전체에서 검색</span>` +
         `<span class="cw">전체 목록에서 직접 고르기</span></button></div>`,
+      /* ↻ 다시 생성 — 이 질문으로 항목을 다시 찾는다(지시) */
+      q ? { k: 'tc', q } : undefined,
     )
   }
 
@@ -1273,7 +1408,7 @@ export default function AskBar({ devices }: Props) {
       )
       return
     }
-    sayTcBlock(items)
+    sayTcBlock(items, q)
   }
 
   /** 대화 속 추천에서 장비를 골랐다 */
@@ -1392,7 +1527,7 @@ export default function AskBar({ devices }: Props) {
           title: m.title,
           plan: m.plan,
           dev: m.dev,
-          msgs: msgs.map((x) => ({ who: x.who, html: x.html, at: x.at })),
+          msgs: msgs.map((x) => ({ who: x.who, html: x.html, at: x.at, ts: x.ts, redo: x.redo, fb: x.fb })),
           flow: flowRef.current,
           vals: valsRef.current,
           notes: notesRef.current,
@@ -2022,32 +2157,7 @@ export default function AskBar({ devices }: Props) {
       /* 현황 요약(지적: 「시험 가능한 장비는?」 에 지어낸 「없습니다」) —
          장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
          현황 질문에는 LLM 이 이것만 보고 답하게 한다. */
-      const facts = (() => {
-        const cnt = { ok: 0, busy: 0, part: 0, no: 0 }
-        const okRows: string[] = []
-        usable.forEach((d) => {
-          const k = devStat(d).k
-          cnt[k] += 1
-          if (k === 'ok' && okRows.length < 20)
-            okRows.push(`${String(d.model || d.name || '')}(${String(d.ip ?? '')})`)
-        })
-        const byModel = new Map<string, number>()
-        tcAll.forEach((t) => {
-          const m = String(t.model ?? '').trim() || '공통'
-          byModel.set(m, (byModel.get(m) ?? 0) + 1)
-        })
-        const tcTxt = [...byModel.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 15)
-          .map(([m, n]) => `${m} ${n}건`)
-          .join(' · ')
-        return (
-          `장비: 전체 ${usable.length}대 — 사용 가능 ${cnt.ok} · 사용중 ${cnt.busy} · ` +
-          `일부 연결 ${cnt.part} · 사용 불가 ${cnt.no}\n` +
-          `사용 가능 장비: ${okRows.join(', ') || '없음'}\n` +
-          `시험 항목(REQ-Coverage): 총 ${tcAll.length}건 — 모델별 ${tcTxt || '없음'}`
-        )
-      })()
+      const facts = buildFacts()
       let chat: { test?: boolean; answer?: string; model?: string } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
@@ -2060,7 +2170,8 @@ export default function AskBar({ devices }: Props) {
       }
       unThink()
       if (chat && chat.test === false && chat.answer) {
-        saySlow(chat.answer)
+        /* 🔄 다시 생성이 이 질문으로 되짚는다(지시: Open WebUI) */
+        saySlow(chat.answer, { k: 'chat', q: said })
         setFlowAt(0)
         return
       }
@@ -2736,15 +2847,30 @@ export default function AskBar({ devices }: Props) {
          자리에 실행 준비 카드가 다시 선다(setChatRun). 옛 기록(형태가
          다름)이면 지금처럼 「기록을 열었습니다」 한 줄로. */
       const savedMsgs = (b.chat?.msgs ?? []).filter(
-        (m): m is { who: string; html: string; at?: string } =>
-          !!m && (m.who === 'u' || m.who === 'a') && typeof m.html === 'string',
+        (
+          m,
+        ): m is {
+          who: string
+          html: string
+          at?: string
+          ts?: string
+          redo?: { k: 'dev' | 'tc' | 'chat'; q: string }
+          fb?: 'up' | 'down'
+        } => !!m && (m.who === 'u' || m.who === 'a') && typeof m.html === 'string',
       )
       if (savedMsgs.length > 0) {
         const hadRun = savedMsgs.some((m) => m.html.includes('data-chatrun'))
         setMsgs([
           ...savedMsgs
             .filter((m) => !m.html.includes('data-chatrun'))
-            .map((m) => ({ who: m.who as 'u' | 'a', html: m.html, at: m.at })),
+            .map((m) => ({
+              who: m.who as 'u' | 'a',
+              html: m.html,
+              at: m.at,
+              ts: m.ts,
+              redo: m.redo,
+              fb: m.fb,
+            })),
           /* 실행 자리는 새 표식으로 다시 — 결과는 안 남지만 절차·시험 시작이 선다 */
           ...(hadRun ? [{ who: 'a' as const, html: '<i data-chatrun></i>' }] : []),
         ])
@@ -4466,12 +4592,25 @@ export default function AskBar({ devices }: Props) {
               >
                 {msgs.map((m, i) =>
                   m.who === 'u' ? (
-                    /* 내 말 — 오른쪽 정렬 + 물은 시각 + 누가 물었나 아바타(지시) */
-                    <div className="msg u" key={i}>
+                    /* 내 말 — 오른쪽 정렬 + 물은 시각 + **이름**(지시: 동그란
+                       첫 글자 말고 이름). 호버에 보낸 시각·✎ 편집·⎘ 복사. */
+                    <div className="msg u" key={i} title={m.ts || undefined}>
+                      <span className="msg-acts u">
+                        <button
+                          type="button"
+                          title="질문을 입력칸으로 — 고쳐서 다시 보냅니다"
+                          onClick={() => editMsg(i)}
+                        >
+                          ✎
+                        </button>
+                        <button type="button" title="복사" onClick={() => void copyMsg(i)}>
+                          {copiedMsg === i ? '✓' : '⎘'}
+                        </button>
+                      </span>
                       {m.at && <time className="uat">{m.at}</time>}
                       <b>{m.html}</b>
-                      <span className="uav" aria-hidden="true" title={meName || undefined}>
-                        {myInit}
+                      <span className="unm" title={m.ts || undefined}>
+                        {meName || '나'}
                       </span>
                     </div>
                   ) : m.html.includes('data-chatrun') ? (
@@ -4554,11 +4693,50 @@ export default function AskBar({ devices }: Props) {
                       </div>
                     </div>
                   ) : (
-                    <div className="msg a" key={i}>
+                    /* AI 말 — 호버에 시각과 도구줄(지시: Open WebUI 전부):
+                       ⎘ 복사 · ↻ 다시 생성(되짚을 자리가 있을 때) · 👍👎 평가 */
+                    <div className="msg a" key={i} title={m.ts || undefined}>
                       <span className="av" aria-hidden="true">✦</span>
                       <div className="bdw">
-                        {/* 답 복사 단추는 걷었다(지시) */}
                         <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
+                        {!m.html.includes('ask-think') && (
+                          <span className="msg-acts">
+                            <button type="button" title="복사" onClick={() => void copyMsg(i)}>
+                              {copiedMsg === i ? '✓' : '⎘'}
+                            </button>
+                            {m.redo && (
+                              <button
+                                type="button"
+                                title={
+                                  m.redo.k === 'chat'
+                                    ? '답을 다시 생성합니다'
+                                    : m.redo.k === 'tc'
+                                      ? '시험 항목을 다시 찾습니다'
+                                      : '장비 후보를 다시 찾습니다'
+                                }
+                                onClick={() => void redoMsg(i)}
+                              >
+                                ↻
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className={m.fb === 'up' ? 'on' : ''}
+                              title="좋은 답변"
+                              onClick={() => void fbMsg(i, 'up')}
+                            >
+                              👍
+                            </button>
+                            <button
+                              type="button"
+                              className={m.fb === 'down' ? 'on' : ''}
+                              title="아쉬운 답변"
+                              onClick={() => void fbMsg(i, 'down')}
+                            >
+                              👎
+                            </button>
+                          </span>
+                        )}
                       </div>
                     </div>
                   ),
