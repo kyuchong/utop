@@ -394,11 +394,50 @@
   border: 1px solid #c9dee3; border-radius: 6px; background: #fff;
 }
 .ra-blk + .ra-blk { margin-top: 6px; }
-/* compact(채팅쪽) — 스텝과 판정만, 촘촘하게. 상세는 3열에서 본다(지시) */
-.ra-con.compact { padding: 4px 0; }
-.ra-con.compact .ra-blk { border-radius: 5px; }
-.ra-con.compact .ra-blk + .ra-blk { margin-top: 4px; }
-.ra-con.compact .ra-cmd { padding-top: 5px; padding-bottom: 5px; }
+/* compact(채팅쪽) — 스텝과 판정만, 촘촘하게. 상세는 3열에서 본다(지시).
+   모양은 카드 안 **흰 줄 + 실금**(지시: 더 이쁘게) — 바탕색 바를 걷고
+   스텝 칩·판정 배지만 가볍게 남긴다. */
+.ra-con.compact { padding: 2px 0; }
+.ra-con.compact .ra-blk {
+  border: 0;
+  border-bottom: 1px solid #eef1f4;
+  border-radius: 0;
+  background: #fff;
+}
+.ra-con.compact .ra-blk:last-child { border-bottom: 0; }
+.ra-con.compact .ra-blk + .ra-blk { margin-top: 0; }
+.ra-con.compact .ra-cmd {
+  background: #fff;
+  border: 0;
+  padding: 7px 10px;
+  gap: 9px;
+  font-weight: 400;
+}
+/* 합불은 왼쪽 가는 획으로만 — 줄 전체를 칠하지 않는다 */
+.ra-con.compact .ra-blk.v-pass { box-shadow: inset 2px 0 0 #2fbf71; }
+.ra-con.compact .ra-blk.v-fail { box-shadow: inset 2px 0 0 #e05252; background: #fffafa; }
+.ra-con.compact .ra-blk.v-fail > .ra-cmd { background: transparent; }
+.ra-con.compact .ra-bcar { width: 4px; }
+.ra-con.compact .ra-bno {
+  background: #f1f4f7;
+  color: #59636e;
+  border-radius: 10px;
+  padding: 1px 9px;
+  font-size: 10.5px;
+  font-weight: 700;
+  min-width: 0;
+}
+.ra-con.compact .ra-bcmd { font-size: 12.5px; color: #1f2328; }
+.ra-con.compact .ra-bmeta, .ra-con.compact .ra-btime { color: #9aa4ad; font-size: 11px; }
+.ra-con.compact .ra-st {
+  border-radius: 10px;
+  padding: 1px 9px;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+}
+.ra-con.compact .ra-st.ok { background: #e3f6eb; color: #12753c; }
+.ra-con.compact .ra-st.bad { background: #fde9e9; color: #c03030; }
+.ra-con.compact .ra-bnone { color: #b6bfc7; font-size: 10.5px; }
 /* 지금 보는 스텝 — 왼쪽에 파란 획, 머리도 한 겹 진하게 */
 .ra-blk.on { border-color: #b9d5f4; box-shadow: inset 3px 0 0 #3f80e5; }
 .ra-blk.on .ra-cmd { background: #dcebfa; color: #17548f; }
