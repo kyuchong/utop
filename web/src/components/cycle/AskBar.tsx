@@ -2633,7 +2633,16 @@ export default function AskBar({ devices }: Props) {
             setAskModel(String(d0.model ?? ''))
             if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
             setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d0.ip} 확정 (말로 선택)` }])
-            pickedLine('dev', devDoneCard(nm, String(d0.ip ?? '')))
+            /* 말로 선택한 확인 줄은 **내 말 다음(맨 끝)** 에 선다(지적: 선택
+               메시지가 더 위에/늦게 나옴) — 제자리 교체(pickedLine)는 카드를
+               클릭했을 때의 문법이다. 옛 카드 판은 걷는다. */
+            setMsgs((v) =>
+              v.filter(
+                (x) =>
+                  !(x.who === 'a' && (x.html.includes('data-pick="dev"') || x.html.includes('data-pick="dev-list"'))),
+              ),
+            )
+            say('a', devDoneCard(nm, String(d0.ip ?? '')))
             if (!pt) {
               /* 한 문장 흐름(쥔 질문이 있음)이면 그 의도로 **항목 후보가
                  바로 이어서** 선다(지시: 질문이 한 번에 들어갔잖아).
@@ -2678,9 +2687,16 @@ export default function AskBar({ devices }: Props) {
               tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lowT) ??
               tcAll.find((t) => normKey(t.tcid) === normKey(lowT))
             if (t1) {
-              /* 콕 집은 항목 — 그 말이 곧 선택이다. 장비가 없으면 takeTc 가
-                 장비 고르개로 확인한다. */
-              pickedLine('tc', tcDoneCard(t1.tcid, t1.name))
+              /* 콕 집은 항목 — 그 말이 곧 선택이다. 확인 줄은 내 말 다음에
+                 (지적: 순서) — 옛 항목 카드 판은 걷는다. 장비가 없으면
+                 takeTc 가 장비 고르개로 확인한다. */
+              setMsgs((v) =>
+                v.filter(
+                  (x) =>
+                    !(x.who === 'a' && (x.html.includes('data-pick="tc"') || x.html.includes('data-pick="tc-list"'))),
+                ),
+              )
+              say('a', tcDoneCard(t1.tcid, t1.name))
               void takeTc(t1.tcid, devSel, String(t1.model ?? ''))
               return
             }
