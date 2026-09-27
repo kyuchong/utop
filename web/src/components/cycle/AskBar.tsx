@@ -849,6 +849,9 @@ export default function AskBar({ devices }: Props) {
   /* 폴더(지시) — 이름 목록은 서버(계정별)에 담고, 대화마다 folder 칸으로 속한다 */
   const [folders, setFolders] = useState<string[]>([])
   const [foldShut2, setFoldShut2] = useState<Set<string>>(new Set())
+  /* 드래그 이동(지적: 드래그가 안 된다) — 끌리는 대화와 지금 올라선 폴더 */
+  const [dragCid, setDragCid] = useState('')
+  const [dragOverF, setDragOverF] = useState<string | null>(null)
   /** 대화 여러 개 고르기(지시: 한 번에 지우기) — 켜면 줄마다 체크가 선다 */
   const [selMode, setSelMode] = useState(false)
   const [selChats, setSelChats] = useState<Set<string>>(new Set())
@@ -4398,11 +4401,40 @@ export default function AskBar({ devices }: Props) {
           </span>
         </div>
         {/* 찾기 칸은 걷었다 — 검색은 팝업으로(지시) */}
-        <div className="ask-slist">
+        <div
+          className="ask-slist"
+          /* 폴더 밖(빈 자리)에 놓으면 폴더에서 뺀다 — 폴더 머리의 onDrop 이
+             stopPropagation 으로 먼저 먹는다 */
+          onDragOver={(e) => {
+            if (dragCid) e.preventDefault()
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            const cid = e.dataTransfer.getData('text/nlchat') || dragCid
+            const cur = recent.find((x) => x.cid === cid)
+            if (cid && cur?.folder) void moveChat(cid, '')
+            setDragOverF(null)
+            setDragCid('')
+          }}
+        >
           {(() => {
             /* 대화 한 줄 — 폴더 구역과 무폴더 목록이 같은 줄을 쓴다 */
             const chatRow = (x: { cid: string; title: string; at?: string; folder?: string }) => (
-              <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}${selMode && selChats.has(x.cid) ? ' sel' : ''}`} key={x.cid}>
+              <div
+                className={`ask-sitem${chatId === x.cid ? ' on' : ''}${selMode && selChats.has(x.cid) ? ' sel' : ''}${dragCid === x.cid ? ' drag' : ''}`}
+                key={x.cid}
+                /* 드래그로 폴더에 넣는다(지시) — 고르기 모드에선 체크가 우선 */
+                draggable={!selMode}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/nlchat', x.cid)
+                  e.dataTransfer.effectAllowed = 'move'
+                  setDragCid(x.cid)
+                }}
+                onDragEnd={() => {
+                  setDragCid('')
+                  setDragOverF(null)
+                }}
+              >
                 {/* 고르기 모드(지시) — 줄을 누르면 열지 않고 체크만 오간다 */}
                 {selMode && (
                   <input
@@ -4518,8 +4550,39 @@ export default function AskBar({ devices }: Props) {
                   const inF = recent.filter((x) => (x.folder || '') === f)
                   const shut = foldShut2.has(f)
                   return (
-                    <div className="ask-sfoldw" key={`f:${f}`}>
-                      <div className="ask-sfold">
+                    <div
+                      className="ask-sfoldw"
+                      key={`f:${f}`}
+                      /* 폴더 안 줄 위에 떨어뜨린 것은 삼킨다 — 목록 바닥까지
+                         내려가면 「폴더에서 빼기」 로 오작동한다 */
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setDragOverF(null)
+                        setDragCid('')
+                      }}
+                    >
+                      <div
+                        className={`ask-sfold${dragOverF === f ? ' drop' : ''}`}
+                        /* 대화 줄을 끌어다 놓으면 이 폴더로(지시) */
+                        onDragOver={(e) => {
+                          if (!dragCid) return
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = 'move'
+                        }}
+                        onDragEnter={() => dragCid && setDragOverF(f)}
+                        onDragLeave={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverF((v) => (v === f ? null : v))
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          const cid = e.dataTransfer.getData('text/nlchat') || dragCid
+                          if (cid) void moveChat(cid, f)
+                          setDragOverF(null)
+                          setDragCid('')
+                        }}
+                      >
                         <button
                           type="button"
                           className="fh"

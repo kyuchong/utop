@@ -10332,6 +10332,14 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-sfold .fx:hover { color: #b3261e; }
 .ask-sfoldw .ask-sitem { margin-left: 14px; }
 .ask-fempty { padding: 2px 10px 6px 24px; }
+/* 드래그 이동(지시) — 끌리는 줄은 흐리게, 올라선 폴더는 또렷하게 */
+.ask-sitem.drag { opacity: 0.45; }
+.ask-sitem[draggable='true'] { cursor: grab; }
+.ask-sfold.drop {
+  background: var(--c-primary-bg, #eef4fe);
+  outline: 1.5px dashed var(--c-primary, #2563eb);
+  outline-offset: -1.5px;
+}
 
 /* ── 대화 여러 개 골라 지우기(지시) ── */
 .ask-scheck { flex: none; margin: 0 0 0 8px; accent-color: var(--c-primary, #2563eb); cursor: pointer; }
