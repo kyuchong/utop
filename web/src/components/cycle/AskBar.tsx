@@ -845,7 +845,10 @@ export default function AskBar({ devices }: Props) {
   /* ── 1열 · 대화 목록(지시: 클로드·GPT 처럼) ─────────────────────────
      서버가 남겨 온 대화(nl-chats)를 왼쪽 기둥에 편다 — 누르면 그 절차를
      그대로 되살리고, ✕ 로 지운다. 목록은 제목·시각만 온다(가벼워야 한다). */
-  const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string }>>([])
+  const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string; folder?: string }>>([])
+  /* 폴더(지시) — 이름 목록은 서버(계정별)에 담고, 대화마다 folder 칸으로 속한다 */
+  const [folders, setFolders] = useState<string[]>([])
+  const [foldShut2, setFoldShut2] = useState<Set<string>>(new Set())
   /** 대화 여러 개 고르기(지시: 한 번에 지우기) — 켜면 줄마다 체크가 선다 */
   const [selMode, setSelMode] = useState(false)
   const [selChats, setSelChats] = useState<Set<string>>(new Set())
@@ -891,7 +894,9 @@ export default function AskBar({ devices }: Props) {
   /* 대화 검색(지시) — 새 채팅 아래 줄, 누르면 찾기 칸이 열려 제목으로 거른다 */
   const [findOn, setFindOn] = useState(false)
   const [findQ, setFindQ] = useState('')
-  const shownChats = listAll ? recent : recent.slice(0, 12)
+  /* 폴더에 든 대화는 제 구역에 전부 그린다 — 12개 제한은 폴더 없는 것만 */
+  const loose = recent.filter((x) => !x.folder || !folders.includes(x.folder))
+  const shownChats = listAll ? loose : loose.slice(0, 12)
   useEffect(() => {
     if (!thMenu) return
     const close = () => setThMenu('')
@@ -923,12 +928,17 @@ export default function AskBar({ devices }: Props) {
            비어 「절차가 담겨 있지 않습니다」 로 떨어진다(옛 지적). 둘 다 받는다. */
         const b2 = (await r2.json()) as {
           ok?: boolean
-          items?: Array<{ id?: string; cid?: string; title?: string; at?: string }>
+          items?: Array<{ id?: string; cid?: string; title?: string; at?: string; folder?: string }>
         }
         if (b2.ok && Array.isArray(b2.items))
           setRecent(
             b2.items
-              .map((x) => ({ cid: String(x.id ?? x.cid ?? ''), title: x.title ?? '', at: x.at }))
+              .map((x) => ({
+                cid: String(x.id ?? x.cid ?? ''),
+                title: x.title ?? '',
+                at: x.at,
+                folder: String(x.folder ?? ''),
+              }))
               .filter((x) => x.cid)
               .slice(0, 30)
               .map((x) => ({ ...x, title: x.title || x.cid })),
@@ -936,8 +946,63 @@ export default function AskBar({ devices }: Props) {
       } catch {
         /* 기록이 없어도 화면은 돈다 */
       }
+      try {
+        const r3 = await apiFetch('/api/ai/nl-chat-folders')
+        const b3 = (await r3.json()) as { ok?: boolean; folders?: string[] }
+        if (b3.ok && Array.isArray(b3.folders)) setFolders(b3.folders.map(String))
+      } catch {
+        /* 폴더가 없어도 목록은 돈다 */
+      }
     })()
   }, [])
+
+  /** 폴더 이름 목록 저장 — 만들기·지우기가 같은 길을 쓴다 */
+  const saveFolders = async (next: string[]) => {
+    setFolders(next)
+    try {
+      await apiFetch('/api/ai/nl-chat-folders', {
+        method: 'POST',
+        body: JSON.stringify({ folders: next }),
+      })
+    } catch {
+      /* 못 담아도 화면은 돈다 — 다음 저장이 다시 시도한다 */
+    }
+  }
+  const addFolder = () => {
+    const nm = window.prompt('폴더 이름')?.trim().slice(0, 40)
+    if (!nm) return
+    if (folders.includes(nm)) return
+    void saveFolders([...folders, nm])
+  }
+  /** 폴더 지우기 — 안의 대화는 「폴더 없음」 으로 돌아간다(지우지 않는다) */
+  const delFolder = async (nm: string) => {
+    if (!window.confirm(`폴더 「${nm}」 를 지웁니다 — 안의 대화는 폴더 없음으로 남습니다.`)) return
+    const ids = recent.filter((x) => (x.folder || '') === nm).map((x) => x.cid)
+    if (ids.length) {
+      try {
+        await apiFetch('/api/ai/nl-chats/move', {
+          method: 'POST',
+          body: JSON.stringify({ ids, folder: '' }),
+        })
+      } catch {
+        /* 서버가 못 옮겨도 폴더는 걷는다 — 다음 이동이 바로잡는다 */
+      }
+    }
+    setRecent((v) => v.map((x) => ((x.folder || '') === nm ? { ...x, folder: '' } : x)))
+    void saveFolders(folders.filter((f) => f !== nm))
+  }
+  /** 대화 하나를 폴더로 — folder 가 빈 문자열이면 폴더에서 뺀다 */
+  const moveChat = async (cid: string, folder: string) => {
+    setRecent((v) => v.map((x) => (x.cid === cid ? { ...x, folder } : x)))
+    try {
+      await apiFetch('/api/ai/nl-chats/move', {
+        method: 'POST',
+        body: JSON.stringify({ ids: [cid], folder }),
+      })
+    } catch {
+      /* 못 옮겨도 화면은 돈다 */
+    }
+  }
   /** 절차를 짓는 동안 「지금 무엇을 하는 중인가」 — 「생성 중」 만 띄우면
       멈춘 것인지 도는 것인지 알 수 없다(지적) */
   const [genSay, setGenSay] = useState('')
@@ -4293,6 +4358,10 @@ export default function AskBar({ devices }: Props) {
         <div className="ask-eyebrow">
           <span>대화</span>
           <span className="eyebtns">
+            {/* 폴더 만들기(지시) — 대화를 폴더로 갈라 담는다 */}
+            <button type="button" className="ask-sec-add" title="폴더 만들기" onClick={addFolder}>
+              <IconFolder />
+            </button>
             {/* 여러 개 지우기(지시: 쓰레기통·검색 왼쪽) — 켜면 줄마다 체크가 선다 */}
             <button
               type="button"
@@ -4330,10 +4399,9 @@ export default function AskBar({ devices }: Props) {
         </div>
         {/* 찾기 칸은 걷었다 — 검색은 팝업으로(지시) */}
         <div className="ask-slist">
-          {recent.length === 0 ? (
-            <span className="muted small">아직 대화가 없습니다.</span>
-          ) : (
-            shownChats.map((x) => (
+          {(() => {
+            /* 대화 한 줄 — 폴더 구역과 무폴더 목록이 같은 줄을 쓴다 */
+            const chatRow = (x: { cid: string; title: string; at?: string; folder?: string }) => (
               <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}${selMode && selChats.has(x.cid) ? ' sel' : ''}`} key={x.cid}>
                 {/* 고르기 모드(지시) — 줄을 누르면 열지 않고 체크만 오간다 */}
                 {selMode && (
@@ -4375,7 +4443,7 @@ export default function AskBar({ devices }: Props) {
                 <button
                   type="button"
                   className="mo"
-                  title="이름 바꾸기 · 지우기"
+                  title="이름 바꾸기 · 폴더로 이동 · 지우기"
                   aria-haspopup="menu"
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
@@ -4401,6 +4469,32 @@ export default function AskBar({ devices }: Props) {
                     >
                       이름 바꾸기
                     </button>
+                    {/* 폴더로 이동(지시) — 만든 폴더가 이 메뉴에 줄로 선다 */}
+                    {folders
+                      .filter((f) => f !== (x.folder || ''))
+                      .map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => {
+                            setThMenu('')
+                            void moveChat(x.cid, f)
+                          }}
+                        >
+                          「{f}」 로 이동
+                        </button>
+                      ))}
+                    {!!x.folder && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setThMenu('')
+                          void moveChat(x.cid, '')
+                        }}
+                      >
+                        폴더에서 빼기
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="danger"
@@ -4414,11 +4508,58 @@ export default function AskBar({ devices }: Props) {
                   </div>
                 )}
               </div>
-            ))
-          )}
-          {!listAll && recent.length > 12 && (
+            )
+            if (recent.length === 0 && folders.length === 0)
+              return <span className="muted small">아직 대화가 없습니다.</span>
+            return (
+              <>
+                {/* 폴더 구역(지시) — 접을 수 있고, ✕ 는 폴더만 걷는다 */}
+                {folders.map((f) => {
+                  const inF = recent.filter((x) => (x.folder || '') === f)
+                  const shut = foldShut2.has(f)
+                  return (
+                    <div className="ask-sfoldw" key={`f:${f}`}>
+                      <div className="ask-sfold">
+                        <button
+                          type="button"
+                          className="fh"
+                          title={shut ? '펴기' : '접기'}
+                          onClick={() =>
+                            setFoldShut2((s) => {
+                              const n = new Set(s)
+                              if (n.has(f)) n.delete(f)
+                              else n.add(f)
+                              return n
+                            })
+                          }
+                        >
+                          <IconFolder open={!shut} />
+                          <b>{f}</b>
+                          <em>{inF.length}</em>
+                        </button>
+                        <button
+                          type="button"
+                          className="fx"
+                          title="폴더 지우기 — 안의 대화는 폴더 없음으로 남습니다"
+                          onClick={() => void delFolder(f)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      {!shut && inF.map(chatRow)}
+                      {!shut && inF.length === 0 && (
+                        <span className="muted small ask-fempty">비어 있음 — 줄의 ⋯ 메뉴로 옮깁니다</span>
+                      )}
+                    </div>
+                  )
+                })}
+                {shownChats.map(chatRow)}
+              </>
+            )
+          })()}
+          {!listAll && loose.length > 12 && (
             <button type="button" className="ask-smore" onClick={() => setListAll(true)}>
-              {recent.length - 12}개 더 보기
+              {loose.length - 12}개 더 보기
             </button>
           )}
         </div>

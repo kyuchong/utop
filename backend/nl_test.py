@@ -1486,9 +1486,69 @@ async def nl_chats_list(token: str = ""):
         if not isinstance(c, dict) or (c.get("by") or "") != me:
             continue
         out.append({"id": c.get("id"), "title": c.get("title") or "새 대화",
-                    "at": c.get("at"), "n": len(c.get("msgs") or [])})
+                    "at": c.get("at"), "n": len(c.get("msgs") or []),
+                    # 폴더(지시) — 목록이 구역을 나눠 그린다
+                    "folder": str(c.get("folder") or "")})
     out.sort(key=lambda x: str(x.get("at") or ""), reverse=True)
     return {"ok": True, "items": out}
+
+
+@app.get("/api/ai/nl-chat-folders")
+async def nl_chat_folders_get(token: str = ""):
+    """대화 목록의 폴더 이름들(지시) — 사람마다 제 것만 본다."""
+    me = _nl_chat_me(token)
+    if not me:
+        return {"ok": True, "folders": []}
+    d = _kv_load_sync("nl_chat_folders", {})
+    v = d.get(me) if isinstance(d, dict) else None
+    return {"ok": True,
+            "folders": [str(x)[:40] for x in v if str(x or "").strip()] if isinstance(v, list) else []}
+
+
+@app.post("/api/ai/nl-chat-folders")
+async def nl_chat_folders_set(payload: dict, token: str = ""):
+    """폴더 이름 목록을 통째로 저장한다 — 만들기·지우기 모두 이 한 길."""
+    me = _nl_chat_me(token)
+    if not me:
+        return {"ok": False, "error": "로그인이 필요합니다"}
+    raw = (payload or {}).get("folders")
+    if not isinstance(raw, list):
+        return {"ok": False, "error": "folders 는 목록입니다"}
+    seen, folders = set(), []
+    for x in raw:
+        nm = str(x or "").strip()[:40]
+        if nm and nm not in seen:
+            seen.add(nm)
+            folders.append(nm)
+        if len(folders) >= 30:
+            break
+    d = _kv_load_sync("nl_chat_folders", {})
+    if not isinstance(d, dict):
+        d = {}
+    d[me] = folders
+    _kv_save_sync("nl_chat_folders", d)
+    return {"ok": True, "folders": folders}
+
+
+@app.post("/api/ai/nl-chats/move")
+async def nl_chat_move(payload: dict, token: str = ""):
+    """대화를 폴더로 옮긴다(지시) — folder 가 빈 문자열이면 폴더에서 뺀다."""
+    me = _nl_chat_me(token)
+    if not me:
+        return {"ok": False, "error": "로그인이 필요합니다"}
+    ids = {str(x) for x in ((payload or {}).get("ids") or []) if str(x or "").strip()}
+    folder = str((payload or {}).get("folder") or "").strip()[:40]
+    if not ids:
+        return {"ok": False, "error": "옮길 대화가 없습니다"}
+    store = _nl_chats_all()
+    n = 0
+    for c in store["items"]:
+        if isinstance(c, dict) and c.get("id") in ids and (c.get("by") or "") == me:
+            c["folder"] = folder
+            n += 1
+    if n:
+        _kv_save_sync("nl_chats", store)
+    return {"ok": True, "moved": n}
 
 
 @app.get("/api/ai/nl-chats/{cid}")
@@ -1537,6 +1597,9 @@ async def nl_chat_save(payload: dict, token: str = ""):
     if not cid:
         return {"ok": False, "error": "id 가 없습니다"}
     store = _nl_chats_all()
+    # 폴더는 자동 저장 페이로드에 안 실린다 — 덮어쓸 때 옛 레코드의 것을 잇는다
+    old = next((c for c in store["items"]
+                if isinstance(c, dict) and c.get("id") == cid and (c.get("by") or "") == me), None)
     items = [c for c in store["items"]
              if isinstance(c, dict) and not (c.get("id") == cid and (c.get("by") or "") == me)]
     items.insert(0, {
@@ -1555,6 +1618,8 @@ async def nl_chat_save(payload: dict, token: str = ""):
         "vals": payload.get("vals") if isinstance(payload.get("vals"), list) else None,
         "notes": payload.get("notes") if isinstance(payload.get("notes"), list) else None,
         "dev": str(payload.get("dev") or ""),
+        "folder": (str(payload.get("folder")) if payload.get("folder") is not None
+                   else str((old or {}).get("folder") or "")).strip()[:40],
         "allow_config": bool(payload.get("allow_config")),
     })
     # 내 것만 세어 자른다 — 남의 대화를 지우면 안 된다.
