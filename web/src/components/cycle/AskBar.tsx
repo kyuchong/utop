@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState , type CSSProperties, type ReactNode } from 'react'
+import { memo, useEffect, useMemo, useRef, useState , type CSSProperties, type ReactNode } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { prefGet, prefSet } from '@/lib/prefs'
@@ -219,6 +219,55 @@ function toTcSteps(draft: Draft): TcStep[] {
     ? draft.raw
     : draft.steps.map((s) => (s.skip ? { ...one(s), skip: true } : one(s)))
 }
+
+
+/* 말풍선은 **memo 로 얼린다**(지적: 타이핑마다 카드가 깜빡여 재조회처럼
+   보임) — 입력 리렌더가 지난 말풍선을 리마운트하지 않게 한다. 단추는
+   컨테이너 위임(data-act)으로 받아 핸들러 props 없이도 동작한다. */
+const MsgU = memo(function MsgU({ i, html, at, ts, name }: {
+  i: number; html: string; at?: string; ts?: string; name: string
+}) {
+  return (
+    <div className="msg u" title={ts || undefined}>
+      <span className="msg-acts u">
+        <button type="button" title="질문을 입력칸으로 — 고쳐서 다시 보냅니다" data-act="edit" data-i={i}>✎</button>
+        <button type="button" title="복사" data-act="copy" data-i={i}>⎘</button>
+      </span>
+      {at && <time className="uat">{at}</time>}
+      <b>{html}</b>
+      <span className="unm" title={ts || undefined}>{name}</span>
+    </div>
+  )
+})
+const MsgA = memo(function MsgA({ i, html, ts, redoK, fb, copied }: {
+  i: number; html: string; ts?: string; redoK?: 'dev' | 'tc' | 'chat'; fb?: 'up' | 'down'; copied?: boolean
+}) {
+  return (
+    <div className="msg a" title={ts || undefined}>
+      <span className="av" aria-hidden="true">✦</span>
+      <div className="bdw">
+        <div className="bd" dangerouslySetInnerHTML={{ __html: html }} />
+        {!html.includes('ask-think') && (
+          <span className="msg-acts">
+            <button type="button" title="복사" data-act="copy" data-i={i}>{copied ? '✓' : '⎘'}</button>
+            {redoK && (
+              <button
+                type="button"
+                title={redoK === 'chat' ? '답을 다시 생성합니다' : redoK === 'tc' ? '시험 항목을 다시 찾습니다' : '장비 후보를 다시 찾습니다'}
+                data-act="redo"
+                data-i={i}
+              >
+                ↻
+              </button>
+            )}
+            <button type="button" className={fb === 'up' ? 'on' : ''} title="좋은 답변" data-act="up" data-i={i}>👍</button>
+            <button type="button" className={fb === 'down' ? 'on' : ''} title="아쉬운 답변" data-act="down" data-i={i}>👎</button>
+          </span>
+        )}
+      </div>
+    </div>
+  )
+})
 
 export default function AskBar({ devices }: Props) {
   const [text, setText] = useState('')
@@ -5279,32 +5328,24 @@ export default function AskBar({ devices }: Props) {
                     /* 아티팩트 칩은 3열을 **여닫는다**(지시) — 열려 있으면 다시 숨긴다 */
                     setRunView(true)
                     setArtOpen((v) => !v)
+                  } else {
+                    /* 말풍선 도구줄(memo 분리로 위임) — ✎⎘↻👍👎 */
+                    const act = t.closest('[data-act]') as HTMLElement | null
+                    if (act) {
+                      const ai = Number(act.dataset.i)
+                      const a = act.dataset.act
+                      if (a === 'edit') editMsg(ai)
+                      else if (a === 'copy') void copyMsg(ai)
+                      else if (a === 'redo') void redoMsg(ai)
+                      else if (a === 'up') void fbMsg(ai, 'up')
+                      else if (a === 'down') void fbMsg(ai, 'down')
+                    }
                   }
                 }}
               >
                 {msgs.map((m, i) =>
                   m.who === 'u' ? (
-                    /* 내 말 — 오른쪽 정렬 + 물은 시각 + **이름**(지시: 동그란
-                       첫 글자 말고 이름). 호버에 보낸 시각·✎ 편집·⎘ 복사. */
-                    <div className="msg u" key={i} title={m.ts || undefined}>
-                      <span className="msg-acts u">
-                        <button
-                          type="button"
-                          title="질문을 입력칸으로 — 고쳐서 다시 보냅니다"
-                          onClick={() => editMsg(i)}
-                        >
-                          ✎
-                        </button>
-                        <button type="button" title="복사" onClick={() => void copyMsg(i)}>
-                          {copiedMsg === i ? '✓' : '⎘'}
-                        </button>
-                      </span>
-                      {m.at && <time className="uat">{m.at}</time>}
-                      <b>{m.html}</b>
-                      <span className="unm" title={m.ts || undefined}>
-                        {meName || '나'}
-                      </span>
-                    </div>
+                    <MsgU key={i} i={i} html={m.html} at={m.at} ts={m.ts} name={meName || '나'} />
                   ) : m.html.includes('data-chatrun') ? (
                     /* ── 채팅 속 실행(지시: Cycles 의 response 처럼) ──────────
                        시험 시작을 누른 그 자리에 Response 가 선다 — 스텝별
@@ -5385,52 +5426,7 @@ export default function AskBar({ devices }: Props) {
                       </div>
                     </div>
                   ) : (
-                    /* AI 말 — 호버에 시각과 도구줄(지시: Open WebUI 전부):
-                       ⎘ 복사 · ↻ 다시 생성(되짚을 자리가 있을 때) · 👍👎 평가 */
-                    <div className="msg a" key={i} title={m.ts || undefined}>
-                      <span className="av" aria-hidden="true">✦</span>
-                      <div className="bdw">
-                        <div className="bd" dangerouslySetInnerHTML={{ __html: m.html }} />
-                        {!m.html.includes('ask-think') && (
-                          <span className="msg-acts">
-                            <button type="button" title="복사" onClick={() => void copyMsg(i)}>
-                              {copiedMsg === i ? '✓' : '⎘'}
-                            </button>
-                            {m.redo && (
-                              <button
-                                type="button"
-                                title={
-                                  m.redo.k === 'chat'
-                                    ? '답을 다시 생성합니다'
-                                    : m.redo.k === 'tc'
-                                      ? '시험 항목을 다시 찾습니다'
-                                      : '장비 후보를 다시 찾습니다'
-                                }
-                                onClick={() => void redoMsg(i)}
-                              >
-                                ↻
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              className={m.fb === 'up' ? 'on' : ''}
-                              title="좋은 답변"
-                              onClick={() => void fbMsg(i, 'up')}
-                            >
-                              👍
-                            </button>
-                            <button
-                              type="button"
-                              className={m.fb === 'down' ? 'on' : ''}
-                              title="아쉬운 답변"
-                              onClick={() => void fbMsg(i, 'down')}
-                            >
-                              👎
-                            </button>
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    <MsgA key={i} i={i} html={m.html} ts={m.ts} redoK={m.redo?.k} fb={m.fb} copied={copiedMsg === i} />
                   ),
                 )}
               </div>
