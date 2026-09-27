@@ -710,23 +710,19 @@ export default function AskBar({ devices }: Props) {
   const say = (who: 'u' | 'a', html: string, redo?: { k: 'dev' | 'tc' | 'chat'; q: string }) =>
     setMsgs((v) => [...v, { who, html, at: hhmm(), ts: nowTs(), redo }])
   /** AI 답을 **흘려 쓴다**(지시: 스트리밍) — 받은 글을 조금씩 드러낸다 */
+  const saySlowSeq = useRef(0)
   const saySlow = (text: string, redo?: { k: 'dev' | 'tc' | 'chat'; q: string }) => {
-    let idx = -1
-    setMsgs((v) => {
-      idx = v.length
-      return [...v, { who: 'a' as const, html: '', at: hhmm(), ts: nowTs(), redo }]
-    })
+    /* **인덱스가 아니라 고유 표식으로** 제 말풍선을 갱신한다(사고: 흘려
+       쓰는 사이 다른 손이 배열을 걷어 내면 인덱스가 밀려, 방금 세운 카드
+       블록을 답 글자로 덮어썼다 — 카드가 통째로 증발). */
+    const uid = `ss-${Date.now().toString(36)}-${(saySlowSeq.current += 1)}`
+    setMsgs((v) => [...v, { who: 'a' as const, html: `<i data-ss="${uid}"></i>`, at: hhmm(), ts: nowTs(), redo }])
     let i = 0
     const step = Math.max(2, Math.round(text.length / 60))
     const t = window.setInterval(() => {
       i = Math.min(text.length, i + step)
-      const html = mdSafe(text.slice(0, i))
-      setMsgs((v) => {
-        if (idx < 0 || idx >= v.length || v[idx]?.who !== 'a') return v
-        const c = [...v]
-        c[idx] = { ...c[idx]!, html }
-        return c
-      })
+      const html = `<i data-ss="${uid}"></i>` + mdSafe(text.slice(0, i))
+      setMsgs((v) => v.map((x) => (x.who === 'a' && x.html.includes(`data-ss="${uid}"`) ? { ...x, html } : x)))
       if (i >= text.length) window.clearInterval(t)
     }, 30)
   }
