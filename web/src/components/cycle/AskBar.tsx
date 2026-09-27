@@ -2530,10 +2530,15 @@ export default function AskBar({ devices }: Props) {
             setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d0.ip} 확정 (말로 선택)` }])
             pickedLine('dev', devDoneCard(nm, String(d0.ip ?? '')))
             if (!pt) {
-              say(
-                'a',
-                '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "System 정보 조회 선택"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
-              )
+              /* 장비가 정해지면 **항목 후보가 바로 이어서 선다**(지시: 또
+                 보여 달라고 하지 않게) — 카드 클릭 선택과 같은 문법. 질문에
+                 항목 실마리가 없으면 모델명으로 추천을 뽑는다. */
+              sayThink('이 장비에서 실행할 수 있는 항목을 찾는 중…')
+              let items9 = await findLike(asked || said, d0)
+              if (!items9.length) items9 = await findLike(String(d0.model ?? ''), d0)
+              unThink()
+              if (items9.length) sayTcBlock(items9, said)
+              else showTcCards(String(d0.model ?? ''))
               setFlowAt(0)
               return
             }
