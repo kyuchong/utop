@@ -2435,6 +2435,19 @@ export default function AskBar({ devices }: Props) {
               tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lowT) ??
               (endHits.length === 1 ? endHits[0] : undefined) ??
               (nameHits.length === 1 ? nameHits[0] : undefined)
+          /* 이미 같은 모델 장비를 골라 뒀는데 **모델만** 말했으면 안 갈아탄다
+             (지적: 「장비 선택해 달라고」 에 .12.3 을 버리고 .12.2 로 바뀜) —
+             다른 장비로 바꾸는 건 IP 를 콕 집었을 때만. */
+          const cur9 = usable.find((x) => x.id === devId)
+          if (d1 && cur9 && !/\d+\.\d+\.\d+\.\d+/.test(pd) &&
+              String(cur9.model ?? '').trim().toLowerCase() === lowD && cur9.id !== d1.id) {
+            say(
+              'a',
+              `<p class="ln">이미 <b>${hesc(String(cur9.model ?? ''))} (${hesc(String(cur9.ip ?? ''))})</b> 장비가 선택되어 있습니다 — 다른 장비로 바꾸시려면 IP 로 말씀해 주세요.</p>`,
+            )
+            setFlowAt(0)
+            return
+          }
           if (pd && !d1)
             say(
               'a',
@@ -2474,7 +2487,8 @@ export default function AskBar({ devices }: Props) {
             return
           }
           if (d1) {
-            /* 장비만 골랐다 — 카드 클릭과 같은 상태를 세우고 그 모델 항목을 잇는다 */
+            /* 장비만 골랐다 — 선택 확인만 한다(지적: 장비를 골랐는데 항목
+               72건이 쏟아졌다). 항목은 물어보거나 지정할 때 보여 준다. */
             const nm = String(d1.model || d1.name || d1.ip)
             setDevId(d1.id)
             setTDev(nm)
@@ -2482,7 +2496,10 @@ export default function AskBar({ devices }: Props) {
             if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
             setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d1.ip} 확정 (말로 선택)` }])
             pickedLine('dev', devDoneCard(nm, String(d1.ip ?? '')))
-            showTcCards(String(d1.model ?? ''))
+            say(
+              'a',
+              '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "System 정보 조회 선택"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
+            )
           }
           setFlowAt(0)
           return
