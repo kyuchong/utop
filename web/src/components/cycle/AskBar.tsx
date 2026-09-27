@@ -700,7 +700,10 @@ export default function AskBar({ devices }: Props) {
     const el = msgsRef.current
     if (!el) return
     if (stickRef.current) el.scrollTop = el.scrollHeight
-  }, [msgs, ran, at])
+    /* draft 도 따른다(지적: 최신 정보가 아래에 있다) — 실행 준비 카드는
+       말풍선이 붙은 **뒤에** 절차가 채워지며 키가 자라서, msgs 만 보면
+       그 성장분만큼 바닥에서 밀린다. */
+  }, [msgs, ran, at, draft])
 
   /** 장비 고르개의 상태 탭 — 전체 · 연결됨 · 점검 · 연결안됨.
       열 머리 드롭다운에도 같은 거르개가 있지만, 가장 자주 쓰는 거르개가
