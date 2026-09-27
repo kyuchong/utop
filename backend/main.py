@@ -3593,6 +3593,10 @@ async def cov_chat(payload: dict):
         "말에 이미 「대상 장비: …」 맥락이 붙어 있으면, 사용자가 **다른 장비를 콕 집어** "
         "말할 때만 pick_dev 를 적는다 — 대상 없는 말(「장비 선택해 줘」)이면 pick_dev 는 "
         "빈 문자열로 두고 지금 장비가 이미 선택돼 있음을 answer 로 알린다. "
+        "run 은 사용자가 **지금 준비된 시험을 시작·실행해 달라**고 할 때만 true 다 — "
+        "[선택 상태] 에 절차가 「준비됨」 일 때만 true 로 하고 answer 는 "
+        "「시험을 시작합니다」 한 줄만 적는다. 준비 안 됐으면 run=false 로 두고 "
+        "[선택 상태] 를 근거로 무엇이 빠졌는지 답한다 — 화면과 다른 말을 지어내지 마라. "
         "질문에 장비 모델명이 명시되어 있으면 함께 실린 「대상 장비」 맥락보다 "
         "**질문의 모델을 우선**해 답하고, model 에도 그 모델을 적는다."
     )
@@ -3601,7 +3605,8 @@ async def cov_chat(payload: dict):
         "properties": {"test": {"type": "boolean"}, "answer": {"type": "string"},
                        "model": {"type": "string"}, "show": {"type": "string"},
                        "state": {"type": "string"},
-                       "pick_dev": {"type": "string"}, "pick_tc": {"type": "string"}},
+                       "pick_dev": {"type": "string"}, "pick_tc": {"type": "string"},
+                       "run": {"type": "boolean"}},
         "required": ["test", "answer"],
     }
     user_p = f"사용자의 말: {q}"
@@ -3620,7 +3625,9 @@ async def cov_chat(payload: dict):
                 "state": _state if _state == "ok" else "",
                 # 선택 신호 — 값이 진짜인지는 화면이 실제 목록과 대조한다
                 "pick_dev": str(got.get("pick_dev") or "").strip()[:80],
-                "pick_tc": str(got.get("pick_tc") or "").strip()[:120]}
+                "pick_tc": str(got.get("pick_tc") or "").strip()[:120],
+                # 실행 신호 — 절차가 준비돼 있는지는 화면이 다시 확인한다
+                "run": bool(got.get("run"))}
     except Exception as e:
         return {"ok": True, "test": True, "answer": "", "model": "", "error": str(e)[:200]}
 

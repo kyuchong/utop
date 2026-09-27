@@ -516,7 +516,7 @@ export default function AskBar({ devices }: Props) {
           method: 'POST',
           body: JSON.stringify({ q: rd.q, mode, facts: buildFacts() }),
         })
-        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string }
+        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean }
         unThink()
         if (b.answer) {
           saySlow(b.answer, rd)
@@ -606,12 +606,24 @@ export default function AskBar({ devices }: Props) {
       tcUsed += line.length + 1
     }
     const tcMore = tcCut > 0 ? `\n(… 외 ${tcCut}건 생략)` : ''
+    /* 지금 화면의 선택 상태(지적: 3단계 준비 완료인데 「항목이 선택되지
+       않았다」 고 답함) — LLM 이 이걸 봐야 화면과 어긋나지 않는다. */
+    const selDev = usable.find((d) => d.id === devId)
+    const selState =
+      `\n[선택 상태]\n- 대상 장비: ${
+        selDev ? `${String(selDev.model || selDev.name || '')} (${String(selDev.ip ?? '')})` : '없음'
+      }\n- 시험 항목·절차: ${
+        draft
+          ? `${String(draft.name ?? '')} — 준비됨(${(draft.steps ?? []).length}스텝) · ▷ 시험 시작 가능`
+          : '없음 (아직 선택 전)'
+      }`
     return (
       `장비: 전체 ${usable.length}대 — 사용 가능 ${cnt.ok} · 사용중 ${cnt.busy} · ` +
       `일부 연결 ${cnt.part} · 사용 불가 ${cnt.no}\n` +
       `등록 장비 목록(모델 · IP · 상태 · 소속):\n${rows.join('\n') || '- 없음'}\n` +
       `시험 항목(REQ-Coverage): 총 ${tcAll.length}건 — 모델별 ${cntTxt || '없음'}\n` +
-      `항목 목록(TC키 · 이름 · 모델):\n${tcRows.join('\n') || '- 없음'}${tcMore}`
+      `항목 목록(TC키 · 이름 · 모델):\n${tcRows.join('\n') || '- 없음'}${tcMore}` +
+      selState
     )
   }
   const msgsRef = useRef<HTMLDivElement>(null)
@@ -2387,13 +2399,13 @@ export default function AskBar({ devices }: Props) {
          장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
          현황 질문에는 LLM 이 이것만 보고 답하게 한다. */
       const facts = buildFacts()
-      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string } | null = null
+      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
           method: 'POST',
           body: JSON.stringify({ q: said, mode, facts }),
         })
-        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string }
+        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean }
       } catch {
         /* 못 물으면 시험 갈래로 — 이 화면의 본분 */
       }
@@ -2411,6 +2423,23 @@ export default function AskBar({ devices }: Props) {
         }
         /* 🔄 다시 생성이 이 질문으로 되짚는다(지시: Open WebUI) */
         if (chat.answer) saySlow(chat.answer, { k: 'chat', q: said })
+        /* 「시험 시작 해」(지적: 말로는 시작이 안 됐다) — 절차가 준비돼
+           있으면 ▷ 시험 시작 버튼과 똑같이 그 자리에서 돌린다. */
+        if (chat.run && !pd && !pt) {
+          if (draft && !running) {
+            setFlowAt(0)
+            void run(undefined, undefined, undefined, { chat: true })
+            return
+          }
+          if (!draft) {
+            say(
+              'a',
+              '<p class="ln">아직 절차가 준비되지 않았습니다 — 장비와 시험 항목을 먼저 선택해 주세요.</p>',
+            )
+            setFlowAt(0)
+            return
+          }
+        }
         /* ── 자연어 선택(지적: 말로만 「선택했습니다」 하고 실제론 안 골랐다) —
            LLM 은 신호(pick_dev·pick_tc)만 주고, **실제 장비·항목 목록과
            대조해 화면이 고른다.** 목록에 없으면 없다고 말한다(환각 차단). */
@@ -2437,16 +2466,22 @@ export default function AskBar({ devices }: Props) {
               (nameHits.length === 1 ? nameHits[0] : undefined)
           /* 이미 같은 모델 장비를 골라 뒀는데 **모델만** 말했으면 안 갈아탄다
              (지적: 「장비 선택해 달라고」 에 .12.3 을 버리고 .12.2 로 바뀜) —
-             다른 장비로 바꾸는 건 IP 를 콕 집었을 때만. */
+             다른 장비로 바꾸는 건 IP 를 콕 집었을 때만. ★ 항목 선택이 함께
+             왔으면 여기서 끊지 않고(지적: 항목 선택이 이 안내에 먹혔다)
+             지금 장비를 그대로 쓴다. */
+          let dSel = d1
           const cur9 = usable.find((x) => x.id === devId)
-          if (d1 && cur9 && !/\d+\.\d+\.\d+\.\d+/.test(pd) &&
-              String(cur9.model ?? '').trim().toLowerCase() === lowD && cur9.id !== d1.id) {
-            say(
-              'a',
-              `<p class="ln">이미 <b>${hesc(String(cur9.model ?? ''))} (${hesc(String(cur9.ip ?? ''))})</b> 장비가 선택되어 있습니다 — 다른 장비로 바꾸시려면 IP 로 말씀해 주세요.</p>`,
-            )
-            setFlowAt(0)
-            return
+          if (dSel && cur9 && !/\d+\.\d+\.\d+\.\d+/.test(pd) &&
+              String(cur9.model ?? '').trim().toLowerCase() === lowD && cur9.id !== dSel.id) {
+            if (!pt) {
+              say(
+                'a',
+                `<p class="ln">이미 <b>${hesc(String(cur9.model ?? ''))} (${hesc(String(cur9.ip ?? ''))})</b> 장비가 선택되어 있습니다 — 다른 장비로 바꾸시려면 IP 로 말씀해 주세요.</p>`,
+              )
+              setFlowAt(0)
+              return
+            }
+            dSel = cur9
           }
           if (pd && !d1)
             say(
@@ -2458,12 +2493,12 @@ export default function AskBar({ devices }: Props) {
                잘 선택하도록, 개수 하드코딩 금지). 하나로 모이면 그걸 고르고,
                여럿이면 추천 카드로 물어본다 — 후보 밖은 못 고른다. */
             sayThink('말씀과 가까운 시험 항목을 찾는 중…')
-            const like1 = await findLike(pt, d1)
+            const like1 = await findLike(pt, dSel)
             unThink()
             if (like1.length === 1 && like1[0]) {
               const one = like1[0]
               pickedLine('tc', tcDoneCard(one.tcid, one.name))
-              void takeTc(one.tcid, d1, String(one.model ?? ''))
+              void takeTc(one.tcid, dSel, String(one.model ?? ''))
               return
             }
             if (like1.length > 1) {
@@ -2483,19 +2518,19 @@ export default function AskBar({ devices }: Props) {
           if (t1) {
             /* 항목 선택 — 장비가 함께 왔으면 그 장비로, 아니면 takeTc 가 정한다 */
             pickedLine('tc', tcDoneCard(t1.tcid, t1.name))
-            void takeTc(t1.tcid, d1, String(t1.model ?? ''))
+            void takeTc(t1.tcid, dSel, String(t1.model ?? ''))
             return
           }
-          if (d1) {
+          if (dSel) {
             /* 장비만 골랐다 — 선택 확인만 한다(지적: 장비를 골랐는데 항목
                72건이 쏟아졌다). 항목은 물어보거나 지정할 때 보여 준다. */
-            const nm = String(d1.model || d1.name || d1.ip)
-            setDevId(d1.id)
+            const nm = String(dSel.model || dSel.name || dSel.ip)
+            setDevId(dSel.id)
             setTDev(nm)
-            setAskModel(String(d1.model ?? ''))
+            setAskModel(String(dSel.model ?? ''))
             if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
-            setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d1.ip} 확정 (말로 선택)` }])
-            pickedLine('dev', devDoneCard(nm, String(d1.ip ?? '')))
+            setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${dSel.ip} 확정 (말로 선택)` }])
+            pickedLine('dev', devDoneCard(nm, String(dSel.ip ?? '')))
             say(
               'a',
               '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "System 정보 조회 선택"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
