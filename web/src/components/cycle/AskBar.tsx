@@ -2015,6 +2015,11 @@ export default function AskBar({ devices }: Props) {
         return
       }
     }
+    /* 장비가 여기서 **자동으로** 정해졌으면(한 대뿐 등) 1단계 줄을 남긴다
+       (지적: 무슨 장비를 선택한 건지 대화에 안 보였다). 인자로 받은 장비는
+       부른 쪽이, 이미 고른 장비는 그때 이미 적었다 — 또 적지 않는다. */
+    if (use && !dev && use.id !== devId)
+      pickedLine('dev', devDoneCard(String(use.model || use.name || ''), String(use.ip ?? '')))
     dev = use
     const t0 = performance.now()
     setAdopting(tcid)
@@ -2527,7 +2532,11 @@ export default function AskBar({ devices }: Props) {
             )
           }
           if (t1) {
-            /* 항목 선택 — 장비가 함께 왔으면 그 장비로, 아니면 takeTc 가 정한다 */
+            /* 항목 선택 — 장비가 함께 왔으면 그 장비로, 아니면 takeTc 가 정한다.
+               ★ 장비가 여기서 새로 정해지면 1단계 줄을 남긴다(지적: 무슨
+               장비를 선택한 건지 대화에 안 보였다). */
+            if (dSel && dSel.id !== devId)
+              pickedLine('dev', devDoneCard(String(dSel.model || dSel.name || ''), String(dSel.ip ?? '')))
             pickedLine('tc', tcDoneCard(t1.tcid, t1.name))
             void takeTc(t1.tcid, dSel, String(t1.model ?? ''))
             return
