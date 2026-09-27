@@ -605,7 +605,7 @@ export default function AskBar({ devices }: Props) {
           method: 'POST',
           body: JSON.stringify({ q: rd.q, mode, facts: buildFacts() }),
         })
-        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean }
+        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean }
         unThink()
         if (b.answer) {
           saySlow(b.answer, rd)
@@ -2522,13 +2522,13 @@ export default function AskBar({ devices }: Props) {
          장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
          현황 질문에는 LLM 이 이것만 보고 답하게 한다. */
       const facts = buildFacts()
-      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean } | null = null
+      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
           method: 'POST',
           body: JSON.stringify({ q: said, mode, facts }),
         })
-        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean }
+        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean }
       } catch {
         /* 못 물으면 시험 갈래로 — 이 화면의 본분 */
       }
@@ -2544,7 +2544,7 @@ export default function AskBar({ devices }: Props) {
         void run(undefined, undefined, undefined, { chat: true })
         return
       }
-      if (chat && chat.test === false && (chat.answer || pd || pt || chat.show || chat.tc_intent || chat.dev_intent)) {
+      if (chat && chat.test === false && (chat.answer || pd || pt || chat.show || chat.suggest_tc || chat.tc_intent || chat.dev_intent)) {
         /* 잡담 대화도 **목록에 남긴다**(지적: 질문이 생성됐는데 목록에 없다) —
            절차 없이 대화만 담고, 자동 저장이 이어서 주고받는 말을 채운다. */
         if (!chatId || !saveMetaRef.current) {
@@ -2569,7 +2569,38 @@ export default function AskBar({ devices }: Props) {
            LLM 은 신호(pick_dev·pick_tc)만 주고, **실제 장비·항목 목록과
            대조해 화면이 고른다.** 목록에 없으면 없다고 말한다(환각 차단). */
         if (pd || pt) {
-          /* ── 자연어 선택(지시: **무조건 한 번 체크**) — 말은 절대 확정하지
+          /* 추천 요청(지적: 추천하면 항목 선택이 안 됨) — LLM 이 고른 항목을
+           **카드로 세운다.** 값은 실제 목록과 대조하고, 확정은 클릭이다. */
+        const sg = String(chat.suggest_tc ?? '').trim()
+        if (sg && !pd && !pt) {
+          const keys = sg.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 3)
+          const normKey2 = (x: string) => x.toLowerCase().replace(/(\D)0+(?=\d)/g, '$1')
+          const items: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }> = []
+          for (const k of keys) {
+            const lk = k.toLowerCase()
+            const hit =
+              tcAll.find((t) => t.tcid.toLowerCase() === lk) ??
+              tcAll.find((t) => normKey2(t.tcid) === normKey2(lk)) ??
+              tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lk)
+            if (hit && !items.some((x) => x.tcid === hit.tcid))
+              items.push({ tcid: hit.tcid, name: hit.name, model: hit.model, steps: hit.steps })
+          }
+          if (!items.length) {
+            sayThink('말씀과 가까운 시험 항목을 찾는 중…')
+            const like3 = await findLike(asked || raw0, undefined)
+            unThink()
+            items.push(...like3)
+          }
+          if (items.length) sayTcBlock(items, said)
+          else
+            say(
+              'a',
+              '<p class="ln">추천할 항목을 못 좁혔습니다 — 「시험 항목 찾기」 로 골라 주세요.</p>',
+            )
+          setFlowAt(0)
+          return
+        }
+        /* ── 자연어 선택(지시: **무조건 한 번 체크**) — 말은 절대 확정하지
              않는다. IP·TC키를 콕 집어도 **카드 한 장**으로 확인받고, 클릭이
              곧 확정이다. 한 번의 질문에는 한 단계만 — 장비 카드가 서면
              항목은 다음 차례에 다시 카드로 선다. 후보 밖은 못 고른다. */

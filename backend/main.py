@@ -3614,6 +3614,9 @@ async def cov_chat(payload: dict):
         "pick_dev·pick_tc 에는 **사용자의 말에 실제로 등장한 글자만 그대로** 적는다 — "
         "[현황]·[선택 상태]·이전 대화에서 가져오거나 지어내지 마라. "
         "말에 없는 값은 서버가 버린다. "
+        "사용자가 **추천해 달라·골라 달라**고 하면 suggest_tc 에 [현황] 항목 중 가장 "
+        "맞는 것의 TC키를 적는다(여러 개면 쉼표로 최대 3개) — 화면이 후보 카드로 "
+        "세우고 고르는 것은 사람이다. answer 는 왜 그것인지 한 줄만. "
         "「~항목이 있어?」 처럼 **있는지 묻기만 한 말**에는 pick 을 적지 않는다 — "
         "answer 로 있는지만 답한다. 다만 「~찾아 줘」·「~항목 보여 줘」 처럼 **검색을 "
         "요청**한 말에는 pick_tc 에 찾는 말(질문에 등장한 글자)을 적는다 — 화면이 "
@@ -3636,6 +3639,7 @@ async def cov_chat(payload: dict):
                        "model": {"type": "string"}, "show": {"type": "string"},
                        "state": {"type": "string"},
                        "pick_dev": {"type": "string"}, "pick_tc": {"type": "string"},
+                       "suggest_tc": {"type": "string"},
                        "run": {"type": "boolean"}},
         "required": ["test", "answer"],
     }
@@ -3665,6 +3669,8 @@ async def cov_chat(payload: dict):
                                    and not _pick_in_q(got.get("pick_dev"), q, 80)),
                 "tc_intent": bool(str(got.get("pick_tc") or "").strip()
                                   and not _pick_in_q(got.get("pick_tc"), q, 120)),
+                # 추천 신호 — 값은 화면이 실제 목록과 대조하고, 확정은 카드 클릭
+                "suggest_tc": str(got.get("suggest_tc") or "").strip()[:200],
                 # 실행 신호 — 절차가 준비돼 있는지는 화면이 다시 확인한다
                 "run": bool(got.get("run"))}
     except Exception as e:
