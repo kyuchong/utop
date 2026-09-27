@@ -1485,6 +1485,36 @@ export default function AskBar({ devices }: Props) {
       이걸 보고 절차·장비까지 같이 담는다(지적: 새로고침하면 대화가 사라짐) */
   const saveMetaRef = useRef<{ title: string; plan: Draft; dev: string } | null>(null)
 
+  /* 실행 결과(ran)·AI 요약(summ)도 기록에 담는다(승인: 기존 실행한 걸 보는
+     것이니 결과가 있어야 한다) — 자동 저장은 msgs 에 매여 있어서 최신
+     결과를 ref 로 들여다본다. */
+  const ranRef = useRef<TcStep[] | null>(null)
+  useEffect(() => {
+    ranRef.current = ran
+  }, [ran])
+  const summRef = useRef<{ text: string; pass: number; fail: number; ai?: boolean } | null>(null)
+  useEffect(() => {
+    summRef.current = summ
+  }, [summ])
+
+  /** 기록에 싣기 전 결과 다듬기 — 출력을 통째로 실으면 기록(KV)이 비대해
+      진다. 스텝당 출력 4,000자·회차 출력 2,000자 상한(승인). */
+  const packRun = (v: TcStep[] | null): TcStep[] | undefined => {
+    if (!v || v.length === 0) return undefined
+    const cut = (s: unknown, n: number) => {
+      const t = String(s ?? '')
+      return t.length > n ? `${t.slice(0, n)}\n…(잘림)` : t
+    }
+    return v.map((x) => ({
+      ...x,
+      ...(x.output !== undefined ? { output: cut(x.output, 4000) } : {}),
+      ...(x.response !== undefined ? { response: cut(x.response, 4000) } : {}),
+      ...(Array.isArray(x.rounds)
+        ? { rounds: x.rounds.map((r) => ({ ...r, ...(r.output !== undefined ? { output: cut(r.output, 2000) } : {}) })) }
+        : {}),
+    }))
+  }
+
   const keepChat = async (title: string, plan: Draft, dev: string) => {
     const id = chatId || `nl-${Date.now().toString(36)}`
     if (!chatId) setChatId(id)
@@ -1517,6 +1547,9 @@ export default function AskBar({ devices }: Props) {
      않는다. 실행 표식(data-chatrun)은 그대로 담고, 열 때 걷어 낸다. */
   useEffect(() => {
     if (!chatId || !saveMetaRef.current || msgs.length === 0) return
+    /* 도는 동안은 저장을 미룬다 — 스텝마다 커지는 결과를 매번 실어 나르지
+       않는다. 끝나면(running=false) 이 효과가 다시 돌아 결과째 저장한다. */
+    if (running) return
     const t = window.setTimeout(() => {
       const m = saveMetaRef.current
       if (!m) return
@@ -1528,6 +1561,10 @@ export default function AskBar({ devices }: Props) {
           plan: m.plan,
           dev: m.dev,
           msgs: msgs.map((x) => ({ who: x.who, html: x.html, at: x.at, ts: x.ts, redo: x.redo, fb: x.fb })),
+          /* 실행 결과·AI 요약도 함께(승인) — 이게 없으면 기록을 다시 열 때
+             실행 준비로 초기화돼 「기존 실행한 것」 을 볼 수 없다. */
+          run: packRun(ranRef.current),
+          summ: summRef.current ?? undefined,
           flow: flowRef.current,
           vals: valsRef.current,
           notes: notesRef.current,
@@ -1536,7 +1573,7 @@ export default function AskBar({ devices }: Props) {
     }, 800)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [msgs, chatId])
+  }, [msgs, chatId, running])
 
   /**
    * 빈 판정 기준을 **실제 응답으로** 채운다.
@@ -2810,6 +2847,8 @@ export default function AskBar({ devices }: Props) {
           dev?: string
           at?: string
           msgs?: Array<{ who?: string; html?: string; at?: string }>
+          run?: TcStep[]
+          summ?: { text?: string; pass?: number; fail?: number; ai?: boolean }
           flow?: Array<{ s?: number; t?: string }>
           vals?: Array<{ k?: string; v?: string }>
           notes?: string[]
@@ -2862,7 +2901,7 @@ export default function AskBar({ devices }: Props) {
         const hadRun = savedMsgs.some((m) => m.html.includes('data-chatrun'))
         /* 표식(실행 카드 자리)은 **저장된 자리 그대로** 둔다(승인) — 빼서 맨
            끝에 다시 붙였더니 다시 열면 시험 완료가 카드보다 위로 왔다.
-           결과(ran)는 기록에 없으니 카드는 실행 준비 상태로 선다. */
+           결과(ran)가 담긴 기록이면 아래에서 되살려 「실행 끝」 으로 선다. */
         setMsgs(
           savedMsgs.map((m) => ({
             who: m.who as 'u' | 'a',
@@ -2890,6 +2929,19 @@ export default function AskBar({ devices }: Props) {
           },
         ])
       }
+      /* 실행 결과·AI 요약 되살리기(승인: 기존 실행한 걸 보는 것) — 담긴
+         기록이면 카드가 「실행 끝」 + 스텝별 PASS/FAIL 로 서고, 결과 보기
+         (3열)의 판정 요약도 그대로 돌아온다. 없으면 실행 준비 그대로. */
+      const keptRun = Array.isArray(b.chat?.run)
+        ? (b.chat!.run as TcStep[]).filter((s) => !!s && typeof s === 'object')
+        : []
+      if (keptRun.length > 0) setRan(keptRun)
+      const s9 = b.chat?.summ
+      setSumm(
+        s9 && typeof s9.text === 'string' && s9.text
+          ? { text: s9.text, pass: Number(s9.pass) || 0, fail: Number(s9.fail) || 0, ai: !!s9.ai }
+          : null,
+      )
       /* 자동 저장이 절차·장비까지 같이 담게 정체를 세워 둔다 */
       saveMetaRef.current = {
         title: String(b.chat?.title || plan.name || title),

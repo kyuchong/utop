@@ -1546,6 +1546,9 @@ async def nl_chat_save(payload: dict, token: str = ""):
         "msgs": payload.get("msgs") if isinstance(payload.get("msgs"), list) else [],
         "plan": payload.get("plan") if isinstance(payload.get("plan"), dict) else None,
         "run": payload.get("run") if isinstance(payload.get("run"), list) else None,
+        # AI 요약도 결과와 함께 — 기록을 다시 열 때 결과 보기(3열)의 배너가
+        # 그대로 돌아와야 한다(승인: 기존 실행한 걸 보는 것).
+        "summ": payload.get("summ") if isinstance(payload.get("summ"), dict) else None,
         # 작업 흐름도 함께 담는다 — 이걸 안 담아서 기록을 열면 흐름이 두 줄로
         # 요약돼 있었다(지적). 무엇을 왜 그렇게 정했는지가 거기에만 있다.
         "flow": payload.get("flow") if isinstance(payload.get("flow"), list) else None,

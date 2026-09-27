@@ -448,6 +448,7 @@
 .ra-con.compact .ra-st.ok { background: #e3f6eb; color: #12753c; }
 .ra-con.compact .ra-st.bad { background: #fde9e9; color: #c03030; }
 .ra-con.compact .ra-bnone { color: #b6bfc7; font-size: 10.5px; }
+.ra-con.compact .ra-bcrit { font-size: 10px; padding: 1px 7px; }
 /* 지금 보는 스텝 — 왼쪽에 파란 획, 머리도 한 겹 진하게 */
 .ra-blk.on { border-color: #b9d5f4; box-shadow: inset 3px 0 0 #3f80e5; }
 .ra-blk.on .ra-cmd { background: #dcebfa; color: #17548f; }
@@ -737,6 +738,13 @@
 .ra-bnone {
   flex: none; color: #9aa7ae; font-size: 11px;
   min-width: 54px; text-align: center; white-space: nowrap;
+}
+/* 실행 전 + 판정 기준이 걸린 스텝(승인) — 「판정 없음」 과 폭을 맞춘
+   회청색 배지. 호버에 기준 내용이 뜬다. */
+.ra-bcrit {
+  flex: none; min-width: 54px; text-align: center; white-space: nowrap;
+  color: #4a6b8a; background: #eef4f9; border: 1px solid #d7e4ee;
+  border-radius: 999px; font-size: 10.5px; padding: 1px 8px; cursor: help;
 }
 
 /* 판정 기준 · 변수 · RCA — 라벨이 세로로 맞는 격자 */

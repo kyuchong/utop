@@ -46,6 +46,22 @@ function autoName(raw: Record<string, unknown>): string {
   return ''
 }
 
+/** 동작 표기 통일(지시: CLI·command 혼재) — 저장된 스텝마다 동작 칸이
+ * `CLI`/`command`/`cmd` 로 제각각이라, 데이터는 두고 **표시단에서 한 벌**로
+ * 정규화한다. SNMP 계열·Wait 도 같이 맞춘다. */
+export function actLabel(a?: string): string {
+  const t = String(a ?? '').trim()
+  if (!t || t === '—') return ''
+  const l = t.toLowerCase()
+  if (l === 'cli' || l === 'command' || l === 'cmd') return 'CLI'
+  if (l.startsWith('snmp')) return 'SNMP'
+  if (l === 'wait') return 'Wait'
+  /* 주석·메시지 줄은 왼쪽에 이미 「주석」 이라 적힌다 — comment 를 또
+     달면 그게 곧 표기 혼재다(지적의 취지). */
+  if (l === 'comment' || l === 'message') return ''
+  return t
+}
+
 /** 스텝 하나를 화면이 아는 모양으로 바꾼다.
  *
  * 실제 자료의 칸 이름은 목업과 다르다 — 절차는 `cli`(명령)·`desc`(설명)·
@@ -515,7 +531,7 @@ export default function RespView({
                   {/* 실행 스텝 표가 하던 말을 머리가 받는다(승인) — 동작·세션·
                       걸린 시간. 판을 합치면서 잃을 것이 없어야 한다. */}
                   <span className="ra-bmeta">
-                    {s2.action && s2.action !== '—' ? s2.action : ''}
+                    {actLabel(s2.action)}
                     {s2.session && s2.session !== '—' ? ` · ${s2.session}` : ''}
                   </span>
                   <span className="ra-btime">{tookText(s2.tookMs) || mmss(s2.took)}</span>
@@ -523,9 +539,16 @@ export default function RespView({
                     <span className={`ra-st ${/pass/i.test(mk) ? 'ok' : 'bad'}`}>
                       {/pass/i.test(mk) ? 'PASS' : 'FAIL'}
                     </span>
-                  ) : s2.kind === 'comment' || s2.kind === 'message' ? null : (
-                    <span className="ra-bnone">판정 없음</span>
-                  )}
+                  ) : s2.kind === 'comment' || s2.kind === 'message' ? null : (() => {
+                    /* 실행 전 상태를 셋으로 가른다(승인) — 기준이 걸린 스텝은
+                       「판정 없음」 이 아니라 **「기준 있음」** 이다. 호버에 기준. */
+                    const crit = String(s2.expected ?? '').trim()
+                    return crit && crit !== '—' ? (
+                      <span className="ra-bcrit" title={`판정 기준: ${crit}`}>기준 있음</span>
+                    ) : (
+                      <span className="ra-bnone">판정 없음</span>
+                    )
+                  })()}
                 </div>
                 {!compact && !folded.has(seeUpTo) && rds.length > 1 && (
                   <div className="ra-rds">
