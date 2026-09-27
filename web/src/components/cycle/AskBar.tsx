@@ -2860,20 +2860,19 @@ export default function AskBar({ devices }: Props) {
       )
       if (savedMsgs.length > 0) {
         const hadRun = savedMsgs.some((m) => m.html.includes('data-chatrun'))
-        setMsgs([
-          ...savedMsgs
-            .filter((m) => !m.html.includes('data-chatrun'))
-            .map((m) => ({
-              who: m.who as 'u' | 'a',
-              html: m.html,
-              at: m.at,
-              ts: m.ts,
-              redo: m.redo,
-              fb: m.fb,
-            })),
-          /* 실행 자리는 새 표식으로 다시 — 결과는 안 남지만 절차·시험 시작이 선다 */
-          ...(hadRun ? [{ who: 'a' as const, html: '<i data-chatrun></i>' }] : []),
-        ])
+        /* 표식(실행 카드 자리)은 **저장된 자리 그대로** 둔다(승인) — 빼서 맨
+           끝에 다시 붙였더니 다시 열면 시험 완료가 카드보다 위로 왔다.
+           결과(ran)는 기록에 없으니 카드는 실행 준비 상태로 선다. */
+        setMsgs(
+          savedMsgs.map((m) => ({
+            who: m.who as 'u' | 'a',
+            html: m.html,
+            at: m.at,
+            ts: m.ts,
+            redo: m.redo,
+            fb: m.fb,
+          })),
+        )
         setChatRun(hadRun)
       } else {
         setChatRun(false)
