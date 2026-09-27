@@ -2531,15 +2531,9 @@ export default function AskBar({ devices }: Props) {
             )
           if (devCands.length) {
             /* 같은 모델 여러 대 — 말없이 안 고른다(사고: 접속 안 되는 .12.2
-               로 멋대로 돌았다). 항목이 함께 정해졌으면 걸어 두고, 카드에서
-               장비를 고르면 그 항목으로 바로 이어서 진행한다. */
-            if (t1) {
-              setAfterPick({ tcid: t1.tcid, model: String(t1.model ?? '') })
-              say(
-                'a',
-                `<p class="ln"><b>${hesc(t1.tcid)} · ${hesc(t1.name)}</b> 항목으로 진행합니다 — 먼저 돌릴 장비를 골라 주세요.</p>`,
-              )
-            }
+               로 멋대로 돌았다). ★ 한 번의 질문에는 **한 단계만**(지적:
+               하나씩 선택하게) — 항목을 미리 걸어 두지 않는다. 장비를
+               고르면 다음 단계(항목 후보)가 다시 카드로 선다. */
             await sayDevBlock(devCands, pd, said)
             setFlowAt(0)
             return
@@ -2571,11 +2565,23 @@ export default function AskBar({ devices }: Props) {
             )
           }
           if (t1) {
-            /* 항목 선택 — 장비가 함께 왔으면 그 장비로, 아니면 takeTc 가 정한다.
-               ★ 장비가 여기서 새로 정해지면 1단계 줄을 남긴다(지적: 무슨
-               장비를 선택한 건지 대화에 안 보였다). */
-            if (dSel && dSel.id !== devId)
-              pickedLine('dev', devDoneCard(String(dSel.model || dSel.name || ''), String(dSel.ip ?? '')))
+            if (dSel && dSel.id !== devId) {
+              /* 한 문장에 장비·항목이 같이 왔다 — **한 단계만**(지적: 하나씩
+                 선택하게): 장비만 확정하고, 항목은 카드로 다시 묻는다
+                 (말한 그 항목이 후보로 선다). */
+              const nm = String(dSel.model || dSel.name || dSel.ip)
+              setDevId(dSel.id)
+              setTDev(nm)
+              setAskModel(String(dSel.model ?? ''))
+              if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+              setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${dSel.ip} 확정 (말로 선택)` }])
+              pickedLine('dev', devDoneCard(nm, String(dSel.ip ?? '')))
+              sayTcBlock([{ tcid: t1.tcid, name: t1.name, model: t1.model, steps: t1.steps }], said)
+              setFlowAt(0)
+              return
+            }
+            /* 항목만 콕 집은 말 — 그 한 단계(항목 선택)를 진행한다. 장비가
+               아직 없으면 takeTc 가 장비 고르기로 묻는다. */
             pickedLine('tc', tcDoneCard(t1.tcid, t1.name))
             void takeTc(t1.tcid, dSel, String(t1.model ?? ''))
             return
