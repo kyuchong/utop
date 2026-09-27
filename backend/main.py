@@ -3563,7 +3563,7 @@ async def cov_chat(payload: dict):
     # 「시험 가능한 장비는?」 에 지어낸 「없습니다」 가 나왔다).
     # 장비 한 대당 한 줄(사업자·LAB·벤더까지) + 시험 항목 이름 80건까지
     # 실리므로 상한도 넉넉히(승인).
-    facts = str(payload.get("facts") or "").strip()[:12000]
+    facts = str(payload.get("facts") or "").strip()[:16000]
     if not q:
         return {"ok": False, "error": "질문이 비었습니다"}
     llm = _llm_pick(purpose) or _ai_llm() or {}
@@ -3584,6 +3584,12 @@ async def cov_chat(payload: dict):
         "answer 는 한 줄 요약만 적는다 — 목록 자체는 화면이 카드로 그린다. "
         'state 는 사용자가 **사용 가능한 것만** 보여 달라고 했을 때만 "ok", '
         "그 외에는 빈 문자열 — 화면이 그 상태로 걸러 그린다. "
+        "사용자가 **특정 장비를 선택·지정해 달라**고 하면(예: 「220.1.12.3 장비 선택해 줘」) "
+        "pick_dev 에 그 장비의 IP(있으면 IP, 없으면 모델명)를 적는다. "
+        "**특정 시험 항목을 선택해 달라**고 하면(예: 「E61xx-T0001 선택」·「System 정보 조회 항목 선택」) "
+        "pick_tc 에 항목 키 또는 항목 이름을 그대로 적는다. "
+        "pick 을 적었으면 answer 는 「선택을 진행합니다」 한 줄만 — 실제 선택과 확인은 "
+        "화면이 한다. 선택했다고 화면 대신 단정하지 마라. "
         "질문에 장비 모델명이 명시되어 있으면 함께 실린 「대상 장비」 맥락보다 "
         "**질문의 모델을 우선**해 답하고, model 에도 그 모델을 적는다."
     )
@@ -3591,7 +3597,8 @@ async def cov_chat(payload: dict):
         "type": "object",
         "properties": {"test": {"type": "boolean"}, "answer": {"type": "string"},
                        "model": {"type": "string"}, "show": {"type": "string"},
-                       "state": {"type": "string"}},
+                       "state": {"type": "string"},
+                       "pick_dev": {"type": "string"}, "pick_tc": {"type": "string"}},
         "required": ["test", "answer"],
     }
     user_p = f"사용자의 말: {q}"
@@ -3607,7 +3614,10 @@ async def cov_chat(payload: dict):
                 "model": str(got.get("model") or "").strip(),
                 # 화면이 아는 값만 통과시킨다 — LLM 이 지어낸 딴 값은 버린다
                 "show": _show if _show in ("devices", "tcs") else "",
-                "state": _state if _state == "ok" else ""}
+                "state": _state if _state == "ok" else "",
+                # 선택 신호 — 값이 진짜인지는 화면이 실제 목록과 대조한다
+                "pick_dev": str(got.get("pick_dev") or "").strip()[:80],
+                "pick_tc": str(got.get("pick_tc") or "").strip()[:120]}
     except Exception as e:
         return {"ok": True, "test": True, "answer": "", "model": "", "error": str(e)[:200]}
 

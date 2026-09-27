@@ -516,7 +516,7 @@ export default function AskBar({ devices }: Props) {
           method: 'POST',
           body: JSON.stringify({ q: rd.q, mode, facts: buildFacts() }),
         })
-        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string }
+        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string }
         unThink()
         if (b.answer) {
           saySlow(b.answer, rd)
@@ -559,10 +559,12 @@ export default function AskBar({ devices }: Props) {
     const cnt = { ok: 0, busy: 0, part: 0, no: 0 }
     const stName = { ok: '사용 가능', busy: '사용중', part: '일부 연결', no: '사용 불가' } as const
     const rows: string[] = []
+    let devUsed = 0
     usable.forEach((d) => {
       const k = devStat(d).k
       cnt[k] += 1
-      if (rows.length < 30) {
+      /* 대수 하드코딩 대신 글자 예산(지시) — 늘어나도 예산까지 싣는다 */
+      if (devUsed < 6000) {
         const extra = [
           d.lab ? `LAB ${String(d.lab)}` : '',
           d.operator ? `사업자 ${String(d.operator)}` : '',
@@ -572,14 +574,13 @@ export default function AskBar({ devices }: Props) {
         ]
           .filter(Boolean)
           .join(' · ')
-        rows.push(
-          `- ${String(d.model || d.name || '')} · ${String(d.ip ?? '')} · ${stName[k]}${extra ? ` · ${extra}` : ''}`,
-        )
+        const ln = `- ${String(d.model || d.name || '')} · ${String(d.ip ?? '')} · ${stName[k]}${extra ? ` · ${extra}` : ''}`
+        rows.push(ln)
+        devUsed += ln.length + 1
       }
     })
-    /* 시험 항목 — **80건까지 이름을 그대로** 싣는다(승인: 「리스트 보여
-       줘」 에 건수만 나왔다 — LLM 은 없는 이름을 지어내지 않으니 재료를
-       줘야 나열한다). 넘치는 몫은 건수로만 남긴다. */
+    /* 시험 항목 — 이름을 그대로 싣는다(승인: 「리스트 보여 줘」 에 건수만
+       나왔다 — LLM 은 없는 이름을 지어내지 않으니 재료를 줘야 나열한다). */
     const byModel = new Map<string, number>()
     tcAll.forEach((t) => {
       const m = String(t.model ?? '').trim() || '공통'
@@ -590,10 +591,21 @@ export default function AskBar({ devices }: Props) {
       .slice(0, 15)
       .map(([m, n]) => `${m} ${n}건`)
       .join(' · ')
-    const tcRows = tcAll
-      .slice(0, 80)
-      .map((t) => `- ${t.tcid} · ${String(t.name ?? '').trim()}${t.model ? ` (${t.model})` : ''}`)
-    const tcMore = tcAll.length > 80 ? `\n(… 외 ${tcAll.length - 80}건 생략)` : ''
+    /* 개수 하드코딩 금지(지시) — 항목이 늘어도 **글자 예산**까지 전부 싣고,
+       넘친 몫만 건수로 줄인다. 선택 매칭은 어차피 화면의 전체 목록을 본다. */
+    const tcRows: string[] = []
+    let tcUsed = 0
+    let tcCut = 0
+    for (const t of tcAll) {
+      const line = `- ${t.tcid} · ${String(t.name ?? '').trim()}${t.model ? ` (${t.model})` : ''}`
+      if (tcUsed + line.length > 8000) {
+        tcCut = tcAll.length - tcRows.length
+        break
+      }
+      tcRows.push(line)
+      tcUsed += line.length + 1
+    }
+    const tcMore = tcCut > 0 ? `\n(… 외 ${tcCut}건 생략)` : ''
     return (
       `장비: 전체 ${usable.length}대 — 사용 가능 ${cnt.ok} · 사용중 ${cnt.busy} · ` +
       `일부 연결 ${cnt.part} · 사용 불가 ${cnt.no}\n` +
@@ -2375,18 +2387,20 @@ export default function AskBar({ devices }: Props) {
          장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
          현황 질문에는 LLM 이 이것만 보고 답하게 한다. */
       const facts = buildFacts()
-      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string } | null = null
+      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
           method: 'POST',
           body: JSON.stringify({ q: said, mode, facts }),
         })
-        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string }
+        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string }
       } catch {
         /* 못 물으면 시험 갈래로 — 이 화면의 본분 */
       }
       unThink()
-      if (chat && chat.test === false && chat.answer) {
+      const pd = String(chat?.pick_dev ?? '').trim()
+      const pt = String(chat?.pick_tc ?? '').trim()
+      if (chat && chat.test === false && (chat.answer || pd || pt)) {
         /* 잡담 대화도 **목록에 남긴다**(지적: 질문이 생성됐는데 목록에 없다) —
            절차 없이 대화만 담고, 자동 저장이 이어서 주고받는 말을 채운다. */
         if (!chatId || !saveMetaRef.current) {
@@ -2396,7 +2410,83 @@ export default function AskBar({ devices }: Props) {
           setRecent((v) => [{ cid: id, title: raw0.slice(0, 80) }, ...v.filter((x) => x.cid !== id)].slice(0, 30))
         }
         /* 🔄 다시 생성이 이 질문으로 되짚는다(지시: Open WebUI) */
-        saySlow(chat.answer, { k: 'chat', q: said })
+        if (chat.answer) saySlow(chat.answer, { k: 'chat', q: said })
+        /* ── 자연어 선택(지적: 말로만 「선택했습니다」 하고 실제론 안 골랐다) —
+           LLM 은 신호(pick_dev·pick_tc)만 주고, **실제 장비·항목 목록과
+           대조해 화면이 고른다.** 목록에 없으면 없다고 말한다(환각 차단). */
+        if (pd || pt) {
+          const lowD = pd.toLowerCase()
+          const d1 = !pd
+            ? undefined
+            : usable.find((d) => String(d.ip ?? '').trim() === pd) ??
+              usable.find(
+                (d) => String(d.model ?? '').trim().toLowerCase() === lowD && devStat(d).k === 'ok',
+              ) ??
+              usable.find((d) => String(d.model ?? '').trim().toLowerCase() === lowD) ??
+              usable.find((d) => String(d.name ?? '').trim().toLowerCase() === lowD)
+          const lowT = pt.toLowerCase()
+          const endHits = pt ? tcAll.filter((t) => t.tcid.toLowerCase().endsWith(lowT)) : []
+          const nameHits = pt
+            ? tcAll.filter((t) => String(t.name ?? '').toLowerCase().includes(lowT))
+            : []
+          const t1 = !pt
+            ? undefined
+            : tcAll.find((t) => t.tcid.toLowerCase() === lowT) ??
+              tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lowT) ??
+              (endHits.length === 1 ? endHits[0] : undefined) ??
+              (nameHits.length === 1 ? nameHits[0] : undefined)
+          if (pd && !d1)
+            say(
+              'a',
+              `<p class="ln">「${hesc(pd)}」 에 맞는 장비를 찾지 못했습니다 — 「장비 고르기」 로 직접 선택해 주세요.</p>`,
+            )
+          if (pt && !t1) {
+            /* 딱 못 맞췄다 — **LLM 추천(pick-tc)으로 좁힌다**(지시: LLM 이
+               잘 선택하도록, 개수 하드코딩 금지). 하나로 모이면 그걸 고르고,
+               여럿이면 추천 카드로 물어본다 — 후보 밖은 못 고른다. */
+            sayThink('말씀과 가까운 시험 항목을 찾는 중…')
+            const like1 = await findLike(pt, d1)
+            unThink()
+            if (like1.length === 1 && like1[0]) {
+              const one = like1[0]
+              pickedLine('tc', tcDoneCard(one.tcid, one.name))
+              void takeTc(one.tcid, d1, String(one.model ?? ''))
+              return
+            }
+            if (like1.length > 1) {
+              sayTcBlock(like1, said)
+              setFlowAt(0)
+              return
+            }
+            say(
+              'a',
+              `<p class="ln">「${hesc(pt)}」 에 맞는 시험 항목을 찾지 못했습니다${
+                endHits.length > 1 || nameHits.length > 1
+                  ? ' — 같은 이름이 여럿입니다. 전체 키(예: E61xx-T0001)로 말씀해 주세요.'
+                  : ' — 「시험 항목 찾기」 로 직접 선택해 주세요.'
+              }</p>`,
+            )
+          }
+          if (t1) {
+            /* 항목 선택 — 장비가 함께 왔으면 그 장비로, 아니면 takeTc 가 정한다 */
+            pickedLine('tc', tcDoneCard(t1.tcid, t1.name))
+            void takeTc(t1.tcid, d1, String(t1.model ?? ''))
+            return
+          }
+          if (d1) {
+            /* 장비만 골랐다 — 카드 클릭과 같은 상태를 세우고 그 모델 항목을 잇는다 */
+            const nm = String(d1.model || d1.name || d1.ip)
+            setDevId(d1.id)
+            setTDev(nm)
+            setAskModel(String(d1.model ?? ''))
+            if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+            setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d1.ip} 확정 (말로 선택)` }])
+            pickedLine('dev', devDoneCard(nm, String(d1.ip ?? '')))
+            showTcCards(String(d1.model ?? ''))
+          }
+          setFlowAt(0)
+          return
+        }
         /* 목록 질문이면 **화면 부품(카드)** 으로도 보여 준다(승인: UI 처럼) —
            카드는 화면이 가진 실제 데이터로 그린다. */
         const sh = String(chat.show ?? '').trim()
