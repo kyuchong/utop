@@ -1509,10 +1509,14 @@ export default function AskBar({ devices }: Props) {
       }
     }
     unThink()
-    /* 추천 블록은 **마지막 하나만**(지적: 장비 목록이 계속 다시 깔려 쌓임) —
-       새 추천이 서면 이전 추천 블록을 걷는다. 목록(plain)은 정보라 남긴다. */
-    if (!opts?.plain)
-      setMsgs((v) => v.filter((x) => !(x.who === 'a' && x.html.includes('data-pick="dev"'))))
+    /* 장비 카드 판은 **화면에 늘 한 장**(지적: 계속 다시 깔려 쌓임) —
+       추천이든 목록이든 새로 서면 이전 dev 계열 블록을 걷는다. */
+    setMsgs((v) =>
+      v.filter(
+        (x) =>
+          !(x.who === 'a' && (x.html.includes('data-pick="dev"') || x.html.includes('data-pick="dev-list"'))),
+      ),
+    )
     const head =
       opts?.head ??
       (m0
@@ -1595,8 +1599,13 @@ export default function AskBar({ devices }: Props) {
         )
       })
       .join('')
-    if (!opts?.plain)
-      setMsgs((v) => v.filter((x) => !(x.who === 'a' && x.html.includes('data-pick="tc"'))))
+    /* 항목 카드 판도 늘 한 장 — tc 계열(추천·목록) 이전 블록을 걷는다 */
+    setMsgs((v) =>
+      v.filter(
+        (x) =>
+          !(x.who === 'a' && (x.html.includes('data-pick="tc"') || x.html.includes('data-pick="tc-list"'))),
+      ),
+    )
     say(
       'a',
       `<p class="ln">${opts?.head ?? '<b>2단계 · 시험 항목</b> — 요청과 가까운 항목입니다. 시험할 항목을 선택해 주세요.'}</p>` +
