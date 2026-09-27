@@ -714,6 +714,11 @@ export default function AskBar({ devices }: Props) {
      고르자마자 2단계(항목 고르기)로 이어져야 한다 — 창만 닫히고 멈추면
      사람이 다음에 무엇을 눌러야 할지 모른다. */
   const afterDevRef = useRef<'' | 'tc'>('')
+  /* 들고 있던 질문(지시: 질문이 한 번에 들어갔잖아) — 한 문장에 시험
+     의도가 담긴 채 장비 고르기로 갈라지면 그 문장을 쥐고 있다가, 장비가
+     정해지는 순간 항목 후보를 이어서 뽑는다. 하나씩 묻는 흐름에선 비어
+     있어 그 단계에서 멈춘다. */
+  const pendQRef = useRef('')
   /* 장비 고르개 — **표**로 고른다(지시: 목업). 이름만 늘어놓던 목록으로는
      같은 모델이 열 대씩 있는 LAB 에서 어느 것을 고를지 알 수가 없었다.
      LAB·사업자·벤더·모델그룹으로 거르고, 연결 상태를 보고 짚는다. */
@@ -1635,7 +1640,9 @@ export default function AskBar({ devices }: Props) {
       void takeTc(ap.tcid, d, ap.model)
       return
     }
-    void stepTc(d, asked || text)
+    const q9 = pendQRef.current || asked || text
+    pendQRef.current = ''
+    void stepTc(d, q9)
   }
 
   /** 대화 속 추천에서 항목을 골랐다 — 바로 3단계 */
@@ -2530,22 +2537,33 @@ export default function AskBar({ devices }: Props) {
             setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d0.ip} 확정 (말로 선택)` }])
             pickedLine('dev', devDoneCard(nm, String(d0.ip ?? '')))
             if (!pt) {
-              /* 장비가 정해지면 **항목 후보가 바로 이어서 선다**(지시: 또
-                 보여 달라고 하지 않게) — 카드 클릭 선택과 같은 문법. 질문에
-                 항목 실마리가 없으면 모델명으로 추천을 뽑는다. */
-              sayThink('이 장비에서 실행할 수 있는 항목을 찾는 중…')
-              let items9 = await findLike(asked || said, d0)
-              if (!items9.length) items9 = await findLike(String(d0.model ?? ''), d0)
-              unThink()
-              if (items9.length) sayTcBlock(items9, said)
-              else showTcCards(String(d0.model ?? ''))
+              /* 한 문장 흐름(쥔 질문이 있음)이면 그 의도로 **항목 후보가
+                 바로 이어서** 선다(지시: 질문이 한 번에 들어갔잖아).
+                 하나씩 묻는 흐름이면 이 단계에서 멈춘다(지시: 단계별). */
+              const q0 = pendQRef.current
+              pendQRef.current = ''
+              if (q0) {
+                sayThink('이 장비에서 실행할 수 있는 항목을 찾는 중…')
+                let items9 = await findLike(q0, d0)
+                if (!items9.length) items9 = await findLike(String(d0.model ?? ''), d0)
+                unThink()
+                if (items9.length) sayTcBlock(items9, q0)
+                else showTcCards(String(d0.model ?? ''))
+              } else {
+                say(
+                  'a',
+                  '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "System 정보 조회 선택"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
+                )
+              }
               setFlowAt(0)
               return
             }
           } else if (devCands.length) {
             /* 모델처럼 여러 대가 걸리는 말 — 카드로 묻는다. 항목은 다음 차례.
+               항목 의도가 같이 온 문장이면 쥐어 둔다(한 문장 흐름).
                카드가 서기 전 LLM 이 순서·추천 이유를 매기는 몇 초가 있다 —
                스피너 없이 비면 멈춘 것처럼 보인다(지적: 3초 공백). */
+            if (pt) pendQRef.current = said
             sayThink('사용 가능한 장비 검색 중…')
             await sayDevBlock(devCands, pd, said)
             setFlowAt(0)
@@ -2727,6 +2745,7 @@ export default function AskBar({ devices }: Props) {
       /* 창을 먼저 띄우지 않는다(승인: 단순안) — 추천 한 장과 후보 몇 줄이면
          대부분 끝난다. 점유를 새로 읽는 동안 스피너가 돈다(지시). */
       afterDevRef.current = 'tc'
+      pendQRef.current = said
       sayThink('사용 가능한 장비 검색 중…')
       try {
         await lockQ.refetch()
@@ -3267,6 +3286,8 @@ export default function AskBar({ devices }: Props) {
     setSumm(null)
     setChatRun(false)
     stickRef.current = true
+    pendQRef.current = ''
+    setAfterPick(null)
   }
 
   /**
