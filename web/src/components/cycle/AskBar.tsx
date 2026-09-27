@@ -2412,6 +2412,15 @@ export default function AskBar({ devices }: Props) {
       unThink()
       const pd = String(chat?.pick_dev ?? '').trim()
       const pt = String(chat?.pick_tc ?? '').trim()
+      /* 「시험 시작」(지적: 시작이 항목 찾기로 흘러 「일치하는 항목이
+         없습니다」) — 절차가 준비돼 있으면 **분류(test)와 무관하게**
+         ▷ 시험 시작과 같다. 실행 의도라 test=true 로 갈리기 쉬워서,
+         그 갈래보다 먼저 본다. */
+      if (chat?.run && !pd && !pt && draft && !running) {
+        setFlowAt(0)
+        void run(undefined, undefined, undefined, { chat: true })
+        return
+      }
       if (chat && chat.test === false && (chat.answer || pd || pt)) {
         /* 잡담 대화도 **목록에 남긴다**(지적: 질문이 생성됐는데 목록에 없다) —
            절차 없이 대화만 담고, 자동 저장이 이어서 주고받는 말을 채운다. */
@@ -2423,22 +2432,15 @@ export default function AskBar({ devices }: Props) {
         }
         /* 🔄 다시 생성이 이 질문으로 되짚는다(지시: Open WebUI) */
         if (chat.answer) saySlow(chat.answer, { k: 'chat', q: said })
-        /* 「시험 시작 해」(지적: 말로는 시작이 안 됐다) — 절차가 준비돼
-           있으면 ▷ 시험 시작 버튼과 똑같이 그 자리에서 돌린다. */
-        if (chat.run && !pd && !pt) {
-          if (draft && !running) {
-            setFlowAt(0)
-            void run(undefined, undefined, undefined, { chat: true })
-            return
-          }
-          if (!draft) {
-            say(
-              'a',
-              '<p class="ln">아직 절차가 준비되지 않았습니다 — 장비와 시험 항목을 먼저 선택해 주세요.</p>',
-            )
-            setFlowAt(0)
-            return
-          }
+        /* 시작 신호인데 절차가 아직 없다 — 무엇이 빠졌는지 알린다.
+           (절차가 있으면 위(분류 앞)에서 이미 돌기 시작했다) */
+        if (chat.run && !pd && !pt && !draft) {
+          say(
+            'a',
+            '<p class="ln">아직 절차가 준비되지 않았습니다 — 장비와 시험 항목을 먼저 선택해 주세요.</p>',
+          )
+          setFlowAt(0)
+          return
         }
         /* ── 자연어 선택(지적: 말로만 「선택했습니다」 하고 실제론 안 골랐다) —
            LLM 은 신호(pick_dev·pick_tc)만 주고, **실제 장비·항목 목록과
