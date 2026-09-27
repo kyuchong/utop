@@ -516,13 +516,13 @@ export default function AskBar({ devices }: Props) {
           method: 'POST',
           body: JSON.stringify({ q: rd.q, mode, facts: buildFacts() }),
         })
-        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string }
+        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string }
         unThink()
         if (b.answer) {
           saySlow(b.answer, rd)
           /* 목록 질문이면 카드도 다시(승인: UI 처럼) */
           const sh = String(b.show ?? '').trim()
-          if (sh === 'devices') showDevCards(String(b.model ?? '').trim())
+          if (sh === 'devices') showDevCards(String(b.model ?? '').trim(), String(b.state ?? '').trim())
           else if (sh === 'tcs') showTcCards(String(b.model ?? '').trim())
         } else say('a', '<p class="ln">다시 생성하지 못했습니다 — 잠시 뒤 다시 눌러 주세요.</p>')
       } catch {
@@ -1516,15 +1516,19 @@ export default function AskBar({ devices }: Props) {
   /** 현황 질문에 **화면 부품으로** 답한다(승인: UI 처럼) — LLM 글자가 아니라
       화면이 가진 실제 데이터로 카드를 그린다. 카드를 누르면 그 장비/항목으로
       시험 흐름이 바로 이어진다. 30건 상한 — 나머지는 「전체에서」 버튼의 몫. */
-  const showDevCards = (model: string) => {
+  const showDevCards = (model: string, state = '') => {
+    /* 「사용 가능한 것만」 물었으면 녹색만 거른다(지적: 전체 95대가 그대로
+       나왔다) — 조건은 서버가 state="ok" 로만 통과시킨다. */
+    const pool = state === 'ok' ? usable.filter((d) => devStat(d).k === 'ok') : usable
     const list = model
-      ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === model.toLowerCase())
-      : usable
+      ? pool.filter((d) => String(d.model ?? '').trim().toLowerCase() === model.toLowerCase())
+      : pool
     if (!list.length) return
+    const what = state === 'ok' ? '사용 가능 장비' : '장비'
     void sayDevBlock(list.slice(0, 30), model, '', {
       plain: true,
       head:
-        `${model ? `<b>${hesc(model)}</b> ` : ''}장비 ${list.length}대입니다 — ` +
+        `${model ? `<b>${hesc(model)}</b> ` : ''}${what} ${list.length}대입니다 — ` +
         `누르면 그 장비로 바로 시험을 이어갑니다.${list.length > 30 ? ' (앞 30대만 표시)' : ''}`,
     })
   }
@@ -2371,13 +2375,13 @@ export default function AskBar({ devices }: Props) {
          장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
          현황 질문에는 LLM 이 이것만 보고 답하게 한다. */
       const facts = buildFacts()
-      let chat: { test?: boolean; answer?: string; model?: string; show?: string } | null = null
+      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
           method: 'POST',
           body: JSON.stringify({ q: said, mode, facts }),
         })
-        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string }
+        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string }
       } catch {
         /* 못 물으면 시험 갈래로 — 이 화면의 본분 */
       }
@@ -2397,7 +2401,7 @@ export default function AskBar({ devices }: Props) {
            카드는 화면이 가진 실제 데이터로 그린다. */
         const sh = String(chat.show ?? '').trim()
         const m1 = String(chat.model ?? '').trim()
-        if (sh === 'devices') showDevCards(m1)
+        if (sh === 'devices') showDevCards(m1, String(chat.state ?? '').trim())
         else if (sh === 'tcs') showTcCards(m1)
         setFlowAt(0)
         return

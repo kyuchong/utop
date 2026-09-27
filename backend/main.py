@@ -3582,13 +3582,16 @@ async def cov_chat(payload: dict):
         "show 는 사용자가 **목록을 보여 달라**고 한 것일 때만 적는다 — 장비 목록이면 "
         '"devices", 시험 항목 목록이면 "tcs", 그 외에는 빈 문자열. show 를 적었으면 '
         "answer 는 한 줄 요약만 적는다 — 목록 자체는 화면이 카드로 그린다. "
+        'state 는 사용자가 **사용 가능한 것만** 보여 달라고 했을 때만 "ok", '
+        "그 외에는 빈 문자열 — 화면이 그 상태로 걸러 그린다. "
         "질문에 장비 모델명이 명시되어 있으면 함께 실린 「대상 장비」 맥락보다 "
         "**질문의 모델을 우선**해 답하고, model 에도 그 모델을 적는다."
     )
     schema = {
         "type": "object",
         "properties": {"test": {"type": "boolean"}, "answer": {"type": "string"},
-                       "model": {"type": "string"}, "show": {"type": "string"}},
+                       "model": {"type": "string"}, "show": {"type": "string"},
+                       "state": {"type": "string"}},
         "required": ["test", "answer"],
     }
     user_p = f"사용자의 말: {q}"
@@ -3598,11 +3601,13 @@ async def cov_chat(payload: dict):
         got = await _llm_json(llm, base + fmt, user_p, schema,
                               timeout=60, purpose=purpose)
         _show = str(got.get("show") or "").strip().lower()
+        _state = str(got.get("state") or "").strip().lower()
         return {"ok": True, "test": bool(got.get("test")),
                 "answer": str(got.get("answer") or "").strip(),
                 "model": str(got.get("model") or "").strip(),
-                # 화면이 아는 두 값만 통과시킨다 — LLM 이 지어낸 딴 값은 버린다
-                "show": _show if _show in ("devices", "tcs") else ""}
+                # 화면이 아는 값만 통과시킨다 — LLM 이 지어낸 딴 값은 버린다
+                "show": _show if _show in ("devices", "tcs") else "",
+                "state": _state if _state == "ok" else ""}
     except Exception as e:
         return {"ok": True, "test": True, "answer": "", "model": "", "error": str(e)[:200]}
 
