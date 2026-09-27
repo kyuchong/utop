@@ -1509,6 +1509,10 @@ export default function AskBar({ devices }: Props) {
       }
     }
     unThink()
+    /* 추천 블록은 **마지막 하나만**(지적: 장비 목록이 계속 다시 깔려 쌓임) —
+       새 추천이 서면 이전 추천 블록을 걷는다. 목록(plain)은 정보라 남긴다. */
+    if (!opts?.plain)
+      setMsgs((v) => v.filter((x) => !(x.who === 'a' && x.html.includes('data-pick="dev"'))))
     const head =
       opts?.head ??
       (m0
@@ -1591,6 +1595,8 @@ export default function AskBar({ devices }: Props) {
         )
       })
       .join('')
+    if (!opts?.plain)
+      setMsgs((v) => v.filter((x) => !(x.who === 'a' && x.html.includes('data-pick="tc"'))))
     say(
       'a',
       `<p class="ln">${opts?.head ?? '<b>2단계 · 시험 항목</b> — 요청과 가까운 항목입니다. 시험할 항목을 선택해 주세요.'}</p>` +
@@ -2759,6 +2765,16 @@ export default function AskBar({ devices }: Props) {
         .sort((a2, b2) => b2.length - a2.length)[0]
       const hit0 = candsOf(said)
       const m0 = hit0?.model ?? inText ?? ''
+      /* 대상을 못 읽은 말(「선택 해 줘」)에 **전체 장비를 또 깔지 않는다**
+         (지적: 계속 다시 조회) — 후보가 이미 서 있으면 거기서 고르게 한다 */
+      if (!m0 && msgs.some((x) => x.who === 'a' && x.html.includes('data-pick="dev"'))) {
+        say(
+          'a',
+          '<p class="ln">위 장비 후보에서 골라 주세요 — 특정 장비는 IP 로(예: "220.1.12.3 선택"), 다른 모델은 모델명으로 말씀하시면 됩니다.</p>',
+        )
+        setFlowAt(0)
+        return
+      }
       setAskModel(m0)
       const cands = m0
         ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m0.toLowerCase())
