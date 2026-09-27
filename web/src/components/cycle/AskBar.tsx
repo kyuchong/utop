@@ -2468,6 +2468,8 @@ export default function AskBar({ devices }: Props) {
              않는다. IP·TC키를 콕 집어도 **카드 한 장**으로 확인받고, 클릭이
              곧 확정이다. 한 번의 질문에는 한 단계만 — 장비 카드가 서면
              항목은 다음 차례에 다시 카드로 선다. 후보 밖은 못 고른다. */
+          /* 신호 검증은 서버 한 곳의 보편 규칙이다(지시: 케이스별 가드는
+             하드코딩) — 질문에 실제로 등장한 글자만 pick 으로 온다. */
           const lowD = pd.toLowerCase()
           let devCands: Device[] = []
           if (pd) {

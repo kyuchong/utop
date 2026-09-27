@@ -3541,6 +3541,16 @@ async def llm_similar(payload: dict):
     }
 
 
+def _pick_in_q(val, q: str, cap: int) -> str:
+    """선택 신호는 **사용자의 말에 실제로 등장한 글자만** 인정한다(지시:
+    스스로 판단 금지). LLM 이 현황·이전 맥락에서 가져온 값(질문에 없는
+    IP 등)은 신호가 아니다 — 대소문자만 너그럽게 본다."""
+    v = str(val or "").strip()[:cap]
+    if not v:
+        return ""
+    return v if v.lower() in str(q or "").lower() else ""
+
+
 @app.post("/api/ai/cov-chat")
 async def cov_chat(payload: dict):
     """Coverage AI 잡담 갈래(지시) — 아무 상관없는 말에 장비 고르기가 뜨던 것.
@@ -3590,6 +3600,9 @@ async def cov_chat(payload: dict):
         "pick_dev 에 그 장비의 IP(있으면 IP, 없으면 모델명)를 적는다. "
         "**특정 시험 항목을 선택해 달라**고 하면(예: 「E61xx-T0001 선택」·「System 정보 조회 항목 선택」) "
         "pick_tc 에 항목 키 또는 항목 이름을 그대로 적는다. "
+        "pick_dev·pick_tc 에는 **사용자의 말에 실제로 등장한 글자만 그대로** 적는다 — "
+        "[현황]·[선택 상태]·이전 대화에서 가져오거나 지어내지 마라. "
+        "말에 없는 값은 서버가 버린다. "
         "「~항목이 있어?」 처럼 **있는지 묻기만 한 말**에는 pick 을 적지 않는다 — "
         "answer 로 있는지만 답한다. 선택하라는 말일 때만 pick 이다. "
         "pick 을 적었으면 answer 는 「선택을 진행합니다」 한 줄만 — 실제 선택과 확인은 "
@@ -3627,9 +3640,12 @@ async def cov_chat(payload: dict):
                 # 화면이 아는 값만 통과시킨다 — LLM 이 지어낸 딴 값은 버린다
                 "show": _show if _show in ("devices", "tcs", "result") else "",
                 "state": _state if _state == "ok" else "",
-                # 선택 신호 — 값이 진짜인지는 화면이 실제 목록과 대조한다
-                "pick_dev": str(got.get("pick_dev") or "").strip()[:80],
-                "pick_tc": str(got.get("pick_tc") or "").strip()[:120],
+                # 선택 신호 — **질문에 실제로 등장한 글자만** 신호다(지시:
+                # 스스로 판단 금지). 말에 없는 값은 여기서 버린다 — 케이스별
+                # 가드 대신 보편 규칙 하나. 값이 진짜 목록에 있는지는 화면이
+                # 대조하고, 확정은 사람이 카드로 한다.
+                "pick_dev": _pick_in_q(got.get("pick_dev"), q, 80),
+                "pick_tc": _pick_in_q(got.get("pick_tc"), q, 120),
                 # 실행 신호 — 절차가 준비돼 있는지는 화면이 다시 확인한다
                 "run": bool(got.get("run"))}
     except Exception as e:
