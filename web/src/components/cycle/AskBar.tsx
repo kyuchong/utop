@@ -2525,9 +2525,13 @@ export default function AskBar({ devices }: Props) {
           if (pt) {
             /* 2단계 확인 카드 — 콕 집은 항목도 카드 한 장으로 확인받는다 */
             const lowT = pt.toLowerCase()
+            /* 키의 숫자 앞자리 0 은 무시하고 견준다(보편 규칙) — 「T004」 도
+               T0004 를 짚은 것이다. 특정 키를 박는 게 아니라 표기 정규화다. */
+            const normKey = (s: string) => s.toLowerCase().replace(/(\D)0+(?=\d)/g, '$1')
             const t1 =
               tcAll.find((t) => t.tcid.toLowerCase() === lowT) ??
-              tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lowT)
+              tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lowT) ??
+              tcAll.find((t) => normKey(t.tcid) === normKey(lowT))
             let cands2: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }> =
               t1
                 ? [{ tcid: t1.tcid, name: t1.name, model: t1.model, steps: t1.steps }]
