@@ -1964,6 +1964,41 @@ async def ai_pick_tc(payload: dict):
                        "steps": n, "score": sc})
     scored.sort(key=lambda x: (-x["score"], -x["steps"]))
     top = scored[:30]
+    if len(top) < 5:
+        # 한글 뜻 ↔ 영문 항목명처럼 **낱말이 안 겹치는 말**은 규칙 점수가 못
+        # 잡는다(지적: RAG 안 쓰냐) — Knowledge AI 의 하이브리드 검색
+        # (BM25+임베딩, source=tc)으로 후보를 보강한다. 색인이 없거나
+        # 임베딩이 꺼져 있으면 조용히 지나간다.
+        try:
+            from main import _hybrid_search
+            hits2, _m2 = await _hybrid_search(text, top_k=10, sources=["tc"])
+            byrow = {str(m.get("tcid") or ""): m for m in (rows or []) if isinstance(m, dict)}
+            have = {t["tcid"] for t in top}
+            for h in (hits2 or []):
+                # 하이브리드는 (청크, 리랭커 점수) 짝으로 돌려준다 — 리랭킹
+                # (bge-reranker)은 그 안에서 이미 적용돼 순서에 반영돼 있다
+                c2 = h[0] if isinstance(h, (list, tuple)) and h else h
+                nm2 = str((c2.get("name") if isinstance(c2, dict) else "") or "")
+                mt = re.match(r"\[TC\]\s+(\S+)", nm2)
+                tcid2 = mt.group(1) if mt else ""
+                m = byrow.get(tcid2)
+                if not m or tcid2 in have:
+                    continue
+                try:
+                    n2 = int(m.get("_cli_count") or 0)
+                except Exception:
+                    n2 = 0
+                if n2 <= 0:
+                    continue
+                mm = str(m.get("model") or "").strip()
+                if model and mm and mm.lower() != model.lower():
+                    continue
+                have.add(tcid2)
+                top.append({"tcid": tcid2, "name": m.get("name") or tcid2,
+                            "req": m.get("req_id") or "", "model": mm,
+                            "steps": n2, "score": 1})
+        except Exception:
+            pass
     if not top:
         return {"ok": True, "items": []}
     byid = {t["tcid"]: t for t in top}
