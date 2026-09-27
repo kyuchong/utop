@@ -3574,14 +3574,17 @@ async def cov_chat(payload: dict):
     # 코드는 화면이 읽는 출력 형식 하나만 강제한다.
     fmt = (
         "\n\n[출력 형식 — 반드시 지킨다] JSON 하나만 출력한다: "
-        '{"test": true|false, "answer": "...", "model": "..."} — '
+        '{"test": true|false, "answer": "...", "model": "...", "show": "..."} — '
         "설명·코드펜스 금지. test 는 시험 실행 요청 여부, answer 는 "
-        "test=false 일 때의 답, model 은 말에 적힌 장비 모델명(없으면 빈 문자열)이다."
+        "test=false 일 때의 답, model 은 말에 적힌 장비 모델명(없으면 빈 문자열)이다. "
+        "show 는 사용자가 **목록을 보여 달라**고 한 것일 때만 적는다 — 장비 목록이면 "
+        '"devices", 시험 항목 목록이면 "tcs", 그 외에는 빈 문자열. show 를 적었으면 '
+        "answer 는 한 줄 요약만 적는다 — 목록 자체는 화면이 카드로 그린다."
     )
     schema = {
         "type": "object",
         "properties": {"test": {"type": "boolean"}, "answer": {"type": "string"},
-                       "model": {"type": "string"}},
+                       "model": {"type": "string"}, "show": {"type": "string"}},
         "required": ["test", "answer"],
     }
     user_p = f"사용자의 말: {q}"
@@ -3590,9 +3593,12 @@ async def cov_chat(payload: dict):
     try:
         got = await _llm_json(llm, base + fmt, user_p, schema,
                               timeout=60, purpose=purpose)
+        _show = str(got.get("show") or "").strip().lower()
         return {"ok": True, "test": bool(got.get("test")),
                 "answer": str(got.get("answer") or "").strip(),
-                "model": str(got.get("model") or "").strip()}
+                "model": str(got.get("model") or "").strip(),
+                # 화면이 아는 두 값만 통과시킨다 — LLM 이 지어낸 딴 값은 버린다
+                "show": _show if _show in ("devices", "tcs") else ""}
     except Exception as e:
         return {"ok": True, "test": True, "answer": "", "model": "", "error": str(e)[:200]}
 

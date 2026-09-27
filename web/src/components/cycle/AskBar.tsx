@@ -516,10 +516,15 @@ export default function AskBar({ devices }: Props) {
           method: 'POST',
           body: JSON.stringify({ q: rd.q, mode, facts: buildFacts() }),
         })
-        const b = (await r.json()) as { test?: boolean; answer?: string }
+        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string }
         unThink()
-        if (b.answer) saySlow(b.answer, rd)
-        else say('a', '<p class="ln">다시 생성하지 못했습니다 — 잠시 뒤 다시 눌러 주세요.</p>')
+        if (b.answer) {
+          saySlow(b.answer, rd)
+          /* 목록 질문이면 카드도 다시(승인: UI 처럼) */
+          const sh = String(b.show ?? '').trim()
+          if (sh === 'devices') showDevCards(String(b.model ?? '').trim())
+          else if (sh === 'tcs') showTcCards(String(b.model ?? '').trim())
+        } else say('a', '<p class="ln">다시 생성하지 못했습니다 — 잠시 뒤 다시 눌러 주세요.</p>')
       } catch {
         unThink()
         say('a', '<p class="ln">다시 생성하지 못했습니다 — 잠시 뒤 다시 눌러 주세요.</p>')
@@ -1292,13 +1297,20 @@ export default function AskBar({ devices }: Props) {
       LLM 이 지시를 읽고 순서를 매기고 왜 그 장비인지 이유를 단다 — 맨 위가
       추천. 눌러 고르면 그 카드 하나로 접힌다. 「전체에서 고르기」 는 옛
       표(팝업)로 물러서는 길이다. 후보 밖 장비는 LLM 도 못 고른다. */
-  const sayDevBlock = async (cands: Device[], m0: string, q = '') => {
+  const sayDevBlock = async (
+    cands: Device[],
+    m0: string,
+    q = '',
+    /* plain(승인: UI 처럼 보여주기) — 현황 「목록」 질문에 쓰는 꼴.
+       LLM 정렬·추천 배지 없이 그대로 나열하고, 머리글만 바꾼다. */
+    opts?: { plain?: boolean; head?: string },
+  ) => {
     setDevQ(m0)
     /* 상태 탭은 질문마다 「사용 가능」 부터(지시) — 고를 수 있는 것이 먼저다 */
     setDevTab('ok')
     let order = cands
     const whyById = new Map<string, string>()
-    if (cands.length > 1) {
+    if (!opts?.plain && cands.length > 1) {
       try {
         const r = await apiFetch('/api/ai/pick-device', {
           method: 'POST',
@@ -1327,9 +1339,11 @@ export default function AskBar({ devices }: Props) {
       }
     }
     unThink()
-    const head = m0
-      ? `<b>${hesc(m0)}</b> ${cands.length}대를 찾았습니다. 사용할 장비를 선택해 주세요.`
-      : '사용할 장비를 선택해 주세요.'
+    const head =
+      opts?.head ??
+      (m0
+        ? `<b>${hesc(m0)}</b> ${cands.length}대를 찾았습니다. 사용할 장비를 선택해 주세요.`
+        : '사용할 장비를 선택해 주세요.')
     const rows = order
       .map((d, i) => {
         const st = devStat(d)
@@ -1359,23 +1373,23 @@ export default function AskBar({ devices }: Props) {
           .join('')
         return (
           /* 한 줄 카드(지시: 1열) — 이유가 잘리면 title 로 읽는다 */
-          `<button type="button" class="ask-cand${i === 0 ? ' top' : ''} js-devpick" data-id="${hesc(d.id)}" title="${hesc(meta)}">` +
+          `<button type="button" class="ask-cand${i === 0 && !opts?.plain ? ' top' : ''} js-devpick" data-id="${hesc(d.id)}" title="${hesc(meta)}">` +
           `<span class="cn"><i class="dot ${st.k}"></i><b>${hesc(nm)}</b> <em>${hesc(String(d.ip ?? ''))}</em></span>` +
           (facts ? `<span class="cf">${hesc(facts)}</span>` : '') +
           `<span class="ct">${tscn}</span>` +
-          `<span class="cw">${i === 0 ? '<i class="rec">추천</i>' : ''}${hesc(meta)}</span>` +
+          `<span class="cw">${i === 0 && !opts?.plain ? '<i class="rec">추천</i>' : ''}${hesc(meta)}</span>` +
           `</button>`
         )
       })
       .join('')
     say(
       'a',
-      `<p class="ln"><b>1단계 · 장비</b> — ${head}</p>` +
+      `<p class="ln">${opts?.plain ? head : `<b>1단계 · 장비</b> — ${head}`}</p>` +
         `<div data-pick="dev" class="ask-cands">${rows}` +
         `<button type="button" class="ask-cand more js-pickdev"><span class="cn">전체에서 고르기</span>` +
         `<span class="cw">상태·랙으로 표에서 고르기</span></button></div>`,
       /* ↻ 다시 생성 — 이 질문으로 장비 후보를 다시 찾는다(지시) */
-      { k: 'dev', q },
+      q ? { k: 'dev', q } : undefined,
     )
   }
 
@@ -1385,6 +1399,9 @@ export default function AskBar({ devices }: Props) {
   const sayTcBlock = (
     items: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>,
     q = '',
+    /* plain(승인: UI 처럼 보여주기) — 현황 「목록」 질문 꼴. 추천 배지 없이
+       그대로 나열하고 머리글만 바꾼다. */
+    opts?: { plain?: boolean; head?: string },
   ) => {
     const rows = items
       .map((it, i) => {
@@ -1395,21 +1412,53 @@ export default function AskBar({ devices }: Props) {
           .join(' · ')
         return (
           /* 한 줄 카드(지시: 1열) — 이유가 잘리면 title 로 읽는다 */
-          `<button type="button" class="ask-cand${i === 0 ? ' top' : ''} js-tcpick" data-tcid="${hesc(it.tcid)}" data-model="${hesc(String(it.model ?? ''))}" title="${hesc(meta)}">` +
+          `<button type="button" class="ask-cand${i === 0 && !opts?.plain ? ' top' : ''} js-tcpick" data-tcid="${hesc(it.tcid)}" data-model="${hesc(String(it.model ?? ''))}" title="${hesc(meta)}">` +
           `<span class="cn"><b>${hesc(it.name || it.tcid)}</b> <em>${hesc(it.tcid)}</em></span>` +
-          `<span class="cw">${i === 0 ? '<i class="rec">추천</i>' : ''}${hesc(meta)}</span>` +
+          `<span class="cw">${i === 0 && !opts?.plain ? '<i class="rec">추천</i>' : ''}${hesc(meta)}</span>` +
           `</button>`
         )
       })
       .join('')
     say(
       'a',
-      '<p class="ln"><b>2단계 · 시험 항목</b> — 요청과 가까운 항목입니다. 시험할 항목을 선택해 주세요.</p>' +
+      `<p class="ln">${opts?.head ?? '<b>2단계 · 시험 항목</b> — 요청과 가까운 항목입니다. 시험할 항목을 선택해 주세요.'}</p>` +
         `<div data-pick="tc" class="ask-cands">${rows}` +
         `<button type="button" class="ask-cand more js-picktc"><span class="cn">전체에서 검색</span>` +
         `<span class="cw">전체 목록에서 직접 고르기</span></button></div>`,
       /* ↻ 다시 생성 — 이 질문으로 항목을 다시 찾는다(지시) */
       q ? { k: 'tc', q } : undefined,
+    )
+  }
+
+  /** 현황 질문에 **화면 부품으로** 답한다(승인: UI 처럼) — LLM 글자가 아니라
+      화면이 가진 실제 데이터로 카드를 그린다. 카드를 누르면 그 장비/항목으로
+      시험 흐름이 바로 이어진다. 30건 상한 — 나머지는 「전체에서」 버튼의 몫. */
+  const showDevCards = (model: string) => {
+    const list = model
+      ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === model.toLowerCase())
+      : usable
+    if (!list.length) return
+    void sayDevBlock(list.slice(0, 30), model, '', {
+      plain: true,
+      head:
+        `${model ? `<b>${hesc(model)}</b> ` : ''}장비 ${list.length}대입니다 — ` +
+        `누르면 그 장비로 바로 시험을 이어갑니다.${list.length > 30 ? ' (앞 30대만 표시)' : ''}`,
+    })
+  }
+  const showTcCards = (model: string) => {
+    const list = model
+      ? tcAll.filter((t) => String(t.model ?? '').trim().toLowerCase() === model.toLowerCase())
+      : tcAll
+    if (!list.length) return
+    sayTcBlock(
+      list.slice(0, 30).map((t) => ({ tcid: t.tcid, name: t.name, model: t.model, steps: t.steps })),
+      '',
+      {
+        plain: true,
+        head:
+          `${model ? `<b>${hesc(model)}</b> ` : ''}시험 항목 ${list.length}건입니다 — ` +
+          `누르면 그 항목으로 바로 시험을 이어갑니다.${list.length > 30 ? ' (앞 30건만 표시)' : ''}`,
+      },
     )
   }
 
@@ -2222,13 +2271,13 @@ export default function AskBar({ devices }: Props) {
          장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
          현황 질문에는 LLM 이 이것만 보고 답하게 한다. */
       const facts = buildFacts()
-      let chat: { test?: boolean; answer?: string; model?: string } | null = null
+      let chat: { test?: boolean; answer?: string; model?: string; show?: string } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
           method: 'POST',
           body: JSON.stringify({ q: said, mode, facts }),
         })
-        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string }
+        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string }
       } catch {
         /* 못 물으면 시험 갈래로 — 이 화면의 본분 */
       }
@@ -2236,6 +2285,12 @@ export default function AskBar({ devices }: Props) {
       if (chat && chat.test === false && chat.answer) {
         /* 🔄 다시 생성이 이 질문으로 되짚는다(지시: Open WebUI) */
         saySlow(chat.answer, { k: 'chat', q: said })
+        /* 목록 질문이면 **화면 부품(카드)** 으로도 보여 준다(승인: UI 처럼) —
+           카드는 화면이 가진 실제 데이터로 그린다. */
+        const sh = String(chat.show ?? '').trim()
+        const m1 = String(chat.model ?? '').trim()
+        if (sh === 'devices') showDevCards(m1)
+        else if (sh === 'tcs') showTcCards(m1)
         setFlowAt(0)
         return
       }
