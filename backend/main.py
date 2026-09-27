@@ -3616,8 +3616,8 @@ async def cov_chat(payload: dict):
         "말에 없는 값은 서버가 버린다. "
         "「~항목이 있어?」 처럼 **있는지 묻기만 한 말**에는 pick 을 적지 않는다 — "
         "answer 로 있는지만 답한다. 선택하라는 말일 때만 pick 이다. "
-        "pick 을 적었으면 answer 는 「선택을 진행합니다」 한 줄만 — 실제 선택과 확인은 "
-        "화면이 한다. 선택했다고 화면 대신 단정하지 마라. "
+        "pick 을 적었으면 answer 는 **빈 문자열**로 둔다 — 선택 확인이든 후보 카드든 "
+        "화면이 답한다. 선택했다거나 진행한다고 화면 대신 말하지 마라. "
         "말에 이미 「대상 장비: …」 맥락이 붙어 있으면, 사용자가 **다른 장비를 콕 집어** "
         "말할 때만 pick_dev 를 적는다 — 대상 없는 말(「장비 선택해 줘」)이면 pick_dev 는 "
         "빈 문자열로 두고 지금 장비가 이미 선택돼 있음을 answer 로 알린다. "
@@ -3657,6 +3657,12 @@ async def cov_chat(payload: dict):
                 # 대조하고, 확정은 사람이 카드로 한다.
                 "pick_dev": _pick_in_q(got.get("pick_dev"), q, 80),
                 "pick_tc": _pick_in_q(got.get("pick_tc"), q, 120),
+                # 값은 버려도 **의도는 남긴다**(지적: 아무 일도 안 일어나는
+                # 죽은 끝) — 화면이 사용자의 원문으로 후보를 찾아 카드로 묻는다
+                "dev_intent": bool(str(got.get("pick_dev") or "").strip()
+                                   and not _pick_in_q(got.get("pick_dev"), q, 80)),
+                "tc_intent": bool(str(got.get("pick_tc") or "").strip()
+                                  and not _pick_in_q(got.get("pick_tc"), q, 120)),
                 # 실행 신호 — 절차가 준비돼 있는지는 화면이 다시 확인한다
                 "run": bool(got.get("run"))}
     except Exception as e:

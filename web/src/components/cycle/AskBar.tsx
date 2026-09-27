@@ -517,7 +517,7 @@ export default function AskBar({ devices }: Props) {
           method: 'POST',
           body: JSON.stringify({ q: rd.q, mode, facts: buildFacts() }),
         })
-        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean }
+        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean }
         unThink()
         if (b.answer) {
           saySlow(b.answer, rd)
@@ -2417,13 +2417,13 @@ export default function AskBar({ devices }: Props) {
          장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
          현황 질문에는 LLM 이 이것만 보고 답하게 한다. */
       const facts = buildFacts()
-      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean } | null = null
+      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
           method: 'POST',
           body: JSON.stringify({ q: said, mode, facts }),
         })
-        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean }
+        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean }
       } catch {
         /* 못 물으면 시험 갈래로 — 이 화면의 본분 */
       }
@@ -2439,7 +2439,7 @@ export default function AskBar({ devices }: Props) {
         void run(undefined, undefined, undefined, { chat: true })
         return
       }
-      if (chat && chat.test === false && (chat.answer || pd || pt)) {
+      if (chat && chat.test === false && (chat.answer || pd || pt || chat.show || chat.tc_intent || chat.dev_intent)) {
         /* 잡담 대화도 **목록에 남긴다**(지적: 질문이 생성됐는데 목록에 없다) —
            절차 없이 대화만 담고, 자동 저장이 이어서 주고받는 말을 채운다. */
         if (!chatId || !saveMetaRef.current) {
@@ -2576,6 +2576,35 @@ export default function AskBar({ devices }: Props) {
               say(
                 'a',
                 `<p class="ln">「${hesc(pt)}」 에 맞는 시험 항목을 찾지 못했습니다 — 「시험 항목 찾기」 로 직접 선택해 주세요.</p>`,
+              )
+          }
+          setFlowAt(0)
+          return
+        }
+        /* 신호 값이 질문에 없어 버려졌지만 **의도는 있었다**(지적: 아무 일도
+           안 일어나는 죽은 끝) — 사용자의 원문 그대로로 LLM 후보를 찾아
+           카드로 묻는다. 지어낸 값은 여전히 쓰지 않는다. */
+        if (chat.tc_intent || chat.dev_intent) {
+          if (chat.dev_intent) {
+            const m2 = String(chat.model ?? '').trim().toLowerCase()
+            const cands3 = m2
+              ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m2)
+              : []
+            if (cands3.length) await sayDevBlock(cands3, String(chat.model ?? ''), said)
+            else
+              say(
+                'a',
+                '<p class="ln">어느 장비인지 못 읽었습니다 — IP 나 모델명으로 말씀하시거나 「장비 고르기」 를 눌러 주세요.</p>',
+              )
+          } else {
+            sayThink('말씀과 가까운 시험 항목을 찾는 중…')
+            const like2 = await findLike(raw0, undefined)
+            unThink()
+            if (like2.length) sayTcBlock(like2, said)
+            else
+              say(
+                'a',
+                '<p class="ln">맞는 시험 항목을 찾지 못했습니다 — 「시험 항목 찾기」 로 골라 주세요.</p>',
               )
           }
           setFlowAt(0)
