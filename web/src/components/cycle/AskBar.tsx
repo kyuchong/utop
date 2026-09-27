@@ -17,6 +17,7 @@ import {
 import { connParams } from '@/components/tc/device'
 import { copyText } from '@/lib/copy'
 import { loopVarAt, runSteps } from '@/components/tc/runner'
+import { useGlobalParams } from '@/components/tc/useGlobalParams'
 import { Fragment } from 'react'
 import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
@@ -2837,6 +2838,11 @@ export default function AskBar({ devices }: Props) {
   }
 
   /** `only` 는 그 줄 하나만, `from` 은 그 줄부터 끝까지(지시) */
+  /* 전역 파라미터(지적: TC 화면에선 정상인데 채팅 실행만 부적합) —
+     `${sysDescr}` 같은 전역 변수를 TC 화면과 똑같이 실행기에 싣는다.
+     이걸 안 실어 SNMP OID 가 `${sysDescr}` 글자 그대로 나갔다. */
+  const gp = useGlobalParams()
+
   const run = async (only?: number, from?: number, to?: number, opts?: { chat?: boolean }) => {
     if (!draft || !devId) return
     const ac = new AbortController()
@@ -2875,6 +2881,8 @@ export default function AskBar({ devices }: Props) {
           steps,
           sessions: [devId],
           devById: new Map(devices.map((d) => [d.id, d])),
+          /* 전역 파라미터 — TC 화면(TestCases)과 같은 값(지적) */
+          params: gp.values,
           onStep: (i, patch) => {
             const cur = steps[i]
             if (!cur) return
