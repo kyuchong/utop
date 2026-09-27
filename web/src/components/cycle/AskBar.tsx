@@ -572,26 +572,29 @@ export default function AskBar({ devices }: Props) {
         )
       }
     })
-    /* 시험 항목 — 모델별 건수에 **대표 항목 이름 3개**를 붙인다(승인) */
-    const byModel = new Map<string, { n: number; names: string[] }>()
+    /* 시험 항목 — **80건까지 이름을 그대로** 싣는다(승인: 「리스트 보여
+       줘」 에 건수만 나왔다 — LLM 은 없는 이름을 지어내지 않으니 재료를
+       줘야 나열한다). 넘치는 몫은 건수로만 남긴다. */
+    const byModel = new Map<string, number>()
     tcAll.forEach((t) => {
       const m = String(t.model ?? '').trim() || '공통'
-      const e = byModel.get(m) ?? { n: 0, names: [] }
-      e.n += 1
-      const nm = String(t.name ?? '').trim()
-      if (nm && e.names.length < 3) e.names.push(nm)
-      byModel.set(m, e)
+      byModel.set(m, (byModel.get(m) ?? 0) + 1)
     })
-    const tcTxt = [...byModel.entries()]
-      .sort((a, b) => b[1].n - a[1].n)
+    const cntTxt = [...byModel.entries()]
+      .sort((a, b) => b[1] - a[1])
       .slice(0, 15)
-      .map(([m, e]) => `${m} ${e.n}건${e.names.length ? ` (예: ${e.names.join(', ')})` : ''}`)
-      .join('\n- ')
+      .map(([m, n]) => `${m} ${n}건`)
+      .join(' · ')
+    const tcRows = tcAll
+      .slice(0, 80)
+      .map((t) => `- ${t.tcid} · ${String(t.name ?? '').trim()}${t.model ? ` (${t.model})` : ''}`)
+    const tcMore = tcAll.length > 80 ? `\n(… 외 ${tcAll.length - 80}건 생략)` : ''
     return (
       `장비: 전체 ${usable.length}대 — 사용 가능 ${cnt.ok} · 사용중 ${cnt.busy} · ` +
       `일부 연결 ${cnt.part} · 사용 불가 ${cnt.no}\n` +
       `등록 장비 목록(모델 · IP · 상태 · 소속):\n${rows.join('\n') || '- 없음'}\n` +
-      `시험 항목(REQ-Coverage): 총 ${tcAll.length}건 — 모델별:\n- ${tcTxt || '없음'}`
+      `시험 항목(REQ-Coverage): 총 ${tcAll.length}건 — 모델별 ${cntTxt || '없음'}\n` +
+      `항목 목록(TC키 · 이름 · 모델):\n${tcRows.join('\n') || '- 없음'}${tcMore}`
     )
   }
   const msgsRef = useRef<HTMLDivElement>(null)
