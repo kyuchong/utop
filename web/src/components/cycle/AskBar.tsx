@@ -649,12 +649,24 @@ export default function AskBar({ devices }: Props) {
     }, 30)
   }
   /* 새 줄이 붙으면 아래로 따라간다 — 사람이 위로 올려 읽는 중이면 그대로 둔다.
-     채팅 속 실행(지시)은 스텝 출력이 msgs 밖에서 자라므로 ran·at 도 따른다. */
+     채팅 속 실행(지시)은 스텝 출력이 msgs 밖에서 자라므로 ran·at 도 따른다.
+     ★ 판정은 **사람이 스크롤한 시점**의 위치로(지적: 최신이 안 보인다) —
+     붙은 뒤의 거리로 재면 30장 카드처럼 큰 덩어리가 한 번에 붙는 순간
+     「멀다」 로 보여 따라가기가 꺼졌다. */
+  const stickRef = useRef(true)
   useEffect(() => {
     const el = msgsRef.current
     if (!el) return
-    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-    if (near) el.scrollTop = el.scrollHeight
+    const onScroll = () => {
+      stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [msgs.length > 0])
+  useEffect(() => {
+    const el = msgsRef.current
+    if (!el) return
+    if (stickRef.current) el.scrollTop = el.scrollHeight
   }, [msgs, ran, at])
 
   /** 장비 고르개의 상태 탭 — 전체 · 연결됨 · 점검 · 연결안됨.
@@ -2255,7 +2267,9 @@ export default function AskBar({ devices }: Props) {
     setText('')
     setAsked(said)
     /* 물어본 말은 **오른쪽 말풍선**으로 남는다(지시: 목업) — 한 줄짜리 머리글로만
-       남기면 여러 번 되물으며 좁혀 갈 때 앞에 무엇을 물었는지 사라진다. */
+       남기면 여러 번 되물으며 좁혀 갈 때 앞에 무엇을 물었는지 사라진다.
+       내가 말을 보냈으면 위를 읽던 중이었어도 **무조건 최신을 따라간다**(지적). */
+    stickRef.current = true
     say('u', raw0)
     setFlowLog([{ s: 1, t: `요청의 말을 읽었습니다 — "${said.slice(0, 40)}"` }])
     setFlowVals([])
@@ -2962,6 +2976,9 @@ export default function AskBar({ devices }: Props) {
       setFlowAt(0)
       setPane('')
       setArtOpen(false)
+      /* 기록을 열면 최신(맨 아래)부터 — 지난 대화에서 위를 읽던 값이 남아
+         따라가기가 꺼진 채 열리면 안 된다(지적) */
+      stickRef.current = true
       /* 대화 기둥을 되살린다(지적: 새로고침하면 대화 이력이 사라짐) —
          저장해 둔 대화가 있으면 **그대로** 편다. 실행 표식(data-chatrun)은
          결과(ran)가 안 남으므로 걷어 내고, 대신 절차가 살아 있으니 3단계
