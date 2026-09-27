@@ -3584,6 +3584,8 @@ async def cov_chat(payload: dict):
         "answer 는 한 줄 요약만 적는다 — 목록 자체는 화면이 카드로 그린다. "
         'state 는 사용자가 **사용 가능한 것만** 보여 달라고 했을 때만 "ok", '
         "그 외에는 빈 문자열 — 화면이 그 상태로 걸러 그린다. "
+        "사용자가 **시험 결과를 보여 달라**고 하면([선택 상태]에 실행 결과가 있을 때) "
+        'show="result" 로 적는다 — 화면이 결과 보기 판을 연다. '
         "사용자가 **특정 장비를 선택·지정해 달라**고 하면(예: 「220.1.12.3 장비 선택해 줘」) "
         "pick_dev 에 그 장비의 IP(있으면 IP, 없으면 모델명)를 적는다. "
         "**특정 시험 항목을 선택해 달라**고 하면(예: 「E61xx-T0001 선택」·「System 정보 조회 항목 선택」) "
@@ -3623,7 +3625,7 @@ async def cov_chat(payload: dict):
                 "answer": str(got.get("answer") or "").strip(),
                 "model": str(got.get("model") or "").strip(),
                 # 화면이 아는 값만 통과시킨다 — LLM 이 지어낸 딴 값은 버린다
-                "show": _show if _show in ("devices", "tcs") else "",
+                "show": _show if _show in ("devices", "tcs", "result") else "",
                 "state": _state if _state == "ok" else "",
                 # 선택 신호 — 값이 진짜인지는 화면이 실제 목록과 대조한다
                 "pick_dev": str(got.get("pick_dev") or "").strip()[:80],

@@ -524,6 +524,10 @@ export default function AskBar({ devices }: Props) {
           const sh = String(b.show ?? '').trim()
           if (sh === 'devices') showDevCards(String(b.model ?? '').trim(), String(b.state ?? '').trim())
           else if (sh === 'tcs') showTcCards(String(b.model ?? '').trim())
+          else if (sh === 'result' && (ran ?? []).some((r) => String(r?.status ?? r?.repeatResult ?? '').trim())) {
+            setRunView(true)
+            setArtOpen(true)
+          }
         } else say('a', '<p class="ln">다시 생성하지 못했습니다 — 잠시 뒤 다시 눌러 주세요.</p>')
       } catch {
         unThink()
@@ -616,6 +620,10 @@ export default function AskBar({ devices }: Props) {
         draft
           ? `${String(draft.name ?? '')} — 준비됨(${(draft.steps ?? []).length}스텝) · ▷ 시험 시작 가능`
           : '없음 (아직 선택 전)'
+      }\n- 실행 결과: ${
+        (ran ?? []).some((r) => String(r?.status ?? r?.repeatResult ?? '').trim())
+          ? `있음${summ ? ` (합격 ${summ.pass} · 불합격 ${summ.fail})` : ''} — 결과 보기 가능`
+          : '없음 (아직 실행 전)'
       }`
     return (
       `장비: 전체 ${usable.length}대 — 사용 가능 ${cnt.ok} · 사용중 ${cnt.busy} · ` +
@@ -2547,6 +2555,18 @@ export default function AskBar({ devices }: Props) {
         const m1 = String(chat.model ?? '').trim()
         if (sh === 'devices') showDevCards(m1, String(chat.state ?? '').trim())
         else if (sh === 'tcs') showTcCards(m1)
+        else if (sh === 'result') {
+          /* 「결과를 보여 줘」(지적) — 결과 보기 칩 클릭과 같다 */
+          if ((ran ?? []).some((r) => String(r?.status ?? r?.repeatResult ?? '').trim())) {
+            setRunView(true)
+            setArtOpen(true)
+          } else {
+            say(
+              'a',
+              '<p class="ln">아직 실행한 결과가 없습니다 — 절차를 준비하고 ▷ 시험 시작을 눌러 주세요.</p>',
+            )
+          }
+        }
         setFlowAt(0)
         return
       }
