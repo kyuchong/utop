@@ -3556,7 +3556,9 @@ async def cov_chat(payload: dict):
     하던 대로 하는 편이 안전하다.
     """
     q = str(payload.get("q") or "").strip()
-    purpose = "cai_advanced" if str(payload.get("mode") or "") == "advanced" else "cai_basic"
+    # 화면은 Advanced 를 'adv' 로 보낸다 — 'advanced' 만 보다가 Advanced 모드도
+    # 늘 Basic 프롬프트로 답했다(지적: 모드와 말투가 어긋남).
+    purpose = "cai_advanced" if str(payload.get("mode") or "") in ("advanced", "adv") else "cai_basic"
     # 화면이 만든 현황 요약(장비·시험 항목) — LLM 이 이 사실로만 답한다(지시:
     # 「시험 가능한 장비는?」 에 지어낸 「없습니다」 가 나왔다).
     # 장비 한 대당 한 줄(사업자·LAB·벤더까지) + 시험 항목 이름 80건까지
