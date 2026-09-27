@@ -5118,33 +5118,7 @@ export default function AskBar({ devices }: Props) {
               )}
             </div>
 
-            {/* 처음 온 사람에게 이 화면이 무엇을 하는지 — 누르는 것이 아니라
-                말해 주는 줄이다(A안). 편집 중에는 자리를 오프너에 내준다. */}
-            {!exEdit && (
-              <div className="ask-cando">
-                <small>COVERAGE AI 가 하는 일</small>
-                <div className="ask-cando-row">
-                  <span className="ask-cd t1">
-                    <i>
-                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-                    </i>
-                    기존 항목 실행
-                  </span>
-                  <span className="ask-cd t2">
-                    <i>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg>
-                    </i>
-                    새 시험 만들기
-                  </span>
-                  <span className="ask-cd t3">
-                    <i>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-8M21 19H3" /></svg>
-                    </i>
-                    결과 분석
-                  </span>
-                </div>
-              </div>
-            )}
+            {/* 「COVERAGE AI 가 하는 일」 줄은 걷었다(지시) — 첫 화면을 비운다 */}
           </div>
 
           {err && <div className="ask-err">{err}</div>}
