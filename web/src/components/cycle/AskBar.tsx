@@ -2538,7 +2538,10 @@ export default function AskBar({ devices }: Props) {
               return
             }
           } else if (devCands.length) {
-            /* 모델처럼 여러 대가 걸리는 말 — 카드로 묻는다. 항목은 다음 차례 */
+            /* 모델처럼 여러 대가 걸리는 말 — 카드로 묻는다. 항목은 다음 차례.
+               카드가 서기 전 LLM 이 순서·추천 이유를 매기는 몇 초가 있다 —
+               스피너 없이 비면 멈춘 것처럼 보인다(지적: 3초 공백). */
+            sayThink('사용 가능한 장비 검색 중…')
             await sayDevBlock(devCands, pd, said)
             setFlowAt(0)
             return
