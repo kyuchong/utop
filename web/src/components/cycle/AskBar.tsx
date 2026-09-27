@@ -1625,6 +1625,13 @@ export default function AskBar({ devices }: Props) {
     )
     /* 선택한 카드만 남긴다(지시) — 추천 블록이 고른 카드 하나로 접힌다 */
     pickedLine('dev', devDoneCard(nm, String(d.ip ?? '')))
+    /* 항목이 먼저 정해져 기다리는 중이면(한 문장 선택) 그 항목으로 바로 잇는다 */
+    const ap = afterPick
+    if (ap) {
+      setAfterPick(null)
+      void takeTc(ap.tcid, d, ap.model)
+      return
+    }
     void stepTc(d, asked || text)
   }
 
@@ -2461,14 +2468,23 @@ export default function AskBar({ devices }: Props) {
            대조해 화면이 고른다.** 목록에 없으면 없다고 말한다(환각 차단). */
         if (pd || pt) {
           const lowD = pd.toLowerCase()
-          const d1 = !pd
-            ? undefined
-            : usable.find((d) => String(d.ip ?? '').trim() === pd) ??
-              usable.find(
-                (d) => String(d.model ?? '').trim().toLowerCase() === lowD && devStat(d).k === 'ok',
-              ) ??
-              usable.find((d) => String(d.model ?? '').trim().toLowerCase() === lowD) ??
-              usable.find((d) => String(d.name ?? '').trim().toLowerCase() === lowD)
+          /* 장비 결정 — IP 는 즉시, **모델은 한 대일 때만** 자동이다.
+             여러 대면 말없이 첫 대를 고르지 않는다(사고: E6100 3대에서
+             접속 안 되는 .12.2 로 멋대로 돌아 전체 불합격) — 후보 카드로
+             묻고, 항목 선택이 걸려 있으면 고른 뒤 이어서 진행한다. */
+          let d1: Device | undefined
+          let devCands: Device[] = []
+          if (pd) {
+            d1 = usable.find((d) => String(d.ip ?? '').trim() === pd)
+            if (!d1) {
+              const mHits = usable.filter(
+                (d) => String(d.model ?? '').trim().toLowerCase() === lowD,
+              )
+              if (mHits.length === 1) d1 = mHits[0]
+              else if (mHits.length > 1) devCands = mHits
+              else d1 = usable.find((d) => String(d.name ?? '').trim().toLowerCase() === lowD)
+            }
+          }
           const lowT = pt.toLowerCase()
           const endHits = pt ? tcAll.filter((t) => t.tcid.toLowerCase().endsWith(lowT)) : []
           const nameHits = pt
@@ -2487,6 +2503,11 @@ export default function AskBar({ devices }: Props) {
              지금 장비를 그대로 쓴다. */
           let dSel = d1
           const cur9 = usable.find((x) => x.id === devId)
+          /* 이미 그 모델 장비를 골라 뒀으면 후보를 다시 묻지 않는다 — 유지 */
+          if (devCands.length && cur9 && String(cur9.model ?? '').trim().toLowerCase() === lowD) {
+            devCands = []
+            dSel = cur9
+          }
           if (dSel && cur9 && !/\d+\.\d+\.\d+\.\d+/.test(pd) &&
               String(cur9.model ?? '').trim().toLowerCase() === lowD && cur9.id !== dSel.id) {
             if (!pt) {
@@ -2499,11 +2520,26 @@ export default function AskBar({ devices }: Props) {
             }
             dSel = cur9
           }
-          if (pd && !d1)
+          if (pd && !d1 && !devCands.length && !dSel)
             say(
               'a',
               `<p class="ln">「${hesc(pd)}」 에 맞는 장비를 찾지 못했습니다 — 「장비 고르기」 로 직접 선택해 주세요.</p>`,
             )
+          if (devCands.length) {
+            /* 같은 모델 여러 대 — 말없이 안 고른다(사고: 접속 안 되는 .12.2
+               로 멋대로 돌았다). 항목이 함께 정해졌으면 걸어 두고, 카드에서
+               장비를 고르면 그 항목으로 바로 이어서 진행한다. */
+            if (t1) {
+              setAfterPick({ tcid: t1.tcid, model: String(t1.model ?? '') })
+              say(
+                'a',
+                `<p class="ln"><b>${hesc(t1.tcid)} · ${hesc(t1.name)}</b> 항목으로 진행합니다 — 먼저 돌릴 장비를 골라 주세요.</p>`,
+              )
+            }
+            await sayDevBlock(devCands, pd, said)
+            setFlowAt(0)
+            return
+          }
           if (pt && !t1) {
             /* 딱 못 맞췄다 — **LLM 추천(pick-tc)으로 좁힌다**(지시: LLM 이
                잘 선택하도록, 개수 하드코딩 금지). 하나로 모이면 그걸 고르고,
