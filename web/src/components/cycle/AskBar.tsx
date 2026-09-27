@@ -1397,7 +1397,9 @@ export default function AskBar({ devices }: Props) {
     say(
       'a',
       `<p class="ln">${opts?.plain ? head : `<b>1단계 · 장비</b> — ${head}`}</p>` +
-        `<div data-pick="dev" class="ask-cands">${rows}` +
+        /* 목록(plain) 블록은 표식을 갈라 둔다(승인) — pickedLine 이 추천
+           블록을 접을 때 정보용 목록까지 「선택했습니다」 로 바뀌었다(지적) */
+        `<div data-pick="${opts?.plain ? 'dev-list' : 'dev'}" class="ask-cands">${rows}` +
         `<button type="button" class="ask-cand more js-pickdev"><span class="cn">전체에서 고르기</span>` +
         `<span class="cw">상태·랙으로 표에서 고르기</span></button></div>`,
       /* ↻ 다시 생성 — 이 질문으로 장비 후보를 다시 찾는다(지시) */
@@ -1434,7 +1436,8 @@ export default function AskBar({ devices }: Props) {
     say(
       'a',
       `<p class="ln">${opts?.head ?? '<b>2단계 · 시험 항목</b> — 요청과 가까운 항목입니다. 시험할 항목을 선택해 주세요.'}</p>` +
-        `<div data-pick="tc" class="ask-cands">${rows}` +
+        /* 목록(plain) 블록은 표식을 갈라 둔다(승인) — 접기 대상이 아니다 */
+        `<div data-pick="${opts?.plain ? 'tc-list' : 'tc'}" class="ask-cands">${rows}` +
         `<button type="button" class="ask-cand more js-picktc"><span class="cn">전체에서 검색</span>` +
         `<span class="cw">전체 목록에서 직접 고르기</span></button></div>`,
       /* ↻ 다시 생성 — 이 질문으로 항목을 다시 찾는다(지시) */
@@ -1865,6 +1868,20 @@ export default function AskBar({ devices }: Props) {
     /* 항목이 **모델을 확정한다**(지시). 그 모델의 장비가 한 대면 그대로 쓰고,
        여럿이면 그때 묻는다. 말에 모델이 있었으면 그것을 쓴다. */
     let use = dev ?? usable.find((x) => x.id === devId)
+    /* 항목이 콕 짚은 모델과 지금 장비의 모델이 다르면 그 장비를 안 쓴다
+       (승인) — E6100 항목을 U9500H 로 돌려 「일치하는 항목이 없습니다」 로
+       말없이 끝났다(지적). 아래 「장비 없음」 갈래로 내려가 그 모델의
+       장비를 고르게 한다. */
+    const wantM = String(tcModel ?? '').trim().toLowerCase()
+    if (!dev && use && wantM && String(use.model ?? '').trim().toLowerCase() !== wantM) {
+      say(
+        'a',
+        `<p class="ln">이 항목은 <b>${hesc(String(tcModel))}</b> 용입니다 — 지금 장비(<b>${hesc(
+          String(use.model || use.name || ''),
+        )}</b>)와 모델이 달라, <b>${hesc(String(tcModel))}</b> 장비를 먼저 고릅니다.</p>`,
+      )
+      use = undefined
+    }
     if (!use) {
       /* 항목이 공용(모델명 빈 칸)이면 **말에서 읽은 모델**을 쓴다(지적) —
          `??` 는 빈 글자에서 안 넘어가 전체 장비가 떴다. */
