@@ -2493,12 +2493,13 @@ export default function AskBar({ devices }: Props) {
           const nameHits = pt
             ? tcAll.filter((t) => String(t.name ?? '').toLowerCase().includes(lowT))
             : []
+          /* 즉시 선택은 **정확히 콕 집었을 때만**(지적: 왜 맘대로 선택하냐 —
+             물어보고 선택) — TC키 정확 일치나 이름 정확 일치. 부분·유사
+             일치는 아래에서 후보 카드로 묻는다. */
           const t1 = !pt
             ? undefined
             : tcAll.find((t) => t.tcid.toLowerCase() === lowT) ??
-              tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lowT) ??
-              (endHits.length === 1 ? endHits[0] : undefined) ??
-              (nameHits.length === 1 ? nameHits[0] : undefined)
+              tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lowT)
           /* 이미 같은 모델 장비를 골라 뒀는데 **모델만** 말했으면 안 갈아탄다
              (지적: 「장비 선택해 달라고」 에 .12.3 을 버리고 .12.2 로 바뀜) —
              다른 장비로 바꾸는 건 IP 를 콕 집었을 때만. ★ 항목 선택이 함께
@@ -2544,30 +2545,29 @@ export default function AskBar({ devices }: Props) {
             return
           }
           if (pt && !t1) {
-            /* 딱 못 맞췄다 — **LLM 추천(pick-tc)으로 좁힌다**(지시: LLM 이
-               잘 선택하도록, 개수 하드코딩 금지). 하나로 모이면 그걸 고르고,
-               여럿이면 추천 카드로 물어본다 — 후보 밖은 못 고른다. */
-            sayThink('말씀과 가까운 시험 항목을 찾는 중…')
-            const like1 = await findLike(pt, dSel)
-            unThink()
-            if (like1.length === 1 && like1[0]) {
-              const one = like1[0]
-              pickedLine('tc', tcDoneCard(one.tcid, one.name))
-              void takeTc(one.tcid, dSel, String(one.model ?? ''))
-              return
+            /* 정확히 못 짚었다 — **자동 선택 금지**(지적: 물어보고 선택하게).
+               부분 일치·LLM 추천은 후보 **카드로 보여 주고 사람이 고른다** —
+               한 건만 걸려도 카드로 확인받는다. 후보 밖은 못 고른다. */
+            let cands2: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }> =
+              (endHits.length ? endHits : nameHits).slice(0, 5).map((t) => ({
+                tcid: t.tcid,
+                name: t.name,
+                model: t.model,
+                steps: t.steps,
+              }))
+            if (!cands2.length) {
+              sayThink('말씀과 가까운 시험 항목을 찾는 중…')
+              cands2 = await findLike(pt, dSel)
+              unThink()
             }
-            if (like1.length > 1) {
-              sayTcBlock(like1, said)
+            if (cands2.length) {
+              sayTcBlock(cands2, said)
               setFlowAt(0)
               return
             }
             say(
               'a',
-              `<p class="ln">「${hesc(pt)}」 에 맞는 시험 항목을 찾지 못했습니다${
-                endHits.length > 1 || nameHits.length > 1
-                  ? ' — 같은 이름이 여럿입니다. 전체 키(예: E61xx-T0001)로 말씀해 주세요.'
-                  : ' — 「시험 항목 찾기」 로 직접 선택해 주세요.'
-              }</p>`,
+              `<p class="ln">「${hesc(pt)}」 에 맞는 시험 항목을 찾지 못했습니다 — 「시험 항목 찾기」 로 직접 선택해 주세요.</p>`,
             )
           }
           if (t1) {
