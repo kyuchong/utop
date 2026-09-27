@@ -1238,13 +1238,14 @@ export default function AskBar({ devices }: Props) {
         ? v.map((m) => (m.who === 'a' && m.html.includes(mark) ? { ...m, html: line } : m))
         : [...v, { who: 'a' as const, html: line }]
     })
-  /** 고른 장비 — 글 한 줄. 어느 단계였는지 함께 남긴다(지시) */
+  /** 고른 장비 — 글 한 줄. 어느 단계였는지 함께 남긴다(지시).
+      말투는 A안(승인) — 값 뒤에 「장비를」 을 받쳐 IP 뒤 조사가 안 어긋난다. */
   const devDoneCard = (nm: string, ip: string) =>
-    `<p class="ln"><b>1단계 · 장비</b> — <b>${hesc(nm)} (${hesc(ip)})</b> 로 정했습니다.</p>`
+    `<p class="ln"><b>1단계 · 장비</b> — <b>${hesc(nm)} (${hesc(ip)})</b> 장비를 선택했습니다.</p>`
   /** 고른 항목 — 글 한 줄. 어느 단계였는지 함께 남긴다(지시) */
   const tcDoneCard = (tcid: string, name: string) =>
-    `<p class="ln"><b>2단계 · 시험 항목</b> — <b>${hesc(tcid)}</b> 으로 정했습니다 — ${hesc(name)}. ` +
-    `<b>3단계 · 절차 만들기</b> 를 시작합니다.</p>`
+    `<p class="ln"><b>2단계 · 시험 항목</b> — <b>${hesc(tcid)} · ${hesc(name)}</b> 항목을 선택했습니다. ` +
+    `이어서 시험 절차를 준비합니다.</p>`
 
   /** 장비 하나의 상태 — 고르개 창의 판정을 요약한 것(통신 + 점유) */
   const devStat = (d: Device) => {
@@ -1301,8 +1302,8 @@ export default function AskBar({ devices }: Props) {
     }
     unThink()
     const head = m0
-      ? `${hesc(m0)} 이(가) ${cands.length}대 있습니다 — 눌러서 고르세요.`
-      : '어느 장비에서 돌릴까요? — 눌러서 고르세요.'
+      ? `<b>${hesc(m0)}</b> ${cands.length}대를 찾았습니다. 사용할 장비를 선택해 주세요.`
+      : '사용할 장비를 선택해 주세요.'
     const rows = order
       .map((d, i) => {
         const st = devStat(d)
@@ -1377,7 +1378,7 @@ export default function AskBar({ devices }: Props) {
       .join('')
     say(
       'a',
-      '<p class="ln"><b>2단계 · 시험 항목</b> — 말씀과 가까운 항목입니다. 눌러서 고르세요.</p>' +
+      '<p class="ln"><b>2단계 · 시험 항목</b> — 요청과 가까운 항목입니다. 시험할 항목을 선택해 주세요.</p>' +
         `<div data-pick="tc" class="ask-cands">${rows}` +
         `<button type="button" class="ask-cand more js-picktc"><span class="cn">전체에서 검색</span>` +
         `<span class="cw">전체 목록에서 직접 고르기</span></button></div>`,
@@ -1844,7 +1845,7 @@ export default function AskBar({ devices }: Props) {
         {
           who: 'a' as const,
           html:
-            `<p class="ln"><b>3단계 · 절차</b> — <b>${hesc(tcName)}</b> 절차가 준비됐습니다. ` +
+            `<p class="ln"><b>3단계 · 절차</b> — <b>${hesc(tcName)}</b> 절차 준비가 완료되었습니다. ` +
             `아래 <b>▷ 시험 시작</b>을 누르면 이 자리에서 바로 실행됩니다.</p>`,
           at: hhmm(),
         },
@@ -2284,7 +2285,7 @@ export default function AskBar({ devices }: Props) {
         ])
         say(
           'a',
-          `<p class="ln"><b>${hesc(String(d0.model || d0.name || ''))} (${hesc(String(d0.ip ?? ''))})</b> 로 정했습니다 — 쓸 수 있는 장비가 한 대뿐입니다.</p>`,
+          `<p class="ln"><b>${hesc(String(d0.model || d0.name || ''))} (${hesc(String(d0.ip ?? ''))})</b> 장비를 선택했습니다 — 사용 가능한 장비가 한 대입니다.</p>`,
         )
         setFlowVals([
           { k: '모델', v: String(d0.model ?? '') },
@@ -6362,7 +6363,7 @@ export default function AskBar({ devices }: Props) {
                        나면 어느 장비로 갔는지 화면 어디에도 안 남았다. */
                     say(
                       'a',
-                      `<p class="ln"><b>${hesc(String(d2?.model || d2?.name || ''))} (${hesc(String(d2?.ip ?? ''))})</b> 로 정했습니다.</p>`,
+                      `<p class="ln"><b>${hesc(String(d2?.model || d2?.name || ''))} (${hesc(String(d2?.ip ?? ''))})</b> 장비를 선택했습니다.</p>`,
                     )
                     /* 항목을 먼저 고른 뒤 장비를 물은 것이면 그 항목으로 잇는다(지시) */
                     if (afterPick) {
@@ -6378,8 +6379,8 @@ export default function AskBar({ devices }: Props) {
                     say(
                       'a',
                       '<p class="ln"><b>2단계 · 시험 항목 고르기</b><br>' +
-                        `<b>${hesc(String(d2?.model || d2?.name || ''))}</b> 에서 돌릴 수 있는 항목만 추려 두었습니다. ` +
-                        '목록에서 하나를 고르면 바로 절차를 짓습니다.</p>' +
+                        `<b>${hesc(String(d2?.model || d2?.name || ''))}</b> 에서 실행할 수 있는 항목만 추렸습니다. ` +
+                        '목록에서 하나를 선택하면 바로 절차를 준비합니다.</p>' +
                         '<button type="button" class="btnsm js-picktc">🔍 시험 항목 고르기</button>',
                     )
                     setAskModel(String(d2?.model ?? pickDev.model ?? ''))
