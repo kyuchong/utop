@@ -1574,7 +1574,8 @@ export default function AskBar({ devices }: Props) {
    */
   /** 저장에 함께 실을 지금 대화의 정체 — 대화가 바뀔 때마다 자동 저장이
       이걸 보고 절차·장비까지 같이 담는다(지적: 새로고침하면 대화가 사라짐) */
-  const saveMetaRef = useRef<{ title: string; plan: Draft; dev: string } | null>(null)
+  /* plan 은 잡담(질문만 한) 대화에선 없다(지적: 질문이 목록에 안 남는다) */
+  const saveMetaRef = useRef<{ title: string; plan: Draft | null; dev: string } | null>(null)
 
   /* 실행 결과(ran)·AI 요약(summ)도 기록에 담는다(승인: 기존 실행한 걸 보는
      것이니 결과가 있어야 한다) — 자동 저장은 msgs 에 매여 있어서 최신
@@ -2314,6 +2315,14 @@ export default function AskBar({ devices }: Props) {
       }
       unThink()
       if (chat && chat.test === false && chat.answer) {
+        /* 잡담 대화도 **목록에 남긴다**(지적: 질문이 생성됐는데 목록에 없다) —
+           절차 없이 대화만 담고, 자동 저장이 이어서 주고받는 말을 채운다. */
+        if (!chatId || !saveMetaRef.current) {
+          const id = chatId || `nl-${Date.now().toString(36)}`
+          if (!chatId) setChatId(id)
+          saveMetaRef.current = { title: raw0.slice(0, 80), plan: null, dev: tDev || '' }
+          setRecent((v) => [{ cid: id, title: raw0.slice(0, 80) }, ...v.filter((x) => x.cid !== id)].slice(0, 30))
+        }
         /* 🔄 다시 생성이 이 질문으로 되짚는다(지시: Open WebUI) */
         saySlow(chat.answer, { k: 'chat', q: said })
         /* 목록 질문이면 **화면 부품(카드)** 으로도 보여 준다(승인: UI 처럼) —
@@ -2941,6 +2950,11 @@ export default function AskBar({ devices }: Props) {
     setStepAt(0)
     setFoldGrp(new Set())
     setChatId('')
+    /* 지난 대화의 정체가 남으면 새 대화가 옛 기록 위에 저장된다 */
+    saveMetaRef.current = null
+    setSumm(null)
+    setChatRun(false)
+    stickRef.current = true
   }
 
   /**
@@ -2974,8 +2988,50 @@ export default function AskBar({ devices }: Props) {
         return
       }
       if (!plan || !Array.isArray(plan.steps) || plan.steps.length === 0) {
-        // 절차가 안 담긴 옛 기록이면 그 말을 입력칸에 올려 준다 — 마음대로
-        // 다시 만들지는 않는다
+        /* 절차가 없어도 **대화가 담겨 있으면 잡담 기록**이다(지적: 질문만 한
+           대화가 목록에 남는다) — 대화만 그대로 되살린다. */
+        const chatMsgs = (b.chat?.msgs ?? []).filter(
+          (m): m is { who: string; html: string; at?: string; ts?: string } =>
+            !!m &&
+            ((m as { who?: string }).who === 'u' || (m as { who?: string }).who === 'a') &&
+            typeof (m as { html?: unknown }).html === 'string',
+        )
+        if (chatMsgs.length > 0) {
+          setChatId(cid)
+          setText('')
+          setAsked('')
+          setLike([])
+          setLikeAsk(false)
+          setRan(null)
+          setLogs([])
+          setStepAt(0)
+          setFlowAt(0)
+          setPane('')
+          setArtOpen(false)
+          setDraft(null)
+          setBuilt(null)
+          setChatRun(false)
+          setSumm(null)
+          stickRef.current = true
+          setMsgs(
+            chatMsgs.map((m) => ({
+              who: m.who as 'u' | 'a',
+              html: m.html,
+              at: m.at,
+              ts: m.ts,
+            })),
+          )
+          const dv0 = usable.find((d) => d.ip === String(b.chat?.dev ?? ''))
+          if (dv0) setDevId(dv0.id)
+          saveMetaRef.current = {
+            title: String(b.chat?.title || title),
+            plan: null,
+            dev: String(b.chat?.dev ?? ''),
+          }
+          return
+        }
+        // 절차도 대화도 안 담긴 옛 기록이면 그 말을 입력칸에 올려 준다 —
+        // 마음대로 다시 만들지는 않는다
         setText(title)
         setErr('이 기록에는 절차가 담겨 있지 않습니다 — 아래에서 다시 물어보세요')
         return
