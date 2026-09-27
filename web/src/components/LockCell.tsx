@@ -26,8 +26,9 @@ export function useLocks() {
       if (!r.ok) throw new Error('점유 현황을 불러오지 못했습니다')
       return (await r.json()) as { locks: Lock[] }
     },
-    // 남이 잡거나 푼 것이 늦게 반영되면 같은 장비를 두 사람이 잡는다
-    refetchInterval: 15_000,
+    // 남이 잡거나 푼 것이 늦게 반영되면 같은 장비를 두 사람이 잡는다.
+    // 30초 — 15초는 Network 창에 반복이 너무 잦아 보였다(지적).
+    refetchInterval: 30_000,
   })
 }
 
