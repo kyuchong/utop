@@ -544,31 +544,54 @@ export default function AskBar({ devices }: Props) {
     await sayDevBlock(cands, model, rd.q)
   }
 
-  /** 현황 요약 — cov-chat·다시 생성이 같은 사실을 본다(추출) */
+  /** 현황 요약 — cov-chat·다시 생성이 같은 사실을 본다(추출).
+   *
+   * 장비 한 대당 한 줄로 **자세히** 싣는다(승인) — 사업자·LAB·벤더·제품군·
+   * 모델그룹이 안 실려서 「어떤 사업자 제품이냐」 에 화면으로 미는 답만
+   * 나왔다. LLM 은 여기 없는 것은 지어내지 않으므로, 근거를 주는 만큼
+   * 답이 자세해진다. */
   const buildFacts = () => {
     const cnt = { ok: 0, busy: 0, part: 0, no: 0 }
-    const okRows: string[] = []
+    const stName = { ok: '사용 가능', busy: '사용중', part: '일부 연결', no: '사용 불가' } as const
+    const rows: string[] = []
     usable.forEach((d) => {
       const k = devStat(d).k
       cnt[k] += 1
-      if (k === 'ok' && okRows.length < 20)
-        okRows.push(`${String(d.model || d.name || '')}(${String(d.ip ?? '')})`)
+      if (rows.length < 30) {
+        const extra = [
+          d.lab ? `LAB ${String(d.lab)}` : '',
+          d.operator ? `사업자 ${String(d.operator)}` : '',
+          d.vendor ? `벤더 ${String(d.vendor)}` : '',
+          d.device_group ? `제품군 ${String(d.device_group)}` : '',
+          d.model_group ? `모델그룹 ${String(d.model_group)}` : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')
+        rows.push(
+          `- ${String(d.model || d.name || '')} · ${String(d.ip ?? '')} · ${stName[k]}${extra ? ` · ${extra}` : ''}`,
+        )
+      }
     })
-    const byModel = new Map<string, number>()
+    /* 시험 항목 — 모델별 건수에 **대표 항목 이름 3개**를 붙인다(승인) */
+    const byModel = new Map<string, { n: number; names: string[] }>()
     tcAll.forEach((t) => {
       const m = String(t.model ?? '').trim() || '공통'
-      byModel.set(m, (byModel.get(m) ?? 0) + 1)
+      const e = byModel.get(m) ?? { n: 0, names: [] }
+      e.n += 1
+      const nm = String(t.name ?? '').trim()
+      if (nm && e.names.length < 3) e.names.push(nm)
+      byModel.set(m, e)
     })
     const tcTxt = [...byModel.entries()]
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => b[1].n - a[1].n)
       .slice(0, 15)
-      .map(([m, n]) => `${m} ${n}건`)
-      .join(' · ')
+      .map(([m, e]) => `${m} ${e.n}건${e.names.length ? ` (예: ${e.names.join(', ')})` : ''}`)
+      .join('\n- ')
     return (
       `장비: 전체 ${usable.length}대 — 사용 가능 ${cnt.ok} · 사용중 ${cnt.busy} · ` +
       `일부 연결 ${cnt.part} · 사용 불가 ${cnt.no}\n` +
-      `사용 가능 장비: ${okRows.join(', ') || '없음'}\n` +
-      `시험 항목(REQ-Coverage): 총 ${tcAll.length}건 — 모델별 ${tcTxt || '없음'}`
+      `등록 장비 목록(모델 · IP · 상태 · 소속):\n${rows.join('\n') || '- 없음'}\n` +
+      `시험 항목(REQ-Coverage): 총 ${tcAll.length}건 — 모델별:\n- ${tcTxt || '없음'}`
     )
   }
   const msgsRef = useRef<HTMLDivElement>(null)

@@ -9450,6 +9450,27 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 }
 .ask-msgs .ln { margin: 2px 0 11px; }
 .ask-msgs .ln b { color: var(--c-primary); }
+/* LLM 답의 마크다운 표·목록(승인) — 현황을 표로 답하게 했으니 말풍선
+   안에서도 표답게 보여야 한다. 넓은 표는 제 칸에서만 가로 스크롤. */
+.ask-msgs .msg.a .bd table {
+  border-collapse: collapse;
+  margin: 6px 0 10px;
+  font-size: var(--fs-md);
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.ask-msgs .msg.a .bd th,
+.ask-msgs .msg.a .bd td {
+  border: 1px solid var(--c-border);
+  padding: 5px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+.ask-msgs .msg.a .bd th { background: var(--c-bg-alt, #f6f8f9); font-weight: 600; }
+.ask-msgs .msg.a .bd ul,
+.ask-msgs .msg.a .bd ol { margin: 4px 0 10px; padding-left: 22px; }
+.ask-msgs .msg.a .bd li { margin: 2px 0; }
 /* 말풍선 안의 작은 단추 — 「📟 장비 고르기」 처럼 그 자리에서 잇는 길 */
 .ask-msgs .btnsm {
   flex: none;
