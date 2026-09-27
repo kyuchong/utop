@@ -2783,6 +2783,27 @@ export default function AskBar({ devices }: Props) {
         }
         /* 목록 질문이면 **화면 부품(카드)** 으로도 보여 준다(승인: UI 처럼) —
            카드는 화면이 가진 실제 데이터로 그린다. */
+        /* 답 글에 **실존 항목(키·이름)이 언급**되면 카드로도 세운다(지적:
+           추천이 글로만 와서 못 고름) — 신호가 비어도 답에 나온 것은 눌러
+           고를 수 있어야 한다. 실제 목록과 대조라 지어낸 것은 안 선다. */
+        if (chat.answer && !sg && !pd && !pt && !chat.show) {
+          const ansLow = chat.answer.toLowerCase()
+          const hits9: Array<{ tcid: string; name: string; model?: string; steps?: number }> = []
+          for (const t of tcAll) {
+            if (hits9.length >= 3) break
+            const nm9 = String(t.name ?? '').trim()
+            if (
+              (ansLow.includes(t.tcid.toLowerCase()) || (nm9.length >= 5 && chat.answer.includes(nm9))) &&
+              !hits9.some((x) => x.tcid === t.tcid)
+            )
+              hits9.push({ tcid: t.tcid, name: t.name, model: t.model, steps: t.steps })
+          }
+          if (hits9.length) {
+            sayTcBlock(hits9, said)
+            setFlowAt(0)
+            return
+          }
+        }
         const sh = String(chat.show ?? '').trim()
         const m1 = String(chat.model ?? '').trim()
         if (sh === 'devices') showDevCards(m1, String(chat.state ?? '').trim())
