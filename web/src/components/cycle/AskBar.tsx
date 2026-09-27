@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState , type CSSProperties, type ReactNode } from 'react'
+import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, useState , type CSSProperties, type ReactNode } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { prefGet, prefSet } from '@/lib/prefs'
@@ -221,6 +221,42 @@ function toTcSteps(draft: Draft): TcStep[] {
 }
 
 
+/** 입력칸 조작 핸들 — 부모가 리렌더 없이 값을 넣고 읽는다 */
+export interface AskInputCtl { set: (v: string) => void; get: () => string; focus: () => void }
+
+/* 입력칸은 **독립 컴포넌트**다(지적: 글자 입력마다 장비 카드가 새로고침
+   처럼 번쩍임) — 타이핑 상태(text)가 부모(수천 줄 화면)에 있으면 한 타에
+   화면 전체가 다시 계산된다. 여기 가두면 타이핑은 이 작은 칸만 그린다. */
+const AskInput = memo(
+  forwardRef<AskInputCtl, {
+    disabled: boolean
+    adv: boolean
+    onSubmit: (v: string) => void
+  }>(function AskInput({ disabled, adv, onSubmit }, ref) {
+    const [v, setV] = useState('')
+    const inRef = useRef<HTMLInputElement>(null)
+    useImperativeHandle(ref, () => ({
+      set: (s: string) => setV(s),
+      get: () => inRef.current?.value ?? '',
+      focus: () => inRef.current?.focus(),
+    }))
+    return (
+      <input
+        ref={inRef}
+        className="ask-askin2"
+        value={v}
+        disabled={disabled}
+        placeholder={adv ? '만들 시험을 설명하세요 — 대상 장비, 스텝, 판정 기준' : 'Coverage AI에게 요청하기…'}
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return
+          if (e.key === 'Enter' && v.trim()) onSubmit(v)
+        }}
+      />
+    )
+  }),
+)
+
 /* 말풍선은 **memo 로 얼린다**(지적: 타이핑마다 카드가 깜빡여 재조회처럼
    보임) — 입력 리렌더가 지난 말풍선을 리마운트하지 않게 한다. 단추는
    컨테이너 위임(data-act)으로 받아 핸들러 props 없이도 동작한다. */
@@ -270,7 +306,10 @@ const MsgA = memo(function MsgA({ i, html, ts, redoK, fb, copied }: {
 })
 
 export default function AskBar({ devices }: Props) {
-  const [text, setText] = useState('')
+  /* 타이핑은 AskInput 안에 가둔다 — 부모는 핸들로만 넣고 읽는다 */
+  const askCtl = useRef<AskInputCtl>(null)
+  const getText = () => askCtl.current?.get() ?? ''
+  const setText = (v: string) => askCtl.current?.set(v)
   /**
    * 이번에 **물어본 말**. 입력칸(text)과 따로 둔다.
    *
@@ -529,7 +568,7 @@ export default function AskBar({ devices }: Props) {
     const m = msgs[i]
     if (!m || m.who !== 'u') return
     setText(msgText(m.html))
-    askInRef.current?.focus()
+    askCtl.current?.focus()
   }
   /** 👍👎 평가(지시) — 상태를 남기고 서버에도 기록한다(프롬프트 개선 근거) */
   const fbMsg = async (i: number, v: 'up' | 'down') => {
@@ -770,7 +809,6 @@ export default function AskBar({ devices }: Props) {
   const [devQ, setDevQ] = useState('')
   const [devF, setDevF] = useState<Record<string, string>>({})
   const [devHF, setDevHF] = useState('')
-  const askInRef = useRef<HTMLInputElement>(null)
   /**
    * 도구를 켜고 끈다 — **켜면 입력줄에 칩이 선다**(지적: 골라도 추가가 안 된다).
    *
@@ -834,7 +872,7 @@ export default function AskBar({ devices }: Props) {
     r.lang = 'ko-KR'
     r.interimResults = true
     r.continuous = true
-    const base = text.trim()
+    const base = getText().trim()
     r.onresult = (e: any) => {
       let heard = ''
       for (const res of e.results) heard += res[0].transcript
@@ -1481,7 +1519,7 @@ export default function AskBar({ devices }: Props) {
         const r = await apiFetch('/api/ai/pick-device', {
           method: 'POST',
           body: JSON.stringify({
-            q: q || asked || text,
+            q: q || asked || getText(),
             devices: cands.map((d) => ({
               id: d.id,
               model: String(d.model ?? ''),
@@ -1700,7 +1738,7 @@ export default function AskBar({ devices }: Props) {
       void takeTc(ap.tcid, d, ap.model)
       return
     }
-    const q9 = pendQRef.current || asked || text
+    const q9 = pendQRef.current || asked || getText()
     pendQRef.current = ''
     void stepTc(d, q9)
   }
@@ -2451,7 +2489,7 @@ export default function AskBar({ devices }: Props) {
    *      편이 정확하다 — 이 랩에서 이미 통한 절차니까)
    */
   const submit = async (q?: string) => {
-    const raw0 = (q ?? text).trim()
+    const raw0 = (q ?? getText()).trim()
     if (!raw0 || busy) return
     /* 도구 줄이 켠 맥락 — 질문 끝에 싣는다. 장비를 골랐으면 모델명이
        실려서, 아래 「말에서 모델 찾기」 도 그 장비를 바로 잡는다. */
@@ -5454,21 +5492,11 @@ export default function AskBar({ devices }: Props) {
             )}
             <div className="ask-askbox2 two">
               <div className="ask-r1">
-              <input
-                ref={askInRef}
-                className="ask-askin2"
-                value={text}
+              <AskInput
+                ref={askCtl}
                 disabled={exEdit}
-                placeholder={
-                  mode === 'adv'
-                    ? '만들 시험을 설명하세요 — 대상 장비, 스텝, 판정 기준'
-                    : 'Coverage AI에게 요청하기…'
-                }
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.nativeEvent.isComposing) return
-                  if (e.key === 'Enter' && text.trim()) void submit()
-                }}
+                adv={mode === 'adv'}
+                onSubmit={(v) => void submit(v)}
               />
               </div>
 
@@ -5721,10 +5749,10 @@ export default function AskBar({ devices }: Props) {
                 {listening ? '🔴' : '🎤'}
               </button>
               <button
-                className={`ask-send2${text.trim() && !exEdit ? ' on' : ''}`}
+                className={`ask-send2${!exEdit ? ' on' : ''}`}
                 type="button"
                 title="보내기 (Enter)"
-                disabled={exEdit || !text.trim()}
+                disabled={exEdit}
                 onClick={() => void submit()}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -5796,7 +5824,7 @@ export default function AskBar({ devices }: Props) {
                             /* 채워 넣기만 한다(지시) — 시작은 보내기 단추로.
                                바로 보내면 고쳐 물을 틈이 없다. */
                             setText(x.q)
-                            askInRef.current?.focus()
+                            askCtl.current?.focus()
                           }}
                         >
                           <span className="ask-op-ic">✦</span>
