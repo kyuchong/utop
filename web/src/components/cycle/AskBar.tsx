@@ -2515,9 +2515,30 @@ export default function AskBar({ devices }: Props) {
             setFlowAt(0)
             return
           }
-          if (devCands.length) {
-            /* 1단계 확인 카드 — 한 대여도 카드로 묻는다(지시). 고르면 다음
-               단계(항목)가 다시 카드로 선다. */
+          let devSel: Device | undefined
+          if (devCands.length === 1 && devCands[0]) {
+            /* 콕 집은 유일 장비(IP·이름·한 대뿐 모델) — **그 말이 곧 선택**
+               이다(지적: 선택을 못해). 지어낸 값은 서버가 이미 걸렀으니
+               사용자가 직접 적은 것만 여기 온다. */
+            const d0 = devCands[0]
+            devSel = d0
+            const nm = String(d0.model || d0.name || d0.ip)
+            setDevId(d0.id)
+            setTDev(nm)
+            setAskModel(String(d0.model ?? ''))
+            if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+            setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d0.ip} 확정 (말로 선택)` }])
+            pickedLine('dev', devDoneCard(nm, String(d0.ip ?? '')))
+            if (!pt) {
+              say(
+                'a',
+                '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "System 정보 조회 선택"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
+              )
+              setFlowAt(0)
+              return
+            }
+          } else if (devCands.length) {
+            /* 모델처럼 여러 대가 걸리는 말 — 카드로 묻는다. 항목은 다음 차례 */
             await sayDevBlock(devCands, pd, said)
             setFlowAt(0)
             return
@@ -2532,18 +2553,19 @@ export default function AskBar({ devices }: Props) {
               tcAll.find((t) => t.tcid.toLowerCase() === lowT) ??
               tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lowT) ??
               tcAll.find((t) => normKey(t.tcid) === normKey(lowT))
+            if (t1) {
+              /* 콕 집은 항목 — 그 말이 곧 선택이다. 장비가 없으면 takeTc 가
+                 장비 고르개로 확인한다. */
+              pickedLine('tc', tcDoneCard(t1.tcid, t1.name))
+              void takeTc(t1.tcid, devSel, String(t1.model ?? ''))
+              return
+            }
+            const endHits = tcAll.filter((t) => t.tcid.toLowerCase().endsWith(lowT))
+            const nameHits = tcAll.filter((t) => String(t.name ?? '').toLowerCase().includes(lowT))
             let cands2: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }> =
-              t1
-                ? [{ tcid: t1.tcid, name: t1.name, model: t1.model, steps: t1.steps }]
-                : (() => {
-                    const endHits = tcAll.filter((t) => t.tcid.toLowerCase().endsWith(lowT))
-                    const nameHits = tcAll.filter((t) =>
-                      String(t.name ?? '').toLowerCase().includes(lowT),
-                    )
-                    return (endHits.length ? endHits : nameHits)
-                      .slice(0, 5)
-                      .map((t) => ({ tcid: t.tcid, name: t.name, model: t.model, steps: t.steps }))
-                  })()
+              (endHits.length ? endHits : nameHits)
+                .slice(0, 5)
+                .map((t) => ({ tcid: t.tcid, name: t.name, model: t.model, steps: t.steps }))
             if (!cands2.length) {
               sayThink('말씀과 가까운 시험 항목을 찾는 중…')
               cands2 = await findLike(pt, undefined)
