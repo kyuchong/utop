@@ -2005,8 +2005,9 @@ export default function AskBar({ devices }: Props) {
       const cands = want
         ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === want)
         : usable
-      if (cands.length === 1) use = cands[0]
-      else if (cands.length > 1) {
+      /* 한 대뿐이어도 자동으로 안 고른다(지시: 무조건 한 번 체크) —
+         고르개를 띄워 사람이 확정한다. */
+      if (cands.length >= 1) {
         setAfterPick({ tcid, model: String(tcModel || askModel || '') })
         setPickSel(cands.find((d) => d.id === devId)?.id ?? cands[0]?.id ?? '')
         setPickLab('')
@@ -2014,22 +2015,15 @@ export default function AskBar({ devices }: Props) {
         setPickDev({ model: String(tcModel || askModel || ''), cands })
         setLikeAsk(false)
         return
-      } else if (usable.length === 1) use = usable[0]
-      else {
-        setAfterPick({ tcid, model: String(tcModel || askModel || '') })
-        setPickSel(usable[0]?.id ?? '')
-        setPickLab('')
-        setPickRack('')
-        setPickDev({ model: '', cands: usable })
-        setLikeAsk(false)
-        return
       }
+      setAfterPick({ tcid, model: String(tcModel || askModel || '') })
+      setPickSel(usable[0]?.id ?? '')
+      setPickLab('')
+      setPickRack('')
+      setPickDev({ model: '', cands: usable })
+      setLikeAsk(false)
+      return
     }
-    /* 장비가 여기서 **자동으로** 정해졌으면(한 대뿐 등) 1단계 줄을 남긴다
-       (지적: 무슨 장비를 선택한 건지 대화에 안 보였다). 인자로 받은 장비는
-       부른 쪽이, 이미 고른 장비는 그때 이미 적었다 — 또 적지 않는다. */
-    if (use && !dev && use.id !== devId)
-      pickedLine('dev', devDoneCard(String(use.model || use.name || ''), String(use.ip ?? '')))
     dev = use
     const t0 = performance.now()
     setAdopting(tcid)
@@ -2470,136 +2464,91 @@ export default function AskBar({ devices }: Props) {
            LLM 은 신호(pick_dev·pick_tc)만 주고, **실제 장비·항목 목록과
            대조해 화면이 고른다.** 목록에 없으면 없다고 말한다(환각 차단). */
         if (pd || pt) {
+          /* ── 자연어 선택(지시: **무조건 한 번 체크**) — 말은 절대 확정하지
+             않는다. IP·TC키를 콕 집어도 **카드 한 장**으로 확인받고, 클릭이
+             곧 확정이다. 한 번의 질문에는 한 단계만 — 장비 카드가 서면
+             항목은 다음 차례에 다시 카드로 선다. 후보 밖은 못 고른다. */
           const lowD = pd.toLowerCase()
-          /* 장비 결정 — IP 는 즉시, **모델은 한 대일 때만** 자동이다.
-             여러 대면 말없이 첫 대를 고르지 않는다(사고: E6100 3대에서
-             접속 안 되는 .12.2 로 멋대로 돌아 전체 불합격) — 후보 카드로
-             묻고, 항목 선택이 걸려 있으면 고른 뒤 이어서 진행한다. */
-          let d1: Device | undefined
           let devCands: Device[] = []
           if (pd) {
-            d1 = usable.find((d) => String(d.ip ?? '').trim() === pd)
-            if (!d1) {
+            const ipHit = usable.find((d) => String(d.ip ?? '').trim() === pd)
+            if (ipHit) devCands = [ipHit]
+            else {
               const mHits = usable.filter(
                 (d) => String(d.model ?? '').trim().toLowerCase() === lowD,
               )
-              if (mHits.length === 1) d1 = mHits[0]
-              else if (mHits.length > 1) devCands = mHits
-              else d1 = usable.find((d) => String(d.name ?? '').trim().toLowerCase() === lowD)
+              if (mHits.length) devCands = mHits
+              else {
+                const nHit = usable.find((d) => String(d.name ?? '').trim().toLowerCase() === lowD)
+                if (nHit) devCands = [nHit]
+              }
             }
           }
-          const lowT = pt.toLowerCase()
-          const endHits = pt ? tcAll.filter((t) => t.tcid.toLowerCase().endsWith(lowT)) : []
-          const nameHits = pt
-            ? tcAll.filter((t) => String(t.name ?? '').toLowerCase().includes(lowT))
-            : []
-          /* 즉시 선택은 **정확히 콕 집었을 때만**(지적: 왜 맘대로 선택하냐 —
-             물어보고 선택) — TC키 정확 일치나 이름 정확 일치. 부분·유사
-             일치는 아래에서 후보 카드로 묻는다. */
-          const t1 = !pt
-            ? undefined
-            : tcAll.find((t) => t.tcid.toLowerCase() === lowT) ??
-              tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lowT)
-          /* 이미 같은 모델 장비를 골라 뒀는데 **모델만** 말했으면 안 갈아탄다
-             (지적: 「장비 선택해 달라고」 에 .12.3 을 버리고 .12.2 로 바뀜) —
-             다른 장비로 바꾸는 건 IP 를 콕 집었을 때만. ★ 항목 선택이 함께
-             왔으면 여기서 끊지 않고(지적: 항목 선택이 이 안내에 먹혔다)
-             지금 장비를 그대로 쓴다. */
-          let dSel = d1
           const cur9 = usable.find((x) => x.id === devId)
-          /* 이미 그 모델 장비를 골라 뒀으면 후보를 다시 묻지 않는다 — 유지 */
-          if (devCands.length && cur9 && String(cur9.model ?? '').trim().toLowerCase() === lowD) {
-            devCands = []
-            dSel = cur9
-          }
-          if (dSel && cur9 && !/\d+\.\d+\.\d+\.\d+/.test(pd) &&
-              String(cur9.model ?? '').trim().toLowerCase() === lowD && cur9.id !== dSel.id) {
+          /* 이미 고른 그 장비(또는 그 모델)를 다시 말했으면 유지 안내만 —
+             항목 얘기가 함께 왔으면 장비는 유지하고 항목 단계로 넘어간다 */
+          let devKept = false
+          if (
+            devCands.length &&
+            cur9 &&
+            (devCands.some((d) => d.id === cur9.id) ||
+              String(cur9.model ?? '').trim().toLowerCase() === lowD)
+          ) {
             if (!pt) {
               say(
                 'a',
-                `<p class="ln">이미 <b>${hesc(String(cur9.model ?? ''))} (${hesc(String(cur9.ip ?? ''))})</b> 장비가 선택되어 있습니다 — 다른 장비로 바꾸시려면 IP 로 말씀해 주세요.</p>`,
+                `<p class="ln">이미 <b>${hesc(String(cur9.model ?? ''))} (${hesc(String(cur9.ip ?? ''))})</b> 장비가 선택되어 있습니다 — 바꾸시려면 다른 IP 로 말씀하시거나 「장비 고르기」 로 골라 주세요.</p>`,
               )
               setFlowAt(0)
               return
             }
-            dSel = cur9
+            devCands = []
+            devKept = true
           }
-          if (pd && !d1 && !devCands.length && !dSel)
+          if (pd && !devCands.length && !devKept) {
             say(
               'a',
               `<p class="ln">「${hesc(pd)}」 에 맞는 장비를 찾지 못했습니다 — 「장비 고르기」 로 직접 선택해 주세요.</p>`,
             )
+            setFlowAt(0)
+            return
+          }
           if (devCands.length) {
-            /* 같은 모델 여러 대 — 말없이 안 고른다(사고: 접속 안 되는 .12.2
-               로 멋대로 돌았다). ★ 한 번의 질문에는 **한 단계만**(지적:
-               하나씩 선택하게) — 항목을 미리 걸어 두지 않는다. 장비를
-               고르면 다음 단계(항목 후보)가 다시 카드로 선다. */
+            /* 1단계 확인 카드 — 한 대여도 카드로 묻는다(지시). 고르면 다음
+               단계(항목)가 다시 카드로 선다. */
             await sayDevBlock(devCands, pd, said)
             setFlowAt(0)
             return
           }
-          if (pt && !t1) {
-            /* 정확히 못 짚었다 — **자동 선택 금지**(지적: 물어보고 선택하게).
-               부분 일치·LLM 추천은 후보 **카드로 보여 주고 사람이 고른다** —
-               한 건만 걸려도 카드로 확인받는다. 후보 밖은 못 고른다. */
+          if (pt) {
+            /* 2단계 확인 카드 — 콕 집은 항목도 카드 한 장으로 확인받는다 */
+            const lowT = pt.toLowerCase()
+            const t1 =
+              tcAll.find((t) => t.tcid.toLowerCase() === lowT) ??
+              tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === lowT)
             let cands2: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }> =
-              (endHits.length ? endHits : nameHits).slice(0, 5).map((t) => ({
-                tcid: t.tcid,
-                name: t.name,
-                model: t.model,
-                steps: t.steps,
-              }))
+              t1
+                ? [{ tcid: t1.tcid, name: t1.name, model: t1.model, steps: t1.steps }]
+                : (() => {
+                    const endHits = tcAll.filter((t) => t.tcid.toLowerCase().endsWith(lowT))
+                    const nameHits = tcAll.filter((t) =>
+                      String(t.name ?? '').toLowerCase().includes(lowT),
+                    )
+                    return (endHits.length ? endHits : nameHits)
+                      .slice(0, 5)
+                      .map((t) => ({ tcid: t.tcid, name: t.name, model: t.model, steps: t.steps }))
+                  })()
             if (!cands2.length) {
               sayThink('말씀과 가까운 시험 항목을 찾는 중…')
-              cands2 = await findLike(pt, dSel)
+              cands2 = await findLike(pt, undefined)
               unThink()
             }
-            if (cands2.length) {
-              sayTcBlock(cands2, said)
-              setFlowAt(0)
-              return
-            }
-            say(
-              'a',
-              `<p class="ln">「${hesc(pt)}」 에 맞는 시험 항목을 찾지 못했습니다 — 「시험 항목 찾기」 로 직접 선택해 주세요.</p>`,
-            )
-          }
-          if (t1) {
-            if (dSel && dSel.id !== devId) {
-              /* 한 문장에 장비·항목이 같이 왔다 — **한 단계만**(지적: 하나씩
-                 선택하게): 장비만 확정하고, 항목은 카드로 다시 묻는다
-                 (말한 그 항목이 후보로 선다). */
-              const nm = String(dSel.model || dSel.name || dSel.ip)
-              setDevId(dSel.id)
-              setTDev(nm)
-              setAskModel(String(dSel.model ?? ''))
-              if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
-              setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${dSel.ip} 확정 (말로 선택)` }])
-              pickedLine('dev', devDoneCard(nm, String(dSel.ip ?? '')))
-              sayTcBlock([{ tcid: t1.tcid, name: t1.name, model: t1.model, steps: t1.steps }], said)
-              setFlowAt(0)
-              return
-            }
-            /* 항목만 콕 집은 말 — 그 한 단계(항목 선택)를 진행한다. 장비가
-               아직 없으면 takeTc 가 장비 고르기로 묻는다. */
-            pickedLine('tc', tcDoneCard(t1.tcid, t1.name))
-            void takeTc(t1.tcid, dSel, String(t1.model ?? ''))
-            return
-          }
-          if (dSel) {
-            /* 장비만 골랐다 — 선택 확인만 한다(지적: 장비를 골랐는데 항목
-               72건이 쏟아졌다). 항목은 물어보거나 지정할 때 보여 준다. */
-            const nm = String(dSel.model || dSel.name || dSel.ip)
-            setDevId(dSel.id)
-            setTDev(nm)
-            setAskModel(String(dSel.model ?? ''))
-            if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
-            setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${dSel.ip} 확정 (말로 선택)` }])
-            pickedLine('dev', devDoneCard(nm, String(dSel.ip ?? '')))
-            say(
-              'a',
-              '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "System 정보 조회 선택"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
-            )
+            if (cands2.length) sayTcBlock(cands2, said)
+            else
+              say(
+                'a',
+                `<p class="ln">「${hesc(pt)}」 에 맞는 시험 항목을 찾지 못했습니다 — 「시험 항목 찾기」 로 직접 선택해 주세요.</p>`,
+              )
           }
           setFlowAt(0)
           return
