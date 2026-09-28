@@ -124,24 +124,7 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
      잘림) — 로딩 중의 큰 몸통 높이로 배율이 굳으면, 장이 몸통보다 커져
      아래가 잘린다(실측: 816px 때 1.097 로 굳고 본문은 779px 로 줄었다). */
   const fitRef = useRef<() => void>(() => {})
-  useEffect(() => {
-    const el = bodyRef.current
-    if (!el) return
-    const fit = () => {
-      const w = el.clientWidth - 30 // 좌우 여백(CSS padding 14 × 2 와 맞춘다)
-      // 높이에도 맞춘다. 폭에만 맞췄더니 큰 화면에서 장의 아래가 잘려
-      // 「전체가 보이지 않는」 상태가 됐다 — 한 장은 통째로 보여야 한다.
-      const h = el.clientHeight - 26
-      if (w > 0 && h > 0) {
-        setScale(Math.max(0.4, Math.min(1.4, Math.min(w / 1280, h / 720))))
-      }
-    }
-    fitRef.current = fit
-    fit()
-    const ro = new ResizeObserver(fit)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose()
@@ -368,11 +351,26 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
 
   const loading = cycQ.isLoading || (items.length > 0 && tcQ.isLoading)
 
-  /* 로딩 상태가 바뀌면 배율을 다시 잰다 — 스피너 판과 슬라이드 판의
-     몸통 높이가 달라, 처음 잰 값이 틀린 값으로 남는다(지적). */
   useEffect(() => {
-    const id = requestAnimationFrame(() => fitRef.current())
-    return () => cancelAnimationFrame(id)
+    const el = bodyRef.current
+    if (!el) return
+    const fit = () => {
+      const w = el.clientWidth - 30 // 좌우 여백(CSS padding 14 × 2 와 맞춘다)
+      // 높이에도 맞춘다. 폭에만 맞췄더니 큰 화면에서 장의 아래가 잘려
+      // 「전체가 보이지 않는」 상태가 됐다 — 한 장은 통째로 보여야 한다.
+      const h = el.clientHeight - 26
+      if (w > 0 && h > 0) {
+        setScale(Math.max(0.4, Math.min(1.4, Math.min(w / 1280, h / 720))))
+      }
+    }
+    fitRef.current = fit
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+    /* ★ 처음 열면 로딩 스피너 화면이라 rpt-body 가 아직 없다 — [] 로
+       한 번만 걸면 el=null 로 끝나 배율이 0.78 에 영영 고정된다(지적:
+       여백이 남는다). 로딩이 끝나 본문이 생기면 다시 건다. */
   }, [loading])
 
   return (
