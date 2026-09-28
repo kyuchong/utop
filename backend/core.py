@@ -198,3 +198,47 @@ async def why_http(*a, **k):
 
 def item_verdict(*a, **k):
     raise RuntimeError('core 가 아직 매이지 않았습니다: item_verdict')
+
+
+# ── cycle 묶음(routes/cycle.py)이 쓰는 것 — main 이 bind 로 채운다 ──
+
+PROCEDURES_FILE: Any = None
+
+RESULTS_DIR: Any = None
+
+tc_running: Any = None
+
+SESSIONS: Any = None
+
+def save_one_session(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: save_one_session')
+
+def org_where(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: org_where')
+
+def load_mail_cfg(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: load_mail_cfg')
+
+def addr_list(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: addr_list')
+
+def send_mail(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: send_mail')
+
+def repair_placeholders(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: repair_placeholders')
+
+CYCLE_DIR: Any = None
+
+TC_RUNHIST_DIR: Any = None
+
+MAIN_LOOP: Any = None
+
+MAIL_BAD_TAG: Any = None
+
+MAIL_BAD_ATTR: Any = None
+
+MAIL_BAD_URL: Any = None
+
+def user_name_of(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: user_name_of')

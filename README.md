@@ -79,7 +79,8 @@ utop/
 │   │   ├── jira.py          Jira·결함·릴리즈 요약
 │   │   ├── devices.py       장비·카탈로그·랙·STC·N2X
 │   │   ├── ai.py            LLM 설정·프롬프트·RAG·Confluence·Knowledge AI·Coverage AI·TC 생성
-│   │   └── nl_test.py       자연어 시험(AI Assistant)
+│   │   ├── nl_test.py       자연어 시험(AI Assistant)
+│   │   └── cycle.py         사이클·플랜 실행·runner 대기줄·CLI 세션·SNMP·자원 잠금
 │   ├── engine.py          사이클 실행, PPTX 리포트
 │   ├── db.py              PostgreSQL 접근 (asyncpg)
 │   ├── stc/               Spirent TestCenter 연동
