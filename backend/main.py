@@ -7564,6 +7564,15 @@ def _ensure_conn(ent, params, force=False):
         # 재부팅 뒤 첫 명령(지적: 부팅 후 첫 CLI 결과가 안 나온다) — is_alive 는
         # reload 로 상대가 죽어도 로컬 소켓만 보고 「살았다」 하므로, 죽은
         # 세션에 명령이 나가 빈 응답이 된다. force 면 무조건 끊고 새로 붙는다.
+        # 앞 스텝이 Password:·[y/n] 물음에 세워 둔 세션이면(await_pw) **아무것도
+        # 채널에 안 쓰고 그대로 쓴다**(지적: 실제 암호가 맞는데 틀렸다고 나온다).
+        # netmiko is_alive() 는 SSH 에서 널바이트(\x00)를 채널에 쓰는데, 그 널이
+        # Password: 물음에 섞여 암호가 깨진다 — reload 의 짧은 y 는 견뎠지만
+        # 셀 암호는 못 견딘다. 방금 그 세션으로 물음을 받았으니 살아 있음이
+        # 확실하다.
+        if ent.get("await_pw"):
+            ent["ts"] = now
+            return conn
         if not force and now - ent.get("ts", 0.0) < _CONN_IDLE_SEC:
             try:
                 # **프롬프트가 아니라 소켓을 본다.**
