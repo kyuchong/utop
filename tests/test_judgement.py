@@ -318,14 +318,13 @@ def test_contains_up_rejects_down_interface():
 
 
 # ═══════════════════════════════════════════════════════════════════
-# BUG-0002 — 폴백 규칙: not_contains 여러 줄 의미 반전 (xfail)
+# BUG-0002 — 폴백 규칙: 키 없는 줄은 앞 줄의 키를 물려받는다 (2026-09-29 고침)
 # ═══════════════════════════════════════════════════════════════════
 
-@pytest.mark.xfail(strict=True, reason="BUG-0002 폴백 규칙: 여러 줄 not_contains 의미 반전")
 def test_multiline_not_contains_keeps_negation():
     """not_contains 의 2번째 줄도 부정 판정이어야 한다.
 
-    현재 코드에서 `not_contains:error\\ntimeout` 은
+    고치기 전에는 `not_contains:error\\ntimeout` 은
       rule 0: not_contains:error   (부정)
       rule 1: timeout               → 폴백 contains:timeout (긍정)
     로 갈라져 timeout 이 출력에 있으면 rule 1 이 PASS 되고
@@ -333,3 +332,10 @@ def test_multiline_not_contains_keeps_negation():
     """
     out = "connection timeout occurred"
     assert judge_by_criteria(out, "not_contains:error\ntimeout")[0] == "FAIL"
+
+
+def test_multiline_inherits_key_regex_and_first_line_default():
+    """regex 도 둘째 줄이 키를 물려받고, 첫 줄부터 키가 없으면 contains 다."""
+    assert judge_by_criteria("abc123", "regex:^abc\n\\d+$")[0] == "PASS"
+    assert judge_by_criteria("abc", "regex:^abc\n\\d+$")[0] == "FAIL"
+    assert judge_by_criteria("plain text", "plain\ntext")[0] == "PASS"

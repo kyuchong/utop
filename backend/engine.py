@@ -322,13 +322,21 @@ def judge_by_criteria(output: str, criteria: Any, device_id: str = "") -> Option
     rules = [line.strip() for line in re.split(r"[\r\n;]+", criteria) if line.strip()]
     passed = []
     fails = []
+    # BUG-0002 — 키 없는 줄은 **앞 줄의 키를 물려받는다.**
+    # 전에는 `:` 없는 줄을 무조건 contains 로 봤다. 그래서
+    #     not_contains:error
+    #     timeout
+    # 의 둘째 줄이 「timeout 이 있으면 합격」 으로 뒤집혔다(harness/bugs.md).
+    # 첫 줄부터 키가 없으면 여태처럼 contains 다(명세: 접두사 없는 값은 contains).
+    prev_key = "contains"
     for rule in rules:
         key, _, value = rule.partition(":")
         key = key.strip().lower().replace("-", "_")
         value = value.strip()
         if not value and key not in ("interface_connected", "interfaces_connected", "all_interfaces_connected"):
             value = key
-            key = "contains"
+            key = prev_key
+        prev_key = key
         result = None
         if key in ("contains", "contain", "include", "includes"):
             dval = value.replace("\\n", "\n")

@@ -34,7 +34,10 @@
 
 ---
 
-## BUG-0002 — 여러 줄 판정기준 폴백 규칙 (심각도: medium)
+## BUG-0002 — 여러 줄 판정기준 폴백 규칙 (심각도: medium) — **고침 2026-09-29**
+
+- **고친 내용**: `judge_by_criteria` 가 `:` 없는 줄에 **앞 줄의 키**를 물려준다(첫 줄부터 키가 없으면 여태처럼 contains). `not_contains:error\ntimeout` 은 이제 둘째 줄도 not_contains 다. 테스트 `test_multiline_not_contains_keeps_negation` 을 xfail 에서 정상으로 돌렸고 regex·기본값 사례를 더했다.
+- 아래는 고치기 전 기록이다.
 
 - **증상**: 여러 줄 판정기준에서 2번째 줄부터 첫 줄의 키를 물려받지 못하고, `:` 없는 줄이면 무조건 `contains` 로 폴백된다. `re.split(r"[\r\n;]+", criteria)` 가 rule 분리자이기 때문.
 - **실제 오판정** (2026-07-27 조사): **0건**.

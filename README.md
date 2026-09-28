@@ -142,7 +142,12 @@ API 를 직접 찔러볼 때는 http://localhost:8000/docs 를 쓴다.
 ```bash
 python tools/verify.py     # py_compile · 린트 · 테스트 · 문서 드리프트
 cd web && npm run typecheck
+cd web && npm test         # 판정기 정답표 (judge.test.ts) — 도커 빌드도 이걸 먼저 돈다
 ```
+
+판정기(`web/src/components/tc/judge.ts`)는 화면과 runner 가 함께 쓰는 **한 벌**이다. 규칙을 고치면
+`judge.test.ts` 의 명세 사례와 `__fixtures__/judge-cases.json` 의 실제 실행 기록이 그대로 통과해야 한다.
+기록의 판정이 바뀌어야 맞다면 그 사례를 눈으로 보고 정답표를 고친다.
 
 ---
 

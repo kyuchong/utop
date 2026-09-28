@@ -55,6 +55,10 @@ CHECKS: list[tuple[str, list[str]]] = [
 ]
 if NPX:
     CHECKS.append(("린트 (프론트)", [NPX, "eslint", "frontend/static/js"]))
+NPM = shutil.which("npm") or shutil.which("npm.cmd")
+if NPM:
+    # 판정기(web/src/components/tc/judge.ts) 정답표 — 화면과 runner 가 같이 쓰는 그 코드다
+    CHECKS.append(("판정기 테스트 (vitest)", [NPM, "--prefix", "web", "test", "--silent"]))
 
 
 def run(name: str, cmd: list[str]) -> str:
