@@ -2,10 +2,10 @@
 """자연어 시험(AI Assistant) — 서버 쪽 한 벌.
 
 다른 UTOP 서버(원본 앱)에서 **돌고 있던** 조각을 옮겨 왔다 (2026-08-18 뽑음).
-원본은 main.py 한 파일 안에 있었지만, 여기 main.py 는 이미 커서 모듈로 나눈다 —
-main.py 맨 끝에서 `import nl_test` 하면 아래 길 9개가 붙는다.
+원본은 main.py 한 파일 안에 있었지만, 여기서는 routes/ 의 한 묶음이다 —
+main.py 가 include_router 하면 아래 길들이 붙는다.
 
-**main.py 가 다 뜬 뒤에 import 되어야 한다** (여기서 main 의 이름을 받아 오므로).
+main 을 거꾸로 부르지 않는다 — main 의 것은 core 로, LLM 은 routes/ai 로 받는다(2026-09-28).
 
 이 파일이 대는 길:
   GET  /api/ai/nl-chats · /api/ai/nl-chats/{cid} · POST /api/ai/nl-chats   시험 기록
@@ -24,21 +24,14 @@ import json
 import re
 from datetime import datetime  # noqa: F401
 
-from fastapi import HTTPException
 
 import db
-from main import (
-    DATA_DIR,  # noqa: F401
-    _ai_chat,
-    _kv_load_sync,
-    _kv_save_sync,
-    _load_learned,
-    _require_admin,
-    _user_from_token,
-    app,
-    broadcast,
-    run_cli,
-)
+from fastapi import APIRouter
+
+import core                      # main 의 것(KV·세션·CLI 실행)은 여기서 받는다
+from routes import ai as _ai     # LLM 부르기·학습한 절차는 AI 묶음 것
+
+router = APIRouter()
 
 #: 줄바꿈 — 원본이 쓰던 이름 그대로
 _LF = "\n"
@@ -632,7 +625,7 @@ def _nl_iface_ctx(dev_id, dev_model):
     저장해 둔 값이 있으면 그것보다 정확한 근거는 없다.
     """
     try:
-        cat = _kv_load_sync("device_catalog", {}) or {}
+        cat = core.kv_load_sync("device_catalog", {}) or {}
         devs = cat.get("devices") or []
     except Exception:
         return ""
@@ -755,7 +748,7 @@ def _nl_known_clis(dev_model, text="", items=None):
     `items` 를 주면 그것을 근거로 삼는다 — 학습 창고 + Coverage 항목."""
     if items is None:
         try:
-            items = (_load_learned() or {}).get("items") or []
+            items = (_ai._load_learned() or {}).get("items") or []
         except Exception:
             return []
     out, seen = [], set()
@@ -785,7 +778,7 @@ def _nl_cmd_ctx(dev_model, limit=40, items=None):
     """
     if items is None:
         try:
-            items = (_load_learned() or {}).get("items") or []
+            items = (_ai._load_learned() or {}).get("items") or []
         except Exception:
             return ""
     want = str(dev_model or "").strip().lower()
@@ -850,7 +843,7 @@ def _nl_learn_ctx(dev_model, limit=3, text="", only_config=False, items=None):
     """
     if items is None:
         try:
-            items = (_load_learned() or {}).get("items") or []
+            items = (_ai._load_learned() or {}).get("items") or []
         except Exception:
             return ""
     want = str(dev_model or "").strip().lower()
@@ -961,12 +954,12 @@ def _nl_chat_me(token: str) -> str:
     `by=""` 로 저장해서, 로그인하지 않은 모두가 **같은 대화 묶음을 공유**했다
     (남의 대화가 내 목록에 뜨고, 내가 지울 수도 있었다).
     """
-    u = _user_from_token(token)
+    u = core.user_from_token(token)
     return str((u or {}).get("username") or "")
 
 
 def _nl_chats_all():
-    d = _kv_load_sync("nl_chats", {"items": []})
+    d = core.kv_load_sync("nl_chats", {"items": []})
     return d if isinstance(d, dict) and isinstance(d.get("items"), list) else {"items": []}
 
 
@@ -1071,7 +1064,7 @@ def _nl_probe(dev, cmds):
     """조회 명령을 **두 번** 보내 안 바뀐 응답만 돌려준다. {cmd: stable}"""
     got = {}
     for _round in (0, 1):
-        r = run_cli({"host": dev.get("ip"), "port": dev.get("port"),
+        r = core.run_cli({"host": dev.get("ip"), "port": dev.get("port"),
                      "protocol": dev.get("protocol"), "username": dev.get("username"),
                      "password": dev.get("password"), "secret": dev.get("secret"),
                      "device_type": dev.get("device_type"), "commands": cmds})
@@ -1154,7 +1147,7 @@ def _tc_score(meta, words, want_model):
 def _tc_iface_groups(dev_id, dev_model):
     """고른 장비의 인터페이스 묶음 — 표기를 바꿀 때 쓴다 (없으면 [])."""
     try:
-        cat = _kv_load_sync("device_catalog", {}) or {}
+        cat = core.kv_load_sync("device_catalog", {}) or {}
         devs = cat.get("devices") or []
     except Exception:
         return []
@@ -1475,7 +1468,7 @@ def _ai_ex_row(x):
 
 # ══ 길 (엔드포인트) ═════════════════════════════
 
-@app.get("/api/ai/nl-chats")
+@router.get("/api/ai/nl-chats")
 async def nl_chats_list(token: str = ""):
     """내 대화 목록. 본문(메시지)은 빼고 제목·시각만 준다 — 목록은 가벼워야 한다."""
     me = _nl_chat_me(token)
@@ -1493,19 +1486,19 @@ async def nl_chats_list(token: str = ""):
     return {"ok": True, "items": out}
 
 
-@app.get("/api/ai/nl-chat-folders")
+@router.get("/api/ai/nl-chat-folders")
 async def nl_chat_folders_get(token: str = ""):
     """대화 목록의 폴더 이름들(지시) — 사람마다 제 것만 본다."""
     me = _nl_chat_me(token)
     if not me:
         return {"ok": True, "folders": []}
-    d = _kv_load_sync("nl_chat_folders", {})
+    d = core.kv_load_sync("nl_chat_folders", {})
     v = d.get(me) if isinstance(d, dict) else None
     return {"ok": True,
             "folders": [str(x)[:40] for x in v if str(x or "").strip()] if isinstance(v, list) else []}
 
 
-@app.post("/api/ai/nl-chat-folders")
+@router.post("/api/ai/nl-chat-folders")
 async def nl_chat_folders_set(payload: dict, token: str = ""):
     """폴더 이름 목록을 통째로 저장한다 — 만들기·지우기 모두 이 한 길."""
     me = _nl_chat_me(token)
@@ -1522,15 +1515,15 @@ async def nl_chat_folders_set(payload: dict, token: str = ""):
             folders.append(nm)
         if len(folders) >= 30:
             break
-    d = _kv_load_sync("nl_chat_folders", {})
+    d = core.kv_load_sync("nl_chat_folders", {})
     if not isinstance(d, dict):
         d = {}
     d[me] = folders
-    _kv_save_sync("nl_chat_folders", d)
+    core.kv_save_sync("nl_chat_folders", d)
     return {"ok": True, "folders": folders}
 
 
-@app.post("/api/ai/nl-chats/move")
+@router.post("/api/ai/nl-chats/move")
 async def nl_chat_move(payload: dict, token: str = ""):
     """대화를 폴더로 옮긴다(지시) — folder 가 빈 문자열이면 폴더에서 뺀다."""
     me = _nl_chat_me(token)
@@ -1547,11 +1540,11 @@ async def nl_chat_move(payload: dict, token: str = ""):
             c["folder"] = folder
             n += 1
     if n:
-        _kv_save_sync("nl_chats", store)
+        core.kv_save_sync("nl_chats", store)
     return {"ok": True, "moved": n}
 
 
-@app.get("/api/ai/nl-chats/{cid}")
+@router.get("/api/ai/nl-chats/{cid}")
 async def nl_chat_get(cid: str, token: str = ""):
     """대화 하나를 통째로 — 메시지·절차·실행 결과까지."""
     me = _nl_chat_me(token)
@@ -1563,7 +1556,7 @@ async def nl_chat_get(cid: str, token: str = ""):
     return {"ok": False, "error": "그 대화를 찾지 못했습니다"}
 
 
-@app.post("/api/ai/feedback")
+@router.post("/api/ai/feedback")
 async def ai_feedback(payload: dict, token: str = ""):
     """👍👎 답변 평가(지시: Open WebUI) — 프롬프트 개선 근거로 쌓는다."""
     me = _nl_chat_me(token)
@@ -1572,7 +1565,7 @@ async def ai_feedback(payload: dict, token: str = ""):
     v = str((payload or {}).get("verdict") or "").strip()
     if v not in ("up", "down"):
         return {"ok": False, "error": "verdict 는 up/down 입니다"}
-    d = _kv_load_sync("nl_feedback", {"items": []})
+    d = core.kv_load_sync("nl_feedback", {"items": []})
     items = d.get("items") or []
     items.insert(0, {
         "by": me,
@@ -1583,11 +1576,11 @@ async def ai_feedback(payload: dict, token: str = ""):
         "text": str(payload.get("text") or "")[:400],
     })
     d["items"] = items[:1000]
-    _kv_save_sync("nl_feedback", d)
+    core.kv_save_sync("nl_feedback", d)
     return {"ok": True}
 
 
-@app.post("/api/ai/nl-chats")
+@router.post("/api/ai/nl-chats")
 async def nl_chat_save(payload: dict, token: str = ""):
     """대화를 저장한다 (같은 id 면 덮어쓴다)."""
     me = _nl_chat_me(token)
@@ -1630,11 +1623,11 @@ async def nl_chat_save(payload: dict, token: str = ""):
             if mine > _NL_CHAT_MAX:
                 continue
         kept.append(c)
-    _kv_save_sync("nl_chats", {"items": kept})
+    core.kv_save_sync("nl_chats", {"items": kept})
     return {"ok": True, "id": cid}
 
 
-@app.delete("/api/ai/nl-chats/{cid}")
+@router.delete("/api/ai/nl-chats/{cid}")
 async def nl_chat_del(cid: str, token: str = ""):
     """기록 하나 지우기 — **내 것만**. 남의 대화는 못 지운다."""
     me = _nl_chat_me(token)
@@ -1648,11 +1641,11 @@ async def nl_chat_del(cid: str, token: str = ""):
     ]
     if len(kept) == len(store["items"]):
         return {"ok": False, "error": "그 기록이 없습니다"}
-    _kv_save_sync("nl_chats", {"items": kept})
+    core.kv_save_sync("nl_chats", {"items": kept})
     return {"ok": True, "id": want}
 
 
-@app.post("/api/ai/nl-criteria")
+@router.post("/api/ai/nl-criteria")
 async def ai_nl_criteria(payload: dict):
     """빈 판정 기준을 **실제 응답**을 근거로 채운다.
 
@@ -1740,7 +1733,7 @@ async def ai_nl_criteria(payload: dict):
     ])
     # **화면이 고른 AI 로 부른다**(지시: 입력 바에서 AI 를 고른다). 안 고르면
     # 빈 값이라 여느 때처럼 용도·기본값이 정한다.
-    content, err = await _ai_chat(
+    content, err = await _ai._ai_chat(
         [{"role": "system", "content": sys_p},
          {"role": "user", "content": json.dumps(rows, ensure_ascii=False)}],
         max_tokens=900, json_schema=schema,
@@ -1807,7 +1800,7 @@ async def ai_nl_criteria(payload: dict):
     return {"ok": True, "items": items, "stale": stale, "probed": bool(probe)}
 
 
-@app.get("/api/ai/nl-tc-like")
+@router.get("/api/ai/nl-tc-like")
 async def ai_nl_tc_like(text: str = "", model: str = "", limit: int = 3):
     """지금 지시와 비슷한 TC 를 몇 건 골라 준다 (사용자 요청 2026-08-14).
 
@@ -1854,7 +1847,7 @@ async def ai_nl_tc_like(text: str = "", model: str = "", limit: int = 3):
 # 못 쓴다. LLM 이 없거나 답을 못 주면 규칙 순서로 물러선다.
 
 
-@app.post("/api/ai/pick-device")
+@router.post("/api/ai/pick-device")
 async def ai_pick_device(payload: dict):
     """후보 장비 중 지시에 가장 맞는 것을 LLM 이 고르고 이유를 단다.
 
@@ -1881,7 +1874,7 @@ async def ai_pick_device(payload: dict):
     if len(cand) == 1 or not q:
         return {"ok": True, "items": plain, "order": ids}
     try:
-        from main import _llm_pick, _llm_json   # 늦은 수입 — 순환 막기
+        from routes.ai import _llm_pick, _llm_json   # 늦은 수입 — 순환 막기
         llm = _llm_pick("cai_basic")
     except Exception:
         llm = None
@@ -1925,7 +1918,7 @@ async def ai_pick_device(payload: dict):
         return {"ok": True, "items": plain, "order": ids, "error": str(e)[:200]}
 
 
-@app.post("/api/ai/pick-tc")
+@router.post("/api/ai/pick-tc")
 async def ai_pick_tc(payload: dict):
     """지시와 가까운 TC 를 규칙으로 넉넉히 추린 뒤 LLM 이 고른다.
 
@@ -1970,7 +1963,7 @@ async def ai_pick_tc(payload: dict):
         # (BM25+임베딩, source=tc)으로 후보를 보강한다. 색인이 없거나
         # 임베딩이 꺼져 있으면 조용히 지나간다.
         try:
-            from main import _hybrid_search
+            from routes.ai import _hybrid_search
             hits2, _m2 = await _hybrid_search(text, top_k=10, sources=["tc"])
             byrow = {str(m.get("tcid") or ""): m for m in (rows or []) if isinstance(m, dict)}
             have = {t["tcid"] for t in top}
@@ -2005,7 +1998,7 @@ async def ai_pick_tc(payload: dict):
     picked_ids, whymap = [], {}
     if len(top) > 1:
         try:
-            from main import _llm_pick, _llm_json
+            from routes.ai import _llm_pick, _llm_json
             llm = _llm_pick("similar")
         except Exception:
             llm = None
@@ -2056,7 +2049,7 @@ async def ai_pick_tc(payload: dict):
     return {"ok": True, "items": out, "ai": bool(pset)}
 
 
-@app.post("/api/ai/run-summary")
+@router.post("/api/ai/run-summary")
 async def ai_run_summary(payload: dict):
     """실행이 끝난 스텝 결과를 LLM 이 사람 말로 요약한다.
 
@@ -2082,7 +2075,7 @@ async def ai_run_summary(payload: dict):
     nfail = sum(1 for s in steps if _is_fail(s))
     base = "합격 %d · 불합격 %d" % (npass, nfail)
     try:
-        from main import _llm_pick, _llm_json
+        from routes.ai import _llm_pick, _llm_json
         llm = _llm_pick("cai_basic")
     except Exception:
         llm = None
@@ -2121,7 +2114,7 @@ async def ai_run_summary(payload: dict):
                 "ai": False, "error": str(e)[:200]}
 
 
-@app.post("/api/ai/nl-tc-adopt")
+@router.post("/api/ai/nl-tc-adopt")
 async def ai_nl_tc_adopt(payload: dict):
     """고른 TC 를 **선택한 장비에 맞게 옮겨** 절차로 돌려준다. 장비에 접속하지 않는다."""
     tcid = str((payload or {}).get("tcid") or "").strip()
@@ -2146,7 +2139,7 @@ async def ai_nl_tc_adopt(payload: dict):
             "tc": {"tcid": tcid, "name": str(tc.get("name") or ""), "notes": notes}}
 
 
-@app.post("/api/ai/nl-plan")
+@router.post("/api/ai/nl-plan")
 async def ai_nl_plan(payload: dict):
     """자연어 지시 → **시험 초안**(제목 + 스텝 목록). 장비에 접속하지 않는다.
 
@@ -2225,7 +2218,7 @@ async def ai_nl_plan(payload: dict):
     # 그 자리를 비워 두면 아래 규칙만 쓴다 — 화면에서 고친 말이 여기까지 와야
     # 「고쳤는데 왜 그대로냐」 가 안 난다.
     try:
-        from main import _prompt_of as _pof     # 늦게 부른다(순환 수입 막기)
+        from routes.ai import _prompt_of as _pof     # 늦게 부른다(순환 수입 막기)
         _slot = (_pof("coverage_automation").get("system") or "").strip()
     except Exception:
         _slot = ""
@@ -2354,7 +2347,7 @@ async def ai_nl_plan(payload: dict):
     # 근거 — 학습된 절차가 앞, 그다음이 Coverage 의 시험 항목(지시).
     # 학습이 비어 있어도 이 랩에서 실제로 쓰는 명령·기준으로 짓게 된다.
     try:
-        _learned = (_load_learned() or {}).get("items") or []
+        _learned = (_ai._load_learned() or {}).get("items") or []
     except Exception:
         _learned = []
     _corpus = _learned + await _nl_tc_corpus()
@@ -2402,7 +2395,7 @@ async def ai_nl_plan(payload: dict):
         user_p += "\n지시: %s" % text
 
     # **화면이 고른 AI 로 부른다**(지시) — 안 고르면 여느 때처럼 기본값
-    content, err = await _ai_chat(
+    content, err = await _ai._ai_chat(
         [{"role": "system", "content": sys_p},
          {"role": "user", "content": user_p}],
         max_tokens=1200, json_schema=schema,
@@ -2639,10 +2632,10 @@ async def ai_nl_plan(payload: dict):
     return {"ok": True, "title": title, "purpose": purpose, "steps": steps, "blocked": blocked}
 
 
-@app.get("/api/ai/examples")
+@router.get("/api/ai/examples")
 async def ai_examples_get():
     """첫 화면에 뜰 질문 보기. 담아 둔 것이 없으면 기본 세 줄."""
-    d = _kv_load_sync(_AI_EX_KEY, None)
+    d = core.kv_load_sync(_AI_EX_KEY, None)
     rows = (d or {}).get("items") if isinstance(d, dict) else None
     if not isinstance(rows, list) or not rows:
         return {"ok": True, "items": [dict(x) for x in _AI_EX_DEFAULT], "default": True}
@@ -2650,10 +2643,10 @@ async def ai_examples_get():
     return {"ok": True, "items": out}
 
 
-@app.post("/api/ai/examples")
+@router.post("/api/ai/examples")
 async def ai_examples_set(payload: dict, token: str = ""):
     """질문 보기를 통째로 담는다 — **관리자만**. 빈 줄은 버리고 20개까지."""
-    _require_admin(token)
+    core.require_admin(token)
     rows, seen = [], set()
     for x in (payload or {}).get("items") or []:
         r = _ai_ex_row(x)
@@ -2661,11 +2654,11 @@ async def ai_examples_set(payload: dict, token: str = ""):
             seen.add(r["q"])
             rows.append(r)
     rows = rows[:20]
-    _kv_save_sync(_AI_EX_KEY, {"items": rows})
+    core.kv_save_sync(_AI_EX_KEY, {"items": rows})
     # ★★ 담기면 **켜져 있는 모든 화면**에 곧바로 보낸다 (사용자 요청 2026-08-14) —
     #   담당자가 고친 것을 남들이 새로고침해야 보는 것은 늦다.
     try:
-        await broadcast({"type": "ai_examples", "items": rows})
+        await core.broadcast({"type": "ai_examples", "items": rows})
     except Exception:
         pass
     return {"ok": True, "items": rows}

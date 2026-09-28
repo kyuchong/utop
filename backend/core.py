@@ -151,3 +151,50 @@ def who(*a, **k):
 
 def me(*a, **k):
     raise RuntimeError('core 가 아직 매이지 않았습니다: me')
+
+
+# ── ai 묶음(routes/ai.py)이 쓰는 것 — main 이 bind 로 채운다 ──
+
+PROMPTS_FILE: Any = None
+
+CONFLUENCE_FILE: Any = None
+
+CLAUDE_FALLBACK_MODEL: Any = None
+
+claude_client: Any = None
+
+def users_load_sync(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: users_load_sync')
+
+FEEDBACK_FILE: Any = None
+
+def load_items_store(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: load_items_store')
+
+def save_items_store(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: save_items_store')
+
+async def next_tc_id(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: next_tc_id')
+
+def tc_id_norm(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: tc_id_norm')
+
+def run_cli(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: run_cli')
+
+NEVER_WORDS: Any = None
+
+def config_allowed(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: config_allowed')
+
+def is_read_only(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: is_read_only')
+
+TC_SCHEMA: Any = None
+
+async def why_http(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: why_http')
+
+def item_verdict(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: item_verdict')
