@@ -359,7 +359,9 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
       // 높이에도 맞춘다. 폭에만 맞췄더니 큰 화면에서 장의 아래가 잘려
       // 「전체가 보이지 않는」 상태가 됐다 — 한 장은 통째로 보여야 한다.
       const h = el.clientHeight - 26
-      return w > 0 && h > 0 ? Math.max(0.4, Math.min(1.4, Math.min(w / 1280, h / 720))) : 0
+      // 꽉 채우면 갑갑하다(지적: 배율 더 줄여) — 맞춤값의 90% 로 사방에
+      // 여백을 남긴다.
+      return w > 0 && h > 0 ? Math.max(0.4, Math.min(1.4, Math.min(w / 1280, h / 720) * 0.9)) : 0
     }
     const fit = () => {
       const s1 = calc()
