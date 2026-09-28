@@ -2194,7 +2194,7 @@ async def _snmp_instances(host: str, comm: str, mp: int, col_oid: str, limit: in
     out = []
     try:
         from pysnmp.hlapi.v3arch.asyncio import (
-            SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
+            CommunityData, UdpTransportTarget, ContextData,
             ObjectType, ObjectIdentity, walk_cmd)
         try:
             from pysnmp.hlapi.v3arch.asyncio import bulk_walk_cmd as _bw
@@ -2323,7 +2323,7 @@ async def snmp_get_api(payload: dict):
     mode = (payload.get("mode") or "auto").lower()   # auto(GET→없으면 WALK) | get | walk
     try:
         from pysnmp.hlapi.v3arch.asyncio import (
-            SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
+            CommunityData, UdpTransportTarget, ContextData,
             ObjectType, ObjectIdentity, get_cmd, walk_cmd)
         try:
             from pysnmp.hlapi.v3arch.asyncio import bulk_walk_cmd as _bulk_walk_cmd
@@ -2432,10 +2432,9 @@ async def snmp_set_api(payload: dict):
         return {"ok": False, "error": "host(IP)가 없습니다", "output": ""}
     if not oid:
         return {"ok": False, "error": "OID가 없습니다", "output": ""}
-    mp = 0 if ver == "v1" else 1
     try:
         from pysnmp.hlapi.v3arch.asyncio import (
-            SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
+            CommunityData, UdpTransportTarget, ContextData,
             ObjectType, ObjectIdentity, set_cmd)
         from pysnmp.proto.rfc1902 import Integer32, OctetString, Unsigned32, IpAddress, Counter32, Gauge32, TimeTicks
         def _mkval(tt, val):

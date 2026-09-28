@@ -1857,7 +1857,7 @@ async def issues_get(project: str):
 async def issues_sync(payload: dict):
     """프로젝트 이슈를 Jira에서 가져와 utop에 저장. 마지막 마커 이후 변경분만(증분), full=True면 전체."""
     from datetime import datetime as _dt, timedelta as _td
-    projects = [str(x) for x in (payload.get("projects") or []) if str(x).strip()]
+    project = str(payload.get("project") or "").strip()
     if not project:
         return {"ok": False, "error": "프로젝트가 없습니다"}
     fields = str(payload.get("fields") or "summary,status,issuetype,assignee,priority,updated")
