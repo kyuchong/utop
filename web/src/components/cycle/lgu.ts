@@ -458,7 +458,9 @@ const val = (t: string, cs = 1, extra = '') =>
   `<td colspan="${cs}" style="border:${BD};padding:5px 8px;font-size:11.5px;${extra}">${t}</td>`
 
 const COLG =
-  '<colgroup><col style="width:6%"><col style="width:23%"><col style="width:6%"><col style="width:15%"><col style="width:8%"><col style="width:42%"></colgroup>'
+  /* 열 폭은 고객사 PPTX 양식 실측에 맞춘다(지적: 미리보기와 다운로드가
+   다름) — TC_ID 값 칸이 좁아 긴 키는 양식처럼 두 줄로 꺾인다. */
+  '<colgroup><col style="width:6%"><col style="width:9%"><col style="width:6%"><col style="width:26%"><col style="width:8%"><col style="width:45%"></colgroup>'
 
 const LOGO =
   '<span style="font-family:Arial,Helvetica,sans-serif;font-weight:800;font-size:23px;color:#A50034;letter-spacing:-0.5px;">LG U<span style="color:#E6007E;font-size:15px;vertical-align:super;font-weight:800;">+</span></span>'

@@ -32,12 +32,15 @@ class Spot:
     이름으로 찾으면 양식이 조금만 바뀌어도 엉뚱한 데를 채운다.
     """
 
-    def __init__(self, tbl: int, row: int, col: int, keep: bool = False):
+    def __init__(self, tbl: int, row: int, col: int, keep: bool = False, left: bool = False):
         self.tbl = tbl
         self.row = row
         self.col = col
         # 원래 글자를 지우지 않고 뒤에 잇는다(제목 칸처럼 라벨이 붙은 자리)
         self.keep = keep
+        # 본문 칸은 왼쪽·위 정렬로 — 견본이 가운데 정렬을 박아 두어 채운
+        # 글이 밀려 보였다(지적: 미리보기와 다름)
+        self.left = left
 
 
 # 고객사별 양식.
@@ -58,13 +61,13 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "req_id": Spot(0, 0, 4),
             "tc_name": Spot(0, 0, 6),
             # 3행 왼쪽 — 시험 규격
-            "spec": Spot(0, 2, 0),
+            "spec": Spot(0, 2, 0, left=True),
             # 5행 왼쪽 — 시험 방법
-            "method": Spot(0, 4, 0),
+            "method": Spot(0, 4, 0, left=True),
             # 5행 오른쪽 — 시험 결과 (첫 장은 「뒷면 참조」)
             "result_head": Spot(0, 4, 6),
             # 6행 — 비고
-            "note": Spot(0, 5, 2),
+            "note": Spot(0, 5, 2, left=True),
         },
         # 이어지는 장 — 2행은 「시험 결과」 **제목띠**이고 본문은 3행이다.
         # 3행 하나가 높이 11.78cm 로 가로 8칸이 통째로 합쳐진 한 판이라,
@@ -74,8 +77,8 @@ TEMPLATES: dict[str, dict[str, Any]] = {
             "tc_id": Spot(0, 0, 1),
             "req_id": Spot(0, 0, 4),
             "tc_name": Spot(0, 0, 6),
-            "result": Spot(0, 2, 0),
-            "note": Spot(0, 3, 2),
+            "result": Spot(0, 2, 0, left=True),
+            "note": Spot(0, 3, 2, left=True),
         },
         # 이어지는 장의 결과 판이 담는 줄 수. 넘으면 장을 하나 더 만든다.
         "more_lines": 34,
@@ -194,7 +197,7 @@ def _first_run(para):
     return para.runs[0] if para.runs else None
 
 
-def set_text(cell, text: str, keep: bool = False) -> None:
+def set_text(cell, text: str, keep: bool = False, left: bool = False) -> None:
     """
     칸에 글자를 넣되 **서식을 지키며** 넣는다.
 
@@ -204,6 +207,16 @@ def set_text(cell, text: str, keep: bool = False) -> None:
     """
     tf = cell.text_frame
     lines = str(text or "").split("\n")
+    if left:
+        # 본문 칸 — 견본의 가운데 정렬을 왼쪽·위로 되돌린다(지적: 미리보기와
+        # 어긋남). 글꼴·크기는 그대로다.
+        try:
+            from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+            cell.vertical_anchor = MSO_ANCHOR.TOP
+            for _p in tf.paragraphs:
+                _p.alignment = PP_ALIGN.LEFT
+        except Exception:
+            pass
     base = tf.paragraphs[0]
     run = _first_run(base)
     if run is None:
@@ -276,7 +289,7 @@ def fill(slide, spots: dict[str, Spot], values: dict[str, str]) -> None:
             cell = tbl.cell(sp.row, sp.col)
         except Exception:
             continue
-        set_text(cell, values[name], sp.keep)
+        set_text(cell, values[name], sp.keep, sp.left)
 
 
 def safe(s: str) -> str:
