@@ -480,10 +480,12 @@ const pageHead = (ttl: string) =>
   `</div></div>` +
   `<div style="border-bottom:3px solid #111;"></div><div style="border-bottom:1.4px solid #111;margin-top:2px;margin-bottom:11px;"></div>`
 
-/** 바닥 — 양식의 법적 문구와 쪽번호. 흐름 안에 둔다 —
-    절대배치로 띄웠더니 내용이 길면 표 위를 줄이 가로질렀다. */
+/** 바닥 — 양식의 법적 문구와 쪽번호. **바닥에 절대 고정**한다(지적:
+    환경에 따라 표가 살짝 넘치면 흐름 배치의 바닥이 overflow 에 먹혀
+    선·쪽번호가 사라졌다). 예전 절대배치의 「선이 표를 가로지름」 은
+    콘텐츠를 바닥 위에서 클립(buildSlides 의 높이 예산)해 막는다. */
 const pageFoot = (no: number) =>
-  `<div style="margin-top:4px;">` +
+  `<div style="position:absolute;left:0;right:0;bottom:0;background:#fff;">` +
   `<div style="text-align:right;font-size:12px;color:#111;margin-bottom:2px;">${no}</div>` +
   `<div style="border-top:3px solid #111;"></div><div style="border-top:1.4px solid #111;margin-top:2px;"></div>` +
   `<div style="font-size:9.5px;color:#333;margin-top:2px;">본 문서는 LG U+이 모든 지적재산권을 소유하고 있사오니, 해당 문서를 무단으로 전재/복사/변조/재배포 하지 마시기 바라며, 이를 위반할 경우 모든 법적 책임은 귀사에 있음을 알려드립니다</div>` +
@@ -655,6 +657,13 @@ export function buildSlides(tcs: LguTc[]): string[] {
     for (const range of r.method) out.push(page1(tc, range))
     for (const range of r.result) out.push(page2(tc, range))
   }
-  // 쪽번호·법적 문구 바닥 — 장 전체 번호는 다 모은 뒤에야 안다
-  return out.map((html, i) => `<div>${html}${pageFoot(i + 1)}</div>`)
+  // 쪽번호·법적 문구 바닥 — 장 전체 번호는 다 모은 뒤에야 안다.
+  // 콘텐츠는 672px 에서 클립(바닥 40px 예약) — 표가 넘쳐도 바닥을 못
+  // 가로지르고, 바닥은 절대 고정이라 항상 보인다. 정상 장은 656px 실측.
+  return out.map(
+    (html, i) =>
+      `<div style="position:relative;height:712px;">` +
+      `<div style="height:672px;overflow:hidden;">${html}</div>` +
+      `${pageFoot(i + 1)}</div>`,
+  )
 }
