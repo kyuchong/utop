@@ -45,6 +45,7 @@ CHECKS: list[tuple[str, list[str]]] = [
     ("py_compile backend/routes/ai.py", [PY, "-m", "py_compile", str(ROOT / "backend" / "routes" / "ai.py")]),
     ("py_compile backend/routes/nl_test.py", [PY, "-m", "py_compile", str(ROOT / "backend" / "routes" / "nl_test.py")]),
     ("py_compile backend/routes/cycle.py", [PY, "-m", "py_compile", str(ROOT / "backend" / "routes" / "cycle.py")]),
+    ("py_compile backend/routes/tc_req.py", [PY, "-m", "py_compile", str(ROOT / "backend" / "routes" / "tc_req.py")]),
     ("py_compile scripts/launcher.py", [PY, "-m", "py_compile", str(ROOT / "scripts" / "launcher.py")]),
     ("api-reference.md 드리프트",     [PY, str(ROOT / "tools" / "gen_api_docs.py"), "--check"]),
     ("eslint globals 드리프트",       [PY, str(ROOT / "tools" / "gen_eslint_globals.py"), "--check"]),

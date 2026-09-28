@@ -242,3 +242,18 @@ MAIL_BAD_URL: Any = None
 
 def user_name_of(*a, **k):
     raise RuntimeError('core 가 아직 매이지 않았습니다: user_name_of')
+
+
+# ── tc_req 묶음(routes/tc_req.py)이 쓰는 것 — main 이 bind 로 채운다 ──
+
+CUSTOM_FIELDS_FILE: Any = None
+
+REQ_DIR: Any = None
+
+TC_DIR: Any = None
+
+TRASH_DIR: Any = None
+
+FOLDERS_FILE: Any = None
+
+IMG_EXT: Any = None
