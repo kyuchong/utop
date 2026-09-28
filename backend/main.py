@@ -3619,7 +3619,7 @@ async def cov_chat(payload: dict):
         "세우고 고르는 것은 사람이다. answer 는 왜 그것인지 한 줄만. "
         '예) 「시험 항목 추천해 줘」 → {"test": false, "answer": "기본 상태 확인부터 '
         '권합니다", "suggest_tc": "E61xx-T0001,E61xx-T0004", "model": "E6100", '
-        '"show": "", "state": "", "pick_dev": "", "pick_tc": "", "run": false}. 
+        '"show": "", "state": "", "pick_dev": "", "pick_tc": "", "run": false}. '
         "「~항목이 있어?」 처럼 **있는지 묻기만 한 말**에는 pick 을 적지 않는다 — "
         "answer 로 있는지만 답한다. 다만 「~찾아 줘」·「~항목 보여 줘」 처럼 **검색을 "
         "요청**한 말에는 pick_tc 에 찾는 말(질문에 등장한 글자)을 적는다 — 화면이 "

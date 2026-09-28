@@ -2568,8 +2568,7 @@ export default function AskBar({ devices }: Props) {
         /* ── 자연어 선택(지적: 말로만 「선택했습니다」 하고 실제론 안 골랐다) —
            LLM 은 신호(pick_dev·pick_tc)만 주고, **실제 장비·항목 목록과
            대조해 화면이 고른다.** 목록에 없으면 없다고 말한다(환각 차단). */
-        if (pd || pt) {
-          /* 추천 요청(지적: 추천하면 항목 선택이 안 됨) — LLM 이 고른 항목을
+        /* 추천 요청(지적: 추천하면 항목 선택이 안 됨) — LLM 이 고른 항목을
            **카드로 세운다.** 값은 실제 목록과 대조하고, 확정은 클릭이다. */
         const sg = String(chat.suggest_tc ?? '').trim()
         if (sg && !pd && !pt) {
@@ -2600,6 +2599,7 @@ export default function AskBar({ devices }: Props) {
           setFlowAt(0)
           return
         }
+        if (pd || pt) {
         /* ── 자연어 선택(지시: **무조건 한 번 체크**) — 말은 절대 확정하지
              않는다. IP·TC키를 콕 집어도 **카드 한 장**으로 확인받고, 클릭이
              곧 확정이다. 한 번의 질문에는 한 단계만 — 장비 카드가 서면
