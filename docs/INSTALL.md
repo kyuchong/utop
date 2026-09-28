@@ -1,3 +1,8 @@
+> ⚠️ 이 문서는 과거 기록입니다 (도커 이전·main.py 한 파일 시절). 지금 구조는 [architecture.md](architecture.md), 문서 목록은 [README.md](README.md).
+
+> **2026-09-29 안내 — 이 문서는 옛 방식(윈도우 venv 로컬 설치)이다.** 지금은 도커 하나로 뜬다:
+> 루트 [README.md](../README.md) 의 「빠른 시작」 을 따르라. 도커를 쓸 수 없는 PC 에서만 이 문서를 참고한다.
+
 # UTOP (NetTest Automation) 설치 매뉴얼
 
 유비쿼스 네트워크 장비 시험 자동화 툴 — Windows 로컬 설치 가이드.

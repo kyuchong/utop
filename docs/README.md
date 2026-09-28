@@ -1,76 +1,31 @@
-# NetTest Automation
+# docs/ — 무엇을 어디서 읽나
 
-유비쿼스 네트워크 장비 시험 자동화 툴 (Claude AI 연동)
+설치·실행은 저장소 루트의 [README.md](../README.md) 가 정본이다(도커 하나로 뜬다). 여기는 그 다음에 읽을 것들이다.
 
-## 설치 및 실행
+## 지금 것 (코드와 같이 고친다)
 
-### 1. 압축 해제
-원하는 폴더에 압축을 풀어주세요.
+| 문서 | 내용 |
+|---|---|
+| [AGENTS.md](AGENTS.md) | 새 세션이 먼저 읽는 것 — 원칙·검증 방법·참조 문서 |
+| [features/](features/README.md) | **기능별 문서** — 화면 묶음 하나에 한 편. SETUP 도움말로 실릴 것. 각 편에 `tools/smoke.sh <묶음>` 동작 확인이 붙어 있다 |
+| [architecture.md](architecture.md) | 도커 서비스 다섯 개, backend/routes 구조, main↔routes 접합 규칙, 데이터 흐름 |
+| [api-reference.md](api-reference.md) | 라우트 전체 목록. `tools/gen_api_docs.py` 가 만든다 — 직접 고치지 않는다 |
+| [data-model.md](data-model.md) | PostgreSQL 표·app_kv 요약 (정본은 `db/schema.sql`) |
+| [conventions.md](conventions.md) | 판정기준 문법, 개발 규칙, 시크릿·커밋 규칙 |
+| [RUN_SERVER.md](RUN_SERVER.md) | 실행기(runner) 구조와 다른 PC 에 두는 법 |
+| [N2X_RELAY.md](N2X_RELAY.md) | IXIA N2X 윈도우 중계 |
+| [backup.md](backup.md) | 백업·복원 |
+| [coverage-ai-chat-rules.md](coverage-ai-chat-rules.md) | Coverage AI 대화 규칙 |
+| [CURRENT_TASK.md](CURRENT_TASK.md) | 지금 진행 중·다음 할 일 |
+| [../harness/bugs.md](../harness/bugs.md) | 알려진 결함·부채 대장 |
 
-### 2. API 키 설정
-`.env.example` 파일을 복사해서 `.env` 로 이름 변경 후 API 키 입력:
-```
-ANTHROPIC_API_KEY=sk-ant-여기에_API_키_입력
-```
+## 기록 (그때 그대로 둔다 — 지금 구조와 다르다)
 
-### 3. 실행
-`start.bat` 더블클릭 또는 CMD에서:
-```
-start.bat
-```
+도커 이전, main.py 한 파일 시절의 계획과 정리다. 지금 코드를 설명하지 않으니 참고만 한다.
 
-### 4. 접속
-브라우저에서 http://localhost:8000 접속
-
----
-
-## 폴더 구조
-```
-nettest/
-├── backend/
-│   └── main.py          ← FastAPI 서버
-├── frontend/
-│   └── index.html       ← 웹 UI
-├── data/
-│   ├── devices/
-│   │   └── devices.json ← 장비 목록 (자동 저장)
-│   ├── procedures/
-│   │   └── procedures.json ← 시험 절차 (자동 저장)
-│   └── results/         ← 시험 결과 자동 저장
-├── requirements.txt
-├── start.bat            ← Windows 실행 스크립트
-└── .env                 ← API 키 설정 (직접 생성)
-```
-
----
-
-## 주요 기능
-
-| 기능 | 설명 |
-|------|------|
-| 장비 관리 | 제품군/모델 트리 구조, SSH/Telnet/TCL 연결 상태 확인 |
-| 터미널 | 장비 선택 후 CLI 명령 직접 실행 |
-| 시험 절차 | 제품군/모델별 절차 등록/저장/재활용 |
-| 시험 실행 | 절차 선택 후 자동 실행, 실시간 단계별 결과 |
-| 결과 리포트 | PASS/FAIL 결과 자동 저장 및 조회 |
-| Claude 채팅 | 장비 설정 방법, 시험 시나리오 문의 |
-
----
-
-## N2X TCL 연동
-
-N2X 7.9 TCL 스크립트는 `backend/` 폴더에 `.tcl` 파일로 저장 후
-시험 절차 단계에서 타입을 `TCL`, 명령에 파일명을 입력하세요.
-
-tclsh가 PATH에 있어야 합니다:
-```
-C:\Program Files\Agilent\N2X\bin\tclsh.exe
-```
-
----
-
-## 필요 환경
-
-- Python 3.10 이상
-- Windows 10/11
-- Anthropic API 키 (Claude 채팅 기능 사용 시)
+- [INSTALL.md](INSTALL.md) — 윈도우 venv 로컬 설치(2026-06). 지금은 도커
+- [CHANGELOG.md](CHANGELOG.md) · [SESSION_SUMMARY.md](SESSION_SUMMARY.md) · [BUG_REPORT.md](BUG_REPORT.md)
+- [REFACTORING_PLAN.md](REFACTORING_PLAN.md) · [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md) · [SERVER_RUN_PLAN.md](SERVER_RUN_PLAN.md)
+- [migration-log.md](migration-log.md) · [migration-summary.md](migration-summary.md) — JSON 파일 → PostgreSQL 이관
+- [tests-crud-audit-20260721.md](tests-crud-audit-20260721.md)
+- [UTOP_기능목록_및_개발요구사항.md](UTOP_기능목록_및_개발요구사항.md)

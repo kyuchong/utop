@@ -87,12 +87,14 @@ utop/
 │   ├── stc/               Spirent TestCenter 연동
 │   └── n2x/               IXIA N2X Tcl
 │
-├── web/                 새 UI — React + TypeScript + Vite
-├── frontend/            기존 UI — 화면을 web/ 로 옮기는 중
+├── web/                 UI — React + TypeScript + Vite (nginx 가 제공, /api·/ws 는 api 로)
+├── runner/              사이클 실행기 — web 의 runner.ts·judge.ts 를 Node 로 묶음
+├── frontend/            옛 UI — 게시판·할일·도움말·리소스만 남았다
 │
 ├── db/schema.sql        PostgreSQL 스키마 (최초 기동 시 자동 적용)
-├── tools/               개발 도구 (백업·검증·문서 생성)
-└── docs/                문서
+├── tests/               파이썬 테스트(옛 판정기) · smoke/ 기능별 동작 확인 대본
+├── tools/               개발 도구 — verify.sh(회귀 검사) · smoke.sh(기능별 동작 확인) · 백업·문서 생성
+└── docs/                문서 — docs/README.md 가 목록, docs/features/ 가 기능별 도움말
 ```
 
 ### 데이터는 소스 트리에 쌓이지 않는다
@@ -133,16 +135,16 @@ npm run dev                   # http://localhost:5173
 
 API 를 직접 찔러볼 때는 http://localhost:8000/docs 를 쓴다.
 
-> 백엔드 포트는 127.0.0.1 에만 묶여 있다. 아직 라우트에 인증이 없어서
-> 0.0.0.0 으로 열면 같은 네트워크의 다른 PC 가 그대로 호출할 수 있다.
-> 인증을 붙이기 전에는 넓히지 말 것.
+> 백엔드 포트는 기본으로 호스트에 열지 않는다(compose 의 api.ports 주석). `/api/*` 는 로그인 세션이 없으면 401 이지만,
+> /docs 와 공개 경로가 그대로 드러나므로 디버깅할 때만 잠깐 127.0.0.1 로 열고 다시 닫는다.
 
 ### 검사
 
 ```bash
-python tools/verify.py     # py_compile · 린트 · 테스트 · 문서 드리프트
+./tools/verify.sh          # api 이미지 안에서 py_compile · 린트 · 테스트 · 문서 드리프트 (이 PC 에 파이썬 의존성 불필요)
 cd web && npm run typecheck
 cd web && npm test         # 판정기 정답표 (judge.test.ts) — 도커 빌드도 이걸 먼저 돈다
+./tools/smoke.sh           # 빈 DB 위에 새 api 를 띄워 기능별 길을 실제로 부른다 (약 5분, 운영 DB 안 건드림)
 ```
 
 판정기(`web/src/components/tc/judge.ts`)는 화면과 runner 가 함께 쓰는 **한 벌**이다. 규칙을 고치면
@@ -153,11 +155,18 @@ cd web && npm test         # 판정기 정답표 (judge.test.ts) — 도커 빌�
 
 ## 화면 이관 현황
 
-새 UI(`web/`)로 옮긴 화면만 나온다.
-아직 안 옮긴 화면은 기존 UI 에 남아 있다.
+새 UI(`web/`)가 거의 전부다. 옛 UI(`frontend/`, Vanilla JS)에 남은 화면만 적는다.
 
-| 화면 | 상태 |
+| 어디 | 화면 |
 |---|---|
+| 새 UI (web/) | Dashboard · WIKI · REQ-Coverage(요구사항·시험 항목) · Cycles(실행·판정·결과 메일·결과서) · Devices · Traffic Gen · Rack View · Defects · Jira Issue · Releases · Test AI · Knowledge AI · Settings |
+| 옛 UI (frontend/) | 게시판 · 할일 · 도움말 · 리소스(인력·프로젝트) — api 컨테이너가 `/` 로 아직 제공한다 |
+
+화면을 하나 옮길 때마다 `web/src/pages/` 에 파일을 추가하고
+`web/src/components/Layout.tsx` 의 `NAV` 와 `web/src/App.tsx` 분기에 한 줄씩 넣는다.
+옛 UI 의 마지막 화면을 옮기면 `backend/main.py` 의 `/static`·`/` 마운트와 `backend/Dockerfile` 의 `COPY frontend/` 를 함께 지운다.
+
+---|---|
 | Requirements → TC 연결 · 분류(2단) · 생성/편집/삭제 | 이관 완료 |
 | Test Cases 목록 · 생성/편집/삭제 | 이관 완료 (스텝 편집은 아직) |
 | 그 외 | 기존 UI 사용 |

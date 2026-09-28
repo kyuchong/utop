@@ -1,5 +1,7 @@
 # Tests 페이지 CRUD 감사 결과 (2026-07-21)
 
+> ⚠️ 이 문서는 과거 기록입니다 (도커 이전·main.py 한 파일 시절). 지금 구조는 [architecture.md](architecture.md), 문서 목록은 [README.md](README.md).
+
 Requirements & Test Coverage (explorer3, explorer3-beta) 의 REQ / TC / Step / Query / 폴더 CRUD 감사. 확실히 문제 있는 것만 우선순위별로 정리.
 
 ---

@@ -92,12 +92,13 @@ Cycle 결과의 step 에는 `result`, `reason`, `output`, `pass_criteria` 를 �
 - `device` / `device_access` 테이블에는 실제 IP, username, password, enable password 가 평문으로 들어간다(2026-08-02 결정). DB 덤프를 외부로 공유하거나 커밋하지 않는다. 장비 CSV 내보내기는 기본적으로 비밀번호를 뺀다.
 - `backend/main.py` 의 `ssh_exec` 이름은 남아 있지만 내부 구현은 Netmiko 이다. 호출부 호환성을 위해 이름을 쉽게 바꾸지 않는다.
 - Netmiko 는 내부적으로 Paramiko 를 사용하므로 warning 에 Paramiko 가 보일 수 있다. 앱 코드에서 직접 Paramiko 를 쓰는 것은 피한다.
-- `scripts/launcher.py` 는 서버 프로세스 종료 처리와 연관되어 있다. Ctrl+C, 창 닫기, 서버 중지 동작을 깨뜨리지 않도록 주의한다.
+- `scripts/launcher.py` 는 도커 이전의 윈도우 런처다. 도커에서는 쓰이지 않는다.
+- **백엔드 라우트 파일(`backend/routes/*.py`)은 main 을 거꾸로 부르지 않는다.** main 의 것은 `core.X`(부를 때 찾기), 다른 routes 의 것은 `from routes import jira` 처럼 직접. 옮긴 코드의 `__file__` 기준 경로는 `backend/` 를 가리키는지 확인한다(3호에서 7곳이 어긋났다).
 - `data/baselines/` 는 [제거 예정](../harness/bugs.md#removal-0001). 실제 저장 파일 0개. 새 파일 생성 금지.
 - Baseline 관련 API (`/api/baselines/...`) 는 [제거 예정](../harness/bugs.md#removal-0001). 신규 참조 금지.
 - 예외를 삼키지 않는다. `except Exception: pass` 대신 최소한 `print(f"[모듈.함수] 실패: {e}", flush=True)` 로 로그를 남긴다. device_catalog 회귀가 이 패턴으로 은폐된 사례가 있다.
-- `frontend/index.html` 은 여러 script 를 로드하는 진입점이다. 개별 로직 수정은 해당 `static/js/<탑메뉴>/*.js` 에서 한다.
-- **JS 는 탑메뉴(topnav) 기준 폴더**에 둔다 — `_shared/` `dashboard/` `tests/` `reports/` `cycles/` `resources/` `system/` `board/` `todo/`. 폴더가 곧 담당 메뉴다. 파일을 옮기면 `index.html` 의 `<script src>` 와 `eslint-suppressions.json` 키를 같이 고친다.
+- (옛 UI 전용 — 새 화면은 `web/src/pages/` 에 만든다) `frontend/index.html` 은 여러 script 를 로드하는 진입점이다. 개별 로직 수정은 해당 `static/js/<탑메뉴>/*.js` 에서 한다.
+- (옛 UI 전용) **JS 는 탑메뉴(topnav) 기준 폴더**에 둔다 — `_shared/` `dashboard/` `tests/` `reports/` `cycles/` `resources/` `system/` `board/` `todo/`. 폴더가 곧 담당 메뉴다. 파일을 옮기면 `index.html` 의 `<script src>` 와 `eslint-suppressions.json` 키를 같이 고친다.
 - **`data/` 루트에 파일을 새로 만들지 않는다.** 설정은 `data/config/`, 외부 연동은 `data/integrations/`, 런타임 상태는 `data/state/`, MIB 추출물은 `data/snmp/`. `data/` 구조를 바꾸면 `.gitignore` 의 경로도 반드시 같이 고친다 — 경로가 어긋나면 토큰이 든 파일이 조용히 추적 대상이 된다.
 - **`backend/stc/*.py` 는 대부분 subprocess 로 독립 실행**된다(`__main__` 있음). 실행 시 `sys.path[0]` 이 `backend/stc` 라 형제 import(`from stc_traffic import ...`)가 동작한다. 파일을 흩으면 깨지므로 같이 움직여야 한다. `stc_live.py` 만 main.py 가 `from stc.stc_live import StcLive` 로 import 하고, 그래서 `stc/__init__.py` 가 있다. `stc_resv_registry.json` 은 모듈이 `os.path.dirname(__file__)` 로 찾으므로 .py 와 같은 폴더에 있어야 한다.
 - **`.tcl` 중 코드가 부르는 것은 `n2x/n2x_daemon.tcl` 하나**뿐이다(`main.py` 의 `N2X_DAEMON`). 나머지 6개는 수동 실행용이라 참조가 없다.

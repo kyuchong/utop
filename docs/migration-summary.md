@@ -1,5 +1,7 @@
 # Migration Summary — nettest → 현재 프로젝트
 
+> ⚠️ 이 문서는 과거 기록입니다 (도커 이전·main.py 한 파일 시절). 지금 구조는 [architecture.md](architecture.md), 문서 목록은 [README.md](README.md).
+
 최종 갱신: 2026-06-10
 
 ## 0. 분석 요약

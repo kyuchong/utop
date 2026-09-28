@@ -1,112 +1,34 @@
 # CURRENT_TASK.md
 
-이 문서는 현재 프로젝트 상태와 진행 중인 작업을 추적하기 위한 문서이다. 새 작업을 시작할 때 읽고, 작업이 끝나면 최신 상태로 갱신한다.
+여러 세션에 걸치는 일의 진행 상태. 새 작업을 시작할 때 읽고, 끝나면 갱신한다.
 
-마지막 업데이트: 2026-06-08
+마지막 업데이트: 2026-09-29
 
-## 현재 프로젝트 상태
+## 지금 상태
 
-- FastAPI + Vanilla JS 기반 로컬 네트워크 시험 자동화 도구가 동작 중이다.
-- 데이터는 `data/` 하위 JSON 파일에 저장된다.
-- 장비 자동 CLI 실행은 Netmiko 기반으로 전환되었다.
-- TC Cycle 자동 실행: Netmiko SSH → enable 모드 → CLI 실행 → 판정기준 P/F → PPTX 생성.
-- 판정기준 UI는 메뉴형 rule builder로 개선되었다.
-- 일반 사용 메뉴: `출력에 포함(contains)`, `모두 포함(contains_all)`, `포함되면 실패(not_contains)`, `Baseline 비교(baseline:)`.
-- 내부 판정 로직은 기존 데이터 호환을 위해 `regex`, `interface_connected`도 해석 가능하지만 신규 UI 메뉴에서는 숨김 처리되어 있다.
-- Baseline 관리 기능: 장비별 CLI 결과를 사전 저장하고 판정기준(`baseline:key`)으로 비교.
-- Baseline 판정기준 선택 시 현재 저장된 Baseline 출력 미리보기와 수정 진입을 지원한다.
-- REQ/TC 관리: 동작 시나리오 추가/삭제 시 TC 자동 생성·동기화.
-- Requirements & Test Coverage 화면은 폴더/REQ/TC 3열 구조이며, 폴더 드래그앤드랍, REQ/TC 상세 탭, Test Procedure 편집을 지원한다.
-- Dashboard의 시험항목 Dashboard는 실행 중 시험 목록(WebSocket)과 실행한 시험 목록(5초 갱신, 최근 20개 표시)을 제공한다.
-- 프로젝트 관리 문서 4종 운영 중.
+- 도커 compose 다섯 서비스(db·adminer·api·web·runner)로 돈다. 접속 http://<서버>:9000. 213 이 운영, 253 은 `update.sh` 로 받는다.
+- 백엔드 `main.py` 는 2026-09-28 에 여섯 묶음(`routes/wiki·jira·devices·ai·nl_test·cycle·tc_req`)으로 나눴다.
+  24,417줄 → 4,999줄. 주소는 하나도 안 바뀌었다. 방식은 [architecture.md](architecture.md) 「main.py 와 routes/ 의 관계」.
+- 판정기 `web/src/components/tc/judge.ts` 에 정답표(`judge.test.ts`, 명세 38 + 실제 기록 21)가 생겼고 web 도커 빌드가 먼저 돈다(2026-09-29).
+- 옛 파이썬 판정기의 BUG-0002(여러 줄 기준 폴백)는 고쳤다. BUG-0001(단어 경계)은 xfail 로 남아 있다.
+- 기능별 문서 [features/](features/README.md) 일곱 편과 기능별 동작 확인 `tools/smoke.sh`(빈 DB 스택에 실호출, `tests/smoke/*`)가 생겼다(2026-09-29).
+  문서는 SETUP 하위 도움말로 실릴 예정 — 기능을 고치면 그 편과 대본을 같이 고친다.
+- 회귀 검사는 `tools/verify.sh`(api 이미지 안에서 verify.py). 문서 경로·API 문서 드리프트·ruff·pytest·하네스 전부 통과 상태다.
 
-## 최근 완료 작업
-
-- Dashboard 시험항목 Dashboard 구현 및 개선:
-  - 실행 중인 시험 목록 WebSocket 실시간 표시.
-  - 실행한 시험 목록에 TC Cycle 결과와 Test Run 결과를 함께 표시.
-  - 실행한 시험 목록은 서버 부담을 고려해 5초 주기 갱신, 최근 20개만 표시.
-- Requirements & Test Coverage UI 개선:
-  - `Test Environments` 탭의 시험 구성도 라벨 제거로 구성도 영역 전체 너비 사용.
-  - Test Procedure 판정기준 입력을 메뉴형 UI로 변경.
-  - Baseline 비교 선택 시 Baseline picker 자동 실행.
-  - 기존 Baseline 기준 클릭 시 현재 장비/키/출력 미리보기 자동 선택.
-  - Baseline picker에서 현재 Baseline 출력 미리보기와 수정 버튼 제공.
-- 판정기준 UI에서 난이도가 높은 `정규식 일치`와 불필요한 `Interface 모두 Connect` 메뉴 제거.
-- TC Summary가 시나리오 제목 변경 시 자동 갱신되지 않던 문제 수정.
-- Baseline 비교 판정기준 기능 추가 (backend API + frontend UI 전체).
-- Baseline 관리 페이지 오류("bls.map is not a function") 수정.
-- Baseline 공백 정규화: 내부 공백·탭도 단일 공백으로 처리.
-- 동작 시나리오 추가 시 tc4-body에 TC가 반영되지 않던 문제 수정.
-- 시나리오·TC 삭제 후 재추가 시 SC ID 충돌로 엉뚱한 TC가 매핑되던 버그 수정.
-- TC Cycle 목록에서 같은 버전이 여러 개일 때 날짜/TC 수를 같이 표시하도록 개선.
-- 새 Cycle 생성 시 기존 Cycle ID와 충돌하면 suffix를 붙여 덮어쓰지 않도록 수정.
-- TC Cycle 상세 화면에서 기존 TC를 추가할 수 있는 기능 추가.
-
-## 진행 중인 작업
+## 진행 중
 
 - 없음.
 
-## 다음 작업 예정
+## 다음 할 일
 
-- 실제 브라우저에서 Test Procedure 판정기준 메뉴 추가/삭제/저장 흐름 확인.
-- 실제 브라우저에서 Baseline picker의 현재 선택 유지, 미리보기, 수정 흐름 확인.
-- Dashboard 실행 중 목록과 실행한 시험 목록이 실제 장비 실행 중 안정적으로 갱신되는지 확인.
-- 실제 브라우저에서 TC Cycle 중복 버전 선택과 기존 TC 추가 흐름 확인.
-- 실제 브라우저에서 Baseline 캡처·비교 흐름 확인.
-- Cycle 실행 시 `baseline:` 판정기준 PASS/FAIL 동작 확인.
-- 장비별 Netmiko profile 관리 구조 검토.
-- 판정기준 rule builder UI 검토.
-- PPTX 결과 양식 개선 검토.
-- 민감정보 저장 방식 개선 검토.
+- **옛 UI 잔재 정리.** `frontend/` 에 새 UI 로 안 옮긴 화면이 넷 남았다 — 게시판(`/api/board`)·할일(`/api/todo`)·도움말(`/api/help`)·리소스(인력·프로젝트, `/api/resource`).
+  옮기면 `main.py` 의 `/static`·`/` 마운트, `backend/Dockerfile` 의 `COPY frontend/`, `.dockerignore` 주석, `tools/verify.py` 의 프론트 린트를 함께 걷는다.
+- **engine.py 의 죽은 경로.** `data/tc`·`data/cycle`·`baselines` 폴더를 만드는 코드와 Baseline 기능([REMOVAL-0001](../harness/bugs.md#removal-0001)) 제거.
+- **옛 결함 둘.** `routes/jira.py` 의 `issues_sync` 안 미정의 이름 `project`(호출되면 NameError), `routes/nl_test.py` 518~549줄의 함수 밖으로 밀린 죽은 조각.
+- **판정기 정답표 키우기.** DB 에 기준 있는 실행 스텝이 32건뿐이었다. 사이클이 쌓이면 같은 SQL 로 다시 뽑아 `__fixtures__/judge-cases.json` 을 늘린다.
+- **web 의 큰 파일.** `pages/Cycles.css` 11,000줄, `components/cycle/AskBar.tsx` 7,300줄. 짝 없는 CSS(`Requirements.css`·`RunsBoard.css`)와 데모 HTML 12개 정리.
 
-## 발견된 버그 (이력)
+## 하지 않기로 한 것
 
-- Test Procedure에서 기준 추가 시 빈 기준이 사라짐 → `contains:` 빈 기준도 보존하도록 수정 완료.
-- Baseline 기준 클릭 시 기존 선택값이 picker에 유지되지 않음 → 장비/키/미리보기 자동 선택으로 수정 완료.
-- Dashboard 실행한 시험 목록 1초 갱신은 서버 부담 가능 → 5초 주기로 조정 완료.
-- `enable_password` 빈 값 덮힘 → 수정 완료.
-- E5724RL enable 모드 필요 → enable 진입 로직 추가 완료.
-- 구버전 Cycle 결과 reason/pass_criteria 누락 → 신규 저장부터 포함, UI fallback 제거 완료.
-- TC Summary 시나리오 제목 비동기화 → `hasSCIdLink` 조건 추가 완료.
-- Baseline 관리 페이지 "bls.map is not a function" → `res.ok` 체크 + 타입 검증 추가 완료.
-- 시나리오 추가 시 tc4-body 미반영 → `addScenario` async 전환 + TC 생성 + `refreshTC4ForREQ` 완료.
-- 삭제 후 재추가 시 엉뚱한 TC 매핑 → SC 번호를 `max(기존)+1`로 계산하도록 수정 완료.
-- 같은 Cycle 버전이 여러 개일 때 목록에서 구분/선택이 어려움 → 중복 버전일 때 날짜와 TC 수 표시 완료.
-- 같은 모델/버전/날짜 Cycle 생성 시 기존 파일을 덮을 수 있음 → `uniqueCycleId` suffix 처리 완료.
-
-## 확인 필요한 사항
-
-- 실제 운영 장비별 Netmiko `device_type` 목록.
-- E5724RL 외 장비도 enable fallback이 필요한지 여부.
-- TC/REQ 데이터의 운영/샘플 구분.
-- 루트에 존재하는 API key로 보이는 파일의 처리 방침.
-- PPTX 템플릿 요구사항.
-- React 전환 필요 여부와 범위.
-
-## 우선순위 목록
-
-1. Test Procedure 판정기준 메뉴형 UI 브라우저 실동작 확인.
-2. Baseline picker 현재 선택 유지/미리보기/수정 흐름 확인.
-3. Dashboard 실행 중/실행 완료 목록 실시간성 확인.
-4. TC Cycle 중복 버전 선택 및 기존 TC 추가 브라우저 실동작 확인.
-5. 민감정보 관리 정책 수립.
-
-## 업데이트 템플릿
-
-새 작업 완료 시 아래 블록을 복사해 상단 또는 관련 섹션에 반영한다.
-
-```md
-### YYYY-MM-DD 업데이트
-
-- 완료:
-  - 
-- 진행 중:
-  - 
-- 다음:
-  - 
-- 발견된 문제:
-  - 
-- 확인 필요:
-  - 
-```
+- main.py 를 더 쪼개기 — 남은 것은 인증·사용자·조직·설정·게시판·알림·WebSocket 이라 한 파일이 맞다.
+- 판정기를 파이썬으로 다시 쓰기 — 두 벌이면 어긋난다. runner 가 TS 판정기를 그대로 쓴다.

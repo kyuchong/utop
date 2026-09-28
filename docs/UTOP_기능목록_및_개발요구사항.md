@@ -1,5 +1,7 @@
 # ubiQuoss-TOP 기능 목록 및 개발 요구사항 명세
 
+> ⚠️ 이 문서는 과거 기록입니다 (도커 이전·main.py 한 파일 시절). 지금 구조는 [architecture.md](architecture.md), 문서 목록은 [README.md](README.md).
+
 > **문서 기준**: 2026-07-21, `backend/main.py`(7,900+줄) · `frontend/`(45,000+줄) 소스 분석 기반
 > **플랫폼**: AI 연동 시험 자동화 플랫폼 (Ubiquoss Test Orchestration Platform)
 
