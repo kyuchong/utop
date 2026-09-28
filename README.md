@@ -74,7 +74,7 @@ utop/
 ├── backend/             FastAPI — 장비 제어·시험 실행·AI
 │   ├── main.py            라우트 대부분, WebSocket — 기능별로 routes/ 로 옮기는 중
 │   ├── core.py            나뉜 라우트 파일이 쓰는 공용 고리(broadcast·세션) — main 이 bind 로 채운다
-│   ├── routes/            기능별 라우트 묶음 (APIRouter). wiki.py(문서·Yjs·표) · jira.py(Jira·결함·릴리즈)
+│   ├── routes/            기능별 라우트 묶음 (APIRouter). wiki.py(문서·Yjs·표) · jira.py(Jira·결함·릴리즈) · devices.py(장비·카탈로그·랙·STC·N2X)
 │   ├── engine.py          사이클 실행, PPTX 리포트
 │   ├── db.py              PostgreSQL 접근 (asyncpg)
 │   ├── stc/               Spirent TestCenter 연동

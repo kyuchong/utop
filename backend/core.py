@@ -125,3 +125,29 @@ def user_id_of(*a, **k):
 
 async def jira_defect_defaults(*a, **k):
     raise RuntimeError('core 가 아직 매이지 않았습니다: jira_defect_defaults')
+
+
+# ── 장비 · 계측기 묶음(routes/devices.py)이 쓰는 것 — main 이 bind 로 채운다 ──
+
+DEVICES_FILE: Any = None
+
+def check_tcp(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: check_tcp')
+
+def check_ssh(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: check_ssh')
+
+def check_telnet(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: check_telnet')
+
+def ssh_exec(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: ssh_exec')
+
+def tcl_exec(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: tcl_exec')
+
+def who(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: who')
+
+def me(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: me')
