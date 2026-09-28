@@ -402,14 +402,15 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
           </b>
           <span className="sp" />
           {msg && <span className="muted small">{msg}</span>}
-          {/* 저장 단추들은 **오른쪽에 붙인다**(지시) — modal-head 가 자식을
-              벌려 놓아 단추 사이가 뿔뿔이 흩어졌다. 한 묶음으로 우측 정렬. */}
+          {/* 장수 표시는 가운데(지시), 저장 단추 묶음은 오른쪽(지시) —
+              양옆 스페이서가 가운데 자리를 잡아 준다. */}
+          {!loading && slides.length > 0 && (
+            <span className="rpt-cnt">
+              {cur} / {slides.length} 슬라이드
+            </span>
+          )}
+          <span className="sp" />
           <span className="rpt-acts">
-            {!loading && slides.length > 0 && (
-              <span className="rpt-cnt">
-                {cur} / {slides.length} 슬라이드
-              </span>
-            )}
             <button
               className="btn rpt-save"
               type="button"

@@ -8,7 +8,7 @@
  */
 
 /* 머리 오른쪽 묶음(지시: 저장 단추를 오른쪽에 붙여) — 장수·PPTX·PDF·✕ */
-.rpt-acts { display: flex; align-items: center; gap: 8px; margin-left: auto; flex: none; }
+.rpt-acts { display: flex; align-items: center; gap: 8px; flex: none; }
 
 /* 옛 화면과 같은 붉은 저장 단추와 장수 표시 */
 .rpt-cnt {
