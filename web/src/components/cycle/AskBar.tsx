@@ -2516,6 +2516,70 @@ export default function AskBar({ devices }: Props) {
        SETUP › 용도별 프롬프트 › Coverage AI(Basic/Advanced) 의 말투로 바로
        답한다. 절차를 고치는 중(Advanced)의 말은 고치는 말이라 안 묻는다.
        서버가 못 가르면 test=true 로 돌아와 원래 흐름 그대로다. */
+    /* ── 식별자 우선(지시: 질문에 반응하라, 스스로 판단 금지) — 발화에
+       **실존** TC키나 장비 IP 가 그대로 적혀 있으면 LLM 분류를 묻지 않고
+       결정적으로 그 단계를 진행한다. 실제 목록과의 대조라 지어낸 값은
+       여기 못 들어온다. (사고: 「E61xx-T0063 항목 선택」 이 분류에 밀려
+       「일치하는 항목이 없습니다」 로 떨어졌다) */
+    if (mode === 'basic') {
+      const normKey0 = (x: string) => x.toLowerCase().replace(/(\D)0+(?=\d)/g, '$1')
+      const lowSaid = raw0.toLowerCase()
+      const nSaid = normKey0(lowSaid)
+      const tcHit = tcAll.find(
+        (t) => lowSaid.includes(t.tcid.toLowerCase()) || nSaid.includes(normKey0(t.tcid)),
+      )
+      const ipHit = usable.find((d) => {
+        const ip = String(d.ip ?? '').trim()
+        return !!ip && raw0.includes(ip)
+      })
+      if (tcHit || ipHit) {
+        if (ipHit && ipHit.id !== devId) {
+          const nm = String(ipHit.model || ipHit.name || ipHit.ip)
+          setDevId(ipHit.id)
+          setTDev(nm)
+          setAskModel(String(ipHit.model ?? ''))
+          if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+          setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${ipHit.ip} 확정 (말로 선택)` }])
+          setMsgs((v) =>
+            v.filter(
+              (x) =>
+                !(x.who === 'a' && (x.html.includes('data-pick="dev"') || x.html.includes('data-pick="dev-list"'))),
+            ),
+          )
+          say('a', devDoneCard(nm, String(ipHit.ip ?? '')))
+        }
+        if (tcHit) {
+          setMsgs((v) =>
+            v.filter(
+              (x) =>
+                !(x.who === 'a' && (x.html.includes('data-pick="tc"') || x.html.includes('data-pick="tc-list"'))),
+            ),
+          )
+          say('a', tcDoneCard(tcHit.tcid, tcHit.name))
+          void takeTc(tcHit.tcid, ipHit ?? undefined, String(tcHit.model ?? ''))
+          return
+        }
+        /* 장비만 콕 집은 말 — 한 문장 흐름(쥔 질문)이면 항목 후보를 잇고,
+           단계별 흐름이면 안내에서 멈춘다 */
+        const q0 = pendQRef.current
+        pendQRef.current = ''
+        if (q0) {
+          sayThink('이 장비에서 실행할 수 있는 항목을 찾는 중…')
+          let it9 = await findLike(q0, ipHit)
+          if (!it9.length) it9 = await findLike(String(ipHit?.model ?? ''), ipHit)
+          unThink()
+          if (it9.length) sayTcBlock(it9, q0)
+          else showTcCards(String(ipHit?.model ?? ''))
+        } else {
+          say(
+            'a',
+            '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "System 정보 조회 선택"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
+          )
+        }
+        setFlowAt(0)
+        return
+      }
+    }
     if (!(draft && mode !== 'basic')) {
       sayThink('요청을 분석하는 중…')
       /* 현황 요약(지적: 「시험 가능한 장비는?」 에 지어낸 「없습니다」) —
