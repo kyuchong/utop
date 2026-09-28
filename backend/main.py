@@ -8288,6 +8288,12 @@ async def run_cli_stream(payload: dict):
                                 pending.strip(), _restr.I,
                             ):
                                 if pending: yield _sse({"o": pending})
+                                # 세션이 확인 물음(reload 의 [y/n] 등)에 서 있다
+                                # (지적: 이전엔 reload→y 가 됐다). 암호(await_pw)
+                                # 와 똑같이 표시해 둔다 — 이 스텝 끝의 find_prompt
+                                # (개행)도, 다음 스텝의 되밟기·드레인도 건너뛰어
+                                # 개행이 [y/n] 을 빈 답으로 삼키지 않게 한다.
+                                ent["await_pw"] = True
                                 pending = ""; break
                             if pr and pending.strip() and _restr.search(pr, pending.strip()):
                                 _quiet_dl = _tstr.time() + _quiet_wait
