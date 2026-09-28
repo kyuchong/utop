@@ -354,14 +354,24 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
   useEffect(() => {
     const el = bodyRef.current
     if (!el) return
-    const fit = () => {
+    const calc = () => {
       const w = el.clientWidth - 30 // 좌우 여백(CSS padding 14 × 2 와 맞춘다)
       // 높이에도 맞춘다. 폭에만 맞췄더니 큰 화면에서 장의 아래가 잘려
       // 「전체가 보이지 않는」 상태가 됐다 — 한 장은 통째로 보여야 한다.
       const h = el.clientHeight - 26
-      if (w > 0 && h > 0) {
-        setScale(Math.max(0.4, Math.min(1.4, Math.min(w / 1280, h / 720))))
-      }
+      return w > 0 && h > 0 ? Math.max(0.4, Math.min(1.4, Math.min(w / 1280, h / 720))) : 0
+    }
+    const fit = () => {
+      const s1 = calc()
+      if (s1) setScale(s1)
+      /* ★ 이중 패스(지적: 늘렸더니 또 잘림) — 배율이 커지면 스크롤바가
+         생기며 본문 실높이·실폭이 줄지만, ResizeObserver 는 스크롤바
+         등장을 크기 변화로 안 본다. 적용 다음 프레임에 스크롤바가 반영된
+         값으로 다시 재서 수렴시킨다. */
+      requestAnimationFrame(() => {
+        const s2 = calc()
+        if (s2) setScale((prev) => (Math.abs(prev - s2) > 0.005 ? s2 : prev))
+      })
     }
     fitRef.current = fit
     fit()
