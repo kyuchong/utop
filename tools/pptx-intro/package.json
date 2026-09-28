@@ -1,0 +1,12 @@
+{
+  "name": "utop-pptx-intro",
+  "private": true,
+  "description": "docs/UTOP_소개.pptx 를 만드는 스크립트. node build.js ../../docs/UTOP_소개.pptx",
+  "dependencies": {
+    "pptxgenjs": "^4.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.4.0",
+    "sharp": "^0.33.5"
+  }
+}
