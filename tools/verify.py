@@ -1,6 +1,7 @@
 """프로젝트 회귀 검사 진입점. AGENTS.md 의 검증 명령.
 
-실행: .venv\\Scripts\\python.exe tools\\verify.py   (저장소 어디서 실행해도 됨)
+실행: ./tools/verify.sh  — api 이미지 안에서 이 파일을 돈다(ruff·pytest 를 이 PC 에 깔 필요 없음).
+직접 돌리려면 python tools/verify.py (ruff·pytest·백엔드 의존성이 있어야 한다).
 """
 from __future__ import annotations
 import os, shutil, subprocess, sys

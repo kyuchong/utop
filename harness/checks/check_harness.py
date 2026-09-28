@@ -42,13 +42,46 @@ _skipped_banner_docs: list[Path] = []
 _gitignore_exempt_paths: list[str] = []
 
 
+def _gitignore_patterns() -> list[str]:
+    try:
+        lines = (ROOT / ".gitignore").read_text(encoding="utf-8").split("\n")
+    except Exception:
+        return []
+    out = []
+    for ln in lines:
+        ln = ln.strip()
+        if not ln or ln.startswith("#") or ln.startswith("!"):
+            continue
+        out.append(ln.strip("/"))
+    return out
+
+
 def _is_gitignored(path_str: str) -> bool:
-    """git check-ignore 로 gitignore 대상인지 확인. 대상이면 True."""
-    r = subprocess.run(
-        ["git", "-C", str(ROOT), "check-ignore", "-q", path_str],
-        capture_output=True, text=True,
-    )
-    return r.returncode == 0
+    """gitignore 대상인지 확인. 대상이면 True.
+
+    git 이 있고 저장소가 살아 있으면 `git check-ignore` 를 쓴다. 도커 api 이미지 안(tools/verify.sh)처럼
+    git 이 없거나 .git 이 워크트리 포인터라 못 읽는 곳에서는 .gitignore 를 직접 읽어 앞부분 일치·글롭으로 본다.
+    `data/` 는 도커 볼륨(app-data)이라 저장소에 없다 — 그 아래 경로는 전부 실행 시 생기는 것으로 본다.
+    """
+    p = path_str.strip("/")
+    if p == "data" or p.startswith("data/"):      # data/ 는 도커 볼륨(app-data) — 저장소에는 없다(README)
+        return True
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(ROOT), "check-ignore", "-q", p],
+            capture_output=True, text=True,
+        )
+        if r.returncode == 0:
+            return True
+        if r.returncode == 1:          # git 은 있고 판단도 됐다 — 대상 아님
+            return False
+    except FileNotFoundError:
+        pass
+    import fnmatch
+    for pat in _gitignore_patterns():
+        if p == pat or p.startswith(pat + "/") or fnmatch.fnmatch(p, pat) or ("/" not in pat and fnmatch.fnmatch(p.rsplit("/", 1)[-1], pat)):
+            return True
+    return False
 
 
 def add_err(msg: str) -> None:

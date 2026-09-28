@@ -4353,9 +4353,17 @@ async def websocket_endpoint(websocket: WebSocket):
 # ───────────────────────────────────────────
 @app.get("/api/status")
 async def get_status():
-    data = load_json(DEVICES_FILE)
+    """옛 장비 목록(devices.json)의 접속 상태 집계 — 옛 UI 대시보드가 읽는다.
+
+    새 설치에는 그 파일이 없다. 그때 500 을 내던 것을(스모크에서 잡힘, 2026-09-29) 0 집계로 답한다 —
+    장비는 이제 PG(/api/devices2)에 있고 이 길은 옛 화면 호환용이다.
+    """
     summary = {"connected": 0, "disconnected": 0, "unknown": 0}
-    for d in data["devices"]:
+    try:
+        data = load_json(DEVICES_FILE)
+    except Exception:
+        return summary
+    for d in (data.get("devices") or []) if isinstance(data, dict) else []:
         s = d.get("status", "unknown")
         summary[s] = summary.get(s, 0) + 1
     return summary

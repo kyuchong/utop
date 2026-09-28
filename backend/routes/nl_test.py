@@ -516,36 +516,8 @@ def _nl_steps_from(obj):
                 continue
             if row["to"] < row["from"]:
                 continue
-        elif kind in ("manual", "model", "group"):
-            # 실행기가 이미 도는 것들이다 — manual 은 「사람이 할 일」 로 남기고
-            # 지나가고, model·group 은 읽는 사람을 위한 제목 줄이다.
-            # 「일반」 갈래는 **있는 시험을 그대로** 도는 것이라 빠지면 안 된다(지시).
-            txt = str(c.get("step") or c.get("desc") or c.get("data") or c.get("text") or "").strip()
-            txt, _sg = _tc_swap_model(txt, src_models, dst_model)
-            if _sg:
-                swapped += 1
-            if kind == "manual":
-                steps.append({"kind": "manual", "indent": depth,
-                              "desc": txt or "사람이 확인", "text": txt})
-            else:
-                if not txt:
-                    continue
-                steps.append({"kind": "comment", "indent": depth, "desc": txt, "text": txt})
-        elif kind == "diff":
-            # 값 견주기 — 장비로는 아무것도 안 나간다. 실행기(runner.ts)가
-            # 이미 그대로 돈다. 여기서만 버려서 「일반」 갈래로 기존 시험을
-            # 돌릴 때 스텝이 통째로 빠졌다(지적) — 있는 그대로 옮긴다.
-            desc2, _sd2 = _tc_swap_model(str(c.get("desc") or "").strip(), src_models, dst_model)
-            left, _sl = _tc_swap_model(str(c.get("cmpLeft") or ""), src_models, dst_model)
-            right, _sr = _tc_swap_model(str(c.get("cmpRight") or ""), src_models, dst_model)
-            if _sd2 or _sl or _sr:
-                swapped += 1
-            st = {"kind": "diff", "indent": depth, "desc": desc2,
-                  "cmpLeft": left, "cmpRight": right,
-                  "cmpOp": str(c.get("cmpOp") or "==")}
-            if c.get("excludeLines"):
-                st["excludeLines"] = c.get("excludeLines")
-            steps.append(st)
+        # (manual·model·group·diff 갈래는 여기 올 수 없다 — 위에서 kind 가 cli 로 정리된다.
+        #  2026-09-29 다른 함수에서 복사돼 온 죽은 조각(미정의 이름 25건)을 걷었다.)
         elif kind in ("snmp_get", "snmp_set", "snmp_trap"):
             # OID 가 없으면 보낼 것이 없다 — 그 스텝은 버린다
             row["oid"] = str(r.get("oid") or "").strip()
