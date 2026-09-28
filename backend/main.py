@@ -11227,7 +11227,7 @@ async def save_racks(data: dict):
 # 뜨고, 받는 쪽은 ID 기준 합치기(upsert)로 넣는다.
 # ══════════════════════════════════════════════════════════════════════
 
-_TRANSFER_PARTS = ("req", "tc", "cycle", "defect", "device", "catalog", "settings")
+_TRANSFER_PARTS = ("wiki", "req", "tc", "cycle", "defect", "device", "catalog", "settings")
 
 
 def _strip_derived(d: dict) -> dict:
@@ -12064,6 +12064,40 @@ async def transfer_export(parts: str = "", secrets: int = 0):
     out = {"app": "utop", "version": 1,
            "exported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "parts": {}}
     P = out["parts"]
+    if "wiki" in want:
+        # WIKI 는 문서(트리·본문)만으로는 반쪽이다 — 블록에는 표의 열쇠(tid)만
+        # 담기므로 wiki_table·wiki_table_row 까지 한 묶음으로 떠야
+        # 받은 쪽에서 표가 빈 껍데기가 안 된다. 지난 판(wiki_rev)은 안 싣는다.
+        def _j(v, fb):
+            if isinstance(v, str):
+                try:
+                    return json.loads(v)
+                except Exception:
+                    return fb
+            return v if v is not None else fb
+        async with db.pool().acquire() as c:
+            pages = []
+            for r in await c.fetch(
+                    "SELECT id, project, parent_id, title, body, plain, ord"
+                    " FROM wiki_page ORDER BY ord, title"):
+                d = dict(r)
+                d["body"] = _j(d.get("body"), [])
+                pages.append(d)
+            tables = []
+            for r in await c.fetch(
+                    "SELECT id, page_id, title, cols, calcs, view FROM wiki_table"):
+                d = dict(r)
+                d["cols"] = _j(d.get("cols"), [])
+                d["calcs"] = _j(d.get("calcs"), {})
+                d["view"] = _j(d.get("view"), {})
+                tables.append(d)
+            rows = []
+            for r in await c.fetch(
+                    "SELECT tid, rid, ord, data FROM wiki_table_row ORDER BY tid, ord"):
+                d = dict(r)
+                d["data"] = _j(d.get("data"), {})
+                rows.append(d)
+        P["wiki"] = {"pages": pages, "tables": tables, "rows": rows}
     if "req" in want:
         P["req"] = {"categories": await db.cat_list(), "reqs": await db.req_list_full()}
     if "tc" in want:
@@ -12102,6 +12136,80 @@ async def transfer_import(payload: dict):
     _require_admin("")
     parts = payload.get("parts") or {}
     done: dict = {}
+
+    if "wiki" in parts:
+        # 문서·표·줄 셋 다 upsert — parent_id 는 FK 가 아니라 차례 걱정이 없다.
+        def _j2(v, fb):
+            if isinstance(v, str):
+                try:
+                    return json.loads(v)
+                except Exception:
+                    return fb
+            return v if v is not None else fb
+        n = 0
+        async with db.pool().acquire() as c:
+            for pg in parts["wiki"].get("pages") or []:
+                pid = str(pg.get("id") or "").strip()
+                if not pid:
+                    continue
+                try:
+                    body = _j2(pg.get("body"), [])
+                    if not isinstance(body, list):
+                        body = []
+                    await c.execute(
+                        "INSERT INTO wiki_page (id, project, parent_id, title,"
+                        " body, plain, ord, created_by, updated_by)"
+                        " VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$8)"
+                        " ON CONFLICT (id) DO UPDATE SET project=EXCLUDED.project,"
+                        " parent_id=EXCLUDED.parent_id, title=EXCLUDED.title,"
+                        " body=EXCLUDED.body, plain=EXCLUDED.plain, ord=EXCLUDED.ord,"
+                        " updated_by=EXCLUDED.updated_by, updated_at=now()",
+                        pid, str(pg.get("project") or ""), pg.get("parent_id") or None,
+                        str(pg.get("title") or ""), json.dumps(body, ensure_ascii=False),
+                        str(pg.get("plain") or "") or _wiki_plain(body),
+                        int(pg.get("ord") or 0), "transfer",
+                    )
+                    n += 1
+                except Exception as e:
+                    done.setdefault("_errors", []).append(f"WIKI {pid}: {e}")
+            for t in parts["wiki"].get("tables") or []:
+                tid = str(t.get("id") or "").strip()
+                if not tid:
+                    continue
+                try:
+                    await c.execute(
+                        "INSERT INTO wiki_table (id, page_id, title, cols, calcs, view)"
+                        " VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb)"
+                        " ON CONFLICT (id) DO UPDATE SET page_id=EXCLUDED.page_id,"
+                        " title=EXCLUDED.title, cols=EXCLUDED.cols,"
+                        " calcs=EXCLUDED.calcs, view=EXCLUDED.view, updated_at=now()",
+                        tid, str(t.get("page_id") or ""), str(t.get("title") or ""),
+                        json.dumps(_j2(t.get("cols"), []), ensure_ascii=False),
+                        json.dumps(_j2(t.get("calcs"), {}), ensure_ascii=False),
+                        json.dumps(_j2(t.get("view"), {}), ensure_ascii=False),
+                    )
+                except Exception as e:
+                    done.setdefault("_errors", []).append(f"WIKI 표 {tid}: {e}")
+            for rw in parts["wiki"].get("rows") or []:
+                tid = str(rw.get("tid") or "").strip()
+                rid = str(rw.get("rid") or "").strip()
+                if not tid or not rid:
+                    continue
+                try:
+                    data = _j2(rw.get("data"), {})
+                    if not isinstance(data, dict):
+                        data = {}
+                    await c.execute(
+                        "INSERT INTO wiki_table_row (tid, rid, ord, data)"
+                        " VALUES ($1,$2,$3,$4::jsonb)"
+                        " ON CONFLICT (tid, rid) DO UPDATE SET ord=EXCLUDED.ord,"
+                        " data=EXCLUDED.data, updated_at=now()",
+                        tid, rid, int(rw.get("ord") or 0),
+                        json.dumps(data, ensure_ascii=False),
+                    )
+                except Exception as e:
+                    done.setdefault("_errors", []).append(f"WIKI 표 줄 {tid}/{rid}: {e}")
+        done["wiki"] = n
 
     if "req" in parts:
         n = 0

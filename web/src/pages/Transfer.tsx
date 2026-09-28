@@ -12,6 +12,7 @@ import './Transfer.css'
  */
 
 const PARTS = [
+  { k: 'wiki', label: 'WIKI', desc: '문서 트리 + 문서 속 표 전부 (지난 판 이력 제외)' },
   { k: 'req', label: '요구사항', desc: '폴더 구조 + 요구사항 전부' },
   { k: 'tc', label: '시험항목', desc: '스텝·토폴로지 포함 전체, 요구사항 연결 유지' },
   { k: 'cycle', label: '플랜', desc: '구성과 실행 결과' },
@@ -35,6 +36,7 @@ function countOf(k: string, p: Record<string, unknown> | undefined): string {
   if (!p) return ''
   const n = (key: string) => (Array.isArray(p[key]) ? (p[key] as unknown[]).length : 0)
   switch (k) {
+    case 'wiki': return `문서 ${n('pages')} · 표 ${n('tables')}`
     case 'req': return `폴더 ${n('categories')} · 요구사항 ${n('reqs')}건`
     case 'tc': return `${n('tcs')}건`
     case 'cycle': return `${n('cycles')}건`
