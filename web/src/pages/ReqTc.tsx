@@ -207,8 +207,16 @@ export default function ReqTc({ me }: Props) {
   /* 링크로 들어온 시험(?tc=…)을 열 열쇠 — 목록이 아직 안 왔으면 여기 담아
      두었다가, 아래 효과가 목록이 오는 대로 진짜 tcid 로 풀어 연다(지적:
      ?tc 링크가 ?p=reqtc 로 떨어진다). 대시·밑줄 표기가 달라도 dashId 로 맞춘다. */
-  const [pendingTc, setPendingTc] = useState(
-    () => new URLSearchParams(window.location.search).get('tc') || prefGet('utop.tc.open') || '',
+  const [pendingTc, setPendingTc] = useState(() => {
+    const p = new URLSearchParams(window.location.search)
+    /* ?req=·?cat= 로 들어왔으면 「마지막에 본 시험」 폴백이 가로채면 안
+       된다(지적: ?req 로 들어갔는데 지난번 시험이 열리고 주소까지 바뀐다) */
+    return p.get('tc') || (p.get('req') || p.get('cat') ? '' : prefGet('utop.tc.open') || '')
+  })
+  /* 링크로 들어온 요구사항(?req=…) — 시험과 같은 틀. 주소에는 사람이 읽는
+     라벨(reqid)이 실리므로 목록이 온 뒤 진짜 pk 로 풀어 연다 */
+  const [pendingReq, setPendingReq] = useState(
+    () => new URLSearchParams(window.location.search).get('req') || '',
   )
 
   /* 링크로 들어오면 그 폴더를 편다 — App 이 주소를 읽어 알려 준다 */
@@ -224,6 +232,7 @@ export default function ReqTc({ me }: Props) {
       if (kind === 'cat') open1(id)
       // 시험 링크(?tc=…)로 들어오면 그 시험을 연다(지적: 링크가 안 열린다)
       else if (kind === 'tc') setPendingTc(id)
+      else if (kind === 'req') setPendingReq(id)
     })
   }, [])
 
@@ -285,6 +294,23 @@ export default function ReqTc({ me }: Props) {
     if (hit) setOpenTc(hit.tcid)
     setPendingTc('')
   }, [pendingTc, tcs])
+
+  /* 링크로 온 요구사항(pendingReq)을 목록이 오는 대로 연다 — 주소의 라벨
+     (E61xx-R0009)과 pk 어느 쪽이든, 대시·밑줄 표기가 달라도 dashId 로
+     맞춘다. 못 찾으면 그대로 두어 목록을 보인다. */
+  useEffect(() => {
+    if (!pendingReq || reqs.length === 0) return
+    const want = dashId(pendingReq)
+    const hit =
+      reqs.find((r) => reqPk(r) === pendingReq || reqLabel(r) === pendingReq) ??
+      reqs.find((r) => dashId(reqPk(r)) === want || dashId(reqLabel(r)) === want)
+    if (hit) {
+      setOpenTc('')
+      setOpenReq(reqPk(hit))
+      setOpenTab('info')
+    }
+    setPendingReq('')
+  }, [pendingReq, reqs])
   const projects = useMemo(() => prjQ.data?.projects ?? [], [prjQ.data])
   /* 제품군(L2·L3)은 TC 에도 프로젝트에도 없다 — **장비 카탈로그의 모델**이
      들고 있다(지적: 제품군이 빠졌다). 모델명으로 찾아 팝업이 보여 준다. */
