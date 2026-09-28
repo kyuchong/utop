@@ -125,3 +125,135 @@ def user_id_of(*a, **k):
 
 async def jira_defect_defaults(*a, **k):
     raise RuntimeError('core 가 아직 매이지 않았습니다: jira_defect_defaults')
+
+
+# ── 장비 · 계측기 묶음(routes/devices.py)이 쓰는 것 — main 이 bind 로 채운다 ──
+
+DEVICES_FILE: Any = None
+
+def check_tcp(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: check_tcp')
+
+def check_ssh(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: check_ssh')
+
+def check_telnet(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: check_telnet')
+
+def ssh_exec(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: ssh_exec')
+
+def tcl_exec(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: tcl_exec')
+
+def who(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: who')
+
+def me(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: me')
+
+
+# ── ai 묶음(routes/ai.py)이 쓰는 것 — main 이 bind 로 채운다 ──
+
+PROMPTS_FILE: Any = None
+
+CONFLUENCE_FILE: Any = None
+
+CLAUDE_FALLBACK_MODEL: Any = None
+
+claude_client: Any = None
+
+def users_load_sync(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: users_load_sync')
+
+FEEDBACK_FILE: Any = None
+
+def load_items_store(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: load_items_store')
+
+def save_items_store(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: save_items_store')
+
+async def next_tc_id(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: next_tc_id')
+
+def tc_id_norm(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: tc_id_norm')
+
+def run_cli(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: run_cli')
+
+NEVER_WORDS: Any = None
+
+def config_allowed(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: config_allowed')
+
+def is_read_only(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: is_read_only')
+
+TC_SCHEMA: Any = None
+
+async def why_http(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: why_http')
+
+def item_verdict(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: item_verdict')
+
+
+# ── cycle 묶음(routes/cycle.py)이 쓰는 것 — main 이 bind 로 채운다 ──
+
+PROCEDURES_FILE: Any = None
+
+RESULTS_DIR: Any = None
+
+tc_running: Any = None
+
+SESSIONS: Any = None
+
+def save_one_session(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: save_one_session')
+
+def org_where(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: org_where')
+
+def load_mail_cfg(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: load_mail_cfg')
+
+def addr_list(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: addr_list')
+
+def send_mail(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: send_mail')
+
+def repair_placeholders(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: repair_placeholders')
+
+CYCLE_DIR: Any = None
+
+TC_RUNHIST_DIR: Any = None
+
+MAIN_LOOP: Any = None
+
+MAIL_BAD_TAG: Any = None
+
+MAIL_BAD_ATTR: Any = None
+
+MAIL_BAD_URL: Any = None
+
+def user_name_of(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: user_name_of')
+
+
+# ── tc_req 묶음(routes/tc_req.py)이 쓰는 것 — main 이 bind 로 채운다 ──
+
+CUSTOM_FIELDS_FILE: Any = None
+
+REQ_DIR: Any = None
+
+TC_DIR: Any = None
+
+TRASH_DIR: Any = None
+
+FOLDERS_FILE: Any = None
+
+IMG_EXT: Any = None

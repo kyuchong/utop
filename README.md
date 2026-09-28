@@ -72,9 +72,16 @@ utop/
 ├── .env                 접속 정보 (직접 만든다, 커밋 안 됨)
 │
 ├── backend/             FastAPI — 장비 제어·시험 실행·AI
-│   ├── main.py            라우트 대부분, WebSocket — 기능별로 routes/ 로 옮기는 중
+│   ├── main.py            앱 조립·인증·사용자·조직·설정·게시판·알림·WebSocket — 기능 라우트는 routes/ 에
 │   ├── core.py            나뉜 라우트 파일이 쓰는 공용 고리(broadcast·세션) — main 이 bind 로 채운다
-│   ├── routes/            기능별 라우트 묶음 (APIRouter). wiki.py(문서·Yjs·표) · jira.py(Jira·결함·릴리즈)
+│   ├── routes/            기능별 라우트 묶음 (APIRouter)
+│   │   ├── wiki.py          문서·Yjs 중계·문서 안의 표
+│   │   ├── jira.py          Jira·결함·릴리즈 요약
+│   │   ├── devices.py       장비·카탈로그·랙·STC·N2X
+│   │   ├── ai.py            LLM 설정·프롬프트·RAG·Confluence·Knowledge AI·Coverage AI·TC 생성
+│   │   ├── nl_test.py       자연어 시험(AI Assistant)
+│   │   ├── cycle.py         사이클·플랜 실행·runner 대기줄·CLI 세션·SNMP·자원 잠금
+│   │   └── tc_req.py        시험 항목·요구사항·분류 폴더·코드표·사용자 정의 필드·휴지통
 │   ├── engine.py          사이클 실행, PPTX 리포트
 │   ├── db.py              PostgreSQL 접근 (asyncpg)
 │   ├── stc/               Spirent TestCenter 연동
