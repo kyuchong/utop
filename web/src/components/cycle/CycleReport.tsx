@@ -402,30 +402,34 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
           </b>
           <span className="sp" />
           {msg && <span className="muted small">{msg}</span>}
-          {!loading && slides.length > 0 && (
-            <span className="rpt-cnt">
-              {cur} / {slides.length} 슬라이드
-            </span>
-          )}
-          <button
-            className="btn rpt-save"
-            type="button"
-            disabled={busy || loading || !slides.length}
-            onClick={() => void save()}
-          >
-            {busy ? '…' : '⬇ PPTX 저장'}
-          </button>
-          <button
-            className="btn small"
-            type="button"
-            disabled={busy || !slides.length}
-            onClick={() => void savePdf()}
-          >
-            ⬇ PDF 저장
-          </button>
-          <button className="btn small" type="button" disabled={busy} onClick={onClose}>
-            ✕
-          </button>
+          {/* 저장 단추들은 **오른쪽에 붙인다**(지시) — modal-head 가 자식을
+              벌려 놓아 단추 사이가 뿔뿔이 흩어졌다. 한 묶음으로 우측 정렬. */}
+          <span className="rpt-acts">
+            {!loading && slides.length > 0 && (
+              <span className="rpt-cnt">
+                {cur} / {slides.length} 슬라이드
+              </span>
+            )}
+            <button
+              className="btn rpt-save"
+              type="button"
+              disabled={busy || loading || !slides.length}
+              onClick={() => void save()}
+            >
+              {busy ? '…' : '⬇ PPTX 저장'}
+            </button>
+            <button
+              className="btn small"
+              type="button"
+              disabled={busy || !slides.length}
+              onClick={() => void savePdf()}
+            >
+              ⬇ PDF 저장
+            </button>
+            <button className="btn small" type="button" disabled={busy} onClick={onClose}>
+              ✕
+            </button>
+          </span>
         </div>
 
         <div className="rpt-main">
