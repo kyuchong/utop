@@ -13,7 +13,7 @@
  * 열은 목업 것을 그대로 쓰되 **값은 실제 지라 필드**에서 온다 — 사업자·
  * 문제유형·이슈분류·시험시설은 이 지라에 정말 있는 커스텀 필드다.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, type MeUser, isAdminUser } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
@@ -379,11 +379,15 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
       hidden: columns.filter((c) => c.hidden).map((c) => c.key),
       widths: Object.fromEntries(columns.filter((c) => c.width).map((c) => [c.key, c.width!])),
       order: columns.map((c) => c.key),
+      flt: view as ViewBody['flt'],
     }),
-    [columns],
+    [columns, view],
   )
-  /** 탭을 고르면 **열 배치**를 얹는다 — 탭에 담기는 것은 그것뿐이다(보기 정책) */
+  /* 「기본」 의 필터 — 탭으로 갔다 돌아오면 되살린다(승인: 필터 분리) */
+  const baseFltRef = useRef<NView>({ ...EMPTY_VIEW })
+  /** 탭을 고르면 열 배치와 **필터 한 벌**을 얹는다(승인) */
   const applyView = (v: ViewDef | null) => {
+    if (!nvId) baseFltRef.current = view
     setNvId(v?.id ?? '')
     /* 탭을 만든 **뒤에 생긴 열**은 그 탭의 숨김 목록에 없다 — 그대로 쓰면
        탭을 고르는 순간 새 열이 통째로 펼쳐진다. 본 적 없는 열은 기본을 따른다. */
@@ -393,6 +397,11 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     setHidden(saved ? [...saved, ...dflt.filter((k) => !known.has(k))] : dflt)
     setWidths(v?.body?.widths ?? {})
     setOrder(v?.body?.order ?? [])
+    if (v) {
+      if (v.body?.flt) setView({ ...EMPTY_VIEW, ...(v.body.flt as Partial<NView>) })
+    } else {
+      setView(baseFltRef.current)
+    }
   }
 
   async function sync(full = false) {

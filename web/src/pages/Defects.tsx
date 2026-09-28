@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, type MeUser, isAdminUser } from '@/api/client'
 import { onWs } from '@/api/wsBus'
@@ -195,15 +195,24 @@ export default function Defects({ me }: { me?: MeUser | null }) {
       hidden: columns.filter((c) => c.hidden).map((c) => c.key),
       widths: Object.fromEntries(columns.filter((c) => c.width).map((c) => [c.key, c.width!])),
       order: columns.map((c) => c.key),
+      flt: view as ViewBody['flt'],
     }),
-    [columns],
+    [columns, view],
   )
+  /* 「기본」 의 필터 — 탭으로 갔다 돌아오면 되살린다(승인: 필터 분리) */
+  const baseFltRef = useRef<NView>({ ...EMPTY_VIEW })
   const applyView = (v: ViewDef | null) => {
+    if (!nvId) baseFltRef.current = view
     setNvId(v?.id ?? '')
     const dflt = COLS.filter((c) => !c.def).map((c) => c.key)
     const saved = v?.body?.hidden
     const known = new Set(saved ?? [])
     setHidden(saved ? [...saved, ...dflt.filter((k) => !known.has(k))] : dflt)
+    if (v) {
+      if (v.body?.flt) setView({ ...EMPTY_VIEW, ...(v.body.flt as Partial<NView>) })
+    } else {
+      setView(baseFltRef.current)
+    }
   }
 
   const counts = useMemo(() => {

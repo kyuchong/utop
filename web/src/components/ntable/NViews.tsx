@@ -13,12 +13,15 @@ import { IcCheck, IcCopy, IcDots, IcPlus, IcTrash } from './NIcons'
  * 그 문턱이 있어 40명이 각자 만들어도 공용 줄이 안 더러워진다.
  * 넘치면 접어서 「⋯ 더보기」 로 낸다 — 탭 줄은 늘 한 줄이다.
  */
-/** 탭 한 벌 — **열을 보이게/안 보이게** 만 담는다(지시).
-    필터·정렬·계산·줄 수는 탭에 안 매이고 그대로 이어진다. */
+/** 탭 한 벌 — 열 배치(숨김·폭·차례)에 **필터 한 벌(flt)** 을 더했다(승인:
+    기본과 보기의 필터를 가른다). flt 가 없는 옛 탭은 열 배치만 얹힌다.
+    계산·줄 수는 여전히 탭에 안 매인다. */
 export interface ViewBody {
   hidden?: string[]
   widths?: Record<string, number>
   order?: string[]
+  /** 거르기·정렬·묶기·검색 — NView 한 벌 그대로 */
+  flt?: { q: string; filters: unknown[]; sorts: unknown[]; groupBy: string }
 }
 export interface ViewDef {
   id: string

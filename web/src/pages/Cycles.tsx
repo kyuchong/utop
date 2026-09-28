@@ -1617,11 +1617,16 @@ function CycleBoard({
       hidden: nCols.filter((c) => c.hidden).map((c) => c.key),
       widths: Object.fromEntries(nCols.filter((c) => c.width).map((c) => [c.key, c.width!])),
       order: nCols.map((c) => c.key),
+      flt: nview as ViewBody['flt'],
     }),
-    [nCols],
+    [nCols, nview],
   )
-  /** 탭을 고르면 **열 배치**를 얹는다 — 탭에 담기는 것은 그것뿐이다 */
+  /* 「기본」 의 필터 — 탭으로 갔다 돌아오면 되살린다(승인: 필터 분리) */
+  const baseFltRef = useRef<NView>({ ...EMPTY_VIEW })
+  /** 탭을 고르면 열 배치와 **필터 한 벌**을 얹는다(승인). flt 없는 옛 탭은
+      지금 필터를 그대로 둔다. */
   const applyView = (v: ViewDef | null) => {
+    if (!nvId) baseFltRef.current = nview
     setNvId(v?.id ?? '')
     const hid = new Set(v?.body?.hidden ?? [])
     const wd = v?.body?.widths ?? {}
@@ -1631,6 +1636,11 @@ function CycleBoard({
     }
     prefSet('utop.ntb.order.cy', (v?.body?.order ?? []).join(','))
     nf.bump()
+    if (v) {
+      if (v.body?.flt) setNview({ ...EMPTY_VIEW, ...(v.body.flt as Partial<NView>) })
+    } else {
+      setNview(baseFltRef.current)
+    }
   }
 
 
