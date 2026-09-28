@@ -294,6 +294,13 @@
 
 /* ── 판정 현황 막대 — 색 구간에 건수를 얹는다 ─────────────────────── */
 .qav .q-stats { display: flex; height: 16px; border-radius: 4px; overflow: hidden; background: var(--c-border-soft); }
+/* 막대 + 진행률(지시) — 좁은 칸에서 막대 오른쪽 끝에 % 를 적는다 */
+.qav .q-statsw { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.qav .q-statsw .q-stats { flex: 1; min-width: 0; }
+.qav .q-statpct {
+  flex: none; font-size: 11px; font-weight: 700; color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
 .qav .q-stats i { display: grid; place-items: center; font-style: normal; font-size: 10px; font-weight: 700; color: #fff; min-width: 14px; }
 .qav .q-stats i.p { background: var(--c-pass); }
 .qav .q-stats i.f { background: var(--c-fail); }

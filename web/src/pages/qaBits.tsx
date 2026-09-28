@@ -73,7 +73,10 @@ export function StatBar({ t, pal, slim }: { t: Tally; pal?: Record<string, strin
       .filter(([v]) => v > 0)
       .map(([v, , name]) => `${name} ${v} (${pct(v)}%)`)
       .join(' · ') + ` — 총 ${t.total}건, 합격률 ${t.rate}%`
-  return (
+  /* 진행률 — 미실행을 뺀 실행 비율. 좁은 칸(slim)에서 막대 오른쪽에
+     적는다(지시: 막대만 있으면 몇 % 진행인지 안 보인다). */
+  const prog = t.total ? Math.round(((t.total - t.none) / t.total) * 100) : 0
+  const bar = (
     <div className={`q-stats${slim ? ' slim' : ''}`} title={slim ? detail : undefined}>
       {parts.map(([v, cls, name]) =>
         v ? (
@@ -87,6 +90,13 @@ export function StatBar({ t, pal, slim }: { t: Tally; pal?: Record<string, strin
           </i>
         ) : null,
       )}
+    </div>
+  )
+  if (!slim) return bar
+  return (
+    <div className="q-statsw" title={detail}>
+      {bar}
+      <span className="q-statpct">{prog}%</span>
     </div>
   )
 }
