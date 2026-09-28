@@ -486,9 +486,10 @@ const pageHead = (ttl: string) =>
     콘텐츠를 바닥 위에서 클립(buildSlides 의 높이 예산)해 막는다. */
 const pageFoot = (no: number) =>
   `<div style="position:absolute;left:0;right:0;top:666px;background:#fff;">` +
-  `<div style="text-align:right;font-size:12px;color:#111;margin-bottom:2px;">${no}</div>` +
+  /* 원본 양식 순서(지적) — 이중선이 먼저, 쪽번호는 그 아래 오른쪽 */
   `<div style="border-top:3px solid #111;"></div><div style="border-top:1.4px solid #111;margin-top:2px;"></div>` +
-  `<div style="font-size:9.5px;color:#333;margin-top:2px;">본 문서는 LG U+이 모든 지적재산권을 소유하고 있사오니, 해당 문서를 무단으로 전재/복사/변조/재배포 하지 마시기 바라며, 이를 위반할 경우 모든 법적 책임은 귀사에 있음을 알려드립니다</div>` +
+  `<div style="text-align:right;font-size:12px;color:#111;margin-top:1px;">${no}</div>` +
+  `<div style="font-size:9.5px;color:#333;margin-top:0;">본 문서는 LG U+이 모든 지적재산권을 소유하고 있사오니, 해당 문서를 무단으로 전재/복사/변조/재배포 하지 마시기 바라며, 이를 위반할 경우 모든 법적 책임은 귀사에 있음을 알려드립니다</div>` +
   `</div>`
 
 const headerRow = (tc: LguTc) =>
