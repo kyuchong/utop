@@ -375,7 +375,19 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
       {!!menu && !!menuPage && (
         <>
           <span className="wk-menuovl" role="presentation" onClick={() => setMenu(null)} />
-          <div className="wk-menu" role="menu" style={{ left: menu.x, top: menu.y }}>
+          <div
+            className="wk-menu"
+            role="menu"
+            style={{ left: menu.x, top: menu.y }}
+            ref={(el) => {
+              /* 화면 밖으로 나가면 안으로 민다(지적: 아래쪽 문서에서 열면
+                 잘린다) — 목록이 길어 높이를 그려 봐야 안다 */
+              if (!el) return
+              const r = el.getBoundingClientRect()
+              el.style.top = `${Math.max(8, Math.min(menu.y, window.innerHeight - r.height - 8))}px`
+              el.style.left = `${Math.max(8, Math.min(menu.x, window.innerWidth - r.width - 8))}px`
+            }}
+          >
             <button type="button" role="menuitem" onClick={() => { setMenu(null); void make(menuPage.id) }}>
               ＋ 아래에 새 문서
             </button>

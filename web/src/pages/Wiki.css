@@ -578,6 +578,10 @@
   padding: 4px;
   min-width: 260px;
   max-width: 340px;
+
+  /* 화면보다 길면 메뉴 스스로 내린다 — 잘린 채 손 못 대는 것보다 낫다 */
+  max-height: calc(100vh - 16px);
+  overflow: auto;
 }
 .wk-menu button {
   display: flex;
