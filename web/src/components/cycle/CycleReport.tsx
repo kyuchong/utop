@@ -120,6 +120,10 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
   const [scale, setScale] = useState(0.78)
   /** 지금 보고 있는 장 — 스크롤을 따라간다 */
   const [cur, setCur] = useState(1)
+  /* 로딩이 끝난 뒤에도 다시 부를 수 있게 밖에 쥔다(지적: 하단 선·쪽번호
+     잘림) — 로딩 중의 큰 몸통 높이로 배율이 굳으면, 장이 몸통보다 커져
+     아래가 잘린다(실측: 816px 때 1.097 로 굳고 본문은 779px 로 줄었다). */
+  const fitRef = useRef<() => void>(() => {})
   useEffect(() => {
     const el = bodyRef.current
     if (!el) return
@@ -132,6 +136,7 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
         setScale(Math.max(0.4, Math.min(1.4, Math.min(w / 1280, h / 720))))
       }
     }
+    fitRef.current = fit
     fit()
     const ro = new ResizeObserver(fit)
     ro.observe(el)
@@ -362,6 +367,13 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
   }
 
   const loading = cycQ.isLoading || (items.length > 0 && tcQ.isLoading)
+
+  /* 로딩 상태가 바뀌면 배율을 다시 잰다 — 스피너 판과 슬라이드 판의
+     몸통 높이가 달라, 처음 잰 값이 틀린 값으로 남는다(지적). */
+  useEffect(() => {
+    const id = requestAnimationFrame(() => fitRef.current())
+    return () => cancelAnimationFrame(id)
+  }, [loading])
 
   return (
     <div className="modal-back" onMouseDown={() => !busy && onClose()}>
