@@ -72,7 +72,9 @@ utop/
 ├── .env                 접속 정보 (직접 만든다, 커밋 안 됨)
 │
 ├── backend/             FastAPI — 장비 제어·시험 실행·AI
-│   ├── main.py            라우트 대부분, WebSocket
+│   ├── main.py            라우트 대부분, WebSocket — 기능별로 routes/ 로 옮기는 중
+│   ├── core.py            나뉜 라우트 파일이 쓰는 공용 고리(broadcast·세션) — main 이 bind 로 채운다
+│   ├── routes/            기능별 라우트 묶음 (APIRouter). 1호: wiki.py — 문서·Yjs 중계·문서 안의 표
 │   ├── engine.py          사이클 실행, PPTX 리포트
 │   ├── db.py              PostgreSQL 접근 (asyncpg)
 │   ├── stc/               Spirent TestCenter 연동

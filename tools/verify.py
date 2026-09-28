@@ -38,6 +38,8 @@ CHECKS: list[tuple[str, list[str]]] = [
     ("py_compile backend/main.py",   [PY, "-m", "py_compile", str(ROOT / "backend" / "main.py")]),
     ("py_compile backend/engine.py", [PY, "-m", "py_compile", str(ROOT / "backend" / "engine.py")]),
     ("py_compile backend/db.py",     [PY, "-m", "py_compile", str(ROOT / "backend" / "db.py")]),
+    ("py_compile backend/core.py",   [PY, "-m", "py_compile", str(ROOT / "backend" / "core.py")]),
+    ("py_compile backend/routes/wiki.py", [PY, "-m", "py_compile", str(ROOT / "backend" / "routes" / "wiki.py")]),
     ("py_compile scripts/launcher.py", [PY, "-m", "py_compile", str(ROOT / "scripts" / "launcher.py")]),
     ("api-reference.md 드리프트",     [PY, str(ROOT / "tools" / "gen_api_docs.py"), "--check"]),
     ("eslint globals 드리프트",       [PY, str(ROOT / "tools" / "gen_eslint_globals.py"), "--check"]),
