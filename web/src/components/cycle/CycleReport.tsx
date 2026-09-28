@@ -420,14 +420,14 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
               {busy ? '…' : '⬇ PPTX 저장'}
             </button>
             <button
-              className="btn small"
+              className="btn"
               type="button"
               disabled={busy || !slides.length}
               onClick={() => void savePdf()}
             >
               ⬇ PDF 저장
             </button>
-            <button className="btn small" type="button" disabled={busy} onClick={onClose}>
+            <button className="btn" type="button" disabled={busy} onClick={onClose}>
               ✕
             </button>
           </span>
