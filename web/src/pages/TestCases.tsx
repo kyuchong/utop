@@ -1116,6 +1116,61 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
   }
 
   /**
+   * 여러 줄 복제(승인) — 고른 줄들을 원래 차례대로, **마지막 고른 줄
+   * (몸통 뒤) 아래에 연속으로** 넣는다. 블록 줄은 안에 든 줄도 함께
+   * 간다(이동 ▲▼와 같은 결). 몸통에 든 줄을 머리와 같이 골랐으면 한
+   * 번만 센다 — 두 벌이 생기면 안 된다.
+   *
+   * 들여쓰기는 **가장 얕게 고른 줄을 기준으로 형제로 나란히** 세우고,
+   * 몸통은 상대 깊이를 유지한다 — 띄엄띄엄 다른 깊이를 골라도 부모 없는
+   * 줄(실행기가 그냥 돌려 버리는)이 안 생긴다. 결과(output·판정·실행
+   * 시각)는 한 줄 복제와 같은 규칙으로 뺀다.
+   */
+  const duplicatePicked = (idxs: number[]) => {
+    const sorted = [...new Set(idxs)].filter((i) => steps[i]).sort((a, b) => a - b)
+    if (!sorted.length) return
+    const heads: number[] = []
+    let cover = -1
+    for (const i of sorted) {
+      if (i < cover) continue
+      heads.push(i)
+      cover = Math.max(cover, blockEnd(steps, i))
+    }
+    const minD = Math.min(...heads.map((i) => Number(steps[i]!.indent ?? 0)))
+    const at = Math.max(...heads.map((i) => blockEnd(steps, i)))
+    const copies: TcStep[] = []
+    for (const h of heads) {
+      const hd = Number(steps[h]!.indent ?? 0)
+      for (let j = h; j < blockEnd(steps, h); j++) {
+        const {
+          output: _o,
+          response: _r,
+          status: _s,
+          repeatResult: _rr,
+          reason: _rs,
+          executed_at: _at,
+          ...rest
+        } = steps[j]!
+        copies.push({
+          ...rest,
+          indent: Math.max(0, Math.min(4, minD + Number(steps[j]!.indent ?? 0) - hd)),
+        })
+      }
+    }
+    const next = [...steps]
+    next.splice(at, 0, ...copies)
+    patch({ checks: next })
+    clearPicked()
+    setStepIdx(at)
+    setMsg({
+      kind: 'ok',
+      text: `${heads.length}줄을 복제해 아래에 넣었습니다${
+        copies.length > heads.length ? ` — 몸통까지 ${copies.length}줄` : ''
+      }`,
+    })
+  }
+
+  /**
    * 줄 고르기. shift 를 누른 채면 앞서 고른 줄부터 여기까지.
    *
    * 30줄짜리 시험에서 가운데 열 줄을 지우려면 하나씩 누르는 것으로는
@@ -2191,9 +2246,14 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                           <button
                             className="btn small"
                             type="button"
-                            disabled={one < 0}
-                            title={one < 0 ? '한 줄만 골랐을 때 복제할 수 있습니다' : '바로 아래에 같은 스텝 하나 더 (결과는 빼고)'}
-                            onClick={() => duplicateStep(one)}
+                            title={
+                              picked.size > 1
+                                ? '고른 줄들을(블록은 몸통까지) 마지막 줄 아래에 차례로 복제 (결과는 빼고)'
+                                : '바로 아래에 같은 스텝 하나 더 — 블록이면 몸통까지 (결과는 빼고)'
+                            }
+                            onClick={() =>
+                              duplicatePicked(picked.size > 1 ? [...picked] : [one >= 0 ? one : stepIdx])
+                            }
                           >
                             복제
                           </button>
