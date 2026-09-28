@@ -178,8 +178,9 @@ const SLASH_ORDER: ReadonlyArray<readonly [string, readonly string[]]> = [
 ]
 
 /** 위 차례대로 다시 세운다. 차례에 없는 것(요구사항·시험항목·문서처럼
- *  글자를 쳐야 나오는 것들)은 있던 무리 그대로 뒤에 붙는다. */
-function orderSlash<T extends { title?: string; group?: string }>(items: T[]): T[] {
+ *  글자를 쳐야 나오는 것들)은 있던 무리 그대로 뒤에 붙는다.
+ *  설명 칸(DescNote)도 같은 차례를 쓴다(지시: 메뉴 구성이 다르다). */
+export function orderSlash<T extends { title?: string; group?: string }>(items: T[]): T[] {
   const rest = [...items]
   const out: T[] = []
   for (const [group, titles] of SLASH_ORDER) {

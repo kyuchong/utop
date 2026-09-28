@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useCreateBlockNote } from '@blocknote/react'
+import {
+  useCreateBlockNote,
+  SuggestionMenuController,
+  getDefaultReactSlashMenuItems,
+} from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import { ko } from '@blocknote/core/locales'
-import type { PartialBlock } from '@blocknote/core'
+import { filterSuggestionItems, type PartialBlock } from '@blocknote/core'
 import { apiFetch } from '@/api/client'
-import { THEME } from './WikiEditor'
+import { THEME, orderSlash } from './WikiEditor'
 import BnSideMenuCentered from './BnSideMenuCentered'
 import { patchCellBg } from './cellBg'
 import '@blocknote/core/fonts/inter.css'
@@ -123,12 +127,23 @@ export default function DescNote({
       /* 기본 손잡이는 끄고 **줄 중앙 맞춤판**으로 바꿔 단다(지적) —
          나머지 기본 UI(툴바·슬래시 메뉴)는 그대로 산다 */
       sideMenu={false}
+      /* 기본 「/」 메뉴는 끄고 위키와 **같은 차례**(orderSlash)로 다시
+         단다(지적: 시험 목적·사전 준비의 메뉴 구성이 위키와 다르다).
+         위키 전용 블록(데이터베이스·상자·짚기)은 위키 문서 기반시설
+         (문서 표 저장소·문서 링크)이 필요해 여기엔 없다. */
+      slashMenu={false}
       onChange={() => {
         if (!onChange || seeding.current) return
         onChange(editor.document as unknown[], editor.blocksToMarkdownLossy(editor.document))
       }}
     >
       <BnSideMenuCentered />
+      <SuggestionMenuController
+        triggerCharacter="/"
+        getItems={async (query) =>
+          filterSuggestionItems(orderSlash(getDefaultReactSlashMenuItems(editor)), query)
+        }
+      />
     </BlockNoteView>
   )
 }
