@@ -462,6 +462,15 @@ const COLG =
    다름) — TC_ID 값 칸이 좁아 긴 키는 양식처럼 두 줄로 꺾인다. */
   '<colgroup><col style="width:6%"><col style="width:9%"><col style="width:6%"><col style="width:26%"><col style="width:8%"><col style="width:45%"></colgroup>'
 
+/* LG 심볼(원형 마크) — 원본 양식의 로고 그림을 SVG 로 근사(지시: 로고
+   부분도 똑같이). 원 테두리 + L(코) + 점(눈) + G 의 가로 획. */
+const LG_MARK =
+  '<svg viewBox="0 0 100 100" style="width:26px;height:26px;vertical-align:middle;" aria-hidden="true">' +
+  '<circle cx="50" cy="50" r="46" fill="none" stroke="#A50034" stroke-width="8"/>' +
+  '<path d="M40 30 L40 66 L64 66" fill="none" stroke="#A50034" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>' +
+  '<circle cx="62" cy="34" r="6" fill="#A50034"/>' +
+  '<path d="M96 50 L74 50" stroke="#A50034" stroke-width="8"/>' +
+  '</svg>'
 const LOGO =
   '<span style="font-family:Arial,Helvetica,sans-serif;font-weight:800;font-size:23px;color:#A50034;letter-spacing:-0.5px;">LG U<span style="color:#E6007E;font-size:15px;vertical-align:super;font-weight:800;">+</span></span>'
 
@@ -472,12 +481,14 @@ const LOGO =
  * 나온다 — 양식(머리·바닥·법적 문구)은 파일을 따라가고, 내용은 미리보기
  * 그대로 파일에 실린다. 서로가 서로를 베끼는 방향을 정해 둔 것이다.
  */
+/* 머리 — 원본 양식 배치(지시: 로고 똑같이): 제목 왼쪽 · 심볼+LG U+
+   가운데 · Proprietary 오른쪽. */
 const pageHead = (ttl: string) =>
-  `<div style="display:flex;align-items:center;justify-content:space-between;padding:0 6px 2px;">` +
-  `<div style="font-size:22px;font-weight:800;letter-spacing:4px;color:#111;">${ttl}</div>` +
-  `<div style="display:flex;align-items:center;gap:14px;">${LOGO}` +
-  `<span style="font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:800;color:#111;">LG U+ Proprietary &amp; Confidential</span>` +
-  `</div></div>` +
+  `<div style="display:flex;align-items:center;padding:0 6px 2px;">` +
+  `<div style="flex:1;font-size:22px;font-weight:800;letter-spacing:4px;color:#111;">${ttl}</div>` +
+  `<div style="flex:0 0 auto;display:flex;align-items:center;gap:7px;">${LG_MARK}${LOGO}</div>` +
+  `<div style="flex:1;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:800;color:#111;">LG U+ Proprietary &amp; Confidential</div>` +
+  `</div>` +
   `<div style="border-bottom:3px solid #111;"></div><div style="border-bottom:1.4px solid #111;margin-top:2px;margin-bottom:11px;"></div>`
 
 /** 바닥 — 양식의 법적 문구와 쪽번호. **바닥에 절대 고정**한다(지적:
