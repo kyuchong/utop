@@ -3,7 +3,6 @@
 # 사용법: py -3.12 stc_conncheck.py <chassis_ip> [rest_ip] [rest_port]
 # 결과를 JSON 한 줄로 stdout 에 출력한다. 백엔드 /api/stc/conncheck 가 파싱.
 from __future__ import print_function
-import os
 import sys
 import json
 
