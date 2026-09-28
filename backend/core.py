@@ -55,3 +55,73 @@ def bind(**names: Callable | Path | Any) -> None:
 def bound() -> list[str]:
     """지금 매인 이름들 — 기동 로그·자기검사가 읽는다."""
     return sorted(_BOUND)
+
+
+# ── Jira · 결함 묶음(routes/jira.py)이 쓰는 것 — main 이 bind 로 채운다 ──
+
+LLMS_FILE: Any = None
+
+JIRA_FILE: Any = None
+
+DEFECT_CLASS_FILE: Any = None
+
+def load_json(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: load_json')
+
+def save_json(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: save_json')
+
+def kv_load_sync(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: kv_load_sync')
+
+def kv_save_sync(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: kv_save_sync')
+
+def find_user(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: find_user')
+
+def token_from(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: token_from')
+
+JIRA_LAST_FAIL: Any = None
+
+def jira_verify_flag(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: jira_verify_flag')
+
+def jira_login_base(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: jira_login_base')
+
+def jira_login_on(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: jira_login_on')
+
+async def jira_verify_login(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: jira_verify_login')
+
+def jira_auto_create(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: jira_auto_create')
+
+ALLOWED_EMAIL_DOMAIN: Any = None
+
+def prompt_of(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: prompt_of')
+
+def purpose_params(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: purpose_params')
+
+def apply_purpose_params(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: apply_purpose_params')
+
+def llm_pick(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: llm_pick')
+
+def user_of(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: user_of')
+
+async def model_group_of(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: model_group_of')
+
+def user_id_of(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: user_id_of')
+
+async def jira_defect_defaults(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: jira_defect_defaults')
