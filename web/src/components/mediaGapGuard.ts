@@ -32,16 +32,30 @@ export function guardMediaGap(root: HTMLElement | null, editor: AnyEditor): () =
     if (!MEDIA.has(kind)) return
     e.preventDefault()
     e.stopPropagation()
-    /* 이웃 글 블록으로 커서를 — 그림 선택이 풀린다 */
+    /* 가장 가까운 글 블록으로 커서를 — 그림 선택이 풀린다.
+       형제만 보면 안 된다(지적: 목록 안에 든 그림은 형제가 없어 안 풀렸다) —
+       문서를 펴서 그림 **뒤**의 첫 글 블록, 없으면 **앞**의 마지막 글 블록. */
     try {
       const id = outer.getAttribute('data-id') || ''
-      const block = id ? editor.getBlock(id) : undefined
-      if (!block) return
-      const isText = (b: { type: string } | undefined) => !!b && !MEDIA.has(b.type) && b.type !== 'utopTable'
-      const next = editor.getNextBlock(block)
-      const prev = editor.getPrevBlock(block)
-      if (isText(next)) editor.setTextCursorPosition(next!, 'start')
-      else if (isText(prev)) editor.setTextCursorPosition(prev!, 'end')
+      if (!id) return
+      type B = { id: string; type: string; content?: unknown; children?: B[] }
+      const flat: B[] = []
+      const walk = (bs: B[]) => {
+        for (const b of bs) {
+          flat.push(b)
+          if (b.children?.length) walk(b.children)
+        }
+      }
+      walk(editor.document as unknown as B[])
+      const at = flat.findIndex((b) => b.id === id)
+      if (at < 0) return
+      /* 글을 담는 블록 = content 가 인라인 배열인 것(문단·제목·목록…). 표·그림·상자는 아니다 */
+      const isText = (b: B) => Array.isArray(b.content)
+      const after = flat.slice(at + 1).find(isText)
+      const before = flat.slice(0, at).reverse().find(isText)
+      if (after) editor.setTextCursorPosition(after as never, 'start')
+      else if (before) editor.setTextCursorPosition(before as never, 'end')
+      else return
       editor.focus()
     } catch {
       /* 편집기가 아직 안 붙었으면 그냥 삼킨다 */
