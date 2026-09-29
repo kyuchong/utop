@@ -13,6 +13,7 @@ import { prefGet, prefSet } from '@/lib/prefs'
 import { buildCategoryTree, reqPk } from '@/types'
 import type { CategoryTreeNode } from '@/types'
 import type { NCol } from '@/components/ntable/types'
+import { vLetter, type VerdDef } from '@/lib/verdicts'
 
 /** 실행 목록 한 줄 — 목록 API 가 집계까지 함께 준다(큰 결과는 안 읽는다) */
 export interface RunLite {
@@ -36,21 +37,26 @@ export interface RunLite {
   n_fail: number
   n_etc: number
   n_none: number
+  /** 판정 값별 건수 — {Pass: 3, WIP: 1, '': 2}. 팝업이 WIP·Blocked·진행불가를 따로 센다 */
+  hist?: Record<string, number>
 }
 
 /** 여러 실행의 집계를 한 덩어리로 */
 export function sumRuns(rs: RunLite[]) {
   const s = { pass: 0, fail: 0, etc: 0, none: 0, total: 0 }
+  const by: Record<string, number> = {}
   for (const r of rs) {
     s.pass += r.n_pass || 0
     s.fail += r.n_fail || 0
     s.etc += r.n_etc || 0
     s.none += r.n_none || 0
     s.total += r.n_total || 0
+    for (const [v, n] of Object.entries(r.hist ?? {})) by[v] = (by[v] ?? 0) + (Number(n) || 0)
   }
   const done = s.pass + s.fail + s.etc
   return {
     ...s,
+    by,
     done,
     prg: s.total ? Math.round((done / s.total) * 100) : 0,
     rate: s.pass + s.fail ? Math.round((s.pass / (s.pass + s.fail)) * 100) : 0,
@@ -65,12 +71,15 @@ export function StatBar({
   pal,
   slim,
   title,
+  defs,
 }: {
   t: Tally
   pal?: Record<string, string>
   slim?: boolean
   /** 팝업 머리에 적을 이름 — 사이클 이름. 주면 slim 막대에 올렸을 때 그림 같은 어두운 팝업이 뜬다(지시) */
   title?: string
+  /** 셋업의 실행 판정 기준 — 주면 팝업 줄이 그 목록 차례·색을 따른다(WIP·Blocked·진행불가·직접 만든 것까지) */
+  defs?: VerdDef[]
 }) {
   /* 팝업 자리 — 막대의 화면 좌표. 표 칸은 overflow 로 잘리므로 body 에 띄운다 */
   const [pop, setPop] = useState<{ x: number; y: number; up: boolean } | null>(null)
@@ -110,12 +119,26 @@ export function StatBar({
   if (!slim) return bar
   /* 어두운 팝업(지시: 그림처럼) — Pass·Fail 줄에 색 점, 건수 / 비율, 그 아래 항목 수·진행률.
      검증 불가·미실행은 있을 때만 줄을 낸다. 아래쪽 행이면 위로 띄운다. */
-  /* 그림 그대로(지시): 점 달린 줄은 Pass·Fail 둘뿐. 검증 불가·미실행은 맨 아래 흐린 글줄. */
-  const rows: Array<[string, string, number]> = [
-    ['Pass', 'p', t.pass],
-    ['Fail', 'f', t.fail],
-  ]
-  const tail = [t.etc ? `검증 불가 ${t.etc}` : '', t.none ? `미실행 ${t.none}` : ''].filter(Boolean).join(' · ')
+  /* 줄 — 셋업의 판정 목록 차례로. Pass·Fail 은 늘, 나머지(WIP·Blocked·진행불가·직접 만든 것)는
+     건수가 있을 때만(지시: 그것들이 팝업에 안 나온다). 값별 건수(hist)가 없는 옛 서버면 네 칸으로 접은
+     것(etc)을 「검증 불가」 한 줄로 낸다. 미실행은 맨 아래 흐린 글줄. */
+  const by = t.by ?? {}
+  const rows: Array<{ name: string; cls: string; color?: string; n: number }> = []
+  if (defs && defs.length) {
+    for (const d of defs) {
+      if (d.v === '') continue
+      const n = by[d.v] ?? (d.v === 'Pass' ? t.pass : d.v === 'Fail' ? t.fail : 0)
+      if (n > 0 || d.v === 'Pass' || d.v === 'Fail') rows.push({ name: d.label, cls: vLetter(defs, d.v), color: d.color, n })
+    }
+    /* 셋업 목록에 없는 값이 기록에 있으면(지운 판정 등) 그것도 버리지 않는다 */
+    for (const [v, n] of Object.entries(by)) {
+      if (v && n > 0 && !defs.some((d) => d.v === v)) rows.push({ name: v, cls: 'b', n })
+    }
+  } else {
+    rows.push({ name: 'Pass', cls: 'p', n: t.pass }, { name: 'Fail', cls: 'f', n: t.fail })
+    if (t.etc) rows.push({ name: '검증 불가', cls: 'b', n: t.etc })
+  }
+  const tail = t.none ? `미실행 ${t.none}` : ''
   return (
     <div
       className="q-statsw"
@@ -139,11 +162,11 @@ export function StatBar({
             role="tooltip"
           >
             <div className="q-statpop-t">{title || '(이름 없음)'}</div>
-            {rows.map(([name, cls, v]) => (
-              <div className="q-statpop-r" key={cls}>
-                <i className={`q-statpop-d ${cls}`} style={pal?.[cls] ? { background: pal[cls] } : undefined} />
+            {rows.map((r) => (
+              <div className="q-statpop-r" key={r.name}>
+                <i className={`q-statpop-d ${r.cls}`} style={r.color ? { background: r.color } : pal?.[r.cls] ? { background: pal[r.cls] } : undefined} />
                 <span>
-                  {name} <b>{v}</b> / {pct(v)}%
+                  {r.name} <b>{r.n}</b> / {pct(r.n)}%
                 </span>
               </div>
             ))}

@@ -46,7 +46,12 @@ if rid:
     r = c.get(f"/api/plan-runs/{rid}/items"); ok("플랜 실행 항목", r.status_code == 200, r.text[:100])
     r = c.get(f"/api/plan-runs/{rid}/stat"); ok("플랜 실행 통계(500 아님)", r.status_code != 500, r.text[:100])
     r = c.get(f"/api/plan-runs/{rid}/rounds"); ok("회차(500 아님)", r.status_code != 500, r.text[:100])
-    r = c.post(f"/api/plan-runs/{rid}/item", json={"tcid": "E6100-T0001", "result": "Pass", "steps": []}); ok("항목 결과 기록(500 아님)", r.status_code != 500, r.text[:120])
+    r = c.post(f"/api/plan-runs/{rid}/item", json={"tcid": "E6100-T0001", "verdict": "Pass", "data": {}}); ok("항목 결과 기록(500 아님)", r.status_code != 500, r.text[:120])
+    r = c.post(f"/api/plan-runs/{rid}/item", json={"tcid": "E6100-T0002", "verdict": "WIP", "data": {}}); ok("WIP 결과 기록(500 아님)", r.status_code != 500, r.text[:120])
+    r = c.post(f"/api/plan-runs/{rid}", json={"results": {"E6100-T0001": "Pass", "E6100-T0002": "WIP", "E6100-T0003": "Blocked", "E6100-T0004": ""}}); ok("실행 결과표 저장(목록 집계의 정본)", r.status_code == 200, r.text[:100])
+    runs = c.get("/api/plan-runs", params={"cycle_id": cid}).json().get("runs") or []
+    mine = next((x for x in runs if x.get("id") == rid), None)
+    ok("실행 목록에 값별 건수(hist)가 실린다 — 팝업이 WIP·Blocked 를 따로 센다", bool(mine) and isinstance(mine.get("hist"), dict) and mine["hist"].get("WIP") == 1 and mine["hist"].get("Pass") == 1 and mine["hist"].get("Blocked") == 1 and mine["n_etc"] == 2 and mine["n_none"] == 1, str(mine and mine.get("hist")))
     r = c.delete(f"/api/plan-runs/{rid}"); ok("플랜 실행 지우기(500 아님)", r.status_code != 500, r.text[:100])
 r = c.get("/api/plan-runs-regression"); ok("회귀 비교(500 아님)", r.status_code != 500, r.text[:100])
 

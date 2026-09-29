@@ -646,9 +646,13 @@ def _fold_hist(hist, groups: dict) -> dict:
         except Exception:  # noqa: BLE001
             hist = {}
     out = {"n_total": 0, "n_pass": 0, "n_fail": 0, "n_etc": 0, "n_none": 0}
+    # 값별 건수도 함께 준다(지시: 팝업에 WIP·Blocked·진행불가가 따로 서야 한다) — 네 칸으로 접으면
+    # 중립 계열이 한 덩어리가 돼 무엇이 몇 건인지 못 본다. 옛 글자는 값으로 통역해 합친다.
+    by: dict = {}
     for raw, cnt in (hist or {}).items():
         v = _LETTER_VERD.get(str(raw), str(raw))
         n = int(cnt or 0)
+        by[v] = by.get(v, 0) + n
         out["n_total"] += n
         g = groups.get(v, "neutral") if v else "none"
         if g == "pass":
@@ -659,6 +663,7 @@ def _fold_hist(hist, groups: dict) -> dict:
             out["n_none"] += n
         else:
             out["n_etc"] += n
+    out["hist"] = by
     return out
 
 
