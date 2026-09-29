@@ -1358,53 +1358,53 @@ export default function CyclesBoard({
     tcOf,
   ])
 
-  /** 누적 그림에서 **며칠치를 보나**(지시: 7일·15일·한 달) */
+  /** 일자별 그림에서 **며칠치를 보나**(지시: 7일·15일·한 달) */
   const [spanD, setSpanD] = useState<number>(() => {
     const v = Number(prefGet('utop.cyc.span') ?? 7)
     return v === 15 || v === 30 ? v : 7
   })
 
-  /** 그날까지 **돈 회차 누적**을 자동·수동으로 나눠 본다(지시: 회차로) */
+  /** **그날 돈 회차**를 자동·수동으로 나눠 본다(지시: 회차로).
+   *  누적이 아니다(지적: 오늘 10회 돌렸는데 66) — 누적이면 창 밖 옛 회차가
+   *  시작값으로 접혀 들어와 오늘 칸이 그 위에서 시작했다. 일자별이면 그날
+   *  돈 수가 그날 칸에 서야 한다. */
   const covCum = useMemo(() => {
     const days = [...new Set([...dayStat.auto.map(([d]) => d), ...dayStat.man.map(([d]) => d)])].sort()
     const sum = (v: { p: number; f: number; b: number }) => v.p + v.f + v.b
     const A = new Map(dayStat.auto)
     const M = new Map(dayStat.man)
-    let a = 0
-    let m = 0
-    return days.map((d) => {
-      a += sum(A.get(d) ?? { p: 0, f: 0, b: 0 })
-      m += sum(M.get(d) ?? { p: 0, f: 0, b: 0 })
-      return [d, { p: a, f: m, b: 0 }] as [string, { p: number; f: number; b: number }]
-    })
+    return days.map(
+      (d) =>
+        [d, { p: sum(A.get(d) ?? { p: 0, f: 0, b: 0 }), f: sum(M.get(d) ?? { p: 0, f: 0, b: 0 }), b: 0 }] as [
+          string,
+          { p: number; f: number; b: number },
+        ],
+    )
   }, [dayStat])
 
   /** 고른 기간을 **날마다 채워서** 준다(지적: 7일을 눌러도 9/11 하루만 나온다).
    *
-   *  기록이 있는 날만 그리면 축이 하루짜리가 된다. 누적 그림이므로 **없는
-   *  날은 직전 값을 잇는다** — 그래야 7일·15일·한 달이 정말 그 폭으로 보인다.
-   *  기간 시작보다 앞선 기록은 시작값으로 접어 넣는다. */
+   *  기록이 있는 날만 그리면 축이 하루짜리가 된다. **안 돈 날은 0** 이다.
+   *  창은 오늘(또는 마지막 기록일 중 늦은 날)에서 끝난다 — 오늘 안 돌았어도
+   *  오늘 칸이 서야 「오늘은 없다」 가 보인다. 창 밖 기록은 안 그린다. */
   const covCumSpan = useMemo(() => {
     type Pt = { p: number; f: number; b: number }
     const dayMs = 86400000
-    const endTxt = covCum.length ? covCum[covCum.length - 1]![0] : ''
+    const today = (() => {
+      const n = new Date()
+      const p2 = (x: number) => String(x).padStart(2, '0')
+      return `${n.getFullYear()}-${p2(n.getMonth() + 1)}-${p2(n.getDate())}`
+    })()
+    const lastTxt = covCum.length ? covCum[covCum.length - 1]![0] : ''
+    const endTxt = lastTxt > today ? lastTxt : today
     const end = Date.parse(`${endTxt}T00:00:00Z`)
     if (!Number.isFinite(end)) return covCum
     const from = end - (spanD - 1) * dayMs
     const M = new Map(covCum)
-    /* 기간 시작 이전의 마지막 누적 — 첫날이 0 에서 시작하면 안 된다 */
-    let last: Pt = { p: 0, f: 0, b: 0 }
-    for (const [d, v] of covCum) {
-      const t = Date.parse(`${d}T00:00:00Z`)
-      if (Number.isFinite(t) && t < from) last = v
-      else break
-    }
     const out: Array<[string, Pt]> = []
     for (let t = from; t <= end; t += dayMs) {
       const d = new Date(t).toISOString().slice(0, 10)
-      const v = M.get(d)
-      if (v) last = v
-      out.push([d, last])
+      out.push([d, M.get(d) ?? { p: 0, f: 0, b: 0 }])
     }
     return out
   }, [covCum, spanD])
@@ -2872,9 +2872,9 @@ export default function CyclesBoard({
   }
 
   /** 일자별 그림 — 선(기본)·막대 두 꼴. 세 갈래를 쌓거나 세 선으로 긋는다 */
-  /** 꺾인 선을 **부드러운 곡선**으로. 누적 그림은 단조증가라, 제어점을
-   *  이웃 두 점 사이에 가둬 위로 튀지 않게 한다(안 가두면 줄지 않은 구간이
-   *  잠깐 내려갔다 오는 것처럼 보인다). */
+  /** 꺾인 선을 **부드러운 곡선**으로. 제어점을 이웃 두 점 사이에 가둬
+   *  값 밖으로 튀지 않게 한다(안 가두면 0 인 날 사이가 밑으로 처지거나
+   *  꼭짓점이 실제 값보다 높게 보인다). */
   const smoothPath = (pts: Array<[number, number]>): string => {
     if (pts.length < 2) return pts.length ? `M ${pts[0]![0]},${pts[0]![1]}` : ''
     const clamp = (v: number, a2: number, b2: number) =>
@@ -3023,7 +3023,7 @@ export default function CyclesBoard({
               })
             : series.map((s2) => {
                 const pts = rows.map(([, v], i) => [cx(i), y(v[s2.k])] as [number, number])
-                /* 선 아래를 옅게 채운다 — 누적이 얼마나 찼는지 눈에 잡힌다 */
+                /* 선 아래를 옅게 채운다 — 그날 양이 눈에 잡힌다 */
                 const curve = smoothPath(pts)
                 const area = `${curve} L ${pts[pts.length - 1]![0]},${y(0)} L ${pts[0]![0]},${y(0)} Z`
                 const lastV = rows[rows.length - 1]![1][s2.k]
@@ -3093,7 +3093,7 @@ export default function CyclesBoard({
   }
 
   /** 그래프 꼴 고르개 — 선(기본)·막대 */
-  /** 7일 · 15일 · 한 달(지시) — 누적 그림이 덮는 기간 */
+  /** 7일 · 15일 · 한 달(지시) — 일자별 그림이 덮는 기간 */
   const spanPick = (
     <span className="cyb-span">
       {([[7, '7일'], [15, '15일'], [30, '한 달']] as Array<[number, string]>).map(([n, l]) => (
@@ -3256,7 +3256,7 @@ export default function CyclesBoard({
           </div>
           <div className="cyb-rtw">
             <h3 className="cyb-rowh">
-              일자별 <span className="dim">누적 실행 횟수 — 자동 · 수동</span>
+              일자별 <span className="dim">실행 횟수 — 자동 · 수동</span>
               <span className="cu-sp" />
               {spanPick}
               {kindPick}
@@ -3264,8 +3264,8 @@ export default function CyclesBoard({
             <DayChart
               rows={covCumSpan}
               series={[
-                { k: 'p', label: '자동(누적)', color: 'var(--c-primary)' },
-                { k: 'f', label: '수동(누적)', color: '#8a949e' },
+                { k: 'p', label: '자동', color: 'var(--c-primary)' },
+                { k: 'f', label: '수동', color: '#8a949e' },
               ]}
               unit={`단위 회 · 담은 항목 ${itemRows.length}건 · 실행 ${myRuns.length}건`}
             />
