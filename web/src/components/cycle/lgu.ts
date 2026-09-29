@@ -263,9 +263,9 @@ function paginate(blocks: Block[], maxLines: number): Block[][] {
 /** 결과 칸 폭(약 7in, 9pt)에서 한 줄에 들어가는 대략 글자수 */
 const CPL = 118
 const METHOD_MAX = 11
-/** 결과 칸(470px) 한 단에 들어가는 줄 수 — 9px·1.45 줄높이(13px)로 36줄이지만
- *  스텝 머리(11.5px)·상자 여백이 끼므로 32 로 잡는다. 넘치면 잘리니 넉넉히. */
-export const COL_LINES = 32
+/** 결과 칸(470px) 한 단이 담는 높이(px) — 칸 안쪽 여백을 빼고 조금 남긴다.
+ *  줄 수로 세면 스텝 머리·상자 여백이 많은 장이 넘쳤다(실측 548px). */
+const COL_PX = 452
 /** 이 글자수 이하면 「좁은 줄」 — 반 폭(두 단)에 들어간다. 넘으면 한 단 전체를 쓴다 */
 const NARROW_CPL = 58
 
@@ -448,36 +448,79 @@ export function resultTermLines(
 export interface ResultPage {
   lines: TermLine[]
   twoCol: boolean
+  /** 두 단일 때 오른쪽 단이 시작하는 줄 번호(lines 안). 한 단이면 lines.length */
+  split: number
   /** 앞 장에서 이어지는 장(스텝 중간에서 잘린 것) */
   cont: boolean
 }
 
+const isGapLine = (l: TermLine) => !l.kind && l.text === ''
+const isHeadLine = (l: TermLine) => l.kind === 'head' || l.kind === 'pass' || l.kind === 'fail'
+const isWideLine = (l: TermLine) => l.text.length > NARROW_CPL
+/** 상자 안 줄인가(명령·출력) — 상자 여닫는 비용을 셀 때 쓴다 */
+const inBoxLine = (l: TermLine) => l.kind === 'cmd' || (l.kind === 'out' && !l.text.startsWith('- '))
+
+/**
+ * 줄 하나가 미리보기(renderResultLines)에서 차지하는 높이(px) — 앞 줄이
+ * 상자 안이었는지에 따라 상자 여는 값(여백+테두리)이 붙는다.
+ * 9px 출력 13px · 10px 명령 14.5px · 스텝 머리 21px · 제목(■) 25px · 빈 줄 6px ·
+ * 상자 열기 8px(위 3 + 안 4 + 선 1) · 상자 닫기 5px(안 4 + 선 1).
+ */
+function lineCost(l: TermLine, prevInBox: boolean): number {
+  const close = prevInBox && !inBoxLine(l) ? 5 : 0
+  if (isGapLine(l)) return 6 + close
+  if (isHeadLine(l)) return (l.text.startsWith('■') ? 25 : 21) + close
+  if (l.kind === 'cmd') return 14.5 + (prevInBox ? 0 : 8)
+  if (l.kind === 'out' && l.text.startsWith('- ')) return 15 + close
+  return 13 + (prevInBox ? 0 : 8)
+}
+
+/** i 부터 cap(px) 안에 들어가는 줄 수 — 넓은 줄 앞에서 멈추는 선택지 */
+function fill(all: TermLine[], i: number, cap: number, stopAtWide: boolean): number {
+  let px = 0
+  let prevInBox = false
+  let n = 0
+  for (let k = i; k < all.length; k++) {
+    const l = all[k]!
+    if (stopAtWide && isWideLine(l)) break
+    const c = lineCost(l, prevInBox)
+    if (px + c > cap && n > 0) break
+    px += c
+    prevInBox = inBoxLine(l)
+    n++
+  }
+  return n
+}
+
 export function resultPages(tc: LguTc): ResultPage[] {
   const all = resultTermLines(tc.steps, 0, tc.steps.length, tc.prompt || '$')
-  const isGap = (l: TermLine) => !l.kind && l.text === ''
-  const isHead = (l: TermLine) => l.kind === 'head' || l.kind === 'pass' || l.kind === 'fail'
-  const wide = (l: TermLine) => l.text.length > NARROW_CPL
   const pages: ResultPage[] = []
   let i = 0
   while (i < all.length) {
-    while (i < all.length && isGap(all[i]!)) i++
+    while (i < all.length && isGapLine(all[i]!)) i++
     if (i >= all.length) break
-    /* 한 단 분량 안에 넓은 줄이 있으면 이 장은 한 단 */
-    const single = all.slice(i, i + COL_LINES).some(wide)
-    let end = Math.min(all.length, i + (single ? COL_LINES : COL_LINES * 2))
-    if (!single) {
-      const w = all.slice(i, end).findIndex(wide)
-      if (w >= 0) end = i + w
+    const cont = pages.length > 0 && !isHeadLine(all[i]!)
+    const cap1 = COL_PX - (cont ? 15 : 0) /* 「앞 장에서 이어짐」 한 줄 */
+    /* 한 단 분량 안에 넓은 줄이 있으면 이 장은 한 단(넓은 줄이 반 폭에 안 들어간다) */
+    const n1 = fill(all, i, cap1, false)
+    const single = all.slice(i, i + n1).some(isWideLine)
+    let left = single ? n1 : fill(all, i, cap1, true)
+    /* 고아 머리 — 스텝 제목만 단 끝에 남으면 다음으로 */
+    if (left > 1 && i + left < all.length && isHeadLine(all[i + left - 1]!)) left--
+    let right = 0
+    if (!single && i + left < all.length && !isWideLine(all[i + left]!)) {
+      right = fill(all, i + left, COL_PX - 15 /* 「왼쪽 단에서 이어짐」 */, true)
+      if (right > 1 && i + left + right < all.length && isHeadLine(all[i + left + right - 1]!)) right--
     }
-    /* 고아 머리 — 스텝 제목만 장 끝에 남으면 다음 장으로 */
-    if (end < all.length && end - i > 1 && isHead(all[end - 1]!)) end--
+    const end = i + left + right
     let e2 = end
-    while (e2 > i && isGap(all[e2 - 1]!)) e2--
+    while (e2 > i && isGapLine(all[e2 - 1]!)) e2--
     const lines = all.slice(i, e2)
-    pages.push({ lines, twoCol: !single && lines.length > COL_LINES, cont: pages.length > 0 && !isHead(lines[0]!) })
+    const split = Math.min(left, lines.length)
+    pages.push({ lines, twoCol: right > 0 && split < lines.length, split, cont })
     i = end
   }
-  if (!pages.length) pages.push({ lines: [], twoCol: false, cont: false })
+  if (!pages.length) pages.push({ lines: [], twoCol: false, split: 0, cont: false })
   return pages
 }
 
@@ -612,8 +655,8 @@ export function page1(tc: LguTc, range: [number, number]): string {
   )
 }
 
-/** 2장 — 시험 결과 (줄 단위, 두 단 흐름) */
-export function page2(tc: LguTc, page: ResultPage): string {
+/** 결과 줄들을 HTML 로 — 스텝 머리·명령·출력 상자. 두 단이면 단마다 따로 부른다 */
+function renderResultLines(lines: TermLine[]): string {
   const MONO = 'font-family:Consolas,monospace;font-size:9px;line-height:1.45;white-space:pre;overflow:hidden;'
   const parts: string[] = []
   let boxOpen = false
@@ -623,15 +666,11 @@ export function page2(tc: LguTc, page: ResultPage): string {
   }
   const openBox = () => {
     if (boxOpen) return
-    /* 흰 바탕 + 테두리 — 검은 터미널을 그대로 실었더니 「출력하면 토너 낭비」
-       (지적). 두 단으로 흐를 때 상자가 단 경계에서 잘려 이어진다(box-decoration
-       slice) — 왼쪽 아래가 열리고 오른쪽 위가 열린 채 이어져 「계속」 으로 읽힌다. */
+    /* 흰 바탕 + 테두리 — 검은 터미널을 그대로 실었더니 「출력하면 토너 낭비」(지적) */
     parts.push('<div style="border:1px solid #8a939c;border-radius:4px;background:#fff;margin-top:3px;padding:4px 9px;">')
     boxOpen = true
   }
-  if (page.cont)
-    parts.push('<div style="font-size:9.5px;color:#7a828c;margin-bottom:3px;">… (앞 장에서 이어짐)</div>')
-  for (const ln of page.lines) {
+  for (const ln of lines) {
     if (!ln.kind && ln.text === '') {
       closeBox()
       parts.push('<div style="height:6px;"></div>')
@@ -644,11 +683,10 @@ export function page2(tc: LguTc, page: ResultPage): string {
       const label = m ? m[1]! : t
       const v = m && m[3] ? m[3] : ''
       const rc = ln.kind === 'pass' ? '#00875a' : ln.kind === 'fail' ? '#d12d49' : '#888'
-      const isTitle = t.startsWith('■')
       parts.push(
-        isTitle
-          ? `<div style="margin:6px 0 4px;font-size:12px;font-weight:800;color:#111;break-after:avoid;">${esc(t)}</div>`
-          : `<div style="margin-top:4px;font-size:11.5px;font-weight:700;color:#111;break-after:avoid;">${esc(label)}${
+        t.startsWith('■')
+          ? `<div style="margin:6px 0 4px;font-size:12px;font-weight:800;color:#111;">${esc(t)}</div>`
+          : `<div style="margin-top:4px;font-size:11.5px;font-weight:700;color:#111;">${esc(label)}${
               v ? ` <span style="color:${rc};font-weight:800;">[${esc(v)}]</span>` : ''
             }</div>`,
       )
@@ -669,12 +707,31 @@ export function page2(tc: LguTc, page: ResultPage): string {
     parts.push(`<div style="${MONO}color:#222;">${esc(ln.text) || ' '}</div>`)
   }
   closeBox()
-  const inner = parts.join('')
-  const body = page.lines.length
-    ? page.twoCol
-      ? `<div style="column-count:2;column-gap:18px;column-fill:auto;height:462px;">${inner}</div>`
-      : inner
-    : '<div style="color:#9aa0b8;text-align:center;padding-top:60px;">시험 결과 데이터 없음 — 시험 실행 후 출력</div>'
+  return parts.join('')
+}
+
+const CONT_NOTE = (t: string) => `<div style="font-size:9.5px;color:#7a828c;margin-bottom:3px;">… ${t}</div>`
+
+/** 2장 — 시험 결과 (줄 단위). 두 단은 **왼쪽 COL_LINES 줄 · 오른쪽 나머지**로
+ *  명시해 나눈다(지적: CSS 흐름은 오른쪽 단이 칸 맨 위에 상자 윗선도 없이
+ *  붙어 어색했다). 오른쪽 단은 「왼쪽 단에서 이어짐」 한 줄 뒤에 제 상자로
+ *  시작한다. PPTX 의 터미널 그림도 같은 줄에서 나뉜다. */
+export function page2(tc: LguTc, page: ResultPage): string {
+  let body: string
+  if (!page.lines.length) {
+    body = '<div style="color:#9aa0b8;text-align:center;padding-top:60px;">시험 결과 데이터 없음 — 시험 실행 후 출력</div>'
+  } else if (page.twoCol) {
+    const left = page.lines.slice(0, page.split)
+    const right = page.lines.slice(page.split)
+    body =
+      (page.cont ? CONT_NOTE('(앞 장에서 이어짐)') : '') +
+      '<div style="display:flex;gap:18px;align-items:flex-start;">' +
+      `<div style="flex:1;min-width:0;">${renderResultLines(left)}</div>` +
+      `<div style="flex:1;min-width:0;">${CONT_NOTE('(왼쪽 단에서 이어짐)')}${renderResultLines(right)}</div>` +
+      '</div>'
+  } else {
+    body = (page.cont ? CONT_NOTE('(앞 장에서 이어짐)') : '') + renderResultLines(page.lines)
+  }
   return (
     pageHead('시 험 결 과') +
     `<table style="width:100%;border-collapse:collapse;border:${BD};table-layout:fixed;">${COLG}${headerRow(tc)}` +

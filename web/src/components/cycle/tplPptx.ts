@@ -1,5 +1,5 @@
 import { apiFetch } from '@/api/client'
-import { COL_LINES, methodBlocks, resultBlocks, slideRanges, type LguTc } from './lgu'
+import { methodBlocks, resultBlocks, slideRanges, type LguTc } from './lgu'
 import { termShot, type TermLine } from './termShot'
 
 /**
@@ -102,7 +102,7 @@ export function buildTplSlides(tcs: LguTc[]): TplSlide[] {
           ? termShot(
               lines,
               [tc.tcid, tc.name].filter(Boolean).join(' · ') + (pg.cont ? ' (이어서)' : ''),
-              pg.twoCol ? { n: 2, per: COL_LINES } : undefined,
+              pg.twoCol ? { n: 2, per: pg.split } : undefined,
             )
           : null
       } catch {

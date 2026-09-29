@@ -1,5 +1,5 @@
 import PptxGenJS from 'pptxgenjs'
-import { COL_LINES, methodBlocks, slideRanges, type LguTc } from './lgu'
+import { methodBlocks, slideRanges, type LguTc } from './lgu'
 import { termShot, type TermLine } from './termShot'
 
 /**
@@ -194,7 +194,7 @@ export async function saveLguPptx(
         ? termShot(
             lines,
             [tc.tcid, tc.name].filter(Boolean).join(' · ') + (pg.cont ? ' (이어서)' : ''),
-            pg.twoCol ? { n: 2, per: COL_LINES } : undefined,
+            pg.twoCol ? { n: 2, per: pg.split } : undefined,
           )
         : null
       s.addTable(
