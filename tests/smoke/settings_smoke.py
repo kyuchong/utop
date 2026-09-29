@@ -32,6 +32,12 @@ r = c.post("/api/org/node", params=q, json={"parent": "", "name": "스모크팀"
 r = c.get("/api/org-options"); ok("조직 선택지", r.status_code == 200, r.text[:80])
 # 설정
 r = c.get("/api/mail/config", params=q); ok("메일 설정 읽기", r.status_code == 200, r.text[:80])
+# Cycles 알림 폼(지시) — 스위치·제목·실어 보낼 것이 저장되고 되읽힌다
+_mc0 = c.get("/api/mail/config", params=q).json().get("config", {})
+r = c.post("/api/mail/config", params=q, json={"done_enabled": True, "done_to_assignee": True, "done_only_fail": False, "done_subject": "[스모크] {{cycle}} {{status}}", "done_intro": "머리", "done_sections": {"summary": True, "fails": False, "items": False, "link": True}}); ok("Cycles 알림 폼 저장", r.status_code == 200 and r.json()["config"].get("done_enabled") is True and r.json()["config"]["done_sections"].get("fails") is False, r.text[:120])
+_mc = c.get("/api/mail/config", params=q).json()
+ok("Cycles 알림 폼 되읽기·기본 제목", _mc["config"].get("done_subject") == "[스모크] {{cycle}} {{status}}" and _mc["config"].get("done_to_assignee") is True and "{{cycle}}" in _mc.get("default_done_subject", ""), str(_mc.get("config", {}).get("done_subject")))
+c.post("/api/mail/config", params=q, json={"done_enabled": bool(_mc0.get("done_enabled")), "done_to_assignee": bool(_mc0.get("done_to_assignee")), "done_subject": _mc0.get("done_subject") or "", "done_intro": _mc0.get("done_intro") or "", "done_sections": _mc0.get("done_sections") or {"summary": True, "fails": True, "items": False, "link": True}})
 r = c.post("/api/mail/test", params=q, json={"to": "nobody@example.invalid"}); ok("메일 보내기 시험(서버 없음→500 아님)", r.status_code != 500, r.text[:100])
 r = c.get("/api/share-config", params=q); ok("공유 설정", r.status_code == 200, r.text[:80])
 r = c.get("/api/permissions", params=q); ok("권한표", r.status_code == 200, r.text[:80])

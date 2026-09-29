@@ -45,6 +45,8 @@ router = APIRouter()
 # 플랜 배정 알림 메일 기본 폼 (메일 설정 → 플랜 배정 폼에서 편집 가능)
 # 플레이스홀더: {{assignee}} {{model}} {{vgroup}} {{version}} {{period}} {{count}} {{items}} {{app_url}} {{login_button}}
 _DEFAULT_CYCLE_SUBJECT = "[ubiQuoss-TOP] 시험 플랜 배정 — {{model}} {{version}}"
+# Cycles 알림(지시) — 시험이 끝나면 실행한 사람에게. 제목 자리표는 아래 _done_fill 참고
+_DONE_SUBJECT = "[ubiQuoss-TOP] 시험 종료 — {{cycle}} · {{status}} · Pass {{pass}} / Fail {{fail}}"
 _DEFAULT_CYCLE_TPL = """<!DOCTYPE html><html><body style="margin:0;padding:0;background:#eef1f6;">
 <div style="font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;max-width:960px;margin:0 auto;color:#1f2937;">
   <div style="background:linear-gradient(135deg,#2563eb,#4f8ae8);color:#fff;padding:18px 22px;border-radius:11px 11px 0 0;">
@@ -5909,6 +5911,155 @@ async def run_stop(run_id: str):
 
 # ── 여기부터는 실행기가 부르는 자리 ──────────────────────────────
 
+# ── Cycles 알림 — 시험이 끝나면 실행한 사람에게 결과 메일(지시) ──────────────
+def _done_fill(tpl: str, v: dict) -> str:
+    out = str(tpl or "")
+    for k, x in v.items():
+        out = out.replace("{{" + k + "}}", str(x if x is not None else ""))
+    return out
+
+
+def _done_user_email(name_or_id: str) -> str:
+    """계정 아이디 또는 이름으로 이메일을 찾는다(배정 알림과 같은 규칙)."""
+    key = str(name_or_id or "").strip()
+    if not key:
+        return ""
+    try:
+        for x in core.users_load_sync().get("users", []):
+            if key in (x.get("username"), x.get("name")) and x.get("email"):
+                return str(x["email"])
+    except Exception:
+        pass
+    return ""
+
+
+def _done_kst(iso: str) -> str:
+    """ISO 시각 → 한국 시각 'MM-DD HH:MM'. 비었으면 '-'."""
+    try:
+        if not iso:
+            return "-"
+        d = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        return d.astimezone(timezone(__import__("datetime").timedelta(hours=9))).strftime("%m-%d %H:%M")
+    except Exception:
+        return str(iso)[:16]
+
+
+async def _notify_run_done(run: dict) -> None:
+    """일감이 끝났다 — 실행한 사람(started_by)에게 결과 메일.
+
+    메일 설정의 「Cycles 알림」 이 켜져 있을 때만. 담당자에게도·실패가 있을 때만
+    스위치를 따른다. 보내다 넘어져도 실행기 응답을 막지 않는다(create_task 로
+    돌고 삼킨다). 보낸 자취는 사이클 메일 이력에 「자동」 으로 남긴다."""
+    try:
+        cfg = core.load_mail_cfg()
+        if not cfg.get("enabled") or not cfg.get("done_enabled"):
+            return
+        cid = str((run or {}).get("cycle_id") or "").strip()
+        pid = str((run or {}).get("plan_run_id") or "").strip()
+        if not cid:
+            return
+        cycle = await db.cycle_get(cid) or {}
+        prun = (await db.plan_run_get(pid)) if pid else None
+        results = dict((prun or {}).get("results") or {})
+        items = [it for it in (cycle.get("items") or []) if isinstance(it, dict)]
+        by_tcid = {str(it.get("tcid") or ""): it for it in items}
+        # 고른 항목 — tcid 목록이거나 차례 번호 목록이다
+        picked_raw = (run or {}).get("picked") or []
+        picked: list[str] = []
+        for x in picked_raw:
+            if isinstance(x, int) and 0 <= x < len(items):
+                picked.append(str(items[x].get("tcid") or ""))
+            else:
+                picked.append(str(x))
+        picked = [p for p in picked if p] or list(by_tcid.keys())
+        hist: dict[str, int] = {}
+        for tcid in picked:
+            v = str(results.get(tcid) or "")
+            hist[v] = hist.get(v, 0) + 1
+        groups = await db.verdict_groups()
+        st = db._fold_hist(hist, groups)
+        fails = [(tcid, str(results.get(tcid) or "")) for tcid in picked
+                 if groups.get(str(results.get(tcid) or ""), "neutral") == "fail"]
+        status = str((run or {}).get("status") or "done")
+        status_ko = {"done": "완료", "stopped": "멈춤", "error": "오류", "failed": "오류"}.get(status, status)
+        if cfg.get("done_only_fail") and not fails and status == "done":
+            return
+        who = str((run or {}).get("started_by") or "").strip()
+        to: list[str] = []
+        e1 = _done_user_email(who)
+        if e1:
+            to.append(e1)
+        if cfg.get("done_to_assignee"):
+            e2 = _done_user_email(str(cycle.get("assignee") or ""))
+            if e2 and e2 not in to:
+                to.append(e2)
+        if not to:
+            print(f"[done-mail] 받을 사람이 없습니다 — 실행한 사람 '{who}' 에 이메일이 없음 ({cid})", flush=True)
+            return
+        esc = lambda x: _h.escape(str(x or ""))  # noqa: E731
+        vals = {
+            "cycle": cycle.get("name") or cid, "model": cycle.get("model") or "",
+            "version": cycle.get("version") or "", "vgroup": cycle.get("version_group") or "",
+            "status": status_ko, "who": who, "total": len(picked),
+            "pass": st["n_pass"], "fail": st["n_fail"], "etc": st["n_etc"], "none": st["n_none"],
+        }
+        subject = _done_fill(str(cfg.get("done_subject") or "") or _DONE_SUBJECT, vals)
+        secs = cfg.get("done_sections") if isinstance(cfg.get("done_sections"), dict) else {}
+        on = lambda k: secs.get(k, True) is not False  # noqa: E731
+        app_url = str(cfg.get("app_url") or "").rstrip("/")
+        link = f"{app_url}/?cycle={cid}" if app_url else ""
+        nl2br = lambda x: esc(x).replace("\n", "<br>")  # noqa: E731
+        parts = []
+        parts.append(f'<div style="font-size:18px;font-weight:800;color:#0d2b3a;margin-bottom:4px;">{esc(vals["cycle"])}</div>')
+        parts.append(f'<div style="font-size:12px;color:#6b7280;margin-bottom:12px;">{esc(vals["model"])} {esc(vals["version"])} · 시험 {esc(status_ko)}</div>')
+        if str(cfg.get("done_intro") or "").strip():
+            parts.append(f'<p style="margin:0 0 12px;font-size:13px;line-height:1.7;">{nl2br(cfg.get("done_intro"))}</p>')
+        if on("summary"):
+            row = lambda k, v: f'<tr><th style="text-align:left;padding:5px 10px;border:1px solid #e3e8ef;background:#f5f7fa;color:#6b7280;font-weight:600;white-space:nowrap;">{k}</th><td style="padding:5px 10px;border:1px solid #e3e8ef;">{v}</td></tr>'  # noqa: E731
+            parts.append('<table style="border-collapse:collapse;font-size:13px;margin-bottom:12px;">'
+                         + row("상태", esc(status_ko)) + row("실행한 사람", esc(who) or "-")
+                         + row("시작 · 종료", f'{esc(_done_kst(run.get("started_at")))} ~ {esc(_done_kst(run.get("ended_at")))}')
+                         + row("항목", f'{len(picked)}건')
+                         + row("판정", f'<b style="color:#1d9e75">Pass {st["n_pass"]}</b> · <b style="color:#c0392b">Fail {st["n_fail"]}</b> · 기타 {st["n_etc"]} · 미판정 {st["n_none"]}')
+                         + '</table>')
+        if on("fails") and fails:
+            parts.append('<div style="font-size:13px;font-weight:800;color:#c0392b;margin-bottom:6px;">실패 항목</div>')
+            parts.append('<table style="border-collapse:collapse;font-size:12.5px;margin-bottom:12px;width:100%;">'
+                         + "".join(f'<tr><td style="padding:5px 10px;border:1px solid #e3e8ef;font-family:monospace;color:#2563eb;white-space:nowrap;">{esc(tcid)}</td>'
+                                   f'<td style="padding:5px 10px;border:1px solid #e3e8ef;">{esc(by_tcid.get(tcid, {}).get("name"))}</td>'
+                                   f'<td style="padding:5px 10px;border:1px solid #e3e8ef;color:#c0392b;white-space:nowrap;">{esc(v)}</td></tr>' for tcid, v in fails)
+                         + '</table>')
+        if on("items"):
+            parts.append('<div style="font-size:13px;font-weight:800;color:#374151;margin-bottom:6px;">시험 항목</div>')
+            parts.append('<table style="border-collapse:collapse;font-size:12.5px;margin-bottom:12px;width:100%;">'
+                         + "".join(f'<tr><td style="padding:4px 10px;border:1px solid #e3e8ef;font-family:monospace;color:#2563eb;white-space:nowrap;">{esc(tcid)}</td>'
+                                   f'<td style="padding:4px 10px;border:1px solid #e3e8ef;">{esc(by_tcid.get(tcid, {}).get("name"))}</td>'
+                                   f'<td style="padding:4px 10px;border:1px solid #e3e8ef;white-space:nowrap;">{esc(results.get(tcid) or "미판정")}</td></tr>' for tcid in picked)
+                         + '</table>')
+        if on("link") and link:
+            parts.append(f'<a href="{esc(link)}" style="display:inline-block;margin:4px 0 12px;padding:9px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:7px;font-weight:700;">사이클 열기 →</a>')
+        if str(cfg.get("done_outro") or "").strip():
+            parts.append(f'<p style="margin:0 0 12px;font-size:13px;line-height:1.7;">{nl2br(cfg.get("done_outro"))}</p>')
+        parts.append('<div style="margin-top:16px;font-size:11px;color:#9ca3af;border-top:1px solid #eef0f4;padding-top:10px;">ubiQuoss-TOP 시험 자동화 플랫폼에서 시험이 끝나 자동 발송한 메일입니다.</div>')
+        html = ('<!DOCTYPE html><html><body style="margin:0;padding:0;background:#eef1f6;">'
+                '<div style="max-width:720px;margin:0 auto;padding:24px 16px;">'
+                '<div style="background:#fff;border-radius:11px;padding:20px 22px;font-family:\'Malgun Gothic\',Arial,sans-serif;color:#131920;">'
+                + "".join(parts) + '</div></div></body></html>')
+        joined = ", ".join(to)
+        try:
+            sent = await asyncio.to_thread(core.send_mail, to, subject, html, True)
+            await db.cycle_mail_add(cid, "자동(시험 종료)", ", ".join(sent or to), subject,
+                                    "시험 종료 자동 알림", True, "", "", "", html, [])
+        except Exception as e:  # noqa: BLE001
+            await db.cycle_mail_add(cid, "자동(시험 종료)", joined, subject,
+                                    "시험 종료 자동 알림", False, str(e), "", "", html, [])
+            print(f"[done-mail] 보내지 못했습니다 ({cid} → {joined}): {e}", flush=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[done-mail] 알림 실패: {e}", flush=True)
+
+
 async def _mirror_plan_run(run: dict) -> None:
     """일감이 실행(plan_run)의 것이면 플랜에 쌓인 결과를 그리로 옮겨 적는다.
 
@@ -5979,6 +6130,11 @@ async def run_done(run_id: str, payload: dict):
         raise HTTPException(404, "실행을 찾을 수 없습니다")
     await _mirror_plan_run(run)
     await _run_push(run, logs)
+    # Cycles 알림(지시) — 실행한 사람에게. 뒤에서 돌고, 실행기 응답을 막지 않는다
+    try:
+        asyncio.create_task(_notify_run_done(run))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True}
 
 

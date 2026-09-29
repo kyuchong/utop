@@ -1925,7 +1925,11 @@ async def api_users_delete_retired(token: str = ""):
 # ───────────────────────────────────────────
 MAIL_FILE = DATA_DIR / "integrations" / "mail.json"
 _MAIL_DEFAULT = {"host": "", "port": 587, "username": "", "password": "",
-                 "from_addr": "", "from_name": "ubiQuoss-TOP", "security": "starttls", "enabled": False}
+                 "from_addr": "", "from_name": "ubiQuoss-TOP", "security": "starttls", "enabled": False,
+                 # Cycles 알림(지시) — 시험이 끝나면 실행한 사람에게 결과 메일
+                 "done_enabled": False, "done_to_assignee": False, "done_only_fail": False,
+                 "done_subject": "", "done_intro": "", "done_outro": "",
+                 "done_sections": {"summary": True, "fails": True, "items": False, "link": True}}
 
 def _load_mail_cfg() -> dict:
     cfg = dict(_MAIL_DEFAULT)
@@ -2190,7 +2194,8 @@ async def api_mail_config_get(token: str = ""):
             "default_approval_subject": _DEFAULT_APPROVAL_SUBJECT,
             "default_approval_html": _DEFAULT_APPROVAL_TPL,
             "default_cycle_subject": _DEFAULT_CYCLE_SUBJECT,
-            "default_cycle_html": _DEFAULT_CYCLE_TPL}
+            "default_cycle_html": _DEFAULT_CYCLE_TPL,
+            "default_done_subject": _cycle_routes._DONE_SUBJECT}
 
 @app.post("/api/mail/preview-approval")
 async def api_mail_preview_approval(payload: dict, token: str = "", request: Request = None):
@@ -2422,9 +2427,16 @@ async def api_mail_config_save(payload: dict, token: str = ""):
     _require_admin(token)
     cfg = _load_mail_cfg()
     for k in ("host", "username", "password", "from_addr", "from_name", "security", "app_url",
-              "approval_subject", "approval_html", "cycle_subject", "cycle_html"):
+              "approval_subject", "approval_html", "cycle_subject", "cycle_html",
+              "done_subject", "done_intro", "done_outro"):
         if payload.get(k) is not None:
             cfg[k] = str(payload.get(k))
+    # Cycles 알림 스위치 셋과 실어 보낼 것
+    for k in ("done_enabled", "done_to_assignee", "done_only_fail"):
+        if payload.get(k) is not None:
+            cfg[k] = bool(payload.get(k))
+    if isinstance(payload.get("done_sections"), dict):
+        cfg["done_sections"] = {str(a): bool(b) for a, b in payload["done_sections"].items()}
     if payload.get("port") is not None:
         try:
             cfg["port"] = int(payload.get("port"))

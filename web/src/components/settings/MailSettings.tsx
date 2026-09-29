@@ -34,7 +34,22 @@ interface Cfg {
   approval_html: string
   cycle_subject: string
   cycle_html: string
+  /** Cycles 알림(지시) — 시험이 끝나면 실행한 사람에게 결과 메일 */
+  done_enabled: boolean
+  done_to_assignee: boolean
+  done_only_fail: boolean
+  done_subject: string
+  done_intro: string
+  done_outro: string
+  done_sections: Record<string, boolean>
 }
+
+const DONE_SEC: Array<[string, string]> = [
+  ['summary', '판정 현황(상태·시각·Pass/Fail)'],
+  ['fails', '실패 항목 목록'],
+  ['items', '전체 항목 목록'],
+  ['link', '사이클 열기 링크'],
+]
 
 const BLANK: Cfg = {
   enabled: false,
@@ -50,6 +65,13 @@ const BLANK: Cfg = {
   approval_html: '',
   cycle_subject: '',
   cycle_html: '',
+  done_enabled: false,
+  done_to_assignee: false,
+  done_only_fail: false,
+  done_subject: '',
+  done_intro: '',
+  done_outro: '',
+  done_sections: { summary: true, fails: true, items: false, link: true },
 }
 
 /** 공유 폼 한 벌 — 요구사항·시험항목이 같은 모양을 쓴다 */
@@ -78,15 +100,15 @@ const TC_SEC: Array<[string, string]> = [
   ['cycle', '플랜'],
 ]
 
-type Tab = 'smtp' | 'req' | 'tc' | 'cycle'
+type Tab = 'smtp' | 'req' | 'tc' | 'cycle' | 'done'
 
 export default function MailSettings() {
   const [tab0, setTab] = useSetTab<Tab>('mail', 'smtp')
   /* 없어진 갈래를 기억하고 있을 수 있다(가입 폼을 걷었다) — 모르는 값이면 첫 갈래 */
-  const tab: Tab = (['smtp', 'req', 'tc', 'cycle'] as Tab[]).includes(tab0) ? tab0 : 'smtp'
+  const tab: Tab = (['smtp', 'req', 'tc', 'cycle', 'done'] as Tab[]).includes(tab0) ? tab0 : 'smtp'
   const [cfg, setCfg] = useState<Cfg>(BLANK)
   /* 되돌릴 기본 폼 — 가입 쪽은 화면에서 걷었으니 안 받는다 */
-  const [def, setDef] = useState({ cycle_subject: '', cycle_html: '' })
+  const [def, setDef] = useState({ cycle_subject: '', cycle_html: '', done_subject: '' })
   const [req, setReq] = useState<ShareForm>({ subject: '', sections: {}, intro: '', outro: '' })
   const [tc, setTc] = useState<ShareForm>({ subject: '', sections: {}, intro: '', outro: '' })
   const [busy, setBusy] = useState(false)
@@ -106,11 +128,13 @@ export default function MailSettings() {
             config?: Partial<Cfg>
             default_cycle_subject?: string
             default_cycle_html?: string
+            default_done_subject?: string
           }
-          setCfg({ ...BLANK, ...(j.config ?? {}) })
+          setCfg({ ...BLANK, ...(j.config ?? {}), done_sections: { ...BLANK.done_sections, ...(j.config?.done_sections ?? {}) } })
           setDef({
             cycle_subject: j.default_cycle_subject ?? '',
             cycle_html: j.default_cycle_html ?? '',
+            done_subject: j.default_done_subject ?? '',
           })
         }
         if (b.ok) {
@@ -242,6 +266,7 @@ export default function MailSettings() {
           { k: 'req', label: 'REQ 공유 폼', hint: '요구사항을 공유할 때 쓸 글' },
           { k: 'tc', label: 'TC 공유 폼', hint: '시험항목을 공유할 때 쓸 글' },
           { k: 'cycle', label: '플랜 배정 폼', hint: '담당자에게 배정을 알릴 때 쓸 글' },
+          { k: 'done', label: 'Cycles 알림 폼', hint: '시험이 끝나면 실행한 사람에게 보낼 글' },
         ]}
       />
 
@@ -380,6 +405,70 @@ export default function MailSettings() {
             자리표: {'{{assignee}}'} {'{{model}}'} {'{{vgroup}}'} {'{{version}}'} {'{{period}}'}{' '}
             {'{{count}}'} {'{{items}}'} {'{{app_url}}'} {'{{login_button}}'}
           </i>
+        </div>
+      )}
+
+      {tab === 'done' && (
+        <div className="ml-card">
+          {/* 시험이 끝나면(실행기 종료 보고) 실행한 사람에게 결과 메일(지시).
+              수동 시험은 「끝」 이 없어 자동 시험에만 간다. */}
+          <label className="ml-on">
+            <input type="checkbox" checked={cfg.done_enabled} onChange={(e) => set('done_enabled', e.target.checked)} />
+            <b>시험이 끝나면 실행한 사람에게 결과 메일 보내기</b>
+          </label>
+          <div className="ml-secs" style={{ marginTop: 6 }}>
+            <label className="ml-sec">
+              <input type="checkbox" checked={cfg.done_to_assignee} onChange={(e) => set('done_to_assignee', e.target.checked)} />
+              사이클 담당자에게도
+            </label>
+            <label className="ml-sec">
+              <input type="checkbox" checked={cfg.done_only_fail} onChange={(e) => set('done_only_fail', e.target.checked)} />
+              실패가 있거나 오류로 끝났을 때만
+            </label>
+          </div>
+          <i className="muted small">
+            시작 단추를 누른 계정의 이메일로 갑니다. 계정에 이메일이 없으면 못 보냅니다(계정 관리에서 적으세요). 자동 시험에만 해당합니다.
+          </i>
+
+          <label className="fld" style={{ marginTop: 12 }}>
+            <span>제목</span>
+            <input value={cfg.done_subject} placeholder={def.done_subject} onChange={(e) => set('done_subject', e.target.value)} />
+            <i className="muted small">
+              자리표: {'{{cycle}}'} {'{{model}}'} {'{{version}}'} {'{{vgroup}}'} {'{{status}}'} {'{{who}}'} {'{{total}}'} {'{{pass}}'}{' '}
+              {'{{fail}}'} {'{{etc}}'} {'{{none}}'} — 비우면 기본 제목
+            </i>
+          </label>
+
+          <div className="fld">
+            <span>실어 보낼 것</span>
+            <div className="ml-secs">
+              {DONE_SEC.map(([k, label]) => (
+                <label key={k} className="ml-sec">
+                  <input
+                    type="checkbox"
+                    checked={cfg.done_sections[k] !== false}
+                    onChange={(e) => set('done_sections', { ...cfg.done_sections, [k]: e.target.checked })}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <label className="fld">
+            <span>머리말</span>
+            <textarea rows={3} value={cfg.done_intro} placeholder="예) 자동 시험이 끝났습니다. 결과를 확인해 주세요." onChange={(e) => set('done_intro', e.target.value)} />
+          </label>
+          <label className="fld">
+            <span>맺음말</span>
+            <textarea rows={3} value={cfg.done_outro} placeholder="예) 실패 항목은 Defects 에서 결함으로 걸 수 있습니다." onChange={(e) => set('done_outro', e.target.value)} />
+          </label>
+
+          <label className="fld">
+            <span>화면 주소</span>
+            <input value={cfg.app_url} placeholder="http://210.1.1.9  (사이클 열기 링크의 앞머리)" onChange={(e) => set('app_url', e.target.value)} />
+            <i className="muted small">비우면 「사이클 열기」 링크가 메일에 안 실립니다. 배정 알림 메일의 링크도 이 값을 씁니다.</i>
+          </label>
         </div>
       )}
     </div>
