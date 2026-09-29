@@ -2094,8 +2094,28 @@ def _send_mail(to_addrs, subject: str, body: str, html: bool = False,
             if sec == "starttls":
                 s.starttls(context=_ssl.create_default_context()); s.ehlo()
             if cfg.get("username"):
-                s.login(cfg["username"], cfg.get("password") or "")
-            _deliver(s)
+                try:
+                    s.login(cfg["username"], cfg.get("password") or "")
+                except smtplib.SMTPAuthenticationError as e:
+                    # **로그인이 거부돼도 인증 없이 한 번 더**(실사고: 사내 중계 서버가
+                    # 인증 없이도 사내 주소로 보내 주는데, 적힌 비밀번호가 틀려 553 에서
+                    # 멈춰 결과 메일이 한 통도 안 나갔다). 중계마저 거부하면 그때 원래
+                    # 인증 오류를 올린다 — 비밀번호가 틀렸다는 사실은 로그에 남긴다.
+                    print(f"[mail] SMTP 로그인 거부({e.smtp_code}) — 인증 없이 다시 시도합니다: {host}:{port}", flush=True)
+                    try:
+                        s.rset()
+                    except Exception:
+                        pass
+                    try:
+                        _deliver(s)
+                    except smtplib.SMTPRecipientsRefused:
+                        raise e
+                    except smtplib.SMTPSenderRefused:
+                        raise e
+                else:
+                    _deliver(s)
+            else:
+                _deliver(s)
     # **일부만 거절당하면 조용히 성공한다** — send_message 는 전부 거절일 때만
     # 예외를 던지고, 일부는 거절 목록을 **돌려줄 뿐**이다. 그 값을 버리고 있어서
     # 사내 주소는 나가고 바깥 주소(gmail 등)만 막혀도 화면은 「보냈다」 였다(지적).
