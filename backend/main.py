@@ -2195,7 +2195,8 @@ async def api_mail_config_get(token: str = ""):
             "default_approval_html": _DEFAULT_APPROVAL_TPL,
             "default_cycle_subject": _DEFAULT_CYCLE_SUBJECT,
             "default_cycle_html": _DEFAULT_CYCLE_TPL,
-            "default_done_subject": _cycle_routes._DONE_SUBJECT}
+            "default_done_subject": _cycle_routes._DONE_SUBJECT,
+            "default_done_intro": _cycle_routes._DONE_INTRO}
 
 @app.post("/api/mail/preview-approval")
 async def api_mail_preview_approval(payload: dict, token: str = "", request: Request = None):

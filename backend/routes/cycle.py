@@ -48,6 +48,9 @@ _DEFAULT_CYCLE_SUBJECT = "[ubiQuoss-TOP] 시험 플랜 배정 — {{model}} {{ve
 # Cycles 알림(지시) — 시험이 끝나면 실행한 사람에게. 제목 자리표는 아래 _done_fill 참고
 # 「[UTOP] 사이클명 시험 완료」 꼴(지시). status 는 완료·멈춤·오류 중 하나라 끝난 모양대로 읽힌다
 _DONE_SUBJECT = "[UTOP] {{cycle}} 시험 {{status}}"
+# 「내용」 기본값(지시) — 어떤 장비·버전을 시험했고 총 항목·합격·불합격이 몇인지 한 문장.
+# 그 아래에 Total·Pass·Fail 표가 선다(_notify_run_done). 자리표는 제목과 같다.
+_DONE_INTRO = "{{model}} {{version}} 장비를 시험했습니다. 총 {{total}}건 중 합격 {{pass}}건, 불합격 {{fail}}건입니다."
 _DEFAULT_CYCLE_TPL = """<!DOCTYPE html><html><body style="margin:0;padding:0;background:#eef1f6;">
 <div style="font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;max-width:960px;margin:0 auto;color:#1f2937;">
   <div style="background:linear-gradient(135deg,#2563eb,#4f8ae8);color:#fff;padding:18px 22px;border-radius:11px 11px 0 0;">
@@ -6015,16 +6018,24 @@ async def _notify_run_done(run: dict) -> None:
         parts = []
         parts.append(f'<div style="font-size:18px;font-weight:800;color:#0d2b3a;margin-bottom:4px;">{esc(vals["cycle"])}</div>')
         parts.append(f'<div style="font-size:12px;color:#6b7280;margin-bottom:12px;">{esc(vals["model"])} {esc(vals["version"])} · 시험 {esc(status_ko)}</div>')
-        if str(cfg.get("done_intro") or "").strip():
-            parts.append(f'<p style="margin:0 0 12px;font-size:13px;line-height:1.7;">{nl2br(cfg.get("done_intro"))}</p>')
+        # 내용 — 비우면 기본 문장. 자리표를 채운 뒤 HTML 로 이스케이프한다(값에 < 가 있어도 안전)
+        intro = _done_fill(str(cfg.get("done_intro") or "").strip() or _DONE_INTRO, vals)
+        parts.append(f'<p style="margin:0 0 12px;font-size:13.5px;line-height:1.7;">{nl2br(intro)}</p>')
         if on("summary"):
-            row = lambda k, v: f'<tr><th style="text-align:left;padding:5px 10px;border:1px solid #e3e8ef;background:#f5f7fa;color:#6b7280;font-weight:600;white-space:nowrap;">{k}</th><td style="padding:5px 10px;border:1px solid #e3e8ef;">{v}</td></tr>'  # noqa: E731
+            th = 'style="padding:6px 12px;border:1px solid #e3e8ef;background:#f5f7fa;color:#6b7280;font-weight:600;white-space:nowrap;text-align:center;"'
+            td = 'style="padding:7px 12px;border:1px solid #e3e8ef;text-align:center;white-space:nowrap;"'
+            # 시험 정보 표 — 장비·버전·상태·실행한 사람·시각
+            parts.append('<table style="border-collapse:collapse;font-size:13px;margin-bottom:8px;">'
+                         f'<tr><th {th}>장비</th><th {th}>버전</th><th {th}>상태</th><th {th}>실행한 사람</th><th {th}>시작 ~ 종료</th></tr>'
+                         f'<tr><td {td}>{esc(vals["model"]) or "-"}</td><td {td}>{esc(vals["version"]) or "-"}</td><td {td}>{esc(status_ko)}</td>'
+                         f'<td {td}>{esc(who) or "-"}</td><td {td}>{esc(_done_kst(run.get("started_at")))} ~ {esc(_done_kst(run.get("ended_at")))}</td></tr>'
+                         '</table>')
+            # 결과 표 — Total · Pass · Fail · 기타 · 미판정(지시: 표로 정리)
             parts.append('<table style="border-collapse:collapse;font-size:13px;margin-bottom:12px;">'
-                         + row("상태", esc(status_ko)) + row("실행한 사람", esc(who) or "-")
-                         + row("시작 · 종료", f'{esc(_done_kst(run.get("started_at")))} ~ {esc(_done_kst(run.get("ended_at")))}')
-                         + row("항목", f'{len(picked)}건')
-                         + row("판정", f'<b style="color:#1d9e75">Pass {st["n_pass"]}</b> · <b style="color:#c0392b">Fail {st["n_fail"]}</b> · 기타 {st["n_etc"]} · 미판정 {st["n_none"]}')
-                         + '</table>')
+                         f'<tr><th {th}>Total</th><th {th}>Pass</th><th {th}>Fail</th><th {th}>기타</th><th {th}>미판정</th></tr>'
+                         f'<tr><td {td}><b>{len(picked)}</b></td><td {td}><b style="color:#1d9e75">{st["n_pass"]}</b></td>'
+                         f'<td {td}><b style="color:#c0392b">{st["n_fail"]}</b></td><td {td}>{st["n_etc"]}</td><td {td}>{st["n_none"]}</td></tr>'
+                         '</table>')
         if on("fails") and fails:
             parts.append('<div style="font-size:13px;font-weight:800;color:#c0392b;margin-bottom:6px;">실패 항목</div>')
             parts.append('<table style="border-collapse:collapse;font-size:12.5px;margin-bottom:12px;width:100%;">'
@@ -6042,7 +6053,7 @@ async def _notify_run_done(run: dict) -> None:
         if on("link") and link:
             parts.append(f'<a href="{esc(link)}" style="display:inline-block;margin:4px 0 12px;padding:9px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:7px;font-weight:700;">사이클 열기 →</a>')
         if str(cfg.get("done_outro") or "").strip():
-            parts.append(f'<p style="margin:0 0 12px;font-size:13px;line-height:1.7;">{nl2br(cfg.get("done_outro"))}</p>')
+            parts.append(f'<p style="margin:0 0 12px;font-size:13px;line-height:1.7;">{nl2br(_done_fill(str(cfg.get("done_outro")), vals))}</p>')
         parts.append('<div style="margin-top:16px;font-size:11px;color:#9ca3af;border-top:1px solid #eef0f4;padding-top:10px;">ubiQuoss-TOP 시험 자동화 플랫폼에서 시험이 끝나 자동 발송한 메일입니다.</div>')
         html = ('<!DOCTYPE html><html><body style="margin:0;padding:0;background:#eef1f6;">'
                 '<div style="max-width:720px;margin:0 auto;padding:24px 16px;">'

@@ -108,7 +108,7 @@ export default function MailSettings() {
   const tab: Tab = (['smtp', 'req', 'tc', 'cycle', 'done'] as Tab[]).includes(tab0) ? tab0 : 'smtp'
   const [cfg, setCfg] = useState<Cfg>(BLANK)
   /* 되돌릴 기본 폼 — 가입 쪽은 화면에서 걷었으니 안 받는다 */
-  const [def, setDef] = useState({ cycle_subject: '', cycle_html: '', done_subject: '' })
+  const [def, setDef] = useState({ cycle_subject: '', cycle_html: '', done_subject: '', done_intro: '' })
   const [req, setReq] = useState<ShareForm>({ subject: '', sections: {}, intro: '', outro: '' })
   const [tc, setTc] = useState<ShareForm>({ subject: '', sections: {}, intro: '', outro: '' })
   const [busy, setBusy] = useState(false)
@@ -129,6 +129,7 @@ export default function MailSettings() {
             default_cycle_subject?: string
             default_cycle_html?: string
             default_done_subject?: string
+            default_done_intro?: string
           }
           /* 화면 주소가 비어 있으면 **지금 접속한 주소**를 넣어 둔다(지시: 메일의
              링크가 그 사이클 화면으로 가게). 저장하면 그대로 굳는다. */
@@ -143,6 +144,7 @@ export default function MailSettings() {
             cycle_subject: j.default_cycle_subject ?? '',
             cycle_html: j.default_cycle_html ?? '',
             done_subject: j.default_done_subject ?? '',
+            done_intro: j.default_done_intro ?? '',
           })
         }
         if (b.ok) {
@@ -454,7 +456,8 @@ export default function MailSettings() {
           {/* 글 칸은 「내용」 하나(지시: 머리말·맺음말 대신). 판정 현황 위에 실린다 */}
           <label className="fld">
             <span>내용</span>
-            <textarea rows={4} value={cfg.done_intro} placeholder="예) 자동 시험이 끝났습니다. 결과를 확인해 주세요." onChange={(e) => set('done_intro', e.target.value)} />
+            <textarea rows={4} value={cfg.done_intro} placeholder={def.done_intro || '비우면 기본 문장'} onChange={(e) => set('done_intro', e.target.value)} />
+            <i className="muted small">비우면 기본 문장(장비·버전·총 항목·합격·불합격)이 나가고, 그 아래에 Total · Pass · Fail 표가 붙습니다. 제목과 같은 자리표를 씁니다.</i>
           </label>
 
           <label className="fld">
