@@ -734,68 +734,54 @@
    비어 있을 때는 자리를 안 먹는다. */
 .app-top-slot { display: inline-flex; align-items: center; }
 
-/* ── 도움말 위 판·라이선스(지시) — 버전과 라이선스는 **따로 두 줄**(지적) ── */
-.nav-about {
-  margin: 8px 8px 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.nav-about-row {
-  /* 이름표 위, 값 아래 — 150px 레일에 「라이선스 ~2027-12-31 D-458」 을 한 줄로는 못 넣는다 */
-  display: flex;
-  flex-direction: column;
-  align-items: center; /* 글자 가운데(지시) */
-  text-align: center;
-  gap: 1px;
-  padding: 4px 8px;
-  border: 1px solid var(--c-border-nav, #ccd3db);
-  border-radius: 6px;
-  background: rgb(255 255 255 / 55%);
-  font-size: 11px;
-  line-height: 1.3;
-  color: var(--c-nav-fg, #35525a);
-  white-space: nowrap;
-  overflow: hidden;
-}
-.nav-about-k {
+/* ── 상단바 오른쪽 끝 — 버전·라이선스·도움말 아이콘 셋(승인: B안) ──
+   계정 단추와 같은 옅은 바탕·같은 높이. 글자는 안 적고, 올리면 아래에 말풍선. */
+.tpa {
   flex: none;
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  opacity: 0.75;
-}
-.nav-about-v {
   display: inline-flex;
-  align-items: baseline;
-  justify-content: center;
+  align-items: center;
   gap: 4px;
-  font-weight: 600;
-  color: var(--c-nav-fg-strong, #0d4451);
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.nav-about-tag {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: rgb(18 80 94 / 10%);
-}
-/* 라이선스 줄의 상태 색 — 값 칩에만 입힌다 */
-.nav-about-row.lic.warn .nav-about-tag { background: #fff1d6; color: #8a5a00; }
-.nav-about-row.lic.warn { border-color: #e8a317; }
-.nav-about-row.lic.bad .nav-about-tag { background: #fde2e2; color: #a12222; }
-.nav-about-row.lic.bad { border-color: #e05252; }
-.nav-about-row.lic.none .nav-about-v { font-weight: 400; opacity: 0.7; }
-/* 접힌 레일 — 아이콘 둘(버전·라이선스). 다른 메뉴 항목과 같은 칸·같은 말풍선 */
-.nav-about.mini {
-  margin: 4px 0 2px;
+.tpa-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 10%);
+  color: inherit;
   padding: 0;
-  gap: 0;
-  align-items: stretch;
+  font: inherit;
+  cursor: default;
 }
-.nav-about-ico { cursor: default; }
-.app.nav-collapsed .nav-about-ico.lic.ok .nav-icon { color: #18864b; }
-.app.nav-collapsed .nav-about-ico.lic.warn .nav-icon { color: #e8a317; }
-.app.nav-collapsed .nav-about-ico.lic.bad .nav-icon { color: #e05252; }
-.app.nav-collapsed .nav-about-ico.lic.none .nav-icon { color: #b4bcc4; }
+.tpa-btn svg { width: 17px; height: 17px; }
+button.tpa-btn { cursor: pointer; }
+.tpa-btn:hover,
+.tpa-btn:focus-visible,
+.tpa-btn.on { background: rgb(255 255 255 / 18%); outline: none; }
+/* 라이선스 방패 색이 곧 상태 — 접힌 레일에서 쓰던 색 그대로 */
+.tpa-btn.lic.ok { color: #7ee2a8; }
+.tpa-btn.lic.warn { color: #ffcf6e; }
+.tpa-btn.lic.bad { color: #ff8a80; }
+.tpa-btn.lic.none { color: rgb(255 255 255 / 55%); }
+.tpa-tip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--c-topbar);
+  color: #fff;
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+}
+.tpa-btn:hover .tpa-tip,
+.tpa-btn:focus-visible .tpa-tip { display: block; }

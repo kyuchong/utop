@@ -120,11 +120,6 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    /* 도움말 — SYSTEM 바로 위(지시: 누구나 쓰면서 볼 수 있도록). 그 위에 판·라이선스가 선다(AboutBadge) */
-    title: 'HELP',
-    items: [{ key: 'help', label: '도움말', Icon: IconInfoC }],
-  },
-  {
     title: 'SYSTEM',
     items: [{ key: 'settings', label: 'SETUP', Icon: IconSettings }],
   },
@@ -311,6 +306,11 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
             onSettings={() => onNavigate?.('settings')}
             onLogout={onLogout}
           />
+          {/* 버전·라이선스·도움말 — 왼쪽 레일 맨 아래에서 **여기로**(승인: B안).
+              아이콘 셋만 두고 마우스를 올리면 글자가 뜬다(접힌 레일과 같은 방식).
+              늘 떠 있는 상단바라 조용한 쪽이 낫고, 자세한 값은 SETUP › 버전·라이선스. */}
+          <span className="app-top-div" aria-hidden="true" />
+          <TopAbout helpOn={current === 'help'} onHelp={() => onNavigate('help')} />
         </header>
       )}
       <div className="app-body">
@@ -324,7 +324,6 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
 
           {NAV.map((group, gi) => (
             <div className="nav-section" key={group.title ?? `g${gi}`}>
-              {group.title === 'HELP' && <AboutBadge collapsed={collapsed && !dock} />}
               {group.title && <h5 className="nav-group">{group.title}</h5>}
               {group.items.map(({ key, label, Icon }) => (
                 <button
@@ -413,11 +412,11 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
 }
 
 /**
- * 도움말 위의 판·라이선스(지시). 서버가 준다 — 버전은 VERSION 파일, 커밋은 빌드 때 박힌 것,
- * 라이선스 기간은 SETUP › 버전·라이선스에서 관리자가 적은 것.
- * 만료가 30일 안이면 주황, 지났으면 빨강으로 눈에 띄게 한다.
+ * 상단바 오른쪽 끝의 **버전·라이선스·도움말 아이콘 셋**(승인: B안). 서버가 준다 — 버전은
+ * VERSION 파일, 라이선스 기간은 SETUP › 버전·라이선스에 올린 파일. 만료가 30일 안이면
+ * 방패가 주황, 지났으면 빨강, 미등록이면 흐리게. 도움말은 누르면 도움말 화면으로 간다.
  */
-function AboutBadge({ collapsed }: { collapsed: boolean }) {
+function TopAbout({ helpOn, onHelp }: { helpOn: boolean; onHelp: () => void }) {
   const [a, setA] = useState<{
     version: string
     git_sha: string
@@ -429,61 +428,47 @@ function AboutBadge({ collapsed }: { collapsed: boolean }) {
         const r = await apiFetch('/api/about', { cache: 'no-store' })
         if (r.ok) setA(await r.json())
       } catch {
-        /* 못 받아도 메뉴는 돈다 */
+        /* 못 받아도 머리줄은 돈다 — 도움말 단추는 그대로 */
       }
     })()
   }, [])
-  if (!a) return null
-  const ver = a.version ? `v${a.version}` : '—'
-  /* 커밋 해시는 메뉴에 안 적는다(지시: 버전명만) — SETUP › 버전·라이선스에서 본다 */
-  const d = a.license.days_left
-  /* 라이선스 상태 — 값·색을 한 곳에서 정한다. 만료 30일 안 주황, 지나면 빨강, 미등록은 회색 */
-  const tone = !a.license.until ? 'none' : d == null ? 'ok' : d < 0 ? 'bad' : d <= 30 ? 'warn' : 'ok'
-  const licVal = !a.license.until ? '미등록' : `~${a.license.until}`
-  const licTag = !a.license.until || d == null ? '' : d < 0 ? `${-d}일 지남` : `D-${d}`
-  const tip = [`버전 ${ver}`, `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}`, a.license.holder]
-    .filter(Boolean)
-    .join('\n')
-  /* 접힌 레일 — **아이콘 둘**(지시): 버전은 꼬리표, 라이선스는 방패(색이 상태).
-     마우스를 올리면 다른 메뉴처럼 오른쪽에 글자가 뜬다(nav-tip). */
-  if (collapsed) {
-    const verTip = `버전 ${ver}`
-    const licTip = `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}${a.license.holder ? ` · ${a.license.holder}` : ''}`
-    return (
-      <div className="nav-about mini">
-        <div className="nav-item nav-about-ico" title={verTip} tabIndex={0}>
-          <span className="nav-icon">
-            <IconTag />
-          </span>
-          <span className="nav-tip" aria-hidden="true">
-            {verTip}
-          </span>
-        </div>
-        <div className={`nav-item nav-about-ico lic ${tone}`} title={licTip} tabIndex={0}>
-          <span className="nav-icon">
-            <IconLicense />
-          </span>
-          <span className="nav-tip" aria-hidden="true">
-            {licTip}
-          </span>
-        </div>
-      </div>
-    )
-  }
-  /* 펼친 메뉴 — 버전과 라이선스를 **따로 두 줄**로(지적: 같이 있어 이상하다) */
+  const ver = a?.version ? `v${a.version}` : '—'
+  /* 커밋 해시는 여기 안 적는다(지시: 버전명만) — SETUP › 버전·라이선스에서 본다 */
+  const lic = a?.license
+  const d = lic?.days_left
+  /* 라이선스 상태 — 값·색을 한 곳에서 정한다. 만료 30일 안 주황, 지나면 빨강, 미등록은 흐림 */
+  const tone = !lic?.until ? 'none' : d == null ? 'ok' : d < 0 ? 'bad' : d <= 30 ? 'warn' : 'ok'
+  const licVal = !lic?.until ? '미등록' : `~${lic.until}`
+  const licTag = !lic?.until || d == null ? '' : d < 0 ? `${-d}일 지남` : `D-${d}`
+  const verTip = `버전 ${ver}`
+  const licTip = `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}${lic?.holder ? ` · ${lic.holder}` : ''}`
   return (
-    <div className="nav-about" title={tip}>
-      <div className="nav-about-row">
-        <span className="nav-about-k">버전</span>
-        <span className="nav-about-v">{ver}</span>
-      </div>
-      <div className={`nav-about-row lic ${tone}`}>
-        <span className="nav-about-k">라이선스</span>
-        <span className="nav-about-v">
-          {licVal}
-          {licTag && <span className="nav-about-tag">{licTag}</span>}
+    <div className="tpa" role="group" aria-label="버전·라이선스·도움말">
+      <span className="tpa-btn" title={verTip} tabIndex={0} aria-label={verTip}>
+        <IconTag />
+        <span className="tpa-tip" aria-hidden="true">
+          {verTip}
         </span>
-      </div>
+      </span>
+      <span className={`tpa-btn lic ${tone}`} title={licTip} tabIndex={0} aria-label={licTip}>
+        <IconLicense />
+        <span className="tpa-tip" aria-hidden="true">
+          {licTip}
+        </span>
+      </span>
+      <button
+        type="button"
+        className={`tpa-btn${helpOn ? ' on' : ''}`}
+        title="도움말"
+        aria-label="도움말"
+        aria-current={helpOn ? 'page' : undefined}
+        onClick={onHelp}
+      >
+        <IconInfoC />
+        <span className="tpa-tip" aria-hidden="true">
+          도움말
+        </span>
+      </button>
     </div>
   )
 }
