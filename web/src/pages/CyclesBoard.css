@@ -33,6 +33,14 @@
 .cyb .pl-note.warn { border-left: 3px solid var(--c-draft); background: var(--c-surface-alt); }
 .cyb .pl-note b { display: block; font-size: var(--fs-md); }
 .cyb .pl-note .cu-m { display: block; }
+/* 실행 횟수 — 표에서 바로 눈에 잡히게 굵고 파랗게, 단위는 작게(지시) */
+.cyb .cyb-ran {
+  font-weight: 700;
+  color: var(--c-primary);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md);
+}
+.cyb .cyb-ran i { font-style: normal; font-weight: 400; color: var(--c-text-faint); font-size: var(--fs-xs); margin-left: 2px; }
 .cyb .flag {
   display: inline-block;
   padding: 0 5px;

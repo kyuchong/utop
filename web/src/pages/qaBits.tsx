@@ -279,10 +279,23 @@ export function useNCols(prefKey: string, defs: NCol[]): [NCol[], (c: NCol[]) =>
       }
       const hid = new Set(saved.hid ?? [])
       const byKey = new Map(defs.map((c) => [c.key, c]))
-      const ordered = [
-        ...(saved.order ?? []).map((k) => byKey.get(k)).filter((c): c is NCol => !!c),
-        ...defs.filter((c) => !(saved.order ?? []).includes(c.key)),
-      ]
+      /* 저장된 차례에 없는 **새 열은 코드에서 정한 자리 근처**에 끼운다 —
+         맨 뒤에 붙이면 새로 만든 열이 스무 칸 오른쪽 끝에 숨어 있는 줄
+         모른다(지적). 코드 차례에서 바로 앞 열이 저장 차례 어디에 있는지
+         찾아 그 뒤에 넣는다. 앞 열이 하나도 없으면 맨 앞이다. */
+      const ordered: NCol[] = (saved.order ?? []).map((k) => byKey.get(k)).filter((c): c is NCol => !!c)
+      defs.forEach((c, i) => {
+        if (ordered.some((o) => o.key === c.key)) return
+        let at = 0
+        for (let j = i - 1; j >= 0; j--) {
+          const k = ordered.findIndex((o) => o.key === defs[j]!.key)
+          if (k >= 0) {
+            at = k + 1
+            break
+          }
+        }
+        ordered.splice(at, 0, c)
+      })
       return ordered.map((c) => ({
         ...c,
         width: saved.w?.[c.key] ?? c.width,

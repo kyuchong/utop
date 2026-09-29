@@ -473,7 +473,11 @@ export default function CyclesBoard({
     { key: 'title', label: '제목', type: 'text', width: 340, fixed: true },
     { key: 'type', label: '유형', type: 'select', width: 96, options: [] },
     RUN_COL,
-    { key: 'fail', label: '실패 이력', type: 'text', width: 110 },
+    /* **몇 회 돌렸나**를 따로 세운다(지시: 잘 보이게). 「실패 이력」 안에
+       「1,000회 중 0」 으로 흐리게 묻혀 있어 1000 회를 돌려도 눈에 안 잡혔다.
+       회차 합(이 사이클의 모든 실행)이고, 회차 기록이 없는 옛 실행은 1회다. */
+    { key: 'ran', label: '실행 횟수', type: 'number', width: 92 },
+    { key: 'fail', label: '실패', type: 'text', width: 96 },
     /* **시험 차례** — 이 열로 정렬해야 끌어 옮길 수 있다(정렬을 지우지
        않는다: 사람이 잡아 둔 정렬·묶기를 코드가 날리면 안 된다) */
     { key: 'seq', label: '#', type: 'number', width: 52, fixed: true },
@@ -2628,9 +2632,10 @@ export default function CyclesBoard({
         model: r.model,
         type: r.type,
         run: r.man ? '수동' : '자동',
-        /* 회차까지 센 값이다 — 100 회 반복이면 「100회 중 0」 이 선다.
-           천 자리를 끊는다: 10000 회는 눈으로 자릿수를 못 읽는다 */
-        fail: !st || !st.ran ? '' : st.fail ? `${nfmt(st.fail)}회 / ${nfmt(st.ran)}${st.fail >= 2 ? ' 반복' : ''}` : `${nfmt(st.ran)}회 중 0`,
+        /* 회차까지 센 값이다 — 100 회 반복이면 실행 횟수 100, 실패 0.
+           정렬·CSV 가 이 값을 쓴다; 보이는 꼴은 renderCell 이 맡는다 */
+        ran: st?.ran ?? 0,
+        fail: !st || !st.ran ? '' : st.fail ? `${nfmt(st.fail)}회${st.fail >= 2 ? ' 반복' : ''}` : '0',
       }
     })
     return (
@@ -2672,14 +2677,22 @@ export default function CyclesBoard({
           }}
           onShown={setShownOrder}
           renderCell={(row, col) => {
-            if (col.key !== 'fail') return undefined
+            if (col.key !== 'fail' && col.key !== 'ran') return undefined
             const st = failStat.get(String(row.__id))
+            if (col.key === 'ran') {
+              if (!st || !st.ran) return <span className="cu-m">—</span>
+              return (
+                <b className="cyb-ran" title="이 사이클의 모든 실행에서 돈 회차를 더한 값">
+                  {nfmt(st.ran)}
+                  <i>회</i>
+                </b>
+              )
+            }
             if (!st || !st.ran) return <span className="cu-m">—</span>
-            if (!st.fail) return <span className="cu-m">{nfmt(st.ran)}회 중 0</span>
+            if (!st.fail) return <span className="cu-m">0</span>
             return (
               <>
                 <span className="badge b-fail">{nfmt(st.fail)}회</span>
-                <span className="cu-m"> / {nfmt(st.ran)}</span>
                 {/* 「돌릴 때마다」 였는데, 회차를 세면서 100 회 중 2 회도 여기
                     걸린다 — 말을 사실에 맞춘다 */}
                 {st.fail >= 2 && <span className="flag" title="두 번 넘게 깨졌습니다"> 반복</span>}
