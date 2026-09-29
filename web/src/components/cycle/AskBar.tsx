@@ -2528,10 +2528,14 @@ export default function AskBar({ devices }: Props) {
       const tcHit = tcAll.find(
         (t) => lowSaid.includes(t.tcid.toLowerCase()) || nSaid.includes(normKey0(t.tcid)),
       )
-      const ipHit = usable.find((d) => {
-        const ip = String(d.ip ?? '').trim()
-        return !!ip && raw0.includes(ip)
-      })
+      /* IP 는 **온전한 IPv4 꼴끼리 완전 일치**로만 본다(지적: 253 에서
+         IP 가 「-」 인 장비 줄이 있어 「E61xx-T0001 항목 선택」 의 「-」 에
+         걸려 고른 장비가 E5624RK 로 바뀌었다). 부분 문자열 대조는 끝이
+         잘린 IP(220.1.21) 도 다른 장비를 가로챈다. */
+      const ipToks: string[] = raw0.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) ?? []
+      const ipHit = ipToks.length
+        ? usable.find((d) => ipToks.includes(String(d.ip ?? '').trim()))
+        : undefined
       if (tcHit || ipHit) {
         if (ipHit && ipHit.id !== devId) {
           const nm = String(ipHit.model || ipHit.name || ipHit.ip)
