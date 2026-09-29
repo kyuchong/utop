@@ -130,7 +130,15 @@ export default function MailSettings() {
             default_cycle_html?: string
             default_done_subject?: string
           }
-          setCfg({ ...BLANK, ...(j.config ?? {}), done_sections: { ...BLANK.done_sections, ...(j.config?.done_sections ?? {}) } })
+          /* 화면 주소가 비어 있으면 **지금 접속한 주소**를 넣어 둔다(지시: 메일의
+             링크가 그 사이클 화면으로 가게). 저장하면 그대로 굳는다. */
+          const origin = typeof window !== 'undefined' ? window.location.origin : ''
+          setCfg({
+            ...BLANK,
+            ...(j.config ?? {}),
+            app_url: String(j.config?.app_url || '') || origin,
+            done_sections: { ...BLANK.done_sections, ...(j.config?.done_sections ?? {}) },
+          })
           setDef({
             cycle_subject: j.default_cycle_subject ?? '',
             cycle_html: j.default_cycle_html ?? '',
@@ -451,7 +459,8 @@ export default function MailSettings() {
 
           <label className="fld">
             <span>화면 주소</span>
-            <input value={cfg.app_url} placeholder="http://210.1.1.9  (사이클 열기 링크의 앞머리)" onChange={(e) => set('app_url', e.target.value)} />
+            <input value={cfg.app_url} placeholder="http://210.1.1.9" onChange={(e) => set('app_url', e.target.value)} />
+            <i className="muted small">메일의 「사이클 열기」 는 {cfg.app_url || '(화면 주소)'}/?cycle=사이클ID 로 갑니다</i>
           </label>
         </div>
       )}

@@ -46,7 +46,8 @@ router = APIRouter()
 # 플레이스홀더: {{assignee}} {{model}} {{vgroup}} {{version}} {{period}} {{count}} {{items}} {{app_url}} {{login_button}}
 _DEFAULT_CYCLE_SUBJECT = "[ubiQuoss-TOP] 시험 플랜 배정 — {{model}} {{version}}"
 # Cycles 알림(지시) — 시험이 끝나면 실행한 사람에게. 제목 자리표는 아래 _done_fill 참고
-_DONE_SUBJECT = "[ubiQuoss-TOP] 시험 종료 — {{cycle}} · {{status}} · Pass {{pass}} / Fail {{fail}}"
+# 「[UTOP] 사이클명 시험 완료」 꼴(지시). status 는 완료·멈춤·오류 중 하나라 끝난 모양대로 읽힌다
+_DONE_SUBJECT = "[UTOP] {{cycle}} 시험 {{status}}"
 _DEFAULT_CYCLE_TPL = """<!DOCTYPE html><html><body style="margin:0;padding:0;background:#eef1f6;">
 <div style="font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;max-width:960px;margin:0 auto;color:#1f2937;">
   <div style="background:linear-gradient(135deg,#2563eb,#4f8ae8);color:#fff;padding:18px 22px;border-radius:11px 11px 0 0;">
