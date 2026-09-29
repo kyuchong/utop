@@ -1929,7 +1929,7 @@ _MAIL_DEFAULT = {"host": "", "port": 587, "username": "", "password": "",
                  # Cycles 알림(지시) — 시험이 끝나면 실행한 사람에게 결과 메일
                  "done_enabled": False, "done_to_assignee": False, "done_only_fail": False,
                  "done_subject": "", "done_intro": "", "done_outro": "",
-                 "done_sections": {"summary": True, "fails": True, "items": False, "link": True}}
+                 "done_sections": {"summary": True, "fails": False, "items": False, "link": True}}
 
 def _load_mail_cfg() -> dict:
     cfg = dict(_MAIL_DEFAULT)

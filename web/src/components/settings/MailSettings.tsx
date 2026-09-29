@@ -71,7 +71,7 @@ const BLANK: Cfg = {
   done_subject: '',
   done_intro: '',
   done_outro: '',
-  done_sections: { summary: true, fails: true, items: false, link: true },
+  done_sections: { summary: true, fails: false, items: false, link: true },
 }
 
 /** 공유 폼 한 벌 — 요구사항·시험항목이 같은 모양을 쓴다 */
