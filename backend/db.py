@@ -694,6 +694,13 @@ async def plan_run_list(plan_id: str = "", with_closed: bool = True) -> list[dic
                closed_at, rerun_of, created_by, created_at, updated_at,
                data->'meta' AS meta, data->'binds' AS binds,
                data->>'mode' AS mode, data->>'started_at' AS started_at,
+               -- 마지막 일감(시작 단추 한 번)의 시작·종료 시각·상태(지시: 목록에 실행 시작·종료 열)
+               (SELECT started_at FROM cycle_run j WHERE j.plan_run_id = plan_run.id
+                 ORDER BY j.queued_at DESC NULLS LAST LIMIT 1) AS last_started_at,
+               (SELECT ended_at FROM cycle_run j WHERE j.plan_run_id = plan_run.id
+                 ORDER BY j.queued_at DESC NULLS LAST LIMIT 1) AS last_ended_at,
+               (SELECT status FROM cycle_run j WHERE j.plan_run_id = plan_run.id
+                 ORDER BY j.queued_at DESC NULLS LAST LIMIT 1) AS last_status,
                {_RUN_COUNTS}
         FROM plan_run
         {'WHERE ' + ' AND '.join(where) if where else ''}
@@ -705,6 +712,9 @@ async def plan_run_list(plan_id: str = "", with_closed: bool = True) -> list[dic
         out = []
         for r in rows:
             d = _plan_run_row(r)
+            for k in ("last_started_at", "last_ended_at"):
+                v = d.get(k)
+                d[k] = v.isoformat() if v else None
             d.update(_fold_hist(d.pop("res_hist", None), groups))
             out.append(d)
         return out

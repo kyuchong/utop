@@ -117,6 +117,14 @@ const kst = (iso: string): string => {
   const p = (x: number) => String(x).padStart(2, '0')
   return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
+/** ISO 시각 → 'YYYY-MM-DD HH:MM'(이 PC 시간대). 비었으면 '' */
+const fmtMin = (iso?: string | null): string => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return String(iso).slice(0, 16)
+  const p = (x: number) => String(x).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
 /** 천 자리를 끊는다 — 반복 회차는 10,000 까지 간다(RepeatPop 과 같은 셈) */
 const nfmt = (n: number): string =>
   String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
@@ -507,7 +515,9 @@ export default function CyclesBoard({
     { key: 'items', label: '항목', type: 'number', width: 60 },
     { key: 'iss', label: '결함', type: 'number', width: 60 },
     { key: 'runs', label: '실행', type: 'text', width: 104 },
-    { key: 'last', label: '마지막 실행', type: 'text', width: 190 },
+    /* 「마지막 실행」(이름 · 며칠 전) 대신 **실행 시작 · 실행 종료** 두 열(지시) — 년-월-일 시:분 */
+    { key: 'run_start', label: '실행 시작', type: 'text', width: 132 },
+    { key: 'run_end', label: '실행 종료', type: 'text', width: 132 },
     { key: 'stat', label: '판정 현황', type: 'text', width: 110 },
     { key: 'assignee', label: '담당', type: 'person', width: 96 },
     { key: 'created', label: '생성일자', type: 'text', width: 100 },
@@ -2067,7 +2077,9 @@ export default function CyclesBoard({
       const openRunN = liveByPlan.get(String(p.id)) ?? 0
       const last = rs
         .slice()
-        .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))[0]
+        .sort((a, b) =>
+          String(b.last_started_at ?? b.created_at ?? '').localeCompare(String(a.last_started_at ?? a.created_at ?? '')),
+        )[0]
       const t = sumRuns(rs)
       return {
         __id: p.id,
@@ -2086,7 +2098,14 @@ export default function CyclesBoard({
         runs: rs.length
           ? `${rs.length}건${openRunN ? ` · 진행 중${openRunN > 1 ? ` ${openRunN}` : ''}` : ''}`
           : '',
-        last: last ? `${String(last.name || last.id)} · ${ago(last.created_at)}` : '',
+        /* 마지막 일감 기준. 아직 안 끝났으면 종료 칸에 「진행 중」. 일감 기록이 없는
+           옛 실행은 실행 문서의 시작 시각만 보인다 */
+        run_start: last ? fmtMin(last.last_started_at || last.started_at) : '',
+        run_end: last
+          ? ['running', 'queued', 'held'].includes(String(last.last_status ?? ''))
+            ? '진행 중'
+            : fmtMin(last.last_ended_at)
+          : '',
         stat: t.total ? `통과 ${t.pass} · 실패 ${t.fail} · 미실행 ${t.none}` : '',
         assignee: String(p.assignee ?? ''),
         created: String(p._created_at_pg ?? '').slice(0, 10),
@@ -2152,7 +2171,7 @@ export default function CyclesBoard({
               /* 제목 두 번 누르면 고친다(지시) — 빈 이름·무변경은 안 보낸다 */
               else if (key === 'title') void saveNameOf(rowId, v)
             }}
-            readOnlyKeys={['id', 'vg', 'customer', 'mg', 'model', 'items', 'iss', 'runs', 'last', 'stat', 'created']}
+            readOnlyKeys={['id', 'vg', 'customer', 'mg', 'model', 'items', 'iss', 'runs', 'run_start', 'run_end', 'stat', 'created']}
             /* 돌고 있는 사이클은 **줄째로** 두드러진다(지시) — 알약 하나만으로는
                스무 줄 가운데서 찾아 훑어야 한다 */
             rowClass={(r) => ((liveByPlan.get(String(r.__id)) ?? 0) > 0 ? 'ntb-live' : '')}
@@ -2211,7 +2230,7 @@ export default function CyclesBoard({
                   </span>
                 )
               }
-              if (col.key === 'last' && !row.last) return <span className="cu-m">—</span>
+              if ((col.key === 'run_start' || col.key === 'run_end') && !row[col.key]) return <span className="cu-m">—</span>
               return undefined
             }}
           perPage={100}

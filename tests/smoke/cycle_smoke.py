@@ -42,6 +42,7 @@ r = c.get("/api/tc/E6100-T0001/run-history"); ok("실행 이력", r.status_code 
 r = c.post("/api/plan-runs", json={"cycle_id": cid, "name": "1회차", "picked": ["E6100-T0001"]}); ok("플랜 실행 만들기(500 아님)", r.status_code != 500, r.text[:140])
 rid = (r.json().get("run") or r.json()).get("id") if r.status_code == 200 and isinstance(r.json(), dict) else None
 r = c.get("/api/plan-runs", params={"cycle_id": cid}); ok("플랜 실행 목록", r.status_code == 200, r.text[:100])
+ok("실행 목록에 마지막 일감의 시작·종료 시각 칸이 있다", r.status_code == 200 and all(("last_started_at" in x and "last_ended_at" in x) for x in (r.json().get("runs") or [])), r.text[:100])
 if rid:
     r = c.get(f"/api/plan-runs/{rid}"); ok("플랜 실행 하나", r.status_code == 200, r.text[:100])
     r = c.get(f"/api/plan-runs/{rid}/items"); ok("플랜 실행 항목", r.status_code == 200, r.text[:100])

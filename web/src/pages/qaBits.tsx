@@ -31,6 +31,12 @@ export interface RunLite {
   created_at?: string | null
   mode?: string | null
   meta?: Record<string, string> | null
+  /** 실행 문서에 적힌 첫 시작 시각(일감 기록이 없던 옛 실행의 폴백) */
+  started_at?: string | null
+  /** 마지막 일감(시작 단추 한 번)의 시작·종료·상태 — 목록의 실행 시작·종료 열 */
+  last_started_at?: string | null
+  last_ended_at?: string | null
+  last_status?: string | null
   binds?: Record<string, string> | null
   n_total: number
   n_pass: number
