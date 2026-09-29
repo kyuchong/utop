@@ -60,6 +60,11 @@ ok("만료까지 날수 계산", isinstance(c.get("/api/about").json()["license"
 r = c.get("/api/help/access"); ok("도움말 권한(관리자)", r.status_code == 200 and r.json()["can_edit"] is True, r.text[:80])
 r = c.get("/api/wiki", params={"project": "__help__"}); ok("도움말 씨앗 7편(위키 공간)", r.status_code == 200 and len(r.json()["pages"]) >= 7, r.text[:120])
 ok("일반 위키 목록에는 도움말이 안 섞인다", all(p.get("project") != "__help__" for p in c.get("/api/wiki", params={"project": ""}).json()["pages"]))
+r = c.post("/api/wiki/wk-smoke-public", json={"title": "공용 스모크 문서", "project": "", "body": []}); ok("공용 위키 문서 만들기", r.status_code == 200)
+ok("공용 위키 문서는 도움말 나무에 안 섞인다(213 에서 실제로 섞였던 것)", all(p["id"] != "wk-smoke-public" for p in c.get("/api/wiki", params={"project": "__help__"}).json()["pages"]))
+ok("도움말 찾기도 도움말만", all(h["id"] != "wk-smoke-public" for h in c.get("/api/wiki/search", params={"q": "스모크", "project": "__help__"}).json()["hits"]))
+ok("공용 문서는 일반 위키에 보인다", any(p["id"] == "wk-smoke-public" for p in c.get("/api/wiki", params={"project": ""}).json()["pages"]))
+c.delete("/api/wiki/wk-smoke-public")
 hid = "help-wiki"
 r = c.get(f"/api/wiki/{hid}"); pg = r.json().get("page", {})
 ok("도움말 본문이 블록노트 블록", r.status_code == 200 and isinstance(pg.get("body"), list) and len(pg["body"]) > 10 and pg["body"][0].get("type") == "heading", str(pg.get("body", ""))[:120])

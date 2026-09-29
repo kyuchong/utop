@@ -101,9 +101,11 @@ async def wiki_list(project: str = ""):
             # 빈 값은 「이 프로젝트 것이 아니다」 가 아니라 「어느 프로젝트에도
             # 매이지 않았다」 — 공용 문서다. 공용은 어디서 보든 보여야 한다.
             "SELECT id, project, parent_id, title, ord, updated_by, updated_at "
-            "FROM wiki_page WHERE ($1='' OR project=$1 OR coalesce(project,'')='') "
-            # 도움말 공간(__help__)은 그 공간을 물을 때만 — 일반 위키 나무에 섞이면 안 된다
-            "AND ($1='__help__' OR coalesce(project,'') <> '__help__') "
+            # 도움말 공간(__help__)은 **그 공간의 문서만** — 공용(프로젝트 없음) 문서를 어디서든 보이게 하는
+            # 규칙을 여기에도 적용했더니 실제 위키 문서가 도움말 나무에 섞였다(지적, 213 에서 실제로). 반대로
+            # 일반 위키에는 도움말이 안 섞인다.
+            "FROM wiki_page WHERE (CASE WHEN $1='__help__' THEN project='__help__' "
+            "  ELSE ($1='' OR project=$1 OR coalesce(project,'')='') AND coalesce(project,'') <> '__help__' END) "
             "ORDER BY ord, title",
             project,
         )
@@ -131,8 +133,8 @@ async def wiki_search(q: str, project: str = "", limit: int = 40):
             "SELECT id, title, plain FROM wiki_page "
             # 목록과 **같은 규칙** — 프로젝트 없는 문서는 늘 걸린다.
             # 목록에는 보이는데 찾기에는 안 걸리면 그건 더 헷갈린다.
-            "WHERE ($2='' OR project=$2 OR coalesce(project,'')='') "
-            "AND ($2='__help__' OR coalesce(project,'') <> '__help__') "
+            "WHERE (CASE WHEN $2='__help__' THEN project='__help__' "
+            "  ELSE ($2='' OR project=$2 OR coalesce(project,'')='') AND coalesce(project,'') <> '__help__' END) "
             "AND (title ILIKE $1 OR plain ILIKE $1) "
             "ORDER BY updated_at DESC LIMIT $3",
             f"%{n}%", project, max(1, min(200, limit)),

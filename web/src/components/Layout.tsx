@@ -432,22 +432,42 @@ function AboutBadge({ collapsed }: { collapsed: boolean }) {
     })()
   }, [])
   if (!a) return null
-  const ver = a.version ? `v${a.version}` : ''
-  const sha = a.git_sha ? ` (${a.git_sha.slice(0, 7)})` : ''
+  const ver = a.version ? `v${a.version}` : '—'
+  const sha = a.git_sha ? a.git_sha.slice(0, 7) : ''
   const d = a.license.days_left
-  const lic = a.license.until
-    ? d == null
-      ? `라이선스 ~${a.license.until}`
-      : d < 0
-        ? `라이선스 만료 (${-d}일 지남)`
-        : `라이선스 ~${a.license.until} (D-${d})`
-    : '라이선스 미등록'
-  const tone = d == null ? '' : d < 0 ? ' bad' : d <= 30 ? ' warn' : ''
-  const tip = `${ver}${sha}\n${lic}${a.license.holder ? `\n${a.license.holder}` : ''}`
+  /* 라이선스 상태 — 값·색을 한 곳에서 정한다. 만료 30일 안 주황, 지나면 빨강, 미등록은 회색 */
+  const tone = !a.license.until ? 'none' : d == null ? 'ok' : d < 0 ? 'bad' : d <= 30 ? 'warn' : 'ok'
+  const licVal = !a.license.until ? '미등록' : `~${a.license.until}`
+  const licTag = !a.license.until || d == null ? '' : d < 0 ? `${-d}일 지남` : `D-${d}`
+  const tip = [`버전 ${ver}${sha ? ` (${sha})` : ''}`, `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}`, a.license.holder]
+    .filter(Boolean)
+    .join('\n')
+  /* 접힌 레일 — 글자 자리가 없다. 버전만 작게, 라이선스는 색 점으로 */
+  if (collapsed) {
+    return (
+      <div className={`nav-about mini ${tone}`} title={tip}>
+        <span className="nav-about-mini-v">{ver.replace(/\.\d+$/, '')}</span>
+        <span className="nav-about-dot" aria-label={`라이선스 ${licVal}`} />
+      </div>
+    )
+  }
+  /* 펼친 메뉴 — 버전과 라이선스를 **따로 두 줄**로(지적: 같이 있어 이상하다) */
   return (
-    <div className={`nav-about${tone}`} title={tip}>
-      <span className="nav-about-ver">{collapsed ? ver.replace(/\.\d+$/, '') : `${ver}${sha}`}</span>
-      {!collapsed && <span className="nav-about-lic">{lic}</span>}
+    <div className="nav-about" title={tip}>
+      <div className="nav-about-row">
+        <span className="nav-about-k">버전</span>
+        <span className="nav-about-v">
+          {ver}
+          {sha && <span className="nav-about-sha">{sha}</span>}
+        </span>
+      </div>
+      <div className={`nav-about-row lic ${tone}`}>
+        <span className="nav-about-k">라이선스</span>
+        <span className="nav-about-v">
+          {licVal}
+          {licTag && <span className="nav-about-tag">{licTag}</span>}
+        </span>
+      </div>
     </div>
   )
 }
