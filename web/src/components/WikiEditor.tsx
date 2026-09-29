@@ -1038,6 +1038,19 @@ export default function WikiEditor({
               inWikiTable() ? (
                 <></>
               ) : (
+              /* **단추가 편집기 초점을 뺏지 않게**(지적: 글을 골라 도구줄을 누르면
+                 두 번 눌러야 먹는다). 마우스를 누르는 순간 초점이 단추로 옮겨 가면
+                 편집기가 블러되고, 그 사이 선택 동기화(공동 편집)로 도구줄이 다시
+                 그려지면 누름과 떼기가 다른 요소에 떨어져 첫 클릭이 사라진다.
+                 누름의 기본 동작(초점 이동)만 막는다 — 클릭은 그대로 온다.
+                 글자 칸(링크 주소 등)은 초점이 필요하니 뺀다. */
+              <div
+                className="wke-tbwrap"
+                onMouseDown={(e) => {
+                  const t = e.target as HTMLElement
+                  if (!t.closest('input, textarea, select, [contenteditable="true"]')) e.preventDefault()
+                }}
+              >
               <FormattingToolbar>
                 {/* 종류 고름표는 우리 것을 쓴다 — 기본 것은 여러 줄을
                     골라도 첫 줄만 바꾼다(지적). 들여쓰기 둘도 빼고 아래
@@ -1052,6 +1065,7 @@ export default function WikiEditor({
                 )}
                 <ListButtons />
               </FormattingToolbar>
+              </div>
               )
             )}
           />

@@ -714,3 +714,4 @@
 .wke-body .bn-block-content[data-content-type='video'][data-text-alignment='center'] { margin-inline: auto; }
 .wke-body .bn-block-content[data-content-type='image'][data-text-alignment='right'],
 .wke-body .bn-block-content[data-content-type='video'][data-text-alignment='right'] { margin-left: auto; }
+.wke-tbwrap { display: contents; }
