@@ -52,7 +52,6 @@ function countOf(k: string, p: Record<string, unknown> | undefined): string {
 }
 
 export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
-  const [exp, setExp] = useState<Set<string>>(() => new Set(PARTS.map((p) => p.k)))
   const [secrets, setSecrets] = useState(false)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
@@ -67,11 +66,12 @@ export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
     fn(n)
   }
 
-  const doExport = async () => {
-    setBusy('exp')
+  /** 내보내기 — 묶음 하나(개별)든 전부든 같은 길. 파일 이름에 묶음을 적어 무엇을 받았는지 보이게 한다 */
+  const doExport = async (parts: string[], tag = '') => {
+    setBusy(tag ? `exp:${tag}` : 'exp')
     setMsg({ kind: '', text: '' })
     try {
-      const q = `parts=${[...exp].join(',')}${secrets ? '&secrets=1' : ''}`
+      const q = `parts=${parts.join(',')}${secrets ? '&secrets=1' : ''}`
       const r = await apiFetch(`/api/transfer/export?${q}`)
       if (!r.ok) {
         const b = (await r.json().catch(() => ({}))) as { detail?: string }
@@ -85,7 +85,7 @@ export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
       const d = new Date()
       const p2 = (n: number) => String(n).padStart(2, '0')
       a.href = URL.createObjectURL(blob)
-      a.download = `utop-${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.json`
+      a.download = `utop${tag ? `-${tag}` : ''}-${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.json`
       a.click()
       URL.revokeObjectURL(a.href)
       setMsg({ kind: 'ok', text: '내려받았습니다 — 받은 쪽에서 「가져오기」 에 올리면 됩니다' })
@@ -167,37 +167,37 @@ export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
         {mode === 'export' && (
         <div className="tr-card">
           <h3>내보내기</h3>
-          <p className="muted small">체크한 묶음만 한 파일로 내려받습니다.</p>
+          {/* 체크박스는 걷었다(지시) — 줄마다 「내보내기」 로 그 묶음만, 맨 아래 「전체 내보내기」 로 전부 */}
+          <p className="muted small">묶음마다 따로 받거나, 맨 아래에서 전부 한 파일로 받습니다.</p>
           {PARTS.map((p) => (
-            <label className="tr-part" key={p.k}>
-              <input
-                type="checkbox"
-                checked={exp.has(p.k)}
-                onChange={() => toggle(exp, p.k, setExp)}
-              />
+            <div className="tr-part tr-part-row" key={p.k}>
               <span className="tr-pl">
                 <b>{p.label}</b>
                 <i>{p.desc}</i>
               </span>
-            </label>
+              <button
+                className="btn small"
+                type="button"
+                disabled={busy !== ''}
+                onClick={() => void doExport([p.k], p.k)}
+                title={`${p.label}만 .json 으로 내려받습니다`}
+              >
+                {busy === `exp:${p.k}` ? '만드는 중…' : '내보내기'}
+              </button>
+            </div>
           ))}
           <label className={`tr-secret${secrets ? ' on' : ''}`}>
-            <input
-              type="checkbox"
-              checked={secrets}
-              disabled={!exp.has('device')}
-              onChange={(e) => setSecrets(e.target.checked)}
-            />
-            장비 비밀번호도 포함 — 파일을 받는 쪽을 믿을 수 있을 때만
+            <input type="checkbox" checked={secrets} onChange={(e) => setSecrets(e.target.checked)} />
+            장비 비밀번호도 포함 — 파일을 받는 쪽을 믿을 수 있을 때만 (장비 묶음에만 해당)
           </label>
           <div className="tr-foot">
             <button
               className="btn primary"
               type="button"
-              disabled={busy !== '' || exp.size === 0}
-              onClick={() => void doExport()}
+              disabled={busy !== ''}
+              onClick={() => void doExport(PARTS.map((x) => x.k))}
             >
-              {busy === 'exp' ? '만드는 중…' : '내보내기 (.json)'}
+              {busy === 'exp' ? '만드는 중…' : '전체 내보내기 (.json)'}
             </button>
           </div>
         </div>

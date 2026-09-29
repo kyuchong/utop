@@ -72,3 +72,8 @@
   min-width: 0;
 }
 .tr-fileinfo > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 줄마다 내보내기 단추(지시) — 글은 왼쪽, 단추는 오른쪽 끝에 */
+.tr-part-row { align-items: center; justify-content: space-between; gap: 12px; cursor: default; }
+.tr-part-row .tr-pl { flex: 1; min-width: 0; }
+.tr-part-row .btn { flex: none; }
