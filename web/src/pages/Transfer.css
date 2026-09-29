@@ -74,10 +74,13 @@
 .tr-fileinfo > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 줄마다 내보내기 단추(지시) — 글은 왼쪽, 단추는 오른쪽 끝에 */
-.tr-part-row { align-items: center; justify-content: space-between; gap: 12px; cursor: default; }
-.tr-part-row .tr-pl { flex: 1; min-width: 0; }
-.tr-part-row .btn { flex: none; }
-.tr-foot-two { justify-content: flex-start; gap: 8px; }
-.tr-foot-two .btn.on { background: var(--c-primary-bg); border-color: var(--c-primary); color: var(--c-primary); }
+/* 내보내기 — 묶음 줄을 눌러 고른다(체크박스 없음). 고른 줄은 파란 테두리·연한 바탕 */
+.tr-parts { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 10px; }
+.tr-part-pick { align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; border: 1px solid var(--c-border-soft); border-radius: 8px; padding: 8px 12px; user-select: none; }
+.tr-part-pick .tr-pl { flex: 1; min-width: 0; }
+.tr-part-pick:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 1px; }
+.tr-part-pick.on { background: var(--c-primary-bg); border-color: var(--c-primary); }
+.tr-part-pick.on .tr-pl > b { color: var(--c-primary); }
+.tr-pick-mark { flex: none; font-size: 12px; font-weight: 600; color: var(--c-primary); min-width: 44px; text-align: right; }
+.tr-foot-two { justify-content: flex-start; gap: 8px; align-items: center; }
 /* 펼친 개별 목록 — 단추 아래, 실금 하나로 구역을 가른다 */
-.tr-indiv { margin-top: 12px; padding-top: 6px; border-top: 1px solid var(--c-border-soft); }

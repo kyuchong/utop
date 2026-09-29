@@ -54,7 +54,8 @@ function countOf(k: string, p: Record<string, unknown> | undefined): string {
 export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
   const [secrets, setSecrets] = useState(false)
   /** 개별 내보내기 목록을 펼쳤나 — 처음엔 단추 둘만(지시: 누르면 아래에 나오게) */
-  const [indiv, setIndiv] = useState(false)
+  /** 개별 내보내기에서 고른 묶음 — 고른 것을 **각각 따로 파일로** 받는다(지시: 한 파일에 묶지 않는다) */
+  const [sel, setSel] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
   const [file, setFile] = useState<ImportedFile | null>(null)
@@ -67,6 +68,15 @@ export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
     else n.add(k)
     fn(n)
   }
+
+  /** 묶음 줄을 눌러 고르기/풀기 — 빠르게 연달아 눌러도 마지막 상태를 기준으로 뒤집는다 */
+  const pick = (k: string) =>
+    setSel((prev) => {
+      const n = new Set(prev)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
 
   /** 내보내기 — 묶음 하나(개별)든 전부든 같은 길. 파일 이름에 묶음을 적어 무엇을 받았는지 보이게 한다 */
   const doExport = async (parts: string[], tag = '') => {
@@ -96,6 +106,15 @@ export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
     } finally {
       setBusy('')
     }
+  }
+
+  /** 고른 묶음을 하나씩 따로 받는다 — 브라우저가 연속 내려받기를 막지 않게 사이를 조금 띄운다 */
+  const doExportEach = async (keys: string[]) => {
+    for (const k of keys) {
+      await doExport([k], k)
+      await new Promise((r) => setTimeout(r, 400))
+    }
+    if (keys.length > 1) setMsg({ kind: 'ok', text: `${keys.length}개 파일로 내려받았습니다 — 묶음마다 한 파일` })
   }
 
   const pickFile = (f: File | undefined) => {
@@ -169,51 +188,69 @@ export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
         {mode === 'export' && (
         <div className="tr-card">
           <h3>내보내기</h3>
-          <p className="muted small">전부 한 파일로 받거나, 「개별 내보내기」 를 열어 묶음 하나씩 받습니다.</p>
-          <label className={`tr-secret${secrets ? ' on' : ''}`}>
-            <input type="checkbox" checked={secrets} onChange={(e) => setSecrets(e.target.checked)} />
-            장비 비밀번호도 포함 — 파일을 받는 쪽을 믿을 수 있을 때만 (장비 묶음에만 해당)
-          </label>
-          {/* 단추 둘(지시) — 전체는 바로, 개별은 누르면 아래에 묶음 목록이 펼쳐진다 */}
-          <div className="tr-foot tr-foot-two">
-            <button
-              className="btn primary"
-              type="button"
-              disabled={busy !== ''}
-              onClick={() => void doExport(PARTS.map((x) => x.k))}
-            >
-              {busy === 'exp' ? '만드는 중…' : '전체 내보내기 (.json)'}
-            </button>
-            <button
-              className={`btn${indiv ? ' on' : ''}`}
-              type="button"
-              aria-expanded={indiv}
-              onClick={() => setIndiv((v) => !v)}
-            >
-              개별 내보내기 {indiv ? '▴' : '▾'}
-            </button>
-          </div>
-          {indiv && (
-            <div className="tr-indiv">
-              {PARTS.map((p) => (
-                <div className="tr-part tr-part-row" key={p.k}>
+          <p className="muted small">
+            묶음을 <b>눌러서 고르고</b> 「개별 내보내기」 를 누르면 고른 묶음이 <b>각각 따로</b> .json 파일로 내려옵니다.
+            「전체 내보내기」 는 모든 묶음을 한 파일로 받습니다.
+          </p>
+          {/* 묶음 줄은 늘 보인다(지시: 개별 내보내기 아래에 묶지 말 것). 체크박스 없이 줄을 눌러 고른다(지시). */}
+          <div className="tr-parts" role="listbox" aria-multiselectable="true" aria-label="내보낼 묶음">
+            {PARTS.map((p) => {
+              const on = sel.has(p.k)
+              return (
+                <div
+                  className={`tr-part tr-part-pick${on ? ' on' : ''}`}
+                  key={p.k}
+                  role="option"
+                  aria-selected={on}
+                  tabIndex={0}
+                  onClick={() => pick(p.k)}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                      e.preventDefault()
+                      pick(p.k)
+                    }
+                  }}
+                >
                   <span className="tr-pl">
                     <b>{p.label}</b>
                     <i>{p.desc}</i>
                   </span>
-                  <button
-                    className="btn small"
-                    type="button"
-                    disabled={busy !== ''}
-                    onClick={() => void doExport([p.k], p.k)}
-                    title={`${p.label}만 .json 으로 내려받습니다`}
-                  >
-                    {busy === `exp:${p.k}` ? '만드는 중…' : '내보내기'}
-                  </button>
+                  <span className="tr-pick-mark" aria-hidden="true">
+                    {on ? '✓ 선택' : ''}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
+              )
+            })}
+          </div>
+          <label className={`tr-secret${secrets ? ' on' : ''}`}>
+            <input type="checkbox" checked={secrets} onChange={(e) => setSecrets(e.target.checked)} />
+            장비 비밀번호도 포함 — 파일을 받는 쪽을 믿을 수 있을 때만 (장비 묶음에만 해당)
+          </label>
+          <div className="tr-foot tr-foot-two">
+            <button
+              className="btn primary"
+              type="button"
+              disabled={busy !== '' || sel.size === 0}
+              title={sel.size ? '고른 묶음을 각각 따로 파일로 받습니다' : '위에서 묶음을 먼저 고르세요'}
+              onClick={() => void doExportEach(PARTS.map((x) => x.k).filter((k) => sel.has(k)))}
+            >
+              {busy.startsWith('exp:') ? '만드는 중…' : `개별 내보내기${sel.size ? ` (${sel.size}개 → ${sel.size}파일)` : ''}`}
+            </button>
+            <button
+              className="btn"
+              type="button"
+              disabled={busy !== ''}
+              title="모든 묶음을 한 파일로 받습니다"
+              onClick={() => void doExport(PARTS.map((x) => x.k))}
+            >
+              {busy === 'exp' ? '만드는 중…' : '전체 내보내기 (.json)'}
+            </button>
+            {sel.size > 0 && (
+              <button className="btn small" type="button" onClick={() => setSel(new Set())}>
+                선택 해제
+              </button>
+            )}
+          </div>
         </div>
         )}
 
