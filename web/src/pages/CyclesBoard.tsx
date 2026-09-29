@@ -2924,6 +2924,9 @@ export default function CyclesBoard({
     unit?: string
   }) {
     const [wrapRef, wrapW] = useWidth()
+    /** 마우스가 올라간 날(칸 번호) — 그날의 누적·그날 돈 수를 말풍선으로(지시:
+     *  끝값만 보이니 지난 날은 올리면 보이게) */
+    const [hov, setHov] = useState<number | null>(null)
     if (!rows.length)
       return (
         <div className="cu-empty">
@@ -2962,8 +2965,34 @@ export default function CyclesBoard({
     const dots = rows.length <= 16
     const gid = `cybg-${series.map((s2) => s2.k).join('')}-${rows.length}`
     const one = rows.length === 1
+    /* 말풍선 자리 — 오른쪽 끝에 가까우면 왼쪽으로 편다 */
+    const tip = hov != null && rows[hov] ? rows[hov] : null
+    const tipLeftPct = hov != null ? (cx(hov) / W) * 100 : 0
+    const tipFlip = tipLeftPct > 70
     return (
-      <div ref={wrapRef}>
+      <div ref={wrapRef} className="cyb-daywrap" onMouseLeave={() => setHov(null)}>
+        {tip && (
+          <div
+            className={`cyb-daytip${tipFlip ? ' flip' : ''}`}
+            style={{ left: `${tipLeftPct}%`, top: padT }}
+            role="status"
+          >
+            <b>{`${tip[0].slice(5)} (${dow(tip[0])})`}</b>
+            {series.map((s2) => {
+              const cur = tip[1][s2.k]
+              const prev = hov! > 0 ? rows[hov! - 1]![1][s2.k] : 0
+              const delta = cur - prev
+              return (
+                <span key={s2.k} className="cyb-daytip-row">
+                  <i style={{ background: s2.color }} />
+                  <em>{s2.label.replace('(누적)', '')}</em>
+                  <strong>{nfmt(cur)}</strong>
+                  <small>{delta > 0 ? `그날 +${nfmt(delta)}` : '그날 0'}</small>
+                </span>
+              )
+            })}
+          </div>
+        )}
         <svg
           className="cyb-daychart"
           viewBox={`0 0 ${W} ${H}`}
@@ -3068,6 +3097,31 @@ export default function CyclesBoard({
                   </g>
                 )
               })}
+          {/* 올린 날의 세로 안내선 — 어느 날의 값인지 눈이 짚는다 */}
+          {hov != null && (
+            <line
+              x1={cx(hov)}
+              x2={cx(hov)}
+              y1={padT}
+              y2={y(0)}
+              stroke="var(--c-text-faint, #98a2ad)"
+              strokeDasharray="3 3"
+              vectorEffect="non-scaling-stroke"
+              pointerEvents="none"
+            />
+          )}
+          {/* 칸마다 투명한 감지 영역 — 점이 작아도 그 날짜 칸 어디에 올려도 잡힌다 */}
+          {rows.map(([d], i) => (
+            <rect
+              key={`h-${d}`}
+              x={padL + i * slot}
+              y={padT}
+              width={slot}
+              height={H - padT - padB}
+              fill="transparent"
+              onMouseEnter={() => setHov(i)}
+            />
+          ))}
           {/* 날짜 글자는 **띄엄띄엄** — 한 칸이 90 단위는 돼야 안 붙는다.
               마지막 날은 언제나 찍어 축 끝을 알려 주고, 열흘이 넘으면
               요일은 뺀다(날짜만으로 충분하고 글자가 절반이 된다). */}
