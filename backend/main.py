@@ -21,6 +21,7 @@ import anthropic
 import engine
 import db  # PostgreSQL 접속 레이어 (커넥션 풀 + CRUD 헬퍼)
 import core  # 나뉜 라우트 파일(routes/*)이 쓰는 공용 고리 — 아래 접합부들이 bind 로 채운다
+import licensing as _licensing  # 라이선스 파일 서명 검증(SETUP › 버전·라이선스)
 import id_migrate  # 옛 ID → 모델그룹 기준 ID 옮기기
 
 # ───────────────────────────────────────────
@@ -3053,24 +3054,39 @@ async def _help_seed_if_empty() -> int:
         return len(docs)
 
 
-def _help_editors() -> list:
-    d = _kv_load_sync("help_editors", None)
-    return [str(x) for x in d if str(x).strip()] if isinstance(d, list) else []
+# 계정의 역할 이름 → 권한 격자의 열쇠 (web/src/lib/perm.ts 의 ROLE_KEY_OF 와 같은 표)
+_PERM_ROLE_KEY = {"관리자": "admin", "admin": "admin", "팀장": "lead", "담당": "owner", "팀원": "member"}
+
+
+def _perm_has(username: str, module: str, right: str) -> bool:
+    """**서버 쪽** 권한 판단 — 페이지별 접근 권한 격자를 그대로 읽는다.
+
+    체계가 꺼져 있으면(기본) 화면은 누구나 다 보이지만, 여기서는 **관리자만**
+    참이다 — 도움말처럼 「고치면 모두에게 보이는 것」 은 꺼진 채로 아무나
+    고치게 둘 수 없다. 관리자는 늘 참이다."""
+    u = _find_user(username) or {}
+    role = str(u.get("role") or "")
+    rk = _PERM_ROLE_KEY.get(role, role)
+    if rk == "admin":
+        return True
+    d = _perm_doc()
+    if not d.get("enabled"):
+        return False
+    rights = ((d.get("grid") or {}).get(module) or {}).get(rk) or []
+    return right in rights
 
 
 def _help_can_edit() -> bool:
-    """관리자이거나 도움말 편집자 목록에 든 사람."""
+    """관리자이거나, 페이지별 접근 권한에서 「도움말 · 고치기」 를 받은 역할(지시:
+    편집자 목록은 걷고 권한 화면 한 곳에서)."""
     sess = _CUR_SESSION.get()
     who = str((sess or {}).get("username") or "")
-    if not who:
-        return False
-    u = _find_user(who) or {}
-    return u.get("role") == "관리자" or who in _help_editors()
+    return bool(who) and _perm_has(who, "help", "edit")
 
 
 def _help_require_editor() -> str:
     if not _help_can_edit():
-        raise HTTPException(403, "도움말을 고칠 권한이 없습니다 — SETUP › 버전·라이선스에서 편집자를 정합니다")
+        raise HTTPException(403, "도움말을 고칠 권한이 없습니다 — SETUP › 페이지별 접근 권한에서 「도움말 · 고치기」 를 줍니다")
     return _who()
 
 
@@ -3104,20 +3120,6 @@ async def help_reset(slug: str):
     return {"ok": True, "id": d["id"]}
 
 
-@app.get("/api/help/editors")
-async def help_editors_get(token: str = ""):
-    _require_admin(token)
-    return {"users": _help_editors()}
-
-
-@app.post("/api/help/editors")
-async def help_editors_set(payload: dict, token: str = ""):
-    _require_admin(token)
-    users = [str(x).strip() for x in (payload.get("users") or []) if str(x).strip()]
-    _kv_save_sync("help_editors", users)
-    return {"ok": True, "users": users}
-
-
 def _about_version() -> dict:
     """버전·판 정보 — VERSION 파일(사람이 올린다), 빌드 때 박은 커밋(UTOP_GIT_SHA)·시각(BUILD_TIME)."""
     ver = ""
@@ -3130,16 +3132,14 @@ def _about_version() -> dict:
 
 
 def _license_doc() -> dict:
+    """등록된 라이선스 — 파일에서 읽은 칸 + 등록 기록 + 상태(남은 날수).
+
+    파일을 등록하고 상태를 본다(지시). 손으로 적는 칸은 없다 — 파일이 서명돼
+    있어 서버가 확인한 값만 보인다. status 는 licensing.status_of 참고."""
     d = _kv_load_sync("license", None)
     d = d if isinstance(d, dict) else {}
-    out = {k: str(d.get(k) or "") for k in ("holder", "start", "until", "note")}
-    days = None
-    if out["until"]:
-        try:
-            days = (datetime.strptime(out["until"][:10], "%Y-%m-%d").date() - datetime.now().date()).days
-        except ValueError:
-            days = None
-    out["days_left"] = days
+    out = {k: str(d.get(k) or "") for k in (*_licensing.FIELDS, "fp", "registered_at", "registered_by")}
+    out.update(_licensing.status_of(out))
     return out
 
 
@@ -3151,15 +3151,31 @@ async def api_about():
     return {**_about_version(), "license": _license_doc(), "can_manage": u.get("role") == "관리자"}
 
 
-@app.post("/api/license")
-async def api_license_save(payload: dict, token: str = ""):
+@app.post("/api/license/file")
+async def api_license_file(payload: dict, token: str = ""):
+    """라이선스 **파일 등록**(관리자) — 글(text)로 받아 서명을 확인하고 저장한다.
+
+    틀린 파일은 400 과 까닭. 새 파일은 앞 것을 갈아 끼운다(하나만 산다)."""
+    u = _require_admin(token)
+    text = str((payload or {}).get("text") or "")
+    if len(text) > 20000:
+        raise HTTPException(400, "라이선스 파일이 너무 큽니다")
+    try:
+        lic = _licensing.parse(text)
+    except _licensing.LicenseError as e:
+        raise HTTPException(400, str(e))
+    lic["registered_at"] = datetime.now().isoformat(timespec="seconds")
+    lic["registered_by"] = str(u.get("username") or "")
+    lic["text"] = text.strip()
+    _kv_save_sync("license", lic)
+    return {"ok": True, "license": _license_doc()}
+
+
+@app.post("/api/license/clear")
+async def api_license_clear(token: str = ""):
+    """등록 해제(관리자) — 미등록 상태로 돌아간다."""
     _require_admin(token)
-    cur = _kv_load_sync("license", None)
-    cur = dict(cur) if isinstance(cur, dict) else {}
-    for k in ("holder", "start", "until", "note"):
-        if k in payload:
-            cur[k] = str(payload.get(k) or "").strip()[:200]
-    _kv_save_sync("license", cur)
+    _kv_save_sync("license", {})
     return {"ok": True, "license": _license_doc()}
 
 
@@ -4194,9 +4210,9 @@ async def _db_init():
         # 등록을 빼면 재시작 때 빈 조직도가 캐시에 박히고 다음 저장이 DB 를
         # 덮어써 통째로 날아간다 — 위 형제들이 겪은 그 덫이다.
         ("org_tree", DATA_DIR / "org_tree.json"),
-        # 앱 안에서 고치는 도움말·편집자 목록·라이선스(2026-09-29). 등록을 빼면 재시작 때 빈 값이
+        # 라이선스 파일(2026-09-29). 등록을 빼면 재시작 때 빈 값이
         # 캐시에 박히고 다음 저장이 DB 를 덮어쓴다 — 위 형제들이 겪은 그 덫.
-        ("help_editors", DATA_DIR / "help_editors.json"),
+        # (도움말 편집자 목록 help_editors 는 걷었다 — 페이지별 접근 권한 격자가 맡는다)
         ("license", DATA_DIR / "license.json"),
     ]
     for _key, _fp in _KV_MIGRATIONS:

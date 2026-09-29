@@ -16,6 +16,8 @@ import {
   IconSearch,
   IconSparkle,
   IconInfoC,
+  IconTag,
+  IconLicense,
 } from './icons'
 import NotifyBell from '@/components/NotifyBell'
 import ProjectPicker from '@/components/ProjectPicker'
@@ -442,12 +444,29 @@ function AboutBadge({ collapsed }: { collapsed: boolean }) {
   const tip = [`버전 ${ver}${sha ? ` (${sha})` : ''}`, `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}`, a.license.holder]
     .filter(Boolean)
     .join('\n')
-  /* 접힌 레일 — 글자 자리가 없다. 버전만 작게, 라이선스는 색 점으로 */
+  /* 접힌 레일 — **아이콘 둘**(지시): 버전은 꼬리표, 라이선스는 방패(색이 상태).
+     마우스를 올리면 다른 메뉴처럼 오른쪽에 글자가 뜬다(nav-tip). */
   if (collapsed) {
+    const verTip = `버전 ${ver}${sha ? ` (${sha})` : ''}`
+    const licTip = `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}${a.license.holder ? ` · ${a.license.holder}` : ''}`
     return (
-      <div className={`nav-about mini ${tone}`} title={tip}>
-        <span className="nav-about-mini-v">{ver.replace(/\.\d+$/, '')}</span>
-        <span className="nav-about-dot" aria-label={`라이선스 ${licVal}`} />
+      <div className="nav-about mini">
+        <div className="nav-item nav-about-ico" title={verTip} tabIndex={0}>
+          <span className="nav-icon">
+            <IconTag />
+          </span>
+          <span className="nav-tip" aria-hidden="true">
+            {verTip}
+          </span>
+        </div>
+        <div className={`nav-item nav-about-ico lic ${tone}`} title={licTip} tabIndex={0}>
+          <span className="nav-icon">
+            <IconLicense />
+          </span>
+          <span className="nav-tip" aria-hidden="true">
+            {licTip}
+          </span>
+        </div>
       </div>
     )
   }

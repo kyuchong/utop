@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **470** (그룹 127개)
+총 라우트 수: **469** (그룹 127개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -349,15 +349,13 @@
 |---|---|---|---|
 | GET | `/api/health` | 도커 헬스체크가 부르는 곳. 로그인 없이 열려 있다. |  |
 
-## `/api/help` (7개)
+## `/api/help` (5개)
 
 | method | path | summary | auth |
 |---|---|---|---|
 | GET | `/api/help` |  |  |
 | POST | `/api/help` |  |  |
 | GET | `/api/help/access` | 도움말을 고칠 수 있나 — 화면이 편집 단추를 낼지 정한다. 읽기는 누구나. |  |
-| GET | `/api/help/editors` |  | token param |
-| POST | `/api/help/editors` |  | token param |
 | POST | `/api/help/reset/{slug}` | 그 편을 씨앗(docs/features)으로 되돌린다 — 고치다 망쳤을 때. 지난 판(wiki_rev)은 위키가 남긴다. |  |
 | GET | `/api/help/seeds` | 씨앗이 있는 도움말(되돌릴 수 있는 것) 목록 — SETUP 의 「처음 글로」 단추가 읽는다. |  |
 
@@ -468,11 +466,12 @@
 | DELETE | `/api/learn/procedure/{lp_id}` |  | token param |
 | GET | `/api/learn/procedures` |  |  |
 
-## `/api/license` (1개)
+## `/api/license` (2개)
 
 | method | path | summary | auth |
 |---|---|---|---|
-| POST | `/api/license` |  | token param |
+| POST | `/api/license/clear` | 등록 해제(관리자) — 미등록 상태로 돌아간다. | token param |
+| POST | `/api/license/file` | 라이선스 **파일 등록**(관리자) — 글(text)로 받아 서명을 확인하고 저장한다. | token param |
 
 ## `/api/llm` (6개)
 

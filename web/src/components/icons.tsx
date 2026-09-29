@@ -725,6 +725,14 @@ export const IconTag = (p: P) => (
   </SmallSvg>
 )
 
+/** 라이선스 — 방패 안 체크(접힌 왼쪽 레일의 라이선스 아이콘) */
+export const IconLicense = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" />
+    <path d="M9 12l2 2 4-4" />
+  </SmallSvg>
+)
+
 /** 버리기 (휴지통) */
 export const IconTrash = (p: P) => (
   <SmallSvg {...p}>

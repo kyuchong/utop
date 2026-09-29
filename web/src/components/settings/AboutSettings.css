@@ -1,0 +1,64 @@
+/* 버전 · 라이선스 — 카드 셋. 이름은 abt- 로 (겹치면 다른 화면이 조용히 망가진다) */
+.abt { display: flex; flex-direction: column; gap: 16px; max-width: 760px; }
+.abt .set-card h3 { margin: 0 0 4px; }
+.abt-head { display: flex; align-items: center; gap: 10px; }
+.abt-head h3 { margin: 0; }
+
+/* 이름표: 왼쪽 옅게, 값 오른쪽 — 표(table) 대신 dl 로 줄 간격을 맞춘다 */
+.abt-kv {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 6px 14px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  align-items: center;
+}
+.abt-kv dt { color: var(--c-text-faint); font-weight: 600; font-size: 12px; }
+.abt-kv dd { margin: 0; min-width: 0; }
+.abt-kv .mono { font-family: var(--font-mono); font-size: 12.5px; }
+
+/* 상태 배지 — 유효 초록 · 임박 주황 · 만료 빨강 · 시작 전 파랑 · 미등록 회색 */
+.abt-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+.abt-badge.ok { background: var(--tint-pass, #e6f6ee); color: var(--c-pass, #1d9e75); }
+.abt-badge.warn { background: #fff4e5; color: #b45309; }
+.abt-badge.bad { background: var(--tint-fail, #fdecec); color: var(--c-fail, #c0392b); }
+.abt-badge.wait { background: var(--c-primary-bg, #eaf2ff); color: var(--c-primary); }
+.abt-badge.none { background: var(--c-surface-alt); color: var(--c-text-faint); }
+
+.abt-days { font-weight: 700; }
+.abt-days.ok { color: var(--c-pass, #1d9e75); }
+.abt-days.warn { color: #b45309; }
+.abt-days.bad { color: var(--c-fail, #c0392b); }
+.abt-days.wait { color: var(--c-primary); }
+
+/* 사용 막대 — 기간 중 지난 만큼 */
+.abt-bar {
+  display: inline-block;
+  vertical-align: middle;
+  width: 220px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--c-surface-alt);
+  overflow: hidden;
+}
+.abt-bar i { display: block; height: 100%; background: var(--c-pass, #1d9e75); }
+.abt-bar.warn i { background: #f59e0b; }
+.abt-bar.bad i { background: var(--c-fail, #c0392b); }
+.abt-bar.wait i { background: var(--c-primary); }
+
+.abt-note { margin: 10px 0 0; padding: 8px 11px; border-radius: 8px; font-size: 12.5px; }
+.abt-note.warn { background: #fff7ed; border: 1px solid #fed7aa; color: #7c3a08; }
+.abt-note.bad { background: #fdecec; border: 1px solid #f5b5b5; color: #a02323; }
+.abt-empty { margin: 10px 0 0; padding: 14px; border: 1px dashed var(--c-border); border-radius: 8px; color: var(--c-text-faint); font-size: 13px; }
+
+.abt-acts { margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.abt-acts .ok { color: var(--c-pass, #1d9e75); }
+.abt-acts .err { color: var(--c-fail, #c0392b); }
+.abt-seeds { display: flex; flex-wrap: wrap; gap: 6px; }

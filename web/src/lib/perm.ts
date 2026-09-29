@@ -87,6 +87,17 @@ export const PERM_GROUPS: Array<{ title: string; items: PermModule[] }> = [
     ],
   },
   {
+    title: 'HELP',
+    items: [
+      {
+        k: 'help',
+        label: '도움말',
+        rights: ['view', 'edit'],
+        hint: '고치기 = 도움말 글을 앱 안에서 고치는 것. 체계가 꺼져 있으면 관리자만 고칩니다',
+      },
+    ],
+  },
+  {
     title: 'SETUP',
     items: [
       {

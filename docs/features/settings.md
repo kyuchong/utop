@@ -44,10 +44,12 @@ Jira 연동 · Jira 프로젝트 패널 설정 · 메일 설정 · 계정 관리
 
 ### 버전 · 라이선스 (관리자)
 - 왼쪽 메뉴 SYSTEM 바로 위에 **도움말**이 있다. 누구나 읽는다. WIKI 와 같은 편집기·표·지난 판·PDF 를 쓰고, 일반 위키 나무와는 섞이지 않는다.
-  처음 실린 글은 기능별 문서이고, 관리자와 여기(도움말 카드)서 정한 **편집자**가 앱 안에서 고친다. 편집자가 아니면 읽기만 된다.
-  여기 「처음 글로 되돌리기」 가 그 편을 처음 글로 되돌린다(지금 글은 지난 판으로 남는다).
-- 도움말 위에 **판(버전·커밋)과 라이선스 기간**이 선다. 화면은 버전·라이선스·도움말 세 카드이고 라이선스와 편집자는 각자 저장한다. 버전은 저장소의 VERSION 파일, 커밋은 빌드 때 박힌다.
-  라이선스의 사용처·시작일·만료일은 여기서 적는다. 만료 30일 안이면 주황, 지나면 빨강으로 보인다.
+  처음 실린 글은 기능별 문서이고, 관리자와 **페이지별 접근 권한**에서 「도움말 · 고치기」 를 받은 역할이 앱 안에서 고친다(권한 체계가 꺼져 있으면 관리자만).
+  「처음 글로 되돌리기」 가 그 편을 처음 글로 되돌린다(지금 글은 지난 판으로 남는다).
+- 도움말 위에 **판(버전·커밋)과 라이선스 기간**이 선다. 화면은 버전·라이선스·도움말 세 카드다. 버전은 저장소의 VERSION 파일, 커밋은 빌드 때 박힌다.
+- **라이선스는 파일을 등록하고 상태를 본다.** 발급처가 서명한 `.lic` 파일을 올리면 서버가 Ed25519 서명을 확인하고 사용처·기간·남은 날수·사용 막대·발급 ID·등록 기록을 보인다.
+  손으로 적는 칸은 없다. 서명이 틀리거나 고쳐진 파일은 까닭과 함께 거절된다. 상태는 유효·만료 임박(30일)·만료됨·시작 전·미등록이고 왼쪽 배지도 같은 색이다.
+  발급은 `tools/license_issue.py`(개인키는 저장소 밖 `~/.utop-license/private.pem`, 공개키는 `backend/licensing.py`). Jira Data Center·GitLab EE·SonarQube 의 방식을 따랐다.
 
 ### 데이터 내보내기·가져오기 (관리자)
 - 묶음(WIKI·요구사항·시험·사이클·결함·장비·설정)을 골라 JSON 한 통으로 내보내고, 다른 서버에서 들인다. 같은 ID 는 덮어쓴다.
@@ -71,13 +73,13 @@ Jira 연동 · Jira 프로젝트 패널 설정 · 메일 설정 · 계정 관리
 
 대본 `tests/smoke/settings_smoke.py`: 틀린 암호 401 → 로그인·내 정보 → health·브랜딩은 로그인 없이 → 계정 만들기·고치기·새 계정으로 로그인·암호 바꾸기·로그아웃 →
 이름표·멘션 후보 → 조직도·노드 추가·선택지 → 메일 설정·보내기 시험(서버 없음 안내)·공유·권한·UI 옵션·전역 파라미터·도움말 →
-내 보기 설정 저장·보기 탭 저장 → 알림·수정 이력·게시판·할일·대시보드·상태·접속자·데이터 내보내기 → 판·라이선스 저장과 날수 계산 →
-도움말 씨앗 7편(위키 공간, 블록노트 블록)·일반 위키에 안 섞임·고치기·처음 글로·새 문서·편집자 지정, 편집자는 고치고 빠지면 403, 읽기는 누구나 → 계정 지우기. 50개 안팎.
+내 보기 설정 저장·보기 탭 저장 → 알림·수정 이력·게시판·할일·대시보드·상태·접속자·데이터 내보내기 → 판·라이선스 파일 거절·해제 →
+도움말 씨앗 7편(위키 공간, 블록노트 블록)·일반 위키에 안 섞임·고치기·처음 글로·새 문서·권한표의 「도움말 · 고치기」 로 팀원이 고치고 빼면 403, 읽기는 누구나 → 계정 지우기. 50개 안팎.
 
 ## 관련 API
 
 `/api/login·logout·signup` · `/api/me` 와 `avatar·change-password` · `/api/users` 와 `{name}·mentionable·delete-retired·jira-sync` · `/api/user-names` ·
 `/api/org` 와 `node·rename·delete-node·move-member·member-role·seed` · `/api/org-options` · `/api/permissions` · `/api/branding` 와 `logo·login-image·login-logo` ·
 `/api/mail/config·test·preview-approval` · `/api/share-config` · `/api/share-mail` · `/api/views` · `/api/prefs` · `/api/prefs-team` · `/api/ui-options` ·
-`/api/global-params` · `/api/help/access·seeds·reset·editors` · `/api/wiki?project=__help__` · `/api/about` · `/api/license` · `/api/notifications` · `/api/mention` · `/api/notify/cycle` · `/api/audit` · `/api/board*` · `/api/todo` ·
+`/api/global-params` · `/api/help/access·seeds·reset` · `/api/wiki?project=__help__` · `/api/about` · `/api/license/file·clear` · `/api/notifications` · `/api/mention` · `/api/notify/cycle` · `/api/audit` · `/api/board*` · `/api/todo` ·
 `/api/resource/*` · `/api/transfer/export·import` · `/api/dashboard` · `/api/status` · `/api/presence` · `/api/health` · `/ws`.
