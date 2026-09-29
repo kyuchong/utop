@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **463** (그룹 125개)
+총 라우트 수: **473** (그룹 127개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -12,6 +12,12 @@
 | method | path | summary | auth |
 |---|---|---|---|
 | GET | `/` |  |  |
+
+## `/api/about` (1개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/about` | 왼쪽 메뉴 도움말 위에 서는 것 — 버전과 라이선스 기간. |  |
 
 ## `/api/ai` (27개)
 
@@ -343,12 +349,20 @@
 |---|---|---|---|
 | GET | `/api/health` | 도커 헬스체크가 부르는 곳. 로그인 없이 열려 있다. |  |
 
-## `/api/help` (2개)
+## `/api/help` (10개)
 
 | method | path | summary | auth |
 |---|---|---|---|
 | GET | `/api/help` |  |  |
 | POST | `/api/help` |  |  |
+| GET | `/api/help/editors` |  | token param |
+| POST | `/api/help/editors` |  | token param |
+| GET | `/api/help/pages` |  |  |
+| POST | `/api/help/pages/reorder` |  |  |
+| DELETE | `/api/help/pages/{pid}` |  |  |
+| GET | `/api/help/pages/{pid}` |  |  |
+| PUT | `/api/help/pages/{pid}` | 만들기·고치기 공통. 제목과 본문(마크다운). |  |
+| POST | `/api/help/pages/{pid}/reset` | 씨앗(docs/features)으로 되돌린다 — 고치다 망쳤을 때. |  |
 
 ## `/api/id-alias` (1개)
 
@@ -456,6 +470,12 @@
 | POST | `/api/learn/procedure` |  | token param |
 | DELETE | `/api/learn/procedure/{lp_id}` |  | token param |
 | GET | `/api/learn/procedures` |  |  |
+
+## `/api/license` (1개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| POST | `/api/license` |  | token param |
 
 ## `/api/llm` (6개)
 

@@ -85,6 +85,8 @@ PORT="$(grep -E '^\s*WEB_PORT\s*=' .env | head -1 | sed 's/.*=\s*//' | tr -d '\r
 
 # ── 3. 빌드 + 기동 ──────────────────────────────────────────────
 step 3 "빌드 및 기동 (처음이면 몇 분 걸립니다)"
+# 어느 커밋을 구웠는지 이미지에 박는다 — 화면 도움말 위에 판으로 선다.
+export GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || true)"
 if ! $DC up -d --build; then
     printf '\n  [오류] 기동 실패. 원인 확인:  docker compose logs api\n\n'
     exit 1

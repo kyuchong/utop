@@ -2865,6 +2865,213 @@ async def save_help(data: dict):
     return {"ok": True}
 
 
+# ══════════════ 도움말(앱 안에서 고친다) · 버전 · 라이선스 (2026-09-29, 지시) ══════════════
+#
+# 왼쪽 메뉴 SYSTEM 바로 위 「도움말」. 누구나 읽고, **관리자와 도움말 편집자**만 고친다.
+# 처음 뜰 때 docs/features/*.md(기능별 문서)를 씨앗으로 들이고, 그 뒤로는 DB(app_kv) 의 것이 정본이다.
+# 개발자용 절(동작 확인·관련 API)은 씨앗에서 뺀다 — 사용자가 읽는 글이 아니다.
+HELP_SEED_DIR = BASE_DIR / "docs" / "features"
+HELP_SEED_ORDER = ["wiki", "req-coverage", "cycles", "devices", "jira-defects", "ai", "settings"]
+_HELP_DROP_SECTIONS = ("## 동작 확인", "## 관련 API")
+
+
+def _help_md_from_seed(text: str) -> tuple[str, str]:
+    """씨앗 파일 → (제목, 본문). 개발자용 절을 걷고, 문서끼리의 링크(x.md)를 앱 안 링크(#help/x)로 바꾼다."""
+    lines = text.split("\n")
+    title = ""
+    if lines and lines[0].startswith("# "):
+        title = lines[0][2:].strip()
+        lines = lines[1:]
+    out, skipping = [], False
+    for ln in lines:
+        if ln.startswith("## "):
+            skipping = ln.strip() in _HELP_DROP_SECTIONS
+        if not skipping:
+            out.append(ln)
+    body = "\n".join(out).strip() + "\n"
+    body = re.sub(r"\]\(([a-z0-9-]+)\.md\)", r"](#help/\1)", body)
+    body = re.sub(r"\]\(\.\./[^)]+\)", "](#)", body)          # docs/ 안 다른 문서로 가는 링크는 앱 안에 없다
+    return title, body
+
+
+def _help_seed_pages() -> list:
+    pages = []
+    for i, slug in enumerate(HELP_SEED_ORDER):
+        fp = HELP_SEED_DIR / f"{slug}.md"
+        if not fp.exists():
+            continue
+        title, body = _help_md_from_seed(fp.read_text(encoding="utf-8"))
+        pages.append({"id": slug, "title": title or slug, "order": i, "md": body,
+                      "updated_by": "seed", "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M")})
+    return pages
+
+
+def _help_pages() -> list:
+    d = _kv_load_sync("help_pages", None)
+    return [p for p in d if isinstance(p, dict) and p.get("id")] if isinstance(d, list) else []
+
+
+def _help_editors() -> list:
+    d = _kv_load_sync("help_editors", None)
+    return [str(x) for x in d if str(x).strip()] if isinstance(d, list) else []
+
+
+def _help_can_edit() -> bool:
+    """관리자이거나 도움말 편집자 목록에 든 사람."""
+    sess = _CUR_SESSION.get()
+    who = str((sess or {}).get("username") or "")
+    if not who:
+        return False
+    u = _find_user(who) or {}
+    return u.get("role") == "관리자" or who in _help_editors()
+
+
+def _help_require_editor() -> str:
+    if not _help_can_edit():
+        raise HTTPException(403, "도움말을 고칠 권한이 없습니다 — SETUP › 도움말·라이선스에서 편집자를 정합니다")
+    return _who()
+
+
+@app.get("/api/help/pages")
+async def help_pages_list():
+    pages = sorted(_help_pages(), key=lambda p: (int(p.get("order") or 0), str(p.get("title") or "")))
+    return {"pages": [{k: p.get(k) for k in ("id", "title", "order", "updated_by", "updated_at")} for p in pages],
+            "can_edit": _help_can_edit()}
+
+
+@app.get("/api/help/pages/{pid}")
+async def help_page_get(pid: str):
+    for p in _help_pages():
+        if p.get("id") == pid:
+            return {"page": p, "can_edit": _help_can_edit(),
+                    "has_seed": (HELP_SEED_DIR / f"{pid}.md").exists()}
+    raise HTTPException(404, "그런 도움말이 없습니다")
+
+
+@app.put("/api/help/pages/{pid}")
+async def help_page_put(pid: str, payload: dict):
+    """만들기·고치기 공통. 제목과 본문(마크다운)."""
+    who = _help_require_editor()
+    pid = re.sub(r"[^A-Za-z0-9_-]", "-", str(pid or "").strip())[:64]
+    if not pid:
+        raise HTTPException(400, "도움말 ID 가 없습니다")
+    pages = _help_pages()
+    cur = next((p for p in pages if p.get("id") == pid), None)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    if cur is None:
+        cur = {"id": pid, "order": (max([int(p.get("order") or 0) for p in pages], default=-1) + 1)}
+        pages.append(cur)
+    if "title" in payload:
+        cur["title"] = str(payload.get("title") or "").strip()[:120] or cur.get("title") or pid
+    if "md" in payload:
+        cur["md"] = str(payload.get("md") or "")[:400000]
+    if "order" in payload:
+        try: cur["order"] = int(payload.get("order"))
+        except (TypeError, ValueError): pass
+    cur["updated_by"], cur["updated_at"] = who, now
+    _kv_save_sync("help_pages", pages)
+    try: asyncio.create_task(broadcast({"type": "help_updated", "id": pid, "user": who}))
+    except Exception: pass
+    return {"ok": True, "page": cur}
+
+
+@app.delete("/api/help/pages/{pid}")
+async def help_page_delete(pid: str):
+    _help_require_editor()
+    pages = [p for p in _help_pages() if p.get("id") != pid]
+    _kv_save_sync("help_pages", pages)
+    return {"ok": True}
+
+
+@app.post("/api/help/pages/reorder")
+async def help_pages_reorder(payload: dict):
+    _help_require_editor()
+    ids = [str(x) for x in (payload.get("ids") or [])]
+    pages = _help_pages()
+    pos = {pid: i for i, pid in enumerate(ids)}
+    for p in pages:
+        if p.get("id") in pos:
+            p["order"] = pos[p["id"]]
+    _kv_save_sync("help_pages", pages)
+    return {"ok": True}
+
+
+@app.post("/api/help/pages/{pid}/reset")
+async def help_page_reset(pid: str):
+    """씨앗(docs/features)으로 되돌린다 — 고치다 망쳤을 때."""
+    who = _help_require_editor()
+    fp = HELP_SEED_DIR / f"{pid}.md"
+    if not fp.exists():
+        raise HTTPException(404, "이 도움말은 씨앗이 없습니다(앱에서 만든 것)")
+    title, body = _help_md_from_seed(fp.read_text(encoding="utf-8"))
+    pages = _help_pages()
+    cur = next((p for p in pages if p.get("id") == pid), None)
+    if cur is None:
+        cur = {"id": pid, "order": len(pages)}; pages.append(cur)
+    cur.update({"title": title or pid, "md": body, "updated_by": who, "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M")})
+    _kv_save_sync("help_pages", pages)
+    return {"ok": True, "page": cur}
+
+
+@app.get("/api/help/editors")
+async def help_editors_get(token: str = ""):
+    _require_admin(token)
+    return {"users": _help_editors()}
+
+
+@app.post("/api/help/editors")
+async def help_editors_set(payload: dict, token: str = ""):
+    _require_admin(token)
+    users = [str(x).strip() for x in (payload.get("users") or []) if str(x).strip()]
+    _kv_save_sync("help_editors", users)
+    return {"ok": True, "users": users}
+
+
+def _about_version() -> dict:
+    """버전·판 정보 — VERSION 파일(사람이 올린다), 빌드 때 박은 커밋(UTOP_GIT_SHA)·시각(BUILD_TIME)."""
+    ver = ""
+    try: ver = (BASE_DIR / "VERSION").read_text(encoding="utf-8").strip()
+    except Exception: pass
+    built = ""
+    try: built = (BASE_DIR / "BUILD_TIME").read_text(encoding="utf-8").strip()
+    except Exception: pass
+    return {"version": ver, "git_sha": (os.environ.get("UTOP_GIT_SHA") or "").strip()[:12], "built_at": built}
+
+
+def _license_doc() -> dict:
+    d = _kv_load_sync("license", None)
+    d = d if isinstance(d, dict) else {}
+    out = {k: str(d.get(k) or "") for k in ("holder", "start", "until", "note")}
+    days = None
+    if out["until"]:
+        try:
+            days = (datetime.strptime(out["until"][:10], "%Y-%m-%d").date() - datetime.now().date()).days
+        except ValueError:
+            days = None
+    out["days_left"] = days
+    return out
+
+
+@app.get("/api/about")
+async def api_about():
+    """왼쪽 메뉴 도움말 위에 서는 것 — 버전과 라이선스 기간."""
+    sess = _CUR_SESSION.get() or {}
+    u = _find_user(str(sess.get("username") or "")) or {}
+    return {**_about_version(), "license": _license_doc(), "can_manage": u.get("role") == "관리자"}
+
+
+@app.post("/api/license")
+async def api_license_save(payload: dict, token: str = ""):
+    _require_admin(token)
+    cur = _kv_load_sync("license", None)
+    cur = dict(cur) if isinstance(cur, dict) else {}
+    for k in ("holder", "start", "until", "note"):
+        if k in payload:
+            cur[k] = str(payload.get(k) or "").strip()[:200]
+    _kv_save_sync("license", cur)
+    return {"ok": True, "license": _license_doc()}
+
+
 
 
 import time as _t
@@ -3895,11 +4102,25 @@ async def _db_init():
         # 등록을 빼면 재시작 때 빈 조직도가 캐시에 박히고 다음 저장이 DB 를
         # 덮어써 통째로 날아간다 — 위 형제들이 겪은 그 덫이다.
         ("org_tree", DATA_DIR / "org_tree.json"),
+        # 앱 안에서 고치는 도움말·편집자 목록·라이선스(2026-09-29). 등록을 빼면 재시작 때 빈 값이
+        # 캐시에 박히고 다음 저장이 DB 를 덮어쓴다 — 위 형제들이 겪은 그 덫.
+        ("help_pages", DATA_DIR / "help_pages.json"),
+        ("help_editors", DATA_DIR / "help_editors.json"),
+        ("license", DATA_DIR / "license.json"),
     ]
     for _key, _fp in _KV_MIGRATIONS:
         _kv_register_fallback(_key, _fp)
         try: await _kv_init_async(_key, _fp, sizeguard=True)
         except Exception as _me: print(f"[startup] KV migrate '{_key}' failed: {_me}", flush=True)
+    # 도움말 씨앗 — **비어 있을 때만** docs/features/*.md 를 들인다. 그 뒤로는 앱에서 고친 것이 정본이다.
+    try:
+        if not _help_pages():
+            _seed = _help_seed_pages()
+            if _seed:
+                _kv_save_sync("help_pages", _seed)
+                print(f"[startup] 도움말 씨앗 {len(_seed)}편 심음", flush=True)
+    except Exception as _he:
+        print(f"[startup] 도움말 씨앗 실패: {_he}", flush=True)
     # 조직도 씨앗 — **비어 있을 때만** 채운다.
     #
     # 조직도는 app_kv(DB) 에 산다. 그래서 코드만 받은 서버(253)는 계정 화면이

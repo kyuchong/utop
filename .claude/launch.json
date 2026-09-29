@@ -4,8 +4,22 @@
     {
       "name": "ntable-demo",
       "runtimeExecutable": "sg",
-      "runtimeArgs": ["docker", "-c", "docker run --rm -p 5174:5174 -v /home/utop/utop/.claude/worktrees/new-conversation-67ab9a/web:/w -w /w node:20-alpine npx vite --host 0.0.0.0 --port 5174"],
+      "runtimeArgs": [
+        "docker",
+        "-c",
+        "docker run --rm -p 5174:5174 -v /home/utop/utop/.claude/worktrees/new-conversation-67ab9a/web:/w -w /w node:20-alpine npx vite --host 0.0.0.0 --port 5174"
+      ],
       "port": 5174
+    },
+    {
+      "name": "help-dev",
+      "runtimeExecutable": "sg",
+      "runtimeArgs": [
+        "docker",
+        "-c",
+        "docker run --rm -p 5175:5175 --network utop-help_default -e VITE_API_TARGET=http://utop-help-api-1:8000 -v /home/utop/utop/.claude/worktrees/tc-screen-dev-c6dd80/web:/w -w /w node:22-alpine npx vite --host 0.0.0.0 --port 5175"
+      ],
+      "port": 5175
     }
   ]
 }

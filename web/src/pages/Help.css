@@ -1,0 +1,132 @@
+/* 도움말 — 접두어 hlp- (다른 화면과 이름이 겹치면 조용히 망가진다) */
+.hlp {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  gap: 0;
+}
+.hlp-toc {
+  flex: 0 0 240px;
+  border-right: 1px solid var(--c-border, #e3e6ea);
+  padding: 14px 10px;
+  overflow: auto;
+}
+.hlp-toc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 8px;
+}
+.hlp-toc-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.hlp-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.hlp-toc-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.hlp-toc-item:hover {
+  background: rgb(18 80 94 / 7%);
+}
+.hlp-toc-item.on {
+  background: rgb(18 80 94 / 12%);
+  font-weight: 600;
+}
+.hlp-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  padding: 20px 32px 40px;
+  max-width: 980px;
+}
+.hlp-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--c-border, #e3e6ea);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+.hlp-head h1 {
+  margin: 0;
+  font-size: 20px;
+}
+.hlp-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.hlp-tools {
+  display: inline-flex;
+  gap: 4px;
+}
+.hlp-btn {
+  border: 1px solid var(--c-border, #cfd4da);
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.hlp-btn:hover {
+  background: #f3f5f7;
+}
+.hlp-btn.primary {
+  background: #1f6feb;
+  border-color: #1f6feb;
+  color: #fff;
+}
+.hlp-btn.danger {
+  color: #b42318;
+}
+.hlp-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+}
+.hlp-title-input {
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  padding: 6px 8px;
+  border: 1px solid var(--c-border, #cfd4da);
+  border-radius: 6px;
+}
+.hlp-editor {
+  flex: 1 1 auto;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+}
+.hlp-editor .md-host {
+  flex: 1;
+  min-height: 420px;
+}
+.hlp-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hlp-msg {
+  color: #b42318;
+  font-size: 12px;
+}

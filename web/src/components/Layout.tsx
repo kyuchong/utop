@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconSearch,
   IconSparkle,
+  IconInfoC,
 } from './icons'
 import NotifyBell from '@/components/NotifyBell'
 import ProjectPicker from '@/components/ProjectPicker'
@@ -115,6 +116,11 @@ export const NAV: NavGroup[] = [
       { key: 'ai-tc', label: 'Coverage AI', Icon: IconSparkle },
       { key: 'ai-kb', label: 'Knowledge AI', Icon: IconSearch },
     ],
+  },
+  {
+    /* 도움말 — SYSTEM 바로 위(지시: 누구나 쓰면서 볼 수 있도록). 그 위에 판·라이선스가 선다(AboutBadge) */
+    title: 'HELP',
+    items: [{ key: 'help', label: '도움말', Icon: IconInfoC }],
   },
   {
     title: 'SYSTEM',
@@ -316,6 +322,7 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
 
           {NAV.map((group, gi) => (
             <div className="nav-section" key={group.title ?? `g${gi}`}>
+              {group.title === 'HELP' && <AboutBadge collapsed={collapsed && !dock} />}
               {group.title && <h5 className="nav-group">{group.title}</h5>}
               {group.items.map(({ key, label, Icon }) => (
                 <button
@@ -399,6 +406,48 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           {children}
         </main>
       </div>
+    </div>
+  )
+}
+
+/**
+ * 도움말 위의 판·라이선스(지시). 서버가 준다 — 버전은 VERSION 파일, 커밋은 빌드 때 박힌 것,
+ * 라이선스 기간은 SETUP › 도움말·라이선스에서 관리자가 적은 것.
+ * 만료가 30일 안이면 주황, 지났으면 빨강으로 눈에 띄게 한다.
+ */
+function AboutBadge({ collapsed }: { collapsed: boolean }) {
+  const [a, setA] = useState<{
+    version: string
+    git_sha: string
+    license: { until: string; days_left: number | null; holder: string }
+  } | null>(null)
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await apiFetch('/api/about', { cache: 'no-store' })
+        if (r.ok) setA(await r.json())
+      } catch {
+        /* 못 받아도 메뉴는 돈다 */
+      }
+    })()
+  }, [])
+  if (!a) return null
+  const ver = a.version ? `v${a.version}` : ''
+  const sha = a.git_sha ? ` (${a.git_sha.slice(0, 7)})` : ''
+  const d = a.license.days_left
+  const lic = a.license.until
+    ? d == null
+      ? `라이선스 ~${a.license.until}`
+      : d < 0
+        ? `라이선스 만료 (${-d}일 지남)`
+        : `라이선스 ~${a.license.until} (D-${d})`
+    : '라이선스 미등록'
+  const tone = d == null ? '' : d < 0 ? ' bad' : d <= 30 ? ' warn' : ''
+  const tip = `${ver}${sha}\n${lic}${a.license.holder ? `\n${a.license.holder}` : ''}`
+  return (
+    <div className={`nav-about${tone}`} title={tip}>
+      <span className="nav-about-ver">{collapsed ? ver.replace(/\.\d+$/, '') : `${ver}${sha}`}</span>
+      {!collapsed && <span className="nav-about-lic">{lic}</span>}
     </div>
   )
 }

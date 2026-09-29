@@ -20,6 +20,7 @@ import JiraIssues from '@/pages/JiraIssues'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
 import RackView from '@/pages/RackView'
+import Help from '@/pages/Help'
 
 /**
  * 화면 하나를 옮길 때마다 여기 분기를 한 줄 늘린다.
@@ -33,7 +34,7 @@ const PAGE_KEY = 'utop.page'
 const KNOWN_PAGES = new Set([
   'dashboard', 'wiki', 'reqtc', 'cycles', 'runs', 'executions',
   'devices', 'instruments', 'rackview',
-  'defects', 'jira', 'releases', 'ai-tc', 'ai-kb', 'plans-old', 'settings',
+  'defects', 'jira', 'releases', 'ai-tc', 'ai-kb', 'plans-old', 'settings', 'help',
 ])
 
 export default function App() {
@@ -346,6 +347,9 @@ export default function App() {
         <RackView />
       ) : page === 'settings' ? (
         <Settings />
+      ) : page === 'help' ? (
+        /* 도움말 — SYSTEM 바로 위(지시). 누구나 읽고, 편집자만 고친다 */
+        <Help />
       ) : page === 'releases' ? (
         /* Jira 버전별 이슈와 그 이슈를 덮는 시험 — 주신 목업의 노션 꼴 표.
            자료는 이미 도는 서버 것을 그대로 쓴다(jira/* · release-summary). */

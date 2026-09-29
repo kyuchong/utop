@@ -38,6 +38,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY backend/ ./backend/
 COPY tools/ ./tools/
 COPY db/ ./db/
+# 도움말 씨앗(기능별 문서)과 버전. docs/ 는 .dockerignore 로 빼지만 features/ 만 예외로 들인다.
+COPY docs/features/ ./docs/features/
+COPY VERSION ./VERSION
+# 어느 커밋으로 구웠나 — compose 가 GIT_SHA 를 넘긴다(start.sh). 화면 도움말 위에 판으로 선다.
+ARG GIT_SHA=
+ENV UTOP_GIT_SHA=${GIT_SHA}
+RUN date -u +%Y-%m-%dT%H:%MZ > /app/BUILD_TIME
 # 기존 UI — backend/main.py:85 가 frontend/static 을 mount 하므로 없으면 기동이 실패한다.
 # 새 UI(web/)로 화면을 다 옮기면 이 줄과 해당 mount 를 함께 지운다.
 COPY frontend/ ./frontend/

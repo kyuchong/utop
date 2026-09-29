@@ -12,6 +12,7 @@ import JiraPanels from '@/components/settings/JiraPanels'
 import MailSettings from '@/components/settings/MailSettings'
 import LoginBranding from '@/components/settings/LoginBranding'
 import Branding from '@/components/settings/Branding'
+import AboutSettings from '@/components/settings/AboutSettings'
 import {
   IconAccounts,
   IconCodeList,
@@ -27,7 +28,7 @@ import './Settings.css'
 
 // 'chat' 은 없앴다 — Chat 모델 설정은 'llm' 안의 탭으로 들어갔다.
 // 서버 연결과 모델 설정을 따로 두면 같은 모델을 두 군데서 고치게 된다.
-type Section = 'loginbrand' | 'mail' | 'stepacts' | 'verdicts' | 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'fields' | 'jira' | 'jirapanels' | 'branding' | 'export' | 'import' | 'idmigrate'
+type Section = 'about' | 'loginbrand' | 'mail' | 'stepacts' | 'verdicts' | 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'fields' | 'jira' | 'jirapanels' | 'branding' | 'export' | 'import' | 'idmigrate'
 
 /**
  * 설정 화면.
@@ -105,6 +106,8 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
       { key: 'branding', label: '브랜딩 (로고·이름)', icon: IconCustomField, ready: true },
       /* 로그인 화면은 딴 페이지다(지시) — 메뉴 브랜딩과 값이 갈렸다 */
       { key: 'loginbrand', label: '로그인 화면', icon: IconCustomField, ready: true },
+      /* 도움말 위 판·라이선스와 도움말 편집자(지시) */
+      { key: 'about', label: '도움말 · 라이선스', icon: IconCustomField, ready: true },
     ],
   },
 ]
@@ -173,6 +176,8 @@ export default function Settings() {
           <Branding />
         ) : sec === 'loginbrand' ? (
           <LoginBranding />
+        ) : sec === 'about' ? (
+          <AboutSettings />
         ) : sec === 'export' ? (
           <Transfer mode="export" />
         ) : sec === 'import' ? (

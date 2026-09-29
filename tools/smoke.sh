@@ -23,6 +23,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# 커밋을 이미지에 박는다 — start.sh 와 같게. 도움말 위 「판」 이 시험 스택에서도 보이게.
+export GIT_SHA="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || true)"
 echo "[smoke] 빈 DB + api 띄우기 ($PROJ)"
 docker compose -p "$PROJ" --env-file "$ENVF" -f "$ROOT/docker-compose.yml" up -d --build db api >/dev/null
 API="${PROJ}-api-1"

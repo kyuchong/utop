@@ -733,3 +733,39 @@
 /* 화면이 쓰는 머리줄 자리 — 지금은 WIKI 의 「함께 보는 중」 이 여기 선다.
    비어 있을 때는 자리를 안 먹는다. */
 .app-top-slot { display: inline-flex; align-items: center; }
+
+/* ── 도움말 위 판·라이선스(지시) ── */
+.nav-about {
+  margin: 8px 10px 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--c-text-faint, #6b7a80);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--c-nav-fg, #d7dde0);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  opacity: 0.85;
+}
+.nav-about-ver {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.nav-about-lic {
+  opacity: 0.85;
+}
+.nav-about.warn {
+  border-color: #e8a317;
+  color: #ffd27a;
+}
+.nav-about.bad {
+  border-color: #e05252;
+  color: #ffb3b3;
+}
+.app.nav-collapsed .nav-about {
+  margin: 8px 4px 2px;
+  padding: 4px 2px;
+  align-items: center;
+  font-size: 10px;
+}

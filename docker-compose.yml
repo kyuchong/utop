@@ -38,6 +38,9 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        # 도움말 위에 「판」 으로 선다. start.sh 가 채운다 — 없으면 빈 값.
+        GIT_SHA: ${GIT_SHA:-}
     restart: unless-stopped
     depends_on:
       db:
