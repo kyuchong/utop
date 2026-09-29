@@ -65,6 +65,9 @@ if rid:
     r = c.post(f"/api/plan-runs/{rid}", json={"session_at": {"E6100-T0001": "2029-12-31T00:00:00+00:00"}}); ok("실행 문서에 session_at 적기(500 아님)", r.status_code != 500, r.text[:80])
     r = c.get(f"/api/plan-runs/{rid}/stat", params={"by": "tcid", "session": "1"}); _it = (r.json().get("items") or {}).get("E6100-T0001") or {}
     ok("session=1 이면 이번 시작분(2030 회차 1건)만 · since 동봉", r.status_code == 200 and _it.get("n_total") == 1 and str(_it.get("since", "")).startswith("2029-12-31"), r.text[:140])
+    r = c.post(f"/api/plan-runs/{rid}", json={"session_at": {"E6100-T0001": "2029-12-31T00:00:00+00:00", "E6100-T0002": "2031-01-01T00:00:00+00:00"}})
+    r = c.get(f"/api/plan-runs/{rid}/stat", params={"by": "tcid", "session": "1"}); _t2 = (r.json().get("items") or {}).get("E6100-T0002")
+    ok("시작 시각은 있는데 아직 안 돈 항목도 0건으로 돌려준다(1회로 안 보이게)", r.status_code == 200 and isinstance(_t2, dict) and _t2.get("n_total") == 0 and str(_t2.get("since", "")).startswith("2031"), r.text[:140])
     r = c.get(f"/api/plan-runs/{rid}/stat", params={"by": "tcid"}); _all = (r.json().get("items") or {}).get("E6100-T0001") or {}
     ok("session 없으면 전부", r.status_code == 200 and (_all.get("n_total") or 0) >= 2, r.text[:100])
     r = c.get(f"/api/plan-runs/{rid}/rounds", params={"tcid": "E6100-T0001"}); _rd = r.json()

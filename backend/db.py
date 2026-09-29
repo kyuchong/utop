@@ -1174,6 +1174,11 @@ async def plan_run_item_stat_by_tc(run_id: str, session: bool = False) -> dict:
                 "  FROM plan_run_item WHERE run_id=$1 GROUP BY 1, 2", run_id)
     groups = await verdict_groups()
     acc: dict[str, dict] = {}
+    # 시작 시각이 적힌 항목은 **회차가 0건이어도 돌려준다** — 안 그러면 화면이
+    # 「회차 기록이 없는 옛 실행」 으로 알고 1회로 세운다(실측: 다시 시작해
+    # 아직 안 돈 항목이 1회로 보였다)
+    for tcid in sess:
+        acc.setdefault(tcid, {"hist": {}, "rounds": 0})
     for r in rows:
         cur = acc.setdefault(str(r["tcid"]), {"hist": {}, "rounds": 0})
         cur["hist"][str(r["v"])] = int(r["n"] or 0)

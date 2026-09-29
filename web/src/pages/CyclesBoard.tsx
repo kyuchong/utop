@@ -110,6 +110,13 @@ interface RunFullX extends RunFull {
 
 const keyOf = (...parts: string[]) => parts.join('|')
 
+/** ISO 시각 → 이 PC 시간대(한국)의 'MM-DD HH:MM' — 툴팁에 UTC 를 그대로 적으면 9 시간 어긋난다 */
+const kst = (iso: string): string => {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 16)
+  const p = (x: number) => String(x).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
 /** 천 자리를 끊는다 — 반복 회차는 10,000 까지 간다(RepeatPop 과 같은 셈) */
 const nfmt = (n: number): string =>
   String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
@@ -1437,6 +1444,9 @@ export default function CyclesBoard({
         if (ran > 0) {
           s.ran += ran
           s.fail += Number(rs?.n_fail ?? 0)
+        } else if (rs?.since) {
+          /* 이번 시작분이 있는데 아직 돈 회차가 없다 — 0 이다(다시 시작하면 0 부터).
+             옛 실행 규칙(결과 한 건 = 1회)으로 물러서면 안 돈 것이 1회로 보인다 */
         } else {
           s.ran++
           if (g === 'fail') s.fail++
@@ -2764,7 +2774,7 @@ export default function CyclesBoard({
                   className="cyb-ran"
                   title={
                     st.since
-                      ? `이번 시작분 — ${st.since.replace('T', ' ').slice(0, 16)} 부터 돈 회차. 지난 시작분은 Status 의 일자별 그림에 쌓여 있습니다`
+                      ? `이번 시작분 — ${kst(st.since)} 부터 돈 회차. 지난 시작분은 Status 의 일자별 그림에 쌓여 있습니다`
                       : '이 사이클에서 돈 회차(시작 시각 기록이 없는 실행은 전부)'
                   }
                 >
