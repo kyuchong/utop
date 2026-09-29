@@ -435,19 +435,19 @@ function AboutBadge({ collapsed }: { collapsed: boolean }) {
   }, [])
   if (!a) return null
   const ver = a.version ? `v${a.version}` : '—'
-  const sha = a.git_sha ? a.git_sha.slice(0, 7) : ''
+  /* 커밋 해시는 메뉴에 안 적는다(지시: 버전명만) — SETUP › 버전·라이선스에서 본다 */
   const d = a.license.days_left
   /* 라이선스 상태 — 값·색을 한 곳에서 정한다. 만료 30일 안 주황, 지나면 빨강, 미등록은 회색 */
   const tone = !a.license.until ? 'none' : d == null ? 'ok' : d < 0 ? 'bad' : d <= 30 ? 'warn' : 'ok'
   const licVal = !a.license.until ? '미등록' : `~${a.license.until}`
   const licTag = !a.license.until || d == null ? '' : d < 0 ? `${-d}일 지남` : `D-${d}`
-  const tip = [`버전 ${ver}${sha ? ` (${sha})` : ''}`, `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}`, a.license.holder]
+  const tip = [`버전 ${ver}`, `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}`, a.license.holder]
     .filter(Boolean)
     .join('\n')
   /* 접힌 레일 — **아이콘 둘**(지시): 버전은 꼬리표, 라이선스는 방패(색이 상태).
      마우스를 올리면 다른 메뉴처럼 오른쪽에 글자가 뜬다(nav-tip). */
   if (collapsed) {
-    const verTip = `버전 ${ver}${sha ? ` (${sha})` : ''}`
+    const verTip = `버전 ${ver}`
     const licTip = `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}${a.license.holder ? ` · ${a.license.holder}` : ''}`
     return (
       <div className="nav-about mini">
@@ -475,10 +475,7 @@ function AboutBadge({ collapsed }: { collapsed: boolean }) {
     <div className="nav-about" title={tip}>
       <div className="nav-about-row">
         <span className="nav-about-k">버전</span>
-        <span className="nav-about-v">
-          {ver}
-          {sha && <span className="nav-about-sha">{sha}</span>}
-        </span>
+        <span className="nav-about-v">{ver}</span>
       </div>
       <div className={`nav-about-row lic ${tone}`}>
         <span className="nav-about-k">라이선스</span>
