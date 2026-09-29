@@ -316,7 +316,28 @@ async function doRun(run: Run): Promise<void> {
   /** 고른 묶음을 몇 바퀴 도나 — **한 바퀴가 한 회차**다(반복 시험). 1 이면
    *  여태처럼 한 바퀴만 돌고 끝난다. */
   const REP = Math.max(1, Number(run.repeat_n) || 1)
-  const BASE_ROUND = Math.max(1, Number(run.round) || 1)
+  /** 회차 번호의 출발점 — **이 실행에 이미 남은 회차 다음부터**(지적: 10회 뒤
+   *  10회를 더 돌려도 20회가 안 된다).
+   *
+   *  같은 실행에서 반복을 다시 걸면 일감의 round 는 늘 1 이라 1~10 번이 다시
+   *  와서 앞 1~10 을 **덮어썼다** — 회차 키가 (실행·항목·번호)다. 서버가 아는
+   *  마지막 회차 뒤에 잇는다. 「다시 실행」 이 준 번호가 더 크면 그것을 쓴다.
+   *  못 물으면(옛 서버) 예전처럼 일감의 번호다. */
+  const BASE_ROUND = await (async () => {
+    const given = Math.max(1, Number(run.round) || 1)
+    const rid = String(run.plan_run_id ?? '')
+    if (!rid) return given
+    try {
+      const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(rid)}/stat`)
+      if (!r.ok) return given
+      const j = (await r.json()) as { rounds?: number }
+      const next = (Number(j.rounds) || 0) + 1
+      if (next > given) log(`회차 번호는 ${next} 부터 — 이 실행에 ${next - 1} 회차까지 남아 있습니다`)
+      return Math.max(given, next)
+    } catch {
+      return given
+    }
+  })()
   /** 실패하면 무엇을 하나 — go(계속) · hold(멈추고 대기) · stop(바로 종료) */
   const ON_FAIL = String(run.on_fail || 'go')
 
