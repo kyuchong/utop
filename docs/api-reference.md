@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **469** (그룹 127개)
+총 라우트 수: **470** (그룹 127개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -179,7 +179,7 @@
 | POST | `/api/custom-fields` |  |  |
 | DELETE | `/api/custom-fields/{cf_id}` |  |  |
 
-## `/api/cycle` (21개)
+## `/api/cycle` (22개)
 
 | method | path | summary | auth |
 |---|---|---|---|
@@ -196,6 +196,7 @@
 | POST | `/api/cycle/{cycle_id}/exec-ids` | 실행 ID 부여 — 플랜에 포함되는 값이다. |  |
 | POST | `/api/cycle/{cycle_id}/mail` |  | token param |
 | GET | `/api/cycle/{cycle_id}/mail-log` | 결과서를 누구에게 언제 보냈나 — Test Summary 탭이 읽는다. |  |
+| POST | `/api/cycle/{cycle_id}/mail-log/delete` | 메일 이력 지우기(지시) — 고른 줄만. 로그인한 사람이면 된다(보낸 자취는 그 사이클을 보는 | token param |
 | GET | `/api/cycle/{cycle_id}/mail-preview` |  | token param |
 | POST | `/api/cycle/{cycle_id}/mail-preview` | 미리보기 — **본문이 길어 주소에 못 싣는다.** GET 판은 note 한 줄용이라 | token param |
 | POST | `/api/cycle/{cycle_id}/picked` | 골라 둔 시험 항목을 사이클에 굳힌다(지시: 계정 말고 서버에). |  |

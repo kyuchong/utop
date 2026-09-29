@@ -831,6 +831,19 @@ async def cycle_mail_add(cycle_id: str, who: str, to_list: str, subject: str,
         )
 
 
+async def cycle_mail_delete(cycle_id: str, ids: list) -> int:
+    """보낸 자취 지우기(지시: 메일 이력 삭제) — 그 사이클의 것만, 고른 줄만."""
+    ids = [int(x) for x in ids if str(x).strip().lstrip("-").isdigit()]
+    if not ids:
+        return 0
+    async with pool().acquire() as c:
+        r = await c.execute("DELETE FROM cycle_mail WHERE cycle_id=$1 AND id = ANY($2::bigint[])", cycle_id, ids)
+    try:
+        return int(str(r).split()[-1])
+    except Exception:
+        return 0
+
+
 async def cycle_mail_list(cycle_id: str, limit: int = 50) -> list[dict]:
     """보낸 자취 — 새것부터."""
     async with pool().acquire() as c:

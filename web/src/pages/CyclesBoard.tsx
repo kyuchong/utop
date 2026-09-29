@@ -2645,6 +2645,21 @@ export default function CyclesBoard({
              말하고, 정작 알고 싶은 것은 무엇을 적어 보냈나다 */
           onOpen={(id) => setMailOpen((mailQ.data?.items ?? []).find((x) => String(x.id) === id) ?? null)}
           onPeek={(id) => setMailOpen((mailQ.data?.items ?? []).find((x) => String(x.id) === id) ?? null)}
+          /* 이력 지우기(지시: 삭제가 안 된다 — 손잡이가 없었다). 줄을 고르면 아래 띠에 선다 */
+          bulk={[{ k: 'del', label: '이력 지우기', danger: true }]}
+          onBulk={async (a, ids) => {
+            if (a !== 'del' || !ids.length) return
+            if (!window.confirm(`메일 이력 ${ids.length}건을 지웁니다. 되돌릴 수 없습니다.`)) return
+            const r = await apiFetch(`/api/cycle/${encodeURIComponent(String(open))}/mail-log/delete`, {
+              method: 'POST',
+              body: JSON.stringify({ ids }),
+            })
+            if (!r.ok) {
+              window.alert('지우지 못했습니다')
+              return
+            }
+            void qc.invalidateQueries({ queryKey: ['cycle-mail'] })
+          }}
           /* **제목을 눌러 연다.** 표는 못 고치는 칸(readOnlyKeys)을 제목보다
              먼저 처리해서, 읽기 전용으로 둔 제목에는 「열기」 단추가 아예
              서지 않았다 — 그래서 보낸 메일을 열 길이 없었다(지적).

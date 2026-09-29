@@ -22,6 +22,7 @@ r = c.post(f"/api/cycle/{cid}/test-cond", json={"cond": "실험실"}); ok("시�
 r = c.get(f"/api/cycle/{cid}/summary-body"); ok("요약 본문(500 아님)", r.status_code != 500, r.text[:100])
 r = c.get(f"/api/cycle/{cid}/mail-preview"); ok("메일 미리보기(500 아님)", r.status_code != 500, r.text[:100])
 r = c.get(f"/api/cycle/{cid}/mail-log"); ok("메일 기록", r.status_code == 200, r.text[:80])
+r = c.post(f"/api/cycle/{cid}/mail-log/delete", json={"ids": [-1]}); ok("메일 이력 지우기(없는 줄이면 0건)", r.status_code == 200 and r.json().get("deleted") == 0, r.text[:80])
 r = c.post(f"/api/cycle/{cid}/summarize", json={}); ok("AI 요약(LLM 없음→500 아님)", r.status_code != 500, r.text[:100])
 r = c.post(f"/api/cycle/{cid}/auto-jira", json={}); ok("자동 Jira(서버 없음→500 아님)", r.status_code != 500, r.text[:100])
 r = c.get(f"/api/cycle/{cid}/ppt"); ok("PPTX 내려받기(500 아님)", r.status_code != 500, str(r.status_code))

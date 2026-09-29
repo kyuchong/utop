@@ -3721,6 +3721,17 @@ async def cycle_mail_log(cycle_id: str, limit: int = 50):
     return {"items": await db.cycle_mail_list(cycle_id, limit)}
 
 
+@router.post("/api/cycle/{cycle_id}/mail-log/delete")
+async def cycle_mail_log_delete(cycle_id: str, payload: dict, token: str = ""):
+    """메일 이력 지우기(지시) — 고른 줄만. 로그인한 사람이면 된다(보낸 자취는 그 사이클을 보는
+    사람들의 것이라 관리자로 좁히지 않는다)."""
+    if not core.user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    ids = (payload or {}).get("ids") or []
+    n = await db.cycle_mail_delete(cycle_id, ids if isinstance(ids, list) else [])
+    return {"ok": True, "deleted": n}
+
+
 # 버전그룹 폴더 — `{ "<모델명>": ["R200", "R300"] }`
 #
 # 모델그룹·모델명은 장비 카탈로그가 master 다. 자유 입력으로 두었더니
@@ -6062,7 +6073,8 @@ async def _notify_run_done(run: dict) -> None:
                 + "".join(parts) + '</div></div></body></html>')
         joined = ", ".join(to)
         try:
-            sent = await asyncio.to_thread(core.send_mail, to, subject, html, True)
+            # 보낸 사람 이름은 「UTOP」(지시)
+            sent = await asyncio.to_thread(core.send_mail, to, subject, html, True, None, None, None, "UTOP")
             await db.cycle_mail_add(cid, "자동(시험 종료)", ", ".join(sent or to), subject,
                                     "시험 종료 자동 알림", True, "", "", "", html, [])
         except Exception as e:  # noqa: BLE001

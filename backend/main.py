@@ -2000,7 +2000,7 @@ def _mail_inline_images(html: str):
 
 
 def _send_mail(to_addrs, subject: str, body: str, html: bool = False,
-               cc=None, bcc=None, files=None):
+               cc=None, bcc=None, files=None, from_name: str = ""):
     """SMTP로 메일 발송. to_addrs: str(콤마/세미콜론 구분) 또는 list. 실패 시 예외 발생.
 
     **참조·숨은 참조·첨부**(지시). 숨은 참조는 머리글에 적지 않는다 — 적으면
@@ -2019,7 +2019,8 @@ def _send_mail(to_addrs, subject: str, body: str, html: bool = False,
         raise RuntimeError("받는 사람이 없습니다")
     msg = EmailMessage()
     from_addr = cfg.get("from_addr") or cfg.get("username")
-    msg["From"] = f'{cfg.get("from_name") or "ubiQuoss-TOP"} <{from_addr}>'
+    # from_name 을 주면 그 이름으로(시험 종료 메일은 「UTOP」 — 지시). 아니면 메일 설정의 발신자 이름
+    msg["From"] = f'{from_name or cfg.get("from_name") or "ubiQuoss-TOP"} <{from_addr}>'
     msg["To"] = ", ".join(to_list)
     if cc_list:
         msg["Cc"] = ", ".join(cc_list)
