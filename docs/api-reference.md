@@ -529,7 +529,7 @@
 
 | method | path | summary | auth |
 |---|---|---|---|
-| GET | `/api/mail/config` |  | token param |
+| GET | `/api/mail/config` | 읽기는 **로그인한 누구나**(지적: 일반 계정에는 Cycles 알림 스위치가 꺼진 | token param |
 | POST | `/api/mail/config` |  | token param |
 | POST | `/api/mail/preview-approval` | 가입 승인 메일 미리보기 — 입력 HTML을 샘플 데이터로 렌더. | token param |
 | POST | `/api/mail/test` |  | token param |
