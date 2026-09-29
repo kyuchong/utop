@@ -188,3 +188,18 @@
 .rd-note { border: 1px solid var(--c-border, #e2e8eb); border-radius: 8px; overflow: auto; min-height: 0; flex: 1; display: flex; flex-direction: column; }
 .rd-note .bn-container { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .rd-note .bn-editor { flex: 1; min-height: 320px; padding-inline: 48px 16px; }
+
+/* 그림·파일 블록 칸을 그림 폭에 맞춘다(위키와 같은 규칙, 지시). 옆 빈자리 클릭은
+   mediaGapGuard 가 끊는다. 파일이 아직 없는 자리(「그림 추가」)는 줄 전체. */
+.rd-note .bn-block-content[data-content-type='image'],
+.rd-note .bn-block-content[data-content-type='video'],
+.rd-note .bn-block-content[data-content-type='audio'],
+.rd-note .bn-block-content[data-content-type='file'] { width: fit-content; max-width: 100%; }
+.rd-note .bn-block-content[data-content-type='image']:has(.bn-add-file-button),
+.rd-note .bn-block-content[data-content-type='video']:has(.bn-add-file-button),
+.rd-note .bn-block-content[data-content-type='audio']:has(.bn-add-file-button),
+.rd-note .bn-block-content[data-content-type='file']:has(.bn-add-file-button) { width: 100%; }
+.rd-note .bn-block-content[data-content-type='image'][data-text-alignment='center'],
+.rd-note .bn-block-content[data-content-type='video'][data-text-alignment='center'] { margin-inline: auto; }
+.rd-note .bn-block-content[data-content-type='image'][data-text-alignment='right'],
+.rd-note .bn-block-content[data-content-type='video'][data-text-alignment='right'] { margin-left: auto; }

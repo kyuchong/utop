@@ -690,3 +690,27 @@
   box-shadow: inset 0 0 0 2px var(--c-primary);
   border-radius: 6px;
 }
+
+/* 그림·동영상·파일 블록 — 내용 칸을 **그림 폭에 맞춘다**(지시).
+   편집기 기본은 칸이 줄 전체 폭이라, 그림 옆 빈자리를 눌러도 편집기가
+   「그림 블록을 눌렀다」 로 읽어 그림이 골라지고 손잡이가 켜졌다(지적).
+   칸을 그림만큼만 두면 옆 빈자리는 그림 블록 밖이다. 정렬은 여백으로 옮긴다
+   (기본은 칸이 100% 라 justify-content 로 맞췄다). 아직 파일이 없는 자리
+   (「그림 추가」 단추)는 예전처럼 줄 전체를 쓴다. */
+.wke-body .bn-block-content[data-content-type='image'],
+.wke-body .bn-block-content[data-content-type='video'],
+.wke-body .bn-block-content[data-content-type='audio'],
+.wke-body .bn-block-content[data-content-type='file'] {
+  width: fit-content;
+  max-width: 100%;
+}
+.wke-body .bn-block-content[data-content-type='image']:has(.bn-add-file-button),
+.wke-body .bn-block-content[data-content-type='video']:has(.bn-add-file-button),
+.wke-body .bn-block-content[data-content-type='audio']:has(.bn-add-file-button),
+.wke-body .bn-block-content[data-content-type='file']:has(.bn-add-file-button) {
+  width: 100%;
+}
+.wke-body .bn-block-content[data-content-type='image'][data-text-alignment='center'],
+.wke-body .bn-block-content[data-content-type='video'][data-text-alignment='center'] { margin-inline: auto; }
+.wke-body .bn-block-content[data-content-type='image'][data-text-alignment='right'],
+.wke-body .bn-block-content[data-content-type='video'][data-text-alignment='right'] { margin-left: auto; }

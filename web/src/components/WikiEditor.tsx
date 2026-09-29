@@ -46,6 +46,7 @@ import { ko } from '@blocknote/core/locales'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
 import { useQuery } from '@tanstack/react-query'
+import { guardMediaGap } from './mediaGapGuard'
 import { api, apiFetch, projectApi } from '@/api/client'
 import { createPortal } from 'react-dom'
 import PresenceBar from './PresenceBar'
@@ -348,6 +349,10 @@ export default function WikiEditor({
      붙이고, 그 확장을 달아 주는 것이 이 함수다.
      `@blocknote/core/yjs` — 우리가 쓰는 yjs 13 쪽 갈래다(`/y` 는 아직
      rc 인 @y/y 14 용이라 우리 Doc 과 런타임이 다르다). */
+  /** 본문 감싸개 — 그림 옆 빈자리 클릭 가드가 여기 붙는다 */
+  const bodyRef = useRef<HTMLDivElement>(null)
+  useEffect(() => guardMediaGap(bodyRef.current), [])
+
   const editor = useCreateBlockNote(
     withCollaboration({
       // 메뉴·말풍선을 한국어로 — 「/」 를 쳤을 때 나오는 이름들이다
@@ -987,7 +992,7 @@ export default function WikiEditor({
           )}
         </div>
       )}
-      <div className="wke-body">
+      <div className="wke-body" ref={bodyRef}>
         {!ready && <div className="muted small wke-load">읽는 중…</div>}
         <BlockNoteView
           editor={editor}

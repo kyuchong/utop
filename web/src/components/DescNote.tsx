@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { guardMediaGap } from './mediaGapGuard'
 import {
   useCreateBlockNote,
   SuggestionMenuController,
@@ -118,8 +119,12 @@ export default function DescNote({
   useEffect(() => {
     patchCellBg(editor)
   }, [editor])
+  /** 감싸개 — 그림 옆 빈자리 클릭 가드(위키와 같은 규칙). display:contents 라 자리를 안 먹는다 */
+  const wrapRef = useRef<HTMLDivElement>(null)
+  useEffect(() => guardMediaGap(wrapRef.current), [])
 
   return (
+    <div ref={wrapRef} style={{ display: 'contents' }}>
     <BlockNoteView
       editor={editor}
       theme={THEME}
@@ -145,5 +150,6 @@ export default function DescNote({
         }
       />
     </BlockNoteView>
+    </div>
   )
 }
