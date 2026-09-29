@@ -121,7 +121,7 @@ export default function DescNote({
   }, [editor])
   /** 감싸개 — 그림 옆 빈자리 클릭 가드(위키와 같은 규칙). display:contents 라 자리를 안 먹는다 */
   const wrapRef = useRef<HTMLDivElement>(null)
-  useEffect(() => guardMediaGap(wrapRef.current), [])
+  useEffect(() => guardMediaGap(wrapRef.current, editor), [editor])
 
   return (
     <div ref={wrapRef} style={{ display: 'contents' }}>

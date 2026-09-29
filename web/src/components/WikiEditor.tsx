@@ -351,7 +351,6 @@ export default function WikiEditor({
      rc 인 @y/y 14 용이라 우리 Doc 과 런타임이 다르다). */
   /** 본문 감싸개 — 그림 옆 빈자리 클릭 가드가 여기 붙는다 */
   const bodyRef = useRef<HTMLDivElement>(null)
-  useEffect(() => guardMediaGap(bodyRef.current), [])
 
   const editor = useCreateBlockNote(
     withCollaboration({
@@ -435,6 +434,8 @@ export default function WikiEditor({
     }),
     [provider],
   )
+  /* 그림 옆 빈자리 클릭 가드 — editor 가 선 뒤에 건다 */
+  useEffect(() => guardMediaGap(bodyRef.current, editor), [editor])
 
   /* 툴바의 배경색이 **칸으로도 가게** 한다(지적: 칸을 드래그해 색을 골라도
      글자에만 칠해진다) — 단추를 새로 세우지 않고 가는 곳만 바꾼다 */
