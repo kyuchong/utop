@@ -443,13 +443,10 @@ export default function MailSettings() {
             </div>
           </div>
 
+          {/* 글 칸은 「내용」 하나(지시: 머리말·맺음말 대신). 판정 현황 위에 실린다 */}
           <label className="fld">
-            <span>머리말</span>
-            <textarea rows={3} value={cfg.done_intro} placeholder="예) 자동 시험이 끝났습니다. 결과를 확인해 주세요." onChange={(e) => set('done_intro', e.target.value)} />
-          </label>
-          <label className="fld">
-            <span>맺음말</span>
-            <textarea rows={3} value={cfg.done_outro} placeholder="예) 실패 항목은 Defects 에서 결함으로 걸 수 있습니다." onChange={(e) => set('done_outro', e.target.value)} />
+            <span>내용</span>
+            <textarea rows={4} value={cfg.done_intro} placeholder="예) 자동 시험이 끝났습니다. 결과를 확인해 주세요." onChange={(e) => set('done_intro', e.target.value)} />
           </label>
 
           <label className="fld">
