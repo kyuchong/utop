@@ -2097,7 +2097,8 @@ export default function CyclesBoard({
               if (col.key === 'stat') {
                 const rs = runsByPlan.get(String(row.__id)) ?? []
                 const t = sumRuns(rs)
-                return t.total ? <StatBar t={t} pal={verdPal} slim /> : <span className="cu-m">—</span>
+                /* 올리면 어두운 팝업(지시: 그림처럼) — 이름·Pass/Fail 건수와 비율·항목 수·진행률 */
+                return t.total ? <StatBar t={t} pal={verdPal} slim title={String(row.title ?? '')} /> : <span className="cu-m">—</span>
               }
               /* 「진행 중」 은 **눈에 걸려야 한다**(지적: 글자로만 적혀 있어
                  안 보인다). 지금 돌고 있는 사이클을 목록에서 찾는 것이 이

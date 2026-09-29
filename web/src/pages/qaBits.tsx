@@ -6,6 +6,7 @@
  * 화면(RunDetail)과 같은 말이다: b 는 「기타」 지 미실행이 아니다.
  */
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
@@ -59,7 +60,20 @@ export type Tally = ReturnType<typeof sumRuns>
 
 /** 판정 현황 막대 — 색 구간에 건수를 얹는다. pal 은 셋업 판정 색(계열 대표).
     slim 은 좁은 칸용(지시): 숫자를 안 얹는 대신 올리면 자세한 내역이 뜬다 */
-export function StatBar({ t, pal, slim }: { t: Tally; pal?: Record<string, string>; slim?: boolean }) {
+export function StatBar({
+  t,
+  pal,
+  slim,
+  title,
+}: {
+  t: Tally
+  pal?: Record<string, string>
+  slim?: boolean
+  /** 팝업 머리에 적을 이름 — 사이클 이름. 주면 slim 막대에 올렸을 때 그림 같은 어두운 팝업이 뜬다(지시) */
+  title?: string
+}) {
+  /* 팝업 자리 — 막대의 화면 좌표. 표 칸은 overflow 로 잘리므로 body 에 띄운다 */
+  const [pop, setPop] = useState<{ x: number; y: number; up: boolean } | null>(null)
   if (!t.total) return <span className="cu-m">—</span>
   const parts: Array<[number, string, string]> = [
     [t.pass, 'p', '합격'],
@@ -76,8 +90,9 @@ export function StatBar({ t, pal, slim }: { t: Tally; pal?: Record<string, strin
   /* 진행률 — 미실행을 뺀 실행 비율. 좁은 칸(slim)에서 막대 오른쪽에
      적는다(지시: 막대만 있으면 몇 % 진행인지 안 보인다). */
   const prog = t.total ? Math.round(((t.total - t.none) / t.total) * 100) : 0
+  const rich = slim && title !== undefined
   const bar = (
-    <div className={`q-stats${slim ? ' slim' : ''}`} title={slim ? detail : undefined}>
+    <div className={`q-stats${slim ? ' slim' : ''}`} title={slim && !rich ? detail : undefined}>
       {parts.map(([v, cls, name]) =>
         v ? (
           <i
@@ -93,10 +108,51 @@ export function StatBar({ t, pal, slim }: { t: Tally; pal?: Record<string, strin
     </div>
   )
   if (!slim) return bar
+  /* 어두운 팝업(지시: 그림처럼) — Pass·Fail 줄에 색 점, 건수 / 비율, 그 아래 항목 수·진행률.
+     검증 불가·미실행은 있을 때만 줄을 낸다. 아래쪽 행이면 위로 띄운다. */
+  const rows: Array<[string, string, number]> = [
+    ['Pass', 'p', t.pass],
+    ['Fail', 'f', t.fail],
+    ...(t.etc ? ([['검증 불가', 'b', t.etc]] as Array<[string, string, number]>) : []),
+    ...(t.none ? ([['미실행', 'n', t.none]] as Array<[string, string, number]>) : []),
+  ]
   return (
-    <div className="q-statsw" title={detail}>
+    <div
+      className="q-statsw"
+      title={rich ? undefined : detail}
+      onMouseEnter={(e) => {
+        if (!rich) return
+        const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+        const up = window.innerHeight - r.bottom < 170
+        setPop({ x: Math.min(r.left, window.innerWidth - 300), y: up ? r.top - 6 : r.bottom + 6, up })
+      }}
+      onMouseLeave={() => setPop(null)}
+    >
       {bar}
       <span className="q-statpct">{prog}%</span>
+      {rich &&
+        pop &&
+        createPortal(
+          <div
+            className="q-statpop"
+            style={{ left: pop.x, top: pop.up ? undefined : pop.y, bottom: pop.up ? window.innerHeight - pop.y : undefined }}
+            role="tooltip"
+          >
+            <div className="q-statpop-t">{title || '(이름 없음)'}</div>
+            {rows.map(([name, cls, v]) => (
+              <div className="q-statpop-r" key={cls}>
+                <i className={`q-statpop-d ${cls}`} style={pal?.[cls] ? { background: pal[cls] } : undefined} />
+                <span>
+                  {name} <b>{v}</b> / {pct(v)}%
+                </span>
+              </div>
+            ))}
+            <div className="q-statpop-f">
+              항목 {t.total}개 · 진행률 {prog}%
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
