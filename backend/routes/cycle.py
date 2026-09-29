@@ -6017,7 +6017,7 @@ async def _notify_run_done(run: dict) -> None:
             why = f"받을 사람 없음 — 실행한 사람 '{who or '?'}' 계정에 이메일이 없습니다 (계정 관리에서 적으세요)"
             print(f"[done-mail] {why} ({cid})", flush=True)
             try:
-                await db.cycle_mail_add(cid, "자동(시험 종료)", "", _done_fill(str(cfg.get("done_subject") or "") or _DONE_SUBJECT, {
+                await db.cycle_mail_add(cid, "UTOP", "", _done_fill(str(cfg.get("done_subject") or "") or _DONE_SUBJECT, {
                     "cycle": cycle.get("name") or cid, "model": cycle.get("model") or "", "version": cycle.get("version") or "",
                     "vgroup": cycle.get("version_group") or "", "status": status_ko, "who": who, "total": len(picked),
                     "pass": st["n_pass"], "fail": st["n_fail"], "etc": st["n_etc"], "none": st["n_none"]}),
@@ -6086,10 +6086,10 @@ async def _notify_run_done(run: dict) -> None:
         try:
             # 보낸 사람 이름은 「UTOP」(지시)
             sent = await asyncio.to_thread(core.send_mail, to, subject, html, True, None, None, None, "UTOP")
-            await db.cycle_mail_add(cid, "자동(시험 종료)", ", ".join(sent or to), subject,
+            await db.cycle_mail_add(cid, "UTOP", ", ".join(sent or to), subject,
                                     "시험 종료 자동 알림", True, "", "", "", html, [])
         except Exception as e:  # noqa: BLE001
-            await db.cycle_mail_add(cid, "자동(시험 종료)", joined, subject,
+            await db.cycle_mail_add(cid, "UTOP", joined, subject,
                                     "시험 종료 자동 알림", False, str(e), "", "", html, [])
             print(f"[done-mail] 보내지 못했습니다 ({cid} → {joined}): {e}", flush=True)
     except Exception as e:  # noqa: BLE001
