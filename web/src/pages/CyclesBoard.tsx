@@ -1243,6 +1243,7 @@ export default function CyclesBoard({
     if (wasBusy.current && !cycleBusy) {
       void qc.invalidateQueries({ queryKey: ['plan-run'] })
       void qc.invalidateQueries({ queryKey: ['plan-run-stat'] })
+      void qc.invalidateQueries({ queryKey: ['plan-run-days'] })
       void qc.invalidateQueries({ queryKey: ['plan-runs'] })
     }
     wasBusy.current = cycleBusy
@@ -1262,35 +1263,100 @@ export default function CyclesBoard({
       },
     })),
   })
-  /** 일자별 판정 셈 — **방식으로 갈라서**(지시). 판정한 날은 vat 가 정본이고,
-      없으면 그 실행을 뜬 날로 친다. 실행 전문은 이미 받고 있어 조회가 늘지 않는다 */
+  /**
+   * 회차별 셈 — 실행마다 **항목별로 한 방에** 받는다.
+   *
+   * 실행 문서(results)는 항목마다 마지막 판정 하나만 쥔다. 100 회를 돌려도
+   * 거기엔 한 줄뿐이라 「1회 중 0」 으로 보였다(지적). 회차는 plan_run_item
+   * 에만 남으므로 그 셈을 따로 받아 포갠다.
+   */
+  const roundStatQs = useQueries({
+    queries: myRuns.map((r) => ({
+      queryKey: ['plan-run-stat', r.id],
+      enabled: !!open && (tab === 'run' || tab === 'itm' || tab === 'ita'),
+      refetchInterval: cycleBusy ? 4000 : false,
+      queryFn: async () => {
+        const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}/stat?by=tcid`)
+        if (!res.ok) throw new Error('회차를 불러오지 못했습니다')
+        return (await res.json()) as { items?: Record<string, RoundStat> }
+      },
+    })),
+  })
+
+  /** 날짜별·항목별 회차 — 요약의 일자별 그림이 읽는다(지시: 회차로).
+   *  회차의 시각(한국 시각)으로 날짜가 잡혀 있어 며칠에 걸친 실행도 그날그날에 찍힌다 */
+  const roundDayQs = useQueries({
+    queries: myRuns.map((r) => ({
+      queryKey: ['plan-run-days', r.id],
+      enabled: !!open && (tab === 'run' || tab === 'itm' || tab === 'ita'),
+      refetchInterval: cycleBusy ? 4000 : false,
+      queryFn: async () => {
+        const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}/stat?by=day`)
+        if (!res.ok) throw new Error('날짜별 회차를 불러오지 못했습니다')
+        return (await res.json()) as { days?: Record<string, Record<string, RoundStat>> }
+      },
+    })),
+  })
+
+  /** 일자별 **실행 횟수** 셈 — 자동·수동으로 갈라서(지시: 항목 수가 아니라 회차로).
+   *
+   *  회차 표가 있으면 회차의 날짜·판정으로 센다: 1000 회 돌린 날은 1000 이다.
+   *  회차 기록이 없는 옛 실행과 수동 판정은 결과 한 건을 그 판정 날(vat, 없으면
+   *  실행을 만든 날)에 1 회로 친다 — 표의 「실행 횟수」 열과 같은 규칙이라
+   *  두 숫자가 맞는다. 판정이 안 붙은 회차(n_none)는 세지 않는다. */
   const dayStat = useMemo(() => {
-    const byMode = { auto: new Map<string, { p: number; f: number; b: number }>(), man: new Map<string, { p: number; f: number; b: number }>() }
+    type Pt = { p: number; f: number; b: number }
+    const byMode = { auto: new Map<string, Pt>(), man: new Map<string, Pt>() }
+    const add = (m: Map<string, Pt>, day: string, d: Pt) => {
+      const cur = m.get(day) ?? { p: 0, f: 0, b: 0 }
+      cur.p += d.p
+      cur.f += d.f
+      cur.b += d.b
+      m.set(day, cur)
+    }
     failQs.forEach((qr, i) => {
       const run = qr.data
       if (!run) return
       const made = String(myRuns[i]?.created_at ?? '').slice(0, 10)
       const vat = (run.vat ?? {}) as Record<string, string>
+      const days = roundDayQs[i]?.data?.days ?? {}
+      /* 이 실행에서 회차가 남은 항목 — 날짜별로 미리 뒤집어 둔다 */
+      const roundsOf = new Map<string, Array<[string, RoundStat]>>()
+      for (const [day, byTc] of Object.entries(days))
+        for (const [tcid, st] of Object.entries(byTc)) {
+          const arr = roundsOf.get(tcid) ?? []
+          arr.push([day, st])
+          roundsOf.set(tcid, arr)
+        }
       for (const [tcid, v] of Object.entries(run.results ?? {})) {
+        /* isManTc 는 아래에 선언돼 있어 여기서 못 부른다 — 같은 함수를 바로 부른다 */
+        const m = isManualTc(tcOf.get(tcid)) ? byMode.man : byMode.auto
+        const rs = roundsOf.get(tcid)
+        const ran = (rs ?? []).reduce((n, [, st]) => n + Math.max(0, Number(st.n_total ?? 0) - Number(st.n_none ?? 0)), 0)
+        if (rs && ran > 0) {
+          for (const [day, st] of rs)
+            add(m, day, { p: Number(st.n_pass ?? 0), f: Number(st.n_fail ?? 0), b: Number(st.n_etc ?? 0) })
+          continue
+        }
         const l = vLetter(verds, String(v ?? ''))
         if (l === 'n') continue
         const day = String(vat[tcid] ?? '').slice(0, 10) || made
         if (!day) continue
-        /* isManTc 는 아래에 선언돼 있어 여기서 못 부른다(실측: 화면이
-           통째로 죽었다 — Cannot access before initialization). 같은 함수를
-           여기서 바로 부른다 */
-        const man = isManualTc(tcOf.get(tcid))
-        const m = man ? byMode.man : byMode.auto
-        const cur = m.get(day) ?? { p: 0, f: 0, b: 0 }
-        cur[l] += 1
-        m.set(day, cur)
+        const one: Pt = { p: 0, f: 0, b: 0 }
+        one[l] += 1
+        add(m, day, one)
       }
     })
-    const pick = (m: Map<string, { p: number; f: number; b: number }>) =>
-      [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    const pick = (m: Map<string, Pt>) => [...m.entries()].sort((x, y) => x[0].localeCompare(y[0]))
     return { auto: pick(byMode.auto), man: pick(byMode.man) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [failQs.map((q2) => q2.dataUpdatedAt).join(','), myRuns, verds, tcOf])
+  }, [
+    failQs.map((q2) => q2.dataUpdatedAt).join(','),
+    roundDayQs.map((q2) => q2.dataUpdatedAt).join(','),
+    myRuns,
+    verds,
+    tcOf,
+  ])
 
   /** 누적 그림에서 **며칠치를 보나**(지시: 7일·15일·한 달) */
   const [spanD, setSpanD] = useState<number>(() => {
@@ -1298,7 +1364,7 @@ export default function CyclesBoard({
     return v === 15 || v === 30 ? v : 7
   })
 
-  /** 커버리지 — 그날까지 **판정한 항목 누적**을 자동·수동으로 나눠 본다(지시) */
+  /** 그날까지 **돈 회차 누적**을 자동·수동으로 나눠 본다(지시: 회차로) */
   const covCum = useMemo(() => {
     const days = [...new Set([...dayStat.auto.map(([d]) => d), ...dayStat.man.map(([d]) => d)])].sort()
     const sum = (v: { p: number; f: number; b: number }) => v.p + v.f + v.b
@@ -1342,26 +1408,6 @@ export default function CyclesBoard({
     }
     return out
   }, [covCum, spanD])
-
-  /**
-   * 회차별 셈 — 실행마다 **항목별로 한 방에** 받는다.
-   *
-   * 실행 문서(results)는 항목마다 마지막 판정 하나만 쥔다. 100 회를 돌려도
-   * 거기엔 한 줄뿐이라 「1회 중 0」 으로 보였다(지적). 회차는 plan_run_item
-   * 에만 남으므로 그 셈을 따로 받아 포갠다.
-   */
-  const roundStatQs = useQueries({
-    queries: myRuns.map((r) => ({
-      queryKey: ['plan-run-stat', r.id],
-      enabled: !!open && (tab === 'run' || tab === 'itm' || tab === 'ita'),
-      refetchInterval: cycleBusy ? 4000 : false,
-      queryFn: async () => {
-        const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}/stat?by=tcid`)
-        if (!res.ok) throw new Error('회차를 불러오지 못했습니다')
-        return (await res.json()) as { items?: Record<string, RoundStat> }
-      },
-    })),
-  })
 
   const failStat = useMemo(() => {
     const m = new Map<string, { fail: number; ran: number }>()
@@ -3210,7 +3256,7 @@ export default function CyclesBoard({
           </div>
           <div className="cyb-rtw">
             <h3 className="cyb-rowh">
-              일자별 <span className="dim">누적 판정 — 자동 · 수동</span>
+              일자별 <span className="dim">누적 실행 횟수 — 자동 · 수동</span>
               <span className="cu-sp" />
               {spanPick}
               {kindPick}
@@ -3221,7 +3267,7 @@ export default function CyclesBoard({
                 { k: 'p', label: '자동(누적)', color: 'var(--c-primary)' },
                 { k: 'f', label: '수동(누적)', color: '#8a949e' },
               ]}
-              unit={`담은 항목 ${itemRows.length}건 기준`}
+              unit={`단위 회 · 담은 항목 ${itemRows.length}건 · 실행 ${myRuns.length}건`}
             />
           </div>
         </div>

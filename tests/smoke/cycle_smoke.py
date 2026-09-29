@@ -46,8 +46,12 @@ if rid:
     r = c.get(f"/api/plan-runs/{rid}/items"); ok("플랜 실행 항목", r.status_code == 200, r.text[:100])
     r = c.get(f"/api/plan-runs/{rid}/stat"); ok("플랜 실행 통계(500 아님)", r.status_code != 500, r.text[:100])
     r = c.get(f"/api/plan-runs/{rid}/rounds"); ok("회차(500 아님)", r.status_code != 500, r.text[:100])
+    r = c.get(f"/api/plan-runs/{rid}/stat", params={"by": "day"}); ok("날짜별 회차 셈(days 키)", r.status_code == 200 and isinstance(r.json().get("days"), dict), r.text[:100])
     r = c.post(f"/api/plan-runs/{rid}/item", json={"tcid": "E6100-T0001", "verdict": "Pass", "data": {}}); ok("항목 결과 기록(500 아님)", r.status_code != 500, r.text[:120])
     r = c.post(f"/api/plan-runs/{rid}/item", json={"tcid": "E6100-T0002", "verdict": "WIP", "data": {}}); ok("WIP 결과 기록(500 아님)", r.status_code != 500, r.text[:120])
+    r = c.get(f"/api/plan-runs/{rid}/stat", params={"by": "day"})
+    _days = r.json().get("days") or {} if r.status_code == 200 else {}
+    ok("날짜별 회차 셈에 기록한 항목이 선다", any("E6100-T0001" in v for v in _days.values()), str(_days)[:120])
     r = c.post(f"/api/plan-runs/{rid}", json={"results": {"E6100-T0001": "Pass", "E6100-T0002": "WIP", "E6100-T0003": "Blocked", "E6100-T0004": ""}}); ok("실행 결과표 저장(목록 집계의 정본)", r.status_code == 200, r.text[:100])
     runs = c.get("/api/plan-runs", params={"cycle_id": cid}).json().get("runs") or []
     mine = next((x for x in runs if x.get("id") == rid), None)

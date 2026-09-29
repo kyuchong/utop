@@ -962,7 +962,10 @@ async def plan_run_item_put(run_id: str, tcid: str, round_: int = 1, verdict: st
               verdict=EXCLUDED.verdict, at=EXCLUDED.at, took_ms=EXCLUDED.took_ms,
               fp=EXCLUDED.fp, same_as=EXCLUDED.same_as, data=EXCLUDED.data
             """,
-            run_id, tcid, int(round_ or 1), str(verdict or ""), _as_utc(at),
+            # 시각이 안 왔으면 **기록한 시각**으로 — NULL 이면 날짜별 셈(일자별
+            # 실행 횟수 그림)에서 그 회차가 통째로 빠진다
+            run_id, tcid, int(round_ or 1), str(verdict or ""),
+            _as_utc(at) or _dt.datetime.now(_dt.timezone.utc),
             (int(took_ms) if took_ms else None), fp, same,
             # dict 를 **그대로** 넘긴다 — 풀이 JSONB 코덱을 걸어 두었다(init_pool).
             # 여기서 json.dumps 로 감싸면 jsonb 안에 객체가 아니라 문자열이
@@ -1119,6 +1122,29 @@ async def plan_run_item_stat_by_tc(run_id: str) -> dict:
     return {
         tcid: {**_fold_hist(v["hist"], groups), "rounds": v["rounds"]}
         for tcid, v in acc.items()
+    }
+
+
+async def plan_run_item_stat_by_day(run_id: str) -> dict:
+    """**날짜별·항목별** 회차 셈 — 사이클 요약의 일자별 그림이 읽는다.
+
+    그림은 여태 실행 문서의 결과(항목마다 마지막 판정 하나)를 세어, 항목
+    하나를 1000 회 돌려도 1 이었다(지적). 회차는 이 표에만 남으므로 회차의
+    시각으로 날짜를 잡아 센다 — 며칠에 걸친 실행도 그날그날에 찍힌다.
+    날짜는 **한국 시각**으로 자른다(자정 전후 회차가 다른 날로 가지 않게).
+    """
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT to_char(at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS day, tcid,"
+            "       COALESCE(verdict,'') AS v, count(*) AS n"
+            "  FROM plan_run_item WHERE run_id=$1 AND at IS NOT NULL GROUP BY 1, 2, 3", run_id)
+    groups = await verdict_groups()
+    acc: dict[str, dict[str, dict]] = {}
+    for r in rows:
+        acc.setdefault(str(r["day"]), {}).setdefault(str(r["tcid"]), {})[str(r["v"])] = int(r["n"] or 0)
+    return {
+        day: {tcid: _fold_hist(hist, groups) for tcid, hist in by_tc.items()}
+        for day, by_tc in acc.items()
     }
 
 

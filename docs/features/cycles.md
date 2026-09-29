@@ -35,6 +35,8 @@
 
 ### 결과
 - **판정 현황** 막대와 진행률, 실패 항목만 보기, 회차끼리 비교(회귀).
+- 항목 표의 **실행 횟수** 열은 이 사이클의 모든 실행에서 돈 회차의 합이다. 회차 기록이 없는 옛 실행과 수동 판정은 1회로 센다. 시험이 도는 동안은 4초마다 따라온다.
+- 요약의 **일자별 누적 실행 횟수** 그림은 회차의 시각(한국 시각)으로 날짜를 잡아 자동·수동으로 나눠 누적한다. 1000회 돌린 날은 1000이 올라간다. 진행률은 도넛이 말한다.
 - **결함 걸기** — 실패 항목에서 「이슈 생성」 을 누르면 결함이 하나 만들어진다. 바로 Jira 로 안 가고 Defects 화면에 모인다([jira-defects.md](jira-defects.md)).
 - **결과 메일** — 받는 사람·본문을 미리 보고 보낸다. 보낸 기록이 남는다. 실패 항목 요약과 링크가 들어간다.
 - **결과서** — 고객사 양식 PPTX 로 굽는다(LG유플러스 양식 등). 화면에서 미리 보고 PPTX·PDF 로 받는다. 배율은 맞춤값의 90% 다.
@@ -69,7 +71,7 @@ AI 요약·자동 Jira 는 LLM·Jira 없을 때 안내로 답하는가 → 집�
 ## 관련 API
 
 `/api/cycle` · `/api/cycle/{id}` 와 `picked·test-cond·summary-body·mail·mail-preview·mail-log·summarize·auto-jira·ppt·exec-ids·run` ·
-`/api/cycle/rollup` · `/api/cycle-version-groups` · `/api/cycle-folders` · `/api/plan-runs` 와 `{id}/items·item·stat·rounds` ·
+`/api/cycle/rollup` · `/api/cycle-version-groups` · `/api/cycle-folders` · `/api/plan-runs` 와 `{id}/items·item·stat(by=tcid|day)·rounds` ·
 `/api/plan-runs-regression` · `/api/runs` · `/api/runner/*`(실행기 전용) · `/api/cycle-run-progress` · `/api/cycle-run-stop` ·
 `/api/locks` · `/api/run-cli` · `/api/run-cli-stream` · `/api/session-*` · `/api/ping` · `/api/snmp-*` · `/api/tc/{id}/run·run-history·cycles` ·
 `/api/tc-running` · `/api/tc-last-result` · `/api/report/summary` · `/api/pptx-templates` · `/api/pptx-render`.
