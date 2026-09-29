@@ -82,5 +82,5 @@
 .tr-part-pick.on { background: var(--c-primary-bg); border-color: var(--c-primary); }
 .tr-part-pick.on .tr-pl > b { color: var(--c-primary); }
 .tr-pick-mark { flex: none; font-size: 12px; font-weight: 600; color: var(--c-primary); min-width: 44px; text-align: right; }
-.tr-foot-two { justify-content: flex-start; gap: 8px; align-items: center; }
+.tr-foot-two { justify-content: flex-end; gap: 8px; align-items: center; }
 /* 펼친 개별 목록 — 단추 아래, 실금 하나로 구역을 가른다 */
