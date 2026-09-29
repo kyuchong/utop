@@ -1140,19 +1140,38 @@ async def plan_run_rounds(run_id: str, buckets: int = 0, tcid: str = "", since: 
     return {"rounds": out, "total_rounds": hi, "size": int(size)}
 
 
-async def plan_run_item_stat_by_tc(run_id: str) -> dict:
+async def plan_run_item_stat_by_tc(run_id: str, session: bool = False) -> dict:
     """**항목별** 회차 요약 — 한 방에 센다.
 
-    사이클 표의 「실패 이력」 이 이것을 읽는다. 항목마다 따로 물으면 62 항목
+    사이클 표의 「실행 횟수」 「실패」 가 이것을 읽는다. 항목마다 따로 물으면 62 항목
     × 실행 수만큼 조회가 나간다 — 한 줄로 접어 한 번에 센다.
 
     실행 문서(results)는 항목마다 **마지막 판정 하나**만 쥔다. 그래서 100 회를
     돌려도 「1회 중 0」 으로 보였다(지적). 회차는 이 표에만 남아 있다.
+
+    session 이면 **이번 시작분만**(지시: 표는 실행마다 새로, 그림만 누적) —
+    실행 문서의 session_at[tcid](시험을 걸 때 항목마다 적는 시작 시각) 뒤의
+    회차만 센다. 시작 시각이 없는 항목(옛 실행)은 전부를 센다. 항목마다
+    `since` 로 그 시각을 돌려줘 화면이 툴팁에 적을 수 있다.
     """
+    sess: dict = {}
+    if session:
+        doc = await plan_run_get(run_id) or {}
+        sess = {str(k): str(v) for k, v in (doc.get("session_at") or {}).items() if v}
     async with pool().acquire() as c:
-        rows = await c.fetch(
-            "SELECT tcid, COALESCE(verdict,'') AS v, count(*) AS n, max(round) AS rounds"
-            "  FROM plan_run_item WHERE run_id=$1 GROUP BY 1, 2", run_id)
+        if sess:
+            rows = await c.fetch(
+                "SELECT i.tcid, COALESCE(i.verdict,'') AS v, count(*) AS n, max(i.round) AS rounds"
+                "  FROM plan_run_item i"
+                "  LEFT JOIN jsonb_each_text($2::jsonb) s ON s.key = i.tcid"
+                " WHERE i.run_id=$1 AND (s.value IS NULL OR i.at >= s.value::timestamptz)"
+                # dict 를 **그대로** 넘긴다 — 풀이 JSONB 코덱을 걸어 두었다(init_pool).
+                # json.dumps 로 감싸면 jsonb 안에 객체가 아니라 문자열이 들어간다
+                " GROUP BY 1, 2", run_id, sess)
+        else:
+            rows = await c.fetch(
+                "SELECT tcid, COALESCE(verdict,'') AS v, count(*) AS n, max(round) AS rounds"
+                "  FROM plan_run_item WHERE run_id=$1 GROUP BY 1, 2", run_id)
     groups = await verdict_groups()
     acc: dict[str, dict] = {}
     for r in rows:
@@ -1160,7 +1179,7 @@ async def plan_run_item_stat_by_tc(run_id: str) -> dict:
         cur["hist"][str(r["v"])] = int(r["n"] or 0)
         cur["rounds"] = max(cur["rounds"], int(r["rounds"] or 0))
     return {
-        tcid: {**_fold_hist(v["hist"], groups), "rounds": v["rounds"]}
+        tcid: {**_fold_hist(v["hist"], groups), "rounds": v["rounds"], "since": sess.get(tcid, "")}
         for tcid, v in acc.items()
     }
 

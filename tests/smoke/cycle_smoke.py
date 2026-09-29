@@ -60,6 +60,13 @@ if rid:
     ok("since 회차 띠는 1 회차 하나", r.status_code == 200 and _rd.get("total_rounds") == 1 and (_rd.get("rounds") or [{}])[0].get("round") == 1, r.text[:120])
     r = c.get(f"/api/plan-runs/{rid}/item", params={"since": "2029-12-31T00:00:00Z", "tcid": "E6100-T0001", "round": 1}); ok("since 안 1 회차 전문은 실제 7 회차", r.status_code == 200 and r.json().get("round") == 7, r.text[:100])
     r = c.get(f"/api/plan-runs/{rid}/items", params={"tcid": "E6100-T0001"}); ok("since 없으면 지난 회차도 다 남아 있다", r.status_code == 200 and len(r.json().get("items") or []) >= 2, r.text[:100])
+    # 표의 셈(session=1) — 실행 문서의 session_at 뒤 회차만. 시작 시각을 2029-12-31 로 적으면 2030 회차만 남는다
+    _doc = c.get(f"/api/plan-runs/{rid}").json()
+    r = c.post(f"/api/plan-runs/{rid}", json={"session_at": {"E6100-T0001": "2029-12-31T00:00:00+00:00"}}); ok("실행 문서에 session_at 적기(500 아님)", r.status_code != 500, r.text[:80])
+    r = c.get(f"/api/plan-runs/{rid}/stat", params={"by": "tcid", "session": "1"}); _it = (r.json().get("items") or {}).get("E6100-T0001") or {}
+    ok("session=1 이면 이번 시작분(2030 회차 1건)만 · since 동봉", r.status_code == 200 and _it.get("n_total") == 1 and str(_it.get("since", "")).startswith("2029-12-31"), r.text[:140])
+    r = c.get(f"/api/plan-runs/{rid}/stat", params={"by": "tcid"}); _all = (r.json().get("items") or {}).get("E6100-T0001") or {}
+    ok("session 없으면 전부", r.status_code == 200 and (_all.get("n_total") or 0) >= 2, r.text[:100])
     r = c.get(f"/api/plan-runs/{rid}/rounds", params={"tcid": "E6100-T0001"}); _rd = r.json()
     ok("since 없어도 회차 띠는 첫 회차가 1", r.status_code == 200 and (_rd.get("rounds") or [{}])[0].get("round") == 1, r.text[:120])
     r = c.get(f"/api/plan-runs/{rid}/item", params={"tcid": "E6100-T0001", "round": 1}); ok("전문도 화면 번호로 — 1 회차는 실제 첫 회차 키", r.status_code == 200 and r.json().get("round") == 1, r.text[:100])

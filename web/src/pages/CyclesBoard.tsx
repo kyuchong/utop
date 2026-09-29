@@ -123,6 +123,8 @@ interface RoundStat {
   n_etc?: number
   n_none?: number
   rounds?: number
+  /** 이번 시작 시각 — 표는 이 뒤의 회차만 센다(없으면 전부) */
+  since?: string
 }
 
 /** 시험 항목 한 줄 — 사이클 항목에 TC 메타·REQ 이름표를 입힌 것 */
@@ -1276,7 +1278,9 @@ export default function CyclesBoard({
       enabled: !!open && (tab === 'run' || tab === 'itm' || tab === 'ita'),
       refetchInterval: cycleBusy ? 4000 : false,
       queryFn: async () => {
-        const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}/stat?by=tcid`)
+        /* **이번 시작분만**(지시: 표의 실행 횟수·실패는 실행마다 새로, 그림만 누적).
+           서버가 실행 문서의 session_at 으로 항목마다 자른다 */
+        const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}/stat?by=tcid&session=1`)
         if (!res.ok) throw new Error('회차를 불러오지 못했습니다')
         return (await res.json()) as { items?: Record<string, RoundStat> }
       },
@@ -1416,7 +1420,7 @@ export default function CyclesBoard({
   }, [covCum, spanD])
 
   const failStat = useMemo(() => {
-    const m = new Map<string, { fail: number; ran: number }>()
+    const m = new Map<string, { fail: number; ran: number; since?: string }>()
     failQs.forEach((qr, i) => {
       const byTc = roundStatQs[i]?.data?.items ?? {}
       for (const [tcid, v] of Object.entries(qr.data?.results ?? {})) {
@@ -1428,6 +1432,7 @@ export default function CyclesBoard({
            회차 기록이 없는 옛 실행은 예전처럼 실행 한 건을 한 번으로 센다 —
            안 그러면 예전 이력이 통째로 0 이 된다. */
         const rs = byTc[tcid]
+        if (rs?.since && (!s.since || rs.since > s.since)) s.since = rs.since
         const ran = Math.max(0, Number(rs?.n_total ?? 0) - Number(rs?.n_none ?? 0))
         if (ran > 0) {
           s.ran += ran
@@ -2755,7 +2760,14 @@ export default function CyclesBoard({
             if (col.key === 'ran') {
               if (!st || !st.ran) return <span className="cu-m">—</span>
               return (
-                <b className="cyb-ran" title="이 사이클의 모든 실행에서 돈 회차를 더한 값">
+                <b
+                  className="cyb-ran"
+                  title={
+                    st.since
+                      ? `이번 시작분 — ${st.since.replace('T', ' ').slice(0, 16)} 부터 돈 회차. 지난 시작분은 Status 의 일자별 그림에 쌓여 있습니다`
+                      : '이 사이클에서 돈 회차(시작 시각 기록이 없는 실행은 전부)'
+                  }
+                >
                   {nfmt(st.ran)}
                   <i>회</i>
                 </b>
