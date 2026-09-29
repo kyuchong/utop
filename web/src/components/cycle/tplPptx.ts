@@ -1,5 +1,5 @@
 import { apiFetch } from '@/api/client'
-import { methodBlocks, resultBlocks, resultTermLines, slideRanges, type LguTc } from './lgu'
+import { COL_LINES, methodBlocks, resultBlocks, slideRanges, type LguTc } from './lgu'
 import { termShot, type TermLine } from './termShot'
 
 /**
@@ -52,21 +52,6 @@ async function asData(src: string): Promise<string> {
   }
 }
 
-/** 스텝 하나를 결과 글로. 명령과 응답을 그대로 싣는다 — 결과서는 증거다. */
-function stepText(
-  s: { desc?: unknown; cli?: unknown; output?: unknown },
-  no: number,
-  prompt = '$',
-): string {
-  const out: string[] = []
-  const desc = String(s.desc ?? '').trim()
-  const cli = String(s.cli ?? '').trim()
-  out.push(`${no}. ${desc || cli}`)
-  if (cli) for (const c of cli.split(/\r?\n/)) out.push(`   ${prompt} ${c}`)
-  const o = String(s.output ?? '').trim()
-  if (o) for (const l of o.split(/\r?\n/)) out.push(`   ${l}`)
-  return out.join('\n')
-}
 
 export function buildTplSlides(tcs: LguTc[]): TplSlide[] {
   const out: TplSlide[] = []
@@ -95,7 +80,7 @@ export function buildTplSlides(tcs: LguTc[]): TplSlide[] {
         },
       })
     })
-    r.result.forEach(([from, to]) => {
+    r.result.forEach((pg) => {
       /*
        * 결과는 **터미널 화면 그림**으로 넣는다.
        *
@@ -109,18 +94,21 @@ export function buildTplSlides(tcs: LguTc[]): TplSlide[] {
        * 것보다 낫다.
        */
       // 번호·제목 규칙은 미리보기(page2)와 같은 한 벌 — resultTermLines
-      const lines: TermLine[] = resultTermLines(tc.steps, from, to, tc.prompt || '$')
+      // 줄 단위 장(resultPages) — 두 단이면 그림도 두 단(지시: 옆 여백에 이어서)
+      const lines: TermLine[] = pg.lines
       let shot: { data: string } | null = null
       try {
         shot = lines.length
-          ? termShot(lines, [tc.tcid, tc.name].filter(Boolean).join(' · '))
+          ? termShot(
+              lines,
+              [tc.tcid, tc.name].filter(Boolean).join(' · ') + (pg.cont ? ' (이어서)' : ''),
+              pg.twoCol ? { n: 2, per: COL_LINES } : undefined,
+            )
           : null
       } catch {
         shot = null
       }
-      const body = tc.steps.length
-        ? tc.steps.slice(from, to).map((s, k) => stepText(s, from + k + 1, tc.prompt || '$')).join('\n\n')
-        : resultBlocks(tc).map((b) => b.text).join('\n\n')
+      const body = lines.length ? lines.map((l) => l.text).join('\n') : resultBlocks(tc).map((b) => b.text).join('\n\n')
       out.push({
         kind: 'more',
         shot: shot?.data ?? '',

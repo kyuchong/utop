@@ -49,24 +49,29 @@ const BAR = 26
 export function termShot(
   lines: TermLine[],
   title = '',
+  /** 두 단(지시: 좁고 긴 출력은 옆 여백에 이어서) — per 줄마다 오른쪽 단으로 넘긴다 */
+  cols?: { n: 2; per: number },
 ): { data: string; w: number; h: number } | null {
   const rows: TermLine[] = []
   for (const ln of lines) {
     for (const t of wrap(ln.text)) rows.push({ text: t, kind: ln.kind })
   }
   if (!rows.length) return null
+  /* 단 나누기 — 왼쪽 단에 per 줄, 나머지는 오른쪽 단. 두 단이 안 될 만큼 짧으면 한 단 */
+  const two = !!cols && rows.length > cols.per
+  const colRows: TermLine[][] = two ? [rows.slice(0, cols!.per), rows.slice(cols!.per)] : [rows]
+  const GAP = 18
 
   const cv = document.createElement('canvas')
   // 2배로 그려 축소한다. 그대로 그리면 인쇄했을 때 글자가 뭉갠다.
   const S = 2
   /* 폭은 내용만큼만 — 108칸 고정으로 그리니 짧은 출력도 빈 판을 통째로
      차지했다(지적: 너무 많이 표시). 접는 한계(COLS)까지만 늘어난다. */
-  const maxLen = Math.min(
-    COLS,
-    Math.max(24, ...rows.map((r) => r.text.length), Math.ceil(title.length * 1.4)),
-  )
-  const w = PAD * 2 + maxLen * (FS * 0.6)
-  const h = BAR + PAD * 2 + rows.length * LH
+  const colLen = colRows.map((cr) => Math.min(COLS, Math.max(24, ...cr.map((r) => r.text.length))))
+  const titleLen = Math.ceil(title.length * 1.4)
+  const colW = colLen.map((n) => n * (FS * 0.6))
+  const w = Math.max(PAD * 2 + colW.reduce((a, b) => a + b, 0) + (two ? GAP : 0), PAD * 2 + titleLen * (FS * 0.6))
+  const h = BAR + PAD * 2 + Math.max(...colRows.map((cr) => cr.length)) * LH
   cv.width = Math.ceil(w * S)
   cv.height = Math.ceil(h * S)
   const g = cv.getContext('2d')
@@ -103,18 +108,31 @@ export function termShot(
 
   g.font = `${FS}px "D2Coding", "Consolas", "DejaVu Sans Mono", monospace`
   g.textBaseline = 'top'
-  rows.forEach((ln, i) => {
-    g.fillStyle =
-      ln.kind === 'cmd'
-        ? '#1f5fa8'
-        : ln.kind === 'pass'
-          ? '#1d9e75'
-          : ln.kind === 'fail'
-            ? '#d12d49'
-            : ln.kind === 'head'
-              ? '#8a5a00'
-              : '#222222'
-    g.fillText(ln.text, PAD, BAR + PAD + i * LH)
+  let x0 = PAD
+  colRows.forEach((cr, c) => {
+    if (c > 0) {
+      /* 단 사이 가름선 — 어디서 이어지는지 눈이 짚는다 */
+      x0 += colW[c - 1]! + GAP
+      g.strokeStyle = '#d5dae1'
+      g.lineWidth = 1
+      g.beginPath()
+      g.moveTo(x0 - GAP / 2, BAR + 6)
+      g.lineTo(x0 - GAP / 2, h - 6)
+      g.stroke()
+    }
+    cr.forEach((ln, i) => {
+      g.fillStyle =
+        ln.kind === 'cmd'
+          ? '#1f5fa8'
+          : ln.kind === 'pass'
+            ? '#1d9e75'
+            : ln.kind === 'fail'
+              ? '#d12d49'
+              : ln.kind === 'head'
+                ? '#8a5a00'
+                : '#222222'
+      g.fillText(ln.text, x0, BAR + PAD + i * LH)
+    })
   })
 
   // 창 테두리 — 흰 장표 위에서 화면의 가장자리가 보이게

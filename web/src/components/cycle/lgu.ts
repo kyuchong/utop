@@ -262,8 +262,12 @@ function paginate(blocks: Block[], maxLines: number): Block[][] {
 
 /** 결과 칸 폭(약 7in, 9pt)에서 한 줄에 들어가는 대략 글자수 */
 const CPL = 118
-const RESULT_MAX = 24
 const METHOD_MAX = 11
+/** 결과 칸(470px) 한 단에 들어가는 줄 수 — 9px·1.45 줄높이(13px)로 36줄이지만
+ *  스텝 머리(11.5px)·상자 여백이 끼므로 32 로 잡는다. 넘치면 잘리니 넉넉히. */
+export const COL_LINES = 32
+/** 이 글자수 이하면 「좁은 줄」 — 반 폭(두 단)에 들어간다. 넘으면 한 단 전체를 쓴다 */
+const NARROW_CPL = 58
 
 /**
  * 시험 방법(절차) 만들기 — 두 가지 모양.
@@ -429,10 +433,58 @@ export function resultTermLines(
   return lines
 }
 
+/**
+ * 결과 장 하나 — **줄 단위**로 나눈다(지시: 잘리지 않게, 좁고 긴 출력은 옆
+ * 여백에 이어서).
+ *
+ * 전에는 스텝 하나를 한 덩이로 보고 24줄 넘는 덩이는 제 장에 홀로 두었는데,
+ * 그 덩이가 칸 높이를 넘으면 뒷줄이 통째로 잘렸다(지적: SNMP 출력). 이제
+ * 줄을 세어 장을 채우고, 넘치면 다음 장에 「이어서」 로 붙인다.
+ *
+ * 두 단: 장 안의 줄이 모두 좁으면(NARROW_CPL 이하) 왼쪽 단이 찬 뒤 오른쪽
+ * 단으로 흐른다 — 한 장에 두 배가 들어간다. `show interface` 같은 넓은
+ * 줄이 있으면 그 장은 한 단이고, 넓은 줄 앞에서 장을 끊는다.
+ */
+export interface ResultPage {
+  lines: TermLine[]
+  twoCol: boolean
+  /** 앞 장에서 이어지는 장(스텝 중간에서 잘린 것) */
+  cont: boolean
+}
+
+export function resultPages(tc: LguTc): ResultPage[] {
+  const all = resultTermLines(tc.steps, 0, tc.steps.length, tc.prompt || '$')
+  const isGap = (l: TermLine) => !l.kind && l.text === ''
+  const isHead = (l: TermLine) => l.kind === 'head' || l.kind === 'pass' || l.kind === 'fail'
+  const wide = (l: TermLine) => l.text.length > NARROW_CPL
+  const pages: ResultPage[] = []
+  let i = 0
+  while (i < all.length) {
+    while (i < all.length && isGap(all[i]!)) i++
+    if (i >= all.length) break
+    /* 한 단 분량 안에 넓은 줄이 있으면 이 장은 한 단 */
+    const single = all.slice(i, i + COL_LINES).some(wide)
+    let end = Math.min(all.length, i + (single ? COL_LINES : COL_LINES * 2))
+    if (!single) {
+      const w = all.slice(i, end).findIndex(wide)
+      if (w >= 0) end = i + w
+    }
+    /* 고아 머리 — 스텝 제목만 장 끝에 남으면 다음 장으로 */
+    if (end < all.length && end - i > 1 && isHead(all[end - 1]!)) end--
+    let e2 = end
+    while (e2 > i && isGap(all[e2 - 1]!)) e2--
+    const lines = all.slice(i, e2)
+    pages.push({ lines, twoCol: !single && lines.length > COL_LINES, cont: pages.length > 0 && !isHead(lines[0]!) })
+    i = end
+  }
+  if (!pages.length) pages.push({ lines: [], twoCol: false, cont: false })
+  return pages
+}
+
 /** 이 TC 가 몇 장이 되나 — 1장(방법) 몇 + 2장(결과) 몇 */
 export function slideRanges(tc: LguTc): {
   method: Array<[number, number]>
-  result: Array<[number, number]>
+  result: ResultPage[]
 } {
   const cut = (blocks: Block[], max: number): Array<[number, number]> => {
     const slices = paginate(blocks, max)
@@ -444,7 +496,7 @@ export function slideRanges(tc: LguTc): {
     }
     return out
   }
-  return { method: cut(methodBlocks(tc), METHOD_MAX), result: cut(resultBlocks(tc), RESULT_MAX) }
+  return { method: cut(methodBlocks(tc), METHOD_MAX), result: resultPages(tc) }
 }
 
 const BD = '1.4px solid #111'
@@ -560,62 +612,68 @@ export function page1(tc: LguTc, range: [number, number]): string {
   )
 }
 
-/** 2장 — 시험 결과 */
-export function page2(tc: LguTc, range: [number, number]): string {
-  const nos = stepNos(tc.steps)
-  const mine = tc.steps.map((s, i) => ({ s, i })).slice(range[0], range[1])
-  const body = mine.length
-    ? mine
-        .map(({ s, i }) => {
-          /* 제목 스텝(Message·Comment) — 번호 없이 절차 제목으로(합의).
-             옛 코드는 모든 줄에 Step N. 을 달고 desc·cli 만 읽어서
-             「Step 1.」 만 있고 내용이 빈 줄이 나왔다(지적). */
-          if (isTitleKind(s))
-            return `<div style="margin:8px 0 6px;font-size:12px;font-weight:800;color:#111;">■ ${esc(String(s.text ?? s.desc ?? s.step ?? '').trim() || '-')}</div>`
-          const out = promptize(String(s.output ?? '').trim(), tc.prompt)
-          // 판정 없는 실행 줄(치환·대기) — 번호 없이 내용·결과만
-          if (!(nos[i]! > 0)) {
-            const d = stepDoing(s)
-            if (!d && !out) return ''
-            return (
-              '<div style="margin-bottom:7px;">' +
-              (d ? `<div style="font-size:10.5px;color:#555;">- ${esc(d)}</div>` : '') +
-              (out
-                ? `<div style="display:inline-block;max-width:100%;border:1px solid #b6bdc6;border-radius:4px;background:#fff;margin-top:2px;padding:4px 9px;box-sizing:border-box;"><pre style="display:block;max-width:100%;margin:0;white-space:pre;overflow-x:auto;font-family:Consolas,monospace;font-size:9px;line-height:1.45;color:#222;background:transparent;">${esc(out)}</pre></div>`
-                : '') +
-              '</div>'
-            )
-          }
-          const rc =
-            stepVerdict(s as TcStep) === 'Pass' || stepVerdict(s as TcStep) === '합격'
-              ? '#00875a'
-              : stepVerdict(s as TcStep) === 'Fail' || stepVerdict(s as TcStep) === '불합격'
-                ? '#d12d49'
-                : '#888'
-          return (
-            '<div style="margin-bottom:9px;border-bottom:1px dashed #ccc;padding-bottom:7px;">' +
-            `<div style="font-size:11.5px;font-weight:700;color:#111;">Step ${nos[i]}. ${esc(String(s.desc ?? '').trim() || stepDoing(s))}` +
-            (stepVerdict(s as TcStep)
-              ? ` <span style="color:${rc};font-weight:800;">[${esc(stepVerdict(s as TcStep))}]</span>`
-              : '') +
-            '</div>' +
-            /* 흰 바탕 + 테두리 — 검은 터미널을 그대로 실었더니 「출력하면
-               토너 낭비」(지적). 상자도 내용 폭만큼만 — 짧은 출력이 판을
-               통째로 먹지 않는다. 파일의 termShot 그림도 같은 옷이다. */
-            (s.cli || out
-              ? `<div style="display:inline-block;max-width:100%;border:1px solid #8a939c;border-radius:4px;background:#fff;margin-top:3px;padding:5px 9px;box-sizing:border-box;">` +
-                (s.cli
-                  ? `<div style="font-family:Consolas,monospace;font-size:10px;color:#1f5fa8;white-space:pre-wrap;">${esc(tc.prompt || '$')} ${esc(s.cli)}</div>`
-                  : '') +
-                (out
-                  ? `<pre style="display:block;max-width:100%;margin:${s.cli ? '3px' : '0'} 0 0;white-space:pre;overflow-x:auto;font-family:Consolas,monospace;font-size:9px;line-height:1.45;color:#222;background:transparent;">${esc(out)}</pre>`
-                  : '') +
-                `</div>`
-              : '') +
-            '</div>'
-          )
-        })
-        .join('')
+/** 2장 — 시험 결과 (줄 단위, 두 단 흐름) */
+export function page2(tc: LguTc, page: ResultPage): string {
+  const MONO = 'font-family:Consolas,monospace;font-size:9px;line-height:1.45;white-space:pre;overflow:hidden;'
+  const parts: string[] = []
+  let boxOpen = false
+  const closeBox = () => {
+    if (boxOpen) parts.push('</div>')
+    boxOpen = false
+  }
+  const openBox = () => {
+    if (boxOpen) return
+    /* 흰 바탕 + 테두리 — 검은 터미널을 그대로 실었더니 「출력하면 토너 낭비」
+       (지적). 두 단으로 흐를 때 상자가 단 경계에서 잘려 이어진다(box-decoration
+       slice) — 왼쪽 아래가 열리고 오른쪽 위가 열린 채 이어져 「계속」 으로 읽힌다. */
+    parts.push('<div style="border:1px solid #8a939c;border-radius:4px;background:#fff;margin-top:3px;padding:4px 9px;">')
+    boxOpen = true
+  }
+  if (page.cont)
+    parts.push('<div style="font-size:9.5px;color:#7a828c;margin-bottom:3px;">… (앞 장에서 이어짐)</div>')
+  for (const ln of page.lines) {
+    if (!ln.kind && ln.text === '') {
+      closeBox()
+      parts.push('<div style="height:6px;"></div>')
+      continue
+    }
+    if (ln.kind === 'head' || ln.kind === 'pass' || ln.kind === 'fail') {
+      closeBox()
+      const t = ln.text
+      const m = /^(.*?)(\s+\[([^\]]+)\])?$/.exec(t)
+      const label = m ? m[1]! : t
+      const v = m && m[3] ? m[3] : ''
+      const rc = ln.kind === 'pass' ? '#00875a' : ln.kind === 'fail' ? '#d12d49' : '#888'
+      const isTitle = t.startsWith('■')
+      parts.push(
+        isTitle
+          ? `<div style="margin:6px 0 4px;font-size:12px;font-weight:800;color:#111;break-after:avoid;">${esc(t)}</div>`
+          : `<div style="margin-top:4px;font-size:11.5px;font-weight:700;color:#111;break-after:avoid;">${esc(label)}${
+              v ? ` <span style="color:${rc};font-weight:800;">[${esc(v)}]</span>` : ''
+            }</div>`,
+      )
+      continue
+    }
+    if (ln.kind === 'cmd') {
+      openBox()
+      parts.push(`<div style="${MONO}font-size:10px;color:#1f5fa8;">${esc(ln.text)}</div>`)
+      continue
+    }
+    if (ln.kind === 'out' && ln.text.startsWith('- ')) {
+      /* 판정 없는 실행 줄의 설명(- …) — 상자 밖 */
+      closeBox()
+      parts.push(`<div style="font-size:10.5px;color:#555;">${esc(ln.text)}</div>`)
+      continue
+    }
+    openBox()
+    parts.push(`<div style="${MONO}color:#222;">${esc(ln.text) || ' '}</div>`)
+  }
+  closeBox()
+  const inner = parts.join('')
+  const body = page.lines.length
+    ? page.twoCol
+      ? `<div style="column-count:2;column-gap:18px;column-fill:auto;height:462px;">${inner}</div>`
+      : inner
     : '<div style="color:#9aa0b8;text-align:center;padding-top:60px;">시험 결과 데이터 없음 — 시험 실행 후 출력</div>'
   return (
     pageHead('시 험 결 과') +
@@ -667,7 +725,7 @@ export function buildSlides(tcs: LguTc[]): string[] {
   for (const tc of tcs) {
     const r = slideRanges(tc)
     for (const range of r.method) out.push(page1(tc, range))
-    for (const range of r.result) out.push(page2(tc, range))
+    for (const pg of r.result) out.push(page2(tc, pg))
   }
   // 쪽번호·법적 문구 바닥 — 장 전체 번호는 다 모은 뒤에야 안다.
   // 바닥(선·쪽번호)은 표 바로 아래 666px 에 고정(지시: 윗부분으로 올려) —

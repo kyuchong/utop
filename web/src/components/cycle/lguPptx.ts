@@ -1,5 +1,5 @@
 import PptxGenJS from 'pptxgenjs'
-import { methodBlocks, resultBlocks, resultTermLines, slideRanges, type LguTc } from './lgu'
+import { COL_LINES, methodBlocks, slideRanges, type LguTc } from './lgu'
 import { termShot, type TermLine } from './termShot'
 
 /**
@@ -96,7 +96,6 @@ export async function saveLguPptx(
   for (const tc of tcs) {
     const r = slideRanges(tc)
     const mBlocks = methodBlocks(tc)
-    const rBlocks = resultBlocks(tc)
 
     r.method.forEach(([from, to], i) => {
       const s = p.addSlide()
@@ -173,7 +172,7 @@ export async function saveLguPptx(
       }
     })
 
-    r.result.forEach(([from, to], i) => {
+    r.result.forEach((pg, i) => {
       const s = p.addSlide()
       frame(s, '시험결과', no++)
       const tag = r.result.length > 1 ? ` (${i + 1}/${r.result.length})` : ''
@@ -189,16 +188,21 @@ export async function saveLguPptx(
        * 못 넣는다.
        */
       // 번호·제목 규칙은 미리보기(page2)와 같은 한 벌 — resultTermLines
-      const lines: TermLine[] = resultTermLines(tc.steps, from, to, tc.prompt || '$')
+      // 줄 단위 장(resultPages) — 두 단이면 그림도 두 단으로 그린다(지시: 옆 여백에 이어서)
+      const lines: TermLine[] = pg.lines
       const shot = lines.length
-        ? termShot(lines, [tc.tcid, tc.name].filter(Boolean).join(' · '))
+        ? termShot(
+            lines,
+            [tc.tcid, tc.name].filter(Boolean).join(' · ') + (pg.cont ? ' (이어서)' : ''),
+            pg.twoCol ? { n: 2, per: COL_LINES } : undefined,
+          )
         : null
       s.addTable(
         [
           head(tc),
           [cell('시험 결과' + tag, { fill: YEL, bold: true, align: 'center', colspan: 6 })],
           [
-            cell(shot ? '' : rBlocks.slice(from, to).map((b) => b.text).join('\n\n'), {
+            cell(shot ? '' : lines.map((l) => l.text).join('\n'), {
               colspan: 6,
               valign: 'top',
               fontSize: 9,
