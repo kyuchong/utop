@@ -983,17 +983,31 @@ async def _bad_verdicts() -> list[str]:
     return sorted(set(out))
 
 
+def _since_dt(since: Any) -> Optional[_dt.datetime]:
+    """「이번 시작」 시각 — 실행 화면은 이 뒤의 회차만 본다(지시: 지난 회차는
+    쌓아 두되 화면은 0 부터). 문자열은 UTC 로 읽는다(_as_utc)."""
+    return _as_utc(since) if since else None
+
+
 async def plan_run_item_list(run_id: str, tcid: str = "", only_bad: bool = False,
-                             limit: int = 300, offset: int = 0) -> dict:
+                             limit: int = 300, offset: int = 0, since: Any = "") -> dict:
     """목록 — **data 를 읽지 않는다.**
 
     10,000 줄이어도 tcid·round·verdict·at 만 읽으면 수백 KB 다. 장비 출력은
     한 줄을 펼칠 때(plan_run_item_get) 꺼낸다. 이것이 부팅 10,000 회를 열어도
-    화면이 멎지 않는 까닭이다 — 실행 목록이 data 를 안 읽는 것과 같은 이치."""
+    화면이 멎지 않는 까닭이다 — 실행 목록이 data 를 안 읽는 것과 같은 이치.
+
+    since 를 주면 **그 뒤의 회차만**(이번 시작분). 그때 `seq` 가 1 부터 다시
+    센 번호다 — 회차 키(round)는 실행 안에서 계속 이어지므로(앞 회차를 덮지
+    않게) 화면은 seq 로 「이번 1·2·3 회차」 를 보인다."""
     where, args = ["run_id = $1"], [run_id]
     if tcid:
         args.append(tcid)
         where.append(f"tcid = ${len(args)}")
+    sdt = _since_dt(since)
+    if sdt is not None:
+        args.append(sdt)
+        where.append(f"at >= ${len(args)}")
     if only_bad:
         bad = await _bad_verdicts()
         if bad:
@@ -1010,7 +1024,9 @@ async def plan_run_item_list(run_id: str, tcid: str = "", only_bad: bool = False
     off = f"${len(args)}"
     sql = (
         "SELECT tcid, round, verdict, at, took_ms, same_as,"
-        "       (data <> '{}'::jsonb) AS has_body"
+        "       (data <> '{}'::jsonb) AS has_body,"
+        # 이번 시작분 안에서의 번호 — 항목마다 첫 회차를 1 로
+        f"       round - min(round) OVER (PARTITION BY tcid) + 1 AS seq"
         f"  FROM plan_run_item WHERE {' AND '.join(where)}"
         f" ORDER BY at DESC NULLS LAST, tcid, round DESC LIMIT {lim} OFFSET {off}"
     )
@@ -1021,13 +1037,25 @@ async def plan_run_item_list(run_id: str, tcid: str = "", only_bad: bool = False
             d = dict(r)
             if d.get("at") is not None:
                 d["at"] = d["at"].isoformat()
+            d["seq"] = int(d.get("seq") or 1)
             out.append(d)
         return {"items": out}
 
 
-async def plan_run_item_get(run_id: str, tcid: str, round_: int = 1) -> Optional[dict]:
-    """한 줄의 상세. 접힌 회차면 **대표 회차의 전문**을 대신 준다."""
+async def plan_run_item_get(run_id: str, tcid: str, round_: int = 1, since: Any = "") -> Optional[dict]:
+    """한 줄의 상세. 접힌 회차면 **대표 회차의 전문**을 대신 준다.
+
+    since 를 주면 round 는 **이번 시작분 안의 번호(seq)** 로 읽어 실제 회차 키로
+    옮긴다 — 화면이 보는 번호와 같은 잣대다."""
     async with pool().acquire() as c:
+        sdt = _since_dt(since)
+        if sdt is not None:
+            base = await c.fetchval(
+                "SELECT min(round) FROM plan_run_item WHERE run_id=$1 AND tcid=$2 AND at >= $3",
+                run_id, tcid, sdt)
+            if base is None:
+                return None
+            round_ = int(base) + int(round_ or 1) - 1
         r = await c.fetchrow(
             "SELECT tcid, round, verdict, at, took_ms, same_as, data"
             "  FROM plan_run_item WHERE run_id=$1 AND tcid=$2 AND round=$3",
@@ -1051,7 +1079,7 @@ async def plan_run_item_get(run_id: str, tcid: str, round_: int = 1) -> Optional
         return d
 
 
-async def plan_run_rounds(run_id: str, buckets: int = 0, tcid: str = "") -> dict:
+async def plan_run_rounds(run_id: str, buckets: int = 0, tcid: str = "", since: Any = "") -> dict:
     """회차 띠가 읽는 요약 — 회차마다 몇 건 돌고 몇 건 깨졌나.
 
     **장비 출력을 안 읽는다.** 10,000 회차여도 셈만 세므로 가볍다.
@@ -1065,25 +1093,33 @@ async def plan_run_rounds(run_id: str, buckets: int = 0, tcid: str = "") -> dict
     그 칸이 fail>0 으로 돌아오고, 실패한 회차 번호는 목록에 그대로 남는다.
     회차가 buckets 보다 적으면 size 가 1 이라 회차별 그대로다."""
     bad = await _bad_verdicts()
+    # since(이번 시작 시각)가 오면 그 뒤 회차만 보고, 번호는 그 안의 첫 회차를
+    # 1 로 다시 센다 — 지난 회차는 DB 에 쌓여 있어도 화면은 0 부터(지시)
+    sdt = _since_dt(since)
+    sfrom = sdt or _dt.datetime(1970, 1, 1, tzinfo=_dt.timezone.utc)
     async with pool().acquire() as c:
         # **항목 하나의 회차**만 센다(지시) — 실행 전체를 세면 65 항목을 한 번씩
         # 돌린 것도 「65 회차」 로 보인다. 회차는 한 항목을 여러 번 돌린 수다.
-        hi = int(await c.fetchval(
-            "SELECT COALESCE(max(round), 0) FROM plan_run_item"
-            " WHERE run_id=$1 AND ($2 = '' OR tcid = $2)", run_id, tcid) or 0)
-        if not hi:
+        mm = await c.fetchrow(
+            "SELECT min(round) AS lo, max(round) AS hi FROM plan_run_item"
+            " WHERE run_id=$1 AND ($2 = '' OR tcid = $2) AND at >= $3", run_id, tcid, sfrom)
+        lo = int((mm or {}).get("lo") or 0)
+        hi_abs = int((mm or {}).get("hi") or 0)
+        if not hi_abs:
             return {"rounds": [], "total_rounds": 0, "size": 1}
+        base = lo if sdt is not None else 1
+        hi = hi_abs - base + 1
         size = 1 if buckets <= 0 or hi <= buckets else -(-hi // buckets)
         rows = await c.fetch(
-            "SELECT ((round - 1) / $3)::int AS b,"
-            "       min(round) AS r_from, max(round) AS r_to,"
+            "SELECT ((round - $5) / $3)::int AS b,"
+            "       min(round) - $5 + 1 AS r_from, max(round) - $5 + 1 AS r_to,"
             "       count(*) AS total,"
             "       count(*) FILTER (WHERE verdict = ANY($2::text[])) AS fail,"
             "       count(*) FILTER (WHERE verdict <> '') AS judged,"
             "       min(at) AS from_at, max(at) AS to_at"
-            "  FROM plan_run_item WHERE run_id=$1 AND ($4 = '' OR tcid = $4)"
+            "  FROM plan_run_item WHERE run_id=$1 AND ($4 = '' OR tcid = $4) AND at >= $6"
             " GROUP BY 1 ORDER BY 1",
-            run_id, bad or [""], int(size), tcid,
+            run_id, bad or [""], int(size), tcid, int(base), sfrom,
         )
     out = []
     for r in rows:
@@ -1148,18 +1184,24 @@ async def plan_run_item_stat_by_day(run_id: str) -> dict:
     }
 
 
-async def plan_run_item_stat(run_id: str, tcid: str = "") -> dict:
-    """회차 요약 — 몇 번 돌았고 몇 번 깨졌나. 목록을 안 끌고 셈만 한다."""
+async def plan_run_item_stat(run_id: str, tcid: str = "", since: Any = "") -> dict:
+    """회차 요약 — 몇 번 돌았고 몇 번 깨졌나. 목록을 안 끌고 셈만 한다.
+    since 를 주면 이번 시작분만 센다(rounds 도 그 안의 수)."""
     where, args = ["run_id = $1"], [run_id]
     if tcid:
         args.append(tcid)
         where.append(f"tcid = ${len(args)}")
+    sdt = _since_dt(since)
+    if sdt is not None:
+        args.append(sdt)
+        where.append(f"at >= ${len(args)}")
     async with pool().acquire() as c:
         rows = await c.fetch(
             "SELECT COALESCE(verdict,'') AS v, count(*) AS n"
             f"  FROM plan_run_item WHERE {' AND '.join(where)} GROUP BY 1", *args)
         top = await c.fetchrow(
-            "SELECT max(round) AS rounds, count(*) AS total, min(at) AS first_at, max(at) AS last_at"
+            "SELECT max(round) - min(round) + 1 AS rounds, count(*) AS total,"
+            "       min(at) AS first_at, max(at) AS last_at"
             f"  FROM plan_run_item WHERE {' AND '.join(where)}", *args)
     hist = {str(r["v"]): int(r["n"]) for r in rows}
     out = _fold_hist(hist, await verdict_groups())

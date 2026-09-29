@@ -52,6 +52,14 @@ if rid:
     r = c.get(f"/api/plan-runs/{rid}/stat", params={"by": "day"})
     _days = r.json().get("days") or {} if r.status_code == 200 else {}
     ok("날짜별 회차 셈에 기록한 항목이 선다", any("E6100-T0001" in v for v in _days.values()), str(_days)[:120])
+    # 이번 시작분(since) — 지난 회차는 쌓여 있어도 화면은 그 뒤 것만 1 부터
+    r = c.post(f"/api/plan-runs/{rid}/item", json={"tcid": "E6100-T0001", "round": 7, "verdict": "Pass", "at": "2030-01-01T00:00:00Z", "data": {}})
+    r = c.get(f"/api/plan-runs/{rid}/items", params={"since": "2029-12-31T00:00:00Z", "tcid": "E6100-T0001"}); _its = r.json().get("items") or []
+    ok("since 뒤 회차만 · seq 는 1 부터", r.status_code == 200 and len(_its) == 1 and _its[0]["round"] == 7 and _its[0]["seq"] == 1, r.text[:120])
+    r = c.get(f"/api/plan-runs/{rid}/rounds", params={"since": "2029-12-31T00:00:00Z", "tcid": "E6100-T0001"}); _rd = r.json()
+    ok("since 회차 띠는 1 회차 하나", r.status_code == 200 and _rd.get("total_rounds") == 1 and (_rd.get("rounds") or [{}])[0].get("round") == 1, r.text[:120])
+    r = c.get(f"/api/plan-runs/{rid}/item", params={"since": "2029-12-31T00:00:00Z", "tcid": "E6100-T0001", "round": 1}); ok("since 안 1 회차 전문은 실제 7 회차", r.status_code == 200 and r.json().get("round") == 7, r.text[:100])
+    r = c.get(f"/api/plan-runs/{rid}/items", params={"tcid": "E6100-T0001"}); ok("since 없으면 지난 회차도 다 남아 있다", r.status_code == 200 and len(r.json().get("items") or []) >= 2, r.text[:100])
     r = c.post(f"/api/plan-runs/{rid}", json={"results": {"E6100-T0001": "Pass", "E6100-T0002": "WIP", "E6100-T0003": "Blocked", "E6100-T0004": ""}}); ok("실행 결과표 저장(목록 집계의 정본)", r.status_code == 200, r.text[:100])
     runs = c.get("/api/plan-runs", params={"cycle_id": cid}).json().get("runs") or []
     mine = next((x for x in runs if x.get("id") == rid), None)

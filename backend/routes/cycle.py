@@ -26,7 +26,7 @@ import re
 import secrets as _secrets
 import threading as _threading
 import time as _t
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request, Response
 from pathlib import Path
 from pydantic import BaseModel
@@ -4245,31 +4245,33 @@ async def api_plan_run_delete(run_id: str):
 
 @router.get("/api/plan-runs/{run_id}/items")
 async def api_plan_run_items(run_id: str, tcid: str = "", bad: str = "0",
-                             limit: int = 300, offset: int = 0):
-    """Report 가 그리는 그 차례(끝난 것부터)로 회차 줄을 준다."""
-    return await db.plan_run_item_list(run_id, tcid, bad == "1", limit, offset)
+                             limit: int = 300, offset: int = 0, since: str = ""):
+    """Report 가 그리는 그 차례(끝난 것부터)로 회차 줄을 준다.
+    since(이번 시작 시각)를 주면 그 뒤 회차만, seq 는 그 안에서 1 부터."""
+    return await db.plan_run_item_list(run_id, tcid, bad == "1", limit, offset, since)
 
 
 @router.get("/api/plan-runs/{run_id}/item")
-async def api_plan_run_item_get(run_id: str, tcid: str, round: int = 1):
-    """한 줄의 전문. 접힌 회차면 대표 회차의 것을 대신 준다."""
-    r = await db.plan_run_item_get(run_id, tcid, round)
+async def api_plan_run_item_get(run_id: str, tcid: str, round: int = 1, since: str = ""):
+    """한 줄의 전문. 접힌 회차면 대표 회차의 것을 대신 준다.
+    since 를 주면 round 는 이번 시작분 안의 번호다."""
+    r = await db.plan_run_item_get(run_id, tcid, round, since)
     if not r:
         raise HTTPException(404, "그 회차를 찾을 수 없습니다")
     return r
 
 
 @router.get("/api/plan-runs/{run_id}/rounds")
-async def api_plan_run_rounds(run_id: str, buckets: int = 0, tcid: str = ""):
+async def api_plan_run_rounds(run_id: str, buckets: int = 0, tcid: str = "", since: str = ""):
     """회차 띠가 읽는 요약 — 회차마다 몇 건 돌고 몇 건 깨졌나.
 
     buckets 를 주면 그 칸 수로 접어 준다(10,000 회차 → 100 칸). 회차가
-    그보다 적으면 접지 않는다."""
-    return await db.plan_run_rounds(run_id, max(0, min(400, buckets)), tcid)
+    그보다 적으면 접지 않는다. since 를 주면 이번 시작분만, 번호는 1 부터."""
+    return await db.plan_run_rounds(run_id, max(0, min(400, buckets)), tcid, since)
 
 
 @router.get("/api/plan-runs/{run_id}/stat")
-async def api_plan_run_stat(run_id: str, tcid: str = "", by: str = ""):
+async def api_plan_run_stat(run_id: str, tcid: str = "", by: str = "", since: str = ""):
     """몇 번 돌았고 몇 번 깨졌나 — 목록을 안 끌고 셈만 한다.
 
     `by=tcid` 면 **항목별로 한 방에** 센다 — 사이클 표의 「실패 이력」 이
@@ -4280,7 +4282,7 @@ async def api_plan_run_stat(run_id: str, tcid: str = "", by: str = ""):
     if by == "day":
         # 날짜(한국 시각)별·항목별 — 요약의 일자별 실행 횟수 그림이 읽는다
         return {"days": await db.plan_run_item_stat_by_day(run_id)}
-    return await db.plan_run_item_stat(run_id, tcid)
+    return await db.plan_run_item_stat(run_id, tcid, since)
 
 
 _JIRA_OPT_CACHE: dict = {}          # (프로젝트, 이슈유형) → {필드: {id: 이름}}
@@ -5795,26 +5797,29 @@ async def run_queue(payload: dict, request: Request):
         who = core.user_of(core.token_from(request)) or ""
     except Exception:
         pass
-    # **다시 실행은 덮어쓴다**(지시) — 돌릴 항목의 지난 회차 기록을 먼저
-    # 지운다. 안 지우면 화면에 옛 회차가 그대로 남아 방금 시작한 시험과
-    # 섞인다: 진행 0% 인데 Response 에는 지난 83 회차가 가득했다(실사고).
+    # **다시 실행해도 지난 회차는 지우지 않는다**(지시: 기본값 0 으로 두고
+    # 쌓는 방식). 예전엔 여기서 회차 줄을 지웠다 — 안 지우면 화면에 옛 회차가
+    # 방금 시작한 시험과 섞였기 때문(진행 0% 인데 Response 에 지난 83 회차).
+    # 이제는 항목마다 **이번 시작 시각(session_at)** 을 적고, 실행 화면은 그 뒤
+    # 회차만 1 부터 보인다. 사이클 표·일자별 그림은 쌓인 전부를 센다.
     if plan_run_id:
         try:
-            await db.plan_run_item_clear(plan_run_id, picked)
-            # **지난 판정도 비운다.** 회차 기록만 지우고 results 를 놔두면
-            # Test Report 가 옛 판정을 세어 「65 중 6 진행인데 Pass 62」 가
-            # 된다 — 머리의 10/65 와 셋이 다 다른 숫자가 나왔다(실사고).
+            # **지난 판정은 비운다.** results 를 놔두면 Test Report 가 옛 판정을
+            # 세어 「65 중 6 진행인데 Pass 62」 가 된다 — 진행은 0 부터.
             cur_run = await db.plan_run_get(plan_run_id)
             if cur_run:
                 res = dict(cur_run.get("results") or {})
                 vat = dict(cur_run.get("vat") or {})
                 logs = dict(cur_run.get("logs") or {})
+                sess = dict(cur_run.get("session_at") or {})
+                now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
                 for k in picked:
                     res[k] = ""
                     vat.pop(k, None)
                     logs.pop(k, None)
+                    sess[k] = now_iso
                 await db.plan_run_upsert(
-                    plan_run_id, {**cur_run, "results": res, "vat": vat, "logs": logs}
+                    plan_run_id, {**cur_run, "results": res, "vat": vat, "logs": logs, "session_at": sess}
                 )
         except Exception:  # noqa: BLE001
             pass  # 못 지워도 실행은 건다 — 새 결과가 같은 자리를 덮는다

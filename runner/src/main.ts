@@ -332,7 +332,7 @@ async function doRun(run: Run): Promise<void> {
       if (!r.ok) return given
       const j = (await r.json()) as { rounds?: number }
       const next = (Number(j.rounds) || 0) + 1
-      if (next > given) log(`회차 번호는 ${next} 부터 — 이 실행에 ${next - 1} 회차까지 남아 있습니다`)
+      if (next > given) log(`회차 키는 ${next} 부터 잇습니다 — 이 실행에 ${next - 1} 회차까지 남아 있습니다 (화면 번호는 1 부터)`)
       return Math.max(given, next)
     } catch {
       return given
@@ -396,13 +396,17 @@ async function doRun(run: Run): Promise<void> {
   }
 
   for (let rep = 0; rep < REP && !stopped; rep++) {
-    /** 이 바퀴의 회차 번호. 「다시 실행」 이 준 번호에서 한 바퀴마다 하나씩 */
+    /** 이 바퀴의 회차 **키** — 이 실행에 남은 마지막 회차 뒤로 이어진다
+     *  (앞 회차를 덮지 않으려고). 사람에게 보이는 번호는 아래 shown 이다. */
     const round = BASE_ROUND + rep
+    /** 화면·로그에 보이는 번호 — 이번 시작분 안에서 1 부터(지시: 기본값 0 에서
+     *  쌓기). 지난 시작의 회차가 DB 에 남아 있어도 이번 시험은 1 회차부터다. */
+    const shown = rep + 1
     /* 이 바퀴에서 하나라도 깨졌나 — 실패 처리는 바퀴가 끝난 뒤에 한다 */
     let roundBad = false
     if (REP > 1) {
-      push.set({ round })
-      push.addLog({ i: -1, kind: 'info', text: `── ${round} 회차 (${rep + 1}/${REP}) ──` })
+      push.set({ round: shown })
+      push.addLog({ i: -1, kind: 'info', text: `── ${shown} 회차 (${shown}/${REP}) ──` })
     }
     let first = true
     for (const raw of run.picked) {
@@ -681,12 +685,12 @@ async function doRun(run: Run): Promise<void> {
     if (roundBad) {
       badRounds++
       if (ON_FAIL === 'stop') {
-        push.addLog({ i: -1, kind: 'info', text: `#${round} 회차가 깨져 시험을 닫습니다` })
+        push.addLog({ i: -1, kind: 'info', text: `#${shown} 회차가 깨져 시험을 닫습니다` })
         stopped = true
         break
       }
       if (ON_FAIL === 'hold') {
-        const ans = await holdAndWait(round)
+        const ans = await holdAndWait(shown)
         if (ans === 'stop') {
           stopped = true
           break

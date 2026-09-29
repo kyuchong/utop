@@ -85,6 +85,9 @@ export interface RoundRow {
 }
 
 export interface RunFull {
+  /** 항목별 **이번 시작 시각** — 서버가 시험을 걸 때 적는다. 실행 화면은 이
+   *  뒤의 회차만 1 부터 보인다(지난 회차는 DB 에 쌓여 있다) */
+  session_at?: Record<string, string>
   id: string
   plan_id?: string | null
   name?: string | null
@@ -520,8 +523,11 @@ export default function RunDetail({
    *  회차가 통째로 빠지고**, 누적(Pass·Fail·전체)도 그만큼 모자랐다.
    *  목록은 장비 출력(data)을 안 읽으므로 이 정도는 수백 KB 다. */
   const RPT_LIMIT = 20000
+  /** 항목별 이번 시작 시각 — 없으면(옛 실행) 전부 이번 것으로 본다 */
+  const sessionAt = runQ.data?.session_at ?? {}
+  const sessionKey = JSON.stringify(sessionAt)
   const runItemsQ = useQuery({
-    queryKey: ['plan-run-items', runId],
+    queryKey: ['plan-run-items', runId, sessionKey],
     enabled: !!runId,
     /* 도는 동안 3 초마다. **끝난 뒤에도 한 번 더** 받는다 — 마지막 회차가
        저장되는 데 한 박자 걸려, 끊자마자 멈추면 그 줄을 놓친다 */
@@ -529,26 +535,26 @@ export default function RunDetail({
     refetchOnMount: 'always',
     queryFn: async () => {
       const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/items?limit=${RPT_LIMIT}`)
-      if (!r.ok)
-        return {
-          items: [] as Array<{
-            tcid: string
-            round: number
-            verdict: string
-            at?: string | null
-            took_ms?: number | null
-          }>,
-        }
-      return (await r.json()) as {
-        items: Array<{
-          tcid: string
-          round: number
-          verdict: string
-          at?: string | null
-          /** 이 한 건이 실제로 걸린 시간 — 끝나는 때를 셈할 때 쓴다 */
-          took_ms?: number | null
-        }>
+      type Row = {
+        tcid: string
+        round: number
+        verdict: string
+        at?: string | null
+        /** 이 한 건이 실제로 걸린 시간 — 끝나는 때를 셈할 때 쓴다 */
+        took_ms?: number | null
       }
+      if (!r.ok) return { items: [] as Row[] }
+      const j = (await r.json()) as { items: Row[] }
+      /* **이번 시작분만**(지시: 지난 회차는 쌓아 두되 화면은 0 부터). 항목마다
+         시작 시각 뒤의 줄만 남기고, 회차 번호는 그 안의 첫 회차를 1 로 다시
+         센다 — 저장 키는 실행 안에서 계속 이어져 앞 회차를 덮지 않는다. */
+      const kept = j.items.filter((x) => {
+        const since = sessionAt[x.tcid]
+        return !since || !x.at || x.at >= since
+      })
+      const base = new Map<string, number>()
+      for (const x of kept) base.set(x.tcid, Math.min(base.get(x.tcid) ?? Infinity, Number(x.round) || 1))
+      return { items: kept.map((x) => ({ ...x, round: (Number(x.round) || 1) - (base.get(x.tcid) ?? 1) + 1 })) }
     },
     staleTime: 3000,
   })
@@ -565,13 +571,15 @@ export default function RunDetail({
     /* **지금 보는 항목의 회차**만 센다(지시) — 실행 전체를 세면 65 항목을
        한 번씩 돌린 것도 「65 회차」 로 보인다. 회차는 한 항목을 여러 번
        돌린 수이고, 그때만 띠가 뜬다. */
-    queryKey: ['plan-run-rounds', runId, cur],
+    queryKey: ['plan-run-rounds', runId, cur, sessionAt[cur] ?? ''],
     enabled: !!runId && !!cur,
     queryFn: async () => {
       /* 칸 수를 정해 **서버에서 접어** 받는다 — 10,000 회차를 그대로
-         내려받으면 응답만 1MB 다. 회차가 적으면 서버가 안 접는다. */
+         내려받으면 응답만 1MB 다. 회차가 적으면 서버가 안 접는다.
+         since = 이번 시작 시각 — 그 뒤 회차만, 번호는 1 부터 */
+      const since = sessionAt[cur] ? `&since=${encodeURIComponent(sessionAt[cur])}` : ''
       const r = await apiFetch(
-        `/api/plan-runs/${encodeURIComponent(runId)}/rounds?buckets=120&tcid=${encodeURIComponent(cur)}`,
+        `/api/plan-runs/${encodeURIComponent(runId)}/rounds?buckets=120&tcid=${encodeURIComponent(cur)}${since}`,
       )
       if (!r.ok) return { rounds: [] as RoundRow[], total_rounds: 0, size: 1 }
       return (await r.json()) as { rounds: RoundRow[]; total_rounds?: number; size?: number }
@@ -589,10 +597,11 @@ export default function RunDetail({
   /* 지난 회차를 보는 중인가. 최근 회차는 사이클 문서가 정본이라 그대로 둔다 */
   const oldRound = roundSel != null && roundSel !== lastRound
   const roundQ = useQuery({
-    queryKey: ['plan-run-item', runId, cur, roundSel],
+    queryKey: ['plan-run-item', runId, cur, roundSel, sessionAt[cur] ?? ''],
     enabled: !!runId && !!cur && oldRound,
     queryFn: async () => {
-      const q = `tcid=${encodeURIComponent(cur)}&round=${roundSel}`
+      const since = sessionAt[cur] ? `&since=${encodeURIComponent(sessionAt[cur])}` : ''
+      const q = `tcid=${encodeURIComponent(cur)}&round=${roundSel}${since}`
       const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}/item?${q}`)
       if (!r.ok) return null
       return (await r.json()) as { data?: { steps?: unknown[] }; at?: string; verdict?: string }
