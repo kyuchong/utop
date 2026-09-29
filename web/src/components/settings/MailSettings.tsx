@@ -411,24 +411,12 @@ export default function MailSettings() {
       {tab === 'done' && (
         <div className="ml-card">
           {/* 시험이 끝나면(실행기 종료 보고) 실행한 사람에게 결과 메일(지시).
-              수동 시험은 「끝」 이 없어 자동 시험에만 간다. */}
+              수동 시험은 「끝」 이 없어 자동 시험에만 간다. 담당자에게도·실패 때만
+              스위치와 안내 줄은 걷었다(지시) — 서버 값은 남아 있고 기본은 꺼짐. */}
           <label className="ml-on">
             <input type="checkbox" checked={cfg.done_enabled} onChange={(e) => set('done_enabled', e.target.checked)} />
             <b>시험이 끝나면 실행한 사람에게 결과 메일 보내기</b>
           </label>
-          <div className="ml-secs" style={{ marginTop: 6 }}>
-            <label className="ml-sec">
-              <input type="checkbox" checked={cfg.done_to_assignee} onChange={(e) => set('done_to_assignee', e.target.checked)} />
-              사이클 담당자에게도
-            </label>
-            <label className="ml-sec">
-              <input type="checkbox" checked={cfg.done_only_fail} onChange={(e) => set('done_only_fail', e.target.checked)} />
-              실패가 있거나 오류로 끝났을 때만
-            </label>
-          </div>
-          <i className="muted small">
-            시작 단추를 누른 계정의 이메일로 갑니다. 계정에 이메일이 없으면 못 보냅니다(계정 관리에서 적으세요). 자동 시험에만 해당합니다.
-          </i>
 
           <label className="fld" style={{ marginTop: 12 }}>
             <span>제목</span>
@@ -467,7 +455,6 @@ export default function MailSettings() {
           <label className="fld">
             <span>화면 주소</span>
             <input value={cfg.app_url} placeholder="http://210.1.1.9  (사이클 열기 링크의 앞머리)" onChange={(e) => set('app_url', e.target.value)} />
-            <i className="muted small">비우면 「사이클 열기」 링크가 메일에 안 실립니다. 배정 알림 메일의 링크도 이 값을 씁니다.</i>
           </label>
         </div>
       )}
