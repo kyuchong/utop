@@ -11,7 +11,7 @@ import Wiki from '@/pages/Wiki'
  *
  * 처음 뜰 때 docs/features 의 기능별 문서가 씨앗으로 들어오고(서버가 블록으로
  * 바꾼다), 그 뒤로는 여기서 고친 것이 정본이다. 고치는 사람은 **관리자와 도움말
- * 편집자**(SETUP › 도움말·라이선스)뿐이고, 나머지는 읽기만 한다.
+ * 편집자**(SETUP › 버전·라이선스)뿐이고, 나머지는 읽기만 한다.
  */
 export default function Help({ me }: { me?: MeUser | null }) {
   const [canEdit, setCanEdit] = useState<boolean | null>(null)

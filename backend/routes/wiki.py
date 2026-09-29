@@ -85,7 +85,7 @@ async def _help_guard(c, pid: str, payload: dict | None = None) -> None:
         prj = str(row["project"] or "")
     cur_prj = str(row["project"] or "") if row is not None else ""
     if HELP_SPACE in (prj, cur_prj) and not core.help_can_edit():
-        raise HTTPException(403, "도움말을 고칠 권한이 없습니다 — SETUP › 도움말·라이선스에서 편집자를 정합니다")
+        raise HTTPException(403, "도움말을 고칠 권한이 없습니다 — SETUP › 버전·라이선스에서 편집자를 정합니다")
 
 
 @router.get("/api/wiki")

@@ -3070,7 +3070,7 @@ def _help_can_edit() -> bool:
 
 def _help_require_editor() -> str:
     if not _help_can_edit():
-        raise HTTPException(403, "도움말을 고칠 권한이 없습니다 — SETUP › 도움말·라이선스에서 편집자를 정합니다")
+        raise HTTPException(403, "도움말을 고칠 권한이 없습니다 — SETUP › 버전·라이선스에서 편집자를 정합니다")
     return _who()
 
 
@@ -4204,7 +4204,7 @@ async def _db_init():
         try: await _kv_init_async(_key, _fp, sizeguard=True)
         except Exception as _me: print(f"[startup] KV migrate '{_key}' failed: {_me}", flush=True)
     # 도움말 씨앗 — 위키 공간 __help__ 이 **비어 있을 때만** docs/features/*.md 를 블록으로 바꿔 들인다.
-    # 그 뒤로는 앱(위키 편집기)에서 고친 것이 정본이다. 되돌리기는 SETUP › 도움말·라이선스.
+    # 그 뒤로는 앱(위키 편집기)에서 고친 것이 정본이다. 되돌리기는 SETUP › 버전·라이선스.
     try:
         _n = await _help_seed_if_empty()
         if _n:

@@ -412,7 +412,7 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
 
 /**
  * 도움말 위의 판·라이선스(지시). 서버가 준다 — 버전은 VERSION 파일, 커밋은 빌드 때 박힌 것,
- * 라이선스 기간은 SETUP › 도움말·라이선스에서 관리자가 적은 것.
+ * 라이선스 기간은 SETUP › 버전·라이선스에서 관리자가 적은 것.
  * 만료가 30일 안이면 주황, 지났으면 빨강으로 눈에 띄게 한다.
  */
 function AboutBadge({ collapsed }: { collapsed: boolean }) {

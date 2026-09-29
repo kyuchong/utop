@@ -17,6 +17,7 @@ import {
   IconAccounts,
   IconCodeList,
   IconCustomField,
+  IconInfoC,
   IconLlm,
   IconPerms,
   IconPlug,
@@ -107,7 +108,7 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
       /* 로그인 화면은 딴 페이지다(지시) — 메뉴 브랜딩과 값이 갈렸다 */
       { key: 'loginbrand', label: '로그인 화면', icon: IconCustomField, ready: true },
       /* 도움말 위 판·라이선스와 도움말 편집자(지시) */
-      { key: 'about', label: '도움말 · 라이선스', icon: IconCustomField, ready: true },
+      { key: 'about', label: '버전 · 라이선스', icon: IconInfoC, ready: true },
     ],
   },
 ]
