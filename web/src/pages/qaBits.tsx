@@ -110,12 +110,12 @@ export function StatBar({
   if (!slim) return bar
   /* 어두운 팝업(지시: 그림처럼) — Pass·Fail 줄에 색 점, 건수 / 비율, 그 아래 항목 수·진행률.
      검증 불가·미실행은 있을 때만 줄을 낸다. 아래쪽 행이면 위로 띄운다. */
+  /* 그림 그대로(지시): 점 달린 줄은 Pass·Fail 둘뿐. 검증 불가·미실행은 맨 아래 흐린 글줄. */
   const rows: Array<[string, string, number]> = [
     ['Pass', 'p', t.pass],
     ['Fail', 'f', t.fail],
-    ...(t.etc ? ([['검증 불가', 'b', t.etc]] as Array<[string, string, number]>) : []),
-    ...(t.none ? ([['미실행', 'n', t.none]] as Array<[string, string, number]>) : []),
   ]
+  const tail = [t.etc ? `검증 불가 ${t.etc}` : '', t.none ? `미실행 ${t.none}` : ''].filter(Boolean).join(' · ')
   return (
     <div
       className="q-statsw"
@@ -150,6 +150,7 @@ export function StatBar({
             <div className="q-statpop-f">
               항목 {t.total}개 · 진행률 {prog}%
             </div>
+            {tail && <div className="q-statpop-s">{tail}</div>}
           </div>,
           document.body,
         )}
