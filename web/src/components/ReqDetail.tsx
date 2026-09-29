@@ -250,17 +250,14 @@ export default function ReqDetail({ req, tcs, tab, edit }: Props) {
 
 
 /**
- * REQ Details — 읽기와 편집을 한자리에서.
+ * REQ Intent — 열자마자 바로 고친다(지시: 「편집」 을 안 누르고 수정).
  *
- * 규격서는 자주 손본다. 고칠 때마다 창을 열었다 닫는 건 흐름을 끊는다.
- * 그래서 이 탭 안에서 바로 고치고 저장한다.
- *
- * 다만 기본은 읽기다. 편집으로 들어가야 글이 바뀌므로 실수로 건드릴 일이 없고,
- * 저장하지 않고 나가려 하면 붙잡는다.
+ * 규격서는 자주 손본다. 읽기/편집을 오가는 단추는 흐름만 끊어서 없앴다.
+ * 블록 노트가 늘 열려 있고, 고친 것이 있으면 「저장」 이 켜지고 「되돌리기」 가 나온다.
+ * 저장 전까지는 서버에 닿지 않는다 — 실수로 건드려도 되돌리면 그만이다.
  */
 function DetailDoc({ req, desc }: { req: Requirement; desc: string }) {
   const qc = useQueryClient()
-  const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(desc)
   const [error, setError] = useState('')
   const savedRef = useRef(desc)
@@ -288,7 +285,7 @@ function DetailDoc({ req, desc }: { req: Requirement; desc: string }) {
       const r = await apiFetch(`/api/req/${encodeURIComponent(reqPk(req))}/ai-intent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ req: { ...req, desc: editing ? draft : desc }, llm }),
+        body: JSON.stringify({ req: { ...req, desc: draft }, llm }),
       })
       const b = (await r.json().catch(() => ({}))) as { text?: string; detail?: string }
       if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
@@ -324,7 +321,9 @@ function DetailDoc({ req, desc }: { req: Requirement; desc: string }) {
 ---
 
 ${md}` : md))
-      setEditing(true)
+      /* 노트를 새 글로 다시 세운다 — 노트는 처음 설 때만 글을 읽는다 */
+      docRef.current = undefined
+      setDocStamp((n) => n + 1)
       setNote({ kind: 'ok', msg: `${f.name} 불러옴 · 저장을 눌러야 반영됩니다` })
     } catch (e) {
       setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
@@ -340,7 +339,7 @@ ${md}` : md))
       const res = await apiFetch(`/api/req/${encodeURIComponent(reqPk(req))}/embed`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: editing ? draft : desc }),
+        body: JSON.stringify({ text: draft }),
       })
       if (!res.ok) {
         const b = await res.json().catch(() => ({}))
@@ -355,19 +354,23 @@ ${md}` : md))
     }
   }
 
-  // 다른 요구사항으로 옮겨가면 편집을 닫고 새 내용을 싣는다
+  // 다른 요구사항으로 옮겨가면 새 내용을 싣는다(노트는 key 에 요구사항 ID 가 있어 다시 선다)
   useEffect(() => {
-    setEditing(false)
     setDraft(desc)
     savedRef.current = desc
     setError('')
   }, [reqPk(req), desc])
+  useEffect(() => {
+    setDocStampRaw({ n: 0, fromDoc: true })
+  }, [reqPk(req)])
 
   /* 블록 저장분 — 노트가 고칠 때마다 여기 담기고, 저장이 함께 싣는다 */
   const docRef = useRef<unknown>(undefined)
-  /* 노트를 새로 세워야 할 때(AI 초안을 넣을 때) 올린다 */
-  const [docStamp, setDocStamp] = useState(0)
-  const dirty = editing && draft !== savedRef.current
+  /* 노트를 새로 세워야 할 때 올린다 — fromDoc 이면 저장된 블록에서, 아니면 draft 글자에서 선다 */
+  const [docStamp, setDocStampRaw] = useState<{ n: number; fromDoc: boolean }>({ n: 0, fromDoc: true })
+  const setDocStamp = (_f: (n: number) => number, fromDoc = false) =>
+    setDocStampRaw((s) => ({ n: s.n + 1, fromDoc }))
+  const dirty = draft !== savedRef.current
 
   const saveM = useMutation({
     mutationFn: () =>
@@ -380,25 +383,39 @@ ${md}` : md))
       }),
     onSuccess: () => {
       savedRef.current = draft
-      setEditing(false)
       setError('')
       void qc.invalidateQueries({ queryKey: ['req', 'list'] })
     },
     onError: (e) => setError(e instanceof Error ? e.message : String(e)),
   })
 
-  const cancel = () => {
-    if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 버릴까요?')) return
+  /** 되돌리기 — 마지막 저장분으로 노트를 다시 세운다 */
+  const revert = () => {
+    if (dirty && !window.confirm('저장하지 않은 변경을 버리고 마지막 저장분으로 되돌릴까요?')) return
     setDraft(savedRef.current)
-    setEditing(false)
+    docRef.current = undefined
+    /* 마지막 저장분이 서버 글과 같으면 블록에서, 아니면(방금 저장해 목록이 아직 안 돌아옴) 글자에서 */
+    setDocStamp((n) => n + 1, savedRef.current === desc)
     setError('')
   }
+
+  /* Ctrl/⌘+S 로 저장 — 늘 열린 편집기라 단축키가 있어야 손이 편하다 */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        if (dirty && !saveM.isPending) saveM.mutate()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   return (
     <div className="detail-doc-wrap">
       <div className="doc-bar">
         <span className={`small ${note.kind || 'muted'}`}>
-          {note.msg || (editing ? (dirty ? '수정 중 · 저장하지 않음' : '수정 중') : '읽기')}
+          {note.msg || (dirty ? '수정 중 · 저장하지 않음' : '저장됨')}
         </span>
         <span className="page-head-actions">
           <input
@@ -438,30 +455,25 @@ ${md}` : md))
             className="btn"
             type="button"
             onClick={doEmbed}
-            disabled={embedding || !(editing ? draft : desc).trim()}
+            disabled={embedding || !draft.trim()}
             title="구현내용을 검색·TC 생성에 쓸 수 있도록 벡터로 저장합니다"
           >
             {embedding ? '저장 중…' : '벡터 저장'}
           </button>
-          {editing ? (
-            <>
-              <button className="btn" type="button" onClick={cancel} disabled={saveM.isPending}>
-                취소
-              </button>
-              <button
-                className="btn primary"
-                type="button"
-                onClick={() => saveM.mutate()}
-                disabled={saveM.isPending || !dirty}
-              >
-                {saveM.isPending ? '저장 중…' : '저장'}
-              </button>
-            </>
-          ) : (
-            <button className="btn primary" type="button" onClick={() => setEditing(true)}>
-              편집
+          {dirty && (
+            <button className="btn" type="button" onClick={revert} disabled={saveM.isPending}>
+              되돌리기
             </button>
           )}
+          <button
+            className="btn primary"
+            type="button"
+            onClick={() => saveM.mutate()}
+            disabled={saveM.isPending || !dirty}
+            title="Ctrl+S"
+          >
+            {saveM.isPending ? '저장 중…' : '저장'}
+          </button>
         </span>
       </div>
 
@@ -481,7 +493,6 @@ ${md}` : md))
                 /* 글로만 갈아 끼운다 — 노트가 이 글에서 블록을 다시 세운다 */
                 docRef.current = undefined
                 setDocStamp((n) => n + 1)
-                setEditing(true)
                 setAiText('')
               }}
             >
@@ -497,28 +508,22 @@ ${md}` : md))
         </div>
       )}
 
-      {editing ? (
-        /* 위키·Test Summary 와 같은 **블록 노트**(지시: 노드 추가 기능) —
-           「/」 로 제목·목록·표·그림을 넣는다. 마크다운(desc)은 계속 함께
-           저장한다: 결과서·RAG·시험항목 생성이 그 글자를 읽는다.
-           doc 은 처음 설 때만 읽히므로 key 로 갈아 끼운다(AI 초안). */
-        <div className="doc-editor rd-note">
-          <DescNote
-            key={`rd-${reqPk(req)}-${docStamp}`}
-            doc={(req as unknown as { desc_doc?: unknown }).desc_doc}
-            text={draft}
-            editable
-            onChange={(d, md) => {
-              docRef.current = d
-              setDraft(md)
-            }}
-          />
-        </div>
-      ) : (
-        <div className="detail-body scroll detail-doc">
-          <Markdown text={desc} empty="구현내용이 없습니다. 「편집」을 눌러 넣으세요." />
-        </div>
-      )}
+      {/* 위키·Test Summary 와 같은 **블록 노트**(지시: 노드 추가 기능) — 늘 열려 있다.
+          「/」 로 제목·목록·표·그림을 넣는다. 마크다운(desc)은 계속 함께
+          저장한다: 결과서·RAG·시험항목 생성이 그 글자를 읽는다.
+          doc 은 처음 설 때만 읽히므로 key 로 갈아 끼운다(AI 초안·파일 등록·되돌리기). */}
+      <div className="doc-editor rd-note">
+        <DescNote
+          key={`rd-${reqPk(req)}-${docStamp.n}`}
+          doc={docStamp.fromDoc ? (req as unknown as { desc_doc?: unknown }).desc_doc : undefined}
+          text={draft}
+          editable
+          onChange={(d, md) => {
+            docRef.current = d
+            setDraft(md)
+          }}
+        />
+      </div>
     </div>
   )
 }
