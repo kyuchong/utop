@@ -60,6 +60,9 @@ if rid:
     ok("since 회차 띠는 1 회차 하나", r.status_code == 200 and _rd.get("total_rounds") == 1 and (_rd.get("rounds") or [{}])[0].get("round") == 1, r.text[:120])
     r = c.get(f"/api/plan-runs/{rid}/item", params={"since": "2029-12-31T00:00:00Z", "tcid": "E6100-T0001", "round": 1}); ok("since 안 1 회차 전문은 실제 7 회차", r.status_code == 200 and r.json().get("round") == 7, r.text[:100])
     r = c.get(f"/api/plan-runs/{rid}/items", params={"tcid": "E6100-T0001"}); ok("since 없으면 지난 회차도 다 남아 있다", r.status_code == 200 and len(r.json().get("items") or []) >= 2, r.text[:100])
+    r = c.get(f"/api/plan-runs/{rid}/rounds", params={"tcid": "E6100-T0001"}); _rd = r.json()
+    ok("since 없어도 회차 띠는 첫 회차가 1", r.status_code == 200 and (_rd.get("rounds") or [{}])[0].get("round") == 1, r.text[:120])
+    r = c.get(f"/api/plan-runs/{rid}/item", params={"tcid": "E6100-T0001", "round": 1}); ok("전문도 화면 번호로 — 1 회차는 실제 첫 회차 키", r.status_code == 200 and r.json().get("round") == 1, r.text[:100])
     r = c.post(f"/api/plan-runs/{rid}", json={"results": {"E6100-T0001": "Pass", "E6100-T0002": "WIP", "E6100-T0003": "Blocked", "E6100-T0004": ""}}); ok("실행 결과표 저장(목록 집계의 정본)", r.status_code == 200, r.text[:100])
     runs = c.get("/api/plan-runs", params={"cycle_id": cid}).json().get("runs") or []
     mine = next((x for x in runs if x.get("id") == rid), None)

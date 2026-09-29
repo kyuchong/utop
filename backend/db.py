@@ -1048,14 +1048,15 @@ async def plan_run_item_get(run_id: str, tcid: str, round_: int = 1, since: Any 
     since 를 주면 round 는 **이번 시작분 안의 번호(seq)** 로 읽어 실제 회차 키로
     옮긴다 — 화면이 보는 번호와 같은 잣대다."""
     async with pool().acquire() as c:
-        sdt = _since_dt(since)
-        if sdt is not None:
-            base = await c.fetchval(
-                "SELECT min(round) FROM plan_run_item WHERE run_id=$1 AND tcid=$2 AND at >= $3",
-                run_id, tcid, sdt)
-            if base is None:
-                return None
-            round_ = int(base) + int(round_ or 1) - 1
+        # round 는 화면 번호(범위 안의 첫 회차 = 1)다 — 회차 키로 옮긴다. since 가
+        # 없으면 그 항목의 전체 범위가 잣대다(회차 띠와 같은 셈).
+        sdt = _since_dt(since) or _dt.datetime(1970, 1, 1, tzinfo=_dt.timezone.utc)
+        base = await c.fetchval(
+            "SELECT min(round) FROM plan_run_item WHERE run_id=$1 AND tcid=$2 AND at >= $3",
+            run_id, tcid, sdt)
+        if base is None:
+            return None
+        round_ = int(base) + int(round_ or 1) - 1
         r = await c.fetchrow(
             "SELECT tcid, round, verdict, at, took_ms, same_as, data"
             "  FROM plan_run_item WHERE run_id=$1 AND tcid=$2 AND round=$3",
@@ -1107,7 +1108,10 @@ async def plan_run_rounds(run_id: str, buckets: int = 0, tcid: str = "", since: 
         hi_abs = int((mm or {}).get("hi") or 0)
         if not hi_abs:
             return {"rounds": [], "total_rounds": 0, "size": 1}
-        base = lo if sdt is not None else 1
+        # 번호는 **늘 첫 회차를 1 로**(지적: 자동 시험 화면이 2 회차부터 시작).
+        # 회차 키는 실행 안에서 이어 붙어(앞 회차를 안 덮게) 2·11 같은 수가 되는데,
+        # 사람에게 보이는 번호는 since 가 있든 없든 그 범위 안의 첫 회차가 1 이다.
+        base = lo
         hi = hi_abs - base + 1
         size = 1 if buckets <= 0 or hi <= buckets else -(-hi // buckets)
         rows = await c.fetch(
