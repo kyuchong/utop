@@ -63,6 +63,31 @@ const THUMB_W = 221
  * **눈에 들어올 때 그린다**(IntersectionObserver). 한 번 그린 것은 그대로 둔다 —
  * 스크롤을 오갈 때마다 다시 그리면 깜빡인다.
  */
+/**
+ * 장 문서 — **배율을 안 넣는다.** 1280×720 원본 그대로이고, 줄이는 것은
+ * 바깥(iframe 요소의 CSS transform)이 한다.
+ *
+ * 전에는 문서 안에 `transform:scale(배율)` 을 글자로 박았다. 배율이 바뀌면
+ * srcdoc 이 바뀌어 장 수만큼 iframe 이 통째로 다시 읽혔고, 그 다시 읽기가
+ * 늦거나 안 걸리는 크롬에서는 **틀은 줄었는데 그림은 처음 배율(0.78) 그대로**
+ * 남아 오른쪽이 잘렸다(지적: 화면 비율에 따라 안 보인다). 바깥에서 걸면
+ * 틀과 그림이 늘 같은 값을 쓰고, 창을 바꿔도 다시 읽지 않는다.
+ */
+function slideDoc(html: string): string {
+  return (
+    '<!doctype html><meta charset="utf-8">' +
+    '<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}' +
+    '.p{width:1280px;height:720px;padding:4px 30px;box-sizing:border-box;overflow:hidden;' +
+    "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
+    `<div class="p">${html}</div>`
+  )
+}
+
+/** 1280×720 iframe 을 바깥에서 k 배로 줄이는 인라인 스타일 */
+function frameStyle(k: number) {
+  return { width: 1280, height: 720, transform: `scale(${k})`, transformOrigin: 'top left' } as const
+}
+
 function SlideThumb({ html, w, h }: { html: string; w: number; h: number }) {
   const box = useRef<HTMLSpanElement>(null)
   const [on, setOn] = useState(false)
@@ -91,15 +116,8 @@ function SlideThumb({ html, w, h }: { html: string; w: number; h: number }) {
           title=""
           sandbox=""
           scrolling="no"
-          style={{ width: w, height: h }}
-          srcDoc={
-            '<!doctype html><meta charset="utf-8">' +
-            '<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}' +
-            '.p{width:1280px;height:720px;padding:4px 30px;box-sizing:border-box;' +
-            `overflow:hidden;transform:scale(${k});transform-origin:top left;` +
-            "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
-            `<div class="p">${html}</div>`
-          }
+          style={frameStyle(k)}
+          srcDoc={slideDoc(html)}
         />
       )}
     </span>
@@ -361,7 +379,9 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
       const h = el.clientHeight - 26
       // 꽉 채우면 갑갑하다(지적: 배율 더 줄여) — 맞춤값의 90% 로 사방에
       // 여백을 남긴다.
-      return w > 0 && h > 0 ? Math.max(0.4, Math.min(1.4, Math.min(w / 1280, h / 720) * 0.9)) : 0
+      /* 하한을 걷었다(지시) — 0.4 로 막으면 본문이 512px 보다 좁을 때 오른쪽이
+         잘린다. 창이 작으면 글자가 작아지더라도 한 장이 통째로 보여야 한다. */
+      return w > 0 && h > 0 ? Math.max(0.05, Math.min(1.4, Math.min(w / 1280, h / 720) * 0.9)) : 0
     }
     const fit = () => {
       const s1 = calc()
@@ -476,7 +496,9 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
                * 생긴다 — 결과서 미리보기는 「우리 화면」 이 아니라 「저쪽
                * 문서」 라서, 우리 규칙이 닿지 않는 편이 옳기도 하다.
                *
-               * 1280×720 을 0.78 로 줄여 998×562 로 보인다.
+               * 문서는 1280×720 그대로이고 iframe 요소를 바깥에서 배율만큼
+               * 줄인다(frameStyle) — 창을 바꿔도 다시 읽지 않고, 틀과 그림이
+               * 늘 같은 배율이라 잘릴 수 없다.
                */
               <div
                 className="rpt-wrap"
@@ -490,15 +512,8 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
                   /* 장은 배율로 딱 맞춰 그리므로 막대가 설 까닭이 없다 —
                      그래도 서면 한 자락이 잘려 보인다(지적) */
                   scrolling="no"
-                  style={{ width: Math.round(1280 * scale), height: Math.round(720 * scale) }}
-                  srcDoc={
-                    '<!doctype html><meta charset="utf-8">' +
-                    '<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}' +
-                    '.p{width:1280px;height:720px;padding:4px 30px;box-sizing:border-box;' +
-                    `overflow:hidden;transform:scale(${scale});transform-origin:top left;` +
-                    "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
-                    `<div class="p">${html}</div>`
-                  }
+                  style={frameStyle(scale)}
+                  srcDoc={slideDoc(html)}
                 />
               </div>
             ))
