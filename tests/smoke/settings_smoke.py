@@ -22,6 +22,8 @@ r = c.put(f"/api/users/{uname}", params=q, json={"name": "스모크2"}); ok("계
 r2 = httpx.post(B + "/api/login", json={"username": uname, "password": "smk-1234"}); ok("새 계정 로그인", r2.status_code == 200 and r2.json().get("token"), r2.text[:80])
 c2 = httpx.Client(base_url=B, timeout=60, headers={"Authorization": f"Bearer {r2.json()['token']}"})
 r = c2.get("/api/users", params={"token": r2.json()["token"]}); ok("일반 사용자는 계정 관리 403(500 아님)", r.status_code in (401, 403) or r.status_code == 200, str(r.status_code))
+r = c2.get("/api/mail/config"); ok("일반 사용자도 메일 설정을 읽는다(스위치가 빈 값으로 보이지 않게) · 비밀번호는 가림 · 고치기는 못함", r.status_code == 200 and r.json().get("can_manage") is False and r.json()["config"].get("password") == "", r.text[:100])
+r = c2.post("/api/mail/config", json={"done_enabled": True}); ok("일반 사용자는 메일 설정 저장 403", r.status_code == 403, str(r.status_code))
 r = c2.post("/api/me/change-password", json={"old": "smk-1234", "new": "smk-5678"}); ok("암호 바꾸기(500 아님)", r.status_code != 500, r.text[:100])
 r = c2.post("/api/logout", json={}, params={"token": r2.json()["token"]}); ok("로그아웃(암호를 바꿨으면 세션이 이미 끊겨 401 도 정상)", r.status_code in (200, 401), str(r.status_code))
 r = c.get("/api/user-names"); ok("이름표(500 아님)", r.status_code != 500, r.text[:80])

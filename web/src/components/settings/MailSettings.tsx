@@ -112,6 +112,8 @@ export default function MailSettings() {
   const [req, setReq] = useState<ShareForm>({ subject: '', sections: {}, intro: '', outro: '' })
   const [tc, setTc] = useState<ShareForm>({ subject: '', sections: {}, intro: '', outro: '' })
   const [busy, setBusy] = useState(false)
+  /** 고칠 수 있는 사람인가 — 관리자만. 아니면 값은 보이되 저장 단추가 꺼진다 */
+  const [canManage, setCanManage] = useState(true)
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
   const [to, setTo] = useState('')
   const [sending, setSending] = useState(false)
@@ -130,7 +132,9 @@ export default function MailSettings() {
             default_cycle_html?: string
             default_done_subject?: string
             default_done_intro?: string
+            can_manage?: boolean
           }
+          setCanManage(j.can_manage !== false)
           /* 화면 주소가 비어 있으면 **지금 접속한 주소**를 넣어 둔다(지시: 메일의
              링크가 그 사이클 화면으로 가게). 저장하면 그대로 굳는다. */
           const origin = typeof window !== 'undefined' ? window.location.origin : ''
@@ -263,7 +267,8 @@ export default function MailSettings() {
         </span>
         <span className="sp" />
         {note.msg && <span className={`set-note ${note.kind}`}>{note.msg}</span>}
-        <button className="btn primary" type="button" disabled={busy} onClick={() => void save()}>
+        {!canManage && <span className="muted small">관리자만 고칠 수 있습니다</span>}
+        <button className="btn primary" type="button" disabled={busy || !canManage} onClick={() => void save()}>
           {busy ? '저장 중…' : '저장'}
         </button>
       </div>

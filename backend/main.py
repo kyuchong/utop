@@ -2189,8 +2189,17 @@ def _render_mail_tpl(tpl: str, name: str = "", username: str = "", email: str = 
 
 @app.get("/api/mail/config")
 async def api_mail_config_get(token: str = ""):
-    _require_admin(token)
-    return {"config": _load_mail_cfg(),
+    """읽기는 **로그인한 누구나**(지적: 일반 계정에는 Cycles 알림 스위치가 꺼진
+    것으로 보였다 — 읽기를 관리자로 막아 빈 기본값이 그려진 것). 고치기는
+    관리자만(POST). 관리자가 아니면 SMTP 비밀번호는 가린다."""
+    u = _user_from_token(token or _REQ_TOKEN.get(""))
+    if not u:
+        raise HTTPException(401, "로그인이 필요합니다")
+    admin = u.get("role") == "관리자"
+    cfg = dict(_load_mail_cfg())
+    if not admin:
+        cfg["password"] = ""
+    return {"config": cfg, "can_manage": admin,
             "default_approval_subject": _DEFAULT_APPROVAL_SUBJECT,
             "default_approval_html": _DEFAULT_APPROVAL_TPL,
             "default_cycle_subject": _DEFAULT_CYCLE_SUBJECT,
