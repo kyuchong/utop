@@ -745,7 +745,8 @@
   /* 이름표 위, 값 아래 — 150px 레일에 「라이선스 ~2027-12-31 D-458」 을 한 줄로는 못 넣는다 */
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center; /* 글자 가운데(지시) */
+  text-align: center;
   gap: 1px;
   padding: 4px 8px;
   border: 1px solid var(--c-border-nav, #ccd3db);
@@ -766,6 +767,7 @@
 .nav-about-v {
   display: inline-flex;
   align-items: baseline;
+  justify-content: center;
   gap: 4px;
   font-weight: 600;
   color: var(--c-nav-fg-strong, #0d4451);
