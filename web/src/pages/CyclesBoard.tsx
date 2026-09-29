@@ -1382,11 +1382,12 @@ export default function CyclesBoard({
     )
   }, [dayStat])
 
-  /** 고른 기간을 **날마다 채워서** 준다(지적: 7일을 눌러도 9/11 하루만 나온다).
+  /** 고른 기간을 **날마다 채워서, 창 안에서 0 부터 쌓아** 준다(지시: 누적으로).
    *
-   *  기록이 있는 날만 그리면 축이 하루짜리가 된다. **안 돈 날은 0** 이다.
-   *  창은 오늘(또는 마지막 기록일 중 늦은 날)에서 끝난다 — 오늘 안 돌았어도
-   *  오늘 칸이 서야 「오늘은 없다」 가 보인다. 창 밖 기록은 안 그린다. */
+   *  기록이 있는 날만 그리면 축이 하루짜리가 된다. 창의 첫날을 0 으로 잡고
+   *  그날부터 회차를 더한다 — 안 돈 날은 앞 값을 잇는다. **창 밖 옛 회차는
+   *  안 섞는다**(지적: 9/15 의 56회가 시작값으로 들어와 오늘이 66 으로 보였다).
+   *  창은 오늘(또는 마지막 기록일 중 늦은 날)에서 끝난다. */
   const covCumSpan = useMemo(() => {
     type Pt = { p: number; f: number; b: number }
     const dayMs = 86400000
@@ -1402,9 +1403,14 @@ export default function CyclesBoard({
     const from = end - (spanD - 1) * dayMs
     const M = new Map(covCum)
     const out: Array<[string, Pt]> = []
+    let a = 0
+    let m = 0
     for (let t = from; t <= end; t += dayMs) {
       const d = new Date(t).toISOString().slice(0, 10)
-      out.push([d, M.get(d) ?? { p: 0, f: 0, b: 0 }])
+      const v = M.get(d)
+      a += v?.p ?? 0
+      m += v?.f ?? 0
+      out.push([d, { p: a, f: m, b: 0 }])
     }
     return out
   }, [covCum, spanD])
@@ -3256,7 +3262,7 @@ export default function CyclesBoard({
           </div>
           <div className="cyb-rtw">
             <h3 className="cyb-rowh">
-              일자별 <span className="dim">실행 횟수 — 자동 · 수동</span>
+              일자별 <span className="dim">누적 실행 횟수 — 자동 · 수동 · 기간 첫날부터 0</span>
               <span className="cu-sp" />
               {spanPick}
               {kindPick}
@@ -3264,8 +3270,8 @@ export default function CyclesBoard({
             <DayChart
               rows={covCumSpan}
               series={[
-                { k: 'p', label: '자동', color: 'var(--c-primary)' },
-                { k: 'f', label: '수동', color: '#8a949e' },
+                { k: 'p', label: '자동(누적)', color: 'var(--c-primary)' },
+                { k: 'f', label: '수동(누적)', color: '#8a949e' },
               ]}
               unit={`단위 회 · 담은 항목 ${itemRows.length}건 · 실행 ${myRuns.length}건`}
             />
