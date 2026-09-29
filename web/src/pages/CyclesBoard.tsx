@@ -1230,11 +1230,31 @@ export default function CyclesBoard({
     }).length
   }, [tcQ.data, plan])
 
+  /** 이 사이클에 **지금 도는 시험이 있나** — 있으면 실행 문서·회차 셈을
+   *  4 초마다 다시 읽는다(지적: 표가 실시간이 아니다). 회차는 실행기가
+   *  서버에 직접 쓰므로 웹이 신호를 받을 길이 없어, 도는 동안은 물어봐야
+   *  한다. 안 돌 때는 안 묻는다 — 62 항목 × 실행 수만큼 조회가 나간다.
+   *  (liveRunQ 는 아래에 선언돼 있어 여기서 못 쓴다 — liveAllQ 로 안다) */
+  const cycleBusy = !!open && (liveByPlan.get(String(open)) ?? 0) > 0
+  const wasBusy = useRef(false)
+  useEffect(() => {
+    /* 시험이 **끝나는 순간**에만 한 번 더 — 마지막 회차가 표에 남게.
+       처음 열 때(false→false)는 안 건다: 방금 읽은 것을 또 읽는다 */
+    if (wasBusy.current && !cycleBusy) {
+      void qc.invalidateQueries({ queryKey: ['plan-run'] })
+      void qc.invalidateQueries({ queryKey: ['plan-run-stat'] })
+      void qc.invalidateQueries({ queryKey: ['plan-runs'] })
+    }
+    wasBusy.current = cycleBusy
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycleBusy])
+
   /** 실패 이력 — 이 사이클의 실행들이 남긴 결과를 항목별로 센다 */
   const failQs = useQueries({
     queries: myRuns.map((r) => ({
       queryKey: ['plan-run', r.id],
       enabled: !!open && (tab === 'run' || tab === 'itm' || tab === 'ita'),
+      refetchInterval: cycleBusy ? 4000 : false,
       queryFn: async () => {
         const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}`)
         if (!res.ok) throw new Error('실행을 불러오지 못했습니다')
@@ -1334,6 +1354,7 @@ export default function CyclesBoard({
     queries: myRuns.map((r) => ({
       queryKey: ['plan-run-stat', r.id],
       enabled: !!open && (tab === 'run' || tab === 'itm' || tab === 'ita'),
+      refetchInterval: cycleBusy ? 4000 : false,
       queryFn: async () => {
         const res = await apiFetch(`/api/plan-runs/${encodeURIComponent(r.id)}/stat?by=tcid`)
         if (!res.ok) throw new Error('회차를 불러오지 못했습니다')
