@@ -6012,7 +6012,18 @@ async def _notify_run_done(run: dict) -> None:
             if e2 and e2 not in to:
                 to.append(e2)
         if not to:
-            print(f"[done-mail] 받을 사람이 없습니다 — 실행한 사람 '{who}' 에 이메일이 없음 ({cid})", flush=True)
+            # **이력에도 남긴다**(지적: 관리자 계정으로 돌리니 메일이 안 오는데 까닭을 알 길이
+            # 없었다) — 화면의 메일 이력에 「실패 — 받을 사람 없음」 으로 보인다
+            why = f"받을 사람 없음 — 실행한 사람 '{who or '?'}' 계정에 이메일이 없습니다 (계정 관리에서 적으세요)"
+            print(f"[done-mail] {why} ({cid})", flush=True)
+            try:
+                await db.cycle_mail_add(cid, "자동(시험 종료)", "", _done_fill(str(cfg.get("done_subject") or "") or _DONE_SUBJECT, {
+                    "cycle": cycle.get("name") or cid, "model": cycle.get("model") or "", "version": cycle.get("version") or "",
+                    "vgroup": cycle.get("version_group") or "", "status": status_ko, "who": who, "total": len(picked),
+                    "pass": st["n_pass"], "fail": st["n_fail"], "etc": st["n_etc"], "none": st["n_none"]}),
+                    "시험 종료 자동 알림", False, why, "", "", "", [])
+            except Exception:  # noqa: BLE001
+                pass
             return
         esc = lambda x: _h.escape(str(x or ""))  # noqa: E731
         vals = {
