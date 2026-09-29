@@ -349,7 +349,7 @@ export default function App() {
         <Settings />
       ) : page === 'help' ? (
         /* 도움말 — SYSTEM 바로 위(지시). 누구나 읽고, 편집자만 고친다 */
-        <Help />
+        <Help me={user} />
       ) : page === 'releases' ? (
         /* Jira 버전별 이슈와 그 이슈를 덮는 시험 — 주신 목업의 노션 꼴 표.
            자료는 이미 도는 서버 것을 그대로 쓴다(jira/* · release-summary). */

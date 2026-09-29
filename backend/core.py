@@ -257,3 +257,7 @@ TRASH_DIR: Any = None
 FOLDERS_FILE: Any = None
 
 IMG_EXT: Any = None
+
+# ── 도움말(위키 공간 __help__) 쓰기 권한 — main 이 bind 로 채운다 ──
+def help_can_edit(*a, **k):
+    raise RuntimeError('core 가 아직 매이지 않았습니다: help_can_edit')

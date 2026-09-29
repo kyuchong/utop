@@ -243,9 +243,15 @@ export default function WikiEditor({
   onSaved,
   sideFolded,
   onFoldSide,
+  readOnly = false,
+  space,
 }: {
   id: string
   title: string
+  /** 읽기만 — 도움말을 편집자가 아닌 사람이 볼 때. 입력·가져오기·되돌리기가 잠긴다 */
+  readOnly?: boolean
+  /** 위키 공간(도움말 __help__) — 프로젝트 고름표를 세우지 않는다 */
+  space?: string
   /** 이 문서가 매인 프로젝트(빈 값 = 공용) */
   project?: string
   /** 나 — 접속자 표시와 「내가 방금 저장한 것」 가려내기에 쓴다 */
@@ -715,6 +721,7 @@ export default function WikiEditor({
             만들 때의 프로젝트가 그냥 박히고 끝이면, 「전체」 로 두고 쓴 문서는
             영영 공용으로 남고 잘못 박힌 것은 고칠 길이 없다. 여기서 옮긴다.
             나중에 AI 가 프로젝트별로 문서를 찾을 때 읽는 값이 이것이다. */}
+        {!space && !readOnly && (
         <span className="wke-prjbox">
         <span>프로젝트</span>
         <select
@@ -737,6 +744,7 @@ export default function WikiEditor({
           ))}
         </select>
         </span>
+        )}
         <span className="sp" />
         {/* 같이 보고 있는 사람은 **머리줄**로 올렸다(지시) — 도구줄은
             문서에 하는 일(가져오기·PDF·이력)로 차 있어, 소식이 그 사이에
@@ -752,6 +760,7 @@ export default function WikiEditor({
             돌려주면 편집기가 그것을 블록으로 읽는다 — 우리가 블록을 손으로
             짜지 않는 까닭은, 편집기가 아는 꼴이 곧 편집기가 다시 열 수 있는
             꼴이기 때문이다. */}
+        {!readOnly && (
         <label className="btn small wke-imp">
           문서 가져오기
           <input
@@ -874,6 +883,7 @@ export default function WikiEditor({
             }}
           />
         </label>
+        )}
         {/* PDF — **서버에서 굽는다.** 인쇄 창을 거치지 않는다(지시).
             화면을 그리는 엔진과 종이를 찍는 엔진이 같은 크로미움이라,
             화면과 종이가 갈릴 자리가 없다. 미리보기와 내려받기는 **같은
@@ -946,6 +956,7 @@ export default function WikiEditor({
                 <span className="wke-rev-who">{r.who || '—'}</span>
                 <span className="wke-rev-t">{r.title || '(이름 없음)'}</span>
                 <span className="sp" />
+                {!readOnly && (
                 <button
                   type="button"
                   className="btn small"
@@ -970,6 +981,7 @@ export default function WikiEditor({
                 >
                   되돌리기
                 </button>
+                )}
               </div>
             ))
           )}
@@ -997,8 +1009,9 @@ export default function WikiEditor({
            * 없이도 Tab 으로 줄을 늘리고 「/」 로 다시 만들 수 있다 — 먹통과 바꿀 것이
            * 아니다. */
           tableHandles={false}
+          editable={!readOnly}
           onChange={() => {
-            if (!ready) return
+            if (!ready || readOnly) return
             dirty.current = true
             setState('')
             window.clearTimeout(timer.current)

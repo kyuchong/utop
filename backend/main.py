@@ -5,6 +5,7 @@ import asyncio
 import socket
 import subprocess
 import contextvars
+from uuid import uuid4 as _uuid4
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -2872,11 +2873,12 @@ async def save_help(data: dict):
 # 개발자용 절(동작 확인·관련 API)은 씨앗에서 뺀다 — 사용자가 읽는 글이 아니다.
 HELP_SEED_DIR = BASE_DIR / "docs" / "features"
 HELP_SEED_ORDER = ["wiki", "req-coverage", "cycles", "devices", "jira-defects", "ai", "settings"]
+HELP_SPACE = "__help__"          # 위키 표 안의 도움말 공간 — 일반 위키 목록에는 안 보인다
 _HELP_DROP_SECTIONS = ("## 동작 확인", "## 관련 API")
 
 
 def _help_md_from_seed(text: str) -> tuple[str, str]:
-    """씨앗 파일 → (제목, 본문). 개발자용 절을 걷고, 문서끼리의 링크(x.md)를 앱 안 링크(#help/x)로 바꾼다."""
+    """씨앗 파일 → (제목, 본문 마크다운). 개발자용 절을 걷고, 문서끼리 링크(x.md)는 앱 안 주소로."""
     lines = text.split("\n")
     title = ""
     if lines and lines[0].startswith("# "):
@@ -2889,26 +2891,166 @@ def _help_md_from_seed(text: str) -> tuple[str, str]:
         if not skipping:
             out.append(ln)
     body = "\n".join(out).strip() + "\n"
-    body = re.sub(r"\]\(([a-z0-9-]+)\.md\)", r"](#help/\1)", body)
-    body = re.sub(r"\]\(\.\./[^)]+\)", "](#)", body)          # docs/ 안 다른 문서로 가는 링크는 앱 안에 없다
+    body = re.sub(r"\]\(([a-z0-9-]+)\.md\)", r"](?p=help&doc=help-\1)", body)
+    body = re.sub(r"\]\(\.\./[^)]+\)", "](#)", body)
     return title, body
 
 
-def _help_seed_pages() -> list:
-    pages = []
+# ── 마크다운 → 블록노트 블록 ─────────────────────────────────────
+# 도움말은 위키와 같은 편집기(BlockNote)로 읽고 고친다(지시: 마크다운 말고 블록노트).
+# 씨앗 파일은 마크다운이라 서버가 블록으로 바꿔 심는다. 제목·문단·글머리·번호·코드·굵게·코드·링크만
+# 다룬다 — 기능별 문서가 쓰는 문법이 그것뿐이다. 편집기가 저장한 실제 JSON 과 같은 꼴로 만든다.
+_BN_PROPS = {"backgroundColor": "default", "textColor": "default", "textAlignment": "left"}
+
+
+def _bn_inline(text: str) -> list:
+    """**굵게** · `코드` · [글](주소) 를 인라인 조각으로."""
+    out = []
+    pat = re.compile(r"(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))")
+    pos = 0
+    for mm in pat.finditer(text):
+        if mm.start() > pos:
+            out.append({"type": "text", "text": text[pos:mm.start()], "styles": {}})
+        tok = mm.group(0)
+        if tok.startswith("**"):
+            out.append({"type": "text", "text": tok[2:-2], "styles": {"bold": True}})
+        elif tok.startswith("`"):
+            out.append({"type": "text", "text": tok[1:-1], "styles": {"code": True}})
+        else:
+            lm = re.match(r"\[([^\]]+)\]\(([^)]+)\)", tok)
+            label, href = lm.group(1), lm.group(2)
+            if href == "#":
+                out.append({"type": "text", "text": label, "styles": {}})
+            else:
+                out.append({"type": "link", "href": href, "content": [{"type": "text", "text": label, "styles": {}}]})
+        pos = mm.end()
+    if pos < len(text):
+        out.append({"type": "text", "text": text[pos:], "styles": {}})
+    return out or [{"type": "text", "text": "", "styles": {}}]
+
+
+def _bn_block(btype: str, text: str, **props) -> dict:
+    return {"id": str(_uuid4()), "type": btype, "props": {**_BN_PROPS, **props},
+            "content": _bn_inline(text), "children": []}
+
+
+def _md_to_blocks(md: str) -> list:
+    blocks: list = []
+    stack: list = []            # 글머리 중첩 — (들여쓰기, 블록)
+    para: list = []
+    code: list | None = None
+    code_lang = ""
+
+    def flush_para():
+        nonlocal para
+        if para:
+            blocks.append(_bn_block("paragraph", " ".join(x.strip() for x in para)))
+            para = []
+
+    def close_lists():
+        stack.clear()
+
+    for raw in md.split("\n"):
+        ln = raw.rstrip()
+        if code is not None:
+            if ln.strip().startswith("```"):
+                blocks.append({"id": str(_uuid4()), "type": "codeBlock", "props": {"language": code_lang or "text"},
+                               "content": [{"type": "text", "text": "\n".join(code), "styles": {}}], "children": []})
+                code = None
+            else:
+                code.append(raw)
+            continue
+        if ln.strip().startswith("```"):
+            flush_para(); close_lists()
+            code, code_lang = [], ln.strip()[3:].strip()
+            continue
+        if not ln.strip():
+            flush_para(); close_lists()
+            continue
+        hm = re.match(r"^(#{1,6})\s+(.*)$", ln)
+        if hm:
+            flush_para(); close_lists()
+            lvl = min(3, len(hm.group(1)))
+            blocks.append(_bn_block("heading", hm.group(2).strip(), level=lvl, isToggleable=False))
+            continue
+        lm = re.match(r"^(\s*)([-*]|\d+\.)\s+(.*)$", ln)
+        if lm:
+            flush_para()
+            indent = len(lm.group(1).replace("\t", "  "))
+            btype = "numberedListItem" if lm.group(2)[0].isdigit() else "bulletListItem"
+            blk = _bn_block(btype, lm.group(3).strip())
+            while stack and stack[-1][0] >= indent:
+                stack.pop()
+            (stack[-1][1]["children"] if stack else blocks).append(blk)
+            stack.append((indent, blk))
+            continue
+        if stack and ln.startswith("  "):
+            # 글머리의 이어지는 줄 — 앞 항목에 붙인다
+            last = stack[-1][1]
+            last["content"] = last["content"] + [{"type": "text", "text": " ", "styles": {}}] + _bn_inline(ln.strip())
+            continue
+        if ln.lstrip().startswith("|"):
+            # 표는 이 변환기가 안 다룬다 — 줄을 문단으로 남긴다(잃는 글자는 없다)
+            flush_para(); close_lists()
+            blocks.append(_bn_block("paragraph", re.sub(r"\s*\|\s*", " · ", ln.strip()).strip(" ·")))
+            continue
+        if ln.lstrip().startswith(">"):
+            flush_para(); close_lists()
+            blocks.append(_bn_block("paragraph", ln.lstrip()[1:].strip()))
+            continue
+        close_lists()
+        para.append(ln)
+    flush_para()
+    return blocks
+
+
+def _bn_plain(blocks: list) -> str:
+    out = []
+    def walk(v):
+        if isinstance(v, dict):
+            t = v.get("text")
+            if isinstance(t, str):
+                out.append(t)
+            for x in v.values():
+                walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x)
+    walk(blocks)
+    return " ".join(out)[:200000]
+
+
+def _help_seed_docs() -> list:
+    docs = []
     for i, slug in enumerate(HELP_SEED_ORDER):
         fp = HELP_SEED_DIR / f"{slug}.md"
         if not fp.exists():
             continue
         title, body = _help_md_from_seed(fp.read_text(encoding="utf-8"))
-        pages.append({"id": slug, "title": title or slug, "order": i, "md": body,
-                      "updated_by": "seed", "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M")})
-    return pages
+        docs.append({"id": f"help-{slug}", "slug": slug, "title": title or slug, "ord": i, "md": body})
+    return docs
 
 
-def _help_pages() -> list:
-    d = _kv_load_sync("help_pages", None)
-    return [p for p in d if isinstance(p, dict) and p.get("id")] if isinstance(d, list) else []
+async def _help_write_seed(c, d: dict) -> None:
+    blocks = _md_to_blocks(d["md"])
+    await c.execute(
+        "INSERT INTO wiki_page (id, project, parent_id, title, body, plain, ord, created_by, updated_by) "
+        "VALUES ($1,$2,NULL,$3,$4::jsonb,$5,$6,$7,$7) "
+        "ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, body=EXCLUDED.body, plain=EXCLUDED.plain, "
+        "updated_by=EXCLUDED.updated_by, updated_at=now()",
+        d["id"], HELP_SPACE, d["title"], json.dumps(blocks, ensure_ascii=False), _bn_plain(blocks), d["ord"], "seed",
+    )
+
+
+async def _help_seed_if_empty() -> int:
+    async with db.pool().acquire() as c:
+        n = await c.fetchval("SELECT count(*) FROM wiki_page WHERE project=$1", HELP_SPACE)
+        if n:
+            return 0
+        docs = _help_seed_docs()
+        for d in docs:
+            await _help_write_seed(c, d)
+        return len(docs)
 
 
 def _help_editors() -> list:
@@ -2932,85 +3074,34 @@ def _help_require_editor() -> str:
     return _who()
 
 
-@app.get("/api/help/pages")
-async def help_pages_list():
-    pages = sorted(_help_pages(), key=lambda p: (int(p.get("order") or 0), str(p.get("title") or "")))
-    return {"pages": [{k: p.get(k) for k in ("id", "title", "order", "updated_by", "updated_at")} for p in pages],
-            "can_edit": _help_can_edit()}
+@app.get("/api/help/access")
+async def help_access():
+    """도움말을 고칠 수 있나 — 화면이 편집 단추를 낼지 정한다. 읽기는 누구나."""
+    return {"can_edit": _help_can_edit(), "space": HELP_SPACE}
 
 
-@app.get("/api/help/pages/{pid}")
-async def help_page_get(pid: str):
-    for p in _help_pages():
-        if p.get("id") == pid:
-            return {"page": p, "can_edit": _help_can_edit(),
-                    "has_seed": (HELP_SEED_DIR / f"{pid}.md").exists()}
-    raise HTTPException(404, "그런 도움말이 없습니다")
+@app.get("/api/help/seeds")
+async def help_seeds():
+    """씨앗이 있는 도움말(되돌릴 수 있는 것) 목록 — SETUP 의 「처음 글로」 단추가 읽는다."""
+    return {"seeds": [{"id": d["id"], "title": d["title"]} for d in _help_seed_docs()]}
 
 
-@app.put("/api/help/pages/{pid}")
-async def help_page_put(pid: str, payload: dict):
-    """만들기·고치기 공통. 제목과 본문(마크다운)."""
+@app.post("/api/help/reset/{slug}")
+async def help_reset(slug: str):
+    """그 편을 씨앗(docs/features)으로 되돌린다 — 고치다 망쳤을 때. 지난 판(wiki_rev)은 위키가 남긴다."""
     who = _help_require_editor()
-    pid = re.sub(r"[^A-Za-z0-9_-]", "-", str(pid or "").strip())[:64]
-    if not pid:
-        raise HTTPException(400, "도움말 ID 가 없습니다")
-    pages = _help_pages()
-    cur = next((p for p in pages if p.get("id") == pid), None)
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    if cur is None:
-        cur = {"id": pid, "order": (max([int(p.get("order") or 0) for p in pages], default=-1) + 1)}
-        pages.append(cur)
-    if "title" in payload:
-        cur["title"] = str(payload.get("title") or "").strip()[:120] or cur.get("title") or pid
-    if "md" in payload:
-        cur["md"] = str(payload.get("md") or "")[:400000]
-    if "order" in payload:
-        try: cur["order"] = int(payload.get("order"))
-        except (TypeError, ValueError): pass
-    cur["updated_by"], cur["updated_at"] = who, now
-    _kv_save_sync("help_pages", pages)
-    try: asyncio.create_task(broadcast({"type": "help_updated", "id": pid, "user": who}))
+    d = next((x for x in _help_seed_docs() if x["slug"] == slug or x["id"] == slug), None)
+    if not d:
+        raise HTTPException(404, "그 도움말은 씨앗이 없습니다(앱에서 만든 것)")
+    async with db.pool().acquire() as c:
+        old = await c.fetchrow("SELECT title, body FROM wiki_page WHERE id=$1", d["id"])
+        if old:
+            await c.execute("INSERT INTO wiki_rev (page_id, title, body, who) VALUES ($1,$2,$3::jsonb,$4)",
+                            d["id"], old["title"], old["body"] if isinstance(old["body"], str) else json.dumps(old["body"], ensure_ascii=False), who)
+        await _help_write_seed(c, d)
+    try: asyncio.create_task(broadcast({"type": "wiki_updated", "id": d["id"], "user": who}))
     except Exception: pass
-    return {"ok": True, "page": cur}
-
-
-@app.delete("/api/help/pages/{pid}")
-async def help_page_delete(pid: str):
-    _help_require_editor()
-    pages = [p for p in _help_pages() if p.get("id") != pid]
-    _kv_save_sync("help_pages", pages)
-    return {"ok": True}
-
-
-@app.post("/api/help/pages/reorder")
-async def help_pages_reorder(payload: dict):
-    _help_require_editor()
-    ids = [str(x) for x in (payload.get("ids") or [])]
-    pages = _help_pages()
-    pos = {pid: i for i, pid in enumerate(ids)}
-    for p in pages:
-        if p.get("id") in pos:
-            p["order"] = pos[p["id"]]
-    _kv_save_sync("help_pages", pages)
-    return {"ok": True}
-
-
-@app.post("/api/help/pages/{pid}/reset")
-async def help_page_reset(pid: str):
-    """씨앗(docs/features)으로 되돌린다 — 고치다 망쳤을 때."""
-    who = _help_require_editor()
-    fp = HELP_SEED_DIR / f"{pid}.md"
-    if not fp.exists():
-        raise HTTPException(404, "이 도움말은 씨앗이 없습니다(앱에서 만든 것)")
-    title, body = _help_md_from_seed(fp.read_text(encoding="utf-8"))
-    pages = _help_pages()
-    cur = next((p for p in pages if p.get("id") == pid), None)
-    if cur is None:
-        cur = {"id": pid, "order": len(pages)}; pages.append(cur)
-    cur.update({"title": title or pid, "md": body, "updated_by": who, "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M")})
-    _kv_save_sync("help_pages", pages)
-    return {"ok": True, "page": cur}
+    return {"ok": True, "id": d["id"]}
 
 
 @app.get("/api/help/editors")
@@ -3279,6 +3370,7 @@ core.bind(
     user_from_token=_user_from_token,
     require_admin=_require_admin,
     REQ_IMG_DIR=REQ_IMG_DIR,
+    help_can_edit=_help_can_edit,     # 위키 공간 __help__(도움말)의 쓰기 권한
 )
 from routes import wiki as _wiki_routes  # noqa: E402
 app.include_router(_wiki_routes.router)
@@ -4104,7 +4196,6 @@ async def _db_init():
         ("org_tree", DATA_DIR / "org_tree.json"),
         # 앱 안에서 고치는 도움말·편집자 목록·라이선스(2026-09-29). 등록을 빼면 재시작 때 빈 값이
         # 캐시에 박히고 다음 저장이 DB 를 덮어쓴다 — 위 형제들이 겪은 그 덫.
-        ("help_pages", DATA_DIR / "help_pages.json"),
         ("help_editors", DATA_DIR / "help_editors.json"),
         ("license", DATA_DIR / "license.json"),
     ]
@@ -4112,13 +4203,12 @@ async def _db_init():
         _kv_register_fallback(_key, _fp)
         try: await _kv_init_async(_key, _fp, sizeguard=True)
         except Exception as _me: print(f"[startup] KV migrate '{_key}' failed: {_me}", flush=True)
-    # 도움말 씨앗 — **비어 있을 때만** docs/features/*.md 를 들인다. 그 뒤로는 앱에서 고친 것이 정본이다.
+    # 도움말 씨앗 — 위키 공간 __help__ 이 **비어 있을 때만** docs/features/*.md 를 블록으로 바꿔 들인다.
+    # 그 뒤로는 앱(위키 편집기)에서 고친 것이 정본이다. 되돌리기는 SETUP › 도움말·라이선스.
     try:
-        if not _help_pages():
-            _seed = _help_seed_pages()
-            if _seed:
-                _kv_save_sync("help_pages", _seed)
-                print(f"[startup] 도움말 씨앗 {len(_seed)}편 심음", flush=True)
+        _n = await _help_seed_if_empty()
+        if _n:
+            print(f"[startup] 도움말 씨앗 {_n}편 심음 (위키 공간 __help__)", flush=True)
     except Exception as _he:
         print(f"[startup] 도움말 씨앗 실패: {_he}", flush=True)
     # 조직도 씨앗 — **비어 있을 때만** 채운다.

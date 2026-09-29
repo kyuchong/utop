@@ -29,10 +29,29 @@ interface Page {
   updated_at?: string | null
 }
 
-export default function Wiki({ me }: { me?: MeUser | null }) {
+/**
+ * `space` 를 주면 프로젝트 대신 **그 공간**의 문서만 본다 — 도움말(__help__)이 이렇게 쓴다.
+ * 공간 모드에서는 프로젝트 이름표·프로젝트 지정 메뉴가 없고, `canEdit` 이 false 면
+ * 만들기·⋯ 메뉴·편집기 입력이 전부 잠긴다(읽기만). 나머지는 위키와 똑같다 —
+ * 같은 편집기, 같은 표, 같은 지난 판, 같은 PDF.
+ */
+export default function Wiki({
+  me,
+  space,
+  canEdit = true,
+  panelTitle,
+  openKey,
+}: {
+  me?: MeUser | null
+  space?: string
+  canEdit?: boolean
+  panelTitle?: string
+  openKey?: string
+}) {
   const [prjs, setPrjs] = useState<string[]>(currentProjects)
   useEffect(() => onProjectChange(() => setPrjs(currentProjects())), [])
-  const prj = prjs[0] ?? ''
+  const prj = space ?? (prjs[0] ?? '')
+  const PREF_OPEN = openKey ?? 'utop.wiki.open'
 
   const listQ = useQuery({
     queryKey: ['wiki', prj],
@@ -55,18 +74,20 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
      들어온 것도 App 이 여기에 넣어 준다. */
   const [openId, setOpenId] = useState(() => {
     try {
-      return prefGet('utop.wiki.open') ?? ''
+      /* 공간 모드는 주소의 ?doc= 이 먼저 — 「이 도움말 봐」 링크가 그렇게 온다 */
+      const fromUrl = space ? new URLSearchParams(window.location.search).get('doc') : null
+      return fromUrl || (prefGet(PREF_OPEN) ?? '')
     } catch {
       return ''
     }
   })
   useEffect(() => {
     try {
-      if (openId) prefSet('utop.wiki.open', openId)
+      if (openId) prefSet(PREF_OPEN, openId)
     } catch {
       /* 사생활 보호 모드 */
     }
-  }, [openId])
+  }, [openId, PREF_OPEN])
   /* 문서 안에서 다른 문서를 짚어 눌렀을 때 — 같은 화면 안에서 넘어간다 */
   useEffect(() => onGoto((kind, id) => { if (kind === 'wiki') setOpenId(id) }), [])
   const [q, setQ] = useState('')
@@ -112,7 +133,7 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
   const make = async (parent: string | null) => {
     const t = window.prompt(parent ? '새 문서 이름 (고른 문서 아래)' : '새 문서 이름')?.trim()
     if (!t) return
-    const id = `wk-${Date.now()}-${Math.floor(Math.random() * 1e4)}`
+    const id = `${space ? 'help' : 'wk'}-${Date.now()}-${Math.floor(Math.random() * 1e4)}`
     await apiFetch(`/api/wiki/${encodeURIComponent(id)}`, {
       method: 'POST',
       body: JSON.stringify({ title: t, project: prj, parent_id: parent, body: [] }),
@@ -261,11 +282,12 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
                 {/* 어느 프로젝트의 문서인가 — 전체로 볼 때 맨 윗줄에만 적는다
                     (지적: 알 수가 없다). 프로젝트 하나로 좁혀 보면 다 같은
                     이름이라 안 적는다. */}
-                {depth === 0 && prjs.length !== 1 && (
+                {!space && depth === 0 && prjs.length !== 1 && (
                   <span className="wk-prj">{prjName(p.project ?? '')}</span>
                 )}
                 {/* +·✎·× 를 줄에 늘어놓았더니 잘못 눌렀다(지적) — ⋯ 하나만
                     두고, 하는 일은 메뉴에서 고른다 */}
+                {canEdit && (
                 <span className="wk-tools">
                   <button
                     type="button"
@@ -283,6 +305,7 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
                     ⋯
                   </button>
                 </span>
+                )}
               </div>
               {on && <Tree parent={p.id} depth={depth + 1} />}
             </div>
@@ -302,11 +325,13 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
         {/* 새 문서는 제목 줄 오른쪽(지시) — 줄 하나가 통째로 준다 */}
         <div className="wk-head">
           {/* 판 이름은 Knowledge(지시) — 프로젝트 하나로 좁혀 보면 그 말을 앞에 단다 */}
-          <b>{prjs.length === 1 ? '이 프로젝트 Knowledge' : 'Knowledge'}</b>
+          <b>{panelTitle ?? (prjs.length === 1 ? '이 프로젝트 Knowledge' : 'Knowledge')}</b>
           <span className="sp" />
-          <button className="btn small" type="button" onClick={() => void make(null)}>
-            ＋ 새 문서
-          </button>
+          {canEdit && (
+            <button className="btn small" type="button" onClick={() => void make(null)}>
+              ＋ 새 문서
+            </button>
+          )}
         </div>
         <div className="wk-find">
           <span className="wk-fico" aria-hidden="true">
@@ -320,8 +345,7 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
           ) : pages.length === 0 ? (
             <div className="muted small wk-empty">
               아직 문서가 없습니다.
-              <br />
-              「＋ 새 문서」 로 시작하세요.
+              {canEdit && (<><br />「＋ 새 문서」 로 시작하세요.</>)}
             </div>
           ) : (
             <Tree parent="" depth={0} />
@@ -367,6 +391,8 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
             onFoldSide={() => setFoldSide((v) => !v)}
             me={me?.name || me?.username || ''}
             onSaved={() => void listQ.refetch()}
+            readOnly={!canEdit}
+            space={space}
           />
         )}
       </section>
@@ -427,6 +453,7 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
                 </button>
               ))}
             </div>
+            {!space && (<>
             <div className="wk-menusep" />
             <div className="wk-menuh">프로젝트 지정</div>
             <div className="wk-menuprjs">
@@ -445,6 +472,7 @@ export default function Wiki({ me }: { me?: MeUser | null }) {
                 </button>
               ))}
             </div>
+            </>)}
             <div className="wk-menusep" />
             <button type="button" role="menuitem" className="danger" onClick={() => { setMenu(null); void remove(menuPage) }}>
               지우기

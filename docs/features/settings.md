@@ -43,8 +43,9 @@ Jira 연동 · Jira 프로젝트 패널 설정 · 메일 설정 · 계정 관리
 - 게시판(수정 요청)·할일·도움말·리소스(인력·프로젝트)는 **옛 UI** 에 남아 있다. api 컨테이너의 `/` 로 열린다.
 
 ### 도움말 · 라이선스 (관리자)
-- 왼쪽 메뉴 SYSTEM 바로 위에 **도움말**이 있다. 누구나 읽는다. 처음 실린 글은 기능별 문서이고, 관리자와 여기서 정한 **편집자**가 앱 안에서 고친다.
-  「원본으로」 를 누르면 처음 글로 되돌린다. 「+ 문서」 로 새 도움말을 더하고 ↑↓ 로 차례를 바꾼다.
+- 왼쪽 메뉴 SYSTEM 바로 위에 **도움말**이 있다. 누구나 읽는다. WIKI 와 같은 편집기·표·지난 판·PDF 를 쓰고, 일반 위키 나무와는 섞이지 않는다.
+  처음 실린 글은 기능별 문서이고, 관리자와 여기서 정한 **편집자**가 앱 안에서 고친다. 편집자가 아니면 읽기만 된다.
+  여기 「처음 글로 되돌리기」 가 그 편을 처음 글로 되돌린다(지금 글은 지난 판으로 남는다).
 - 도움말 위에 **판(버전·커밋)과 라이선스 기간**이 선다. 버전은 저장소의 VERSION 파일, 커밋은 빌드 때 박힌다.
   라이선스의 사용처·시작일·만료일은 여기서 적는다. 만료 30일 안이면 주황, 지나면 빨강으로 보인다.
 
@@ -71,12 +72,12 @@ Jira 연동 · Jira 프로젝트 패널 설정 · 메일 설정 · 계정 관리
 대본 `tests/smoke/settings_smoke.py`: 틀린 암호 401 → 로그인·내 정보 → health·브랜딩은 로그인 없이 → 계정 만들기·고치기·새 계정으로 로그인·암호 바꾸기·로그아웃 →
 이름표·멘션 후보 → 조직도·노드 추가·선택지 → 메일 설정·보내기 시험(서버 없음 안내)·공유·권한·UI 옵션·전역 파라미터·도움말 →
 내 보기 설정 저장·보기 탭 저장 → 알림·수정 이력·게시판·할일·대시보드·상태·접속자·데이터 내보내기 → 판·라이선스 저장과 날수 계산 →
-도움말 씨앗 7편·읽기·고치기·원본으로·새 문서·차례·편집자 지정, 편집자는 고치고 빠지면 403, 읽기는 누구나 → 계정 지우기. 51개.
+도움말 씨앗 7편(위키 공간, 블록노트 블록)·일반 위키에 안 섞임·고치기·처음 글로·새 문서·편집자 지정, 편집자는 고치고 빠지면 403, 읽기는 누구나 → 계정 지우기. 50개 안팎.
 
 ## 관련 API
 
 `/api/login·logout·signup` · `/api/me` 와 `avatar·change-password` · `/api/users` 와 `{name}·mentionable·delete-retired·jira-sync` · `/api/user-names` ·
 `/api/org` 와 `node·rename·delete-node·move-member·member-role·seed` · `/api/org-options` · `/api/permissions` · `/api/branding` 와 `logo·login-image·login-logo` ·
 `/api/mail/config·test·preview-approval` · `/api/share-config` · `/api/share-mail` · `/api/views` · `/api/prefs` · `/api/prefs-team` · `/api/ui-options` ·
-`/api/global-params` · `/api/help/pages·editors` · `/api/about` · `/api/license` · `/api/notifications` · `/api/mention` · `/api/notify/cycle` · `/api/audit` · `/api/board*` · `/api/todo` ·
+`/api/global-params` · `/api/help/access·seeds·reset·editors` · `/api/wiki?project=__help__` · `/api/about` · `/api/license` · `/api/notifications` · `/api/mention` · `/api/notify/cycle` · `/api/audit` · `/api/board*` · `/api/todo` ·
 `/api/resource/*` · `/api/transfer/export·import` · `/api/dashboard` · `/api/status` · `/api/presence` · `/api/health` · `/ws`.

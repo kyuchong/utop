@@ -71,6 +71,23 @@ def _wiki_plain(body) -> str:
     return " ".join(out)[:200000]
 
 
+HELP_SPACE = "__help__"
+
+
+async def _help_guard(c, pid: str, payload: dict | None = None) -> None:
+    """도움말 공간의 문서는 **관리자·도움말 편집자**만 쓴다(지시). 읽기는 누구나.
+    새 문서면 payload 의 project 로, 있는 문서면 저장된 project 로 가린다."""
+    prj = None
+    if payload is not None and "project" in payload:
+        prj = str(payload.get("project") or "")
+    row = await c.fetchrow("SELECT project FROM wiki_page WHERE id=$1", pid)
+    if row is not None and prj is None:
+        prj = str(row["project"] or "")
+    cur_prj = str(row["project"] or "") if row is not None else ""
+    if HELP_SPACE in (prj, cur_prj) and not core.help_can_edit():
+        raise HTTPException(403, "도움말을 고칠 권한이 없습니다 — SETUP › 도움말·라이선스에서 편집자를 정합니다")
+
+
 @router.get("/api/wiki")
 async def wiki_list(project: str = ""):
     """문서 트리 — 본문은 안 준다. 목록에 본문까지 실으면 수백 KB 가 된다."""
@@ -85,6 +102,8 @@ async def wiki_list(project: str = ""):
             # 매이지 않았다」 — 공용 문서다. 공용은 어디서 보든 보여야 한다.
             "SELECT id, project, parent_id, title, ord, updated_by, updated_at "
             "FROM wiki_page WHERE ($1='' OR project=$1 OR coalesce(project,'')='') "
+            # 도움말 공간(__help__)은 그 공간을 물을 때만 — 일반 위키 나무에 섞이면 안 된다
+            "AND ($1='__help__' OR coalesce(project,'') <> '__help__') "
             "ORDER BY ord, title",
             project,
         )
@@ -113,6 +132,7 @@ async def wiki_search(q: str, project: str = "", limit: int = 40):
             # 목록과 **같은 규칙** — 프로젝트 없는 문서는 늘 걸린다.
             # 목록에는 보이는데 찾기에는 안 걸리면 그건 더 헷갈린다.
             "WHERE ($2='' OR project=$2 OR coalesce(project,'')='') "
+            "AND ($2='__help__' OR coalesce(project,'') <> '__help__') "
             "AND (title ILIKE $1 OR plain ILIKE $1) "
             "ORDER BY updated_at DESC LIMIT $3",
             f"%{n}%", project, max(1, min(200, limit)),
@@ -577,6 +597,7 @@ async def wiki_save(pid: str, payload: dict, request: Request):
         body = []
     plain = _wiki_plain(body)
     async with db.pool().acquire() as c:
+        await _help_guard(c, pid, payload)
         old = await c.fetchrow("SELECT title, body FROM wiki_page WHERE id=$1", pid)
         if old:
             await c.execute(
@@ -680,6 +701,7 @@ async def wiki_duplicate(pid: str, payload: dict, request: Request):
     deep = bool(p.get("deep", True))
 
     async with db.pool().acquire() as c:
+        await _help_guard(c, pid)
         root = await c.fetchrow(
             "SELECT id, project, parent_id, title, body, ord FROM wiki_page WHERE id=$1", pid)
         if not root:
@@ -757,6 +779,7 @@ async def wiki_patch(pid: str, payload: dict):
     sets.append("updated_at=now()")
     args.append(pid)
     async with db.pool().acquire() as c:
+        await _help_guard(c, pid, payload)
         await c.execute(f"UPDATE wiki_page SET {', '.join(sets)} WHERE id=${len(args)}", *args)
     return {"ok": True}
 
@@ -765,6 +788,7 @@ async def wiki_patch(pid: str, payload: dict):
 async def wiki_delete(pid: str):
     """지운다. **아래 문서가 있으면 안 지운다** — 통째로 사라지면 되돌릴 수 없다."""
     async with db.pool().acquire() as c:
+        await _help_guard(c, pid)
         kid = await c.fetchval("SELECT count(*) FROM wiki_page WHERE parent_id=$1", pid)
         if kid:
             raise HTTPException(400, f"아래 문서가 {kid}개 있습니다 — 먼저 옮기거나 지우세요")

@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **473** (그룹 127개)
+총 라우트 수: **470** (그룹 127개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -349,20 +349,17 @@
 |---|---|---|---|
 | GET | `/api/health` | 도커 헬스체크가 부르는 곳. 로그인 없이 열려 있다. |  |
 
-## `/api/help` (10개)
+## `/api/help` (7개)
 
 | method | path | summary | auth |
 |---|---|---|---|
 | GET | `/api/help` |  |  |
 | POST | `/api/help` |  |  |
+| GET | `/api/help/access` | 도움말을 고칠 수 있나 — 화면이 편집 단추를 낼지 정한다. 읽기는 누구나. |  |
 | GET | `/api/help/editors` |  | token param |
 | POST | `/api/help/editors` |  | token param |
-| GET | `/api/help/pages` |  |  |
-| POST | `/api/help/pages/reorder` |  |  |
-| DELETE | `/api/help/pages/{pid}` |  |  |
-| GET | `/api/help/pages/{pid}` |  |  |
-| PUT | `/api/help/pages/{pid}` | 만들기·고치기 공통. 제목과 본문(마크다운). |  |
-| POST | `/api/help/pages/{pid}/reset` | 씨앗(docs/features)으로 되돌린다 — 고치다 망쳤을 때. |  |
+| POST | `/api/help/reset/{slug}` | 그 편을 씨앗(docs/features)으로 되돌린다 — 고치다 망쳤을 때. 지난 판(wiki_rev)은 위키가 남긴다. |  |
+| GET | `/api/help/seeds` | 씨앗이 있는 도움말(되돌릴 수 있는 것) 목록 — SETUP 의 「처음 글로」 단추가 읽는다. |  |
 
 ## `/api/id-alias` (1개)
 

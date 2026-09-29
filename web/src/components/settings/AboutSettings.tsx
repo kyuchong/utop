@@ -22,6 +22,8 @@ export default function AboutSettings() {
   const [until, setUntil] = useState('')
   const [note, setNote] = useState('')
   const [editors, setEditors] = useState('')
+  const [seeds, setSeeds] = useState<Array<{ id: string; title: string }>>([])
+  const [resetMsg, setResetMsg] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -38,6 +40,8 @@ export default function AboutSettings() {
       }
       const e = await apiFetch('/api/help/editors', { cache: 'no-store' })
       if (e.ok) setEditors(((await e.json()) as { users: string[] }).users.join('\n'))
+      const sd = await apiFetch('/api/help/seeds', { cache: 'no-store' })
+      if (sd.ok) setSeeds(((await sd.json()) as { seeds: Array<{ id: string; title: string }> }).seeds)
     })()
   }, [])
 
@@ -119,6 +123,26 @@ export default function AboutSettings() {
         </button>
         {msg && <span className="muted">{msg}</span>}
       </div>
+
+      <h4>처음 글로 되돌리기</h4>
+      <p className="muted">도움말을 고치다 망쳤을 때, 그 편만 처음 실린 글(기능별 문서)로 되돌린다. 지금 글은 지난 판으로 남는다.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {seeds.map((sd) => (
+          <button
+            key={sd.id}
+            type="button"
+            className="btn small"
+            onClick={async () => {
+              if (!window.confirm(`「${sd.title}」 을(를) 처음 글로 되돌립니다.`)) return
+              const r = await apiFetch(`/api/help/reset/${encodeURIComponent(sd.id)}`, { method: 'POST' })
+              setResetMsg(r.ok ? `「${sd.title}」 되돌렸습니다` : '되돌리지 못했습니다')
+            }}
+          >
+            {sd.title}
+          </button>
+        ))}
+      </div>
+      {resetMsg && <p className="muted">{resetMsg}</p>}
     </div>
   )
 }
