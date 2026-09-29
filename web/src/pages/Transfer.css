@@ -77,3 +77,7 @@
 .tr-part-row { align-items: center; justify-content: space-between; gap: 12px; cursor: default; }
 .tr-part-row .tr-pl { flex: 1; min-width: 0; }
 .tr-part-row .btn { flex: none; }
+.tr-foot-two { justify-content: flex-start; gap: 8px; }
+.tr-foot-two .btn.on { background: var(--c-primary-bg); border-color: var(--c-primary); color: var(--c-primary); }
+/* 펼친 개별 목록 — 단추 아래, 실금 하나로 구역을 가른다 */
+.tr-indiv { margin-top: 12px; padding-top: 6px; border-top: 1px solid var(--c-border-soft); }

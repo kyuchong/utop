@@ -53,6 +53,8 @@ function countOf(k: string, p: Record<string, unknown> | undefined): string {
 
 export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
   const [secrets, setSecrets] = useState(false)
+  /** 개별 내보내기 목록을 펼쳤나 — 처음엔 단추 둘만(지시: 누르면 아래에 나오게) */
+  const [indiv, setIndiv] = useState(false)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
   const [file, setFile] = useState<ImportedFile | null>(null)
@@ -167,30 +169,13 @@ export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
         {mode === 'export' && (
         <div className="tr-card">
           <h3>내보내기</h3>
-          {/* 체크박스는 걷었다(지시) — 줄마다 「내보내기」 로 그 묶음만, 맨 아래 「전체 내보내기」 로 전부 */}
-          <p className="muted small">묶음마다 따로 받거나, 맨 아래에서 전부 한 파일로 받습니다.</p>
-          {PARTS.map((p) => (
-            <div className="tr-part tr-part-row" key={p.k}>
-              <span className="tr-pl">
-                <b>{p.label}</b>
-                <i>{p.desc}</i>
-              </span>
-              <button
-                className="btn small"
-                type="button"
-                disabled={busy !== ''}
-                onClick={() => void doExport([p.k], p.k)}
-                title={`${p.label}만 .json 으로 내려받습니다`}
-              >
-                {busy === `exp:${p.k}` ? '만드는 중…' : '내보내기'}
-              </button>
-            </div>
-          ))}
+          <p className="muted small">전부 한 파일로 받거나, 「개별 내보내기」 를 열어 묶음 하나씩 받습니다.</p>
           <label className={`tr-secret${secrets ? ' on' : ''}`}>
             <input type="checkbox" checked={secrets} onChange={(e) => setSecrets(e.target.checked)} />
             장비 비밀번호도 포함 — 파일을 받는 쪽을 믿을 수 있을 때만 (장비 묶음에만 해당)
           </label>
-          <div className="tr-foot">
+          {/* 단추 둘(지시) — 전체는 바로, 개별은 누르면 아래에 묶음 목록이 펼쳐진다 */}
+          <div className="tr-foot tr-foot-two">
             <button
               className="btn primary"
               type="button"
@@ -199,7 +184,36 @@ export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
             >
               {busy === 'exp' ? '만드는 중…' : '전체 내보내기 (.json)'}
             </button>
+            <button
+              className={`btn${indiv ? ' on' : ''}`}
+              type="button"
+              aria-expanded={indiv}
+              onClick={() => setIndiv((v) => !v)}
+            >
+              개별 내보내기 {indiv ? '▴' : '▾'}
+            </button>
           </div>
+          {indiv && (
+            <div className="tr-indiv">
+              {PARTS.map((p) => (
+                <div className="tr-part tr-part-row" key={p.k}>
+                  <span className="tr-pl">
+                    <b>{p.label}</b>
+                    <i>{p.desc}</i>
+                  </span>
+                  <button
+                    className="btn small"
+                    type="button"
+                    disabled={busy !== ''}
+                    onClick={() => void doExport([p.k], p.k)}
+                    title={`${p.label}만 .json 으로 내려받습니다`}
+                  >
+                    {busy === `exp:${p.k}` ? '만드는 중…' : '내보내기'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         )}
 
