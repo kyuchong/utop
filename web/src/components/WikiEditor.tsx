@@ -47,6 +47,7 @@ import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
 import { useQuery } from '@tanstack/react-query'
 import { guardMediaGap } from './mediaGapGuard'
+import { guardTableHandles } from './tableHandlesGuard'
 import { api, apiFetch, projectApi } from '@/api/client'
 import { createPortal } from 'react-dom'
 import PresenceBar from './PresenceBar'
@@ -357,23 +358,9 @@ export default function WikiEditor({
       // 메뉴·말풍선을 한국어로 — 「/」 를 쳤을 때 나오는 이름들이다
       dictionary: ko,
       schema: SCHEMA,
-      /**
-       * **표 손잡이를 진짜로 끈다.**
-       *
-       * 아래 BlockNoteView 의 `tableHandles={false}` 는 **그리는 것만** 끈다.
-       * 터뜨리는 것은 그 밑의 ProseMirror 확장이고, 그것은 스키마에 표가 있으면
-       * **무조건** 등록되어 pmView.dom·window 에 마우스 손잡이를 건다.
-       *
-       * 그 손잡이는 마우스 아래 요소가 TD·TH 이기만 하면 제 표의 칸으로 보고
-       * `block.content.rows[0]` 을 읽는다. 데이터베이스 블록이 그리는 것도 진짜
-       * <td> 라서, 그 블록에는 content 가 없어 누르고 떼는 한 번에
-       *   Uncaught TypeError: Cannot read properties of undefined (reading 'rows')
-       * 로 터진다 — 화면이 먹통이 되고 새로고침해야 풀린다(지적, 콘솔로 확정).
-       *
-       * `sideMenu={false}` 가 그 플러그인을 못 끄는 것과 같은 함정이다.
-       * 대가: 글 속의 보통 표에서도 행·열 손잡이가 사라진다.
-       */
-      disableExtensions: ['tableHandles'],
+      /* 표 손잡이는 켜 둔다 — 데이터베이스 표 위에서 터지던 것은 tableHandlesGuard 가
+         마우스 처리기를 감싸 막는다(지적: 표 행·열 추가가 안 됨). 전에 disableExtensions 로
+         껐던 것은 글 속 보통 표의 ＋ 까지 없앴다. */
       /* 긴 글 붙여넣기(지시: Test Summary 처럼 블록으로) — 메모장·터미널
          에서 복사하면 클립보드에 text/plain 만 있는데, 그때 마크다운이
          해석되지 않아 「## 제목」 이 글자 그대로 한 줄글로 들어갔다(실측).
@@ -436,6 +423,8 @@ export default function WikiEditor({
   )
   /* 그림 옆 빈자리 클릭 가드 — editor 가 선 뒤에 건다 */
   useEffect(() => guardMediaGap(bodyRef.current, editor), [editor])
+  /* 표 손잡이 가드 — 데이터베이스 표(utopTable) 위에서는 손잡이 처리기를 안 돌린다 */
+  useEffect(() => guardTableHandles(editor), [editor])
 
   /* 툴바의 배경색이 **칸으로도 가게** 한다(지적: 칸을 드래그해 색을 골라도
      글자에만 칠해진다) — 단추를 새로 세우지 않고 가는 곳만 바꾼다 */
@@ -1002,19 +991,7 @@ export default function WikiEditor({
           formattingToolbar={false}
           /* 손잡이(＋⠿)는 줄 중앙 맞춤판으로(지적: 제목마다 위치가 다름) */
           sideMenu={false}
-          /* **표 손잡이를 끈다.**
-           *
-           * 편집기의 표 손잡이는 마우스가 <table> 위에 오면 그 블록을 찾아 크기를
-           * 잰다(content.rows). 그런데 데이터베이스 블록이 그리는 표도 <table> 이라
-           * 제 표로 착각하고, 그 블록에는 content 가 없어서
-           *   Uncaught TypeError: Cannot read properties of undefined (reading 'rows')
-           * 로 터진다. 예외가 나면 그 뒤 이벤트 처리가 죽어 **화면이 먹통**이 된다
-           * (지적: 필드 클릭하니 먹통 · 새로고침해야 눌린다).
-           *
-           * 블록별로 끌 수는 없어 편집기 전체에서 끈다. 글 속의 보통 표는 손잡이
-           * 없이도 Tab 으로 줄을 늘리고 「/」 로 다시 만들 수 있다 — 먹통과 바꿀 것이
-           * 아니다. */
-          tableHandles={false}
+          /* 표 손잡이(행·열 ＋·⠿)는 기본대로 그린다 — 데이터베이스 표 위에서만 가드가 잠재운다 */
           editable={!readOnly}
           onChange={() => {
             if (!ready || readOnly) return
