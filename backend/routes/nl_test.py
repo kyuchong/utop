@@ -1687,18 +1687,16 @@ async def ai_nl_criteria(payload: dict):
             "i": {"type": "integer"},
             "type": {"type": "string"},
             "criteria": {"type": "string"}}}}}, "required": ["items"]}
-    # 규칙 글은 SETUP › Coverage AI · 판정 기준 짓기(지시: 남은 룰도 프롬프트로)
-    from routes.ai import _prompt_of as _po
-    _cp = _po("cai_criteria")
-    sys_p = _cp["system"]
+    # 규칙 글은 Basic 프롬프트의 [판정 기준 짓기 프롬프트] 절(지시: Basic 한 곳에)
+    from routes.ai import cai_section
+    sys_p = cai_section("판정 기준 짓기 프롬프트")
     # **화면이 고른 AI 로 부른다**(지시: 입력 바에서 AI 를 고른다). 안 고르면
     # 빈 값이라 여느 때처럼 용도·기본값이 정한다.
     content, err = await _ai._ai_chat(
         [{"role": "system", "content": sys_p},
          {"role": "user", "content": json.dumps(rows, ensure_ascii=False)}],
         max_tokens=900, json_schema=schema,
-        # 입력 바에서 고른 AI 가 먼저, 없으면 이 용도에 붙인 LLM, 그것도 없으면 여느 때의 기본값
-        llm_id=str((payload or {}).get("llm") or "").strip() or str(_cp.get("llm") or ""))
+        llm_id=str((payload or {}).get("llm") or "").strip())
     if err:
         return {"ok": False, "error": err}
     obj = _nl_json_any(content) or {}
@@ -1835,8 +1833,9 @@ async def ai_pick_device(payload: dict):
     if len(cand) == 1 or not q:
         return {"ok": True, "items": plain, "order": ids}
     try:
-        from routes.ai import _llm_json, _cai_llm   # 늦은 수입 — 순환 막기
-        llm, _pp = _cai_llm("cai_pick_device", "cai_basic")
+        from routes.ai import _llm_pick, _llm_json   # 늦은 수입 — 순환 막기
+        llm = _llm_pick("cai_basic")
+        _pp = "cai_basic"
     except Exception:
         llm = None
     if not llm:
@@ -1849,9 +1848,9 @@ async def ai_pick_device(payload: dict):
             "required": ["id"]}}},
         "required": ["picks"],
     }
-    # 규칙 글은 SETUP › 용도별 프롬프트 › Coverage AI · 장비 추천(지시: 남은 룰도 프롬프트로)
-    from routes.ai import _prompt_of as _po
-    sys_p = _po("cai_pick_device")["system"]
+    # 규칙 글은 SETUP › Coverage AI · Basic 프롬프트의 [장비 추천 프롬프트] 절(지시: Basic 한 곳에)
+    from routes.ai import cai_section
+    sys_p = cai_section("장비 추천 프롬프트")
     user_p = (
         "후보 장비:\n" + json.dumps(cand, ensure_ascii=False) +
         "\n\n사람의 지시:\n" + q +
@@ -1953,8 +1952,9 @@ async def ai_pick_tc(payload: dict):
     picked_ids, whymap = [], {}
     if len(top) > 1:
         try:
-            from routes.ai import _llm_json, _cai_llm
-            llm, _pp = _cai_llm("cai_pick_tc", "similar")
+            from routes.ai import _llm_pick, _llm_json
+            llm = _llm_pick("similar")
+            _pp = "similar"
         except Exception:
             llm = None
         if llm:
@@ -1968,9 +1968,9 @@ async def ai_pick_tc(payload: dict):
                     "required": ["tcid"]}}},
                 "required": ["picks"],
             }
-            # 고르는 기준은 SETUP › Coverage AI · 항목 고르기(지시). {limit} 은 처음 보일 건수
-            from routes.ai import _prompt_of as _po
-            sys_p = str(_po("cai_pick_tc")["system"]).replace("{limit}", str(limit))
+            # 고르는 기준은 Basic 프롬프트의 [항목 고르기 프롬프트] 절(지시). {limit} 은 처음 보일 건수
+            from routes.ai import cai_section
+            sys_p = str(cai_section("항목 고르기 프롬프트")).replace("{limit}", str(limit))
             user_p = (
                 "시험 목록:\n" + json.dumps(brief, ensure_ascii=False) +
                 "\n\n사람이 하려는 것:\n" + text +
@@ -2027,8 +2027,9 @@ async def ai_run_summary(payload: dict):
     nfail = sum(1 for s in steps if _is_fail(s))
     base = "합격 %d · 불합격 %d" % (npass, nfail)
     try:
-        from routes.ai import _llm_json, _cai_llm
-        llm, _pp = _cai_llm("cai_run_summary", "cai_basic")
+        from routes.ai import _llm_pick, _llm_json
+        llm = _llm_pick("cai_basic")
+        _pp = "cai_basic"
     except Exception:
         llm = None
     if not llm or not steps:
@@ -2044,9 +2045,9 @@ async def ai_run_summary(payload: dict):
         })
     schema = {"type": "object", "properties": {"summary": {"type": "string"}},
               "required": ["summary"]}
-    # 말투·길이는 SETUP › Coverage AI · 결과 요약(지시)
-    from routes.ai import _prompt_of as _po
-    sys_p = _po("cai_run_summary")["system"]
+    # 말투·길이는 Basic 프롬프트의 [결과 요약 프롬프트] 절(지시)
+    from routes.ai import cai_section
+    sys_p = cai_section("결과 요약 프롬프트")
     user_p = (
         "시험: %s / 대상 모델: %s\n집계: %s\n\n스텝:\n" % (title, model, base) +
         json.dumps(brief, ensure_ascii=False) +

@@ -3958,47 +3958,73 @@ async def _prompt_next_migrate():
     쓴 글은 그대로 두고 절만 뒤에 붙인다 — 붙은 뒤에는 SETUP 에서 고칠 수 있다.
     """
     try:
-        from routes.ai import CAI_BASIC_NEXT, CAI_BASIC_NEXT_OLD, CAI_BASIC_RULES
+        from routes.ai import (CAI_BASIC_NEXT, CAI_BASIC_NEXT_OLD, CAI_BASIC_RULES,
+                               CAI_BASIC_SECTIONS, cai_split)
         if not PROMPTS_FILE.exists():
             return
         data = load_json(PROMPTS_FILE) or {}
         purposes = data.get("purposes") or {}
         p = purposes.get("cai_basic") or {}
         sysp = str(p.get("system") or "")
-        if not sysp.strip() or "[다음 행동] v3" in sysp:
+        if not sysp.strip():
             return
-        i = sysp.find("[다음 행동]")
-        if i < 0:
-            new = sysp.rstrip() + "\n\n" + CAI_BASIC_NEXT
-            how = "[다음 행동] 절을 이어 붙였다"
-        else:
-            sec = sysp[i:]
-            import hashlib as _hl
-            import re as _re0
-            fp = _hl.sha1(_re0.sub(r"\s+", "", sec).encode()).hexdigest()[:16]
-            if fp in CAI_BASIC_NEXT_OLD:
-                # 우리가 붙인 옛 판(v1·v2) 그대로 — 행동 표 + 공통 규칙(v3)으로 갈아 끼운다
-                new = sysp[:i].rstrip() + "\n\n" + CAI_BASIC_NEXT
-                how = "[다음 행동] 절을 v3(행동 표 + 공통 규칙)로 갈아 끼웠다"
+        hows = []
+        # ── ① [다음 행동] 절 ── 부속 절(아래 ②)은 떼고 본다
+        head, _secs0 = cai_split(sysp)
+        tail = sysp[len(head):]
+        if "[다음 행동] v3" not in head:
+            i = head.find("[다음 행동]")
+            if i < 0:
+                head = head.rstrip() + "\n\n" + CAI_BASIC_NEXT
+                hows.append("[다음 행동] 절을 이어 붙였다")
             else:
-                # 사람이 고친 절 — 건드리지 않고 없는 행동 줄만 덧붙인다
-                import re as _re
-                # 행동 줄(「· 이름 —」)만 본다 — 공통 규칙 줄은 아래에서 통째로 붙인다
-                missing = []
-                for l in CAI_BASIC_NEXT.split("\n"):
-                    mm = _re.match(r"· ([a-z_]+) —", l)
-                    if mm and mm.group(1) not in sec:
-                        missing.append(l)
-                add = "\n".join(missing)
-                if "[공통 규칙]" not in sec:
-                    add = (add + "\n" if add else "") + CAI_BASIC_RULES
-                new = sysp.rstrip() + "\n[다음 행동] v3 — 추가된 행동·규칙\n" + add
-                how = f"고친 [다음 행동] 절은 두고 없는 행동 {len(missing)}줄·공통 규칙만 덧붙였다"
-        p["system"] = new
-        purposes["cai_basic"] = p
-        data["purposes"] = purposes
-        save_json(PROMPTS_FILE, data)
-        print(f"[startup] Coverage AI · Basic 프롬프트 저장본 — {how}", flush=True)
+                sec = head[i:]
+                import hashlib as _hl
+                import re as _re0
+                fp = _hl.sha1(_re0.sub(r"\s+", "", sec).encode()).hexdigest()[:16]
+                if fp in CAI_BASIC_NEXT_OLD:
+                    # 우리가 붙인 옛 판(v1·v2) 그대로 — 행동 표 + 공통 규칙(v3)으로 갈아 끼운다
+                    head = head[:i].rstrip() + "\n\n" + CAI_BASIC_NEXT
+                    hows.append("[다음 행동] 절을 v3(행동 표 + 공통 규칙)로 갈아 끼웠다")
+                else:
+                    # 사람이 고친 절 — 건드리지 않고 없는 행동 줄·공통 규칙만 덧붙인다
+                    missing = []
+                    for l in CAI_BASIC_NEXT.split("\n"):
+                        mm = _re0.match(r"· ([a-z_]+) —", l)
+                        if mm and mm.group(1) not in sec:
+                            missing.append(l)
+                    add = "\n".join(missing)
+                    if "[공통 규칙]" not in sec:
+                        add = (add + "\n" if add else "") + CAI_BASIC_RULES
+                    head = head.rstrip() + "\n[다음 행동] v3 — 추가된 행동·규칙\n" + add
+                    hows.append(f"고친 [다음 행동] 절은 두고 없는 행동 {len(missing)}줄·공통 규칙만 덧붙였다")
+        sysp2 = head.rstrip() + ("\n\n" + tail.strip() if tail.strip() else "")
+        # ── ② 부속 절(지시: 나누지 말고 Basic 한 곳에) ── 없는 절만 기본 글로 덧붙인다.
+        # 잠깐 따로 두었던 용도(cai_pick_device 등)에 저장된 글이 있으면 그 글을 옮긴다.
+        old_keys = {"장비 추천 프롬프트": "cai_pick_device", "항목 고르기 프롬프트": "cai_pick_tc",
+                    "결과 요약 프롬프트": "cai_run_summary", "판정 기준 짓기 프롬프트": "cai_criteria",
+                    "화면 안내 문구": "cai_messages"}
+        _h2, secs = cai_split(sysp2)
+        added = []
+        for name, default in CAI_BASIC_SECTIONS.items():
+            if name in secs:
+                continue
+            moved = str((purposes.get(old_keys[name]) or {}).get("system") or "").strip()
+            sysp2 = sysp2.rstrip() + f"\n\n[{name}]\n" + (moved or default)
+            added.append(name)
+        if added:
+            hows.append("부속 절 " + "·".join(added) + " 을 덧붙였다")
+        dropped = [k for k in old_keys.values() if k in purposes]
+        for k in dropped:
+            purposes.pop(k, None)
+        if dropped:
+            hows.append("따로 두었던 용도 " + "·".join(dropped) + " 을 걷었다")
+        if sysp2 != sysp or dropped:
+            p["system"] = sysp2
+            purposes["cai_basic"] = p
+            data["purposes"] = purposes
+            save_json(PROMPTS_FILE, data)
+            print(f"[startup] Coverage AI · Basic 프롬프트 저장본 — {' · '.join(hows)}", flush=True)
     except Exception as e:
         print(f"[startup] 프롬프트 [다음 행동] 이어붙이기 실패: {e}", flush=True)
 
