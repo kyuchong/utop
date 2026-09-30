@@ -2762,7 +2762,29 @@ export default function AskBar({ devices }: Props) {
            대조해 화면이 고른다.** 목록에 없으면 없다고 말한다(환각 차단). */
         /* 추천 요청(지적: 추천하면 항목 선택이 안 됨) — LLM 이 고른 항목을
            **카드로 세운다.** 값은 실제 목록과 대조하고, 확정은 클릭이다. */
+        /* 순서는 늘 **장비 → 항목**(지시) — 장비가 아직 없으면 항목 카드(추천·검색·
+           의도·ask_tc)보다 장비 카드가 먼저 선다. 질문은 쥐어 두었다가 장비를 고른 뒤
+           그 말로 항목 후보를 잇는다. 장비를 콕 집은 말(pick_dev)은 그 처리가 먼저다. */
         const sg = String(chat.suggest_tc ?? '').trim()
+        {
+          const curDev9 = usable.find((x) => x.id === devId)
+          const wantsTc = !!(sg || pt || chat.tc_intent || nextRef.current === 'ask_tc')
+          if (!curDev9 && !pd && !chat.dev_intent && wantsTc) {
+            const m2 = String(chat.model ?? '').trim() || (candsOf(raw0)?.model ?? '').trim()
+            const cands3 = m2
+              ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m2.toLowerCase())
+              : usable
+            if (cands3.length) {
+              pendQRef.current = said
+              afterDevRef.current = 'tc'
+              setFlowLog((v) => [...v, { s: 1, t: '장비부터 고릅니다 — 항목은 장비를 고른 뒤 잇습니다' }])
+              sayThink('사용 가능한 장비 검색 중…')
+              await sayDevBlock(cands3, m2, said)
+              setFlowAt(0)
+              return
+            }
+          }
+        }
         if (sg && !pd && !pt) {
           const keys = sg.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 3)
           const normKey2 = (x: string) => x.toLowerCase().replace(/(\D)0+(?=\d)/g, '$1')
@@ -2776,13 +2798,19 @@ export default function AskBar({ devices }: Props) {
             if (hit && !items.some((x) => x.tcid === hit.tcid))
               items.push({ tcid: hit.tcid, name: hit.name, model: hit.model, steps: hit.steps })
           }
-          if (!items.length) {
-            sayThink('말씀과 가까운 시험 항목을 찾는 중…')
-            const like3 = await findLike(asked || raw0, undefined)
-            unThink()
-            items.push(...like3)
+          /* 추천 키만으로는 한두 건뿐이다(지적: SNMP 시험이 많은데 하나만) — 뜻 기반
+             검색 결과로 5건까지 채우고 나머지는 「더보기」 풀에 둔다. 추천 키는 앞에. */
+          sayThink('말씀과 가까운 시험 항목을 찾는 중…')
+          const like3 = await findLike(asked || raw0, usable.find((x) => x.id === devId))
+          unThink()
+          for (const x of like3) if (!items.some((y) => y.tcid === x.tcid)) items.push(x)
+          {
+            const pool = likePoolRef.current
+            const head5 = items.slice(0, 5)
+            const rest = pool.all.filter((x) => !head5.some((e) => e.tcid === x.tcid))
+            likePoolRef.current = { q: pool.q || (asked || raw0), all: [...head5, ...rest], shown: head5.length }
           }
-          if (items.length) sayTcBlock(items, said)
+          if (items.length) sayTcBlock(items.slice(0, 5), likePoolRef.current.q)
           else
             say(
               'a',

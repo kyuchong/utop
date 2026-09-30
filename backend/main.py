@@ -3971,6 +3971,16 @@ async def _prompt_next_migrate():
             data["purposes"] = purposes
             save_json(PROMPTS_FILE, data)
             print("[startup] Coverage AI · Basic 프롬프트 저장본에 [다음 행동] 절을 이어 붙였다", flush=True)
+        elif sysp.strip() and "순서는 늘 장비 → 항목" not in sysp and "[다음 행동]" in sysp:
+            # 절은 있는데 순서 규칙(지시: 장비 → 항목)이 빠진 저장본 — 머리줄 뒤에 0) 줄을 끼운다
+            head_end = sysp.find("\n", sysp.find("[다음 행동]"))
+            line0 = next((l for l in CAI_BASIC_NEXT.split("\n") if l.startswith("0) ")), "")
+            if head_end > 0 and line0:
+                p["system"] = sysp[:head_end] + "\n" + line0 + sysp[head_end:]
+                purposes["cai_basic"] = p
+                data["purposes"] = purposes
+                save_json(PROMPTS_FILE, data)
+                print("[startup] Coverage AI · Basic 프롬프트 저장본에 순서 규칙(0) 장비 → 항목)을 끼웠다", flush=True)
     except Exception as e:
         print(f"[startup] 프롬프트 [다음 행동] 이어붙이기 실패: {e}", flush=True)
 
