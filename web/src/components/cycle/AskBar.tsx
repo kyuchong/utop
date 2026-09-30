@@ -436,6 +436,11 @@ export default function AskBar({ devices }: Props) {
     all: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>
     shown: number
   }>({ q: '', all: [], shown: 0 })
+  /** 프롬프트가 정한 **다음 행동**(승인: 장비 묻기·확정·항목 묻기 규칙을 프롬프트로) —
+      cov-chat 의 next. 턴마다 비우고, 결정이 필요한 자리(takeTc·장비만 말한 뒤)가 읽는다.
+      비어 있으면(LLM 없음·답 못 줌) 코드의 옛 규칙으로 물러선다. */
+  const nextRef = useRef<string>('')
+  const NEXT_OK = new Set(['confirm_device', 'ask_device', 'use_device', 'repick_device', 'ask_tc', 'wait_tc', 'none'])
   const [adopting, setAdopting] = useState('')
   /** 질문 보기 고치기 — 관리자만. ⚙ 로 켠다 */
   const [exEdit, setExEdit] = useState(false)
@@ -611,7 +616,7 @@ export default function AskBar({ devices }: Props) {
           method: 'POST',
           body: JSON.stringify({ q: rd.q, mode, facts: buildFacts() }),
         })
-        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean }
+        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; next?: string; dev_intent?: boolean; tc_intent?: boolean }
         unThink()
         if (b.answer) {
           saySlow(b.answer, rd)
@@ -654,7 +659,7 @@ export default function AskBar({ devices }: Props) {
    * 모델그룹이 안 실려서 「어떤 사업자 제품이냐」 에 화면으로 미는 답만
    * 나왔다. LLM 은 여기 없는 것은 지어내지 않으므로, 근거를 주는 만큼
    * 답이 자세해진다. */
-  const buildFacts = () => {
+  const buildFacts = (said0 = '') => {
     const cnt = { ok: 0, busy: 0, part: 0, no: 0 }
     const stName = { ok: '사용 가능', busy: '사용중', part: '일부 연결', no: '사용 불가' } as const
     const rows: string[] = []
@@ -719,7 +724,22 @@ export default function AskBar({ devices }: Props) {
         (ran ?? []).some((r) => String(r?.status ?? r?.repeatResult ?? '').trim())
           ? `있음${summ ? ` (합격 ${summ.pass} · 불합격 ${summ.fail})` : ''} — 결과 보기 가능`
           : '없음 (아직 실행 전)'
-      }`
+      }${(() => {
+        /* [다음 행동] 판단 재료(승인) — 장비 모델, 먼저 정해진 항목과 그 모델,
+           말에 적힌 모델의 후보 수, 떠 있는 카드. 프롬프트가 이걸 보고 정한다. */
+        const m9 = (candsOf(said0)?.model ?? '').trim()
+        const n9 = m9
+          ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m9.toLowerCase()).length
+          : 0
+        const lastA = [...msgs].reverse().find((x) => x.who === 'a' && /data-pick="(dev|tc)"/.test(x.html))
+        const card = lastA ? (lastA.html.includes('data-pick="dev"') ? '장비 후보' : '항목 후보') : '없음'
+        return (
+          `\n- 대상 장비 모델: ${selDev ? String(selDev.model || '') || '없음' : '없음'}` +
+          `\n- 먼저 정해진 항목: ${afterPick ? `${afterPick.tcid} (모델 ${afterPick.model || '공통'}) — 장비를 기다리는 중` : '없음'}` +
+          `\n- 말에 적힌 모델의 장비 후보: ${m9 ? `${m9} ${n9}대` : '말에 모델 없음'}` +
+          `\n- 떠 있는 카드: ${card}`
+        )
+      })()}`
     return (
       `장비: 전체 ${usable.length}대 — 사용 가능 ${cnt.ok} · 사용중 ${cnt.busy} · ` +
       `일부 연결 ${cnt.part} · 사용 불가 ${cnt.no}\n` +
@@ -2115,13 +2135,25 @@ export default function AskBar({ devices }: Props) {
        장비를 고르게 한다. */
     const wantM = String(tcModel ?? '').trim().toLowerCase()
     if (!dev && use && wantM && String(use.model ?? '').trim().toLowerCase() !== wantM) {
-      say(
-        'a',
-        `<p class="ln">이 항목은 <b>${hesc(String(tcModel))}</b> 용입니다 — 지금 장비(<b>${hesc(
-          String(use.model || use.name || ''),
-        )}</b>)와 모델이 달라, <b>${hesc(String(tcModel))}</b> 장비를 먼저 고릅니다.</p>`,
-      )
-      use = undefined
+      /* **프롬프트가 정한다**(승인) — use_device 면 지금 장비 그대로, 아니면(repick_device·
+         안 정함) 항목 모델의 장비를 다시 고르게 한다. 안 정했을 때 다시 고르는 쪽이
+         기본인 까닭: 틀리면 E6100 항목을 U9500H 로 돌린다. */
+      if (nextRef.current === 'use_device') {
+        say(
+          'a',
+          `<p class="ln">이 항목은 <b>${hesc(String(tcModel))}</b> 용이지만 지금 장비(<b>${hesc(
+            String(use.model || use.name || ''),
+          )}</b>)로 그대로 갑니다.</p>`,
+        )
+      } else {
+        say(
+          'a',
+          `<p class="ln">이 항목은 <b>${hesc(String(tcModel))}</b> 용입니다 — 지금 장비(<b>${hesc(
+            String(use.model || use.name || ''),
+          )}</b>)와 모델이 달라, <b>${hesc(String(tcModel))}</b> 장비를 먼저 고릅니다.</p>`,
+        )
+        use = undefined
+      }
     }
     if (!use) {
       /* 항목이 공용(모델명 빈 칸)이면 **말에서 읽은 모델**을 쓴다(지적) —
@@ -2136,21 +2168,35 @@ export default function AskBar({ devices }: Props) {
          카드로 묻고, 고르면 pickInlineDev 가 afterPick 으로 이 항목을 잇는다.
          옛 창(pickDev 모달)은 Advanced 몫으로만 남는다. */
       if (mode === 'basic') {
-        setAfterPick({ tcid, model: String(tcModel || askModel || '') })
-        setLikeAsk(false)
         const list = cands.length ? cands : usable
         if (!list.length) {
           setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
           return
         }
+        /* **프롬프트가 정한다**(승인) — confirm_device 이고 후보가 한 대면 묻지 않고
+           확정해 바로 절차로. 그 밖(ask_device·안 정함)은 카드로 묻는다. */
+        if (nextRef.current === 'confirm_device' && list.length === 1 && list[0]) {
+          const d1 = list[0]
+          const nm1 = String(d1.model || d1.name || d1.ip)
+          setDevId(d1.id)
+          setTDev(nm1)
+          setAskModel(String(d1.model ?? ''))
+          if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+          setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d1.ip} 확정 (한 대뿐 — 프롬프트 판단)` }])
+          say('a', devDoneCard(nm1, String(d1.ip ?? '')))
+          use = d1
+        } else {
+        setAfterPick({ tcid, model: String(tcModel || askModel || '') })
+        setLikeAsk(false)
         setFlowLog((v) => [...v, { s: 1, t: `${want || '전체'} 장비 ${list.length}대 — 어느 장비로 보낼지 고릅니다` }])
         sayThink('사용 가능한 장비 검색 중…')
         await sayDevBlock(list, String(tcModel || askModel || ''), '', {
           head: `이 항목을 보낼 장비를 골라 주세요${want ? ` (<b>${hesc(String(tcModel || askModel || ''))}</b> ${list.length}대)` : ''}.`,
         })
         return
+        }
       }
-      if (cands.length >= 1) {
+      if (!use && cands.length >= 1) {
         setAfterPick({ tcid, model: String(tcModel || askModel || '') })
         setPickSel(cands.find((d) => d.id === devId)?.id ?? cands[0]?.id ?? '')
         setPickLab('')
@@ -2159,13 +2205,15 @@ export default function AskBar({ devices }: Props) {
         setLikeAsk(false)
         return
       }
-      setAfterPick({ tcid, model: String(tcModel || askModel || '') })
-      setPickSel(usable[0]?.id ?? '')
-      setPickLab('')
-      setPickRack('')
-      setPickDev({ model: '', cands: usable })
-      setLikeAsk(false)
-      return
+      if (!use) {
+        setAfterPick({ tcid, model: String(tcModel || askModel || '') })
+        setPickSel(usable[0]?.id ?? '')
+        setPickLab('')
+        setPickRack('')
+        setPickDev({ model: '', cands: usable })
+        setLikeAsk(false)
+        return
+      }
     }
     dev = use
     const t0 = performance.now()
@@ -2550,6 +2598,21 @@ export default function AskBar({ devices }: Props) {
     setFlowVals([])
     setFitNotes([])
     setFlowAt(1)
+    nextRef.current = ''
+    /** 프롬프트에 **다음 행동만** 묻는다(승인) — 식별자로 장비·항목이 정해졌어도
+        「묻을지·확정할지」 는 프롬프트가 정한다. 못 물으면 빈 채로(옛 규칙). */
+    const askNext = async (q1: string, raw1: string) => {
+      try {
+        const r = await apiFetch('/api/ai/cov-chat', {
+          method: 'POST',
+          body: JSON.stringify({ q: q1, mode, facts: buildFacts(raw1) }),
+        })
+        const b = (await r.json()) as { next?: string }
+        nextRef.current = NEXT_OK.has(String(b?.next ?? '')) ? String(b.next) : ''
+      } catch {
+        nextRef.current = ''
+      }
+    }
     /* 시험과 상관없는 말이면 장비 고르기로 끌고 가지 않는다(지시) —
        SETUP › 용도별 프롬프트 › Coverage AI(Basic/Advanced) 의 말투로 바로
        답한다. 절차를 고치는 중(Advanced)의 말은 고치는 말이라 안 묻는다.
@@ -2574,6 +2637,18 @@ export default function AskBar({ devices }: Props) {
       const ipHit = ipToks.length
         ? usable.find((d) => ipToks.includes(String(d.ip ?? '').trim()))
         : undefined
+      /* 결정이 필요한 자리에서만 프롬프트에 묻는다 — 항목만 짚었는데 장비가
+         비었거나 모델이 다를 때, 장비만 짚었을 때. 둘 다 짚었으면 물을 것이 없다. */
+      const curDev0 = usable.find((x) => x.id === devId)
+      const tcM0 = String(tcHit?.model ?? '').trim().toLowerCase()
+      const needNext =
+        (!!tcHit && !ipHit && (!curDev0 || (!!tcM0 && String(curDev0.model ?? '').trim().toLowerCase() !== tcM0))) ||
+        (!!ipHit && !tcHit)
+      if (needNext) {
+        sayThink('다음 단계를 정하는 중…')
+        await askNext(said, raw0)
+        unThink()
+      }
       if (tcHit || ipHit) {
         if (ipHit && ipHit.id !== devId) {
           const nm = String(ipHit.model || ipHit.name || ipHit.ip)
@@ -2608,16 +2683,19 @@ export default function AskBar({ devices }: Props) {
           void takeTc(ap.tcid, ipHit, ap.model)
           return
         }
-        /* 장비만 콕 집은 말 — 한 문장 흐름(쥔 질문)이면 항목 후보를 잇고,
-           단계별 흐름이면 안내에서 멈춘다 */
+        /* 장비만 콕 집은 말 — **프롬프트가 정한다**(승인): ask_tc 면 항목 후보를
+           잇고, wait_tc 면 항목을 말해 달라고만. 안 정했으면 옛 규칙(쥔 질문이
+           있으면 잇고 없으면 멈춤). */
         const q0 = pendQRef.current
         pendQRef.current = ''
-        if (q0) {
+        const nx0 = nextRef.current
+        if (nx0 === 'ask_tc' || (!nx0 && q0)) {
+          const qq = q0 || raw0
           sayThink('이 장비에서 실행할 수 있는 항목을 찾는 중…')
-          let it9 = await findLike(q0, ipHit)
+          let it9 = await findLike(qq, ipHit)
           if (!it9.length) it9 = await findLike(String(ipHit?.model ?? ''), ipHit)
           unThink()
-          if (it9.length) sayTcBlock(it9, q0)
+          if (it9.length) sayTcBlock(it9, qq)
           else showTcCards(String(ipHit?.model ?? ''))
         } else {
           say(
@@ -2635,17 +2713,18 @@ export default function AskBar({ devices }: Props) {
          장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
          현황 질문에는 LLM 이 이것만 보고 답하게 한다. */
       const facts = buildFacts()
-      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean } | null = null
+      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; next?: string; dev_intent?: boolean; tc_intent?: boolean } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
           method: 'POST',
           body: JSON.stringify({ q: said, mode, facts }),
         })
-        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; dev_intent?: boolean; tc_intent?: boolean }
+        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; next?: string; dev_intent?: boolean; tc_intent?: boolean }
       } catch {
         /* 못 물으면 시험 갈래로 — 이 화면의 본분 */
       }
       unThink()
+      nextRef.current = NEXT_OK.has(String(chat?.next ?? '')) ? String(chat?.next) : ''
       const pd = String(chat?.pick_dev ?? '').trim()
       const pt = String(chat?.pick_tc ?? '').trim()
       /* 「시험 시작」(지적: 시작이 항목 찾기로 흘러 「일치하는 항목이
@@ -2796,9 +2875,12 @@ export default function AskBar({ devices }: Props) {
             if (!pt) {
               /* 한 문장 흐름(쥔 질문이 있음)이면 그 의도로 **항목 후보가
                  바로 이어서** 선다(지시: 질문이 한 번에 들어갔잖아).
-                 하나씩 묻는 흐름이면 이 단계에서 멈춘다(지시: 단계별). */
-              const q0 = pendQRef.current
+                 하나씩 묻는 흐름이면 이 단계에서 멈춘다(지시: 단계별).
+                 프롬프트가 ask_tc / wait_tc 를 정했으면 그것이 먼저다(승인). */
+              const q0raw = pendQRef.current
               pendQRef.current = ''
+              const nx1 = nextRef.current
+              const q0 = nx1 === 'wait_tc' ? '' : nx1 === 'ask_tc' ? q0raw || raw0 : q0raw
               if (q0) {
                 sayThink('이 장비에서 실행할 수 있는 항목을 찾는 중…')
                 let items9 = await findLike(q0, d0)

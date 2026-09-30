@@ -483,7 +483,11 @@ LLM_PURPOSES: dict[str, dict] = {
     # 있어 SETUP 에서 고칠 수 있다. 코드는 출력 형식(JSON)만 강제한다.
     "cai_basic": {
         "label": "Coverage AI · Basic",
-        "hint": "Coverage AI › Basic mode — 시험 요청인지 가르는 판단과 일반 질문 답변을 이 프롬프트가 정합니다.",
+        "hint": ("Coverage AI › Basic mode — 시험 요청인지 가르는 판단, 일반 질문 답변, 그리고 [다음 행동]"
+                 "(장비를 묻을지·확정할지·항목을 물을지)을 이 프롬프트가 정합니다. 행동 이름: confirm_device · "
+                 "ask_device · use_device · repick_device · ask_tc · wait_tc · none. 판단 재료는 [현황]과 "
+                 "[선택 상태](대상 장비·모델, 먼저 정해진 항목과 그 모델, 말에 적힌 모델의 장비 후보 수, "
+                 "떠 있는 카드)로 매 턴 함께 실립니다."),
         "system": (
             "너는 UBIQUOSS 네트워크 장비 시험 플랫폼(UTOP)의 Coverage AI 도우미다. "
             "Basic mode 는 이미 만들어진 시험 항목을 골라 장비에서 돌리는 자리다.\n\n"
@@ -513,7 +517,20 @@ LLM_PURPOSES: dict[str, dict] = {
             "6) 네트워크 장비·시험 지식 범위에서 답하고, 모르는 것은 모른다고 말한다.\n"
             "7) 화면 사용법을 물으면 「장비 선택 → 시험 항목 선택 → 시험 시작」 순서를 안내한다.\n"
             "8) 시험을 하고 싶어 하는 말이면 장비 모델명(예: E6100)과 무엇을 확인할지를 "
-            "함께 적어 다시 요청하도록 안내한다."
+            "함께 적어 다시 요청하도록 안내한다.\n\n"
+            "[다음 행동] 매 답에 next 를 하나 적는다 — 화면은 그 행동만 한다. [선택 상태]가 근거다.\n"
+            "1) confirm_device — 말한 모델·IP 의 장비 후보가 **한 대뿐**이고 아직 항목이 정해지지 "
+            "않았을 때, 묻지 않고 그 장비로 확정한다.\n"
+            "2) ask_device — 후보가 여럿일 때. 그리고 **항목이 먼저 정해진 뒤** 장비를 고를 때는 "
+            "한 대뿐이어도 묻는다(항목이 정해졌으면 어느 장비로 보낼지 한 번은 확인한다).\n"
+            "3) repick_device — 고른 장비의 모델과 항목의 모델이 다를 때, 항목 모델의 장비를 다시 "
+            "고르게 한다. 사용자가 「그래도 이 장비로」 라고 분명히 말한 때만 use_device.\n"
+            "4) ask_tc — 장비가 정해졌고 무엇을 시험할지가 말에 있으면 항목 후보를 보여 준다.\n"
+            "5) wait_tc — 장비만 말했고 무엇을 시험할지가 없으면 항목을 말해 달라고만 한다. "
+            "장비 후보를 다시 깔지 않는다.\n"
+            "6) 「선택해 줘」 처럼 대상이 없는 말이고 이미 후보 카드가 떠 있으면 none 으로 두고 "
+            "위 후보에서 고르라고 answer 에 적는다.\n"
+            "7) 어느 것도 아니면 none."
         ),
     },
     "cai_advanced": {
@@ -924,6 +941,10 @@ def _pick_in_q(val, q: str, cap: int) -> str:
     return v if v.lower() in str(q or "").lower() else ""
 
 
+# Coverage AI 가 프롬프트에서 받는 「다음 행동」 — 화면(AskBar)의 실행기와 같은 목록
+_NEXT_OK = {"confirm_device", "ask_device", "use_device", "repick_device", "ask_tc", "wait_tc", "none"}
+
+
 @router.post("/api/ai/cov-chat")
 async def cov_chat(payload: dict):
     """Coverage AI 잡담 갈래(지시) — 아무 상관없는 말에 장비 고르기가 뜨던 것.
@@ -996,7 +1017,9 @@ async def cov_chat(payload: dict):
         "「시험을 시작합니다」 한 줄만 적는다. 준비 안 됐으면 run=false 로 두고 "
         "[선택 상태] 를 근거로 무엇이 빠졌는지 답한다 — 화면과 다른 말을 지어내지 마라. "
         "질문에 장비 모델명이 명시되어 있으면 함께 실린 「대상 장비」 맥락보다 "
-        "**질문의 모델을 우선**해 답하고, model 에도 그 모델을 적는다."
+        "**질문의 모델을 우선**해 답하고, model 에도 그 모델을 적는다. "
+        "next 에는 [다음 행동] 규칙대로 confirm_device · ask_device · use_device · repick_device · "
+        "ask_tc · wait_tc · none 중 하나만 적는다 — 다른 값은 버린다."
     )
     schema = {
         "type": "object",
@@ -1005,6 +1028,7 @@ async def cov_chat(payload: dict):
                        "state": {"type": "string"},
                        "pick_dev": {"type": "string"}, "pick_tc": {"type": "string"},
                        "suggest_tc": {"type": "string"},
+                       "next": {"type": "string"},
                        "run": {"type": "boolean"}},
         "required": ["test", "answer"],
     }
@@ -1037,7 +1061,9 @@ async def cov_chat(payload: dict):
                 # 추천 신호 — 값은 화면이 실제 목록과 대조하고, 확정은 카드 클릭
                 "suggest_tc": str(got.get("suggest_tc") or "").strip()[:200],
                 # 실행 신호 — 절차가 준비돼 있는지는 화면이 다시 확인한다
-                "run": bool(got.get("run"))}
+                "run": bool(got.get("run")),
+                # 다음 행동(승인: 11·12·13 을 프롬프트로) — 화면이 아는 행동만 통과
+                "next": (lambda v: v if v in _NEXT_OK else "")(str(got.get("next") or "").strip().lower())}
     except Exception as e:
         return {"ok": True, "test": True, "answer": "", "model": "", "error": str(e)[:200]}
 
