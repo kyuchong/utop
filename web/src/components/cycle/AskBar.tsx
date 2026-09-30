@@ -1498,11 +1498,25 @@ export default function AskBar({ devices }: Props) {
       후보 줄·칩)을 고른 카드 하나로 갈아 끼운다. 블록이 없으면 새로 단다. */
   const pickedLine = (kind: 'dev' | 'tc', line: string) =>
     setMsgs((v) => {
-      const mark = `data-pick="${kind}"`
-      const has = v.some((m) => m.who === 'a' && m.html.includes(mark))
-      return has
-        ? v.map((m) => (m.who === 'a' && m.html.includes(mark) ? { ...m, html: line } : m))
-        : [...v, { who: 'a' as const, html: line }]
+      /* 시험용 카드(dev·tc)뿐 아니라 **목록 카드(dev-list·tc-list)** 도 고르면
+         접는다(지적: 장비 목록 카드만 안 사라졌다). 여러 판이 있으면 첫 판을
+         고른 줄로 바꾸고 나머지는 걷는다 — 같은 줄이 두 번 서지 않게. */
+      const marks = [`data-pick="${kind}"`, `data-pick="${kind}-list"`]
+      const hit = (m: { who: string; html: string }) => m.who === 'a' && marks.some((k) => m.html.includes(k))
+      if (!v.some(hit)) return [...v, { who: 'a' as const, html: line }]
+      let done = false
+      const out: typeof v = []
+      for (const m of v) {
+        if (!hit(m)) {
+          out.push(m)
+          continue
+        }
+        if (!done) {
+          out.push({ ...m, html: line })
+          done = true
+        }
+      }
+      return out
     })
   /** 고른 장비 — 글 한 줄. 어느 단계였는지 함께 남긴다(지시).
       말투는 A안(승인) — 값 뒤에 「장비를」 을 받쳐 IP 뒤 조사가 안 어긋난다. */
@@ -3086,6 +3100,23 @@ export default function AskBar({ devices }: Props) {
           }
         }
         const m1 = String(chat.model ?? '').trim()
+        /* 「시험해줘」 같은 실행 말에 LLM 이 목록 보기(show=devices)로 답해도 시험용
+           장비 카드로 세우고 질문을 쥐어 둔다(지적: 목록 카드는 시험 흐름 부품이 아니라
+           겉모습이 다르다). 목록 카드는 실행 말이 없는 현황 질문에만. */
+        const execWord = /시험|실행|돌려|테스트|해줘|해 줘/.test(raw0)
+        if (sh === 'devices' && execWord && !usable.find((x) => x.id === devId)) {
+          const cands3 = m1
+            ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m1.toLowerCase())
+            : usable
+          if (cands3.length) {
+            pendQRef.current = said
+            afterDevRef.current = 'tc'
+            sayThink('사용 가능한 장비 검색 중…')
+            await sayDevBlock(cands3, m1, said)
+            setFlowAt(0)
+            return
+          }
+        }
         if (sh === 'devices') showDevCards(m1, String(chat.state ?? '').trim())
         else if (sh === 'tcs') showTcCards(m1)
         else if (sh === 'result') {
