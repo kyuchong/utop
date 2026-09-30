@@ -92,6 +92,10 @@ interface Props {
    * 을 그대로 두면 24회를 돌려도 같은 줄만 스물네 번 본다.
    */
   loopVar?: string
+  /** 감싸는 반복이 번호로 도는지(range) 이름 목록으로 도는지(list) — 없으면 none */
+  loopKind?: 'none' | 'range' | 'list'
+  /** 감싸는 반복의 첫 값 — 미리보기는 1회차를 돌려 보는 셈이다 */
+  loopSeed?: string
   /** 이 시험의 스텝 목록 — If 의 「어느 스텝으로 이동」 이 고른다 */
   stepList?: Array<{ i: number; label: string }>
 }
@@ -128,6 +132,8 @@ export default function TcStepDetail({
   block,
   onLoopList,
   loopVar,
+  loopKind = 'none',
+  loopSeed = '',
   stepList,
   readOnly = false,
   hideAction = false,
@@ -382,7 +388,7 @@ export default function TcStepDetail({
    * 알고 있어서 「이 응답에서는 안 잡힙니다」 를 띄웠다(사진) — 실제로는
    * 잘 잡히는데 화면만 틀린 말을 한 것이다. 반복 안이면 **1회차**로 본다.
    */
-  const pvars: Record<string, string> = { ...gp.values, ...(loopVar ? { [loopVar]: '1' } : {}) }
+  const pvars: Record<string, string> = { ...gp.values, ...(loopVar ? { [loopVar]: loopSeed || '1' } : {}) }
   const writeChips = (next: JudgeRule[]) =>
     onChange({ rules: next, criteria: '', excludeLines: '' })
   const addChipFrom = (t: 'has' | 'not' | 'skip' | 'skipcol', v: string) => {
@@ -2120,10 +2126,16 @@ export default function TcStepDetail({
                                설정도 했는데 없는 변수라고 나와) — 「안 잡힙니다」
                                만으로는 어디가 틀렸는지 알 수 없다 */
                             v.tbl
-                            ? captureMiss(capSrc, { var: v.name, ...v.tbl }, pvars)?.replace(
-                                `${v.name} ← `,
-                                '',
-                              ) ?? '안 잡힙니다'
+                            ? /* 반복이 **번호**로 도는데 조건은 열 값(`Port=${i}`)을 찾는다 —
+                                 가장 흔한 어긋남이라 먼저 짚는다(지적: 이름으로 했는데 행이 없다) */
+                              loopVar &&
+                                loopKind === 'range' &&
+                                String(v.tbl.where ?? '').includes(`=\${${loopVar}}`)
+                              ? `반복이 번호(${loopSeed || 1}부터)로 돌아 ${String(v.tbl.where).replace(`\${${loopVar}}`, loopSeed || '1')} 을 찾습니다 — 반복 값을 이름 목록으로 바꾸거나(표에서 다시 「이대로 변수로」) 「응답 순서로」 를 고르세요`
+                              : captureMiss(capSrc, { var: v.name, ...v.tbl }, pvars)?.replace(
+                                  `${v.name} ← `,
+                                  '',
+                                ) ?? '안 잡힙니다'
                             : v.rule && looksFrozen(v.rule)
                               ? '값이 박혀 있어 안 맞습니다 → 「수는 아무 수나」'
                               : loopVar

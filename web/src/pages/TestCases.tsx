@@ -2461,6 +2461,24 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     onGoTraffic={() => setTab('traffic')}
                     block={blockInfo}
                     loopVar={loopVarAt(shownSteps, stepIdx)}
+                    /* 감싸는 반복이 **번호로 도는지 이름 목록으로 도는지** 와 첫 값 —
+                       뽑은 값 미리보기와 「못 뽑음」 안내가 그것을 알아야 「반복이
+                       번호로 돌아 Port=1 을 찾습니다」 라고 짚어 줄 수 있다(지적) */
+                    loopKind={(() => {
+                      const at = loopIndexAt(shownSteps, stepIdx)
+                      const lp = at >= 0 ? shownSteps[at] : undefined
+                      if (!lp) return 'none'
+                      if (String(lp.forList ?? '').trim()) return 'list'
+                      if (lp.forFrom !== undefined && lp.forTo !== undefined) return 'range'
+                      return 'none'
+                    })()}
+                    loopSeed={(() => {
+                      const at = loopIndexAt(shownSteps, stepIdx)
+                      const lp = at >= 0 ? shownSteps[at] : undefined
+                      if (!lp) return ''
+                      const first = String(lp.forList ?? '').split(/[,\s]+/).map((x) => x.trim()).filter(Boolean)[0]
+                      return first ?? String(lp.forFrom ?? 1)
+                    })()}
                     /* 표에서 고른 행들을 감싸는 반복에 넣는다 — 다만 **비어
                        있는 반복에만**(지적: 값 뽑기 때마다 Loop 가 바뀐다).
                        값 뽑기와 반복은 서로 다른 일이다. Index=${j} 로 그 회차
@@ -2472,7 +2490,25 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       const lp = shownSteps[at]
                       const hasList = String(lp?.forList ?? '').trim() !== ''
                       const hasRange = lp?.forFrom !== undefined && lp?.forTo !== undefined
-                      if (hasList || hasRange) return // 이미 짜 둔 반복은 그대로 둔다
+                      if (hasList || hasRange) {
+                        /* 이미 짜 둔 반복은 조용히 덮지 않는다 — 다만 **방식이 다르면
+                           묻는다**(지적: 순서로 채운 반복이 남아 이름으로 뽑은 변수가
+                           영영 Port=1 을 찾았다). 같은 값이면 할 말이 없다. */
+                        const same = v.range
+                          ? Number(lp?.forFrom) === v.range.from && Number(lp?.forTo) === v.range.to
+                          : String(lp?.forList ?? '').trim() === String(v.list ?? '').trim()
+                        if (same) return
+                        const cur = hasList
+                          ? `값 목록 ${String(lp?.forList).split(/[,\s]+/).filter(Boolean).length}개`
+                          : `번호 ${lp?.forFrom} ~ ${lp?.forTo}`
+                        const want = v.range
+                          ? `번호 ${v.range.from} ~ ${v.range.to}`
+                          : `고른 행 이름 ${String(v.list ?? '').split(/,\s*/).filter(Boolean).length}개`
+                        const ok = window.confirm(
+                          `감싸는 반복이 지금 ${cur}로 돕니다.\n이 변수는 반복이 ${want}로 돌아야 잡힙니다.\n\n반복 값을 바꿀까요? (같은 반복 안에 다른 방식으로 뽑는 변수가 있으면 그쪽이 안 잡히게 됩니다)`,
+                        )
+                        if (!ok) return
+                      }
                       patchStep(at, {
                         loopVar: lp?.loopVar || 'i',
                         loopCount: undefined,
