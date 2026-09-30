@@ -3010,7 +3010,53 @@ export default function AskBar({ devices }: Props) {
             return
           }
         }
+        /* ── 프롬프트가 정한 다음 행동(승인) — 신호(pick·추천·의도·show)가 없는 답에서
+           next 가 ask_device 등이면 **말로만 안내하고 끝나지 않고** 그 행동을 한다
+           (지적: 「먼저 장비를 선택해 주세요」 라고만 하고 카드가 안 섰다). */
         const sh = String(chat.show ?? '').trim()
+        if (!sh) {
+          const nx = nextRef.current
+          const m2 = String(chat.model ?? '').trim() || (candsOf(raw0)?.model ?? '').trim()
+          const cands3 = m2
+            ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m2.toLowerCase())
+            : usable
+          if (nx === 'ask_device' && cands3.length) {
+            pendQRef.current = said
+            afterDevRef.current = 'tc'
+            sayThink('사용 가능한 장비 검색 중…')
+            await sayDevBlock(cands3, m2, said)
+            setFlowAt(0)
+            return
+          }
+          if (nx === 'confirm_device' && cands3.length === 1 && cands3[0]) {
+            const d0 = cands3[0]
+            const nm = String(d0.model || d0.name || d0.ip)
+            setDevId(d0.id)
+            setTDev(nm)
+            setAskModel(String(d0.model ?? ''))
+            if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+            setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d0.ip} 확정 (한 대뿐 — 프롬프트 판단)` }])
+            say('a', devDoneCard(nm, String(d0.ip ?? '')))
+            await stepTc(d0, said)
+            return
+          }
+          if (nx === 'ask_tc') {
+            const dv = usable.find((x) => x.id === devId)
+            sayThink('말씀과 가까운 시험 항목을 찾는 중…')
+            const it = await findLike(said, dv)
+            unThink()
+            if (it.length) {
+              sayTcBlock(it, said)
+              setFlowAt(0)
+              return
+            }
+          }
+          if (nx === 'wait_tc' && !chat.answer) {
+            say('a', '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나 「시험 항목 찾기」 로 골라 주세요.</p>')
+            setFlowAt(0)
+            return
+          }
+        }
         const m1 = String(chat.model ?? '').trim()
         if (sh === 'devices') showDevCards(m1, String(chat.state ?? '').trim())
         else if (sh === 'tcs') showTcCards(m1)
