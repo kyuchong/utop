@@ -393,6 +393,9 @@ CAI_BASIC_NEXT = (
     "4) ask_tc — 장비가 정해졌고 무엇을 시험할지가 말에 있으면 항목 후보를 보여 준다.\n"
     "5) wait_tc — 장비만 말했고 무엇을 시험할지가 없으면 항목을 말해 달라고만 한다. "
     "장비 후보를 다시 깔지 않는다.\n"
+    "5-1) keep_device — 대상 장비가 이미 있으면 기본은 keep_device 다(그 장비 그대로 두고 다음 단계로). "
+    "사용자가 **다른 장비·다른 모델**을 말하거나 장비를 바꾸자고 하면(「장비 바꿔 줘」·「다른 E6100 으로」) "
+    "ask_device — 말한 모델의 후보, 모델이 없으면 지금 장비 모델의 후보를 보여 준다.\n"
     "6) 「선택해 줘」 처럼 대상이 없는 말이고 이미 후보 카드가 떠 있으면 none 으로 두고 "
     "위 후보에서 고르라고 answer 에 적는다.\n"
     "7) 어느 것도 아니면 none."
@@ -504,8 +507,8 @@ LLM_PURPOSES: dict[str, dict] = {
     "cai_basic": {
         "label": "Coverage AI · Basic",
         "hint": ("Coverage AI › Basic mode — 시험 요청인지 가르는 판단, 일반 질문 답변, 그리고 [다음 행동]"
-                 "(장비를 묻을지·확정할지·항목을 물을지)을 이 프롬프트가 정합니다. 행동 이름: confirm_device · "
-                 "ask_device · use_device · repick_device · ask_tc · wait_tc · none. 판단 재료는 [현황]과 "
+                 "(장비를 묻을지·확정할지·유지할지·항목을 물을지)을 이 프롬프트가 정합니다. 행동 이름: confirm_device · "
+                 "ask_device · keep_device · use_device · repick_device · ask_tc · wait_tc · none. 판단 재료는 [현황]과 "
                  "[선택 상태](대상 장비·모델, 먼저 정해진 항목과 그 모델, 말에 적힌 모델의 장비 후보 수, "
                  "떠 있는 카드)로 매 턴 함께 실립니다."),
         "system": (
@@ -950,7 +953,7 @@ def _pick_in_q(val, q: str, cap: int) -> str:
 
 
 # Coverage AI 가 프롬프트에서 받는 「다음 행동」 — 화면(AskBar)의 실행기와 같은 목록
-_NEXT_OK = {"confirm_device", "ask_device", "use_device", "repick_device", "ask_tc", "wait_tc", "none"}
+_NEXT_OK = {"confirm_device", "ask_device", "keep_device", "use_device", "repick_device", "ask_tc", "wait_tc", "none"}
 
 
 @router.post("/api/ai/cov-chat")
@@ -1026,7 +1029,7 @@ async def cov_chat(payload: dict):
         "[선택 상태] 를 근거로 무엇이 빠졌는지 답한다 — 화면과 다른 말을 지어내지 마라. "
         "질문에 장비 모델명이 명시되어 있으면 함께 실린 「대상 장비」 맥락보다 "
         "**질문의 모델을 우선**해 답하고, model 에도 그 모델을 적는다. "
-        "next 에는 [다음 행동] 규칙대로 confirm_device · ask_device · use_device · repick_device · "
+        "next 에는 [다음 행동] 규칙대로 confirm_device · ask_device · keep_device · use_device · repick_device · "
         "ask_tc · wait_tc · none 중 하나만 적는다 — 다른 값은 버린다."
     )
     schema = {

@@ -440,7 +440,7 @@ export default function AskBar({ devices }: Props) {
       cov-chat 의 next. 턴마다 비우고, 결정이 필요한 자리(takeTc·장비만 말한 뒤)가 읽는다.
       비어 있으면(LLM 없음·답 못 줌) 코드의 옛 규칙으로 물러선다. */
   const nextRef = useRef<string>('')
-  const NEXT_OK = new Set(['confirm_device', 'ask_device', 'use_device', 'repick_device', 'ask_tc', 'wait_tc', 'none'])
+  const NEXT_OK = new Set(['confirm_device', 'ask_device', 'keep_device', 'use_device', 'repick_device', 'ask_tc', 'wait_tc', 'none'])
   const [adopting, setAdopting] = useState('')
   /** 질문 보기 고치기 — 관리자만. ⚙ 로 켠다 */
   const [exEdit, setExEdit] = useState(false)
@@ -1744,6 +1744,38 @@ export default function AskBar({ devices }: Props) {
   }
 
   /** 장비가 정해진 뒤 — 항목 추천으로 잇는다. 못 찾으면 그때만 큰 표를 연다 */
+  /**
+   * 장비를 **바꾸자는** 말(지시: 룰 3 — 「장비 바꿔 줘」·「다른 E6100 으로」) — 말한 모델,
+   * 없으면 지금 모델의 후보 카드를 세운다. 고른 뒤 이을 것:
+   *  · 말에 시험 내용이 있으면(모델을 말한 새 요청) 그 말로 항목 후보
+   *  · 준비된 절차가 있으면 같은 항목을 새 장비로 다시 싣는다
+   *  · 둘 다 없으면 마지막으로 찾던 말(더보기 풀의 검색어)
+   */
+  const askDeviceChange = async (model: string, said0: string, newAsk: boolean) => {
+    const cands = model
+      ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === model.trim().toLowerCase())
+      : usable
+    if (!cands.length) {
+      say('a', `<p class="ln"><b>${hesc(model)}</b> 장비가 등록돼 있지 않습니다 — 「장비 고르기」 로 직접 선택해 주세요.</p>`)
+      setFlowAt(0)
+      return
+    }
+    const srcTc = !newAsk && draft?.object ? tcAll.find((t) => t.tcid === draft.object) : undefined
+    if (srcTc) {
+      setAfterPick({ tcid: srcTc.tcid, model: String(srcTc.model ?? '') })
+      pendQRef.current = ''
+    } else {
+      pendQRef.current = newAsk ? said0 : likePoolRef.current.q || said0
+    }
+    afterDevRef.current = 'tc'
+    setFlowLog((v) => [...v, { s: 1, t: `장비를 다시 고릅니다${model ? ` — ${model} ${cands.length}대` : ''}` }])
+    sayThink('사용 가능한 장비 검색 중…')
+    await sayDevBlock(cands, model, said0, {
+      head: `<b>1단계 · 장비</b> — 바꿀 장비를 골라 주세요${model ? ` (<b>${hesc(model)}</b> ${cands.length}대)` : ''}${srcTc ? ` · 고르면 <b>${hesc(srcTc.tcid)}</b> 를 그 장비로 다시 싣습니다` : ''}.`,
+    })
+    setFlowAt(0)
+  }
+
   const stepTc = async (d: Device, q: string) => {
     /* 「전체 목록 열기」 로 빠질 때를 위해 표를 미리 좁혀 둔다 */
     setTcOnlyModel(true)
@@ -3050,6 +3082,12 @@ export default function AskBar({ devices }: Props) {
           const cands3 = m2
             ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m2.toLowerCase())
             : usable
+          if (nx === 'ask_device' && usable.find((x) => x.id === devId)) {
+            /* 장비가 이미 있는데 다시 고르자는 말(지시: 룰 3) — 말한 모델, 없으면 지금 모델 */
+            const cur8 = usable.find((x) => x.id === devId)
+            await askDeviceChange(m2 || String(cur8?.model ?? ''), said, !!(candsOf(raw0)?.model ?? '').trim())
+            return
+          }
           if (nx === 'ask_device' && cands3.length) {
             pendQRef.current = said
             afterDevRef.current = 'tc'
@@ -3150,13 +3188,20 @@ export default function AskBar({ devices }: Props) {
        고르기가 팝업으로 떴다) — basic 의 새 질문은 늘 「다시 찾는 말」 이고,
        새 항목을 고르면 takeTc 가 절차·Response 를 갈아 끼운다. */
     if (mode === 'basic') {
-      /* 이미 장비가 정해져 있으면(칩) 다시 묻지 않는다(지적) — 말에 다른
-         모델을 적었을 때만 아래 고르기로 내려간다. */
+      /* 이미 장비가 정해져 있으면(칩) — **프롬프트가 정한다**(지시: 룰 3 을 프롬프트로).
+         keep_device 면 그 장비로 항목을 잇고, ask_device 면 장비를 다시 고르게 한다.
+         LLM 이 안 정했으면 옛 규칙(말에 다른 모델이 없으면 유지). */
       const cur0 = usable.find((x) => x.id === devId)
       if (cur0) {
         const m9 = (candsOf(raw0)?.model ?? '').trim().toLowerCase()
-        if (!m9 || m9 === String(cur0.model ?? '').trim().toLowerCase()) {
-          setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${cur0.ip} 유지 (이미 고른 장비)` }])
+        const same = !m9 || m9 === String(cur0.model ?? '').trim().toLowerCase()
+        const nx = nextRef.current
+        if (nx === 'ask_device') {
+          await askDeviceChange(m9 ? String(candsOf(raw0)?.model ?? '') : String(cur0.model ?? ''), said, !!m9)
+          return
+        }
+        if (nx === 'keep_device' || same) {
+          setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${cur0.ip} 유지 (이미 고른 장비${nx === 'keep_device' ? ' — 프롬프트 판단' : ''})` }])
           await stepTc(cur0, said)
           return
         }

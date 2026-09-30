@@ -3981,6 +3981,26 @@ async def _prompt_next_migrate():
                 data["purposes"] = purposes
                 save_json(PROMPTS_FILE, data)
                 print("[startup] Coverage AI · Basic 프롬프트 저장본에 순서 규칙(0) 장비 → 항목)을 끼웠다", flush=True)
+        # 장비 유지 규칙(지시: 룰 3 을 프롬프트로) — 절은 있는데 5-1) 줄이 없으면 6) 줄 앞에 끼운다
+        data = load_json(PROMPTS_FILE) or {}
+        purposes = data.get("purposes") or {}
+        p = purposes.get("cai_basic") or {}
+        sysp = str(p.get("system") or "")
+        if sysp.strip() and "[다음 행동]" in sysp and "keep_device" not in sysp:
+            lines = CAI_BASIC_NEXT.split("\n")
+            keep = [l for l in lines if l.startswith("5-1) ")]
+            at = sysp.find("\n6) ", sysp.find("[다음 행동]"))
+            if keep:
+                ins = "\n" + keep[0]
+                if at > 0:
+                    sysp = sysp[:at] + ins + sysp[at:]
+                else:
+                    sysp = sysp.rstrip() + ins
+                p["system"] = sysp
+                purposes["cai_basic"] = p
+                data["purposes"] = purposes
+                save_json(PROMPTS_FILE, data)
+                print("[startup] Coverage AI · Basic 프롬프트 저장본에 장비 유지 규칙(5-1) keep_device)을 끼웠다", flush=True)
     except Exception as e:
         print(f"[startup] 프롬프트 [다음 행동] 이어붙이기 실패: {e}", flush=True)
 
