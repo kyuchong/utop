@@ -736,6 +736,7 @@ export default function AskBar({ devices }: Props) {
         return (
           `\n- 대상 장비 모델: ${selDev ? String(selDev.model || '') || '없음' : '없음'}` +
           `\n- 먼저 정해진 항목: ${afterPick ? `${afterPick.tcid} (모델 ${afterPick.model || '공통'}) — 장비를 기다리는 중` : '없음'}` +
+          `\n- 장비를 고르면 이어갈 질문: ${pendQRef.current ? `「${pendQRef.current.slice(0, 60)}」` : '없음'}` +
           `\n- 말에 적힌 모델의 장비 후보: ${m9 ? `${m9} ${n9}대` : '말에 모델 없음'}` +
           `\n- 떠 있는 카드: ${card}`
         )
@@ -2697,20 +2698,13 @@ export default function AskBar({ devices }: Props) {
           void takeTc(ap.tcid, ipHit, ap.model)
           return
         }
-        /* 장비만 콕 집은 말 — **프롬프트가 정한다**(승인): ask_tc 면 항목 후보를
-           잇고, wait_tc 면 항목을 말해 달라고만. 안 정했으면 옛 규칙(쥔 질문이
-           있으면 잇고 없으면 멈춤). */
-        const q0 = pendQRef.current
+        /* 장비만 콕 집은 말 — **카드를 누른 것과 똑같이**(지시): 쥐어 둔 질문(없으면
+           앞서 물은 말)로 그 장비의 항목 후보를 잇는다(pickInlineDev 와 같은 stepTc).
+           둘 다 없을 때만 항목을 말해 달라고 한다. */
+        const q0 = pendQRef.current || asked
         pendQRef.current = ''
-        const nx0 = nextRef.current
-        if (nx0 === 'ask_tc' || (!nx0 && q0)) {
-          const qq = q0 || raw0
-          sayThink('이 장비에서 실행할 수 있는 항목을 찾는 중…')
-          let it9 = await findLike(qq, ipHit)
-          if (!it9.length) it9 = await findLike(String(ipHit?.model ?? ''), ipHit)
-          unThink()
-          if (it9.length) sayTcBlock(it9, qq)
-          else showTcCards(String(ipHit?.model ?? ''))
+        if (ipHit && q0) {
+          await stepTc(ipHit, q0)
         } else {
           say(
             'a',
@@ -2919,17 +2913,11 @@ export default function AskBar({ devices }: Props) {
                  바로 이어서** 선다(지시: 질문이 한 번에 들어갔잖아).
                  하나씩 묻는 흐름이면 이 단계에서 멈춘다(지시: 단계별).
                  프롬프트가 ask_tc / wait_tc 를 정했으면 그것이 먼저다(승인). */
-              const q0raw = pendQRef.current
+              /* 카드를 누른 것과 똑같이(지시) — 쥐어 둔 질문(없으면 앞서 물은 말)로 잇는다 */
+              const q0 = pendQRef.current || asked
               pendQRef.current = ''
-              const nx1 = nextRef.current
-              const q0 = nx1 === 'wait_tc' ? '' : nx1 === 'ask_tc' ? q0raw || raw0 : q0raw
               if (q0) {
-                sayThink('이 장비에서 실행할 수 있는 항목을 찾는 중…')
-                let items9 = await findLike(q0, d0)
-                if (!items9.length) items9 = await findLike(String(d0.model ?? ''), d0)
-                unThink()
-                if (items9.length) sayTcBlock(items9, q0)
-                else showTcCards(String(d0.model ?? ''))
+                await stepTc(d0, q0)
               } else {
                 say(
                   'a',
