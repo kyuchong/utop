@@ -895,10 +895,52 @@ export default function TcStepDetail({
                   onChange({ tailWait: v === '' ? undefined : Math.max(0, Number(v) || 0) })
                 }}
               />
+              {/* 끝내기 방식(지시: ping 처럼 프롬프트가 안 돌아오는 명령) — 줄을
+                  늘리지 않고 Wait 옆 고르개 하나(승인). N초 뒤 Ctrl+C 를 고를 때만
+                  초 칸이 옆에 선다. */}
+              <select
+                className="sd-end"
+                value={step.cliEnd ?? 'prompt'}
+                aria-label="언제 끝낸 것으로 볼지"
+                title="이 명령을 언제 끝낸 것으로 볼지"
+                onChange={(e) => onChange({ cliEnd: e.target.value as TcStep['cliEnd'] })}
+              >
+                <option value="prompt">프롬프트 오면 끝</option>
+                <option value="send">보내고 바로 다음</option>
+                <option value="break">N초 뒤 Ctrl+C</option>
+              </select>
+              {step.cliEnd === 'break' && (
+                <>
+                  <input
+                    type="number"
+                    className="sd-endsec"
+                    min={1}
+                    max={600}
+                    value={step.breakSec ?? 30}
+                    aria-label="돌릴 초"
+                    onChange={(e) => onChange({ breakSec: Math.max(1, Number(e.target.value) || 30) })}
+                  />
+                  <span className="sd-endunit">초</span>
+                </>
+              )}
               <span className="sd-hint">
                 초. 비우면 <b>안 기다립니다</b> — 프롬프트가 오는 순간 끝냅니다.
                 syslog 처럼 프롬프트 뒤에 늦게 올라오는 출력을 받아야 하는 명령
-                (reload 등)만 올리세요. 뭔가 오면 거기서 다시 연장됩니다.
+                (reload 등)만 올리세요.{' '}
+                {step.cliEnd === 'send' ? (
+                  <>
+                    <b>보내고 바로 다음</b>은 프롬프트를 안 기다리고 넘어갑니다 — ping 을
+                    걸어 두고 Wait 스텝 뒤에 명령이 <b>^C</b> 인 CLI 스텝으로 끊으면, 그동안의
+                    출력은 그 ^C 스텝의 응답에 실립니다.
+                  </>
+                ) : step.cliEnd === 'break' ? (
+                  <>
+                    <b>N초 뒤 Ctrl+C</b> 는 그 초만 돌리고 끊은 뒤 넘어갑니다 — 그동안의 출력이
+                    이 스텝의 응답이라 판정 기준을 걸 수 있습니다.
+                  </>
+                ) : (
+                  <>ping 처럼 안 끝나는 명령은 오른쪽에서 끝내기 방식을 고르세요.</>
+                )}
               </span>
             </span>
           </label>

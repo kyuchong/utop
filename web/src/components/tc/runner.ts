@@ -1406,7 +1406,16 @@ async function runOne(
 
   // cli · instrument(raw) · manual · auto — 명령을 보내는 것들
   const cmdText = subVars(String(step.cli ?? step.data ?? ''), vars)
-  const commands = cmdText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+  const commands0 = cmdText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+  /* 끝내기 방식(지시: ping 처럼 안 끝나는 명령) — break 면 서버가 아는 `^C N`
+     줄을 뒤에 붙인다(사람이 직접 적어 둔 ^C 가 있으면 그대로). send 는
+     서버에 send_only 로 알려 프롬프트를 안 기다리게 한다. */
+  const cliEnd = kind === 'cli' ? String(step.cliEnd ?? 'prompt') : 'prompt'
+  const hasBreak = commands0.some((c) => /^\^c(\s|$)/i.test(c))
+  const commands =
+    cliEnd === 'break' && !hasBreak
+      ? [...commands0, `^C ${Number(step.breakSec) > 0 ? Number(step.breakSec) : 30}`]
+      : commands0
   if (commands.length === 0) {
     ctx.onLog({ i, text: '보낼 명령이 없습니다', kind: 'skip' })
     return ''
@@ -1436,12 +1445,17 @@ async function runOne(
     // 프롬프트 뒤 대기. 스텝마다 올릴 수 있다 — reload 처럼 한참 뒤에
     // 뭔가 더 뱉는 명령이 있다.
     ...(step.tailWait !== undefined ? { tail_wait: step.tailWait } : {}),
+    /* 보내고 바로 다음(지시) — 프롬프트를 안 기다린다. 그동안 쌓이는 출력은
+       세션 버퍼에 남아 다음 `^C` 스텝이 거둔다. */
+    ...(cliEnd === 'send' ? { send_only: true } : {}),
     /* 셀 진입 스텝(지시) — 명령 뒤 Password: 물음에 이 암호를 보내고 셀
        프롬프트로 넘어간다. 비우면 백엔드가 장비 접속 암호를 쓴다. */
     ...(kind === 'shell'
       ? { shell_enter: true, shell_pw: subVars(String(step.shellPw ?? ''), vars) }
       : {}),
   }
+  if (cliEnd === 'send')
+    ctx.onLog({ i, text: '보내고 바로 다음 스텝으로 — 프롬프트를 기다리지 않습니다 (끊으려면 뒤에 ^C 스텝)', kind: 'info' })
   let acc = ''
   let err = ''
   /* 장비가 **실제로 뭔가를 돌려줬는가.**

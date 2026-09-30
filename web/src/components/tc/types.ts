@@ -462,6 +462,14 @@ export interface TcStep {
    * 예전에는 2초가 코드에 박혀 있어 명령마다 그만큼 그냥 나갔다.
    */
   tailWait?: number
+  /**
+   * kind=cli — **언제 끝난 것으로 볼지**(지시: ping 처럼 프롬프트가 안 돌아오는 명령).
+   * prompt(기본) 프롬프트가 오면 · send 보내고 바로 다음 스텝(프롬프트 대기 없음) ·
+   * break breakSec 초 돌리고 Ctrl+C 로 끊은 뒤 다음. 비어 있으면 prompt.
+   */
+  cliEnd?: 'prompt' | 'send' | 'break'
+  /** cliEnd=break 일 때 돌릴 초(기본 30) */
+  breakSec?: number
 
   /**
    * kind=ping · snmp_* — 어디로 보내는가.
@@ -894,7 +902,13 @@ export function diffText(s: DiffLike, labels = false, word = false): string {
 /** 2열에 한 줄로 보일 요약. 종류마다 읽어야 할 값이 다르다. */
 export function stepSummary(s: TcStep): string {
   const k = s.kind || 'cli'
-  if (k === 'cli') return (s.cli || s.data || s.step || '').trim()
+  if (k === 'cli') {
+    const base = (s.cli || s.data || s.step || '').trim()
+    /* 끝내기 방식이 기본이 아니면 목록에서도 보이게(지시) */
+    if (s.cliEnd === 'send') return `${base} · 보내고 바로 다음`
+    if (s.cliEnd === 'break') return `${base} · ${Number(s.breakSec) > 0 ? Number(s.breakSec) : 30}초 후 끊기`
+    return base
+  }
   if (k === 'ping')
     return `${(s.host || '세션 장비').trim()}${s.pingCount ? ` · ${s.pingCount}회` : ''}`
   if (k === 'snmp_get') return (s.oid || s.step || '').trim()

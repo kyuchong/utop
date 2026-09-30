@@ -3796,6 +3796,10 @@ html .tc-split > .tc-content {
 .sd-wait { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
 .sd-wait > input { width: 84px; flex: none; }
 .sd-wait > .sd-hint { flex: 1 1 260px; min-width: 0; margin: 0; }
+/* 끝내기 고르개·초 칸 — Wait 칸 옆에 한 줄(승인: 줄을 안 늘린다) */
+.sd-wait > .sd-end { width: auto; flex: none; max-width: 160px; }
+.sd-wait > .sd-endsec { width: 64px; flex: none; }
+.sd-wait > .sd-endunit { font-size: var(--fs-xs); color: var(--c-text-faint); flex: none; }
 
 /* 선택 바 — 목록을 만지는 단추(왼쪽)와 고른 줄에 하는 일(오른쪽)을 가른다 */
 .sq-bsp { flex: 1; }

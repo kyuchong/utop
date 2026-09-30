@@ -1196,6 +1196,9 @@ async def run_cli_stream(payload: dict):
     # 프롬프트로 넘어간다. 비우면 장비 접속 암호를 쓴다.
     _shell_enter = bool(payload.get("shell_enter"))
     _shell_pw = str(payload.get("shell_pw") or "").strip() or str(params.get("password") or "")
+    # 보내고 바로 다음(지시: ping 처럼 프롬프트가 안 돌아오는 명령) — 프롬프트를
+    # 안 기다린다. 그동안 쌓이는 출력은 세션 버퍼에 남아 다음 `^C` 스텝이 거둔다.
+    _send_only = bool(payload.get("send_only"))
     def _sse(obj):
         return "data: " + _jstr.dumps(obj, ensure_ascii=False) + "\n\n"
     async def _gen():
@@ -1297,6 +1300,20 @@ async def run_cli_stream(payload: dict):
                     if _ci2 in _consumed_ci:
                         continue
                     yield _sse({"cmd": cmd})       # 명령 입력 표시(라이브 터미널에 '$ cmd')
+                    if _send_only:
+                        try: await asyncio.to_thread(conn.read_channel)
+                        except Exception: pass
+                        await asyncio.to_thread(conn.write_channel, cmd + "\n")
+                        _cfg_ctx_note(ent, cmd)
+                        # 바로 나온 첫 줄 정도만 거두고 넘어간다 — 프롬프트 탐색(개행)은
+                        # 돌고 있는 명령에 삼켜지므로 하지 않는다.
+                        await asyncio.sleep(0.4)
+                        try: _so = conn.read_channel() or ""
+                        except Exception: _so = ""
+                        if _so:
+                            yield _sse({"o": _so}); await asyncio.sleep(0)
+                        ent["ts"] = _t.time()
+                        continue
 
                     # 홀로 선 ^C — 지금 도는 것을 끊는다
                     if _BRK.match(str(cmd or "").strip()):
