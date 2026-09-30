@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import BlockText from '@/components/tc/BlockText'
 import { IconChevron } from '@/components/icons'
-import { stepSummary, type TcStep } from '@/components/tc/types'
+import { diffText, stepSummary, type DiffLike, type TcStep } from '@/components/tc/types'
 import type { AutoStep, AutoDev } from './RunAuto'
 import './RunAuto.css'
 
@@ -94,15 +94,8 @@ export function asStep(raw: Record<string, unknown>, i: number): {
      적어 둔 말(cmpLeftLabel)이 있으면 함께 세워 사람 말로 읽히게 한다. */
   const cmpText = (() => {
     if (String(raw?.kind ?? '') !== 'diff') return ''
-    const l = `${g('cmpLeftLabel')} ${g('cmpLeft')}`.trim()
-    const r = `${g('cmpRightLabel')} ${g('cmpRight')}`.trim()
-    if (!l && !r) return ''
-    const op = g('cmpOp') || '=='
-    const word: Record<string, string> = {
-      '==': '같다', '!=': '다르다', '포함': '포함한다',
-      '>': '크다', '<': '작다', '>=': '크거나 같다', '<=': '작거나 같다',
-    }
-    return `${l} ${word[op] ?? op} ${r}`.trim()
+    /* 조건 여럿은 「그리고」 「또는」 으로 잇고, 적어 둔 말과 함께 사람 말(같다·크다)로 */
+    return diffText(raw as DiffLike, true, true)
   })()
   const expected =
     cmpText ||

@@ -437,6 +437,14 @@ export interface TcStep {
   cmpLeft?: string
   cmpOp?: string
   cmpRight?: string
+  /**
+   * kind=diff — **조건 여럿**(지시: 그리고·또는). 정본은 이 목록이고, 조건 1 은
+   * 옛 칸(cmpLeft·cmpOp·cmpRight·Label)에도 같이 적어 둔다 — 옛 화면·아직
+   * 갱신 안 된 253·AI 가 옛 칸만 읽어도 첫 조건은 그대로 보이게.
+   */
+  conds?: DiffCond[]
+  /** 조건을 묶는 방식 — and(모두 맞아야) · or(하나라도 맞으면). 기본 and */
+  condJoin?: 'and' | 'or'
   /** kind=map — 바꿀 값 (보통 `${변수}`) */
   mapSrc?: string
   /** kind=map — 대응표. 한 줄에 하나, `왼쪽 = 오른쪽` */
@@ -816,6 +824,73 @@ export function stepNumbers(steps: TcStep[], hide?: (s: TcStep) => boolean): str
   return out
 }
 
+/** Diff 의 조건 하나 — l·r 은 견줄 값(보통 `${변수}`), ll·rl 은 앞에 세우는 말 */
+export interface DiffCond {
+  l: string
+  op: string
+  r: string
+  ll?: string
+  rl?: string
+}
+
+/** 조건 낱말 — 저장은 기호, 사람에게는 말로 */
+export const DIFF_OP_WORD: Record<string, string> = {
+  '==': '같다', '!=': '다르다', '포함': '포함한다',
+  '>': '크다', '<': '작다', '>=': '크거나 같다', '<=': '작거나 같다',
+}
+
+/**
+ * Diff 스텝의 조건 목록 — **한 곳에서 읽는다.** conds 가 있으면 그것, 없으면
+ * 옛 칸(cmpLeft…)으로 조건 하나를 만든다. 둘 다 비면 빈 목록.
+ */
+/** Diff 칸을 가진 것이면 무엇이든 — 스텝(TcStep)도, 실행 기록 줄(null 섞임)도 */
+export interface DiffLike {
+  conds?: unknown
+  condJoin?: unknown
+  cmpLeft?: string | null
+  cmpOp?: string | null
+  cmpRight?: string | null
+  cmpLeftLabel?: string | null
+  cmpRightLabel?: string | null
+}
+
+export function diffConds(s: DiffLike): DiffCond[] {
+  const cs = Array.isArray(s.conds)
+    ? (s.conds as Array<Partial<DiffCond> | null>).filter((c): c is Partial<DiffCond> => !!c && typeof c === 'object')
+    : []
+  if (cs.length)
+    return cs.map((c) => ({
+      l: String(c.l ?? ''), op: String(c.op || '=='), r: String(c.r ?? ''),
+      ll: String(c.ll ?? ''), rl: String(c.rl ?? ''),
+    }))
+  const l = String(s.cmpLeft ?? '')
+  const r = String(s.cmpRight ?? '')
+  if (!l.trim() && !r.trim()) return []
+  return [{ l, op: String(s.cmpOp || '=='), r, ll: String(s.cmpLeftLabel ?? ''), rl: String(s.cmpRightLabel ?? '') }]
+}
+
+export function diffJoin(s: DiffLike): 'and' | 'or' {
+  return String(s.condJoin ?? '').toLowerCase() === 'or' ? 'or' : 'and'
+}
+
+/** 이음말 — 목록·결과서에 「그리고」 「또는」 으로 */
+export const DIFF_JOIN_WORD = { and: '그리고', or: '또는' } as const
+
+/** 조건 하나를 한 줄 글로 — `${a} == ${b}`. labels 면 앞에 세우는 말까지 */
+export function diffCondText(c: DiffCond, labels = false, word = false): string {
+  const op = word ? (DIFF_OP_WORD[c.op] ?? c.op) : c.op
+  const l = labels ? `${(c.ll ?? '').trim()} ${c.l.trim()}`.trim() : c.l.trim()
+  const r = labels ? `${(c.rl ?? '').trim()} ${c.r.trim()}`.trim() : c.r.trim()
+  return `${l} ${op} ${r}`.trim()
+}
+
+/** 조건 전부를 한 줄로 — 조건 사이는 「그리고」 「또는」 */
+export function diffText(s: DiffLike, labels = false, word = false): string {
+  const cs = diffConds(s)
+  if (!cs.length) return ''
+  return cs.map((c) => diffCondText(c, labels, word)).join(` ${DIFF_JOIN_WORD[diffJoin(s)]} `)
+}
+
 /** 2열에 한 줄로 보일 요약. 종류마다 읽어야 할 값이 다르다. */
 export function stepSummary(s: TcStep): string {
   const k = s.kind || 'cli'
@@ -827,8 +902,7 @@ export function stepSummary(s: TcStep): string {
     return `${(s.oid || '').trim()}${s.snmpValue ? ` = ${s.snmpValue}` : ''}`.trim()
   if (k === 'snmp_trap')
     return `${(s.oid || '아무 Trap').trim()} · ${s.trapSec ?? 15}초 대기`
-  if (k === 'diff')
-    return `${(s.cmpLeft || '').trim()} ${s.cmpOp || '=='} ${(s.cmpRight || '').trim()}`.trim()
+  if (k === 'diff') return diffText(s)
   if (k === 'map')
     return `${(s.mapSrc || '').trim()}${s.mapVar ? ` → \${${s.mapVar}}` : ''}`.trim()
   if (k === 'wait') {

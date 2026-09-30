@@ -16,7 +16,7 @@
  * 도커 빌드(web/Dockerfile)가 이 검사를 먼저 돌린다 — 깨지면 이미지가 안 나온다.
  */
 import { describe, expect, it } from 'vitest'
-import { applyExclude, applyQuery, applySkips, judge, judgeTable, looksLikeError, SKIP_TIME } from './judge'
+import { applyExclude, applyQuery, applySkips, evalDiff, judge, judgeTable, looksLikeError, SKIP_TIME } from './judge'
 import type { TcStep } from './types'
 import cases from './__fixtures__/judge-cases.json'
 
@@ -170,5 +170,63 @@ describe(`실제 실행 기록 ${cases.length}건 — 판정이 그때와 같아
   it.each(cases.map((c) => [c.id, c] as const))('%s', (_id, c) => {
     const r = judge(c.step as unknown as TcStep, c.output)
     expect(r.verdict, `${c.cli}\n기준: ${JSON.stringify(c.step)}\n근거: ${r.reason}`).toBe(c.expect)
+  })
+})
+
+describe('Diff — 조건 여럿을 그리고·또는으로 묶는다', () => {
+  const vars = { model: 'E6100', snmp: 'E6100', mem: '1024' }
+  const two = (join: 'and' | 'or') =>
+    step({
+      kind: 'diff',
+      condJoin: join,
+      conds: [
+        { l: '${model}', op: '==', r: '${snmp}' },
+        { l: '${mem}', op: '>=', r: '2048' },
+      ],
+    })
+  it('모두 맞아야(and) — 하나가 어긋나면 Fail 이고 어느 조건인지 남는다', () => {
+    const r = evalDiff(two('and'), vars)
+    expect(r.ok).toBe(false)
+    expect(r.results.map((x) => x.ok)).toEqual([true, false])
+    expect(r.results[1]!.why).toContain("'1024' >= '2048'")
+  })
+  it('하나라도 맞으면(or) — 같은 조건이 Pass', () => {
+    expect(evalDiff(two('or'), vars).ok).toBe(true)
+  })
+  it('and 에서 둘 다 맞으면 Pass', () => {
+    expect(evalDiff(two('and'), { ...vars, mem: '4096' }).ok).toBe(true)
+  })
+  it('옛 칸(cmpLeft·cmpOp·cmpRight)만 있는 스텝은 조건 하나로 여태처럼 판정한다', () => {
+    const r = evalDiff(step({ kind: 'diff', cmpLeft: '${model}', cmpOp: '==', cmpRight: 'E6100' }), vars)
+    expect(r.ok).toBe(true)
+    expect(r.results).toHaveLength(1)
+    expect(r.results[0]!.left).toBe('E6100')
+  })
+  it('conds 가 있으면 옛 칸은 무시한다(정본은 목록)', () => {
+    const r = evalDiff(
+      step({ kind: 'diff', cmpLeft: '${model}', cmpOp: '!=', cmpRight: 'E6100', conds: [{ l: '${model}', op: '==', r: 'E6100' }] }),
+      vars,
+    )
+    expect(r.ok).toBe(true)
+  })
+  it('여러 줄 값은 줄 단위로 견주고 제외 줄을 뺀다 — 다른 조건과도 묶인다', () => {
+    const a = 'hostname A\nuptime 10\nvlan 1'
+    const b = 'hostname A\nuptime 99\nvlan 1'
+    const r = evalDiff(
+      step({
+        kind: 'diff',
+        excludeLines: 'uptime',
+        conds: [
+          { l: '${a}', op: '==', r: '${b}' },
+          { l: '${mem}', op: '<', r: '2048' },
+        ],
+      }),
+      { ...vars, a, b },
+    )
+    expect(r.ok).toBe(true)
+    expect(r.results[0]!.body).toBeDefined()
+  })
+  it('조건이 하나도 없으면 참(옛 동작)', () => {
+    expect(evalDiff(step({ kind: 'diff' }), vars).ok).toBe(true)
   })
 })

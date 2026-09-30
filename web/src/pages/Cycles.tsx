@@ -149,6 +149,9 @@ export interface CycleStep {
   cmpLeft?: string | null
   cmpOp?: string | null
   cmpRight?: string | null
+  /** Diff 조건 여럿(그리고·또는) — 정본. 없으면 위 옛 칸 하나 */
+  conds?: Array<{ l: string; op: string; r: string; ll?: string; rl?: string }> | null
+  condJoin?: 'and' | 'or' | null
   /** 실행기가 적는 판정. 옛 자료의 result 와 다르다 */
   status?: string | null
   repeatResult?: string | null

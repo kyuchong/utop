@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useResults } from '@/pages/Cycles'
 import type { CycleItemLite, CycleStep, Verdict } from '@/pages/Cycles'
 import { RESULTS, verdictClass } from '@/pages/Cycles'
-import { isJudgeStep, METER_ACT_LABEL, stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
+import { diffConds, diffText, isJudgeStep, METER_ACT_LABEL, stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
 import { subVars } from '@/components/tc/judge'
 import { useGlobalParams } from '@/components/tc/useGlobalParams'
 import MeterStats, { parseMeterOutput } from '@/components/tc/MeterStats'
@@ -603,12 +603,12 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
 
             {/* Diff 는 `criteria` 가 없다 — **견줄 두 값이 곧 판정 기준**이다.
                 그것을 안 보여줘서 「Diff 는 판정 기준이 없다」 로 읽혔다. */}
-            {!s.criteria && s.kind === 'diff' && (s.cmpLeft || s.cmpRight) && (
+            {!s.criteria && s.kind === 'diff' && diffText(s) && (
               <div className="sc-sec">
                 <i>EXPECTED RESULT</i>
                 <div className="sc-exp">
-                  <span className="sc-type">두 값 견주기</span>
-                  {`${s.cmpLeft ?? ''} ${s.cmpOp || '=='} ${s.cmpRight ?? ''}`}
+                  <span className="sc-type">{diffConds(s).length > 1 ? '값 견주기(조건 여럿)' : '두 값 견주기'}</span>
+                  {diffText(s)}
                 </div>
               </div>
             )}

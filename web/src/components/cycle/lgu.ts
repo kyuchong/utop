@@ -14,7 +14,7 @@
  * 걸러서, 그 뒤에 생긴 ping · snmp · diff · 계측기 스텝이 결과서에서
  * 통째로 빠졌다. 사람이 만든 시험이 문서에 안 나오면 안 만든 것과 같다.
  */
-import { stepVerdict, type TcStep } from '@/components/tc/types'
+import { diffText, stepVerdict, type TcStep } from '@/components/tc/types'
 import { parseMeterOutput } from '@/components/tc/MeterStats'
 import type { TermLine } from './termShot'
 
@@ -175,9 +175,9 @@ function stepDoing(s: LguStep): string {
     return `Ping ${to}${s.pingCount ? ` · ${s.pingCount}회` : ''}`
   }
   if (kind === 'diff') {
-    const l = String(s.cmpLeft ?? '').trim()
-    const r = String(s.cmpRight ?? '').trim()
-    return l || r ? `값 비교: ${l} ${String(s.cmpOp ?? '==').trim()} ${r}`.trim() : '이전 결과와 비교(Diff)'
+    /* 조건 여럿이면 「그리고」 「또는」 으로 이어 한 줄(types.diffText) */
+    const t = diffText(s)
+    return t ? `값 비교: ${t}` : '이전 결과와 비교(Diff)'
   }
   if (kind === 'map') {
     const src = String(s.mapSrc ?? '').trim()

@@ -4,10 +4,9 @@ import { connParams, deviceShort, CLI_PROTOCOLS, deviceLabel, isMeter, meterKind
 import {
   applyMapRules,
   stepRules,
-  diffLines,
-  diffText,
   captureMiss,
   evalCondWhy,
+  evalDiff,
   extractVars,
   judge,
   subVars,
@@ -689,55 +688,67 @@ async function runOne(
    * 장비로는 아무것도 안 나간다.
    */
   if (kind === 'diff') {
-    const left = subVars(String(step.cmpLeft ?? ''), vars)
-    const right = subVars(String(step.cmpRight ?? ''), vars)
-    const op = step.cmpOp || '=='
-    const multi = left.includes('\n') || right.includes('\n')
+    /* 판정은 judge.evalDiff 한 곳(지시: 그리고·또는 묶음). 여기서는 줄만 적는다. */
+    const ev = evalDiff(step, vars)
+    const ok = ev.ok
+    const many = ev.results.length > 1
+    /* 줄에 적어 둔 말이 먼저다(지시). 안 적은 옛 시험만 변수를 담은
+       스텝의 절차 설명으로 메운다 — 그 편이 아무 말 없는 것보다 낫다. */
+    const sayOf = (r: (typeof ev.results)[number]) => {
+      const dl = String(r.cond.ll ?? '').trim() || varFrom(ctx, r.cond.l, i)
+      const dr = String(r.cond.rl ?? '').trim() || varFrom(ctx, r.cond.r, i)
+      /* 여러 줄 비교는 값을 줄에 못 싣는다 — 머리말(같다·다른 줄 n개)만 */
+      if (r.body !== undefined) return `${dl ? `${dl} ` : ''}${r.why}`
+      return `${dl ? `${dl} ` : ''}'${r.left}' ${r.cond.op || '=='} ${dr ? `${dr} ` : ''}'${r.right}'`
+    }
+    const say = diffSay(step, ok, vars)
 
-    /**
-     * 여러 줄이면 줄 단위로 견준다.
-     *
-     * `running-config` 를 통째로 담아 견주는 것이 이 스텝의 본래 쓸모다.
-     * 그때 '같다/다르다' 만 말하면 쓸 수가 없다 — 어느 줄이 다른지 보여야
-     * 고칠 데를 안다.
-     */
-    if (multi && (op === '==' || op === '!=')) {
-      const d = diffLines(left, right, step.excludeLines)
-      const ok = op === '==' ? d.same : !d.same
-      const body = diffText(d)
-      const head = d.same
-        ? '두 값이 같습니다'
-        : `다른 줄 ${d.onlyA.length + d.onlyB.length}개`
+    if (!many) {
+      const r = ev.results[0]
+      /* 조건 하나 — 여태 꼴 그대로(기록·결과서가 이 줄을 읽는다) */
+      if (r && r.body !== undefined) {
+        ctx.onStep(i, {
+          output: r.body,
+          reason: r.why,
+          executed_at: at,
+          status: ok ? 'PASS' : 'FAIL',
+          repeatResult: ok ? 'Pass' : 'Fail',
+        })
+        ctx.onLog({ i, text: `${r.why} ${say}`, kind: ok ? 'pass' : 'fail', label: '비교 결과' })
+        return ok ? 'Pass' : 'Fail'
+      }
+      /* 견준 결과는 **한 줄**이다(지시). 값만 적으면 어느 쪽이 무엇으로 본
+         값인지 모르고, 맞으면·다르면 문구를 다음 줄로 빼면 같은 사건이 두
+         줄로 갈린다 — 값을 담은 줄의 설명을 앞에 세워 한 문장으로 적는다. */
+      const line = r ? `${sayOf(r)} ${say}` : say
       ctx.onStep(i, {
-        output: body,
-        reason: head,
+        output: r?.why ?? '',
+        reason: line,
         executed_at: at,
         status: ok ? 'PASS' : 'FAIL',
         repeatResult: ok ? 'Pass' : 'Fail',
       })
-      ctx.onLog({
-        i,
-        text: `${head} ${diffSay(step, ok, vars)}`,
-        kind: ok ? 'pass' : 'fail',
-        label: '비교 결과',
-      })
+      ctx.onLog({ i, text: line, kind: ok ? 'pass' : 'fail', label: '비교 결과' })
       return ok ? 'Pass' : 'Fail'
     }
 
-    const { ok, why } = evalCondWhy(
-      `${step.cmpLeft ?? ''} ${op} ${step.cmpRight ?? ''}`,
-      vars,
-    )
-    /* 견준 결과는 **한 줄**이다(지시). 값만 적으면 어느 쪽이 무엇으로 본
-       값인지 모르고, 맞으면·다르면 문구를 다음 줄로 빼면 같은 사건이 두
-       줄로 갈린다 — 값을 담은 줄의 설명을 앞에 세워 한 문장으로 적는다. */
-    /* 줄에 적어 둔 말이 먼저다(지시). 안 적은 옛 시험만 변수를 담은
-       스텝의 절차 설명으로 메운다 — 그 편이 아무 말 없는 것보다 낫다. */
-    const dl = String(step.cmpLeftLabel ?? '').trim() || varFrom(ctx, step.cmpLeft, i)
-    const dr = String(step.cmpRightLabel ?? '').trim() || varFrom(ctx, step.cmpRight, i)
-    const line = `${dl ? `${dl} ` : ''}'${left}' ${op} ${dr ? `${dr} ` : ''}'${right}' ${diffSay(step, ok, vars)}`
+    /* 조건 여럿 — 조건마다 한 줄(✓·✗ 와 값), 끝에 묶음 결과 한 줄 */
+    const rows = ev.results.map((r, j) => `${r.ok ? '✓' : '✗'} 조건 ${j + 1} · ${sayOf(r)}`)
+    const bad = ev.results.filter((r) => !r.ok).length
+    const head =
+      ev.join === 'or'
+        ? `하나라도 맞으면 합격 — ${ev.results.length}개 중 ${ev.results.length - bad}개 맞음`
+        : `모두 맞아야 합격 — ${ev.results.length}개 중 ${bad}개 어긋남`
+    const line = `${head} · ${say}`
+    rows.forEach((t, j) => {
+      const r = ev.results[j]!
+      ctx.onLog({ i, text: t, kind: r.ok ? 'pass' : 'fail', label: `조건 ${j + 1}` })
+    })
+    const bodies = ev.results
+      .map((r, j) => (r.body ? `[조건 ${j + 1}]\n${r.body}` : ''))
+      .filter(Boolean)
     ctx.onStep(i, {
-      output: why,
+      output: [...rows, ...bodies].join('\n'),
       reason: line,
       executed_at: at,
       status: ok ? 'PASS' : 'FAIL',

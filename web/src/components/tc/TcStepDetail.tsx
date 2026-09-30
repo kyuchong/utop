@@ -30,6 +30,10 @@ import {
   stepKindInfo,
   stepResult,
   stepStatus,
+  diffConds,
+  diffJoin,
+  DIFF_JOIN_WORD,
+  type DiffCond,
   type MeterCfg,
   type StepKind,
   type TcStep,
@@ -1019,94 +1023,190 @@ export default function TcStepDetail({
         )}
         {kind === 'diff' && (
           <>
-            {/* 견주는 줄은 **세 줄**이다(지시): 첫번째 비교 · 조건 · 두번째 비교.
-                값 하나가 「앞에 세우는 말 + 변수」 두 칸이라, 한 줄에 다 밀어
-                넣으면 다섯 칸이 늘어서 무엇이 무엇인지 안 갈린다. */}
-            <div className="sd-f wide">
-              <span className="sd-lab">첫번째 비교</span>
-              {paramPick('cmpLeft', 'p-cl').list}
-              <div className="sd-cmp2">
-                <input
-                  value={step.cmpLeftLabel ?? ''}
-                  placeholder="제품 모델명 CLI 조회"
-                  onChange={(e) => onChange({ cmpLeftLabel: e.target.value })}
-                />
-                <span className="sd-inwrap">
-                  <input
-                    className="mono"
-                    value={step.cmpLeft ?? ''}
-                    placeholder="${var1}"
-                    onChange={(e) => onChange({ cmpLeft: e.target.value })}
-                  />
-                  {paramPick('cmpLeft', 'p-cl').inside}
-                </span>
-              </div>
-            </div>
-
-            <div className="sd-f wide sd-condrow">
-              <span className="sd-lab">조건</span>
-              <select
-                value={step.cmpOp || '=='}
-                onChange={(e) => onChange({ cmpOp: e.target.value })}
-              >
-                <option value="==">같다</option>
-                <option value="!=">다르다</option>
-                <option value="포함">포함한다</option>
-                <option value=">">크다</option>
-                <option value="<">작다</option>
-                <option value=">=">크거나 같다</option>
-                <option value="<=">작거나 같다</option>
-              </select>
-            </div>
-
-            <div className="sd-f wide">
-              <span className="sd-lab">두번째 비교</span>
-              {paramPick('cmpRight', 'p-cr').list}
-              <div className="sd-cmp2">
-                <input
-                  value={step.cmpRightLabel ?? ''}
-                  placeholder="제품 모델명 SNMP 조회"
-                  onChange={(e) => onChange({ cmpRightLabel: e.target.value })}
-                />
-                <span className="sd-inwrap">
-                  <input
-                    className="mono"
-                    value={step.cmpRight ?? ''}
-                    placeholder="${var2}"
-                    onChange={(e) => onChange({ cmpRight: e.target.value })}
-                  />
-                  {paramPick('cmpRight', 'p-cr').inside}
-                </span>
-              </div>
-              <span className="sd-hint">
-                앞 스텝에서 뽑은 값은 <b>{'${이름}'}</b>, 그냥 글자는 그대로 적습니다.
-                맞으면 <b>합격</b>, 아니면 <b>불합격</b>입니다.
-              </span>
-              {/*
-                결과 문구는 **Diff 안에서** 적는다(지시). If 를 두 개나
-                만들 일이 아니다 — 견준 줄이 곧 그 결과를 말한다.
-              */}
-              <div className="sd-say2">
-                <label>
-                  <span>맞으면</span>
-                  <input
-                    className="sd-say yes"
-                    value={step.msgYes ?? ''}
-                    placeholder="비교 값이 동일 합니다."
-                    onChange={(e) => onChange({ msgYes: e.target.value })}
-                  />
-                </label>
-                <label>
-                  <span>다르면</span>
-                  <input
-                    className="sd-say no"
-                    value={step.msgNo ?? ''}
-                    placeholder="비교 값이 동일 하지 않습니다. 점검을 해 주세요"
-                    onChange={(e) => onChange({ msgNo: e.target.value })}
-                  />
-                </label>
-              </div>
-            </div>
+            {(() => {
+              /* 조건 여럿(승인: 압축형) — 조건 하나가 두 줄이다. 윗줄은 값·조건·값,
+                 아랫줄은 결과서에 실을 설명 둘. 목록(conds)이 정본이고 조건 1 은
+                 옛 칸(cmpLeft…)에도 같이 적는다 — 옛 화면·AI·아직 갱신 안 된
+                 253 이 옛 칸만 읽어도 첫 조건은 그대로 보이게. */
+              const blank = (): DiffCond => ({ l: '', op: '==', r: '', ll: '', rl: '' })
+              const have = diffConds(step)
+              const list = have.length ? have : [blank()]
+              const join = diffJoin(step)
+              const put = (next: DiffCond[], j2: 'and' | 'or' = join) => {
+                const c0 = next[0] ?? blank()
+                onChange({
+                  conds: next,
+                  condJoin: j2,
+                  cmpLeft: c0.l,
+                  cmpOp: c0.op,
+                  cmpRight: c0.r,
+                  cmpLeftLabel: c0.ll ?? '',
+                  cmpRightLabel: c0.rl ?? '',
+                })
+              }
+              const setC = (i: number, patch: Partial<DiffCond>) =>
+                put(list.map((c, k) => (k === i ? { ...c, ...patch } : c)))
+              /* 칸 안쪽 ${ } 단추 — paramPick 과 같은 꼴, 대상만 조건 칸 */
+              const condPick = (i: number, side: 'l' | 'r') => {
+                const key = `p-dc${i}${side}`
+                return {
+                  inside: (
+                    <button
+                      type="button"
+                      className="sd-pickin"
+                      title="이 칸에 전역 파라미터 넣기"
+                      onClick={() => setPick(pick === key ? '' : key)}
+                    >
+                      {'${ }'}
+                    </button>
+                  ),
+                  list:
+                    pick === key ? (
+                      <ParamPicker
+                        items={gp.items}
+                        values={gp.values}
+                        loading={gp.loading}
+                        empty={gp.empty}
+                        onClose={() => setPick('')}
+                        onPick={(x) => {
+                          const cur = String(list[i]?.[side] ?? '')
+                          setC(i, { [side]: cur ? `${cur}${cur.endsWith(' ') ? '' : ' '}${x.value}` : x.value })
+                          setPick('')
+                        }}
+                      />
+                    ) : null,
+                }
+              }
+              return (
+                <div className="sd-f wide">
+                  <div className="sd-dhead">
+                    <span className="sd-lab">비교 조건</span>
+                    {/* 묶는 방식은 스텝에 하나 — 그리고·또는을 조건마다 섞으면 괄호 없이는
+                        사람마다 다르게 읽는다. 섞어야 하면 Diff 를 둘로 나눈다. */}
+                    <span className="sd-djoin" role="radiogroup" aria-label="조건 묶는 방식">
+                      <button
+                        type="button"
+                        className={join === 'and' ? 'on' : ''}
+                        aria-pressed={join === 'and'}
+                        title="조건이 전부 맞아야 합격"
+                        onClick={() => put(list, 'and')}
+                      >
+                        모두 맞아야
+                      </button>
+                      <button
+                        type="button"
+                        className={join === 'or' ? 'on' : ''}
+                        aria-pressed={join === 'or'}
+                        title="조건 중 하나라도 맞으면 합격"
+                        onClick={() => put(list, 'or')}
+                      >
+                        하나라도 맞으면
+                      </button>
+                    </span>
+                  </div>
+                  {list.map((c, i) => (
+                    <div key={i}>
+                      <div className="sd-dc">
+                        <span className="sd-dcj">{i === 0 ? '조건 1' : DIFF_JOIN_WORD[join]}</span>
+                        <span className="sd-inwrap">
+                          <input
+                            className="mono"
+                            value={c.l}
+                            placeholder="${var1}"
+                            aria-label={`조건 ${i + 1} 첫번째 값`}
+                            onChange={(e) => setC(i, { l: e.target.value })}
+                          />
+                          {condPick(i, 'l').inside}
+                        </span>
+                        <select
+                          value={c.op || '=='}
+                          aria-label={`조건 ${i + 1} 비교 방식`}
+                          onChange={(e) => setC(i, { op: e.target.value })}
+                        >
+                          <option value="==">같다</option>
+                          <option value="!=">다르다</option>
+                          <option value="포함">포함한다</option>
+                          <option value=">">크다</option>
+                          <option value="<">작다</option>
+                          <option value=">=">크거나 같다</option>
+                          <option value="<=">작거나 같다</option>
+                        </select>
+                        <span className="sd-inwrap">
+                          <input
+                            className="mono"
+                            value={c.r}
+                            placeholder="${var2}"
+                            aria-label={`조건 ${i + 1} 두번째 값`}
+                            onChange={(e) => setC(i, { r: e.target.value })}
+                          />
+                          {condPick(i, 'r').inside}
+                        </span>
+                        <button
+                          type="button"
+                          className="sd-dcx"
+                          title="이 조건 빼기"
+                          aria-label={`조건 ${i + 1} 빼기`}
+                          style={list.length === 1 ? { visibility: 'hidden' } : undefined}
+                          onClick={() => put(list.filter((_, k) => k !== i))}
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="sd-dc2">
+                        <span />
+                        <input
+                          value={c.ll ?? ''}
+                          placeholder={i === 0 ? '제품 모델명 CLI 조회' : '설명(비워도 됨)'}
+                          aria-label={`조건 ${i + 1} 첫번째 설명`}
+                          onChange={(e) => setC(i, { ll: e.target.value })}
+                        />
+                        <input
+                          value={c.rl ?? ''}
+                          placeholder={i === 0 ? '제품 모델명 SNMP 조회' : '설명(비워도 됨)'}
+                          aria-label={`조건 ${i + 1} 두번째 설명`}
+                          onChange={(e) => setC(i, { rl: e.target.value })}
+                        />
+                        <span />
+                      </div>
+                      {condPick(i, 'l').list}
+                      {condPick(i, 'r').list}
+                    </div>
+                  ))}
+                  <button type="button" className="sd-dadd" onClick={() => put([...list, blank()])}>
+                    ＋ 조건 추가
+                  </button>
+                  <span className="sd-hint">
+                    윗줄은 견줄 값, 아랫줄은 결과서에 실을 설명입니다. 앞 스텝에서 뽑은 값은{' '}
+                    <b>{'${이름}'}</b>, 그냥 글자는 그대로 적습니다. 묶은 결과가 맞으면 <b>합격</b>,
+                    아니면 <b>불합격</b>입니다.
+                  </span>
+                  {/*
+                    결과 문구는 **Diff 안에서** 적는다(지시). If 를 두 개나
+                    만들 일이 아니다 — 견준 줄이 곧 그 결과를 말한다.
+                  */}
+                  <div className="sd-say2">
+                    <label>
+                      <span>맞으면</span>
+                      <input
+                        className="sd-say yes"
+                        value={step.msgYes ?? ''}
+                        placeholder="비교 값이 동일 합니다."
+                        onChange={(e) => onChange({ msgYes: e.target.value })}
+                      />
+                    </label>
+                    <label>
+                      <span>다르면</span>
+                      <input
+                        className="sd-say no"
+                        value={step.msgNo ?? ''}
+                        placeholder="비교 값이 동일 하지 않습니다. 점검을 해 주세요"
+                        onChange={(e) => onChange({ msgNo: e.target.value })}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* running-config 를 견줄 때 uptime·카운터처럼 돌릴 때마다
                 달라지는 줄을 안 빼면 늘 다르다고 나온다. */}

@@ -1,4 +1,4 @@
-import type { TcStep } from './types'
+import { diffConds, diffJoin, type DiffCond, type TcStep } from './types'
 
 /**
  * 판정.
@@ -1276,4 +1276,52 @@ export function diffText(d: { onlyA: string[]; onlyB: string[] }, cap = 80): str
   for (const l of d.onlyB.slice(0, cap)) out.push(`+ ${l}`)
   if (d.onlyB.length > cap) out.push(`  … 오른쪽 ${d.onlyB.length - cap}줄 더`)
   return out.join('\n')
+}
+
+/** Diff 조건 하나의 판정 */
+export interface DiffCondResult {
+  ok: boolean
+  /** 값을 넣어 읽은 식 — `'E6100' == 'E6100'` */
+  why: string
+  /** 여러 줄 비교였으면 다른 줄 목록 글 */
+  body?: string
+  /** 변수를 넣은 뒤의 두 값 */
+  left: string
+  right: string
+  cond: DiffCond
+}
+
+/**
+ * Diff 스텝 판정 — **조건 여럿을 그리고·또는으로 묶는다**(지시).
+ *
+ * 조건마다: 값을 넣은 뒤 여러 줄이고 같다·다르다면 줄 단위로(running-config),
+ * 아니면 조건식 하나로 본다. 묶음은 and 면 전부, or 면 하나라도.
+ * 조건이 비어 있으면 참(옛 동작 그대로).
+ */
+export function evalDiff(
+  step: TcStep,
+  vars: Record<string, string>,
+): { ok: boolean; join: 'and' | 'or'; results: DiffCondResult[] } {
+  const join = diffJoin(step)
+  const results: DiffCondResult[] = diffConds(step).map((c) => {
+    const left = subVars(c.l, vars)
+    const right = subVars(c.r, vars)
+    const op = c.op || '=='
+    const multi = left.includes('\n') || right.includes('\n')
+    if (multi && (op === '==' || op === '!=')) {
+      const d = diffLines(left, right, step.excludeLines)
+      const ok = op === '==' ? d.same : !d.same
+      return {
+        ok,
+        why: d.same ? '두 값이 같습니다' : `다른 줄 ${d.onlyA.length + d.onlyB.length}개`,
+        body: diffText(d),
+        left, right, cond: c,
+      }
+    }
+    const r = evalCondWhy(`${c.l} ${op} ${c.r}`, vars)
+    return { ok: r.ok, why: r.why, left, right, cond: c }
+  })
+  if (!results.length) return { ok: true, join, results }
+  const ok = join === 'or' ? results.some((r) => r.ok) : results.every((r) => r.ok)
+  return { ok, join, results }
 }
