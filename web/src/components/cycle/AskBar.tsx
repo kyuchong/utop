@@ -2112,6 +2112,24 @@ export default function AskBar({ devices }: Props) {
         : usable
       /* 한 대뿐이어도 자동으로 안 고른다(지시: 무조건 한 번 체크) —
          고르개를 띄워 사람이 확정한다. */
+      /* Basic 은 **옛 창을 안 띄운다**(지시) — 시험 요청 입구와 같은 채팅 장비
+         카드로 묻고, 고르면 pickInlineDev 가 afterPick 으로 이 항목을 잇는다.
+         옛 창(pickDev 모달)은 Advanced 몫으로만 남는다. */
+      if (mode === 'basic') {
+        setAfterPick({ tcid, model: String(tcModel || askModel || '') })
+        setLikeAsk(false)
+        const list = cands.length ? cands : usable
+        if (!list.length) {
+          setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
+          return
+        }
+        setFlowLog((v) => [...v, { s: 1, t: `${want || '전체'} 장비 ${list.length}대 — 어느 장비로 보낼지 고릅니다` }])
+        sayThink('사용 가능한 장비 검색 중…')
+        await sayDevBlock(list, String(tcModel || askModel || ''), '', {
+          head: `이 항목을 보낼 장비를 골라 주세요${want ? ` (<b>${hesc(String(tcModel || askModel || ''))}</b> ${list.length}대)` : ''}.`,
+        })
+        return
+      }
       if (cands.length >= 1) {
         setAfterPick({ tcid, model: String(tcModel || askModel || '') })
         setPickSel(cands.find((d) => d.id === devId)?.id ?? cands[0]?.id ?? '')
@@ -2563,6 +2581,13 @@ export default function AskBar({ devices }: Props) {
           void takeTc(tcHit.tcid, ipHit ?? undefined, String(tcHit.model ?? ''))
           return
         }
+        /* 항목이 먼저 정해져 장비를 기다리는 중이면 그 항목으로 바로 잇는다 */
+        if (ipHit && afterPick) {
+          const ap = afterPick
+          setAfterPick(null)
+          void takeTc(ap.tcid, ipHit, ap.model)
+          return
+        }
         /* 장비만 콕 집은 말 — 한 문장 흐름(쥔 질문)이면 항목 후보를 잇고,
            단계별 흐름이면 안내에서 멈춘다 */
         const q0 = pendQRef.current
@@ -2742,6 +2767,12 @@ export default function AskBar({ devices }: Props) {
               ),
             )
             say('a', devDoneCard(nm, String(d0.ip ?? '')))
+            if (!pt && afterPick) {
+              const ap = afterPick
+              setAfterPick(null)
+              void takeTc(ap.tcid, d0, ap.model)
+              return
+            }
             if (!pt) {
               /* 한 문장 흐름(쥔 질문이 있음)이면 그 의도로 **항목 후보가
                  바로 이어서** 선다(지시: 질문이 한 번에 들어갔잖아).
