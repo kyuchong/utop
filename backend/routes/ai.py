@@ -380,8 +380,19 @@ async def learn_procedure_delete(lp_id: str, token: str = ""):
 #
 # Coverage AI · Basic 의 [다음 행동] 절(승인: 11·12·13 을 프롬프트로) — 기본 글의 꼬리이자,
 # 사람이 저장해 둔 프롬프트에 이 절이 없으면 api 가 시작할 때 한 번 이어 붙인다(main._prompt_next_migrate).
+# [다음 행동] 절의 공통 규칙 — 원래 코드가 출력 형식 안에 붙이던 판단 문장이다(지시: SETUP 에서 보고
+# 고칠 수 있게). Basic 은 프롬프트(이 절)로, Advanced 는 절이 없어 형식 뒤에 그대로 붙는다.
+CAI_BASIC_RULES = (
+    "[공통 규칙]\n"
+    "· 무엇을 시험할지가 말에 있으면 next 가 무엇이든 tc 에 적는다 — 장비를 고른 뒤 화면이 그 말로 항목을 찾는다.\n"
+    "· 「~항목이 있어?」 처럼 있는지만 묻는 말은 chat 으로 답한다.\n"
+    "· run 은 [선택 상태]에 절차가 「준비됨」 일 때 시작해 달라는 말에만 쓴다.\n"
+    "· 질문에 장비 모델명이 있으면 「대상 장비」 맥락보다 **질문의 모델을 우선**한다.\n"
+    "· answer 는 한두 문장 — chat 이면 답 전체, 그 밖에는 짧은 안내만 적는다. 카드·목록은 화면이 그리니 "
+    "선택했다·진행한다고 화면 대신 말하지 마라."
+)
 CAI_BASIC_NEXT = (
-    "[다음 행동] v2 — 매 답에 next 를 하나 적는다. 화면은 그 행동만 한다. [선택 상태]가 근거다. "
+    "[다음 행동] v3 — 매 답에 next 를 하나 적는다. 화면은 그 행동만 한다. [선택 상태]가 근거다. "
     "장비 → 항목 순서는 화면이 지킨다(장비가 없는데 항목 행동을 내면 화면이 장비부터 묻는다).\n"
     "· chat — 인사·잡담·일반 지식·현황 질문(「시험 가능한 장비는?」)에 answer 로 답한다.\n"
     "· show_devices — 장비 목록을 보여 달라는 말(시험을 하자는 말이 아닐 때).\n"
@@ -400,14 +411,18 @@ CAI_BASIC_NEXT = (
     "· ask_tc — 장비가 정해졌고 무엇을 시험할지가 말에 있으면 항목 후보를 찾는다.\n"
     "· suggest_tc — 추천해 달라·골라 달라는 말(tc_keys 에 [현황]의 TC키).\n"
     "· wait_tc — 장비만 말했고 무엇을 시험할지가 없으면 항목을 말해 달라고만 한다.\n"
-    "· none — 「선택해 줘」 처럼 대상이 없는 말이고 이미 후보 카드가 떠 있을 때(위 후보에서 고르라고 answer 에).\n"
-    "무엇을 시험할지가 말에 있으면 next 가 무엇이든 tc 에 적는다 — 장비를 고른 뒤 화면이 그 말로 항목을 찾는다."
+    "· none — 「선택해 줘」 처럼 대상이 없는 말이고 이미 후보 카드가 떠 있을 때(위 후보에서 고르라고 answer 에).\n" + "\n" + CAI_BASIC_RULES
 )
-# 옛 [다음 행동] 절(v1)의 줄 머리 — 저장본의 절이 이것들로만 돼 있으면 사람이 안 고친 것이라 v2 로 갈아 끼운다
-CAI_BASIC_NEXT_V1_HEADS = (
-    "[다음 행동]", "매 답에 next", "0) 순서는 늘", "1) confirm_device", "2) ask_device",
-    "3) repick_device", "4) ask_tc", "5) wait_tc", "5-1) keep_device", "6) 「선택해 줘」", "7) 어느 것도",
-)
+# 우리가 넣었던 옛 [다음 행동] 절(v1 세 판·v2)의 지문 — 공백을 모두 뺀 글의 sha1 앞 16자.
+# 저장본의 절이 이 중 하나와 **글자까지 같으면** 사람이 안 고친 것이라 v3 로 갈아 끼운다.
+# 한 글자라도 고쳤으면(지문이 다르면) 고친 글은 두고 없는 행동·규칙만 덧붙인다.
+# 줄 머리만 보던 판은 줄 안의 고친 글을 못 알아봐 덮어 쓸 뻔했다(모의 실행으로 잡음).
+CAI_BASIC_NEXT_OLD = {
+    "a1dd599ec4e5b7ff",  # v1 (b1a076e6)
+    "bf1f22206822bedc",  # v1 + 0) 순서 규칙 (e898a0ed)
+    "07175c6126c4ae50",  # v1 + 0) + 5-1) 장비 유지 (2c7eef1d)
+    "9c7ccbd9f3e1f7dd",  # v2 행동 표 (0d47aa23)
+}
 
 LLM_PURPOSES: dict[str, dict] = {
     # ── 요구사항 ────────────────────────────────────────────────
@@ -514,11 +529,13 @@ LLM_PURPOSES: dict[str, dict] = {
     # 있어 SETUP 에서 고칠 수 있다. 코드는 출력 형식(JSON)만 강제한다.
     "cai_basic": {
         "label": "Coverage AI · Basic",
-        "hint": ("Coverage AI › Basic mode — 시험 요청인지 가르는 판단, 일반 질문 답변, 그리고 [다음 행동]"
-                 "(장비를 묻을지·확정할지·유지할지·항목을 물을지)을 이 프롬프트가 정합니다. 행동 이름: confirm_device · "
-                 "ask_device · keep_device · use_device · repick_device · ask_tc · wait_tc · none. 판단 재료는 [현황]과 "
-                 "[선택 상태](대상 장비·모델, 먼저 정해진 항목과 그 모델, 말에 적힌 모델의 장비 후보 수, "
-                 "떠 있는 카드)로 매 턴 함께 실립니다."),
+        "hint": ("Coverage AI › Basic mode — 일반 질문 답변과 흐름(장비를 묻을지·확정할지·유지할지·항목을 "
+                 "찾을지·추천할지·실행할지)을 이 프롬프트가 정합니다. 흐름 규칙은 [다음 행동] 절의 행동 표와 "
+                 "[공통 규칙]에 있습니다. 행동 이름: chat · show_devices · show_tcs · show_result · run · "
+                 "confirm_device · ask_device · keep_device · use_device · repick_device · pick_tc · ask_tc · "
+                 "suggest_tc · wait_tc · none. 판단 재료는 [현황]과 [선택 상태](대상 장비·모델, 먼저 정해진 항목, "
+                 "장비를 고르면 이어갈 질문, 말에 적힌 모델의 장비 후보 수, 떠 있는 카드)로 매 턴 함께 실립니다. "
+                 "장비 → 항목 순서·실행 조건·목록 대조는 화면이 지킵니다."),
         "system": (
             "너는 UBIQUOSS 네트워크 장비 시험 플랫폼(UTOP)의 Coverage AI 도우미다. "
             "Basic mode 는 이미 만들어진 시험 항목을 골라 장비에서 돌리는 자리다.\n\n"
@@ -1002,6 +1019,9 @@ async def cov_chat(payload: dict):
     # 판단 규칙은 **프롬프트가** 든다(지시) — SETUP 에서 고친다.
     # 코드는 화면이 읽는 출력 형식 하나만 강제한다. 흐름은 next 하나로 정한다(지시: 룰 10 —
     # 신호 여러 개를 코드가 정한 차례로 가르던 것을 「이번 턴에 할 일 하나」 로).
+    # 출력 형식 — **약속만**(JSON 모양·필드 뜻·행동 이름·말에 있는 글자만). 흐름을 가르는
+    # 판단 문장은 SETUP 의 [다음 행동] 절(CAI_BASIC_RULES)로 옮겼다(지시: 형식 속 판단 문장을
+    # 프롬프트로). Advanced 프롬프트에는 그 절이 없어 Advanced 일 때만 판단 문장을 형식 뒤에 붙인다.
     fmt = (
         "\n\n[출력 형식 — 반드시 지킨다] JSON 하나만 출력한다(설명·코드펜스 금지): "
         '{"next": "...", "answer": "...", "model": "...", "device": "...", "tc": "...", '
@@ -1009,19 +1029,17 @@ async def cov_chat(payload: dict):
         "next 는 이번 턴에 화면이 할 일 하나다 — chat · show_devices · show_tcs · show_result · "
         "confirm_device · ask_device · keep_device · use_device · repick_device · "
         "pick_tc · ask_tc · suggest_tc · wait_tc · run · none 중 하나만([다음 행동] 규칙대로). "
-        "answer 는 사용자에게 보일 한두 문장이다 — chat 이면 답 전체, 그 밖에는 짧은 안내만 적고 "
-        "카드·목록은 화면이 그린다(선택했다·진행한다고 화면 대신 말하지 마라). "
+        "answer 는 사용자에게 보일 글. "
         "model 은 말에 적힌 장비 모델명(없으면 빈 문자열). "
         "device 는 사용자가 콕 집은 장비 — 말에 **실제로 등장한** IP 나 모델명·이름만(없으면 빈 문자열). "
         "tc 는 시험할 내용 — 말에 **실제로 등장한** 항목 키·항목 이름·검색어(예: SNMP, sysObjectID, "
-        "System 정보 조회). 무엇을 시험할지가 말에 있으면 next 가 무엇이든 tc 에 적는다. "
+        "System 정보 조회). "
         "tc_keys 는 suggest_tc 일 때만 [현황] 항목 중 맞는 TC키(쉼표로 최대 3개). "
         'state 는 show_devices 에서 사용 가능한 것만 달라고 했을 때만 "ok". '
-        "[현황]·[선택 상태]·이전 대화에서 값을 가져오거나 지어내지 마라 — 말에 없는 device·tc 는 서버가 버린다. "
-        "「~항목이 있어?」 처럼 있는지만 묻는 말은 chat 으로 답한다. "
-        "run 은 [선택 상태]에 절차가 「준비됨」 일 때 시작해 달라는 말에만 쓴다. "
-        "질문에 장비 모델명이 있으면 「대상 장비」 맥락보다 **질문의 모델을 우선**한다."
+        "[현황]·[선택 상태]·이전 대화에서 값을 가져오거나 지어내지 마라 — 말에 없는 device·tc 는 서버가 버린다."
     )
+    if purpose == "cai_advanced":
+        fmt += " " + CAI_BASIC_RULES.replace("\n", " ")
     schema = {
         "type": "object",
         "properties": {"next": {"type": "string"}, "answer": {"type": "string"},

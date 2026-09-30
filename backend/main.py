@@ -3958,14 +3958,14 @@ async def _prompt_next_migrate():
     쓴 글은 그대로 두고 절만 뒤에 붙인다 — 붙은 뒤에는 SETUP 에서 고칠 수 있다.
     """
     try:
-        from routes.ai import CAI_BASIC_NEXT, CAI_BASIC_NEXT_V1_HEADS
+        from routes.ai import CAI_BASIC_NEXT, CAI_BASIC_NEXT_OLD, CAI_BASIC_RULES
         if not PROMPTS_FILE.exists():
             return
         data = load_json(PROMPTS_FILE) or {}
         purposes = data.get("purposes") or {}
         p = purposes.get("cai_basic") or {}
         sysp = str(p.get("system") or "")
-        if not sysp.strip() or "[다음 행동] v2" in sysp:
+        if not sysp.strip() or "[다음 행동] v3" in sysp:
             return
         i = sysp.find("[다음 행동]")
         if i < 0:
@@ -3973,18 +3973,27 @@ async def _prompt_next_migrate():
             how = "[다음 행동] 절을 이어 붙였다"
         else:
             sec = sysp[i:]
-            lines = [l.strip() for l in sec.split("\n") if l.strip()]
-            if all(any(l.startswith(h) for h in CAI_BASIC_NEXT_V1_HEADS) for l in lines):
-                # 우리가 붙인 v1 그대로 — 행동 전체 표(v2)로 갈아 끼운다(지시: 룰 10)
+            import hashlib as _hl
+            import re as _re0
+            fp = _hl.sha1(_re0.sub(r"\s+", "", sec).encode()).hexdigest()[:16]
+            if fp in CAI_BASIC_NEXT_OLD:
+                # 우리가 붙인 옛 판(v1·v2) 그대로 — 행동 표 + 공통 규칙(v3)으로 갈아 끼운다
                 new = sysp[:i].rstrip() + "\n\n" + CAI_BASIC_NEXT
-                how = "[다음 행동] 절을 v2(행동 전체 표)로 갈아 끼웠다"
+                how = "[다음 행동] 절을 v3(행동 표 + 공통 규칙)로 갈아 끼웠다"
             else:
                 # 사람이 고친 절 — 건드리지 않고 없는 행동 줄만 덧붙인다
                 import re as _re
-                missing = [l for l in CAI_BASIC_NEXT.split("\n")
-                           if l.startswith("· ") and (_re.match(r"· (\w+)", l).group(1) not in sec)]
-                new = sysp.rstrip() + "\n[다음 행동] v2 — 추가된 행동\n" + "\n".join(missing)
-                how = f"고친 [다음 행동] 절은 두고 없는 행동 {len(missing)}줄만 덧붙였다"
+                # 행동 줄(「· 이름 —」)만 본다 — 공통 규칙 줄은 아래에서 통째로 붙인다
+                missing = []
+                for l in CAI_BASIC_NEXT.split("\n"):
+                    mm = _re.match(r"· ([a-z_]+) —", l)
+                    if mm and mm.group(1) not in sec:
+                        missing.append(l)
+                add = "\n".join(missing)
+                if "[공통 규칙]" not in sec:
+                    add = (add + "\n" if add else "") + CAI_BASIC_RULES
+                new = sysp.rstrip() + "\n[다음 행동] v3 — 추가된 행동·규칙\n" + add
+                how = f"고친 [다음 행동] 절은 두고 없는 행동 {len(missing)}줄·공통 규칙만 덧붙였다"
         p["system"] = new
         purposes["cai_basic"] = p
         data["purposes"] = purposes

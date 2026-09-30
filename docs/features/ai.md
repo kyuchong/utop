@@ -36,15 +36,16 @@ LLM 으로 **시험을 만들고 고치는 것**(Test AI, Coverage AI)과 **자�
 LLM 은 매 턴 **이번에 화면이 할 일 하나**(`next`)를 정한다 — chat · show_devices · show_tcs · show_result · run ·
 confirm_device · ask_device · keep_device · use_device · repick_device · pick_tc · ask_tc · suggest_tc · wait_tc · none.
 인자로 말에 실제로 있는 장비(device)·시험할 내용(tc)·추천 키(tc_keys)를 붙인다. 어떤 말에 어떤 행동을 할지는
-SETUP › 용도별 프롬프트 › Coverage AI · Basic 의 [다음 행동] 절(v2)이 정하고, 화면은 그 행동만 실행하므로 같은
+SETUP › 용도별 프롬프트 › Coverage AI · Basic 의 [다음 행동] 절(v3 — 행동 표와 [공통 규칙])이 정하고, 화면은 그 행동만 실행하므로 같은
 행동은 늘 같은 카드가 선다.
 
 코드가 지키는 것은 이것뿐이다 — **장비 → 항목 순서**(장비가 없는데 항목 행동이 오면 장비부터 묻고 질문을 쥐어 둔다),
 실행은 절차가 준비됐을 때만, 한 대 확정은 후보가 정말 한 대일 때만, 장비·항목은 실제 목록과 대조하고 확정은 클릭,
 문장에 TC 키·IP 가 그대로 있으면 LLM 보다 먼저 그것으로 정한다. LLM 이 없거나 모르는 행동을 내면 옛 흐름으로
 물러선다. 판단 가드는 `web/src/components/cycle/nextPlan.ts` 한 곳이고 정답표(nextPlan.test.ts)로 고정한다.
-저장해 둔 프롬프트의 [다음 행동] 절이 옛 판(v1) 그대로면 api 가 시작할 때 v2 로 갈아 끼우고, 직접 고친 절이면
-없는 행동 줄만 덧붙인다.
+코드가 붙이는 출력 형식에는 JSON 모양·행동 이름·「말에 있는 글자만」 약속만 있고, 흐름을 가르는 판단 문장은 모두
+[공통 규칙]에 있다(Advanced 는 그 절이 없어 형식 뒤에 붙는다). 저장해 둔 프롬프트의 [다음 행동] 절이 우리가 넣었던
+옛 판(v1·v2)과 글자까지 같으면 api 가 시작할 때 v3 로 갈아 끼우고, 한 글자라도 고쳤으면 고친 글은 두고 없는 행동·규칙만 덧붙인다.
 
 ### Knowledge AI
 - 「실패 항목 뭐 있어」 「Kernel Panic 이슈 찾아줘」 처럼 묻는다. 답의 **근거는 우리 자료**다 — WIKI 문서, 요구사항·시험 항목, 사이클 결과, Jira 저장본.
