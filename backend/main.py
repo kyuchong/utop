@@ -3950,6 +3950,32 @@ async def save_permissions(data: dict = None, token: str = ""):
 
 
 @app.on_event("startup")
+async def _prompt_next_migrate():
+    """Coverage AI · Basic **저장본**에 [다음 행동] 절이 없으면 한 번 이어 붙인다(지시: 웹에 반영).
+
+    장비를 묻을지·확정할지·항목을 물을지는 이 절이 정하는데, 사람이 SETUP 에서 저장해 둔
+    프롬프트는 기본 글을 통째로 덮어 새 절이 화면에도 LLM 에도 안 실렸다(213 확인).
+    쓴 글은 그대로 두고 절만 뒤에 붙인다 — 붙은 뒤에는 SETUP 에서 고칠 수 있다.
+    """
+    try:
+        from routes.ai import CAI_BASIC_NEXT
+        if not PROMPTS_FILE.exists():
+            return
+        data = load_json(PROMPTS_FILE) or {}
+        purposes = data.get("purposes") or {}
+        p = purposes.get("cai_basic") or {}
+        sysp = str(p.get("system") or "")
+        if sysp.strip() and "[다음 행동]" not in sysp:
+            p["system"] = sysp.rstrip() + "\n\n" + CAI_BASIC_NEXT
+            purposes["cai_basic"] = p
+            data["purposes"] = purposes
+            save_json(PROMPTS_FILE, data)
+            print("[startup] Coverage AI · Basic 프롬프트 저장본에 [다음 행동] 절을 이어 붙였다", flush=True)
+    except Exception as e:
+        print(f"[startup] 프롬프트 [다음 행동] 이어붙이기 실패: {e}", flush=True)
+
+
+@app.on_event("startup")
 async def _prompt_migrate():
     """옛 Cycle-Test Summary 프롬프트를 걷는다.
 
