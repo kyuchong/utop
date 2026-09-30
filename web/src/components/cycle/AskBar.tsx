@@ -30,6 +30,7 @@ import { IconCli } from '@/components/icons'
 import { stepNumbers, stepVerdict, type StepKind, type TcStep } from '@/components/tc/types'
 import { useResults } from '@/pages/Cycles'
 import type { Device } from '@/pages/Devices'
+import { planNext } from './nextPlan'
 
 interface DraftStep {
   desc: string
@@ -440,7 +441,7 @@ export default function AskBar({ devices }: Props) {
       cov-chat 의 next. 턴마다 비우고, 결정이 필요한 자리(takeTc·장비만 말한 뒤)가 읽는다.
       비어 있으면(LLM 없음·답 못 줌) 코드의 옛 규칙으로 물러선다. */
   const nextRef = useRef<string>('')
-  const NEXT_OK = new Set(['confirm_device', 'ask_device', 'keep_device', 'use_device', 'repick_device', 'ask_tc', 'wait_tc', 'none'])
+  const NEXT_OK = new Set(['chat', 'show_devices', 'show_tcs', 'show_result', 'confirm_device', 'ask_device', 'keep_device', 'use_device', 'repick_device', 'pick_tc', 'ask_tc', 'suggest_tc', 'wait_tc', 'run', 'none'])
   const [adopting, setAdopting] = useState('')
   /** 질문 보기 고치기 — 관리자만. ⚙ 로 켠다 */
   const [exEdit, setExEdit] = useState(false)
@@ -616,7 +617,7 @@ export default function AskBar({ devices }: Props) {
           method: 'POST',
           body: JSON.stringify({ q: rd.q, mode, facts: buildFacts() }),
         })
-        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; next?: string; dev_intent?: boolean; tc_intent?: boolean }
+        const b = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; next?: string; device?: string; tc?: string; tc_keys?: string; dev_intent?: boolean; tc_intent?: boolean }
         unThink()
         if (b.answer) {
           saySlow(b.answer, rd)
@@ -1776,6 +1777,234 @@ export default function AskBar({ devices }: Props) {
     setFlowAt(0)
   }
 
+  /**
+   * **다음 행동 실행기**(지시: 룰 10 — 신호 여러 개를 코드가 정한 차례로 가르던 것을
+   * 「이번 턴에 할 일 하나」 로). LLM 의 next 를 nextPlan 의 가드에 통과시킨 뒤 그
+   * 행동만 한다. 같은 행동은 늘 같은 부품이 그린다. 모르는 행동이면 false — 옛 흐름으로.
+   */
+  const runNext = async (
+    chat: { next?: string; answer?: string; model?: string; device?: string; tc?: string; tc_keys?: string; state?: string },
+    said: string,
+    raw0: string,
+  ): Promise<boolean> => {
+    const cur = usable.find((x) => x.id === devId)
+    const dArg = String(chat.device ?? '').trim()
+    const mSaid = String(chat.model ?? '').trim() || (candsOf(raw0)?.model ?? '').trim()
+    const byModel = (m: string) =>
+      usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m.trim().toLowerCase())
+    /* 짚은 장비 → 후보(IP 는 완전 일치, 모델은 같은 모델 전부, 이름은 하나) */
+    const cands: Device[] = (() => {
+      if (dArg) {
+        const ip = usable.find((d) => String(d.ip ?? '').trim() === dArg)
+        if (ip) return [ip]
+        const bm = byModel(dArg)
+        if (bm.length) return bm
+        const nm = usable.find((d) => String(d.name ?? '').trim().toLowerCase() === dArg.toLowerCase())
+        if (nm) return [nm]
+      }
+      return mSaid ? byModel(mSaid) : []
+    })()
+    const tc = String(chat.tc ?? '').trim()
+    const hasResult = (ran ?? []).some((r) => String(r?.status ?? r?.repeatResult ?? '').trim())
+    const plan = planNext({
+      next: String(chat.next ?? ''),
+      hasDevice: !!cur,
+      hasDraft: !!draft,
+      running,
+      hasResult,
+      candCount: cands.length,
+      tc,
+      testish: /시험|테스트|확인|조회|점검|돌려|실행|해줘|해 줘/.test(raw0),
+    })
+    if (plan.act === 'legacy') return false
+    setFlowLog((v) => [...v, { s: 1, t: `다음 행동 — ${plan.act}${plan.why ? ` (${plan.why})` : ''}` }])
+
+    /* 대화도 목록에 남긴다 — 옛 흐름과 같은 자리 */
+    if (!chatId || !saveMetaRef.current) {
+      const id = chatId || `nl-${Date.now().toString(36)}`
+      if (!chatId) setChatId(id)
+      saveMetaRef.current = { title: raw0.slice(0, 80), plan: null, dev: tDev || '' }
+      setRecent((v) => [{ cid: id, title: raw0.slice(0, 80) }, ...v.filter((x) => x.cid !== id)].slice(0, 30))
+    }
+    const ans = String(chat.answer ?? '').trim()
+    /* 끝내는 행동(확정·유지·지목·실행)은 카드가 말한다 — 안내 글은 묻는·보여 주는 행동에만 */
+    const QUIET = new Set(['confirm_device', 'keep_device', 'use_device', 'pick_tc', 'run', 'show_result'])
+    if (ans && plan.act !== 'chat' && !QUIET.has(plan.act)) saySlow(ans, { k: 'chat', q: said })
+    const waitTc = () =>
+      say(
+        'a',
+        '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "SNMP 시험해줘"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
+      )
+    const pickDev = (d: Device, why: string) => {
+      const nm = String(d.model || d.name || d.ip)
+      setDevId(d.id)
+      setTDev(nm)
+      setAskModel(String(d.model ?? ''))
+      if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+      setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d.ip} ${why}` }])
+      setMsgs((v) =>
+        v.filter((x) => !(x.who === 'a' && (x.html.includes('data-pick="dev"') || x.html.includes('data-pick="dev-list"')))),
+      )
+      say('a', devDoneCard(nm, String(d.ip ?? '')))
+    }
+    /* 장비가 정해진 뒤 — 기다리던 항목이 있으면 그것을, 쥔 질문·이번 말에 시험할 것이 있으면 그 말로 */
+    const afterDev = async (d: Device) => {
+      if (afterPick) {
+        const ap = afterPick
+        setAfterPick(null)
+        await takeTc(ap.tcid, d, ap.model)
+        return
+      }
+      const q = pendQRef.current || (tc || /시험|테스트|확인|조회|점검/.test(raw0) ? said : '')
+      pendQRef.current = ''
+      if (q) await stepTc(d, q)
+      else waitTc()
+    }
+    /* 등록 안 된 모델(지시) — 장비·항목 행동에서만, 말에 적힌 글자일 때만 */
+    if (plan.act !== 'chat' && mSaid && raw0.toLowerCase().includes(mSaid.toLowerCase())) {
+      const known = new Set(
+        [
+          ...usable.map((d) => String(d.model ?? '').trim().toLowerCase()),
+          ...tcAll.map((t) => String(t.model ?? '').trim().toLowerCase()),
+        ].filter(Boolean),
+      )
+      if (!known.has(mSaid.toLowerCase())) {
+        say(
+          'a',
+          `<p class="ln"><b>${hesc(mSaid)}</b> 은(는) 등록된 장비가 아닙니다 — 일치하는 결과가 없습니다. Devices 에 등록된 모델명으로 다시 말씀해 주세요.</p>`,
+        )
+        setFlowAt(0)
+        return true
+      }
+    }
+    switch (plan.act) {
+      case 'chat': {
+        if (plan.why === 'not_ready')
+          say('a', '<p class="ln">아직 절차가 준비되지 않았습니다 — 장비와 시험 항목을 먼저 선택해 주세요.</p>')
+        else if (plan.why === 'no_result')
+          say('a', '<p class="ln">아직 실행한 결과가 없습니다 — 절차를 준비하고 ▷ 시험 시작을 눌러 주세요.</p>')
+        else if (ans) saySlow(ans, { k: 'chat', q: said })
+        else
+          say(
+            'a',
+            '<p class="ln">말씀을 이해하지 못했습니다 — 장비 모델명과 시험할 내용을 함께 적어 주세요(예: "E6100 SNMP 시험해줘").</p>',
+          )
+        break
+      }
+      case 'show_devices':
+        showDevCards(mSaid, String(chat.state ?? '').trim())
+        break
+      case 'show_tcs':
+        showTcCards(mSaid)
+        break
+      case 'show_result':
+        setRunView(true)
+        setArtOpen(true)
+        break
+      case 'run':
+        void run(undefined, undefined, undefined, { chat: true })
+        break
+      case 'confirm_device': {
+        const d = cands[0]
+        if (d) {
+          pickDev(d, '확정 (한 대뿐 — 프롬프트 판단)')
+          await afterDev(d)
+        }
+        break
+      }
+      case 'ask_device': {
+        if (cur) {
+          /* 장비를 바꾸자는 말 — 말한 모델, 없으면 지금 모델 */
+          await askDeviceChange(mSaid || String(cur.model ?? ''), said, !!(tc || mSaid))
+          return true
+        }
+        const list = cands.length ? cands : mSaid ? byModel(mSaid) : usable
+        if (!list.length) {
+          setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
+          break
+        }
+        pendQRef.current = plan.hold ? said : ''
+        afterDevRef.current = 'tc'
+        sayThink('사용 가능한 장비 검색 중…')
+        try {
+          await lockQ.refetch()
+        } catch {
+          /* 점유를 못 읽어도 장비는 보여 준다 */
+        }
+        await sayDevBlock(list, mSaid, said)
+        break
+      }
+      case 'keep_device':
+      case 'use_device': {
+        if (cur) {
+          setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${cur.ip} 유지 (프롬프트 판단)` }])
+          await afterDev(cur)
+        }
+        break
+      }
+      case 'repick_device': {
+        const m =
+          mSaid || String(tcAll.find((t) => t.tcid === draft?.object)?.model ?? '') || String(cur?.model ?? '')
+        await askDeviceChange(m, said, false)
+        return true
+      }
+      case 'pick_tc': {
+        const low = tc.toLowerCase()
+        const norm = (x: string) => x.toLowerCase().replace(/(\D)0+(?=\d)/g, '$1')
+        const t1 = low
+          ? (tcAll.find((t) => t.tcid.toLowerCase() === low) ??
+            tcAll.find((t) => String(t.name ?? '').trim().toLowerCase() === low) ??
+            tcAll.find((t) => norm(t.tcid) === norm(low)))
+          : undefined
+        if (t1) {
+          setMsgs((v) =>
+            v.filter((x) => !(x.who === 'a' && (x.html.includes('data-pick="tc"') || x.html.includes('data-pick="tc-list"')))),
+          )
+          say('a', tcDoneCard(t1.tcid, t1.name))
+          await takeTc(t1.tcid, cur, String(t1.model ?? ''))
+          return true
+        }
+        /* 콕 집은 것이 없으면 찾기로 */
+        if (cur) await stepTc(cur, said)
+        break
+      }
+      case 'ask_tc':
+        if (cur) await stepTc(cur, said)
+        break
+      case 'suggest_tc': {
+        const keys = String(chat.tc_keys ?? '')
+          .split(',')
+          .map((x) => x.trim().toLowerCase())
+          .filter(Boolean)
+          .slice(0, 3)
+        const items: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }> = []
+        for (const k of keys) {
+          const hit = tcAll.find((t) => t.tcid.toLowerCase() === k)
+          if (hit && !items.some((x) => x.tcid === hit.tcid))
+            items.push({ tcid: hit.tcid, name: hit.name, model: hit.model, steps: hit.steps, why: '추천' })
+        }
+        sayThink('말씀과 가까운 시험 항목을 찾는 중…')
+        const like3 = await findLike(raw0, cur)
+        unThink()
+        for (const x of like3) if (!items.some((y) => y.tcid === x.tcid)) items.push(x)
+        {
+          const pool = likePoolRef.current
+          const head5 = items.slice(0, 5)
+          const rest = pool.all.filter((x) => !head5.some((e) => e.tcid === x.tcid))
+          likePoolRef.current = { q: pool.q || raw0, all: [...head5, ...rest], shown: head5.length }
+        }
+        if (items.length) sayTcBlock(items.slice(0, 5), likePoolRef.current.q)
+        else say('a', '<p class="ln">추천할 항목을 못 좁혔습니다 — 「시험 항목 찾기」 로 골라 주세요.</p>')
+        break
+      }
+      case 'wait_tc':
+        if (!ans) waitTc()
+        break
+    }
+    setFlowAt(0)
+    return true
+  }
+
   const stepTc = async (d: Device, q: string) => {
     /* 「전체 목록 열기」 로 빠질 때를 위해 표를 미리 좁혀 둔다 */
     setTcOnlyModel(true)
@@ -1825,9 +2054,16 @@ export default function AskBar({ devices }: Props) {
       void takeTc(ap.tcid, d, ap.model)
       return
     }
-    const q9 = pendQRef.current || asked || getText()
+    /* 쥐어 둔 질문만 잇는다(지시: 룰 10) — 「장비 목록 보여 줘」 같은 말을 검색어로
+       쓰면 엉뚱한 항목이 섰다. 쥔 것이 없으면 항목을 말해 달라고 한다. 말로 고를 때도 같다. */
+    const q9 = pendQRef.current
     pendQRef.current = ''
-    void stepTc(d, q9)
+    if (q9) void stepTc(d, q9)
+    else
+      say(
+        'a',
+        '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "SNMP 시험해줘"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
+      )
   }
 
   /** 대화 속 추천에서 항목을 골랐다 — 바로 3단계 */
@@ -2733,7 +2969,7 @@ export default function AskBar({ devices }: Props) {
         /* 장비만 콕 집은 말 — **카드를 누른 것과 똑같이**(지시): 쥐어 둔 질문(없으면
            앞서 물은 말)로 그 장비의 항목 후보를 잇는다(pickInlineDev 와 같은 stepTc).
            둘 다 없을 때만 항목을 말해 달라고 한다. */
-        const q0 = pendQRef.current || asked
+        const q0 = pendQRef.current
         pendQRef.current = ''
         if (ipHit && q0) {
           await stepTc(ipHit, q0)
@@ -2753,18 +2989,20 @@ export default function AskBar({ devices }: Props) {
          장비 상태 수·사용 가능 목록·모델별 항목 수를 사실로 넘겨,
          현황 질문에는 LLM 이 이것만 보고 답하게 한다. */
       const facts = buildFacts()
-      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; next?: string; dev_intent?: boolean; tc_intent?: boolean } | null = null
+      let chat: { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; next?: string; device?: string; tc?: string; tc_keys?: string; dev_intent?: boolean; tc_intent?: boolean } | null = null
       try {
         const r = await apiFetch('/api/ai/cov-chat', {
           method: 'POST',
           body: JSON.stringify({ q: said, mode, facts }),
         })
-        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; next?: string; dev_intent?: boolean; tc_intent?: boolean }
+        chat = (await r.json()) as { test?: boolean; answer?: string; model?: string; show?: string; state?: string; pick_dev?: string; pick_tc?: string; suggest_tc?: string; run?: boolean; next?: string; device?: string; tc?: string; tc_keys?: string; dev_intent?: boolean; tc_intent?: boolean }
       } catch {
         /* 못 물으면 시험 갈래로 — 이 화면의 본분 */
       }
       unThink()
       nextRef.current = NEXT_OK.has(String(chat?.next ?? '')) ? String(chat?.next) : ''
+      /* 다음 행동이 있으면 **그것만** 한다(지시: 룰 10). 없거나 모르는 값이면 아래 옛 흐름 */
+      if (mode === 'basic' && chat && (await runNext(chat, said, raw0))) return
       const pd = String(chat?.pick_dev ?? '').trim()
       const pt = String(chat?.pick_tc ?? '').trim()
       /* 「시험 시작」(지적: 시작이 항목 찾기로 흘러 「일치하는 항목이
@@ -2980,7 +3218,7 @@ export default function AskBar({ devices }: Props) {
                  하나씩 묻는 흐름이면 이 단계에서 멈춘다(지시: 단계별).
                  프롬프트가 ask_tc / wait_tc 를 정했으면 그것이 먼저다(승인). */
               /* 카드를 누른 것과 똑같이(지시) — 쥐어 둔 질문(없으면 앞서 물은 말)로 잇는다 */
-              const q0 = pendQRef.current || asked
+              const q0 = pendQRef.current
               pendQRef.current = ''
               if (q0) {
                 await stepTc(d0, q0)

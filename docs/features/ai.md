@@ -33,14 +33,18 @@ LLM 으로 **시험을 만들고 고치는 것**(Test AI, Coverage AI)과 **자�
 
 ### 흐름은 프롬프트가 정한다 (Basic)
 
-장비를 묻을지·한 대뿐이면 확정할지·항목을 물을지 같은 **다음 행동**은 SETUP › 용도별 프롬프트 › Coverage AI · Basic 의
-[다음 행동] 절이 정한다. LLM 은 매 답에 `next` 하나를 적고(confirm_device · ask_device · keep_device · use_device · repick_device ·
-ask_tc · wait_tc · none), 화면은 그 행동만 실행한다. 판단 재료로 [현황]과 [선택 상태](대상 장비·모델, 먼저 정해진 항목과
-그 모델, 말에 적힌 모델의 장비 후보 수, 떠 있는 카드)가 함께 실린다. 장비·항목이 실제 목록에 있는지, 확정은 클릭이라는
-것은 코드가 지키고, LLM 이 없거나 답을 못 주면 코드의 기본 규칙(여럿이면 묻고 · 모델이 다르면 다시 고르고 · 장비만
-말했으면 항목을 기다린다)으로 물러선다.
-장비가 이미 골라져 있으면 기본은 그대로 두고(keep_device), 「장비 바꿔 줘」·다른 모델을 말하면 다시 고르게 한다(ask_device) —
-준비된 절차가 있으면 고른 새 장비로 같은 항목을 다시 싣는다.
+LLM 은 매 턴 **이번에 화면이 할 일 하나**(`next`)를 정한다 — chat · show_devices · show_tcs · show_result · run ·
+confirm_device · ask_device · keep_device · use_device · repick_device · pick_tc · ask_tc · suggest_tc · wait_tc · none.
+인자로 말에 실제로 있는 장비(device)·시험할 내용(tc)·추천 키(tc_keys)를 붙인다. 어떤 말에 어떤 행동을 할지는
+SETUP › 용도별 프롬프트 › Coverage AI · Basic 의 [다음 행동] 절(v2)이 정하고, 화면은 그 행동만 실행하므로 같은
+행동은 늘 같은 카드가 선다.
+
+코드가 지키는 것은 이것뿐이다 — **장비 → 항목 순서**(장비가 없는데 항목 행동이 오면 장비부터 묻고 질문을 쥐어 둔다),
+실행은 절차가 준비됐을 때만, 한 대 확정은 후보가 정말 한 대일 때만, 장비·항목은 실제 목록과 대조하고 확정은 클릭,
+문장에 TC 키·IP 가 그대로 있으면 LLM 보다 먼저 그것으로 정한다. LLM 이 없거나 모르는 행동을 내면 옛 흐름으로
+물러선다. 판단 가드는 `web/src/components/cycle/nextPlan.ts` 한 곳이고 정답표(nextPlan.test.ts)로 고정한다.
+저장해 둔 프롬프트의 [다음 행동] 절이 옛 판(v1) 그대로면 api 가 시작할 때 v2 로 갈아 끼우고, 직접 고친 절이면
+없는 행동 줄만 덧붙인다.
 
 ### Knowledge AI
 - 「실패 항목 뭐 있어」 「Kernel Panic 이슈 찾아줘」 처럼 묻는다. 답의 **근거는 우리 자료**다 — WIKI 문서, 요구사항·시험 항목, 사이클 결과, Jira 저장본.

@@ -3958,49 +3958,38 @@ async def _prompt_next_migrate():
     쓴 글은 그대로 두고 절만 뒤에 붙인다 — 붙은 뒤에는 SETUP 에서 고칠 수 있다.
     """
     try:
-        from routes.ai import CAI_BASIC_NEXT
+        from routes.ai import CAI_BASIC_NEXT, CAI_BASIC_NEXT_V1_HEADS
         if not PROMPTS_FILE.exists():
             return
         data = load_json(PROMPTS_FILE) or {}
         purposes = data.get("purposes") or {}
         p = purposes.get("cai_basic") or {}
         sysp = str(p.get("system") or "")
-        if sysp.strip() and "[다음 행동]" not in sysp:
-            p["system"] = sysp.rstrip() + "\n\n" + CAI_BASIC_NEXT
-            purposes["cai_basic"] = p
-            data["purposes"] = purposes
-            save_json(PROMPTS_FILE, data)
-            print("[startup] Coverage AI · Basic 프롬프트 저장본에 [다음 행동] 절을 이어 붙였다", flush=True)
-        elif sysp.strip() and "순서는 늘 장비 → 항목" not in sysp and "[다음 행동]" in sysp:
-            # 절은 있는데 순서 규칙(지시: 장비 → 항목)이 빠진 저장본 — 머리줄 뒤에 0) 줄을 끼운다
-            head_end = sysp.find("\n", sysp.find("[다음 행동]"))
-            line0 = next((l for l in CAI_BASIC_NEXT.split("\n") if l.startswith("0) ")), "")
-            if head_end > 0 and line0:
-                p["system"] = sysp[:head_end] + "\n" + line0 + sysp[head_end:]
-                purposes["cai_basic"] = p
-                data["purposes"] = purposes
-                save_json(PROMPTS_FILE, data)
-                print("[startup] Coverage AI · Basic 프롬프트 저장본에 순서 규칙(0) 장비 → 항목)을 끼웠다", flush=True)
-        # 장비 유지 규칙(지시: 룰 3 을 프롬프트로) — 절은 있는데 5-1) 줄이 없으면 6) 줄 앞에 끼운다
-        data = load_json(PROMPTS_FILE) or {}
-        purposes = data.get("purposes") or {}
-        p = purposes.get("cai_basic") or {}
-        sysp = str(p.get("system") or "")
-        if sysp.strip() and "[다음 행동]" in sysp and "keep_device" not in sysp:
-            lines = CAI_BASIC_NEXT.split("\n")
-            keep = [l for l in lines if l.startswith("5-1) ")]
-            at = sysp.find("\n6) ", sysp.find("[다음 행동]"))
-            if keep:
-                ins = "\n" + keep[0]
-                if at > 0:
-                    sysp = sysp[:at] + ins + sysp[at:]
-                else:
-                    sysp = sysp.rstrip() + ins
-                p["system"] = sysp
-                purposes["cai_basic"] = p
-                data["purposes"] = purposes
-                save_json(PROMPTS_FILE, data)
-                print("[startup] Coverage AI · Basic 프롬프트 저장본에 장비 유지 규칙(5-1) keep_device)을 끼웠다", flush=True)
+        if not sysp.strip() or "[다음 행동] v2" in sysp:
+            return
+        i = sysp.find("[다음 행동]")
+        if i < 0:
+            new = sysp.rstrip() + "\n\n" + CAI_BASIC_NEXT
+            how = "[다음 행동] 절을 이어 붙였다"
+        else:
+            sec = sysp[i:]
+            lines = [l.strip() for l in sec.split("\n") if l.strip()]
+            if all(any(l.startswith(h) for h in CAI_BASIC_NEXT_V1_HEADS) for l in lines):
+                # 우리가 붙인 v1 그대로 — 행동 전체 표(v2)로 갈아 끼운다(지시: 룰 10)
+                new = sysp[:i].rstrip() + "\n\n" + CAI_BASIC_NEXT
+                how = "[다음 행동] 절을 v2(행동 전체 표)로 갈아 끼웠다"
+            else:
+                # 사람이 고친 절 — 건드리지 않고 없는 행동 줄만 덧붙인다
+                import re as _re
+                missing = [l for l in CAI_BASIC_NEXT.split("\n")
+                           if l.startswith("· ") and (_re.match(r"· (\w+)", l).group(1) not in sec)]
+                new = sysp.rstrip() + "\n[다음 행동] v2 — 추가된 행동\n" + "\n".join(missing)
+                how = f"고친 [다음 행동] 절은 두고 없는 행동 {len(missing)}줄만 덧붙였다"
+        p["system"] = new
+        purposes["cai_basic"] = p
+        data["purposes"] = purposes
+        save_json(PROMPTS_FILE, data)
+        print(f"[startup] Coverage AI · Basic 프롬프트 저장본 — {how}", flush=True)
     except Exception as e:
         print(f"[startup] 프롬프트 [다음 행동] 이어붙이기 실패: {e}", flush=True)
 

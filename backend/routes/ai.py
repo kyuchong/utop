@@ -381,24 +381,32 @@ async def learn_procedure_delete(lp_id: str, token: str = ""):
 # Coverage AI · Basic 의 [다음 행동] 절(승인: 11·12·13 을 프롬프트로) — 기본 글의 꼬리이자,
 # 사람이 저장해 둔 프롬프트에 이 절이 없으면 api 가 시작할 때 한 번 이어 붙인다(main._prompt_next_migrate).
 CAI_BASIC_NEXT = (
-    "[다음 행동] 매 답에 next 를 하나 적는다 — 화면은 그 행동만 한다. [선택 상태]가 근거다.\n"
-    "0) 순서는 늘 장비 → 항목이다. 대상 장비가 아직 없으면 항목을 묻기 전에 먼저 ask_device "
-    "(말에 모델이 있으면 그 모델 후보, 없으면 전체). 항목 후보는 장비가 정해진 뒤에 낸다.\n"
-    "1) confirm_device — 말한 모델·IP 의 장비 후보가 **한 대뿐**이고 아직 항목이 정해지지 "
-    "않았을 때, 묻지 않고 그 장비로 확정한다.\n"
-    "2) ask_device — 후보가 여럿일 때. 그리고 **항목이 먼저 정해진 뒤** 장비를 고를 때는 "
-    "한 대뿐이어도 묻는다(항목이 정해졌으면 어느 장비로 보낼지 한 번은 확인한다).\n"
-    "3) repick_device — 고른 장비의 모델과 항목의 모델이 다를 때, 항목 모델의 장비를 다시 "
-    "고르게 한다. 사용자가 「그래도 이 장비로」 라고 분명히 말한 때만 use_device.\n"
-    "4) ask_tc — 장비가 정해졌고 무엇을 시험할지가 말에 있으면 항목 후보를 보여 준다.\n"
-    "5) wait_tc — 장비만 말했고 무엇을 시험할지가 없으면 항목을 말해 달라고만 한다. "
-    "장비 후보를 다시 깔지 않는다.\n"
-    "5-1) keep_device — 대상 장비가 이미 있으면 기본은 keep_device 다(그 장비 그대로 두고 다음 단계로). "
-    "사용자가 **다른 장비·다른 모델**을 말하거나 장비를 바꾸자고 하면(「장비 바꿔 줘」·「다른 E6100 으로」) "
-    "ask_device — 말한 모델의 후보, 모델이 없으면 지금 장비 모델의 후보를 보여 준다.\n"
-    "6) 「선택해 줘」 처럼 대상이 없는 말이고 이미 후보 카드가 떠 있으면 none 으로 두고 "
-    "위 후보에서 고르라고 answer 에 적는다.\n"
-    "7) 어느 것도 아니면 none."
+    "[다음 행동] v2 — 매 답에 next 를 하나 적는다. 화면은 그 행동만 한다. [선택 상태]가 근거다. "
+    "장비 → 항목 순서는 화면이 지킨다(장비가 없는데 항목 행동을 내면 화면이 장비부터 묻는다).\n"
+    "· chat — 인사·잡담·일반 지식·현황 질문(「시험 가능한 장비는?」)에 answer 로 답한다.\n"
+    "· show_devices — 장비 목록을 보여 달라는 말(시험을 하자는 말이 아닐 때).\n"
+    "· show_tcs — 시험 항목 목록을 보여 달라는 말.\n"
+    "· show_result — 실행 결과를 보여 달라는 말([선택 상태]에 결과가 있을 때).\n"
+    "· run — [선택 상태]에 절차가 준비됐고 시작·실행해 달라는 말.\n"
+    "· confirm_device — 말한 모델·IP 의 장비 후보가 **한 대뿐**이고 아직 항목이 정해지지 않았을 때 "
+    "그 장비로 확정한다.\n"
+    "· ask_device — 대상 장비가 없고 시험을 하려는 말이면 먼저 장비를 묻는다(후보가 여럿일 때). "
+    "항목이 먼저 정해진 뒤에는 한 대뿐이어도 묻는다. 대상 장비가 있는데 **다른 장비·다른 모델**을 "
+    "말하거나 장비를 바꾸자고 하면(「장비 바꿔 줘」·「다른 E6100 으로」) ask_device.\n"
+    "· keep_device — 대상 장비가 이미 있고 바꾸자는 말이 아니면 그 장비를 유지하고 다음 단계로 간다.\n"
+    "· repick_device — 고른 장비의 모델과 항목의 모델이 다를 때 항목 모델의 장비를 다시 고르게 한다. "
+    "사용자가 「그래도 이 장비로」 라고 분명히 말한 때만 use_device.\n"
+    "· pick_tc — 특정 항목을 콕 집어 고르라는 말(항목 키·정확한 항목 이름).\n"
+    "· ask_tc — 장비가 정해졌고 무엇을 시험할지가 말에 있으면 항목 후보를 찾는다.\n"
+    "· suggest_tc — 추천해 달라·골라 달라는 말(tc_keys 에 [현황]의 TC키).\n"
+    "· wait_tc — 장비만 말했고 무엇을 시험할지가 없으면 항목을 말해 달라고만 한다.\n"
+    "· none — 「선택해 줘」 처럼 대상이 없는 말이고 이미 후보 카드가 떠 있을 때(위 후보에서 고르라고 answer 에).\n"
+    "무엇을 시험할지가 말에 있으면 next 가 무엇이든 tc 에 적는다 — 장비를 고른 뒤 화면이 그 말로 항목을 찾는다."
+)
+# 옛 [다음 행동] 절(v1)의 줄 머리 — 저장본의 절이 이것들로만 돼 있으면 사람이 안 고친 것이라 v2 로 갈아 끼운다
+CAI_BASIC_NEXT_V1_HEADS = (
+    "[다음 행동]", "매 답에 next", "0) 순서는 늘", "1) confirm_device", "2) ask_device",
+    "3) repick_device", "4) ask_tc", "5) wait_tc", "5-1) keep_device", "6) 「선택해 줘」", "7) 어느 것도",
 )
 
 LLM_PURPOSES: dict[str, dict] = {
@@ -514,15 +522,15 @@ LLM_PURPOSES: dict[str, dict] = {
         "system": (
             "너는 UBIQUOSS 네트워크 장비 시험 플랫폼(UTOP)의 Coverage AI 도우미다. "
             "Basic mode 는 이미 만들어진 시험 항목을 골라 장비에서 돌리는 자리다.\n\n"
-            "[판단] 사용자의 말을 읽고 먼저 test 를 가른다.\n"
-            "1) 장비 모델명·명령·시험 항목 이름이 보이거나 「시험해줘 · 돌려줘 · 확인해줘 · "
-            "절차 만들어줘」 같은 실행 의도가 보이면 test=true 로 하고 answer 는 빈 문자열로 둔다.\n"
-            "2) 인사·잡담·일반 지식 질문·뜻 없는 글자(예: asdf)는 test=false 로 하고 "
+            "[판단] 사용자의 말을 읽고 next 하나를 정한다([다음 행동] 참고).\n"
+            "1) 장비 모델명·명령·시험 항목 이름이 보이거나 「시험해줘 · 돌려줘 · 확인해줘」 같은 "
+            "실행 의도가 보이면 시험 흐름이다 — 장비·항목 행동 중에서 고른다.\n"
+            "2) 인사·잡담·일반 지식 질문·뜻 없는 글자(예: asdf)는 chat 으로 하고 "
             "[답변] 규칙으로 answer 를 적는다.\n"
             "3) 「시험 가능한 장비는? · 실행 가능한 시험항목은?」 처럼 **현황을 묻는 말**은 "
-            "실행 요청이 아니다 — test=false 로 하고, 함께 주어지는 [현황] 사실만으로 답한다. "
+            "chat 이다 — 함께 주어지는 [현황] 사실만으로 답한다. "
             "[현황] 에 없는 장비·항목은 없다고 답하고, 수를 지어내지 마라.\n"
-            "4) 애매하면 test=true 다 — 이 화면의 본분은 시험이다.\n"
+            "4) 애매하면 시험 흐름이다 — 이 화면의 본분은 시험이다.\n"
             "5) model 에는 말에 **적힌 그대로의** 장비 모델명(예: E6100)을 적는다. "
             "없으면 빈 문자열 — 지어내지 마라. 등록 여부는 화면이 검사한다.\n\n"
             "[답변]\n"
@@ -953,7 +961,9 @@ def _pick_in_q(val, q: str, cap: int) -> str:
 
 
 # Coverage AI 가 프롬프트에서 받는 「다음 행동」 — 화면(AskBar)의 실행기와 같은 목록
-_NEXT_OK = {"confirm_device", "ask_device", "keep_device", "use_device", "repick_device", "ask_tc", "wait_tc", "none"}
+_NEXT_OK = {"chat", "show_devices", "show_tcs", "show_result",
+            "confirm_device", "ask_device", "keep_device", "use_device", "repick_device",
+            "pick_tc", "ask_tc", "suggest_tc", "wait_tc", "run", "none"}
 
 
 @router.post("/api/ai/cov-chat")
@@ -989,59 +999,40 @@ async def cov_chat(payload: dict):
         (LLM_PURPOSES.get(purpose) or {}).get("system") or "")
     # 판단 규칙은 **프롬프트가** 든다(지시) — SETUP 에서 고친다.
     # 코드는 화면이 읽는 출력 형식 하나만 강제한다.
+    # 판단 규칙은 **프롬프트가** 든다(지시) — SETUP 에서 고친다.
+    # 코드는 화면이 읽는 출력 형식 하나만 강제한다. 흐름은 next 하나로 정한다(지시: 룰 10 —
+    # 신호 여러 개를 코드가 정한 차례로 가르던 것을 「이번 턴에 할 일 하나」 로).
     fmt = (
-        "\n\n[출력 형식 — 반드시 지킨다] JSON 하나만 출력한다: "
-        '{"test": true|false, "answer": "...", "model": "...", "show": "..."} — '
-        "설명·코드펜스 금지. test 는 시험 실행 요청 여부, answer 는 "
-        "test=false 일 때의 답, model 은 말에 적힌 장비 모델명(없으면 빈 문자열)이다. "
-        "show 는 사용자가 **목록을 보여 달라**고 한 것일 때만 적는다 — 장비 목록이면 "
-        '"devices", 시험 항목 목록이면 "tcs", 그 외에는 빈 문자열. show 를 적었으면 '
-        "answer 는 한 줄 요약만 적는다 — 목록 자체는 화면이 카드로 그린다. "
-        'state 는 사용자가 **사용 가능한 것만** 보여 달라고 했을 때만 "ok", '
-        "그 외에는 빈 문자열 — 화면이 그 상태로 걸러 그린다. "
-        "사용자가 **시험 결과를 보여 달라**고 하면([선택 상태]에 실행 결과가 있을 때) "
-        'show="result" 로 적는다 — 화면이 결과 보기 판을 연다. '
-        "사용자가 **특정 장비를 선택·지정해 달라**고 하면(예: 「220.1.12.3 장비 선택해 줘」) "
-        "pick_dev 에 그 장비의 IP(있으면 IP, 없으면 모델명)를 적는다. "
-        "**특정 시험 항목을 선택해 달라**고 하면(예: 「E61xx-T0001 선택」·「System 정보 조회 항목 선택」) "
-        "pick_tc 에 항목 키 또는 항목 이름을 그대로 적는다. "
-        "pick_dev·pick_tc 에는 **사용자의 말에 실제로 등장한 글자만 그대로** 적는다 — "
-        "[현황]·[선택 상태]·이전 대화에서 가져오거나 지어내지 마라. "
-        "말에 없는 값은 서버가 버린다. "
-        "사용자가 **추천해 달라·골라 달라**고 하면 suggest_tc 에 [현황] 항목 중 가장 "
-        "맞는 것의 TC키를 적는다(여러 개면 쉼표로 최대 3개) — 화면이 후보 카드로 "
-        "세우고 고르는 것은 사람이다. answer 는 왜 그것인지 한 줄만. "
-        '예) 「시험 항목 추천해 줘」 → {"test": false, "answer": "기본 상태 확인부터 '
-        '권합니다", "suggest_tc": "E61xx-T0001,E61xx-T0004", "model": "E6100", '
-        '"show": "", "state": "", "pick_dev": "", "pick_tc": "", "run": false}. '
-        "「~항목이 있어?」 처럼 **있는지 묻기만 한 말**에는 pick 을 적지 않는다 — "
-        "answer 로 있는지만 답한다. 다만 「~찾아 줘」·「~항목 보여 줘」 처럼 **검색을 "
-        "요청**한 말에는 pick_tc 에 찾는 말(질문에 등장한 글자)을 적는다 — 화면이 "
-        "후보 카드로 보여 주고, 고르는 것은 사람이다. "
-        "pick 을 적었으면 answer 는 **빈 문자열**로 둔다 — 선택 확인이든 후보 카드든 "
-        "화면이 답한다. 선택했다거나 진행한다고 화면 대신 말하지 마라. "
-        "말에 이미 「대상 장비: …」 맥락이 붙어 있으면, 사용자가 **다른 장비를 콕 집어** "
-        "말할 때만 pick_dev 를 적는다 — 대상 없는 말(「장비 선택해 줘」)이면 pick_dev 는 "
-        "빈 문자열로 두고 지금 장비가 이미 선택돼 있음을 answer 로 알린다. "
-        "run 은 사용자가 **지금 준비된 시험을 시작·실행해 달라**고 할 때만 true 다 — "
-        "[선택 상태] 에 절차가 「준비됨」 일 때만 true 로 하고 answer 는 "
-        "「시험을 시작합니다」 한 줄만 적는다. 준비 안 됐으면 run=false 로 두고 "
-        "[선택 상태] 를 근거로 무엇이 빠졌는지 답한다 — 화면과 다른 말을 지어내지 마라. "
-        "질문에 장비 모델명이 명시되어 있으면 함께 실린 「대상 장비」 맥락보다 "
-        "**질문의 모델을 우선**해 답하고, model 에도 그 모델을 적는다. "
-        "next 에는 [다음 행동] 규칙대로 confirm_device · ask_device · keep_device · use_device · repick_device · "
-        "ask_tc · wait_tc · none 중 하나만 적는다 — 다른 값은 버린다."
+        "\n\n[출력 형식 — 반드시 지킨다] JSON 하나만 출력한다(설명·코드펜스 금지): "
+        '{"next": "...", "answer": "...", "model": "...", "device": "...", "tc": "...", '
+        '"tc_keys": "...", "state": ""}. '
+        "next 는 이번 턴에 화면이 할 일 하나다 — chat · show_devices · show_tcs · show_result · "
+        "confirm_device · ask_device · keep_device · use_device · repick_device · "
+        "pick_tc · ask_tc · suggest_tc · wait_tc · run · none 중 하나만([다음 행동] 규칙대로). "
+        "answer 는 사용자에게 보일 한두 문장이다 — chat 이면 답 전체, 그 밖에는 짧은 안내만 적고 "
+        "카드·목록은 화면이 그린다(선택했다·진행한다고 화면 대신 말하지 마라). "
+        "model 은 말에 적힌 장비 모델명(없으면 빈 문자열). "
+        "device 는 사용자가 콕 집은 장비 — 말에 **실제로 등장한** IP 나 모델명·이름만(없으면 빈 문자열). "
+        "tc 는 시험할 내용 — 말에 **실제로 등장한** 항목 키·항목 이름·검색어(예: SNMP, sysObjectID, "
+        "System 정보 조회). 무엇을 시험할지가 말에 있으면 next 가 무엇이든 tc 에 적는다. "
+        "tc_keys 는 suggest_tc 일 때만 [현황] 항목 중 맞는 TC키(쉼표로 최대 3개). "
+        'state 는 show_devices 에서 사용 가능한 것만 달라고 했을 때만 "ok". '
+        "[현황]·[선택 상태]·이전 대화에서 값을 가져오거나 지어내지 마라 — 말에 없는 device·tc 는 서버가 버린다. "
+        "「~항목이 있어?」 처럼 있는지만 묻는 말은 chat 으로 답한다. "
+        "run 은 [선택 상태]에 절차가 「준비됨」 일 때 시작해 달라는 말에만 쓴다. "
+        "질문에 장비 모델명이 있으면 「대상 장비」 맥락보다 **질문의 모델을 우선**한다."
     )
     schema = {
         "type": "object",
-        "properties": {"test": {"type": "boolean"}, "answer": {"type": "string"},
-                       "model": {"type": "string"}, "show": {"type": "string"},
+        "properties": {"next": {"type": "string"}, "answer": {"type": "string"},
+                       "model": {"type": "string"}, "device": {"type": "string"},
+                       "tc": {"type": "string"}, "tc_keys": {"type": "string"},
                        "state": {"type": "string"},
+                       # 옛 형식으로 답하는 프롬프트도 받는다(사람이 고친 글이 옛 신호를 시킬 수 있다)
+                       "test": {"type": "boolean"}, "show": {"type": "string"},
                        "pick_dev": {"type": "string"}, "pick_tc": {"type": "string"},
-                       "suggest_tc": {"type": "string"},
-                       "next": {"type": "string"},
-                       "run": {"type": "boolean"}},
-        "required": ["test", "answer"],
+                       "suggest_tc": {"type": "string"}, "run": {"type": "boolean"}},
+        "required": ["next", "answer"],
     }
     user_p = f"사용자의 말: {q}"
     if facts:
@@ -1049,34 +1040,43 @@ async def cov_chat(payload: dict):
     try:
         got = await _llm_json(llm, base + fmt, user_p, schema,
                               timeout=60, purpose=purpose)
-        _show = str(got.get("show") or "").strip().lower()
+        nx = str(got.get("next") or "").strip().lower()
+        if nx not in _NEXT_OK:
+            nx = ""
+        raw_dev = str(got.get("device") or got.get("pick_dev") or "").strip()
+        raw_tc = str(got.get("tc") or got.get("pick_tc") or "").strip()
+        dev = _pick_in_q(raw_dev, q, 80)
+        tc = _pick_in_q(raw_tc, q, 120)
+        keys = str(got.get("tc_keys") or got.get("suggest_tc") or "").strip()[:200]
         _state = str(got.get("state") or "").strip().lower()
-        return {"ok": True, "test": bool(got.get("test")),
+        _show = str(got.get("show") or "").strip().lower()
+        # next 가 정본이다. 옛 신호(test·show·pick·suggest·run)는 next 에서 **계산해**
+        # 함께 돌려준다 — 아직 갱신 안 된 화면(253 등)이 이 필드들로 돈다.
+        if nx:
+            show = {"show_devices": "devices", "show_tcs": "tcs", "show_result": "result"}.get(nx, "")
+            test = nx not in ("chat", "none", "show_devices", "show_tcs", "show_result", "run")
+            pick_tc = tc if nx in ("pick_tc", "ask_tc") else ""
+            pick_dev = dev if nx in ("confirm_device", "ask_device") else ""
+            suggest = keys if nx == "suggest_tc" else ""
+            run = nx == "run"
+        else:
+            show = _show if _show in ("devices", "tcs", "result") else ""
+            test = bool(got.get("test"))
+            pick_tc, pick_dev, suggest, run = tc, dev, keys, bool(got.get("run"))
+        return {"ok": True, "next": nx,
                 "answer": str(got.get("answer") or "").strip(),
                 "model": str(got.get("model") or "").strip(),
-                # 화면이 아는 값만 통과시킨다 — LLM 이 지어낸 딴 값은 버린다
-                "show": _show if _show in ("devices", "tcs", "result") else "",
+                # 새 형식 — 화면의 행동 실행기가 읽는다
+                "device": dev, "tc": tc, "tc_keys": keys,
                 "state": _state if _state == "ok" else "",
-                # 선택 신호 — **질문에 실제로 등장한 글자만** 신호다(지시:
-                # 스스로 판단 금지). 말에 없는 값은 여기서 버린다 — 케이스별
-                # 가드 대신 보편 규칙 하나. 값이 진짜 목록에 있는지는 화면이
-                # 대조하고, 확정은 사람이 카드로 한다.
-                "pick_dev": _pick_in_q(got.get("pick_dev"), q, 80),
-                "pick_tc": _pick_in_q(got.get("pick_tc"), q, 120),
-                # 값은 버려도 **의도는 남긴다**(지적: 아무 일도 안 일어나는
-                # 죽은 끝) — 화면이 사용자의 원문으로 후보를 찾아 카드로 묻는다
-                "dev_intent": bool(str(got.get("pick_dev") or "").strip()
-                                   and not _pick_in_q(got.get("pick_dev"), q, 80)),
-                "tc_intent": bool(str(got.get("pick_tc") or "").strip()
-                                  and not _pick_in_q(got.get("pick_tc"), q, 120)),
-                # 추천 신호 — 값은 화면이 실제 목록과 대조하고, 확정은 카드 클릭
-                "suggest_tc": str(got.get("suggest_tc") or "").strip()[:200],
-                # 실행 신호 — 절차가 준비돼 있는지는 화면이 다시 확인한다
-                "run": bool(got.get("run")),
-                # 다음 행동(승인: 11·12·13 을 프롬프트로) — 화면이 아는 행동만 통과
-                "next": (lambda v: v if v in _NEXT_OK else "")(str(got.get("next") or "").strip().lower())}
+                # 옛 형식(계산값)
+                "test": test, "show": show, "pick_dev": pick_dev, "pick_tc": pick_tc,
+                "suggest_tc": suggest, "run": run,
+                # 값은 버려도 **의도는 남긴다** — 말에 없는 값을 적은 경우
+                "dev_intent": bool(raw_dev and not dev),
+                "tc_intent": bool(raw_tc and not tc)}
     except Exception as e:
-        return {"ok": True, "test": True, "answer": "", "model": "", "error": str(e)[:200]}
+        return {"ok": True, "test": True, "answer": "", "model": "", "next": "", "error": str(e)[:200]}
 
 
 @router.post("/api/llm/wiring")
