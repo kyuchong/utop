@@ -463,13 +463,12 @@ export interface TcStep {
    */
   tailWait?: number
   /**
-   * kind=cli — **언제 끝난 것으로 볼지**(지시: ping 처럼 프롬프트가 안 돌아오는 명령).
-   * prompt(기본) 프롬프트가 오면 · send 보내고 바로 다음 스텝(프롬프트 대기 없음) ·
-   * break breakSec 초 돌리고 Ctrl+C 로 끊은 뒤 다음. 비어 있으면 prompt.
+   * kind=cli — **프롬프트를 기다릴지**(지시: ping 처럼 프롬프트가 안 돌아오는 명령).
+   * prompt(기본) 프롬프트가 오면 끝 · send 프롬프트 무시 — 보내고 바로 다음 스텝.
+   * 「N초 돌리고 끊기」 는 두지 않는다(지시: 둘만) — 프롬프트 무시 → Wait → 명령이
+   * `^C` 인 CLI 스텝으로 같은 일을 한다.
    */
-  cliEnd?: 'prompt' | 'send' | 'break'
-  /** cliEnd=break 일 때 돌릴 초(기본 30) */
-  breakSec?: number
+  cliEnd?: 'prompt' | 'send'
 
   /**
    * kind=ping · snmp_* — 어디로 보내는가.
@@ -904,10 +903,8 @@ export function stepSummary(s: TcStep): string {
   const k = s.kind || 'cli'
   if (k === 'cli') {
     const base = (s.cli || s.data || s.step || '').trim()
-    /* 끝내기 방식이 기본이 아니면 목록에서도 보이게(지시) */
-    if (s.cliEnd === 'send') return `${base} · 보내고 바로 다음`
-    if (s.cliEnd === 'break') return `${base} · ${Number(s.breakSec) > 0 ? Number(s.breakSec) : 30}초 후 끊기`
-    return base
+    /* 프롬프트를 안 기다리는 줄은 목록에서도 보이게(지시) */
+    return s.cliEnd === 'send' ? `${base} · 프롬프트 무시` : base
   }
   if (k === 'ping')
     return `${(s.host || '세션 장비').trim()}${s.pingCount ? ` · ${s.pingCount}회` : ''}`
