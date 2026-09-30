@@ -509,7 +509,7 @@ export default function RespView({
                          보낸 것처럼 보였다(지적). 그런 줄은 출력도 없다. */
                       /* 장비로 **안 나가는 갈래**에는 프롬프트를 안 붙인다 —
                          Diff·치환·대기도 명령이 아니라 셈이다(지적: DUT# 가 붙는다) */
-                      const quiet = ['comment', 'message', 'diff', 'map', 'wait', 'if', 'else', 'loop'].includes(
+                      const quiet = ['comment', 'message', 'diff', 'map', 'calc', 'wait', 'if', 'else', 'loop'].includes(
                         String(s2.kind ?? ''),
                       )
                       if (quiet) return c2 || s2.t || s2.action || '—'
@@ -625,7 +625,7 @@ export default function RespView({
                   if (!crit && !rca && !vs.length) return null
                   /* 기준을 안 적은 스텝 — 조회 명령인지 아닌지로 말을 가른다(합의) */
                   const c0 = String(s2.cmd ?? '').trim().toLowerCase()
-                  const calc = ['diff', 'map', 'wait', 'if', 'else', 'loop'].includes(String(s2.kind ?? ''))
+                  const calc = ['diff', 'map', 'calc', 'wait', 'if', 'else', 'loop'].includes(String(s2.kind ?? ''))
                   const look = /^(show|display|get|dir|more)\b/.test(c0) || s2.action === 'SNMP Public'
                   return (
                     <div className="ra-why below">

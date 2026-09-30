@@ -16,7 +16,7 @@
  * 도커 빌드(web/Dockerfile)가 이 검사를 먼저 돌린다 — 깨지면 이미지가 안 나온다.
  */
 import { describe, expect, it } from 'vitest'
-import { applyExclude, applyQuery, applySkips, evalDiff, judge, judgeTable, looksLikeError, SKIP_TIME } from './judge'
+import { applyExclude, applyQuery, applySkips, evalArith, evalDiff, judge, judgeTable, looksLikeError, SKIP_TIME } from './judge'
 import type { TcStep } from './types'
 import cases from './__fixtures__/judge-cases.json'
 
@@ -228,5 +228,33 @@ describe('Diff — 조건 여럿을 그리고·또는으로 묶는다', () => {
   })
   it('조건이 하나도 없으면 참(옛 동작)', () => {
     expect(evalDiff(step({ kind: 'diff' }), vars).ok).toBe(true)
+  })
+})
+
+describe('계산 스텝 — evalArith', () => {
+  const vars = { tx: '100', rx: '97', i: '3', big: '1,234' }
+  it('변수 빼기', () => {
+    const r = evalArith('${tx} - ${rx}', vars)
+    expect(r.ok).toBe(true)
+    expect(r.value).toBe('3')
+  })
+  it('$이름 꼴과 우선순위·괄호', () => {
+    expect(evalArith('$i + 1', vars).value).toBe('4')
+    expect(evalArith('2 + 3 * 4', vars).value).toBe('14')
+    expect(evalArith('(2 + 3) * 4', vars).value).toBe('20')
+    expect(evalArith('10 % 4', vars).value).toBe('2')
+    expect(evalArith('-${i} * 2', vars).value).toBe('-6')
+  })
+  it('소수는 6자리까지, 천단위 콤마는 뗀다', () => {
+    expect(evalArith('1 / 3', vars).value).toBe('0.333333')
+    expect(evalArith('${big} + 1', vars).value).toBe('1235')
+  })
+  it('없는 변수·못 읽는 글자·0 나누기는 실패이고 이유가 남는다', () => {
+    expect(evalArith('${nope} + 1', vars).ok).toBe(false)
+    expect(evalArith('${nope} + 1', vars).why).toContain('nope')
+    expect(evalArith('abc + 1', vars).ok).toBe(false)
+    expect(evalArith('1 / 0', vars).why).toContain('0 으로')
+    expect(evalArith('(1 + 2', vars).ok).toBe(false)
+    expect(evalArith('', vars).ok).toBe(false)
   })
 })

@@ -5,6 +5,7 @@ import {
   applyMapRules,
   stepRules,
   captureMiss,
+  evalArith,
   evalCondWhy,
   evalDiff,
   extractVars,
@@ -788,6 +789,27 @@ async function runOne(
     })
     ctx.onLog({ i, text: why, kind: 'info', label: '데이터 치환 결과' })
     return ''
+  }
+
+  /**
+   * 계산(지시: `$var1 + 1`) — 식을 셈해 변수에 담는다. 장비로는 아무것도
+   * 안 나가고 판정도 없다. 못 읽는 식은 오류 줄만 남기고 다음으로 간다.
+   */
+  if (kind === 'calc') {
+    const r = evalArith(String(step.calcExpr ?? ''), vars)
+    const name = String(step.calcVar ?? '').trim()
+    if (r.ok && name) vars[name] = r.value
+    const head = name ? `\${${name}} = ${r.value}` : r.value
+    const why = r.ok ? `${head} — ${r.why}` : `[오류] ${r.why}`
+    ctx.onStep(i, {
+      output: why,
+      reason: why,
+      executed_at: at,
+      status: r.ok ? '' : 'FAIL',
+      repeatResult: r.ok ? '' : 'Fail',
+    })
+    ctx.onLog({ i, text: why, kind: r.ok ? 'info' : 'fail', label: '계산 결과' })
+    return r.ok ? '' : 'Fail'
   }
 
   /**
@@ -1667,6 +1689,13 @@ function seedVars(ctx: RunCtx, upto: number, vars: Record<string, string>) {
           subVars(String(s.mapSrc ?? ''), vars),
           subVars(String(s.mapRules ?? ''), vars),
         ).out
+      continue
+    }
+    /* 계산 스텝도 같다 — 식을 다시 셈해 깔아 둔다 */
+    if ((s.kind || 'cli') === 'calc') {
+      const name = String(s.calcVar ?? '').trim()
+      const r = evalArith(String(s.calcExpr ?? ''), vars)
+      if (name && r.ok) vars[name] = r.value
       continue
     }
     const out = stepResult(s)

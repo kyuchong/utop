@@ -1,5 +1,6 @@
 import {
   IconBranch,
+  IconCalc,
   IconChip,
   IconCli,
   IconDiff,
@@ -33,6 +34,7 @@ const MAP = {
   snmp: IconSnmp,
   diff: IconDiff,
   swap: IconSwap,
+  calc: IconCalc,
 } as const
 
 /**

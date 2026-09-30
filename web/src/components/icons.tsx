@@ -548,6 +548,17 @@ export const IconDiff = (p: P) => (
 )
 
 /** 치환 — 서로 맞바꾸는 두 화살표 */
+/** 계산 스텝 — 더하기·빼기 */
+export const IconCalc = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M5 8h8" />
+    <path d="M9 4v8" />
+    <path d="M11 18h8" />
+    <path d="m5 15 5 5" />
+    <path d="m10 15-5 5" />
+  </SmallSvg>
+)
+
 export const IconSwap = (p: P) => (
   <SmallSvg {...p}>
     <path d="M4 8h14" />

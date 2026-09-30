@@ -14,6 +14,7 @@ import {
   captureMiss,
   tableCapture,
   subVars,
+  evalArith,
   type JudgeRule,
 } from './judge'
 import BlockText from './BlockText'
@@ -1251,6 +1252,56 @@ export default function TcStepDetail({
             {/* 「지금은 합격/불합격」 미리보기는 뺐다 — 실행 중에 생기는
                 변수(치환·앞 스텝 캡처)를 몰라 돌리기도 전에 빨간 「불합격」을
                 띄웠고, 실행 결과로 오해됐다(사용자 지적). 판정은 ▶ 실행이 한다. */}
+          </>
+        )}
+        {kind === 'calc' && (
+          <>
+            <div className="sd-f">
+              <span className="sd-lab">
+                식
+                {paramPick('calcExpr', 'p-cexp').btn}
+              </span>
+              {paramPick('calcExpr', 'p-cexp').list}
+              <input
+                className="mono"
+                value={step.calcExpr ?? ''}
+                placeholder="${tx} - ${rx}"
+                onChange={(e) => onChange({ calcExpr: e.target.value })}
+              />
+              <span className="sd-hint">
+                <b>$var1 + 1</b> 처럼 적습니다 — 더하기·빼기·곱하기·나누기·나머지와 괄호,
+                앞 스텝에서 뽑은 변수. 그 밖은 오류로 남기고 다음 스텝으로 갑니다.
+              </span>
+            </div>
+            <label className="sd-f">
+              <span>담을 변수</span>
+              <input
+                className="mono"
+                value={step.calcVar ?? ''}
+                placeholder="loss"
+                onChange={(e) => onChange({ calcVar: e.target.value })}
+              />
+              <span className="sd-hint">
+                뒤 스텝에서 <b>{'${이름}'}</b> 으로 씁니다. 같은 이름이 있으면 덮어씁니다.
+                장비로는 아무것도 안 나가고 판정도 없습니다.
+              </span>
+            </label>
+            {/* 돌려보기 전에 지금 값으로 — 식을 잘못 적으면 실행할 때 가서야 아는 것을 미리 */}
+            {(step.calcExpr || '').trim()
+              ? (() => {
+                  const r = evalArith(String(step.calcExpr ?? ''), pvars)
+                  return (
+                    <div className="sd-f">
+                      <span>미리 보기</span>
+                      <span className={`sd-hint${r.ok ? '' : ' bad'}`}>
+                        {r.ok
+                          ? `${step.calcVar ? `\${${step.calcVar}} = ` : ''}${r.value} — ${r.why}`
+                          : r.why}
+                      </span>
+                    </div>
+                  )
+                })()
+              : null}
           </>
         )}
         {kind === 'map' && (

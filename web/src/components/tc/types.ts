@@ -101,6 +101,7 @@ export type StepKind =
    * 바꿔 두면 다음 Diff 가 진짜 비교를 한다. 장비로는 아무것도 안 나간다.
    */
   | 'map'
+  | 'calc'
   // 흐름
   | 'if'
   /**
@@ -451,6 +452,10 @@ export interface TcStep {
   mapRules?: string
   /** kind=map — 바뀐 값을 담을 변수 이름 */
   mapVar?: string
+  /** kind=calc — 식(지시: `$var1 + 1`). 사칙연산·나머지·괄호·변수 */
+  calcExpr?: string
+  /** kind=calc — 결과를 담을 변수 이름 */
+  calcVar?: string
 
   /** kind=wait */
   waitSec?: number
@@ -592,6 +597,7 @@ export type StepIcon =
   | 'snmp'
   | 'diff'
   | 'swap'
+  | 'calc'
 
 export const STEP_KINDS: Array<{
   k: StepKind
@@ -614,6 +620,7 @@ export const STEP_KINDS: Array<{
   { k: 'snmp_trap', label: 'Trap 대기', group: 'run', icon: 'snmp' },
   { k: 'diff', label: 'Diff', group: 'run', icon: 'diff' },
   { k: 'map', label: '치환', group: 'run', icon: 'swap' },
+  { k: 'calc', label: '계산', group: 'run', icon: 'calc' },
   { k: 'instrument', label: '계측기', group: 'run', icon: 'meter' },
   { k: 'if', label: 'If', group: 'flow', icon: 'branch' },
   { k: 'else', label: 'Else', group: 'flow', icon: 'branch' },
@@ -707,6 +714,7 @@ export function stepKindInfo(k?: string) {
  * | loop       | 범위 또는 횟수            | forFrom·forTo·forStep / loopCount | 아니오     |
  * | switch     | 기준 값                  | switchExpr                      | 아니오       |
  * | map        | 바꿀 값 · 대응표          | mapSrc · mapRules · mapVar      | 아니오       |
+ * | calc       | 식 · 담을 변수            | calcExpr · calcVar              | 아니오       |
  * | wait       | 기다릴 초                | waitSec                         | 아니오       |
  * | comment    | 주석                    | text                            | **아니오**   |
  * | message    | 출력할 글                | text                            | **아니오**   |
@@ -740,6 +748,7 @@ export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
   cli: { label: '보낼 명령' },
   diff: { label: '견줄 두 값', hint: '같으면 합격 · 다르면 불합격. 여러 줄이면 어느 줄이 다른지 보여줍니다' },
   map: { label: '치환', hint: '값을 대응표로 바꿔 다른 변수에 담습니다. 판정은 다음 Diff 스텝이 합니다' },
+  calc: { label: '계산', hint: '식을 셈해 변수에 담습니다. 장비로는 안 나가고 판정도 없습니다' },
   instrument: { label: '계측기 동작' },
   ping: { label: '대상 IP' },
   snmp_get: { label: 'OID' },
@@ -916,6 +925,8 @@ export function stepSummary(s: TcStep): string {
   if (k === 'diff') return diffText(s)
   if (k === 'map')
     return `${(s.mapSrc || '').trim()}${s.mapVar ? ` → \${${s.mapVar}}` : ''}`.trim()
+  if (k === 'calc')
+    return `${(s.calcExpr || '').trim()}${s.calcVar ? ` → \${${s.calcVar}}` : ''}`.trim()
   if (k === 'wait') {
     const base = s.waitSec ? `${s.waitSec}초` : (s.data || '').trim()
     // 도는 중이면 세어 준다. 60초짜리 앞에서 멍하니 있지 않게.
@@ -1353,7 +1364,7 @@ export function nextSlotKey(slots: TcSlot[]): string {
  *
  * 줄에 값이 있으면 그것이 이긴다 — 표에서 줄마다 켜고 끈다.
  */
-const QUIET_KINDS = new Set(['map', 'if', 'else', 'loop', 'parallel', 'switch', 'comment'])
+const QUIET_KINDS = new Set(['map', 'calc', 'if', 'else', 'loop', 'parallel', 'switch', 'comment'])
 
 /** 갈래와 줄 표시를 함께 보는 최소한의 모양 — 결과서 쪽 스텝도 이걸 만족한다 */
 export interface StepFlags {

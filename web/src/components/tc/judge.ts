@@ -1325,3 +1325,89 @@ export function evalDiff(
   const ok = join === 'or' ? results.some((r) => r.ok) : results.every((r) => r.ok)
   return { ok, join, results }
 }
+
+/**
+ * 계산 스텝(지시: `$var1 + 1`) — **안전한 산술 파서.** eval 은 쓰지 않는다.
+ *
+ * 변수를 넣은 뒤 숫자·`+ - * / %`·괄호·앞의 `-` 만 읽는다. 천단위 콤마는 뗀다.
+ * 못 읽는 글자, 남은 `${이름}`(없는 변수), 0 으로 나누기는 실패로 돌려주고
+ * 무엇이 문제인지 why 에 적는다. 정수면 정수로, 아니면 소수 6자리까지.
+ */
+export function evalArith(
+  expr: string,
+  vars: Record<string, string>,
+): { ok: boolean; value: string; why: string } {
+  const raw = String(expr ?? '').trim()
+  if (!raw) return { ok: false, value: '', why: '식이 비어 있습니다' }
+  const s = subVars(raw, vars).trim()
+  const missing = [...s.matchAll(/\$\{?(\w+)\}?/g)].map((m) => m[1])
+  if (missing.length)
+    return { ok: false, value: '', why: `${missing.map((x) => `\${${x}}`).join(', ')} 은 없는 변수입니다` }
+  /* 토큰: 숫자(콤마·소수), 연산자, 괄호 */
+  const toks: string[] = []
+  const re = /\s*(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|[-+*/%()])/y
+  let at = 0
+  while (at < s.length) {
+    re.lastIndex = at
+    const m = re.exec(s)
+    if (!m) {
+      const bad = s.slice(at).trim().slice(0, 12)
+      return { ok: false, value: '', why: `읽을 수 없는 글자 「${bad}」 — 숫자·+ - * / %·괄호만 됩니다` }
+    }
+    /* 「3 -2」 처럼 붙은 음수는 뺄셈으로 읽는다 — 앞 토큰이 값이면 */
+    let t = m[1]!
+    if (/^-\d/.test(t) && toks.length && /^[\d)]/.test(toks[toks.length - 1]!.slice(-1))) {
+      toks.push('-')
+      t = t.slice(1)
+    }
+    toks.push(t.replace(/,/g, ''))
+    at = m.index + m[0].length
+  }
+  let i = 0
+  const peek = () => toks[i]
+  const take = () => toks[i++]
+  const factor = (): number => {
+    const t = take()
+    if (t === undefined) throw new Error('식이 중간에 끝났습니다')
+    if (t === '-') return -factor()
+    if (t === '+') return factor()
+    if (t === '(') {
+      const v = expr0()
+      if (take() !== ')') throw new Error('닫는 괄호가 없습니다')
+      return v
+    }
+    const n = Number(t)
+    if (!Number.isFinite(n)) throw new Error(`숫자가 아닙니다 「${t}」`)
+    return n
+  }
+  const term = (): number => {
+    let v = factor()
+    for (;;) {
+      const op = peek()
+      if (op !== '*' && op !== '/' && op !== '%') return v
+      take()
+      const r = factor()
+      if ((op === '/' || op === '%') && r === 0) throw new Error('0 으로 나눌 수 없습니다')
+      v = op === '*' ? v * r : op === '/' ? v / r : v % r
+    }
+  }
+  const expr0 = (): number => {
+    let v = term()
+    for (;;) {
+      const op = peek()
+      if (op !== '+' && op !== '-') return v
+      take()
+      const r = term()
+      v = op === '+' ? v + r : v - r
+    }
+  }
+  try {
+    const v = expr0()
+    if (i < toks.length) throw new Error(`「${toks[i]}」 앞에서 식이 끊깁니다`)
+    if (!Number.isFinite(v)) throw new Error('결과가 수가 아닙니다')
+    const out = Number.isInteger(v) ? String(v) : String(Number(v.toFixed(6)))
+    return { ok: true, value: out, why: s }
+  } catch (e) {
+    return { ok: false, value: '', why: `${e instanceof Error ? e.message : String(e)} — ${s}` }
+  }
+}

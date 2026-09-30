@@ -112,6 +112,9 @@ export interface LguStep {
   cmpRight?: string | null
   mapSrc?: string | null
   mapVar?: string | null
+  /** 계산 스텝 — 식·담을 변수 */
+  calcExpr?: string | null
+  calcVar?: string | null
   meterAct?: string | null
   meterDur?: number | null
   meterMaxLoss?: number | null
@@ -183,6 +186,11 @@ function stepDoing(s: LguStep): string {
     const src = String(s.mapSrc ?? '').trim()
     const dst = String(s.mapVar ?? '').trim()
     return `치환${src ? ` ${src}` : ''}${dst ? ` → \${${dst}}` : ''}`
+  }
+  if (kind === 'calc') {
+    const ex = String(s.calcExpr ?? '').trim()
+    const dst = String(s.calcVar ?? '').trim()
+    return `계산${ex ? ` ${ex}` : ''}${dst ? ` → \${${dst}}` : ''}`
   }
   if (kind === 'meter' || kind === 'instrument') {
     const act = String(s.meterAct ?? '').trim()
