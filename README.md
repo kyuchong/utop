@@ -43,6 +43,23 @@ git clone https://github.com/kyuchong/utop.git ~/utop && cd ~/utop && ./start.sh
 cd C:\utop; .\start.ps1
 ```
 
+### 오프라인 갱신 (인터넷이 안 되는 PC)
+
+시험망만 붙은 서버는 `./update.sh` 가 소스도 바탕 이미지도 못 받는다. 그때는 인터넷이 되는 서버에서
+꾸러미를 만들어 옮긴다.
+
+```bash
+# 인터넷이 되는 서버(예: 213)에서 — 이미지 셋 + 소스를 한 파일로
+tools/offline_pack.sh            # ~/utop-offline-<커밋>.tgz (api 가 커서 1GB 안팎)
+scp ~/utop-offline-*.tgz utop@220.1.1.252:~/
+
+# 인터넷이 안 되는 PC에서 — 소스 맞추고 이미지 싣고 빌드 없이 기동
+cd ~/utop && tools/offline_apply.sh ~/utop-offline-<커밋>.tgz
+```
+
+`.env` 와 DB 볼륨은 건드리지 않는다. 인터넷이 없을 때 `./update.sh` 를 돌리면 빌드를 건너뛰고
+있는 이미지로만 다시 띄운다(소스는 안 바뀜).
+
 ### 자주 쓰는 명령
 
 ```bash

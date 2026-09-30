@@ -37,12 +37,18 @@ fi
 
 # ── 1. 최신 소스 ────────────────────────────────────────────────
 step 1 "최신 소스 받기"
+# 인터넷이 안 되는 PC(시험망만 붙은 서버)는 소스도 바탕 이미지도 못 받는다.
+# 그때는 **빌드를 시도하지 않고** 있는 이미지로만 띄운다 — 빌드는 Docker Hub 에서
+# node·python·nginx 바탕 이미지를 확인해야 해서, 인터넷 없이 돌리면 반드시
+# 「기동 실패」 로 끝난다(실사고: 252 에서 update.sh 가 빌드 단계에서 죽음).
+OFFLINE=0
 if [ -d .git ]; then
     BEFORE="$(git rev-parse --short HEAD 2>/dev/null || true)"
     if git pull --ff-only; then
         AFTER="$(git rev-parse --short HEAD 2>/dev/null || true)"
         if [ "$BEFORE" = "$AFTER" ]; then ok "이미 최신 ($AFTER)"; else ok "갱신 $BEFORE -> $AFTER"; fi
     else
+        OFFLINE=1
         # 조용히 넘어가면 "받은 줄 알았는데 옛 소스" 가 되어, 고쳐 올린 버그가
         # 그대로 재현되고 원인 찾는 데 시간이 다 간다. 반드시 물어본다.
         printf '
@@ -51,13 +57,23 @@ if [ -d .git ]; then
         printf '         현재 커밋: %s
 
 ' "$BEFORE"
-        printf '  흔한 원인
+        if ! getent hosts github.com >/dev/null 2>&1; then
+            printf '  원인: 이 PC 가 인터넷(DNS)에 못 나갑니다 — github.com 이름을 못 풉니다.
 '
-        printf '   · GitHub 인증 안 됨 —  git pull  을 직접 실행해 로그인하세요.
+            printf '        확인:  ip route  /  ping -c 2 8.8.8.8  /  resolvectl status
 '
-        printf '   · 로컬 수정으로 충돌 —  git status  로 확인 후 되돌리세요.
+            printf '        인터넷을 못 여는 PC 면 다른 서버에서 만든 오프라인 꾸러미로 올립니다(README 「오프라인 갱신」).
 
 '
+        else
+            printf '  흔한 원인
+'
+            printf '   · GitHub 인증 안 됨 —  git pull  을 직접 실행해 로그인하세요.
+'
+            printf '   · 로컬 수정으로 충돌 —  git status  로 확인 후 되돌리세요.
+
+'
+        fi
         printf '  그래도 이 소스로 계속할까요? (y/N) '
         read -r ANS < /dev/tty || ANS=n
         case "$ANS" in y|Y) ;; *) printf '  중단했습니다.
@@ -87,7 +103,17 @@ PORT="$(grep -E '^\s*WEB_PORT\s*=' .env | head -1 | sed 's/.*=\s*//' | tr -d '\r
 step 3 "빌드 및 기동 (처음이면 몇 분 걸립니다)"
 # 어느 커밋을 구웠는지 이미지에 박는다 — 화면 도움말 위에 판으로 선다.
 export GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || true)"
-if ! $DC up -d --build; then
+if [ "$OFFLINE" -eq 1 ]; then
+    # 소스가 그대로면 새로 구울 것도 없다 — 있는 이미지로만 띄운다.
+    # 이미지가 아예 없으면(처음 세우는 PC) 그때만 빌드를 시도한다.
+    if $DC up -d --no-build 2>/dev/null; then
+        ok "인터넷이 없어 빌드 없이 있는 이미지로 띄웠습니다 (소스는 안 바뀜)"
+    elif ! $DC up -d --build; then
+        printf '\n  [오류] 기동 실패 — 인터넷 없이는 바탕 이미지를 못 받아 빌드가 안 됩니다.\n'
+        printf '         오프라인 꾸러미(README 「오프라인 갱신」)로 올리세요.\n\n'
+        exit 1
+    fi
+elif ! $DC up -d --build; then
     printf '\n  [오류] 기동 실패. 원인 확인:  docker compose logs api\n\n'
     exit 1
 fi
