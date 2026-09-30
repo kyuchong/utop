@@ -25,7 +25,10 @@ done
 echo "[3] 이미지 저장 (api 가 커서 몇 분 걸립니다)"
 docker save utop-web:latest utop-api:latest utop-runner:latest -o "$TMP/images.tar"
 echo "[4] 묶기 → $OUT"
-tar -C "$TMP" -czf "$OUT" utop.bundle COMMIT images.tar
+# 푸는 도구도 같이 넣는다 — 받는 PC 의 옛 소스에는 아직 이 도구가 없다
+cp tools/offline_apply.sh "$TMP/offline_apply.sh"
+tar -C "$TMP" -czf "$OUT" offline_apply.sh utop.bundle COMMIT images.tar
 ls -lh "$OUT"
 echo
-echo "다음: 이 파일을 대상 PC 로 옮기고(scp 등) 거기서  tools/offline_apply.sh <파일>  을 돌립니다."
+echo "다음: 이 파일을 대상 PC 로 옮기고(scp 등) 거기서"
+echo "  tar xzf $(basename "$OUT") offline_apply.sh && bash offline_apply.sh $(basename "$OUT")"

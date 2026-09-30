@@ -53,8 +53,8 @@ cd C:\utop; .\start.ps1
 tools/offline_pack.sh            # ~/utop-offline-<커밋>.tgz (api 가 커서 1GB 안팎)
 scp ~/utop-offline-*.tgz utop@220.1.1.252:~/
 
-# 인터넷이 안 되는 PC에서 — 소스 맞추고 이미지 싣고 빌드 없이 기동
-cd ~/utop && tools/offline_apply.sh ~/utop-offline-<커밋>.tgz
+# 인터넷이 안 되는 PC에서 — 꾸러미 안의 도구를 꺼내 돌린다(소스 맞추기 → 이미지 싣기 → 빌드 없이 기동)
+cd ~ && tar xzf utop-offline-<커밋>.tgz offline_apply.sh && bash offline_apply.sh utop-offline-<커밋>.tgz
 ```
 
 `.env` 와 DB 볼륨은 건드리지 않는다. 인터넷이 없을 때 `./update.sh` 를 돌리면 빌드를 건너뛰고
