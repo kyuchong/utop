@@ -430,6 +430,12 @@ export default function AskBar({ devices }: Props) {
   const [examples, setExamples] = useState<Array<{ q: string; d?: string }>>([])
   /** 비슷한 기존 시험 — 새로 짓기 전에 있는 것부터 본다 */
   const [like, setLike] = useState<Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>>([])
+  /** 더보기 풀(지시: 10건씩) — 마지막 findLike 의 전체 순서(카드 5건 + 나머지)와 지금 몇 건 보이는지 */
+  const likePoolRef = useRef<{
+    q: string
+    all: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>
+    shown: number
+  }>({ q: '', all: [], shown: 0 })
   const [adopting, setAdopting] = useState('')
   /** 질문 보기 고치기 — 관리자만. ⚙ 로 켠다 */
   const [exEdit, setExEdit] = useState(false)
@@ -1414,9 +1420,13 @@ export default function AskBar({ devices }: Props) {
       const b = (await r.json()) as {
         ok?: boolean
         items?: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>
+        more?: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }>
       }
       /* 다섯까지 본다(목업) — 셋만 보이면 넷째·다섯째에 있던 정답을 못 만난다 */
       const items = b.ok && Array.isArray(b.items) ? b.items.slice(0, 5) : []
+      /* 나머지는 풀에 담아 둔다 — 카드의 「더보기」 가 10건씩 꺼낸다(지시) */
+      const more = b.ok && Array.isArray(b.more) ? b.more : []
+      likePoolRef.current = { q: q.trim(), all: [...items, ...more], shown: items.length }
       setLike(items)
       return items
     } catch {
@@ -1431,6 +1441,7 @@ export default function AskBar({ devices }: Props) {
           items?: Array<{ tcid: string; name: string; model?: string; steps?: number }>
         }
         const items2 = b2.ok && Array.isArray(b2.items) ? b2.items.slice(0, 5) : []
+        likePoolRef.current = { q: q.trim(), all: items2, shown: items2.length }
         setLike(items2)
         return items2
       } catch {
@@ -1645,6 +1656,15 @@ export default function AskBar({ devices }: Props) {
       `<p class="ln">${opts?.head ?? '<b>2단계 · 시험 항목</b> — 요청과 가까운 항목입니다. 시험할 항목을 선택해 주세요.'}</p>` +
         /* 목록(plain) 블록은 표식을 갈라 둔다(승인) — 접기 대상이 아니다 */
         `<div data-pick="${opts?.plain ? 'tc-list' : 'tc'}" class="ask-cands">${rows}` +
+        /* 더보기(지시: 10건씩) — 풀에 이 카드의 나머지가 남아 있을 때만 */
+        (() => {
+          const pool = likePoolRef.current
+          const left = !opts?.plain && pool.q === q && pool.all.length > items.length ? pool.all.length - items.length : 0
+          return left > 0
+            ? `<button type="button" class="ask-cand more js-tcmore"><span class="cn">더보기</span>` +
+                `<span class="cw">가까운 순으로 ${Math.min(10, left)}건 더 (남은 ${left}건)</span></button>`
+            : ''
+        })() +
         `<button type="button" class="ask-cand more js-picktc"><span class="cn">전체에서 검색</span>` +
         `<span class="cw">전체 목록에서 직접 고르기</span></button></div>`,
       /* ↻ 다시 생성 — 이 질문으로 항목을 다시 찾는다(지시) */
@@ -2830,18 +2850,23 @@ export default function AskBar({ devices }: Props) {
               void takeTc(t1.tcid, devSel, String(t1.model ?? ''))
               return
             }
+            /* 검색 신호 갈래도 **뜻 기반 검색**(pick-tc)을 쓴다(지적: 「SNMP 시험해줘」 가
+               이름에 snmp 가 든 2건만 보여 줬다 — OID 로 적힌 SNMP 시험 56건을 놓쳤다).
+               키 끝이 정확히 맞는 것만 앞에 세우고 나머지는 뜻 기반 결과로 채운다. */
             const endHits = tcAll.filter((t) => t.tcid.toLowerCase().endsWith(lowT))
-            const nameHits = tcAll.filter((t) => String(t.name ?? '').toLowerCase().includes(lowT))
-            let cands2: Array<{ tcid: string; name: string; model?: string; steps?: number; why?: string }> =
-              (endHits.length ? endHits : nameHits)
-                .slice(0, 5)
-                .map((t) => ({ tcid: t.tcid, name: t.name, model: t.model, steps: t.steps }))
-            if (!cands2.length) {
-              sayThink('말씀과 가까운 시험 항목을 찾는 중…')
-              cands2 = await findLike(pt, undefined)
-              unThink()
+            sayThink('말씀과 가까운 시험 항목을 찾는 중…')
+            const likeT = await findLike(said || pt, undefined)
+            unThink()
+            const exact = endHits
+              .slice(0, 5)
+              .map((t) => ({ tcid: t.tcid, name: t.name, model: t.model, steps: t.steps, why: '키가 맞음' }))
+            const cands2 = [...exact, ...likeT.filter((x) => !exact.some((e) => e.tcid === x.tcid))].slice(0, 5)
+            if (exact.length) {
+              const pool = likePoolRef.current
+              const rest = pool.all.filter((x) => !exact.some((e) => e.tcid === x.tcid))
+              likePoolRef.current = { q: pool.q, all: [...exact, ...rest], shown: cands2.length }
             }
-            if (cands2.length) sayTcBlock(cands2, said)
+            if (cands2.length) sayTcBlock(cands2, likePoolRef.current.q)
             else
               say(
                 'a',
@@ -5549,6 +5574,12 @@ export default function AskBar({ devices }: Props) {
                   if (t.closest('.js-pickdev')) {
                     afterDevRef.current = 'tc'
                     setDevOpen(true)
+                  } else if (t.closest('.js-tcmore')) {
+                    /* 더보기 — 같은 카드에 10건을 더 그린다(지시). 풀은 마지막 findLike 것 */
+                    const pool = likePoolRef.current
+                    const shown = Math.min(pool.all.length, pool.shown + 10)
+                    pool.shown = shown
+                    sayTcBlock(pool.all.slice(0, shown), pool.q)
                   } else if (t.closest('.js-picktc')) setLikeAsk(true)
                   else if (t.closest('.js-openresp')) {
                     /* 아티팩트 칩은 3열을 **여닫는다**(지시) — 열려 있으면 다시 숨긴다 */

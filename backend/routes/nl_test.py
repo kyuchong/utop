@@ -1928,7 +1928,7 @@ async def ai_pick_tc(payload: dict):
                        "req": m.get("req_id") or "", "model": m.get("model") or "",
                        "steps": n, "score": sc})
     scored.sort(key=lambda x: (-x["score"], -x["steps"]))
-    top = scored[:30]
+    top = scored[:60]
     if len(top) < 5:
         # 한글 뜻 ↔ 영문 항목명처럼 **낱말이 안 겹치는 말**은 규칙 점수가 못
         # 잡는다(지적: RAG 안 쓰냐) — Knowledge AI 의 하이브리드 검색
@@ -2011,14 +2011,17 @@ async def ai_pick_tc(payload: dict):
                 picked_ids = []
     pset = set(picked_ids)
     order = [byid[i] for i in picked_ids] + [t for t in top if t["tcid"] not in pset]
-    out = []
-    for t in order[:limit]:
+    def _row(t):
         tid = t["tcid"]
-        out.append({
+        return {
             "tcid": tid, "name": t["name"], "model": t["model"], "steps": t["steps"],
             "why": whymap.get(tid) or ("AI 가 고름" if tid in pset else "이름이 닮음"),
-        })
-    return {"ok": True, "items": out, "ai": bool(pset)}
+        }
+    out = [_row(t) for t in order[:limit]]
+    # 나머지 후보(지시: 「더보기」 로 10건씩) — 규칙 점수 순서 그대로, 최대 50건.
+    # 카드는 앞 limit 건만 먼저 세우고 사람이 더보기를 누를 때 이것을 붙인다.
+    more = [_row(t) for t in order[limit:limit + 50]]
+    return {"ok": True, "items": out, "more": more, "ai": bool(pset)}
 
 
 @router.post("/api/ai/run-summary")
