@@ -1687,29 +1687,18 @@ async def ai_nl_criteria(payload: dict):
             "i": {"type": "integer"},
             "type": {"type": "string"},
             "criteria": {"type": "string"}}}}}, "required": ["items"]}
-    sys_p = _LF.join([
-        "너는 네트워크 장비 시험의 **합격 기준**을 정하는 전문가다.",
-        "스텝마다 실제 장비 응답을 준다. 그 응답에서 **그대로 있는 문구**를 골라 기준을 지어라.",
-        "",
-        "[규칙]",
-        "1. 응답에 **없는 문구를 지어내지 마라.** 반드시 준 응답에서 글자 그대로 복사한다.",
-        "2. **값까지 담아라.** 이름만 담으면 값이 무엇이든 늘 합격이다.",
-        "     X  'Main Memory Size'        O  'Main Memory Size    : 2 GB'",
-        "3. 준 응답은 **두 번 읽어 안 바뀐 부분만** 남긴 것이다(또는 실제 실행 결과다).",
-        "   그래도 uptime·사용률·카운터처럼 **다음에 달라질 값**이 보이면 고르지 마라.",
-        "4. type 은 'contains_all' 로 하고, criteria 는 **한 줄에 한 문구씩** 적는다.",
-        "   그 스텝이 확인하려는 것(desc)에 맞는 문구만 1~3개. 많이 담을수록 잘 깨진다.",
-        "5. 그 스텝에서 확인할 만한 또렷한 문구가 없으면 type·criteria 를 빈 문자열로 두어라.",
-        "   **틀린 기준보다 빈 기준이 낫다.**",
-        "i 는 준 값을 그대로 돌려준다. JSON만 출력한다.",
-    ])
+    # 규칙 글은 SETUP › Coverage AI · 판정 기준 짓기(지시: 남은 룰도 프롬프트로)
+    from routes.ai import _prompt_of as _po
+    _cp = _po("cai_criteria")
+    sys_p = _cp["system"]
     # **화면이 고른 AI 로 부른다**(지시: 입력 바에서 AI 를 고른다). 안 고르면
     # 빈 값이라 여느 때처럼 용도·기본값이 정한다.
     content, err = await _ai._ai_chat(
         [{"role": "system", "content": sys_p},
          {"role": "user", "content": json.dumps(rows, ensure_ascii=False)}],
         max_tokens=900, json_schema=schema,
-        llm_id=str((payload or {}).get("llm") or "").strip())
+        # 입력 바에서 고른 AI 가 먼저, 없으면 이 용도에 붙인 LLM, 그것도 없으면 여느 때의 기본값
+        llm_id=str((payload or {}).get("llm") or "").strip() or str(_cp.get("llm") or ""))
     if err:
         return {"ok": False, "error": err}
     obj = _nl_json_any(content) or {}
@@ -1846,8 +1835,8 @@ async def ai_pick_device(payload: dict):
     if len(cand) == 1 or not q:
         return {"ok": True, "items": plain, "order": ids}
     try:
-        from routes.ai import _llm_pick, _llm_json   # 늦은 수입 — 순환 막기
-        llm = _llm_pick("cai_basic")
+        from routes.ai import _llm_json, _cai_llm   # 늦은 수입 — 순환 막기
+        llm, _pp = _cai_llm("cai_pick_device", "cai_basic")
     except Exception:
         llm = None
     if not llm:
@@ -1860,22 +1849,16 @@ async def ai_pick_device(payload: dict):
             "required": ["id"]}}},
         "required": ["picks"],
     }
-    sys_p = (
-        "너는 네트워크 장비 시험 도우미다. 사람의 지시에 가장 맞는 장비를 "
-        "**주어진 후보 목록에서만** 고른다.\n"
-        "규칙:\n"
-        "1) 목록에 있는 id 만 쓴다 — 새 id 를 지어내지 마라.\n"
-        "2) 가장 맞는 것부터 순서대로. why 는 왜 골랐는지 한국어 한 줄(모델·상태·주소 근거).\n"
-        "3) 연결 가능한(state 사용가능) 장비를 앞에 둔다.\n"
-        "4) JSON 만 출력한다. 설명·코드펜스 금지."
-    )
+    # 규칙 글은 SETUP › 용도별 프롬프트 › Coverage AI · 장비 추천(지시: 남은 룰도 프롬프트로)
+    from routes.ai import _prompt_of as _po
+    sys_p = _po("cai_pick_device")["system"]
     user_p = (
         "후보 장비:\n" + json.dumps(cand, ensure_ascii=False) +
         "\n\n사람의 지시:\n" + q +
         "\n\n{\"picks\":[{\"id\":\"...\",\"why\":\"...\"}]} 로만, 맞는 순서대로 출력하라."
     )
     try:
-        got = await _llm_json(llm, sys_p, user_p, schema, timeout=60, purpose="cai_basic")
+        got = await _llm_json(llm, sys_p, user_p, schema, timeout=60, purpose=_pp)
         seen, out = set(), []
         for p in (got.get("picks") or []):
             i = str(p.get("id") or "")
@@ -1970,8 +1953,8 @@ async def ai_pick_tc(payload: dict):
     picked_ids, whymap = [], {}
     if len(top) > 1:
         try:
-            from routes.ai import _llm_pick, _llm_json
-            llm = _llm_pick("similar")
+            from routes.ai import _llm_json, _cai_llm
+            llm, _pp = _cai_llm("cai_pick_tc", "similar")
         except Exception:
             llm = None
         if llm:
@@ -1985,15 +1968,9 @@ async def ai_pick_tc(payload: dict):
                     "required": ["tcid"]}}},
                 "required": ["picks"],
             }
-            sys_p = (
-                "너는 네트워크 시험 담당자다. 사람이 하려는 시험과 가장 가까운 것을 "
-                "**주어진 목록에서만** 고른다.\n"
-                "규칙:\n"
-                "1) 목록에 있는 tcid 만 쓴다 — 새로 만들지 마라.\n"
-                "2) 가까운 것부터 최대 %d개. why 는 왜 가까운지 한국어 한 줄.\n"
-                "3) 가까운 것이 없으면 빈 배열. 억지로 채우지 마라.\n"
-                "4) JSON 만 출력한다. 설명·코드펜스 금지." % limit
-            )
+            # 고르는 기준은 SETUP › Coverage AI · 항목 고르기(지시). {limit} 은 처음 보일 건수
+            from routes.ai import _prompt_of as _po
+            sys_p = str(_po("cai_pick_tc")["system"]).replace("{limit}", str(limit))
             user_p = (
                 "시험 목록:\n" + json.dumps(brief, ensure_ascii=False) +
                 "\n\n사람이 하려는 것:\n" + text +
@@ -2001,7 +1978,7 @@ async def ai_pick_tc(payload: dict):
                 "\n\n{\"picks\":[{\"tcid\":\"...\",\"why\":\"...\"}]} 로만 출력하라."
             )
             try:
-                got = await _llm_json(llm, sys_p, user_p, schema, timeout=60, purpose="similar")
+                got = await _llm_json(llm, sys_p, user_p, schema, timeout=60, purpose=_pp)
                 for p in (got.get("picks") or []):
                     tid = str(p.get("tcid") or "")
                     if tid in byid and tid not in whymap:
@@ -2050,8 +2027,8 @@ async def ai_run_summary(payload: dict):
     nfail = sum(1 for s in steps if _is_fail(s))
     base = "합격 %d · 불합격 %d" % (npass, nfail)
     try:
-        from routes.ai import _llm_pick, _llm_json
-        llm = _llm_pick("cai_basic")
+        from routes.ai import _llm_json, _cai_llm
+        llm, _pp = _cai_llm("cai_run_summary", "cai_basic")
     except Exception:
         llm = None
     if not llm or not steps:
@@ -2067,21 +2044,16 @@ async def ai_run_summary(payload: dict):
         })
     schema = {"type": "object", "properties": {"summary": {"type": "string"}},
               "required": ["summary"]}
-    sys_p = (
-        "너는 네트워크 장비 시험 결과를 사람에게 알려 주는 도우미다. "
-        "스텝별 판정(mark)·응답(resp)을 읽고 한국어로 짧게 요약한다.\n"
-        "규칙:\n"
-        "1) 첫 문장에 전체 합·불을 적고, 불합격이 있으면 무엇이 왜 불합격인지(값·기준) 짚는다.\n"
-        "2) 응답·기준에 있는 값만 쓴다 — 지어내지 마라.\n"
-        "3) 2~4문장으로 짧게. 표·코드펜스 금지."
-    )
+    # 말투·길이는 SETUP › Coverage AI · 결과 요약(지시)
+    from routes.ai import _prompt_of as _po
+    sys_p = _po("cai_run_summary")["system"]
     user_p = (
         "시험: %s / 대상 모델: %s\n집계: %s\n\n스텝:\n" % (title, model, base) +
         json.dumps(brief, ensure_ascii=False) +
         "\n\n{\"summary\":\"...\"} 로만 출력하라."
     )
     try:
-        got = await _llm_json(llm, sys_p, user_p, schema, timeout=60, purpose="cai_basic")
+        got = await _llm_json(llm, sys_p, user_p, schema, timeout=60, purpose=_pp)
         summ = str(got.get("summary") or "").strip() or base
         return {"ok": True, "summary": summ, "pass": npass, "fail": nfail, "ai": True}
     except Exception as e:

@@ -605,6 +605,88 @@ LLM_PURPOSES: dict[str, dict] = {
         ),
     },
     # ── 지식 ──────────────────────────────────────────────────
+    # ── Coverage AI 의 나머지 LLM 자리(지시: 남은 룰도 다 프롬프트로) — 여태 코드 안 글이었다 ──
+    "cai_pick_device": {
+        "label": "Coverage AI · 장비 추천",
+        "hint": ("장비 후보 카드의 순서와 추천 이유를 정합니다. 후보는 화면이 등록 장비에서 추리고, 이 프롬프트는 "
+                 "그 안에서 순서만 매깁니다. 사용 LLM·파라미터를 비우면 Coverage AI · Basic 의 것을 씁니다."),
+        "system": (
+            "너는 네트워크 장비 시험 도우미다. 사람의 지시에 가장 맞는 장비를 "
+            "**주어진 후보 목록에서만** 고른다.\n"
+            "규칙:\n"
+            "1) 목록에 있는 id 만 쓴다 — 새 id 를 지어내지 마라.\n"
+            "2) 가장 맞는 것부터 순서대로. why 는 왜 골랐는지 한국어 한 줄(모델·상태·주소 근거).\n"
+            "3) 연결 가능한(state 사용가능) 장비를 앞에 둔다.\n"
+            "4) JSON 만 출력한다. 설명·코드펜스 금지."
+        ),
+    },
+    "cai_pick_tc": {
+        "label": "Coverage AI · 항목 고르기",
+        "hint": ("항목 후보 카드에 무엇을 앞에 둘지(뜻으로 고르기)를 정합니다. 후보는 화면이 낱말 점수로 추리고, 이 "
+                 "프롬프트는 그 안에서 고릅니다. {limit} 은 카드에 처음 보일 건수로 바뀝니다. 사용 LLM·파라미터를 "
+                 "비우면 「닮은 시험 찾기」 의 것을 씁니다."),
+        "system": (
+            "너는 네트워크 시험 담당자다. 사람이 하려는 시험과 가장 가까운 것을 "
+            "**주어진 목록에서만** 고른다.\n"
+            "규칙:\n"
+            "1) 목록에 있는 tcid 만 쓴다 — 새로 만들지 마라.\n"
+            "2) 가까운 것부터 최대 {limit}개. why 는 왜 가까운지 한국어 한 줄.\n"
+            "3) 가까운 것이 없으면 빈 배열. 억지로 채우지 마라.\n"
+            "4) JSON 만 출력한다. 설명·코드펜스 금지."
+        ),
+    },
+    "cai_run_summary": {
+        "label": "Coverage AI · 결과 요약",
+        "hint": ("시험이 끝난 뒤 「결과 보기」 머리에 서는 요약 글의 말투·길이를 정합니다. 사용 LLM·파라미터를 "
+                 "비우면 Coverage AI · Basic 의 것을 씁니다."),
+        "system": (
+            "너는 네트워크 장비 시험 결과를 사람에게 알려 주는 도우미다. "
+            "스텝별 판정(mark)·응답(resp)을 읽고 한국어로 짧게 요약한다.\n"
+            "규칙:\n"
+            "1) 첫 문장에 전체 합·불을 적고, 불합격이 있으면 무엇이 왜 불합격인지(값·기준) 짚는다.\n"
+            "2) 응답·기준에 있는 값만 쓴다 — 지어내지 마라.\n"
+            "3) 2~4문장으로 짧게. 표·코드펜스 금지."
+        ),
+    },
+    "cai_criteria": {
+        "label": "Coverage AI · 판정 기준 짓기",
+        "hint": ("판정 기준이 빈 조회 스텝을 실제 응답으로 채울 때의 규칙입니다. type·criteria 는 판정기 문법"
+                 "(contains_all · 한 줄에 한 문구)에 맞아야 하니, 그 부분은 바꾸지 않는 것이 안전합니다. "
+                 "사용 LLM 을 비우면 입력 바에서 고른 AI(없으면 기본값)를 씁니다."),
+        "system": "\n".join([
+            "너는 네트워크 장비 시험의 **합격 기준**을 정하는 전문가다.",
+            "스텝마다 실제 장비 응답을 준다. 그 응답에서 **그대로 있는 문구**를 골라 기준을 지어라.",
+            "",
+            "[규칙]",
+            "1. 응답에 **없는 문구를 지어내지 마라.** 반드시 준 응답에서 글자 그대로 복사한다.",
+            "2. **값까지 담아라.** 이름만 담으면 값이 무엇이든 늘 합격이다.",
+            "     X  'Main Memory Size'        O  'Main Memory Size    : 2 GB'",
+            "3. 준 응답은 **두 번 읽어 안 바뀐 부분만** 남긴 것이다(또는 실제 실행 결과다).",
+            "   그래도 uptime·사용률·카운터처럼 **다음에 달라질 값**이 보이면 고르지 마라.",
+            "4. type 은 'contains_all' 로 하고, criteria 는 **한 줄에 한 문구씩** 적는다.",
+            "   그 스텝이 확인하려는 것(desc)에 맞는 문구만 1~3개. 많이 담을수록 잘 깨진다.",
+            "5. 그 스텝에서 확인할 만한 또렷한 문구가 없으면 type·criteria 를 빈 문자열로 두어라.",
+            "   **틀린 기준보다 빈 기준이 낫다.**",
+            "i 는 준 값을 그대로 돌려준다. JSON만 출력한다.",
+        ]),
+    },
+    "cai_messages": {
+        "label": "Coverage AI · 화면 안내 문구",
+        "kind": "text",
+        "hint": ("LLM 에 보내지 않고 화면에 그대로 뜨는 안내 문구입니다(코드 가드가 LLM 판단을 바꿨을 때 등). "
+                 "한 줄에 하나, 「이름 = 문구」. **굵게** 를 쓸 수 있고 {model} 은 말한 모델명으로 바뀝니다. "
+                 "이름은 바꾸지 마세요 — 지운 줄은 기본 문구로 돌아갑니다."),
+        "system": "\n".join([
+            "wait_tc = 이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: \"SNMP 시험해줘\"), **시험 항목 찾기**로 고를 수 있습니다.",
+            "not_ready = 아직 절차가 준비되지 않았습니다 — 장비와 시험 항목을 먼저 선택해 주세요.",
+            "no_result = 아직 실행한 결과가 없습니다 — 절차를 준비하고 ▷ 시험 시작을 눌러 주세요.",
+            "not_understood = 말씀을 이해하지 못했습니다 — 장비 모델명과 시험할 내용을 함께 적어 주세요(예: \"E6100 SNMP 시험해줘\").",
+            "unknown_model = **{model}** 은(는) 등록된 장비가 아닙니다 — 일치하는 결과가 없습니다. Devices 에 등록된 모델명으로 다시 말씀해 주세요.",
+            "no_match = REQ-Coverage 에 일치하는 시험 항목이 없습니다 — 다른 말로 다시 요청하시거나, 「시험 항목 찾기」 로 직접 골라 주세요.",
+            "no_suggest = 추천할 항목을 못 좁혔습니다 — 「시험 항목 찾기」 로 골라 주세요.",
+            "no_device = 쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요.",
+        ]),
+    },
     "kai_answer": {
         "label": "Knowledge AI",
         "hint": "Knowledge AI › 쌓인 자료(WIKI · 시험 · 사이클 · Jira)에서 찾아 답합니다.",
@@ -790,6 +872,39 @@ def _llm_pick(purpose: str = "", llm_id: str = ""):
     return None
 
 
+def _cai_llm(new: str, old: str):
+    """Coverage AI 의 새 용도 — 사용 LLM·파라미터를 따로 정했으면 그 용도로, 아니면 여태 쓰던
+    용도(old)의 LLM·파라미터로 부른다(지시: 프롬프트만 옮겼을 때 동작이 바뀌지 않게).
+    돌려주는 것: (llm, 파라미터를 읽을 용도)."""
+    cur = _prompt_of(new)
+    if cur.get("llm") or cur.get("params"):
+        return _llm_pick(new), new
+    return _llm_pick(old), old
+
+
+def cai_messages() -> dict:
+    """「Coverage AI · 화면 안내 문구」 — 한 줄에 하나 「이름 = 문구」. 지운 줄은 기본 문구로."""
+    def parse(txt: str) -> dict:
+        out = {}
+        for ln in str(txt or "").split("\n"):
+            if "=" not in ln:
+                continue
+            k, v = ln.split("=", 1)
+            k = k.strip()
+            if re.fullmatch(r"[a-z_]+", k) and v.strip():
+                out[k] = v.strip()
+        return out
+    base = parse((LLM_PURPOSES.get("cai_messages") or {}).get("system") or "")
+    base.update(parse(_prompt_of("cai_messages").get("system") or ""))
+    return base
+
+
+@router.get("/api/ai/cov-messages")
+async def cov_messages():
+    """Coverage AI 화면 안내 문구(지시: 남은 룰도 프롬프트로) — SETUP 에서 고친 것이 곧바로 화면에 뜬다."""
+    return {"ok": True, "msgs": cai_messages()}
+
+
 @router.get("/api/llm/purposes")
 async def llm_purposes():
     """용도 목록 — 화면이 이것으로 설정 칸을 그린다. 기본 프롬프트도 함께 준다."""
@@ -810,6 +925,8 @@ async def llm_purposes():
             "placeholder": cur.get("placeholder") or "",
             "asks": cur.get("asks") or [],
             "params": cur.get("params") or {},
+            # 글만 담는 자리(화면 안내 문구) — SETUP 이 LLM·파라미터·채팅 칸을 감춘다
+            "kind": v.get("kind") or "prompt",
         })
     return {"purposes": out}
 

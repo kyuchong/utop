@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **470** (그룹 127개)
+총 라우트 수: **471** (그룹 127개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -19,11 +19,12 @@
 |---|---|---|---|
 | GET | `/api/about` | 왼쪽 메뉴 도움말 위에 서는 것 — 버전과 라이선스 기간. |  |
 
-## `/api/ai` (27개)
+## `/api/ai` (28개)
 
 | method | path | summary | auth |
 |---|---|---|---|
 | POST | `/api/ai/cov-chat` | Coverage AI 잡담 갈래(지시) — 아무 상관없는 말에 장비 고르기가 뜨던 것. |  |
+| GET | `/api/ai/cov-messages` | Coverage AI 화면 안내 문구(지시: 남은 룰도 프롬프트로) — SETUP 에서 고친 것이 곧바로 화면에 뜬다. |  |
 | GET | `/api/ai/examples` | 첫 화면에 뜰 질문 보기. 담아 둔 것이 없으면 기본 세 줄. |  |
 | POST | `/api/ai/examples` | 질문 보기를 통째로 담는다 — **관리자만**. 빈 줄은 버리고 20개까지. | token param |
 | GET | `/api/ai/feedback` |  |  |

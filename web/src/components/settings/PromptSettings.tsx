@@ -28,6 +28,8 @@ interface Purpose {
   placeholder: string
   /** 눌러서 바로 묻는 추천 질문 */
   asks: string[]
+  /** prompt(기본) · text — 글만 담는 자리(화면 안내 문구). LLM·파라미터·채팅 칸이 없다 */
+  kind?: string
   /** 생성 파라미터(지시: LLM 설정에서 옮겨 옴) — 비우면 모델 기본을 따른다 */
   params: Record<string, string>
 }
@@ -154,6 +156,12 @@ export default function PromptSettings() {
                 <b>{x.label}</b>
                 <span className="muted small">{x.hint}</span>
               </div>
+              {x.kind === 'text' ? (
+                <div className="ps-chat">
+                  <span className="muted small">LLM 에 보내지 않는 글입니다 — 쓸 모델·파라미터가 없습니다. 한 줄에 하나 「이름 = 문구」 로 적습니다.</span>
+                </div>
+              ) : (
+              <>
               <label className="ps-fld">
                 <span>사용 LLM</span>
                 <select value={x.llm} onChange={(e) => set(x.id, { llm: e.target.value })}>
@@ -266,11 +274,13 @@ export default function PromptSettings() {
                   </div>
                 </div>
               </div>
+              </>
+              )}
             </div>
             {/* 오른쪽 — 시스템 프롬프트가 주인공이다. 크게. */}
             <div className="ps-right">
               <div className="ps-ph">
-                <span>시스템 프롬프트</span>
+                <span>{x.kind === 'text' ? '화면 안내 문구' : '시스템 프롬프트'}</span>
                 <span className="sp" />
                 {/* 되돌리기 — 고치다 망가뜨려도 원래대로 돌아갈 길이 있어야
                     사람이 마음 놓고 고친다 */}

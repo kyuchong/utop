@@ -763,6 +763,38 @@ export default function AskBar({ devices }: Props) {
   /** 남이 지은 글(장비 이름·항목 제목)을 html 에 실을 때 — 꺾쇠를 막는다 */
   const hesc = (t: string) =>
     String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  /**
+   * 화면 안내 문구 — SETUP › 용도별 프롬프트 › 「Coverage AI · 화면 안내 문구」(지시: 남은 룰도
+   * 프롬프트로). 코드 가드가 LLM 판단을 바꿨을 때 등 화면이 직접 말하는 글이다. 서버에서 받고,
+   * 못 받으면(옛 api) 아래 기본 문구 — 서버 기본값(ai.py cai_messages)과 같은 글이다.
+   */
+  const MSG_DEFAULT: Record<string, string> = {
+    wait_tc: '이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "SNMP 시험해줘"), **시험 항목 찾기**로 고를 수 있습니다.',
+    not_ready: '아직 절차가 준비되지 않았습니다 — 장비와 시험 항목을 먼저 선택해 주세요.',
+    no_result: '아직 실행한 결과가 없습니다 — 절차를 준비하고 ▷ 시험 시작을 눌러 주세요.',
+    not_understood: '말씀을 이해하지 못했습니다 — 장비 모델명과 시험할 내용을 함께 적어 주세요(예: "E6100 SNMP 시험해줘").',
+    unknown_model: '**{model}** 은(는) 등록된 장비가 아닙니다 — 일치하는 결과가 없습니다. Devices 에 등록된 모델명으로 다시 말씀해 주세요.',
+    no_match: 'REQ-Coverage 에 일치하는 시험 항목이 없습니다 — 다른 말로 다시 요청하시거나, 「시험 항목 찾기」 로 직접 골라 주세요.',
+    no_suggest: '추천할 항목을 못 좁혔습니다 — 「시험 항목 찾기」 로 골라 주세요.',
+    no_device: '쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요.',
+  }
+  const [cmsgs, setCmsgs] = useState<Record<string, string>>({})
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await apiFetch('/api/ai/cov-messages')
+        if (r.ok) setCmsgs(((await r.json()) as { msgs?: Record<string, string> }).msgs ?? {})
+      } catch {
+        /* 못 받으면 기본 문구 */
+      }
+    })()
+  }, [])
+  /** 안내 문구 글 — {이름} 을 값으로 */
+  const cmsg = (k: string, v?: Record<string, string>) =>
+    String(cmsgs[k] || MSG_DEFAULT[k] || '').replace(/\{(\w+)\}/g, (_m, n: string) => v?.[n] ?? '')
+  /** 안내 문구 말풍선 — 글을 씻고 **굵게** 만 살린다 */
+  const cmsgP = (k: string, v?: Record<string, string>) =>
+    `<p class="ln">${hesc(cmsg(k, v)).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')}</p>`
   /** LLM 이 지은 답(마크다운)을 말풍선에 실을 때 — 씻어서 html 로 */
   const mdSafe = (t: string) =>
     DOMPurify.sanitize(marked.parse(t || '', { async: false, breaks: true, gfm: true }) as string)
@@ -1835,7 +1867,7 @@ export default function AskBar({ devices }: Props) {
     const waitTc = () =>
       say(
         'a',
-        '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "SNMP 시험해줘"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
+        cmsgP('wait_tc'),
       )
     const pickDev = (d: Device, why: string) => {
       const nm = String(d.model || d.name || d.ip)
@@ -1874,7 +1906,7 @@ export default function AskBar({ devices }: Props) {
       if (!known.has(mSaid.toLowerCase())) {
         say(
           'a',
-          `<p class="ln"><b>${hesc(mSaid)}</b> 은(는) 등록된 장비가 아닙니다 — 일치하는 결과가 없습니다. Devices 에 등록된 모델명으로 다시 말씀해 주세요.</p>`,
+          cmsgP('unknown_model', { model: mSaid }),
         )
         setFlowAt(0)
         return true
@@ -1883,14 +1915,14 @@ export default function AskBar({ devices }: Props) {
     switch (plan.act) {
       case 'chat': {
         if (plan.why === 'not_ready')
-          say('a', '<p class="ln">아직 절차가 준비되지 않았습니다 — 장비와 시험 항목을 먼저 선택해 주세요.</p>')
+          say('a', cmsgP('not_ready'))
         else if (plan.why === 'no_result')
-          say('a', '<p class="ln">아직 실행한 결과가 없습니다 — 절차를 준비하고 ▷ 시험 시작을 눌러 주세요.</p>')
+          say('a', cmsgP('no_result'))
         else if (ans) saySlow(ans, { k: 'chat', q: said })
         else
           say(
             'a',
-            '<p class="ln">말씀을 이해하지 못했습니다 — 장비 모델명과 시험할 내용을 함께 적어 주세요(예: "E6100 SNMP 시험해줘").</p>',
+            cmsgP('not_understood'),
           )
         break
       }
@@ -1923,7 +1955,7 @@ export default function AskBar({ devices }: Props) {
         }
         const list = cands.length ? cands : mSaid ? byModel(mSaid) : usable
         if (!list.length) {
-          setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
+          setErr(cmsg('no_device'))
           break
         }
         pendQRef.current = plan.hold ? said : ''
@@ -1997,7 +2029,7 @@ export default function AskBar({ devices }: Props) {
           likePoolRef.current = { q: pool.q || raw0, all: [...head5, ...rest], shown: head5.length }
         }
         if (items.length) sayTcBlock(items.slice(0, 5), likePoolRef.current.q)
-        else say('a', '<p class="ln">추천할 항목을 못 좁혔습니다 — 「시험 항목 찾기」 로 골라 주세요.</p>')
+        else say('a', cmsgP('no_suggest'))
         break
       }
       case 'wait_tc':
@@ -2024,8 +2056,7 @@ export default function AskBar({ devices }: Props) {
     if (!items.length) {
       say(
         'a',
-        '<p class="ln">REQ-Coverage 에 일치하는 시험 항목이 없습니다 — ' +
-          '다른 말로 다시 요청하시거나, 「시험 항목 찾기」 로 직접 골라 주세요.</p>',
+        cmsgP('no_match'),
       )
       return
     }
@@ -2065,7 +2096,7 @@ export default function AskBar({ devices }: Props) {
     else
       say(
         'a',
-        '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "SNMP 시험해줘"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
+        cmsgP('wait_tc'),
       )
   }
 
@@ -2456,7 +2487,7 @@ export default function AskBar({ devices }: Props) {
       if (mode === 'basic') {
         const list = cands.length ? cands : usable
         if (!list.length) {
-          setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
+          setErr(cmsg('no_device'))
           return
         }
         /* **프롬프트가 정한다**(승인) — confirm_device 이고 후보가 한 대면 묻지 않고
@@ -2979,7 +3010,7 @@ export default function AskBar({ devices }: Props) {
         } else {
           say(
             'a',
-            '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "System 정보 조회 선택"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
+            cmsgP('wait_tc'),
           )
         }
         setFlowAt(0)
@@ -3033,7 +3064,7 @@ export default function AskBar({ devices }: Props) {
         if (chat.run && !pd && !pt && !draft) {
           say(
             'a',
-            '<p class="ln">아직 절차가 준비되지 않았습니다 — 장비와 시험 항목을 먼저 선택해 주세요.</p>',
+            cmsgP('not_ready'),
           )
           setFlowAt(0)
           return
@@ -3129,7 +3160,7 @@ export default function AskBar({ devices }: Props) {
           else
             say(
               'a',
-              '<p class="ln">추천할 항목을 못 좁혔습니다 — 「시험 항목 찾기」 로 골라 주세요.</p>',
+              cmsgP('no_suggest'),
             )
           setFlowAt(0)
           return
@@ -3228,7 +3259,7 @@ export default function AskBar({ devices }: Props) {
               } else {
                 say(
                   'a',
-                  '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나(예: "System 정보 조회 선택"), <b>시험 항목 찾기</b>로 고를 수 있습니다.</p>',
+                  cmsgP('wait_tc'),
                 )
               }
               setFlowAt(0)
@@ -3395,7 +3426,7 @@ export default function AskBar({ devices }: Props) {
             }
           }
           if (nx === 'wait_tc' && !chat.answer) {
-            say('a', '<p class="ln">이어서 시험 항목을 정해 주세요 — 말로 지정하시거나 「시험 항목 찾기」 로 골라 주세요.</p>')
+            say('a', cmsgP('wait_tc'))
             setFlowAt(0)
             return
           }
@@ -3430,7 +3461,7 @@ export default function AskBar({ devices }: Props) {
           } else {
             say(
               'a',
-              '<p class="ln">아직 실행한 결과가 없습니다 — 절차를 준비하고 ▷ 시험 시작을 눌러 주세요.</p>',
+              cmsgP('no_result'),
             )
           }
         }
@@ -3451,8 +3482,7 @@ export default function AskBar({ devices }: Props) {
         if (!knownModels.has(askedModel.toLowerCase())) {
           say(
             'a',
-            `<p class="ln"><b>${hesc(askedModel)}</b> 은(는) 등록된 장비가 아닙니다 — ` +
-              `일치하는 결과가 없습니다. Devices 에 등록된 모델명으로 다시 말씀해 주세요.</p>`,
+            cmsgP('unknown_model', { model: askedModel }),
           )
           setFlowAt(0)
           return
@@ -3512,7 +3542,7 @@ export default function AskBar({ devices }: Props) {
         ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m0.toLowerCase())
         : usable
       if (cands.length === 0) {
-        setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
+        setErr(cmsg('no_device'))
         setFlowAt(0)
         return
       }
@@ -3609,7 +3639,7 @@ export default function AskBar({ devices }: Props) {
      */
     if (!dev && !hit) {
       if (usable.length === 0) {
-        setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
+        setErr(cmsg('no_device'))
         setFlowAt(0)
         return
       }
@@ -3636,8 +3666,7 @@ export default function AskBar({ devices }: Props) {
     if (!found.length) {
       say(
         'a',
-        '<p class="ln">REQ-Coverage 에 일치하는 시험 항목이 없습니다 — ' +
-          '다른 말로 다시 요청하시거나, 「시험 항목 찾기」 로 직접 골라 주세요.</p>',
+        cmsgP('no_match'),
       )
       setFlowAt(0)
       return
