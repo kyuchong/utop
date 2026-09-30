@@ -44,10 +44,9 @@ export interface NextInput {
   hasResult: boolean
   /** 말(또는 LLM 이 짚은 장비)에 맞는 장비 후보 수 */
   candCount: number
-  /** 시험할 내용(LLM 의 tc — 질문에 실제로 있는 글자) */
+  /** 시험할 내용(LLM 의 tc — 질문에 실제로 있는 글자). 「시험하려는 말인가」 는 이것 하나로
+      본다(지시: 낱말 정규식은 뺀다 — 20문장 비교에서 LLM 20/20, 정규식 포함 17/20) */
   tc: string
-  /** 말에 시험하려는 뜻이 보이나(「시험·확인·조회·해줘」) — tc 가 비었을 때의 대비 */
-  testish: boolean
 }
 
 export interface NextPlan {
@@ -61,7 +60,7 @@ export interface NextPlan {
 export function planNext(i: NextInput): NextPlan {
   const nx = String(i.next ?? '').trim()
   if (!OK.has(nx)) return { act: 'legacy', hold: false }
-  const wants = !!i.tc.trim() || i.testish
+  const wants = !!i.tc.trim()
   /* 장비 → 항목(코드 고정) */
   if (TC_ACTS.has(nx) && !i.hasDevice) return { act: 'ask_device', hold: true, why: 'order' }
   if (nx === 'run')

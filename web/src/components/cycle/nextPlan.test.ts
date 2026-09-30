@@ -9,7 +9,6 @@ const base: NextInput = {
   hasResult: false,
   candCount: 0,
   tc: '',
-  testish: false,
 }
 const p = (x: Partial<NextInput>) => planNext({ ...base, ...x })
 
@@ -39,7 +38,7 @@ describe('다음 행동 — 코드 가드', () => {
   })
   it('한 대 확정은 후보가 정말 한 대일 때만', () => {
     expect(p({ next: 'confirm_device', candCount: 1 }).act).toBe('confirm_device')
-    expect(p({ next: 'confirm_device', candCount: 2, testish: true })).toEqual({
+    expect(p({ next: 'confirm_device', candCount: 2, tc: 'SNMP' })).toEqual({
       act: 'ask_device',
       hold: true,
       why: 'not_one',
@@ -49,10 +48,10 @@ describe('다음 행동 — 코드 가드', () => {
     expect(p({ next: 'keep_device' }).act).toBe('ask_device')
     expect(p({ next: 'keep_device', hasDevice: true }).act).toBe('keep_device')
   })
-  it('장비를 물을 때 시험할 내용이 있으면 쥐고, 없으면 안 쥔다', () => {
+  it('장비를 물을 때 시험할 내용(tc)이 있으면 쥐고, 없으면 안 쥔다 — 낱말로 판단하지 않는다', () => {
     expect(p({ next: 'ask_device', tc: 'SNMP' }).hold).toBe(true)
-    expect(p({ next: 'ask_device', testish: true }).hold).toBe(true)
     expect(p({ next: 'ask_device' }).hold).toBe(false)
+    expect(p({ next: 'keep_device', tc: '' }).hold).toBe(false)
   })
   it('none 은 말로만 답한다', () => {
     expect(p({ next: 'none' }).act).toBe('chat')

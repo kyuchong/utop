@@ -1814,7 +1814,6 @@ export default function AskBar({ devices }: Props) {
       hasResult,
       candCount: cands.length,
       tc,
-      testish: /시험|테스트|확인|조회|점검|돌려|실행|해줘|해 줘/.test(raw0),
     })
     if (plan.act === 'legacy') return false
     setFlowLog((v) => [...v, { s: 1, t: `다음 행동 — ${plan.act}${plan.why ? ` (${plan.why})` : ''}` }])
@@ -1855,7 +1854,8 @@ export default function AskBar({ devices }: Props) {
         await takeTc(ap.tcid, d, ap.model)
         return
       }
-      const q = pendQRef.current || (tc || /시험|테스트|확인|조회|점검/.test(raw0) ? said : '')
+      /* 이을 말 — 쥔 질문, 없으면 LLM 이 시험할 내용(tc)을 읽어 낸 이번 말. 낱말로 가르지 않는다 */
+      const q = pendQRef.current || (tc ? said : '')
       pendQRef.current = ''
       if (q) await stepTc(d, q)
       else waitTc()
@@ -3401,6 +3401,8 @@ export default function AskBar({ devices }: Props) {
         /* 「시험해줘」 같은 실행 말에 LLM 이 목록 보기(show=devices)로 답해도 시험용
            장비 카드로 세우고 질문을 쥐어 둔다(지적: 목록 카드는 시험 흐름 부품이 아니라
            겉모습이 다르다). 목록 카드는 실행 말이 없는 현황 질문에만. */
+        /* LLM 이 없거나 모르는 행동을 냈을 때만 타는 옛 흐름 — 판단할 주체가 없으니 낱말 목록을
+           대비로 남긴다(지시: 다음 행동 실행기에서는 뺐다) */
         const execWord = /시험|실행|돌려|테스트|해줘|해 줘/.test(raw0)
         if (sh === 'devices' && execWord && !usable.find((x) => x.id === devId)) {
           const cands3 = m1
