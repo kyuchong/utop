@@ -1771,7 +1771,7 @@ export default function AskBar({ devices }: Props) {
     setFlowLog((v) => [...v, { s: 1, t: `장비를 다시 고릅니다${model ? ` — ${model} ${cands.length}대` : ''}` }])
     sayThink('사용 가능한 장비 검색 중…')
     await sayDevBlock(cands, model, said0, {
-      head: `<b>1단계 · 장비</b> — 바꿀 장비를 골라 주세요${model ? ` (<b>${hesc(model)}</b> ${cands.length}대)` : ''}${srcTc ? ` · 고르면 <b>${hesc(srcTc.tcid)}</b> 를 그 장비로 다시 싣습니다` : ''}.`,
+      head: `바꿀 장비를 골라 주세요${model ? ` (<b>${hesc(model)}</b> ${cands.length}대)` : ''}${srcTc ? ` · 고르면 <b>${hesc(srcTc.tcid)}</b> 를 그 장비로 다시 싣습니다` : ''}.`,
     })
     setFlowAt(0)
   }
@@ -2806,6 +2806,40 @@ export default function AskBar({ devices }: Props) {
            의도·ask_tc)보다 장비 카드가 먼저 선다. 질문은 쥐어 두었다가 장비를 고른 뒤
            그 말로 항목 후보를 잇는다. 장비를 콕 집은 말(pick_dev)은 그 처리가 먼저다. */
         const sg = String(chat.suggest_tc ?? '').trim()
+        {
+          /* 장비가 있는데 **다른 모델**을 말했고 프롬프트가 장비를 바꾸자고 했으면(confirm_device·
+             ask_device) 항목보다 장비가 먼저다(지시: 룰 3) — 「E5724RL SNMP 시험해줘」 가 지금
+             장비(E6100)의 SNMP 항목으로 흘렀다. 한 대면 확정하고 그 장비로 항목을 잇는다. */
+          const curDev8 = usable.find((x) => x.id === devId)
+          const mSaid = (String(chat.model ?? '').trim() || (candsOf(raw0)?.model ?? '').trim()).toLowerCase()
+          const nx8 = nextRef.current
+          if (
+            curDev8 &&
+            !pd &&
+            mSaid &&
+            raw0.toLowerCase().includes(mSaid) &&
+            mSaid !== String(curDev8.model ?? '').trim().toLowerCase() &&
+            (nx8 === 'confirm_device' || nx8 === 'ask_device')
+          ) {
+            const c8 = usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === mSaid)
+            if (nx8 === 'confirm_device' && c8.length === 1 && c8[0]) {
+              const d8 = c8[0]
+              const nm8 = String(d8.model || d8.name || d8.ip)
+              setDevId(d8.id)
+              setTDev(nm8)
+              setAskModel(String(d8.model ?? ''))
+              if (!pins.includes('dev')) setPins((prev) => [...prev, 'dev'])
+              setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${d8.ip} 로 바꿈 (한 대뿐 — 프롬프트 판단)` }])
+              say('a', devDoneCard(nm8, String(d8.ip ?? '')))
+              await stepTc(d8, said)
+              return
+            }
+            if (c8.length) {
+              await askDeviceChange(String(c8[0]?.model ?? mSaid), said, true)
+              return
+            }
+          }
+        }
         {
           const curDev9 = usable.find((x) => x.id === devId)
           const wantsTc = !!(sg || pt || chat.tc_intent || nextRef.current === 'ask_tc')
