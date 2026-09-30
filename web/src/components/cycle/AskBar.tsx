@@ -1783,7 +1783,7 @@ export default function AskBar({ devices }: Props) {
    * 행동만 한다. 같은 행동은 늘 같은 부품이 그린다. 모르는 행동이면 false — 옛 흐름으로.
    */
   const runNext = async (
-    chat: { next?: string; answer?: string; model?: string; device?: string; tc?: string; tc_keys?: string; state?: string },
+    chat: { next?: string; answer?: string; model?: string; device?: string; tc?: string; tc_keys?: string; state?: string; tc_intent?: boolean },
     said: string,
     raw0: string,
   ): Promise<boolean> => {
@@ -1804,7 +1804,10 @@ export default function AskBar({ devices }: Props) {
       }
       return mSaid ? byModel(mSaid) : []
     })()
-    const tc = String(chat.tc ?? '').trim()
+    /* 시험할 내용 — LLM 이 [현황]의 항목 이름으로 바꿔 적으면(「시스템 정보 조회」 → 「System 정보 조회」)
+       서버가 「질문에 없는 글자」 라 값을 버리고 tc_intent 만 남긴다. 그때도 시험 내용은 **있다** —
+       사용자의 원래 말을 쥔다(지적: 카드·말로 장비를 골라도 항목이 안 나왔다). */
+    const tc = String(chat.tc ?? '').trim() || (chat.tc_intent ? said : '')
     const hasResult = (ran ?? []).some((r) => String(r?.status ?? r?.repeatResult ?? '').trim())
     const plan = planNext({
       next: String(chat.next ?? ''),
