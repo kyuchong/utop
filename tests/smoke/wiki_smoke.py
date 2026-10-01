@@ -87,4 +87,20 @@ ok("아이 삭제", c.delete("/api/wiki/wk-smoke-child").json().get("ok"))
 ok("부모 삭제", c.delete("/api/wiki/wk-smoke" + SUF + "").json().get("ok"))
 ok("복제본 삭제", c.delete(f"/api/wiki/{dup}").json().get("ok"))
 ok("없는 문서 404", c.get("/api/wiki/wk-smoke" + SUF + "").status_code == 404)
+
+# 첨부 파일(2026-10-01, 지시: 파일 업로드 되도록) — 그림이 아닌 파일은 /api/upload/file
+r = c.post("/api/upload/file", files={"file": ("보고서 1.pdf", b"%PDF-1.4\n%smoke\n", "application/pdf")})
+ok("PDF 첨부 올리기", r.status_code == 200 and r.json()["url"].startswith("/api/wiki-files/") and r.json()["name"] == "보고서 1.pdf", r.text[:120])
+_u = r.json()["url"]
+g = httpx.get(B + _u)   # 본문 링크·<video> 는 헤더를 못 붙인다 — 로그인 없이 받혀야 한다
+ok("첨부 받기(로그인 없이)·PDF 는 그 자리에서", g.status_code == 200 and g.headers["content-type"].startswith("application/pdf") and g.headers["content-disposition"].startswith("inline"), str(g.headers.get("content-disposition")))
+ok("원래 이름으로 받는다", "%EB%B3%B4%EA%B3%A0%EC%84%9C" in g.headers["content-disposition"])
+r = c.post("/api/upload/file", files={"file": ("log.txt", b"<script>alert(1)</script>", "text/plain")})
+g = httpx.get(B + r.json()["url"])
+ok("글 파일은 내려받기(같은 주소에서 안 열림)", g.headers["content-disposition"].startswith("attachment") and g.headers["content-type"] == "application/octet-stream", str(g.headers))
+ok("실행 파일 거절", c.post("/api/upload/file", files={"file": ("a.exe", b"MZ", "application/octet-stream")}).status_code == 400)
+ok("확장자 없는 파일 거절", c.post("/api/upload/file", files={"file": ("README", b"x", "text/plain")}).status_code == 400)
+ok("빈 파일 거절", c.post("/api/upload/file", files={"file": ("a.zip", b"", "application/zip")}).status_code == 400)
+ok("이상한 이름 받기 거절", httpx.get(B + "/api/wiki-files/..%2Fsecret.txt").status_code in (400, 404))
+ok("첨부 올리기는 로그인 필요", httpx.post(B + "/api/upload/file", files={"file": ("a.pdf", b"%PDF", "application/pdf")}).status_code == 401)
 print(f"\n전부 통과: {ok_n}개 확인")

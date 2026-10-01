@@ -20,7 +20,8 @@ import secrets as _secrets
 import time as _t
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 
 import core
 import db
@@ -86,6 +87,83 @@ async def _help_guard(c, pid: str, payload: dict | None = None) -> None:
     cur_prj = str(row["project"] or "") if row is not None else ""
     if HELP_SPACE in (prj, cur_prj) and not core.help_can_edit():
         raise HTTPException(403, "도움말을 고칠 권한이 없습니다 — SETUP › 페이지별 접근 권한에서 「도움말 · 고치기」 를 줍니다")
+
+
+# ───────────────────────────────────────────
+# 위키 첨부 파일(지시: 파일 업로드 되도록) — 그림이 아닌 파일(PDF·엑셀·zip·로그…)
+#
+# 그림은 예전처럼 /api/upload/image(data/req_images)로 가고, 그 밖의 파일은
+# 여기로 온다. 파일은 data/wiki_files/ 에 둔다 — 도커 볼륨(app-data)이라
+# 그림과 함께 백업된다. 이름은 서버가 정한다(경로 조작·덮어쓰기 차단).
+#
+# 받기는 로그인 없이 열린다(main 의 _AUTH_PUBLIC) — 본문의 링크·<video> 는
+# 헤더를 못 붙이기 때문이다. 그림 주소와 같게, 추측할 수 없는 이름이 문이다.
+# 실행·스크립트 파일은 받지 않고, 브라우저가 열 수 있는 것(PDF·동영상·소리·
+# 글)만 그 자리에서 열고 나머지는 내려받기로 준다. 글·HTML 은 늘 내려받기 —
+# 같은 주소에서 스크립트가 돌지 않게.
+# ───────────────────────────────────────────
+WIKI_FILE_DIR = core.DATA_DIR / "wiki_files"
+WIKI_FILE_MAX = 50 * 1024 * 1024        # nginx 는 100m 까지 통과시킨다
+_WIKI_FILE_BLOCK = {
+    ".exe", ".msi", ".dll", ".com", ".scr", ".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse",
+    ".wsf", ".hta", ".jar", ".sh", ".php", ".html", ".htm", ".xhtml", ".svgz", ".lnk", ".reg",
+}
+_WIKI_FILE_INLINE = {
+    ".pdf": "application/pdf",
+    ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".ogv": "video/ogg",
+    ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg", ".m4a": "audio/mp4",
+}
+
+
+@router.post("/api/upload/file")
+async def upload_wiki_file(file: UploadFile = File(...)):
+    """위키 첨부 — 그림이 아닌 파일. 돌려준 url 을 본문 파일 블록이 쥔다."""
+    from pathlib import Path as _P
+    orig = _P(file.filename or "").name or "file"
+    ext = _P(orig).suffix.lower()
+    if not ext or len(ext) > 12 or not re.fullmatch(r"\.[a-z0-9]+", ext):
+        raise HTTPException(400, "확장자가 있는 파일만 올릴 수 있습니다")
+    if ext in _WIKI_FILE_BLOCK:
+        raise HTTPException(400, f"{ext} 파일은 올릴 수 없습니다 (실행·스크립트 파일) — zip 으로 묶어 올리세요")
+    raw = await file.read(WIKI_FILE_MAX + 1)
+    if not raw:
+        raise HTTPException(400, "빈 파일입니다")
+    if len(raw) > WIKI_FILE_MAX:
+        raise HTTPException(413, f"{WIKI_FILE_MAX // 1024 // 1024}MB 이하만 올릴 수 있습니다")
+    WIKI_FILE_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"{int(datetime.now().timestamp() * 1000)}-{_secrets.token_hex(6)}{ext}"
+    (WIKI_FILE_DIR / name).write_bytes(raw)
+    from urllib.parse import quote as _q
+    # 원래 이름은 주소 꼬리(?n=)로 싣는다 — 내려받을 때 그 이름으로 저장되게
+    return {"url": f"/api/wiki-files/{name}?n={_q(orig)}", "name": orig, "size": len(raw)}
+
+
+@router.get("/api/wiki-files/{name}")
+async def get_wiki_file(name: str, n: str = "", download: str = ""):
+    """첨부 받기 — 브라우저가 열 수 있는 것만 그 자리에서, 나머지는 내려받기."""
+    if not re.fullmatch(r"[0-9]+-[0-9a-f]+\.[a-z0-9]+", name or ""):
+        raise HTTPException(400, "잘못된 파일명입니다")
+    f = WIKI_FILE_DIR / name
+    if not f.is_file():
+        raise HTTPException(404, "파일을 찾을 수 없습니다")
+    ext = f.suffix.lower()
+    mt = _WIKI_FILE_INLINE.get(ext)
+    inline = bool(mt) and not download
+    from urllib.parse import quote as _q
+    from pathlib import Path as _P
+    show = _P(str(n or "")).name.strip() or name
+    if not show.lower().endswith(ext):
+        show += ext                      # 꼬리 이름을 바꿔 다른 종류로 받게 하지 못한다
+    disp = f"filename*=UTF-8''{_q(show)}"
+    return FileResponse(
+        str(f),
+        media_type=mt or "application/octet-stream",
+        headers={
+            "Content-Disposition": f"inline; {disp}" if inline else f"attachment; {disp}",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, max-age=31536000, immutable",
+        },
+    )
 
 
 @router.get("/api/wiki")
