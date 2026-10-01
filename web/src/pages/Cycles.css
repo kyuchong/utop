@@ -11314,3 +11314,5 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-devmenu.big .dv-ready.hd { width: 92px; justify-content: flex-start; }
 .ask-devmenu.big.inpanel .dv-st { display: none; }
 .ask-devmenu.big .ask-dmlegend2 { margin: 0 14px; }
+/* 높이를 키운다(지시) — 95대 LAB 에서 스무 줄 남짓만 보여 내려 가며 찾아야 했다. 판 안(inpanel)은 그 자리 높이를 따른다 */
+.ask-devmenu.big:not(.inpanel) { height: min(860px, 88vh); max-height: min(860px, 88vh); }
