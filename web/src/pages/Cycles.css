@@ -4538,6 +4538,16 @@ table.tb td.k {
 .ask-tctable tbody tr { cursor: pointer; }
 .ask-tctable tbody tr:hover { background: var(--c-accent-soft, #eef4ff); }
 .ask-tctable tbody tr.busy { opacity: 0.5; cursor: default; }
+/* 스텝 없는 항목 — 보이되 고를 수 없다(지시: 없다고 표기만) */
+.ask-tctable tbody tr.nostep { cursor: not-allowed; color: var(--c-text-faint); }
+.ask-tctable tbody tr.nostep:hover { background: none; }
+.ask-tctable tbody tr.nostep b { color: var(--c-text-faint); font-weight: 600; }
+.ask-tctable td em.tc-nostep {
+  margin-left: 6px; padding: 1px 6px; border-radius: 4px; font-style: normal; font-size: 10.5px; font-weight: 700;
+  background: var(--c-surface-alt); color: var(--c-text-faint); border: 1px solid var(--c-border-soft);
+}
+/* 항목이 없는 프로젝트 — 숫자를 흐리게 */
+.ask-tctree .rt-cnt.zero { opacity: .45; }
 .ask-tctable th.ck, .ask-tctable td.ck { width: 26px; padding-right: 0; }
 .ask-tctable th.ck input, .ask-tctable td.ck input { margin: 0; cursor: pointer; }
 .ask-tctable td:nth-child(2) { width: 100%; }

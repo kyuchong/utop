@@ -320,6 +320,8 @@ async def tc_list_meta() -> list[dict]:
                    created_by, updated_by, step_count,
                    created_at, updated_at,
                    COALESCE(jsonb_array_length(data->'sessions'), 0) AS sess_n,
+                   CASE WHEN jsonb_typeof(data->'checks') = 'array'
+                        THEN jsonb_array_length(data->'checks') ELSE 0 END AS checks_n,
                    data - 'checks' - 'steps' - 'sessions' - 'result_history' - 'issue_list' AS data
             FROM tc
             ORDER BY updated_at DESC
@@ -335,6 +337,9 @@ async def tc_list_meta() -> list[dict]:
             # 세션 자리 수 — 0 이면 자동 스텝이 못 돈다(목록 ⚠ 근거).
             # 1=단독 장비 시험 · 2+=여러 장비 시험 구분도 이 수가 말해 준다
             d["_sess_n"] = r["sess_n"]
+            # 스텝 전부(CLI·계측기·수동·주석…) — 「스텝 없음」 은 이것이 0 일 때다.
+            # _cli_count 만 보면 계측기·수동만 있는 항목이 빈 항목으로 보였다(지적)
+            d["_checks_count"] = r["checks_n"]
             d["_updated_at_pg"] = r["updated_at"].isoformat() if r["updated_at"] else None
             out.append(d)
         return out

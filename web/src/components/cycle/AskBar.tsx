@@ -1251,6 +1251,8 @@ export default function AskBar({ devices }: Props) {
       status: string
       type: string
       steps: number
+      /** 스텝 전부(CLI·계측기·수동…) — 0 이면 「스텝 없음」 */
+      checks?: number
       /** 트리에서 이 항목이 걸린 마디들 — 뿌리부터 요구사항까지 */
       chain: string[]
       /** 보여 줄 자리 이름 */
@@ -1260,6 +1262,9 @@ export default function AskBar({ devices }: Props) {
       reqtitle: string
     }>
   >([])
+  /** 시험 항목 찾기 창 전용 — 스텝 없는 항목까지 **전부**(지시: 스텝 없으면 없다고 표기).
+      대화 추천·LLM 후보(tcAll)는 지금처럼 CLI 스텝 있는 것만 본다 */
+  const [tcEvery, setTcEvery] = useState<typeof tcAll>([])
   /** Coverage 와 같은 트리 — 마디 하나 */
   const [tcTree, setTcTree] = useState<
     Array<{ id: string; name: string; kind: 'cat' | 'req'; depth: number; parent: string }>
@@ -1424,10 +1429,11 @@ export default function AskBar({ devices }: Props) {
             })
           }
         }
+        /* 요구사항이 아직 없는 프로젝트도 뿌리로 세운다(지시: 프로젝트 다 나오게) */
+        for (const c of cats) if (!c.parent) putCat(c.id)
         nodes.sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name))
         setTcTree(nodes.map(({ sort: _s, ...n }) => n))
-        setTcAll(
-          (bt.tcs ?? [])
+        const every = (bt.tcs ?? [])
             .map((t) => ({
               tcid: String(t.tcid ?? ''),
               name: String(t.name ?? t.tcid ?? ''),
@@ -1436,14 +1442,16 @@ export default function AskBar({ devices }: Props) {
               status: String(t.status ?? ''),
               type: String(t.type ?? ''),
               steps: Number(t._cli_count ?? 0),
+              checks: Number(t._checks_count ?? t._cli_count ?? 0),
               chain: chainOf.get(String(t.req_id ?? '')) ?? [],
               path: nameOf.get(String(t.req_id ?? '')) ?? [],
               reqid: reqOf.get(String(t.req_id ?? ''))?.id ?? '',
               reqtitle: reqOf.get(String(t.req_id ?? ''))?.title ?? '',
             }))
-            // 스텝이 없는 항목은 가져와도 빈 절차다 — 고를 수 없게 둔다
-            .filter((t) => t.tcid && t.steps > 0),
-        )
+            .filter((t) => t.tcid)
+        setTcEvery(every)
+        // 스텝이 없는 항목은 가져와도 빈 절차다 — 대화 추천에서는 고를 수 없게 둔다
+        setTcAll(every.filter((t) => t.steps > 0))
       } catch {
         /* 목록을 못 읽으면 아래 「비슷한 항목」 만으로 고른다 */
       }
@@ -5092,7 +5100,7 @@ export default function AskBar({ devices }: Props) {
                 x.model.toLowerCase().includes(q) ||
                 (x.reqid ?? '').toLowerCase().includes(q) ||
                 (x.reqtitle ?? '').toLowerCase().includes(q)
-              const mine = tcAll.filter((x) => forMe(x) && hit(x))
+              const mine = tcEvery.filter((x) => forMe(x) && hit(x))
               /* 마디마다 그 **아래 전부**를 센다 — 폴더를 골라도 걸리게 */
               const cnt = new Map<string, number>()
               for (const t of mine) for (const nd of t.chain) cnt.set(nd, (cnt.get(nd) ?? 0) + 1)
@@ -5123,12 +5131,14 @@ export default function AskBar({ devices }: Props) {
               const kids = (pid: string) =>
                 tcTree.filter(
                   (n) =>
-                    n.parent === pid && (cnt.get(n.id) ?? 0) > 0 && inBranch(n.id, qFold),
+                    n.parent === pid && ((cnt.get(n.id) ?? 0) > 0 || pid === '') && inBranch(n.id, qFold),
                 )
               const near = new Map(like.map((x, i) => [x.tcid, i]))
               /* 골라 둔 자리에 볼 것이 없으면 **전체로 되돌린다** — 빈 목록
                  앞에서 「없습니다」 만 보고 있게 두지 않는다(지적 사진) */
-              const fold = !tcFold || (cnt.get(tcFold) ?? 0) > 0 ? tcFold : ''
+              const isRoot = (id: string) => tcTree.some((n) => n.id === id && !n.parent)
+              /* 비어 있는 **프로젝트**를 고른 것은 그대로 둔다 — 「항목이 없습니다」 를 보여야 한다 */
+              const fold = !tcFold || (cnt.get(tcFold) ?? 0) > 0 || isRoot(tcFold) ? tcFold : ''
               const rows = mine
                 .filter((x) => !fold || x.chain.includes(fold))
                 // 말과 비슷하다고 서버가 짚어 준 것을 맨 위로
@@ -5219,7 +5229,7 @@ export default function AskBar({ devices }: Props) {
                       <b className="rt-fname" title={nd.name}>
                         {nd.name}
                       </b>
-                      <span className="rt-cnt">{cnt.get(nd.id) ?? 0}</span>
+                      <span className={`rt-cnt${(cnt.get(nd.id) ?? 0) === 0 ? ' zero' : ''}`}>{cnt.get(nd.id) ?? 0}</span>
                     </div>
                     {open && kk.map((k2) => line(k2))}
                   </div>
@@ -5282,11 +5292,14 @@ export default function AskBar({ devices }: Props) {
                             <input
                               type="checkbox"
                               title="이 목록 전부 고르기"
-                              checked={rows.length > 0 && rows.every((x) => tcPick.has(x.tcid))}
+                              checked={
+                                rows.some((x) => (x.checks ?? 0) > 0) &&
+                                rows.filter((x) => (x.checks ?? 0) > 0).every((x) => tcPick.has(x.tcid))
+                              }
                               onChange={(e) =>
                                 setTcPick((v) => {
                                   const n2 = new Set(v)
-                                  for (const x of rows) {
+                                  for (const x of rows.filter((y) => (y.checks ?? 0) > 0)) {
                                     if (e.target.checked) n2.add(x.tcid)
                                     else n2.delete(x.tcid)
                                   }
@@ -5325,9 +5338,10 @@ export default function AskBar({ devices }: Props) {
                               )}
                           <tr
                             key={x.tcid}
-                            className={adopting ? 'busy' : ''}
+                            className={`${adopting ? 'busy' : ''}${(x.checks ?? 0) === 0 ? ' nostep' : ''}`}
+                            title={(x.checks ?? 0) === 0 ? '스텝이 없어 돌릴 수 없습니다 — REQ-Coverage 에서 스텝을 넣어 주세요' : undefined}
                             onClick={() => {
-                              if (adopting) return
+                              if (adopting || (x.checks ?? 0) === 0) return
                               setLikeAsk(false)
                               /* 무엇으로 정했는지 남기고 3단계로(지시: 목업) */
                               pickedLine('tc', tcDoneCard(x.tcid, x.name))
@@ -5340,6 +5354,7 @@ export default function AskBar({ devices }: Props) {
                             <td className="ck" onClick={(e) => e.stopPropagation()}>
                               <input
                                 type="checkbox"
+                                disabled={(x.checks ?? 0) === 0}
                                 checked={tcPick.has(x.tcid)}
                                 onChange={() =>
                                   setTcPick((v) => {
@@ -5365,7 +5380,7 @@ export default function AskBar({ devices }: Props) {
                             <td className="tc-id">{x.tcid}</td>
                             <td>
                               <b>{x.name}</b>
-                              <i>{x.steps}</i>
+                              {(x.checks ?? 0) > 0 ? <i>{x.checks}</i> : <em className="tc-nostep">스텝 없음</em>}
                             </td>
                             <td>{x.mgroup || '공용'}</td>
                             <td>{x.model || '–'}</td>
@@ -5396,7 +5411,9 @@ export default function AskBar({ devices }: Props) {
                     </table>
                     {rows.length === 0 && (
                       <div className="ask-likenone muted small">
-                        {tcAll.length === 0
+                        {fold && (cnt.get(fold) ?? 0) === 0
+                          ? `「${foldName}」 에는 시험 항목이 없습니다`
+                          : tcEvery.length === 0
                           ? '시험 항목을 읽지 못했습니다 — Coverage 에서 항목을 먼저 만들어 주세요'
                           : tcOnlyModel && myModel
                             ? (
