@@ -661,8 +661,8 @@ export default function AskBar({ devices }: Props) {
    * 나왔다. LLM 은 여기 없는 것은 지어내지 않으므로, 근거를 주는 만큼
    * 답이 자세해진다. */
   const buildFacts = (said0 = '') => {
-    const cnt = { ok: 0, busy: 0, part: 0, no: 0 }
-    const stName = { ok: '사용 가능', busy: '사용중', part: '일부 연결', no: '사용 불가' } as const
+    const cnt = { ok: 0, busy: 0, no: 0 }
+    const stName = { ok: '사용 가능', busy: '사용중', no: '사용 불가' } as const
     const rows: string[] = []
     let devUsed = 0
     usable.forEach((d) => {
@@ -744,7 +744,7 @@ export default function AskBar({ devices }: Props) {
       })()}`
     return (
       `장비: 전체 ${usable.length}대 — 사용 가능 ${cnt.ok} · 사용중 ${cnt.busy} · ` +
-      `일부 연결 ${cnt.part} · 사용 불가 ${cnt.no}\n` +
+      `사용 불가 ${cnt.no}\n` +
       `등록 장비 목록(모델 · IP · 상태 · 소속):\n${rows.join('\n') || '- 없음'}\n` +
       `시험 항목(REQ-Coverage): 총 ${tcAll.length}건 — 모델별 ${cntTxt || '없음'}\n` +
       `항목 목록(TC키 · 이름 · 모델):\n${tcRows.join('\n') || '- 없음'}${tcMore}` +
@@ -853,7 +853,7 @@ export default function AskBar({ devices }: Props) {
       열 머리 드롭다운에도 같은 거르개가 있지만, 가장 자주 쓰는 거르개가
       메뉴 속에 묻혀 있으면 두 번 눌러야 닿는다(목업: 탭으로 낸다).
       기본은 **사용 가능**(지시) — 고를 수 있는 것부터 보인다. */
-  const [devTab, setDevTab] = useState<'all' | 'ok' | 'busy' | 'part' | 'no'>('ok')
+  const [devTab, setDevTab] = useState<'all' | 'ok' | 'busy' | 'no'>('ok')
   /** 대화의 「전체에서 고르기」 로 열었으면 그 질문 — 표 위 안내 줄(목업)이 쓴다. 장비 단추로 열면 비운다 */
   const [devFromAsk, setDevFromAsk] = useState('')
   /** 「전체 보기」 를 누르기 전의 추림(검색어·열 거르개·탭) — 다시 누르면 되돌린다(지적: 다시 접히지 않는다) */
@@ -1576,8 +1576,8 @@ export default function AskBar({ devices }: Props) {
     if (!String(d.ip ?? '').trim() || (!cli && !snmp)) return { k: 'no' as const, label: '사용 불가' }
     const lk = lockBy.get(String(d.id))
     if (lk) return { k: 'busy' as const, label: `사용중 — ${lk.who}` }
-    if (cli && snmp) return { k: 'ok' as const, label: '사용 가능' }
-    return { k: 'part' as const, label: '일부 연결' }
+    /* 「일부 연결」(CLI·SNMP 중 하나만 붙음)은 따로 두지 않는다(지시: 셋만) — 쓸 수는 있다 */
+    return { k: 'ok' as const, label: '사용 가능' }
   }
 
   /** 1단계 말풍선 — **후보 장비를 대화 안에 카드로** 편다(사용자 결정).
@@ -4649,11 +4649,12 @@ export default function AskBar({ devices }: Props) {
                               why: `UTOP에서 사용 중 — ${lk.who}${lk.what ? ` 가 ${lk.what} 실행 중` : ' 가 쓰는 중'}`,
                             }
                           if (cli && snmp) return { k: 'ok', label: '사용 가능', why: '' }
-                          /* 반만 붙는 장비 — 쓸 수는 있지만 못 도는 시험이 있다 */
+                          /* 반만 붙는 장비 — **사용 가능**으로 센다(지시: 일부 연결은 빼고 셋만).
+                             못 도는 시험이 있으니 까닭은 상태 칸 풍선에 남긴다 */
                           return {
-                            k: 'part',
-                            label: '일부 연결',
-                            why: !snmp ? 'SNMP 미등록 — SNMP 시험은 못 돌립니다' : 'CLI 접속 불가',
+                            k: 'ok',
+                            label: '사용 가능',
+                            why: !snmp ? 'SNMP 미등록 — SNMP 시험은 못 돌립니다' : 'CLI 접속 불가 — CLI 시험은 못 돌립니다',
                           }
                         }
                         const q = devQ.trim().toLowerCase()
@@ -4676,7 +4677,7 @@ export default function AskBar({ devices }: Props) {
                         /* **쓸 수 있는 것부터**(지시: 목업) — LAB 순으로만 세우면
                            못 쓰는 장비가 맨 위에 서서, 고를 수 있는 것을 찾아 스무
                            줄을 내려가야 한다. */
-                        const kOrd: Record<string, number> = { ok: 0, part: 1, busy: 2, no: 3 }
+                        const kOrd: Record<string, number> = { ok: 0, busy: 1, no: 2 }
                         const rows = base.filter((d) => devTab === 'all' || readyOf(d).k === devTab).sort((a, b) => {
                           const kk = (kOrd[readyOf(a).k] ?? 9) - (kOrd[readyOf(b).k] ?? 9)
                           if (kk) return kk
@@ -4828,7 +4829,6 @@ export default function AskBar({ devices }: Props) {
                                   ['all', '전체'],
                                   ['ok', '사용 가능'],
                                   ['busy', '사용중'],
-                                  ['part', '일부 연결'],
                                   ['no', '사용 불가'],
                                 ] as const
                               ).map(([k, label]) => {
@@ -4865,7 +4865,7 @@ export default function AskBar({ devices }: Props) {
                                   <span className="dv-ro">RO</span>
                                   <span className="dv-rw">RW</span>
                                   <span className="dv-if">인터페이스</span>
-                                  {hf('ready', '상태', 'dv-ready hd', ['사용 가능', '사용중', '일부 연결', '사용 불가능'])}
+                                  {hf('ready', '상태', 'dv-ready hd', ['사용 가능', '사용중', '사용 불가능'])}
                                 </span>
                                 {rows.length ? (
                                   rows.map((d, ri) => {
