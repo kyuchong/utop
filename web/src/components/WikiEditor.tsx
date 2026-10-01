@@ -411,7 +411,10 @@ export default function WikiEditor({
         const r = await apiFetch(isImg ? '/api/upload/image' : '/api/upload/file', { method: 'POST', body: fd })
         if (!r.ok) {
           const d = ((await r.json().catch(() => ({}))) as { detail?: string }).detail
-          throw new Error(d || (isImg ? '그림을 올리지 못했습니다' : '파일을 올리지 못했습니다'))
+          const why = d || (isImg ? '그림을 올리지 못했습니다' : '파일을 올리지 못했습니다') + ` (${r.status})`
+          /* 편집기 창은 「오류: 업로드 실패」 만 적고 까닭을 버린다(지적) — 까닭을 따로 띄운다 */
+          window.alert(`${nm} 을(를) 올리지 못했습니다.\n\n${why}`)
+          throw new Error(why)
         }
         return ((await r.json()) as { url: string }).url
       },

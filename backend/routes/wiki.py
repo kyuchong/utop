@@ -98,15 +98,16 @@ async def _help_guard(c, pid: str, payload: dict | None = None) -> None:
 #
 # 받기는 로그인 없이 열린다(main 의 _AUTH_PUBLIC) — 본문의 링크·<video> 는
 # 헤더를 못 붙이기 때문이다. 그림 주소와 같게, 추측할 수 없는 이름이 문이다.
-# 실행·스크립트 파일은 받지 않고, 브라우저가 열 수 있는 것(PDF·동영상·소리·
-# 글)만 그 자리에서 열고 나머지는 내려받기로 준다. 글·HTML 은 늘 내려받기 —
-# 같은 주소에서 스크립트가 돌지 않게.
+# 실행 파일(.exe·.bat·.ps1 …)만 받지 않는다. 브라우저가 열 수 있는 것(PDF·동영상·
+# 소리)만 그 자리에서 열고, 나머지 — 글·HTML·스크립트·확장자 없는 로그(running-config
+# 같은 것)까지 — 는 늘 내려받기(octet-stream·nosniff)로 준다. 같은 주소에서
+# 스크립트가 돌 일이 없으므로 HTML 보고서·.sh 도 받는다(지적: 업로드 실패).
 # ───────────────────────────────────────────
 WIKI_FILE_DIR = core.DATA_DIR / "wiki_files"
 WIKI_FILE_MAX = 50 * 1024 * 1024        # nginx 는 100m 까지 통과시킨다
 _WIKI_FILE_BLOCK = {
-    ".exe", ".msi", ".dll", ".com", ".scr", ".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse",
-    ".wsf", ".hta", ".jar", ".sh", ".php", ".html", ".htm", ".xhtml", ".svgz", ".lnk", ".reg",
+    ".exe", ".msi", ".dll", ".com", ".scr", ".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".jse",
+    ".wsf", ".hta", ".jar", ".lnk", ".reg", ".cpl", ".msc", ".pif",
 }
 _WIKI_FILE_INLINE = {
     ".pdf": "application/pdf",
@@ -121,15 +122,21 @@ async def upload_wiki_file(file: UploadFile = File(...)):
     from pathlib import Path as _P
     orig = _P(file.filename or "").name or "file"
     ext = _P(orig).suffix.lower()
-    if not ext or len(ext) > 12 or not re.fullmatch(r"\.[a-z0-9]+", ext):
-        raise HTTPException(400, "확장자가 있는 파일만 올릴 수 있습니다")
+    # 확장자 없는 파일(장비 로그·running-config)도 받는다. 꼴이 이상한 꼬리는 떼고 둔다
+    if not re.fullmatch(r"\.[a-z0-9]{1,12}", ext):
+        ext = ""
+
+    def _no(code: int, why: str):
+        print(f"[wiki-upload] 거절 {orig!r}: {why}", flush=True)   # 화면이 까닭을 놓쳐도 여기 남는다
+        raise HTTPException(code, why)
+
     if ext in _WIKI_FILE_BLOCK:
-        raise HTTPException(400, f"{ext} 파일은 올릴 수 없습니다 (실행·스크립트 파일) — zip 으로 묶어 올리세요")
+        _no(400, f"{ext} 파일은 올릴 수 없습니다 (실행 파일) — zip 으로 묶어 올리세요")
     raw = await file.read(WIKI_FILE_MAX + 1)
     if not raw:
-        raise HTTPException(400, "빈 파일입니다")
+        _no(400, "빈 파일입니다")
     if len(raw) > WIKI_FILE_MAX:
-        raise HTTPException(413, f"{WIKI_FILE_MAX // 1024 // 1024}MB 이하만 올릴 수 있습니다")
+        _no(413, f"{WIKI_FILE_MAX // 1024 // 1024}MB 이하만 올릴 수 있습니다")
     WIKI_FILE_DIR.mkdir(parents=True, exist_ok=True)
     name = f"{int(datetime.now().timestamp() * 1000)}-{_secrets.token_hex(6)}{ext}"
     (WIKI_FILE_DIR / name).write_bytes(raw)
@@ -141,7 +148,7 @@ async def upload_wiki_file(file: UploadFile = File(...)):
 @router.get("/api/wiki-files/{name}")
 async def get_wiki_file(name: str, n: str = "", download: str = ""):
     """첨부 받기 — 브라우저가 열 수 있는 것만 그 자리에서, 나머지는 내려받기."""
-    if not re.fullmatch(r"[0-9]+-[0-9a-f]+\.[a-z0-9]+", name or ""):
+    if not re.fullmatch(r"[0-9]+-[0-9a-f]+(\.[a-z0-9]{1,12})?", name or ""):
         raise HTTPException(400, "잘못된 파일명입니다")
     f = WIKI_FILE_DIR / name
     if not f.is_file():
@@ -152,7 +159,7 @@ async def get_wiki_file(name: str, n: str = "", download: str = ""):
     from urllib.parse import quote as _q
     from pathlib import Path as _P
     show = _P(str(n or "")).name.strip() or name
-    if not show.lower().endswith(ext):
+    if ext and not show.lower().endswith(ext):
         show += ext                      # 꼬리 이름을 바꿔 다른 종류로 받게 하지 못한다
     disp = f"filename*=UTF-8''{_q(show)}"
     return FileResponse(
