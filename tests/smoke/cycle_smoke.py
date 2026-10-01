@@ -116,6 +116,26 @@ r = c.get("/api/procedures"); ok("절차 목록", r.status_code == 200, r.text[:
 r = c.get("/api/results"); ok("결과 목록", r.status_code == 200, r.text[:80])
 r = c.get("/api/pptx-templates"); ok("PPTX 양식 목록", r.status_code == 200, r.text[:80])
 
+# 실행이 장비를 점유한다(2026-10-01, 지적: Cycles 에서 시험 중인데 「사용중」 으로 안 변한다)
+# 사이클 항목에 devId 가 없어도 **시험 항목의 세션 장비**를 잡고, 실행이 끝나면(여기선 대기 중 멈춤) 놓는다
+_lt, _lc, _ld = "SMK-LOCK-T1", "cyc-smk-lock", "10.9.9.9"
+r = c.post(f"/api/tc/{_lt}", json={"tcid": _lt, "name": "점유 시험", "sessions": [_ld],
+                                   "steps": [{"cmd": "show ver", "type": "contains", "expected": "ver"}]})
+ok("세션 장비가 있는 항목", r.status_code == 200, r.text[:80])
+r = c.post(f"/api/cycle/{_lc}", json={"id": _lc, "name": "점유 스모크", "items": [{"tcid": _lt, "name": "점유 시험"}]})
+ok("항목 devId 없는 사이클", r.status_code == 200, r.text[:80])
+r = c.post("/api/runs", json={"cycle_id": _lc, "pick": [_lt]})
+ok("실행 걸기", r.status_code == 200, r.text[:120])
+_rid = ((r.json() or {}).get("run") or {}).get("id") or (r.json() or {}).get("id") or ""
+_lk = [l for l in c.get("/api/locks").json().get("locks", []) if l.get("resource_id") == _ld]
+ok("실행이 세션 장비를 점유(사용중)", bool(_lk) and _lk[0].get("cycle_id") == _lc and _lk[0].get("note") == "실행", str(_lk)[:160])
+r = c.post(f"/api/runs/{_rid}/stop")
+ok("대기 중 멈추기", r.status_code == 200, r.text[:120])
+_lk = [l for l in c.get("/api/locks").json().get("locks", []) if l.get("resource_id") == _ld]
+ok("실행이 끝나면 점유를 놓는다", not _lk, str(_lk)[:160])
+c.delete(f"/api/cycle/{_lc}")
+c.delete(f"/api/tc/{_lt}")
+
 # 정리
 r = c.delete(f"/api/cycle/{cid}"); ok("사이클 지우기", r.status_code == 200, r.text[:80])
 ok("지운 뒤 404/빈값", c.get(f"/api/cycle/{cid}").status_code in (404, 200))

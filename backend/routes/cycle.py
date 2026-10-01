@@ -225,8 +225,13 @@ async def acquire_locks_bulk(body: LockBulkIn, request: Request):
 
     막힌 자리는 「누가 · 어느 플랜에서」 까지 돌려준다.
     """
-    me = core.me(request)
-    ids = [str(x).strip() for x in (body.resource_ids or []) if str(x).strip()]
+    return await _lock_bulk(body.resource_ids or [], body.kind, core.me(request), body.cycle_id, body.note)
+
+
+async def _lock_bulk(resource_ids: list, kind: str, me: dict, cycle_id, note) -> dict:
+    """여러 자원을 한꺼번에 잡는다 — 남이 잡은 것이 하나라도 있으면 아무것도 안 잡는다.
+    /api/locks/bulk 와 실행 걸기(/api/runs)가 같이 쓴다."""
+    ids = [str(x).strip() for x in (resource_ids or []) if str(x).strip()]
     if not ids:
         return {"success": True, "locked": [], "blocked": []}
 
@@ -254,15 +259,15 @@ async def acquire_locks_bulk(body: LockBulkIn, request: Request):
                 await c.execute(
                     "UPDATE resource_lock SET heartbeat_at=now(), cycle_id=COALESCE($2, cycle_id) "
                     "WHERE resource_id=$1",
-                    rid, body.cycle_id,
+                    rid, cycle_id,
                 )
                 continue
             await c.execute(
                 """INSERT INTO resource_lock
                    (resource_id, kind, locked_by, locked_name, cycle_id, note)
                    VALUES ($1,$2,$3,$4,$5,$6)""",
-                rid, body.kind, mine_name, me.get("name") or mine_name,
-                body.cycle_id, body.note,
+                rid, kind, mine_name, me.get("name") or mine_name,
+                cycle_id, note,
             )
     return {"success": True, "locked": ids, "blocked": []}
 
@@ -5825,6 +5830,43 @@ async def run_queue(payload: dict, request: Request):
             "끝나거나 멈춘 뒤에 다시 거세요.",
         )
 
+    # **실행이 쓰는 장비를 점유한다**(지적: Cycles 에서 시험 중인데 장비가 「사용중」 으로 안 변한다).
+    # 화면은 사이클 항목의 devId 로만 잡았는데, 실행기는 **시험 항목의 세션(sessions)** 장비로
+    # 돈다 — 항목에 devId 가 없는 사이클(대부분)은 아무것도 안 잡혔다. 실행기가 고르는 바로 그
+    # 장비를 여기서 잡는다. 남이 잡은 장비가 있으면 걸지 않는다. 놓는 것은 여태처럼 「시험 완료」.
+    try:
+        async with db.pool().acquire() as _c:
+            _rows = await _c.fetch(
+                "SELECT data->'sessions' AS s FROM tc WHERE tcid = ANY($1::text[])", picked
+            )
+        _devs: list[str] = []
+        for _r in _rows:
+            _ss = _r["s"]
+            if isinstance(_ss, str):
+                try:
+                    _ss = json.loads(_ss)
+                except Exception:  # noqa: BLE001
+                    _ss = []
+            for _d in (_ss if isinstance(_ss, list) else []):
+                _d = str(_d or "").strip()
+                if _d and _d not in _devs:
+                    _devs.append(_d)
+    except Exception:  # noqa: BLE001
+        _devs = []
+    if _devs:
+        _lk = await _lock_bulk(_devs, "device", core.me(request), cycle_id, "실행")
+        if not _lk.get("success"):
+            _who = " · ".join(
+                f"{b.get('resource_id')} — {b.get('locked_name') or b.get('locked_by') or '누군가'}"
+                + (f" ({b.get('cycle_name')})" if b.get("cycle_name") else "")
+                for b in _lk.get("blocked") or []
+            )
+            raise HTTPException(
+                409,
+                f"다른 사람이 쓰고 있는 장비가 있어 실행할 수 없습니다 — {_who}. "
+                "그 사람이 반납하거나 관리자가 장비 화면에서 풀어야 합니다.",
+            )
+
     # 누가 걸었나. 화면에 「누가 돌리고 있나」 를 보여야 남이 멈추기 전에
     # 한 번 묻게 된다.
     who = ""
@@ -5933,12 +5975,30 @@ async def run_resume_api(run_id: str, payload: dict):
     return {"ok": True, "run": run}
 
 
+async def _release_run_locks(cycle_id: str) -> None:
+    """실행이 잡은 장비(note='실행')를 놓는다 — 실행이 끝나면 「사용중」 도 끝난다.
+
+    항목 devId 로 화면이 잡은 점유(note 없음)는 여태처럼 「시험 완료」 가 놓는다.
+    실행 점유까지 「시험 완료」 에 맡기면, 스텝 없는 항목이 있어 완료를 못 누르는
+    사이클의 장비가 영영 「사용중」 으로 남는다."""
+    if not cycle_id:
+        return
+    try:
+        async with db.pool().acquire() as c:
+            await c.execute("DELETE FROM resource_lock WHERE cycle_id=$1 AND note='실행'", cycle_id)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 @router.post("/api/runs/{run_id}/stop")
 async def run_stop(run_id: str):
     ok = await db.run_stop_ask(run_id)
     run = await db.run_get(run_id)
     if run:
         await _run_push(run)
+        # 줄에서 기다리다 멈춘 것처럼 실행기가 끝 보고를 안 할 실행은 여기서 놓는다
+        if str(run.get("status") or "") not in ("running", "queued"):
+            await _release_run_locks(str(run.get("cycle_id") or ""))
     return {"ok": ok, "run": run}
 
 
@@ -6181,6 +6241,7 @@ async def run_done(run_id: str, payload: dict):
     )
     if run is None:
         raise HTTPException(404, "실행을 찾을 수 없습니다")
+    await _release_run_locks(str(run.get("cycle_id") or ""))
     await _mirror_plan_run(run)
     await _run_push(run, logs)
     # Cycles 알림(지시) — 실행한 사람에게. 뒤에서 돌고, 실행기 응답을 막지 않는다
