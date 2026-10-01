@@ -187,10 +187,8 @@ export default function AboutSettings() {
                 )}
               </dd>
               <dt>발급 ID</dt>
-              <dd className="mono">
-                {lic.id || '-'}
-                {lic.fp && <span className="muted small"> · 지문 {lic.fp}</span>}
-              </dd>
+              {/* 지문(파일 해시)은 화면에서 뺐다(지시) — 발급기 기록과 맞춰 볼 수 없어 쓸모가 없었다. 서버에는 남는다 */}
+              <dd className="mono">{lic.id || '-'}</dd>
               <dt>발급</dt>
               <dd>
                 {lic.issuer || '-'}
