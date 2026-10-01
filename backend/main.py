@@ -877,6 +877,60 @@ async def _server_timing(request, call_next):
     return resp
 
 
+_LIC_GATE: dict = {"at": 0.0, "v": None}
+
+
+def _license_gate_now() -> dict:
+    """보기 전용인가 — 10초 기억. 판단은 licensing.gate 한 곳(시험이 그것을 본다)."""
+    import time as _tm
+    from datetime import timedelta as _td
+    t = _tm.time()
+    if _LIC_GATE["v"] is not None and t - _LIC_GATE["at"] < 10:
+        return _LIC_GATE["v"]
+    d = _kv_load_sync("license", None)
+    d = d if isinstance(d, dict) else {}
+    doc = _license_doc()
+    now = datetime.now()
+    ck = _kv_load_sync("license_clock", None)
+    cmax = None
+    try:
+        cmax = datetime.fromisoformat(str((ck or {}).get("max"))) if (ck or {}).get("max") else None
+    except Exception:
+        cmax = None
+    v = _licensing.gate(doc, ever=bool(d.get("ever")), enforce=os.environ.get("UTOP_LICENSE_ENFORCE", ""),
+                        now=now, clock_max=cmax)
+    # 등록된 라이선스가 있을 때만 시계를 적는다 — 5분에 한 번
+    if doc.get("status") != "none" and (cmax is None or now > cmax + _td(minutes=5)):
+        try:
+            _kv_save_sync("license_clock", {"max": now.isoformat(timespec="seconds")})
+        except Exception:
+            pass
+    _LIC_GATE.update(at=t, v=v)
+    return v
+
+
+def _license_refuse(request, path: str, uname: str = ""):
+    """보기 전용이면 쓰기를 거절한다(지시: 만료되면 Jira 식 읽기 전용).
+
+    보기(GET)·내보내기·로그인·라이선스 등록은 늘 연다. 실행기(runner 세션)는 돌던
+    일을 끝까지 하게 두고, 새 일감 받기만 「일감 없음」 으로 돌려 조용히 쉬게 한다."""
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return None
+    if path == "/api/runner/claim":
+        g = _license_gate_now()
+        if g["blocked"]:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"run": None, "license_blocked": True, "detail": _licensing.refuse_text(g["why"])})
+        return None
+    if uname == "runner" or _licensing.write_open(path):
+        return None
+    g = _license_gate_now()
+    if not g["blocked"]:
+        return None
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"detail": _licensing.refuse_text(g["why"]), "license_blocked": True}, status_code=403)
+
+
 @app.middleware("http")
 async def _require_login(request, call_next):
     path = request.url.path
@@ -895,6 +949,10 @@ async def _require_login(request, call_next):
         return await call_next(request)      # 화면·정적 파일은 통과
     if any(path.startswith(p) for p in _AUTH_PUBLIC):
         _REQ_TOKEN.set(_token_from(request))
+        # 열린 자리도 보기 전용이면 쓰기는 막는다(브랜딩 그림 바꾸기 등) — 실행기 보고·로그인은 연다
+        _rf = _license_refuse(request, path)
+        if _rf is not None:
+            return _rf
         return await call_next(request)
 
     _tok = _token_from(request)
@@ -907,6 +965,9 @@ async def _require_login(request, call_next):
     # 아래 코드가 '누가 했는지' 를 알 수 있게 실어 보낸다
     request.state.user = s
     _CUR_SESSION.set(s)
+    _rf = _license_refuse(request, path, str(s.get("username") or ""))
+    if _rf is not None:
+        return _rf
     return await call_next(request)
 
 
@@ -3202,7 +3263,7 @@ async def api_about():
     sess = _CUR_SESSION.get() or {}
     u = _find_user(str(sess.get("username") or "")) or {}
     admin = u.get("role") == "관리자"
-    out = {**_about_version(), "license": _license_doc(), "can_manage": admin}
+    out = {**_about_version(), "license": {**_license_doc(), "gate": _license_gate_now()}, "can_manage": admin}
     if admin:
         # 발급 담당자에게 보낼 「UTOP MACHINE INFO」 — 관리자만 본다
         m = _licensing.host_machine()
@@ -3229,16 +3290,22 @@ async def api_license_file(payload: dict, token: str = ""):
     lic["registered_at"] = datetime.now().isoformat(timespec="seconds")
     lic["registered_by"] = str(u.get("username") or "")
     lic["text"] = text.strip()
+    lic["ever"] = True          # 한 번 등록된 서버 — 「등록 해제」 로 보기 전용을 풀지 못한다
     _kv_save_sync("license", lic)
-    return {"ok": True, "license": _license_doc()}
+    _LIC_GATE["v"] = None
+    return {"ok": True, "license": {**_license_doc(), "gate": _license_gate_now()}}
 
 
 @app.post("/api/license/clear")
 async def api_license_clear(token: str = ""):
     """등록 해제(관리자) — 미등록 상태로 돌아간다."""
     _require_admin(token)
-    _kv_save_sync("license", {})
-    return {"ok": True, "license": _license_doc()}
+    old = _kv_load_sync("license", None)
+    old = old if isinstance(old, dict) else {}
+    # 한 번이라도 등록됐던 서버면 「등록됐었다」 는 남긴다 — 해제해도 보기 전용이 풀리지 않게
+    _kv_save_sync("license", {"ever": True} if (old.get("ever") or old.get("until")) else {})
+    _LIC_GATE["v"] = None
+    return {"ok": True, "license": {**_license_doc(), "gate": _license_gate_now()}}
 
 
 
@@ -4356,6 +4423,8 @@ async def _db_init():
         # 캐시에 박히고 다음 저장이 DB 를 덮어쓴다 — 위 형제들이 겪은 그 덫.
         # (도움말 편집자 목록 help_editors 는 걷었다 — 페이지별 접근 권한 격자가 맡는다)
         ("license", DATA_DIR / "license.json"),
+        # 라이선스 시계 — 서버가 본 가장 늦은 시각(시계 되돌리기 막기). 등록을 빼면 재시작마다 날아간다
+        ("license_clock", DATA_DIR / "license_clock.json"),
     ]
     for _key, _fp in _KV_MIGRATIONS:
         _kv_register_fallback(_key, _fp)

@@ -188,3 +188,38 @@ def test_machine_text_and_parse_macs():
     # 발급기에 붙여 넣는 글을 그대로 다시 읽을 수 있어야 한다 — "mac:" 의 "ac:" 는 MAC 이 아니다
     assert licensing.parse_macs(t) == ["B0:22:7A:E2:76:FD"]
     assert licensing.parse_macs("01:00:5E:00:00:01 FF:FF:FF:FF:FF:FF 00:00:00:00:00:00") == []
+
+
+# ── 보기 전용(Jira 식, 2026-10-01) ─────────────────────────────────────────
+def test_gate_blocks_expired_wrong_machine_not_yet():
+    for st in ("expired", "wrong_machine", "not_yet"):
+        g = licensing.gate({"status": st})
+        assert g["blocked"] and g["why"] and g["mode"] == "registered"
+    assert not licensing.gate({"status": "ok"})["blocked"]
+    assert not licensing.gate({"status": "warn"})["blocked"]
+
+
+def test_gate_unregistered_depends_on_mode_and_history():
+    # 기본: 한 번도 등록 안 된 서버는 막지 않는다(213·252 같은 미등록 서버를 갑자기 세우지 않게)
+    assert not licensing.gate({"status": "none"})["blocked"]
+    # 한 번 등록됐던 서버는 「등록 해제」 해도 풀리지 않는다
+    assert licensing.gate({"status": "none"}, ever=True)["blocked"]
+    # .env 1 이면 미등록도 막고, 0 이면 다 연다
+    assert licensing.gate({"status": "none"}, enforce="1")["blocked"]
+    assert not licensing.gate({"status": "expired"}, enforce="0")["blocked"]
+
+
+def test_gate_clock_rollback():
+    now = dt.datetime(2026, 10, 1, 12, 0)
+    assert licensing.gate({"status": "ok"}, now=now, clock_max=now + dt.timedelta(minutes=5))["blocked"] is False
+    g = licensing.gate({"status": "ok"}, now=now, clock_max=now + dt.timedelta(hours=3))
+    assert g["blocked"] and "시계" in g["why"]
+
+
+def test_write_open_paths():
+    for p in ("/api/login", "/api/license/file", "/api/prefs", "/api/export/xlsx", "/api/wiki/pdf",
+              "/api/runner/r1/progress", "/api/locks/abc/heartbeat", "/api/notifications/read"):
+        assert licensing.write_open(p), p
+    for p in ("/api/tc", "/api/run-cli-stream", "/api/runs", "/api/wiki/wk-1", "/api/upload/file",
+              "/api/ai/cov-chat", "/api/devices2", "/api/branding/login-logo"):
+        assert not licensing.write_open(p), p

@@ -58,6 +58,8 @@ services:
       N2X_RELAY_URL: ${N2X_RELAY_URL:-}
       N2X_RELAY_KEY: ${N2X_RELAY_KEY:-}
       TZ: ${TZ:-Asia/Seoul}
+      # 라이선스 강제 — 빈 값(기본): 한 번이라도 등록된 서버만 만료 시 보기 전용 · 1: 미등록도 보기 전용 · 0: 끔
+      UTOP_LICENSE_ENFORCE: ${UTOP_LICENSE_ENFORCE:-}
     volumes:
       - app-data:/app/data
       # 라이선스 장비 확인 — 컨테이너는 가상 NIC·가상 호스트명만 보므로 호스트의 /sys 와

@@ -767,6 +767,12 @@ button.tpa-btn { cursor: pointer; }
 .tpa-btn.lic.warn { color: #ffcf6e; }
 .tpa-btn.lic.bad { color: #ff8a80; }
 .tpa-btn.lic.none { color: rgb(255 255 255 / 55%); }
+/* 보기 전용 띠 — 라이선스가 만료·다른 장비면 상단바에 늘 선다 */
+.tpa-ro {
+  display: inline-flex; align-items: center; height: 26px; padding: 0 10px; margin-right: 6px;
+  border-radius: 13px; background: #d93838; color: #fff; font-size: 12px; font-weight: 700;
+  white-space: nowrap; cursor: help; box-shadow: 0 0 0 2px rgb(255 255 255 / 18%);
+}
 .tpa-tip {
   display: none;
   position: absolute;

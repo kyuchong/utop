@@ -420,17 +420,28 @@ function TopAbout({ helpOn, onHelp }: { helpOn: boolean; onHelp: () => void }) {
   const [a, setA] = useState<{
     version: string
     git_sha: string
-    license: { until: string; days_left: number | null; holder: string; status: string; left_short: string }
+    license: {
+      until: string
+      days_left: number | null
+      holder: string
+      status: string
+      left_short: string
+      gate?: { blocked: boolean; why: string }
+    }
   } | null>(null)
   useEffect(() => {
-    void (async () => {
+    const load = async () => {
       try {
         const r = await apiFetch('/api/about', { cache: 'no-store' })
         if (r.ok) setA(await r.json())
       } catch {
         /* 못 받아도 머리줄은 돈다 — 도움말 단추는 그대로 */
       }
-    })()
+    }
+    void load()
+    /* 화면을 켜 둔 채 만료되는 일이 있다(1시간짜리 시험 라이선스) — 1분마다 다시 본다 */
+    const t = window.setInterval(() => void load(), 60_000)
+    return () => window.clearInterval(t)
   }, [])
   const ver = a?.version ? `v${a.version}` : '—'
   /* 커밋 해시는 여기 안 적는다(지시: 버전명만) — SETUP › 버전·라이선스에서 본다 */
@@ -446,6 +457,15 @@ function TopAbout({ helpOn, onHelp }: { helpOn: boolean; onHelp: () => void }) {
   const licTip = `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}${lic?.holder ? ` · ${lic.holder}` : ''}`
   return (
     <div className="tpa" role="group" aria-label="버전·라이선스·도움말">
+      {/* 보기 전용(지시: 만료되면 Jira 식 읽기 전용) — 모든 사람이 늘 보는 자리에 */}
+      {lic?.gate?.blocked && (
+        <span
+          className="tpa-ro"
+          title={`${lic.gate.why} — 보기만 할 수 있습니다. 만들기·고치기·실행이 막혀 있습니다. SETUP › 버전·라이선스에서 새 파일을 등록하면 풀립니다.`}
+        >
+          보기 전용 · {lic.gate.why}
+        </span>
+      )}
       <span className="tpa-btn" title={verTip} tabIndex={0} aria-label={verTip}>
         <IconTag />
         <span className="tpa-tip" aria-hidden="true">

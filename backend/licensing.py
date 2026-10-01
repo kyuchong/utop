@@ -371,3 +371,60 @@ def gen_keypair() -> tuple[bytes, str]:
                           serialization.NoEncryption())
     pub = k.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex()
     return pem, pub
+
+
+# ── 보기 전용(2026-10-01, 지시: 만료되면 Jira 식 읽기 전용) ──────────────────
+# 만료·다른 장비·시작 전이면 **보기만** 된다 — 만들기·고치기·지우기·실행·AI 생성이 막힌다.
+# 데이터는 붙잡지 않는다: 보기(GET 전부)·내보내기·PDF·로그인·라이선스 등록은 늘 열린다.
+# 막는 자리는 서버 미들웨어 한 곳(main._require_login) — 화면만 막으면 API 로 돌아간다.
+
+LOCK_STATUS = {"expired": "라이선스가 만료됐습니다", "wrong_machine": "이 서버용 라이선스가 아닙니다",
+               "not_yet": "라이선스 시작 전입니다"}
+
+# 보기 전용이어도 열어 두는 쓰기 자리(앞머리). 실행기의 진행·끝 보고는 「돌던 일은 끝까지」 라 연다
+# — 새 일감 받기(/api/runner/claim)는 main 이 따로 「일감 없음」 으로 돌려 막는다.
+_OPEN_WRITE = (
+    "/api/login", "/api/logout", "/api/health",
+    "/api/license/",                      # 새 파일을 넣어야 풀린다
+    "/api/prefs", "/api/views",           # 보기 설정(개인·팀) — 자료가 아니라 화면 상태
+    "/api/notifications/read", "/api/me/change-password", "/api/me/avatar",
+    "/api/locks",                         # 점유 잡기·놓기 — 자료를 바꾸지 않는다
+    "/api/export/", "/api/wiki/pdf", "/api/pptx-render",       # 내보내기
+    "/api/ai/search-all", "/api/rag/search", "/api/confluence/search",   # 찾기
+    "/api/runner/",                       # 실행기 로그인·진행·끝(claim 은 main 이 먼저 막는다)
+    "/api/n2x/send",                      # N2X 중계(서버끼리, 자기 열쇠)
+)
+
+
+def write_open(path: str) -> bool:
+    """보기 전용이어도 이 쓰기 자리는 연다."""
+    return any(str(path or "").startswith(p) for p in _OPEN_WRITE)
+
+
+def gate(doc: dict, *, ever: bool = False, enforce: str = "", now: "_dt.datetime | None" = None,
+         clock_max: "_dt.datetime | None" = None) -> dict:
+    """지금 보기 전용인가 — {"blocked", "why", "mode"}.
+
+    enforce(.env UTOP_LICENSE_ENFORCE): "0" 끔 · "1" 미등록도 막음 · 빈 값(기본) 등록된 적 있는 서버만.
+    ever: 이 서버에 라이선스가 한 번이라도 등록됐었나 — 만료 파일을 「등록 해제」 해서 풀지 못하게.
+    clock_max: 서버가 본 가장 늦은 시각 — 시계를 10분 넘게 되돌리면 막는다(만료를 피하려는 것)."""
+    e = str(enforce or "").strip().lower()
+    mode = "off" if e in ("0", "off", "false", "no") else "always" if e in ("1", "on", "true", "yes") else "registered"
+    st = str((doc or {}).get("status") or "none")
+    out = {"blocked": False, "why": "", "mode": mode}
+    if mode == "off":
+        return out
+    if st in LOCK_STATUS:
+        return {**out, "blocked": True, "why": LOCK_STATUS[st]}
+    if st == "none":
+        if mode == "always" or ever:
+            return {**out, "blocked": True, "why": "라이선스가 등록돼 있지 않습니다"}
+        return out
+    now = now or _dt.datetime.now()
+    if clock_max and now < clock_max - _dt.timedelta(minutes=10):
+        return {**out, "blocked": True, "why": "서버 시계가 뒤로 갔습니다 — 시계를 맞추세요"}
+    return out
+
+
+def refuse_text(why: str) -> str:
+    return f"{why} — 보기만 할 수 있습니다. SETUP › 버전·라이선스에서 새 라이선스 파일을 등록하세요"

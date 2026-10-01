@@ -39,6 +39,8 @@ interface License {
   left_text: string
   machine: { hostname?: string; macs?: string[] }
   machine_check: { ok: boolean; reason: string } | null
+  /** 보기 전용인가 — mode: off(끔) · registered(등록된 적 있는 서버만) · always(미등록도) */
+  gate?: { blocked: boolean; why: string; mode: 'off' | 'registered' | 'always' }
 }
 interface ServerMachine {
   hostname: string
@@ -147,6 +149,17 @@ export default function AboutSettings() {
           <span className={`abt-badge ${st.tone}`}>{st.label}</span>
         </div>
         <p className="muted">발급처(ubiQuoss)가 서명한 라이선스 파일(.lic)을 등록하면 서버가 서명을 확인하고 아래에 상태가 보입니다. 손으로 고치는 칸은 없습니다.</p>
+        {lic?.gate?.blocked && (
+          <p className="abt-note bad">
+            <b>지금 이 서버는 보기 전용입니다</b> — {lic.gate.why}. 보기·내보내기는 되지만 만들기·고치기·지우기·실행·AI 생성이 막혀 있습니다.
+            돌던 실행은 끝까지 돕니다. 새 라이선스 파일을 등록하면 바로 풀립니다.
+          </p>
+        )}
+        {lic?.gate && !lic.gate.blocked && lic.status === 'none' && lic.gate.mode === 'registered' && (
+          <p className="muted small">
+            이 서버는 아직 라이선스가 등록된 적이 없어 막지 않습니다. 한 번 등록한 뒤로는 만료·등록 해제 시 보기 전용이 됩니다.
+          </p>
+        )}
 
         {has && lic ? (
           <>
