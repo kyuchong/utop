@@ -11222,3 +11222,94 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
    1열 카드 오른쪽 실금(스트립 왼끝) 위에 겹친다. 잡는 폭(8px)은 그대로. */
 .ask > .resizer { justify-content: flex-start; }
 .ask > .resizer .resizer-grip { margin-left: -1.5px; }
+
+/* ── 장비 고르기 창 — Devices 「장비 등록 현황」 표 모양으로(지시: 목업, 2026-10-01) ──
+   카드 줄·색 배지·큰 색 탭을 걷고, 표 머리·한 줄 25px·밑줄만 남긴다.
+   통신은 T·S·C·N 네 칸, 상태는 칩 바탕 없이 점과 글자. 이름은 모두 ask-dm·dv- 아래에만. */
+.ask-dmwhy {
+  display: flex; align-items: center; gap: 10px; flex: none;
+  margin: 10px 14px 0; padding: 8px 12px; border-radius: 8px;
+  background: #eef5ff; border: 1px solid #d6e6fb;
+  font-size: var(--fs-sm); color: var(--c-text-muted);
+}
+.ask-dmwhy > span { flex: 1 1 auto; min-width: 0; }
+.ask-dmwhy b { color: var(--c-text); }
+.ask-dmwhy b.ai { color: #6b4fd8; }
+.ask-devmenu.big .ask-dmtabs {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; border-bottom: 0;
+}
+.ask-devmenu.big .ask-dmtab {
+  flex-direction: row; height: 32px; gap: 7px; padding: 0 12px;
+  border: 1px solid var(--c-border); border-radius: 8px; background: var(--c-surface);
+  color: var(--c-text-muted); font-size: var(--fs-sm); font-weight: 600; box-shadow: none;
+}
+.ask-devmenu.big .ask-dmtab i {
+  order: 0; font-size: var(--fs-sm); font-weight: 800; letter-spacing: 0; color: var(--c-text);
+}
+.ask-devmenu.big .ask-dmtab .dot {
+  width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--tab-c);
+}
+.ask-devmenu.big .ask-dmtab:hover { border-color: var(--tab-c); box-shadow: none; }
+.ask-devmenu.big .ask-dmtab.on {
+  background: var(--c-surface); color: var(--c-text);
+  border: 1.5px solid #16343c; box-shadow: none;
+}
+.ask-devmenu.big .ask-dmtab.on i { color: var(--c-text); }
+/* 표 바깥 틀 — Devices 표처럼 흰 바탕·얇은 테 */
+.ask-devmenu.big .ask-dmbody { margin: 0 14px; border: 1px solid var(--c-border); border-radius: 6px; }
+.ask-devmenu.big.inpanel .ask-dmbody { margin: 0; border: 0; border-radius: 0; }
+.ask-devmenu.big .ask-dmlist { gap: 0; padding: 0; background: var(--c-surface); overflow-x: auto; }
+.ask-devmenu.big .ask-dmhdr {
+  margin: 0; padding: 4px 8px; gap: 10px; background: #f7f9fb;
+  border-bottom: 1px solid var(--c-border); min-width: max-content;
+}
+.ask-devmenu.big .ask-dmi {
+  gap: 10px; padding: 0 8px; height: 27px; min-width: max-content;
+  border: 0; border-bottom: 1px solid var(--c-border-soft); border-radius: 0; background: var(--c-surface);
+  font-size: var(--fs-xs);
+}
+.ask-devmenu.big .ask-dmi:hover { border-color: var(--c-border-soft); background: #f7f9fb; box-shadow: none; }
+.ask-devmenu.big .ask-dmi.on { background: var(--c-primary-bg); border-color: var(--c-border-soft); }
+.ask-devmenu.big .ask-dmi.busy { background: #fffdf6; }
+.ask-devmenu.big .ask-dmi.dis { background: var(--c-surface); opacity: .55; }
+/* 묶음 머리 — 회색 띠 한 줄 */
+.ask-devmenu.big .ask-dmgrp {
+  margin: 0; padding: 4px 9px; border-radius: 0; background: #f2f4f6;
+  border-bottom: 1px solid var(--c-border-soft); font-size: var(--fs-xs); min-width: max-content;
+}
+/* 칸 — 배지를 걷고 글자만. 폭은 목업 비율 */
+.ask-devmenu.big .dv-lab,
+.ask-devmenu.big .dv-gp {
+  background: none; color: var(--c-text); padding: 0; border-radius: 0;
+  text-align: left; font-size: var(--fs-xs); font-weight: 700;
+}
+.ask-devmenu.big .dv-gp { font-weight: 500; }
+.ask-devmenu.big .dv-lab { width: 86px; }
+.ask-devmenu.big .dv-cu { width: 86px; color: var(--c-text); }
+.ask-devmenu.big .dv-vd { width: 86px; color: var(--c-text); }
+.ask-devmenu.big .dv-fm { width: 76px; color: var(--c-text); }
+.ask-devmenu.big .dv-gp { width: 90px; }
+.ask-devmenu.big .dv-nm { flex: none; width: 128px; min-width: 0; font-size: var(--fs-xs); font-weight: 700; }
+.ask-devmenu.big .dv-ip { width: 118px; font-size: var(--fs-xs); }
+.ask-devmenu.big .dv-st { width: 18px; flex: none; display: inline-flex; justify-content: center; }
+.ask-devmenu.big .dv-st .tl { width: 9px; height: 9px; border-radius: 50%; background: #d9dee3; }
+.ask-devmenu.big .dv-st .tl.on { background: var(--c-pass, #16a34a); }
+.ask-devmenu.big .dv-st .tl.off { background: var(--c-fail, #dc2626); }
+.ask-devmenu.big .dv-st .tl.na { background: transparent; border: 1px solid #cfd6dc; width: 8px; height: 8px; }
+.ask-dmhdr .dv-st { font-size: var(--fs-xs); color: var(--c-text-faint); font-weight: 700; }
+.ask-devmenu.big .dv-ro, .ask-devmenu.big .dv-rw { width: 74px; }
+.ask-devmenu.big .dv-if { flex: 1 1 auto; width: auto; min-width: 200px; display: inline-flex; gap: 6px; align-items: baseline; overflow: hidden; }
+.ask-devmenu.big .dv-if b { font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-weight: 700; color: var(--c-text);
+  overflow: hidden; text-overflow: ellipsis; }
+.ask-devmenu.big .dv-if em { font-style: normal; color: var(--c-text-faint); flex: none; }
+.ask-devmenu.big .dv-if.none { color: var(--c-text-faint); }
+/* 상태 — 칩 바탕 없이 점 + 글자(목업) */
+.ask-devmenu.big .dv-ready { width: 92px; justify-content: flex-start; }
+.ask-devmenu.big .dv-ready .rd-chip { background: none; border: 0; padding: 0; font-size: var(--fs-xs); }
+.ask-devmenu.big .dv-ready.ok .rd-chip { color: #117f3a; }
+.ask-devmenu.big .dv-ready.part .rd-chip { color: #6b4fd8; }
+.ask-devmenu.big .dv-ready.busy .rd-chip { color: var(--c-draft); }
+.ask-devmenu.big .dv-ready.no .rd-chip { color: var(--c-fail); }
+.ask-devmenu.big .dv-ready.hd { width: 92px; justify-content: flex-start; }
+.ask-devmenu.big.inpanel .dv-st { display: none; }
+.ask-devmenu.big .ask-dmlegend2 { margin: 0 14px; }

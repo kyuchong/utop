@@ -854,6 +854,8 @@ export default function AskBar({ devices }: Props) {
       메뉴 속에 묻혀 있으면 두 번 눌러야 닿는다(목업: 탭으로 낸다).
       기본은 **사용 가능**(지시) — 고를 수 있는 것부터 보인다. */
   const [devTab, setDevTab] = useState<'all' | 'ok' | 'busy' | 'part' | 'no'>('ok')
+  /** 대화의 「전체에서 고르기」 로 열었으면 그 질문 — 표 위 안내 줄(목업)이 쓴다. 장비 단추로 열면 비운다 */
+  const [devFromAsk, setDevFromAsk] = useState('')
   /* 장비를 고른 **뒤에** 이어서 할 일. 질문 흐름에서 고르개를 열었으면
      고르자마자 2단계(항목 고르기)로 이어져야 한다 — 창만 닫히고 멈추면
      사람이 다음에 무엇을 눌러야 할지 모른다. */
@@ -4781,6 +4783,28 @@ export default function AskBar({ devices }: Props) {
                                 </button>
                               )}
                             </span>
+                            {/* 대화에서 추려 열었을 때만 — 무엇으로 추렸는지와 풀 길(목업) */}
+                            {!inPanel && devFromAsk && (
+                              <span className="ask-dmwhy">
+                                <span>
+                                  <b className="ai">✦ Coverage AI</b> 가 <b>“{devFromAsk}”</b> 요청으로 장비를 추렸습니다 — 통신 확인 뒤{' '}
+                                  <b>사용 가능</b> 부터 보여 줍니다.
+                                </span>
+                                <button
+                                  type="button"
+                                  className="btn small"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setDevTab('all')
+                                    setDevQ('')
+                                    setDevF({})
+                                    setDevHF('')
+                                  }}
+                                >
+                                  전체 보기
+                                </button>
+                              </span>
+                            )}
                             {/* ── 상태 탭(지시: 목업) ─────────────────────────
                                 지금 붙을 수 있는 장비만 보는 것이 가장 잦은 일이다.
                                 개수를 함께 적어 「연결된 게 없다」 를 열어 보기 전에
@@ -4806,8 +4830,9 @@ export default function AskBar({ devices }: Props) {
                                     title={`${label} ${n}대`}
                                     onClick={() => setDevTab(k)}
                                   >
-                                    <i>{n}</i>
+                                    {k !== 'all' && <em className="dot" aria-hidden="true" />}
                                     <span>{label}</span>
+                                    <i>{n}</i>
                                   </button>
                                 )
                               })}
@@ -4819,7 +4844,11 @@ export default function AskBar({ devices }: Props) {
                                   <b className="dv-nm">모델명</b>
                                   <span className="dv-ip">IP</span>
                                   {/* Devices 표의 칸(지시) — 통신 넷·커뮤니티·인터페이스 */}
-                                  <span className="dv-tscn">T·S·C·N</span>
+                                  {(['T', 'S', 'C', 'N'] as const).map((k) => (
+                                    <span key={k} className="dv-st" title={{ T: 'Telnet', S: 'SSH', C: 'Console', N: 'SNMP' }[k]}>
+                                      {k}
+                                    </span>
+                                  ))}
                                   <span className="dv-ro">RO</span>
                                   <span className="dv-rw">RW</span>
                                   <span className="dv-if">인터페이스</span>
@@ -4893,18 +4922,21 @@ export default function AskBar({ devices }: Props) {
                                           {noip ? 'IP 미설정' : d.ip}
                                         </span>
                                         {/* Devices 표의 칸(지시) — T/S/C/N 점 넷 · RO/RW · 인터페이스 */}
-                                        <span className="dv-tscn" aria-label="통신 상태">
-                                          {(
-                                            [
-                                              ['Telnet', L.T],
-                                              ['SSH', L.S],
-                                              ['Console', L.C],
-                                              ['SNMP', L.N],
-                                            ] as const
-                                          ).map(([lb, v]) => (
-                                            <i key={lb} className={`tl ${v}`} title={`${lb} — ${v === 'on' ? '정상' : v === 'off' ? '실패' : v === 'idle' ? '미확인' : '등록 안 함'}`} />
-                                          ))}
-                                        </span>
+{(
+                                          [
+                                            ['Telnet', L.T],
+                                            ['SSH', L.S],
+                                            ['Console', L.C],
+                                            ['SNMP', L.N],
+                                          ] as const
+                                        ).map(([lb, v]) => (
+                                          <span key={lb} className="dv-st">
+                                            <i
+                                              className={`tl ${v}`}
+                                              title={`${lb} — ${v === 'on' ? '정상' : v === 'off' ? '실패' : v === 'idle' ? '미확인' : '등록 안 함'}`}
+                                            />
+                                          </span>
+                                        ))}
                                         {(() => {
                                           const sn = (d.access ?? []).find(
                                             (x) => String(x.protocol ?? '').toLowerCase() === 'snmp',
@@ -4920,8 +4952,16 @@ export default function AskBar({ devices }: Props) {
                                             </>
                                           )
                                         })()}
-                                        <span className="dv-if" title={d.if_brief || ''}>
-                                          {d.if_brief ? `${d.if_brief}${d.if_count ? ` ${d.if_count}` : ''}` : '—'}
+                                        <span className={`dv-if${d.if_brief ? '' : ' none'}`} title={d.if_brief || ''}>
+                                          {d.if_brief ? (
+                                            <>
+                                              <b>{d.if_brief}</b>
+                                              {d.if_count ? <em>{d.if_count}</em> : null}
+                                            </>
+                                          ) : (
+                                            /* 고르는 창이라 채우기는 Devices 에서 — 여기선 글자만 */
+                                            '비어 있음'
+                                          )}
                                         </span>
                                         <span className={`dv-ready ${R.k}`}>
                                           <span className="rd-chip">
@@ -6099,6 +6139,7 @@ export default function AskBar({ devices }: Props) {
                   /* 고르기 칩은 **팝업**을 연다(지시) — 3열은 아티팩트의 몫 */
                   if (t.closest('.js-pickdev')) {
                     afterDevRef.current = 'tc'
+                    setDevFromAsk(asked)
                     setDevOpen(true)
                   } else if (t.closest('.js-tcmore')) {
                     /* 더보기 — 같은 카드에 10건을 더 그린다(지시). 풀은 마지막 findLike 것 */
@@ -6320,7 +6361,10 @@ export default function AskBar({ devices }: Props) {
                         type="button"
                         className={`ask-chip${tDev ? ' on sel' : ''}`}
                         title={d}
-                        onClick={() => setDevOpen((v) => !v)}
+                        onClick={() => {
+                          setDevFromAsk('')
+                          setDevOpen((v) => !v)
+                        }}
                       >
                         {/* 모델명만 보이면 같은 모델이 열 대인 LAB 에서 어느
                             것을 골랐는지 모른다 — IP 까지 적는다 */}
