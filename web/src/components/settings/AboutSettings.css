@@ -61,4 +61,9 @@
 .abt-acts { margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .abt-acts .ok { color: var(--c-pass, #1d9e75); }
 .abt-acts .err { color: var(--c-fail, #c0392b); }
+.abt-mach {
+  margin: 10px 0 0; padding: 10px 12px; border: 1px solid var(--c-border); border-radius: 8px;
+  background: var(--c-surface-alt); font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6;
+  white-space: pre-wrap; user-select: all;
+}
 .abt-seeds { display: flex; flex-wrap: wrap; gap: 6px; }

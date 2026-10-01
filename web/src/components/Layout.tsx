@@ -413,14 +413,14 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
 
 /**
  * 상단바 오른쪽 끝의 **버전·라이선스·도움말 아이콘 셋**(승인: B안). 서버가 준다 — 버전은
- * VERSION 파일, 라이선스 기간은 SETUP › 버전·라이선스에 올린 파일. 만료가 30일 안이면
- * 방패가 주황, 지났으면 빨강, 미등록이면 흐리게. 도움말은 누르면 도움말 화면으로 간다.
+ * VERSION 파일, 라이선스 기간은 SETUP › 버전·라이선스에 올린 파일. 만료가 임박하면
+ * 방패가 주황, 지났거나 다른 장비용이면 빨강, 미등록이면 흐리게. 도움말은 누르면 도움말 화면으로 간다.
  */
 function TopAbout({ helpOn, onHelp }: { helpOn: boolean; onHelp: () => void }) {
   const [a, setA] = useState<{
     version: string
     git_sha: string
-    license: { until: string; days_left: number | null; holder: string }
+    license: { until: string; days_left: number | null; holder: string; status: string; left_short: string }
   } | null>(null)
   useEffect(() => {
     void (async () => {
@@ -436,10 +436,12 @@ function TopAbout({ helpOn, onHelp }: { helpOn: boolean; onHelp: () => void }) {
   /* 커밋 해시는 여기 안 적는다(지시: 버전명만) — SETUP › 버전·라이선스에서 본다 */
   const lic = a?.license
   const d = lic?.days_left
-  /* 라이선스 상태 — 값·색을 한 곳에서 정한다. 만료 30일 안 주황, 지나면 빨강, 미등록은 흐림 */
-  const tone = !lic?.until ? 'none' : d == null ? 'ok' : d < 0 ? 'bad' : d <= 30 ? 'warn' : 'ok'
+  /* 라이선스 상태 — 색은 서버의 status 로(만료 임박 주황, 만료·다른 장비 빨강, 미등록 흐림).
+     「D-3」·「45분 남음」 글도 서버가 준다(분 단위 라이선스) — 옛 서버면 days_left 로 */
+  const st = lic?.status || (!lic?.until ? 'none' : d == null ? 'ok' : d < 0 ? 'expired' : d <= 30 ? 'warn' : 'ok')
+  const tone = st === 'none' ? 'none' : st === 'expired' || st === 'wrong_machine' ? 'bad' : st === 'warn' ? 'warn' : 'ok'
   const licVal = !lic?.until ? '미등록' : `~${lic.until}`
-  const licTag = !lic?.until || d == null ? '' : d < 0 ? `${-d}일 지남` : `D-${d}`
+  const licTag = !lic?.until ? '' : lic.left_short || (d == null ? '' : d < 0 ? `${-d}일 지남` : `D-${d}`)
   const verTip = `버전 ${ver}`
   const licTip = `라이선스 ${licVal}${licTag ? ` · ${licTag}` : ''}${lic?.holder ? ` · ${lic.holder}` : ''}`
   return (

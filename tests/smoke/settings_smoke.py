@@ -70,6 +70,11 @@ _fake = "-----BEGIN UTOP LICENSE-----\neyJ2IjoxfQ.AAAA\n-----END UTOP LICENSE---
 r = c.post("/api/license/file", params=q, json={"text": _fake}); ok("서명 안 맞는 파일 → 400", r.status_code == 400, r.text[:120])
 r = c.post("/api/license/clear", params=q); ok("라이선스 등록 해제", r.status_code == 200 and r.json()["license"]["status"] == "none", r.text[:120])
 ok("미등록이면 상태 none·날수 없음", c.get("/api/about").json()["license"]["days_left"] is None)
+# 장비 고정 라이선스(2026-10-01) — 관리자는 발급 담당자에게 보낼 「UTOP MACHINE INFO」 글을 받는다
+_srv = c.get("/api/about", params=q).json().get("server") or {}
+ok("이 서버 장비 정보 글", str(_srv.get("text", "")).startswith("[UTOP MACHINE INFO]") and "hostname:" in _srv.get("text", ""), str(_srv)[:120])
+_sealed = "-----BEGIN UTOP LICENSE (LOCAL TEST)-----\nUTOP-LIC1.AAAA.BBBB\n-----END UTOP LICENSE (LOCAL TEST)-----"
+r = c.post("/api/license/file", params=q, json={"text": _sealed}); ok("발급기 꼴인데 서명 틀림 → 400", r.status_code == 400 and "서명" in r.text, r.text[:120])
 r = c.post("/api/license/file", json={"text": _fake}); ok("라이선스 등록은 관리자만(500 아님)", r.status_code in (400, 401, 403), str(r.status_code))
 r = c.get("/api/help/access"); ok("도움말 권한(관리자)", r.status_code == 200 and r.json()["can_edit"] is True, r.text[:80])
 r = c.get("/api/wiki", params={"project": "__help__"}); ok("도움말 씨앗 7편(위키 공간)", r.status_code == 200 and len(r.json()["pages"]) >= 7, r.text[:120])

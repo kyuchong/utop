@@ -60,6 +60,10 @@ services:
       TZ: ${TZ:-Asia/Seoul}
     volumes:
       - app-data:/app/data
+      # 라이선스 장비 확인 — 컨테이너는 가상 NIC·가상 호스트명만 보므로 호스트의 /sys 와
+      # 호스트명을 읽기 전용으로 붙인다(licensing.host_machine). host 네트워크 모드는 필요 없다.
+      - /sys:/hostsys:ro
+      - /etc/hostname:/etc/host_hostname:ro
     # 백엔드는 호스트에 포트를 열지 않는다. 사용자는 web(9000) 으로만 들어오고,
     # nginx 가 도커 내부망으로 http://api:8000 에 붙으므로 이것으로 충분하다.
     # 열어두면 /docs 와 모든 API 가 이 PC 에서 그대로 노출된다.

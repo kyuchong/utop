@@ -3182,7 +3182,16 @@ def _license_doc() -> dict:
     d = _kv_load_sync("license", None)
     d = d if isinstance(d, dict) else {}
     out = {k: str(d.get(k) or "") for k in (*_licensing.FIELDS, "fp", "registered_at", "registered_by")}
+    out["machine"] = d.get("machine") if isinstance(d.get("machine"), dict) else {}
     out.update(_licensing.status_of(out))
+    # 장비 고정 파일은 볼 때마다 이 서버와 맞춰 본다 — NIC 를 갈았거나 다른 서버로 옮겨졌으면 쓸 수 없다
+    out["machine_check"] = None
+    if out["status"] != "none" and out["machine"]:
+        ok, why = _licensing.check_machine(out)
+        out["machine_check"] = {"ok": ok, "reason": why}
+        if not ok:
+            out["status"] = "wrong_machine"
+            out["left_short"] = "다른 장비"
     return out
 
 
@@ -3191,7 +3200,13 @@ async def api_about():
     """왼쪽 메뉴 도움말 위에 서는 것 — 버전과 라이선스 기간."""
     sess = _CUR_SESSION.get() or {}
     u = _find_user(str(sess.get("username") or "")) or {}
-    return {**_about_version(), "license": _license_doc(), "can_manage": u.get("role") == "관리자"}
+    admin = u.get("role") == "관리자"
+    out = {**_about_version(), "license": _license_doc(), "can_manage": admin}
+    if admin:
+        # 발급 담당자에게 보낼 「UTOP MACHINE INFO」 — 관리자만 본다
+        m = _licensing.host_machine()
+        out["server"] = {**m, "text": _licensing.machine_text(m)}
+    return out
 
 
 @app.post("/api/license/file")
@@ -3207,6 +3222,9 @@ async def api_license_file(payload: dict, token: str = ""):
         lic = _licensing.parse(text)
     except _licensing.LicenseError as e:
         raise HTTPException(400, str(e))
+    ok, why = _licensing.check_machine(lic)
+    if not ok:
+        raise HTTPException(400, f"이 서버용 라이선스가 아닙니다 — {why}")
     lic["registered_at"] = datetime.now().isoformat(timespec="seconds")
     lic["registered_by"] = str(u.get("username") or "")
     lic["text"] = text.strip()

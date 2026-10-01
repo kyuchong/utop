@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import { copyText } from '@/lib/copy'
 import './AboutSettings.css'
 
 /**
@@ -10,6 +11,10 @@ import './AboutSettings.css'
  * Jira Data Center·GitLab EE·SonarQube 가 하는 그대로다: 발급처가 서명한
  * 파일을 올리면 서버가 서명을 확인하고, 화면은 사용처·기간·남은 날수·발급
  * ID·등록 기록을 **읽기만** 한다. 틀린 파일은 까닭과 함께 거절된다.
+ *
+ * 개인 PC 발급기 파일(봉인·분 단위·장비 고정, 2026-10-01)도 같은 자리에서 받는다.
+ * 장비 고정 파일은 서버가 이 서버의 NIC·호스트명과 맞춰 보고, 안 맞으면 「다른 장비」.
+ * 발급에 필요한 「UTOP MACHINE INFO」 글은 아래 카드에서 복사해 발급 담당자에게 보낸다.
  *
  * 도움말 편집자는 여기서 걷었다(지시) — 페이지별 접근 권한의 「도움말 ·
  * 고치기」 가 맡는다. 「처음 글로 되돌리기」 만 남긴다.
@@ -26,16 +31,27 @@ interface License {
   fp: string
   registered_at: string
   registered_by: string
-  status: 'none' | 'not_yet' | 'ok' | 'warn' | 'expired'
+  status: 'none' | 'not_yet' | 'ok' | 'warn' | 'expired' | 'wrong_machine'
   days_left: number | null
   days_total: number | null
   days_used: number | null
+  used_pct: number | null
+  left_text: string
+  machine: { hostname?: string; macs?: string[] }
+  machine_check: { ok: boolean; reason: string } | null
+}
+interface ServerMachine {
+  hostname: string
+  macs: string[]
+  from_host: boolean
+  text: string
 }
 interface About {
   version: string
   git_sha: string
   built_at: string
   license: License
+  server?: ServerMachine
 }
 
 const STATUS: Record<License['status'], { label: string; tone: string }> = {
@@ -44,15 +60,10 @@ const STATUS: Record<License['status'], { label: string; tone: string }> = {
   ok: { label: '유효', tone: 'ok' },
   warn: { label: '만료 임박', tone: 'warn' },
   expired: { label: '만료됨', tone: 'bad' },
+  wrong_machine: { label: '다른 장비', tone: 'bad' },
 }
 
 const fmtAt = (s: string) => (s ? s.replace('T', ' ').slice(0, 16) : '')
-
-/** 시작 전이면 오늘부터 시작일까지 — days_left(만료까지)에서 기간 전체를 뺀 값 */
-function daysUntilStart(l: License): number {
-  if (l.days_left == null || l.days_total == null) return 0
-  return Math.max(0, l.days_left - l.days_total)
-}
 
 export default function AboutSettings() {
   const [about, setAbout] = useState<About | null>(null)
@@ -61,6 +72,7 @@ export default function AboutSettings() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [seeds, setSeeds] = useState<Array<{ id: string; title: string }>>([])
   const [resetMsg, setResetMsg] = useState('')
+  const [copied, setCopied] = useState('')
 
   useEffect(() => {
     void (async () => {
@@ -104,17 +116,11 @@ export default function AboutSettings() {
   const lic = about?.license
   const st = STATUS[lic?.status ?? 'none']
   const has = !!lic && lic.status !== 'none'
-  const pct =
-    lic && lic.days_total && lic.days_total > 0 && lic.days_used != null
-      ? Math.round((lic.days_used / lic.days_total) * 100)
-      : null
-  const daysText = !lic || lic.days_left == null
-    ? ''
-    : lic.status === 'not_yet'
-      ? `시작까지 ${daysUntilStart(lic)}일`
-      : lic.days_left >= 0
-        ? `만료까지 ${lic.days_left}일`
-        : `만료된 지 ${-lic.days_left}일`
+  /* 남은 시간 글·사용 막대는 서버가 정한다(분 단위 라이선스도 같은 식) */
+  const pct = lic?.used_pct ?? null
+  const daysText = lic?.left_text || ''
+  const bound = !!lic && !!((lic.machine?.macs?.length ?? 0) > 0 || lic.machine?.hostname)
+  const srv = about?.server
 
   return (
     <div className="abt">
@@ -161,13 +167,25 @@ export default function AboutSettings() {
                     <span className={`abt-bar ${st.tone}`} aria-hidden="true">
                       <i style={{ width: `${Math.min(100, pct)}%` }} />
                     </span>
-                    <span className="muted small">
-                      {' '}
-                      {lic.days_used}/{lic.days_total}일 ({pct}%)
-                    </span>
+                    <span className="muted small"> {pct}%</span>
                   </dd>
                 </>
               )}
+              <dt>장비</dt>
+              <dd>
+                {bound ? (
+                  <>
+                    <span className="mono">
+                      {[lic.machine.hostname, ...(lic.machine.macs ?? [])].filter(Boolean).join(' · ')}
+                    </span>
+                    {lic.machine_check && (
+                      <span className={`abt-days ${lic.machine_check.ok ? 'ok' : 'bad'}`}> · {lic.machine_check.reason}</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="muted">고정 없음 (어느 서버에서나)</span>
+                )}
+              </dd>
               <dt>발급 ID</dt>
               <dd className="mono">
                 {lic.id || '-'}
@@ -191,7 +209,12 @@ export default function AboutSettings() {
               </dd>
             </dl>
             {lic.status === 'expired' && <p className="abt-note bad">라이선스가 만료됐습니다. 새 파일을 등록하세요.</p>}
-            {lic.status === 'warn' && <p className="abt-note warn">만료가 30일 안입니다. 갱신 파일을 미리 받아 두세요.</p>}
+            {lic.status === 'warn' && <p className="abt-note warn">남은 기간이 얼마 없습니다({daysText}). 갱신 파일을 미리 받아 두세요.</p>}
+            {lic.status === 'wrong_machine' && (
+              <p className="abt-note bad">
+                이 서버용 라이선스가 아닙니다 — {lic.machine_check?.reason}. 아래 「이 서버 장비 정보」 를 발급 담당자에게 보내 다시 받으세요.
+              </p>
+            )}
           </>
         ) : (
           <p className="abt-empty">등록된 라이선스가 없습니다. 발급받은 .lic 파일을 등록하세요.</p>
@@ -220,6 +243,36 @@ export default function AboutSettings() {
           {licMsg.text && <span className={`small ${licMsg.kind}`}>{licMsg.text}</span>}
         </div>
       </div>
+
+      {/* ── 이 서버 장비 정보 — 장비 고정 라이선스를 받을 때 발급 담당자에게 보낸다 ── */}
+      {srv && (
+        <div className="set-card">
+          <div className="abt-head">
+            <h3>이 서버 장비 정보</h3>
+          </div>
+          <p className="muted">
+            장비에 묶인 라이선스를 받으려면 이 글을 통째로 복사해 발급 담당자에게 보내세요. 발급 페이지의 「장비 NIC(MAC)」 칸에 그대로 붙여 넣으면 됩니다.
+          </p>
+          <pre className="abt-mach" translate="no">
+            {srv.text}
+          </pre>
+          {!srv.from_host && (
+            <p className="abt-note warn">
+              컨테이너가 호스트의 NIC 를 직접 보지 못하고 있습니다. docker-compose 의 /hostsys 연결이 들어간 판으로 다시 띄우세요.
+            </p>
+          )}
+          <div className="abt-acts">
+            <button
+              type="button"
+              className="btn"
+              onClick={async () => setCopied((await copyText(srv.text)) ? '복사했습니다' : '복사하지 못했습니다 — 글을 끌어 직접 복사하세요')}
+            >
+              장비 정보 복사
+            </button>
+            {copied && <span className="small ok">{copied}</span>}
+          </div>
+        </div>
+      )}
 
       {/* ── 도움말 — 처음 글로 되돌리기. 고칠 사람은 권한 화면에서 ── */}
       <div className="set-card">
