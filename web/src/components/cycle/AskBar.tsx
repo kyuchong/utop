@@ -856,6 +856,8 @@ export default function AskBar({ devices }: Props) {
   const [devTab, setDevTab] = useState<'all' | 'ok' | 'busy' | 'part' | 'no'>('ok')
   /** 대화의 「전체에서 고르기」 로 열었으면 그 질문 — 표 위 안내 줄(목업)이 쓴다. 장비 단추로 열면 비운다 */
   const [devFromAsk, setDevFromAsk] = useState('')
+  /** 「전체 보기」 를 누르기 전의 추림(검색어·열 거르개·탭) — 다시 누르면 되돌린다(지적: 다시 접히지 않는다) */
+  const [devWide, setDevWide] = useState<{ q: string; f: Record<string, string>; tab: typeof devTab } | null>(null)
   /* 장비를 고른 **뒤에** 이어서 할 일. 질문 흐름에서 고르개를 열었으면
      고르자마자 2단계(항목 고르기)로 이어져야 한다 — 창만 닫히고 멈추면
      사람이 다음에 무엇을 눌러야 할지 모른다. */
@@ -4789,19 +4791,30 @@ export default function AskBar({ devices }: Props) {
                                 <span>
                                   <b className="ai">✦ Coverage AI</b> 가 <b>“{devFromAsk}”</b> 요청으로 장비를 추렸습니다 — 통신 확인 뒤{' '}
                                   <b>사용 가능</b> 부터 보여 줍니다.
+                                  {devWide && <em className="wide"> 지금은 전체 장비를 보고 있습니다.</em>}
                                 </span>
                                 <button
                                   type="button"
-                                  className="btn small"
+                                  className={`btn small${devWide ? ' on' : ''}`}
+                                  aria-pressed={!!devWide}
                                   onClick={(e) => {
                                     e.stopPropagation()
+                                    setDevHF('')
+                                    if (devWide) {
+                                      /* 다시 누르면 추린 그대로 돌아간다 */
+                                      setDevQ(devWide.q)
+                                      setDevF(devWide.f)
+                                      setDevTab(devWide.tab)
+                                      setDevWide(null)
+                                      return
+                                    }
+                                    setDevWide({ q: devQ, f: devF, tab: devTab })
                                     setDevTab('all')
                                     setDevQ('')
                                     setDevF({})
-                                    setDevHF('')
                                   }}
                                 >
-                                  전체 보기
+                                  {devWide ? '추린 것만 보기' : '전체 보기'}
                                 </button>
                               </span>
                             )}
@@ -6140,6 +6153,7 @@ export default function AskBar({ devices }: Props) {
                   if (t.closest('.js-pickdev')) {
                     afterDevRef.current = 'tc'
                     setDevFromAsk(asked)
+                    setDevWide(null)
                     setDevOpen(true)
                   } else if (t.closest('.js-tcmore')) {
                     /* 더보기 — 같은 카드에 10건을 더 그린다(지시). 풀은 마지막 findLike 것 */

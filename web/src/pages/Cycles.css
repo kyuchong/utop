@@ -11235,6 +11235,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .ask-dmwhy > span { flex: 1 1 auto; min-width: 0; }
 .ask-dmwhy b { color: var(--c-text); }
 .ask-dmwhy b.ai { color: #6b4fd8; }
+.ask-dmwhy em.wide { font-style: normal; font-weight: 700; color: var(--c-primary); }
 .ask-devmenu.big .ask-dmtabs {
   display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; border-bottom: 0;
 }
