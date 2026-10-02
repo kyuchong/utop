@@ -251,6 +251,61 @@ async def acquire_locks_bulk(body: LockBulkIn, request: Request):
     return await _lock_bulk(body.resource_ids or [], body.kind, core.me(request), body.cycle_id, body.note)
 
 
+async def _lock_conflicts(c, ids: list, cycle_id, mine_name: str, cur=None) -> list:
+    """이 장비들 가운데 **쓸 수 없는 것** — 실행 걸기·일괄 점유·실행 전 미리 보기가 같이 쓴다.
+
+    **어느 사이클이 잡았나**로 가린다(지시) — 같은 계정이어도 다른 사이클이 잡은 장비는
+    못 쓴다. 같은 사이클을 다시 돌리는 것과, 사이클 없이 내가 직접 잡아 둔 장비를 내
+    사이클로 쓰는 것만 된다. 사이클 없이 부르면 예전처럼 사람으로 가린다.
+    돌려주는 줄마다 사이클 이름·실행 중 여부·잡은 시각을 붙인다(화면이 그대로 적는다)."""
+    if cur is None:
+        cur = await c.fetch("SELECT * FROM resource_lock WHERE resource_id = ANY($1::text[])", ids)
+
+    def _theirs(r) -> bool:
+        if cycle_id and r["cycle_id"]:
+            return r["cycle_id"] != cycle_id
+        return r["locked_by"] != mine_name
+
+    blocked = [dict(r) for r in cur if _theirs(r)]
+    if not blocked:
+        return []
+    cids = [b["cycle_id"] for b in blocked if b["cycle_id"]]
+    nm: dict = {}
+    if cids:
+        cn = await c.fetch("SELECT id, name FROM cycle WHERE id = ANY($1::text[])", cids)
+        nm = {r["id"]: r["name"] for r in cn}
+    live = await _live_runs(c, cids)
+    for b in blocked:
+        b["cycle_name"] = nm.get(b.get("cycle_id") or "") or ""
+        b["running"] = bool(live.get(b.get("cycle_id") or ""))
+        b["locked_at"] = b["locked_at"].isoformat() if b.get("locked_at") else None
+        b["heartbeat_at"] = b["heartbeat_at"].isoformat() if b.get("heartbeat_at") else None
+    return blocked
+
+
+async def _session_devices(tcids: list) -> dict:
+    """시험 항목 → 세션 장비들. 실행기가 고르는 그대로다(항목의 sessions)."""
+    out: dict = {}
+    if not tcids:
+        return out
+    async with db.pool().acquire() as c:
+        rows = await c.fetch("SELECT tcid, data->'sessions' AS s FROM tc WHERE tcid = ANY($1::text[])", tcids)
+    for r in rows:
+        ss = r["s"]
+        if isinstance(ss, str):
+            try:
+                ss = json.loads(ss)
+            except Exception:  # noqa: BLE001
+                ss = []
+        devs = []
+        for d in (ss if isinstance(ss, list) else []):
+            d = str(d or "").strip()
+            if d and d not in devs:
+                devs.append(d)
+        out[r["tcid"]] = devs
+    return out
+
+
 async def _lock_bulk(resource_ids: list, kind: str, me: dict, cycle_id, note) -> dict:
     """여러 자원을 한꺼번에 잡는다 — 남이 잡은 것이 하나라도 있으면 아무것도 안 잡는다.
     /api/locks/bulk 와 실행 걸기(/api/runs)가 같이 쓴다."""
@@ -259,32 +314,12 @@ async def _lock_bulk(resource_ids: list, kind: str, me: dict, cycle_id, note) ->
         return {"success": True, "locked": [], "blocked": []}
 
     async with db.pool().acquire() as c:
+        mine_name = me.get("username")
         cur = await c.fetch(
             "SELECT * FROM resource_lock WHERE resource_id = ANY($1::text[])", ids
         )
-        mine_name = me.get("username")
-
-        def _theirs(r) -> bool:
-            # **어느 사이클이 잡았나**로 가린다(지시) — 같은 계정이어도 다른 사이클이 잡은
-            # 장비는 못 쓴다. 같은 사이클을 다시 돌리는 것과, 사이클 없이 내가 직접 잡아 둔
-            # 장비를 내 사이클로 쓰는 것만 된다. 사이클 없이 부르면 예전처럼 사람으로 가린다.
-            if cycle_id and r["cycle_id"]:
-                return r["cycle_id"] != cycle_id
-            return r["locked_by"] != mine_name
-
-        blocked = [dict(r) for r in cur if _theirs(r)]
+        blocked = await _lock_conflicts(c, ids, cycle_id, mine_name, cur)
         if blocked:
-            cids = [b["cycle_id"] for b in blocked if b["cycle_id"]]
-            nm: dict = {}
-            if cids:
-                cn = await c.fetch("SELECT id, name FROM cycle WHERE id = ANY($1::text[])", cids)
-                nm = {r["id"]: r["name"] for r in cn}
-            live = await _live_runs(c, cids)
-            for b in blocked:
-                b["cycle_name"] = nm.get(b.get("cycle_id") or "") or ""
-                b["running"] = bool(live.get(b.get("cycle_id") or ""))
-                b["locked_at"] = b["locked_at"].isoformat() if b.get("locked_at") else None
-                b["heartbeat_at"] = b["heartbeat_at"].isoformat() if b.get("heartbeat_at") else None
             return {"success": False, "locked": [], "blocked": blocked}
 
         held = {r["resource_id"] for r in cur}
@@ -5814,6 +5849,43 @@ async def _run_push(run: dict, logs: list = None):
         pass
 
 
+@router.get("/api/run-precheck")
+async def run_precheck(request: Request, cycle_id: str = "", pick: str = ""):
+    """실행을 **누르기 전에** 막힐 장비를 알려 준다(지시: 실행 단추가 「장비 사용중」 으로).
+
+    실행 걸기(/api/runs)와 **같은 판단**을 한다 — 고를 항목(pick, tcid 를 쉼표로)의 세션
+    장비와 사이클 항목에 정해 둔 장비(devId) 가운데 다른 사이클이 잡은 것. 줄마다 그
+    장비를 쓰는 항목(tcids)을 붙여, 화면이 「전체 실행」·「고른 것 실행」 을 따로 가린다.
+    읽기만 하므로 보기 전용(라이선스)에서도 열린다."""
+    me = core.me(request)
+    cyc = await db.cycle_get(cycle_id) if cycle_id else None
+    if not cyc:
+        return {"blocked": []}
+    items = [it for it in (cyc.get("items") or []) if isinstance(it, dict)]
+    want = [t for t in (x.strip() for x in str(pick or "").split(",")) if t]
+    if not want:
+        want = [str(it.get("tcid") or "").strip() for it in items if str(it.get("tcid") or "").strip()]
+    uses: dict = {}   # 장비 → 그 장비를 쓰는 항목들
+    for t, ds in (await _session_devices(want)).items():
+        for d in ds:
+            uses.setdefault(d, []).append(t)
+    wset = set(want)
+    for it in items:
+        t = str(it.get("tcid") or "").strip()
+        d = str(it.get("devId") or "").strip()
+        if t in wset and d:
+            uses.setdefault(d, [])
+            if t not in uses[d]:
+                uses[d].append(t)
+    if not uses:
+        return {"blocked": []}
+    async with db.pool().acquire() as c:
+        blocked = await _lock_conflicts(c, list(uses), cycle_id, str(me.get("username") or ""))
+    for b in blocked:
+        b["tcids"] = uses.get(b.get("resource_id") or "", [])
+    return {"blocked": blocked}
+
+
 @router.post("/api/runs")
 async def run_queue(payload: dict, request: Request):
     """실행을 줄에 건다. 돌리는 것은 실행기가 한다."""
@@ -5886,22 +5958,9 @@ async def run_queue(payload: dict, request: Request):
     # 돈다 — 항목에 devId 가 없는 사이클(대부분)은 아무것도 안 잡혔다. 실행기가 고르는 바로 그
     # 장비를 여기서 잡는다. 남이 잡은 장비가 있으면 걸지 않는다. 놓는 것은 여태처럼 「시험 완료」.
     try:
-        async with db.pool().acquire() as _c:
-            _rows = await _c.fetch(
-                "SELECT data->'sessions' AS s FROM tc WHERE tcid = ANY($1::text[])", picked
-            )
         _devs: list[str] = []
-        for _r in _rows:
-            _ss = _r["s"]
-            if isinstance(_ss, str):
-                try:
-                    _ss = json.loads(_ss)
-                except Exception:  # noqa: BLE001
-                    _ss = []
-            for _d in (_ss if isinstance(_ss, list) else []):
-                _d = str(_d or "").strip()
-                if _d and _d not in _devs:
-                    _devs.append(_d)
+        for _ds in (await _session_devices(picked)).values():
+            _devs += [d for d in _ds if d not in _devs]
     except Exception:  # noqa: BLE001
         _devs = []
     if _devs:

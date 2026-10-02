@@ -133,6 +133,13 @@ ok("점유 목록에 실행 중 표시", _lk and _lk[0].get("running") is True, 
 # 같은 장비를 쓰는 **다른 사이클**은 같은 계정이어도 못 건다(지시: 220.1.12.3 이 사이클1 에서 실행 중이면)
 _lc2 = "cyc-smk-lock2"
 c.post(f"/api/cycle/{_lc2}", json={"id": _lc2, "name": "점유 스모크2", "items": [{"tcid": _lt, "name": "점유 시험"}]})
+# 실행을 누르기 전에 알 수 있다(지시) — 미리 보기는 실행 걸기와 같은 판단
+r = c.get("/api/run-precheck", params={"cycle_id": _lc2, "pick": _lt})
+_b = (r.json() or {}).get("blocked") or []
+ok("미리 보기: 다른 사이클이 실행 중인 장비", r.status_code == 200 and len(_b) == 1 and _b[0].get("resource_id") == _ld
+   and _b[0].get("running") is True and _b[0].get("cycle_name") == "점유 스모크" and _b[0].get("tcids") == [_lt], str(_b)[:200])
+r = c.get("/api/run-precheck", params={"cycle_id": _lc, "pick": _lt})
+ok("미리 보기: 실행 중인 그 사이클 자신은 막히지 않음", r.status_code == 200 and not r.json().get("blocked"), r.text[:120])
 r = c.post("/api/runs", json={"cycle_id": _lc2, "pick": [_lt]})
 ok("같은 계정 · 다른 사이클 → 409", r.status_code == 409 and "다른 사이클" in r.text and "실행 중" in r.text, r.text[:160])
 r = c.post("/api/locks/bulk", json={"resource_ids": [_ld], "kind": "device", "cycle_id": _lc2})
@@ -145,6 +152,7 @@ r = c.post(f"/api/runs/{_rid}/stop")
 ok("대기 중 멈추기", r.status_code == 200, r.text[:120])
 _lk = [l for l in c.get("/api/locks").json().get("locks", []) if l.get("resource_id") == _ld]
 ok("실행이 끝나면 점유를 놓는다", not _lk, str(_lk)[:160])
+ok("미리 보기: 앞 사이클이 끝나면 비어 있음", not c.get("/api/run-precheck", params={"cycle_id": _lc2}).json().get("blocked"))
 r = c.post("/api/runs", json={"cycle_id": _lc2, "pick": [_lt]})
 ok("앞 사이클이 끝나면 다른 사이클이 바로 걸린다", r.status_code == 200, r.text[:120])
 _rid2 = ((r.json() or {}).get("run") or {}).get("id") or ""

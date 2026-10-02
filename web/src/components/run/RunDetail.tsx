@@ -14,6 +14,7 @@ import RunAuto from './RunAuto'
 import { asStep } from './RespView'
 import RunManual from './RunManual'
 import './RunDetail.css'
+import { RunBusyButton, useRunBusy } from '@/components/cycle/RunBusy'
 
 /**
  * **실행 상세** — 목업의 Run 화면.
@@ -772,6 +773,9 @@ export default function RunDetail({
   /* 부르는 쪽이 방식을 정해 주면 그것이 먼저다 — 사람이 「Manual 탭」 에서
      눌렀다는 사실보다 확실한 신호는 없다. 안 주면 예전 규칙을 그대로 탄다. */
   const isAuto = mode ? mode === 'A' : !isManual(run?.mode || meta?.run_type || meta?.kind || '자동')
+  /* 실행 전 「장비 사용중」(지시) — 이 실행이 걸 항목들의 장비를 다른 사이클이 쓰면 ▶ 대신 선다 */
+  const busyQ = useRunBusy(isAuto ? cycPid : '', ids)
+  const busyLines = busyQ.data ?? []
   /** 멈출 것이 있나 — 도는 일감이 있거나, 수동이 시작만 눌린 상태 */
   /* 수동에는 중지가 없다(지시) — 멈출 실행기가 없고, 경과는 기록일 뿐이다 */
   const canStop = jobLive
@@ -1663,7 +1667,9 @@ export default function RunDetail({
           /* 수동에는 실행 단추가 없다(지시) — 첫 판정을 남기는 순간이
              곧 시작이라, 시작 시각·실행자는 그때 자동으로 박힌다.
              자동은 실행기에 걸어야 하니 그대로 선다. */
-          isAuto && (
+          isAuto && busyLines.length > 0 && !busy ? (
+            <RunBusyButton lines={busyLines} round />
+          ) : isAuto && (
             /* **그림만 남긴 단추**(지시) — 무엇을 하는 단추인지는 세모 하나로
                충분하고, 「2회 반복 시작」 같은 긴 글자는 바로 왼쪽 반복 칩이
                이미 말한다. 무슨 일이 일어나는지는 마우스를 올리면 뜬다. */

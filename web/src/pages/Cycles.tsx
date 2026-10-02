@@ -54,6 +54,7 @@ import { isJudgeStep, isManualStep, stepVerdict, type StepRound, type TcStep } f
 // 정해져야 세 화면이 같아 보인다.
 import '@/components/ReqTree.css'
 import './Cycles.css'
+import { RunBusyButton, busyFor, useRunBusy } from '@/components/cycle/RunBusy'
 
 /** 플랜 한 건 — 목록용 요약(`/api/cycle?meta=1`) */
 export interface CycleMeta {
@@ -2990,6 +2991,13 @@ function CycleDetail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tcDoc, cur?.tcid])
 
+  /* 실행 전 「장비 사용중」(지시) — 자동 항목 전부를 한 번에 물어 두고, 단추(전체·고른 것)마다
+     그 항목들이 쓰는 장비만 가린다. 판단은 서버가 실행 걸기와 같은 규칙으로 한다 */
+  const busyQ = useRunBusy(
+    cycle.id,
+    items.filter((x) => typeOf(x) === 'auto').map((x) => String(x.tcid ?? '')).filter(Boolean),
+  )
+
   return (
     <div className="cy-detail">
       {/* 2열·3열을 **각자 카드**로 가른다. 한 카드에 두면 3열이 2열의
@@ -3054,8 +3062,14 @@ function CycleDetail({
                   const autoPicked = inView.filter(
                     (i) => pick.has(i) && typeOf(items[i]!) === 'auto',
                   )
+                  const tcOf = (i: number) => String(items[i]?.tcid ?? '')
+                  const bAll = busyFor(busyQ.data, autoAll.map(tcOf))
+                  const bPick = busyFor(busyQ.data, autoPicked.map(tcOf))
                   return (
                     <>
+                      {autoAll.length > 0 && bAll.length > 0 ? (
+                        <RunBusyButton lines={bAll} />
+                      ) : (
                       <button
                         className="btn small"
                         type="button"
@@ -3069,7 +3083,11 @@ function CycleDetail({
                       >
                         ▶ 전체 실행 ({autoAll.length})
                       </button>
-                      {pick.size > 0 && (
+                      )}
+                      {/* 고른 것이 막힌 장비를 쓰면 「▶ 실행」 을 감춘다 — 막힌 장비는 옆의
+                          「장비 사용중」 이 이미 말한다. 고른 것이 막힌 장비를 안 쓰면 그대로 돈다 */}
+                      {pick.size > 0 && bPick.length > 0 && bAll.length === 0 && <RunBusyButton lines={bPick} />}
+                      {pick.size > 0 && bPick.length === 0 && (
                         <button
                           className="btn primary small"
                           type="button"

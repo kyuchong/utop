@@ -1,0 +1,29 @@
+/* 실행 단추 대신 서는 「● 장비 사용중」(지시). 이름은 rbz- 아래에만 */
+.rbz { position: relative; display: inline-flex; }
+.rbz-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px;
+  border: 1px solid var(--c-border); border-radius: 6px; background: var(--c-surface-alt);
+  color: var(--c-text-muted); font: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: help;
+}
+.rbz-btn.small { height: 26px; padding: 0 10px; font-size: var(--fs-xs); }
+.rbz-btn.round { width: 32px; height: 32px; padding: 0; justify-content: center; border-radius: 8px; }
+.rbz-btn:hover, .rbz.pin .rbz-btn { border-color: #e2a3a3; color: var(--c-fail, #c0392b); }
+.rbz-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-fail, #d93838); flex: none; }
+.rbz-tip {
+  display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 80;
+  width: max-content; max-width: 460px; padding: 10px 12px; border-radius: 8px;
+  background: #1f2a33; color: #e6edf3; box-shadow: 0 10px 28px rgb(0 0 0 / 28%);
+  font-size: var(--fs-xs); line-height: 1.5; white-space: normal; text-align: left;
+}
+.rbz:hover .rbz-tip, .rbz.pin .rbz-tip { display: block; }
+.rbz-tip > b { display: block; margin-bottom: 6px; font-size: var(--fs-sm); color: #fff; }
+.rbz-row { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; border-top: 1px solid rgb(255 255 255 / 8%); }
+.rbz-dev { flex: none; font-family: var(--font-mono, ui-monospace, Consolas, monospace); font-weight: 700; color: #ffb4b4; }
+.rbz-what { flex: 1 1 auto; min-width: 0; }
+.rbz-what em { font-style: normal; color: #a9b6c3; }
+.rbz-go {
+  flex: none; border: 1px solid rgb(255 255 255 / 25%); border-radius: 4px; background: none;
+  color: #cfe3ff; font: inherit; font-size: 11px; padding: 1px 6px; cursor: pointer;
+}
+.rbz-go:hover { background: rgb(255 255 255 / 10%); }
+.rbz-foot { display: block; margin-top: 6px; color: #a9b6c3; }
