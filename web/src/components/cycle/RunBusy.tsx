@@ -61,7 +61,16 @@ const hhmm = (iso?: string | null) => {
 /** 실행 단추 대신 서는 「● 장비 사용중」 — 올리면 까닭, 누르면 고정(사이클로 가는 링크) */
 export function RunBusyButton({ lines, small = true, round = false }: { lines: RunBusyLine[]; small?: boolean; round?: boolean }) {
   const [pin, setPin] = useState(false)
+  const [hover, setHover] = useState(false)
+  /* 풍선은 **화면 기준(fixed)** 으로 띄운다 — 표 도구줄처럼 넘치는 것을 자르는 틀 안에
+     있으면 아래로 내려간 풍선이 잘려 안 보였다. 단추 자리를 재서 그 밑에 둔다 */
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const boxRef = useRef<HTMLSpanElement | null>(null)
+  const place = () => {
+    const r = boxRef.current?.getBoundingClientRect()
+    /* 단추 왼쪽 끝에 맞추되 화면 밖으로 안 나가게(풍선 최대 폭 460) */
+    if (r) setPos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - 470)) })
+  }
   useEffect(() => {
     if (!pin) return
     const off = (e: MouseEvent) => {
@@ -75,19 +84,35 @@ export function RunBusyButton({ lines, small = true, round = false }: { lines: R
     [lines.length],
   )
   return (
-    <span ref={boxRef} className={`rbz${pin ? ' pin' : ''}`}>
+    <span
+      ref={boxRef}
+      className={`rbz${pin ? ' pin' : ''}${hover ? ' hover' : ''}`}
+      onMouseEnter={() => {
+        place()
+        setHover(true)
+      }}
+      onMouseLeave={() => setHover(false)}
+    >
       <button
         type="button"
         className={`rbz-btn${small ? ' small' : ''}${round ? ' round' : ''}`}
         aria-haspopup="dialog"
         aria-expanded={pin}
         aria-label={head}
-        onClick={() => setPin((v) => !v)}
+        onClick={() => {
+          place()
+          setPin((v) => !v)
+        }}
       >
         <i className="rbz-dot" aria-hidden="true" />
         {!round && '장비 사용중'}
       </button>
-      <span className="rbz-tip" role="dialog" aria-label="사용 중인 장비">
+      <span
+        className="rbz-tip"
+        role="dialog"
+        aria-label="사용 중인 장비"
+        style={pos ? { top: pos.top, left: pos.left } : undefined}
+      >
         <b>{head}</b>
         {lines.map((l) => (
           <span className="rbz-row" key={l.resource_id}>

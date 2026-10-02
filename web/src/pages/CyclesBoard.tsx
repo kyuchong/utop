@@ -50,6 +50,7 @@ import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUse
 import { useVerdictsState, vDef, vGroup, vLetter } from '@/lib/verdicts'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
+import { RunBusyButton, busyFor, useRunBusy } from '@/components/cycle/RunBusy'
 import './CyclesBoard.css'
 import './RunsBoard.css'
 
@@ -1146,6 +1147,12 @@ export default function CyclesBoard({
     })
     return out
   }, [full, tcOf, reqIndex, orderOverride])
+  /* 실행 전 「장비 사용중」(지시) — 자동 항목 전부를 한 번에 물어 두고, Test Start 가 걸
+     항목(고른 것 또는 전부)이 쓰는 장비만 가린다. 판단은 서버가 실행 걸기와 같은 규칙으로 */
+  const busyQ = useRunBusy(
+    plan?.id ? String(plan.id) : '',
+    itemRows.filter((r) => !r.man).map((r) => r.tcid),
+  )
   /* 유형 선택지는 자료에서 뽑는다 — 담긴 값이 곧 목록이고 색은 자동 */
   /**
    * 지금 표에 보이는 차례로 **사이클 항목을 다시 세워 저장**한다(지시).
@@ -2835,6 +2842,22 @@ export default function CyclesBoard({
               </button>
               {/* 굳는 **동안**만 왼쪽에 — 끝나면 오른쪽 알림이 말한다 */}
               {orderSave === 'saving' && <span className="cu-pick">시험 차례 저장 중…</span>}
+              {(() => {
+                /* 자동 Test Start 가 걸 항목 — 고른 것이 있으면 그것, 없으면 이 탭 전부 */
+                if (man || !mine.length) return null
+                const mineIds = new Set(mine.map((r) => r.tcid))
+                const want = picked.filter((t) => mineIds.has(t))
+                const lines = busyFor(busyQ.data, want.length ? want : [...mineIds])
+                return lines.length ? <RunBusyButton lines={lines} /> : null
+              })()}
+              {(man ||
+                !mine.length ||
+                !busyFor(
+                  busyQ.data,
+                  picked.filter((t) => mine.some((r) => r.tcid === t)).length
+                    ? picked.filter((t) => mine.some((r) => r.tcid === t))
+                    : mine.map((r) => r.tcid),
+                ).length) && (
               <button
                 type="button"
                 className="cu-new small"
@@ -2864,6 +2887,7 @@ export default function CyclesBoard({
                       }`
                     : '▶ Automation Test Start'}
               </button>
+              )}
               {/* **조건**(지시) — Test Start 바로 오른쪽에 늘 있다.
                   반복 횟수·회차 간격·실패 조건·합격 기준을 정하고, 창 아래에
                   예상 소요 시간이 선다. 거는 것은 왼쪽 Test Start 다. */}
