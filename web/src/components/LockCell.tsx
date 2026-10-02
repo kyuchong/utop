@@ -13,6 +13,8 @@ export interface Lock {
   note?: string | null
   locked_at?: string | null
   stale_sec?: number
+  /** 이 점유를 잡은 사이클이 지금 실행 중인가 — 실행 중이면 반납·강제 해제를 못 한다(지시) */
+  running?: boolean
 }
 
 /** 신호가 이만큼 끊기면 '응답 없음' — 브라우저를 닫고 간 것으로 본다 */
@@ -126,10 +128,12 @@ export default function LockCell({
     )
   }
 
+  const run = !!lock.running
   return (
     <span className="lk">
-      <span className={`status ${mine ? 'draft' : stale ? 'draft' : 'fail'}`}>
-        ● {mine ? '내가 사용 중' : lock.locked_name || lock.locked_by}
+      <span className={`status ${run ? 'fail' : mine ? 'draft' : stale ? 'draft' : 'fail'}`}>
+        ● {run ? '실행 중' : mine ? '내가 사용 중' : lock.locked_name || lock.locked_by}
+        {run && <span className="lk-who"> · {mine ? '나' : lock.locked_name || lock.locked_by}</span>}
       </span>
       <span className="muted small lk-when">
         {fmtTime(lock.locked_at)}
@@ -143,9 +147,14 @@ export default function LockCell({
             {lock.cycle_name || lock.cycle_id}
           </b>
         ) : null}
-        {stale ? ' · 응답 없음' : ''}
+        {stale && !run ? ' · 응답 없음' : ''}
       </span>
-      {(mine || isAdmin) && (
+      {/* 실행 중인 사이클의 점유는 풀 수 없다 — 사이클에서 멈추면 풀린다(지시) */}
+      {run ? (
+        <span className="muted small" title="사이클에서 실행을 멈추면 풀립니다. 실행 중에 풀면 다른 시험이 같은 장비로 들어와 결과가 섞입니다.">
+          사이클에서 멈추면 풀림
+        </span>
+      ) : (mine || isAdmin) && (
         <button
           className={`btn small${mine ? '' : ' danger'}`}
           type="button"

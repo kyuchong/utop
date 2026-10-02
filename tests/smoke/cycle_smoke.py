@@ -129,11 +129,29 @@ ok("실행 걸기", r.status_code == 200, r.text[:120])
 _rid = ((r.json() or {}).get("run") or {}).get("id") or (r.json() or {}).get("id") or ""
 _lk = [l for l in c.get("/api/locks").json().get("locks", []) if l.get("resource_id") == _ld]
 ok("실행이 세션 장비를 점유(사용중)", bool(_lk) and _lk[0].get("cycle_id") == _lc and _lk[0].get("note") == "실행", str(_lk)[:160])
+ok("점유 목록에 실행 중 표시", _lk and _lk[0].get("running") is True, str(_lk)[:160])
+# 같은 장비를 쓰는 **다른 사이클**은 같은 계정이어도 못 건다(지시: 220.1.12.3 이 사이클1 에서 실행 중이면)
+_lc2 = "cyc-smk-lock2"
+c.post(f"/api/cycle/{_lc2}", json={"id": _lc2, "name": "점유 스모크2", "items": [{"tcid": _lt, "name": "점유 시험"}]})
+r = c.post("/api/runs", json={"cycle_id": _lc2, "pick": [_lt]})
+ok("같은 계정 · 다른 사이클 → 409", r.status_code == 409 and "다른 사이클" in r.text and "실행 중" in r.text, r.text[:160])
+r = c.post("/api/locks/bulk", json={"resource_ids": [_ld], "kind": "device", "cycle_id": _lc2})
+ok("일괄 점유도 다른 사이클이면 막힘", r.status_code == 200 and r.json().get("success") is False, r.text[:120])
+r = c.post("/api/locks", json={"resource_id": _ld, "kind": "device"})
+ok("실행 중 장비는 Devices 점유도 막힘(같은 계정)", r.status_code == 409 and "실행 중" in r.text, r.text[:120])
+r = c.delete(f"/api/locks/{_ld}")
+ok("실행 중 점유는 반납·강제 해제 안 됨", r.status_code == 409, r.text[:120])
 r = c.post(f"/api/runs/{_rid}/stop")
 ok("대기 중 멈추기", r.status_code == 200, r.text[:120])
 _lk = [l for l in c.get("/api/locks").json().get("locks", []) if l.get("resource_id") == _ld]
 ok("실행이 끝나면 점유를 놓는다", not _lk, str(_lk)[:160])
+r = c.post("/api/runs", json={"cycle_id": _lc2, "pick": [_lt]})
+ok("앞 사이클이 끝나면 다른 사이클이 바로 걸린다", r.status_code == 200, r.text[:120])
+_rid2 = ((r.json() or {}).get("run") or {}).get("id") or ""
+c.post(f"/api/runs/{_rid2}/stop")
+ok("두 번째 실행도 멈추면 놓는다", not [l for l in c.get("/api/locks").json().get("locks", []) if l.get("resource_id") == _ld])
 c.delete(f"/api/cycle/{_lc}")
+c.delete(f"/api/cycle/{_lc2}")
 c.delete(f"/api/tc/{_lt}")
 
 # 정리

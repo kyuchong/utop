@@ -199,14 +199,37 @@ async def list_locks():
             for r2 in cn:
                 d2 = dict(r2["data_summary"] or {})
                 nm[r2["id"]] = {"name": r2["name"], "cid": d2.get("cid") or ""}
+        live = await _live_runs(c, ids)
     out = []
     for r in rows:
         d = dict(r)
         info = nm.get(d.get("cycle_id") or "")
         d["cycle_name"] = (info or {}).get("name") or ""
         d["cycle_cid"] = (info or {}).get("cid") or ""
+        # 실행 중인 사이클의 점유 — 화면은 반납·강제 해제를 감추고 「실행 중」 으로 적는다
+        d["running"] = bool(live.get(d.get("cycle_id") or ""))
         out.append(d)
     return {"locks": out}
+
+
+async def _live_runs(c, cycle_ids) -> dict:
+    """사이클 id → 지금 살아 있는 실행(대기 중이거나, 실행기 신호가 10분 안에 온 실행).
+
+    「실행 중인 사이클이 잡은 장비」 는 같은 계정이어도 다른 사이클이 못 쓰고, 반납·강제
+    해제도 안 된다(지시). 실행기가 죽어 신호가 끊긴 실행은 살아 있지 않은 것으로 본다 —
+    그래야 버려진 점유를 관리자가 풀 수 있다."""
+    ids = [x for x in {str(i or "") for i in cycle_ids} if x]
+    if not ids:
+        return {}
+    rows = await c.fetch(
+        """SELECT DISTINCT ON (cycle_id) cycle_id, id, status, started_by
+           FROM cycle_run
+           WHERE cycle_id = ANY($1::text[]) AND status IN ('queued','running')
+             AND (status = 'queued' OR heartbeat_at IS NULL OR heartbeat_at > now() - interval '10 minutes')
+           ORDER BY cycle_id, queued_at DESC""",
+        ids,
+    )
+    return {r["cycle_id"]: dict(r) for r in rows}
 
 
 class LockBulkIn(BaseModel):
@@ -240,15 +263,26 @@ async def _lock_bulk(resource_ids: list, kind: str, me: dict, cycle_id, note) ->
             "SELECT * FROM resource_lock WHERE resource_id = ANY($1::text[])", ids
         )
         mine_name = me.get("username")
-        blocked = [dict(r) for r in cur if r["locked_by"] != mine_name]
+
+        def _theirs(r) -> bool:
+            # **어느 사이클이 잡았나**로 가린다(지시) — 같은 계정이어도 다른 사이클이 잡은
+            # 장비는 못 쓴다. 같은 사이클을 다시 돌리는 것과, 사이클 없이 내가 직접 잡아 둔
+            # 장비를 내 사이클로 쓰는 것만 된다. 사이클 없이 부르면 예전처럼 사람으로 가린다.
+            if cycle_id and r["cycle_id"]:
+                return r["cycle_id"] != cycle_id
+            return r["locked_by"] != mine_name
+
+        blocked = [dict(r) for r in cur if _theirs(r)]
         if blocked:
             cids = [b["cycle_id"] for b in blocked if b["cycle_id"]]
             nm: dict = {}
             if cids:
                 cn = await c.fetch("SELECT id, name FROM cycle WHERE id = ANY($1::text[])", cids)
                 nm = {r["id"]: r["name"] for r in cn}
+            live = await _live_runs(c, cids)
             for b in blocked:
                 b["cycle_name"] = nm.get(b.get("cycle_id") or "") or ""
+                b["running"] = bool(live.get(b.get("cycle_id") or ""))
                 b["locked_at"] = b["locked_at"].isoformat() if b.get("locked_at") else None
                 b["heartbeat_at"] = b["heartbeat_at"].isoformat() if b.get("heartbeat_at") else None
             return {"success": False, "locked": [], "blocked": blocked}
@@ -281,6 +315,14 @@ async def acquire_lock(body: LockIn, request: Request):
 
     async with db.pool().acquire() as c:
         cur = await c.fetchrow("SELECT * FROM resource_lock WHERE resource_id=$1", rid)
+        if cur and cur["cycle_id"] and cur["cycle_id"] != (body.cycle_id or None):
+            live = await _live_runs(c, [cur["cycle_id"]])
+            if live:
+                nm = await c.fetchval("SELECT name FROM cycle WHERE id=$1", cur["cycle_id"])
+                raise HTTPException(
+                    409,
+                    f"사이클 「{nm or cur['cycle_id']}」 에서 실행 중인 장비입니다 — 사이클이 끝나거나 멈추면 풀립니다.",
+                )
         if cur:
             if cur["locked_by"] != me.get("username"):
                 who = cur["locked_name"] or cur["locked_by"]
@@ -326,6 +368,15 @@ async def release_lock(resource_id: str, request: Request):
         cur = await c.fetchrow("SELECT * FROM resource_lock WHERE resource_id=$1", resource_id)
         if not cur:
             raise HTTPException(404, "잡혀 있지 않습니다")
+        if cur["cycle_id"]:
+            live = await _live_runs(c, [cur["cycle_id"]])
+            if live:
+                nm = await c.fetchval("SELECT name FROM cycle WHERE id=$1", cur["cycle_id"])
+                raise HTTPException(
+                    409,
+                    f"사이클 「{nm or cur['cycle_id']}」 이 이 장비로 실행 중입니다 — 사이클에서 멈추면 풀립니다. "
+                    "실행 중에 풀면 다른 시험이 같은 장비로 들어와 결과가 섞입니다.",
+                )
         is_admin = me.get("role") == "관리자"
         if cur["locked_by"] != me.get("username") and not is_admin:
             who = cur["locked_name"] or cur["locked_by"]
@@ -5857,14 +5908,16 @@ async def run_queue(payload: dict, request: Request):
         _lk = await _lock_bulk(_devs, "device", core.me(request), cycle_id, "실행")
         if not _lk.get("success"):
             _who = " · ".join(
-                f"{b.get('resource_id')} — {b.get('locked_name') or b.get('locked_by') or '누군가'}"
-                + (f" ({b.get('cycle_name')})" if b.get("cycle_name") else "")
+                f"{b.get('resource_id')} — "
+                + (f"「{b.get('cycle_name')}」 에서 {'실행 중' if b.get('running') else '점유 중'}"
+                   if b.get("cycle_name") else "직접 점유")
+                + f" ({b.get('locked_name') or b.get('locked_by') or '누군가'})"
                 for b in _lk.get("blocked") or []
             )
             raise HTTPException(
                 409,
-                f"다른 사람이 쓰고 있는 장비가 있어 실행할 수 없습니다 — {_who}. "
-                "그 사람이 반납하거나 관리자가 장비 화면에서 풀어야 합니다.",
+                f"다른 사이클이 쓰고 있는 장비가 있어 실행할 수 없습니다 — {_who}. "
+                "그 사이클이 끝나거나 멈추면 실행할 수 있습니다.",
             )
 
     # 누가 걸었나. 화면에 「누가 돌리고 있나」 를 보여야 남이 멈추기 전에
@@ -6217,6 +6270,14 @@ async def run_progress(run_id: str, payload: dict):
     run = await db.run_progress(run_id, patch)
     if run is None:
         raise HTTPException(404, "실행을 찾을 수 없습니다")
+    # 도는 동안 점유 신호를 갱신한다 — 안 하면 10분 넘는 실행이 Devices 에 「응답 없음」 으로 보였다
+    try:
+        async with db.pool().acquire() as _c:
+            await _c.execute(
+                "UPDATE resource_lock SET heartbeat_at=now() WHERE cycle_id=$1", str(run.get("cycle_id") or "")
+            )
+    except Exception:  # noqa: BLE001
+        pass
     # 실행기는 플랜에만 쓴다 — 항목이 하나 끝날 때마다 실행 기록으로 옮긴다.
     # 여기서 안 옮기면 도는 내내 Runs 화면이 0% 인 채로 남는다.
     await _mirror_plan_run(run)

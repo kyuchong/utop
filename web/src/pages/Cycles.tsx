@@ -2251,19 +2251,22 @@ function CycleDetail({
               locked_by?: string
               cycle_name?: string
               locked_at?: string
+              running?: boolean
             }>
           }
           if (!r.ok || b.success === false) {
+            /* 같은 계정이어도 다른 사이클이 잡은 장비면 막힌다(지시) — 어느 사이클인지 적는다 */
             const lines = (b.blocked ?? []).map(
               (x) =>
-                `· ${x.resource_id} — ${x.locked_name || x.locked_by || '누군가'} 님` +
-                (x.cycle_name ? ` (${x.cycle_name})` : '') +
+                `· ${x.resource_id} — ` +
+                (x.cycle_name ? `「${x.cycle_name}」 에서 ${x.running ? '실행 중' : '점유 중'}` : '직접 점유') +
+                ` (${x.locked_name || x.locked_by || '누군가'})` +
                 (x.locked_at ? ` · ${String(x.locked_at).replace('T', ' ').slice(5, 16)}` : ''),
             )
             window.alert(
-              '다른 사람이 쓰고 있는 장비가 있어 실행할 수 없습니다.\n\n' +
+              '다른 사이클이 쓰고 있는 장비가 있어 실행할 수 없습니다.\n\n' +
                 lines.join('\n') +
-                '\n\n그 사람이 반납하거나, 관리자가 장비 화면에서 풀어야 합니다.',
+                '\n\n그 사이클이 끝나거나 멈추면 실행할 수 있습니다. 실행 중이 아닌데 남아 있는 점유는 Devices 화면에서 풀 수 있습니다.',
             )
             return
           }
