@@ -1,0 +1,16 @@
+/* 실행 중 점유 한 칸(지시: 세 줄 → 한 줄 + 올리면 풍선). 이름은 lkc- 아래에만 */
+.lkc-run {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: help;
+  color: var(--c-fail, #c0392b); font-weight: 700; font-size: var(--fs-xs);
+}
+.lkc-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.lkc-tip {
+  position: fixed; z-index: 1000; display: block; width: max-content; max-width: 320px;
+  padding: 8px 11px; border-radius: 8px; background: #1f2a33; color: #e6edf3;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 28%); font-size: var(--fs-xs); font-weight: 400;
+  line-height: 1.55; white-space: normal; text-align: left;
+}
+.lkc-tip > b { display: block; margin-bottom: 4px; color: #ffb4b4; font-size: var(--fs-sm); }
+.lkc-row { display: flex; gap: 8px; }
+.lkc-row em { flex: none; width: 64px; font-style: normal; color: #a9b6c3; }
+.lkc-foot { display: block; margin-top: 5px; color: #a9b6c3; }

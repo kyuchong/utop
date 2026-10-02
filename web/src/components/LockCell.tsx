@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import './LockCell.css'
 
 export interface Lock {
   resource_id: string
@@ -129,6 +131,9 @@ export default function LockCell({
   }
 
   const run = !!lock.running
+  /* 실행 중은 **한 줄**(지시: 세 줄로 길어진다) — 「● 실행 중 · 누구」 만 적고, 사이클·
+     시각·풀리는 법은 올리면 뜨는 풍선으로 */
+  if (run) return <LockRunCell lock={lock} mine={mine} />
   return (
     <span className="lk">
       <span className={`status ${run ? 'fail' : mine ? 'draft' : stale ? 'draft' : 'fail'}`}>
@@ -176,6 +181,44 @@ export default function LockCell({
         >
           {mine ? '반납' : '강제 해제'}
         </button>
+      )}
+    </span>
+  )
+}
+
+
+/** 실행 중인 점유 한 칸 — 한 줄 + 올리면 풍선. 풍선은 화면 기준(fixed)이라 표 칸에 안 잘린다 */
+function LockRunCell({ lock, mine }: { lock: Lock; mine: boolean }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const ref = useRef<HTMLSpanElement | null>(null)
+  const who = mine ? '나' : lock.locked_name || lock.locked_by
+  const cyc = [lock.cycle_cid, lock.cycle_name || lock.cycle_id].filter(Boolean).join(' · ')
+  return (
+    <span
+      ref={ref}
+      className="lkc-run"
+      tabIndex={0}
+      onMouseEnter={() => {
+        const r = ref.current?.getBoundingClientRect()
+        if (r) setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 330)) })
+      }}
+      onMouseLeave={() => setPos(null)}
+      onFocus={() => {
+        const r = ref.current?.getBoundingClientRect()
+        if (r) setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 330)) })
+      }}
+      onBlur={() => setPos(null)}
+    >
+      <i className="lkc-dot" aria-hidden="true" />
+      실행 중 · {who}
+      {pos && (
+        <span className="lkc-tip" role="tooltip" style={{ top: pos.top, left: pos.left }}>
+          <b>사이클에서 실행 중</b>
+          {cyc && <span className="lkc-row"><em>사이클</em>{cyc}</span>}
+          <span className="lkc-row"><em>실행한 사람</em>{lock.locked_name || lock.locked_by}</span>
+          <span className="lkc-row"><em>시작</em>{fmtTime(lock.locked_at)}</span>
+          <span className="lkc-foot">사이클에서 실행을 멈추거나 끝나면 풀립니다. 실행 중에는 점유·반납·강제 해제가 안 됩니다.</span>
+        </span>
       )}
     </span>
   )
