@@ -27,6 +27,10 @@ const LISTS = [
   { type: 'checkListItem', label: '체크리스트', mark: '☑' },
 ] as const
 
+/** 첨부 블록 — 파일·그림·동영상·소리를 고르면 목록 단추를 감춘다(지시: 첨부 파일을 눌렀을 때 글머리·번호·체크가 왜 뜨나).
+    목록으로 바꿀 수 없는 블록이라 눌러도 엉뚱하게 글줄로 바뀐다 */
+const MEDIA = new Set(['file', 'image', 'video', 'audio'])
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** 고른 줄 전부 — 하나도 안 골랐으면 커서가 놓인 줄 하나 */
 function blocksOf(editor: any): any[] {
@@ -44,6 +48,7 @@ function ListButton({ type, label, mark }: (typeof LISTS)[number]) {
     selector: ({ editor }) => {
       if (!editor.isEditable) return undefined
       const bs = blocksOf(editor)
+      if (bs.some((b) => MEDIA.has(String(b.type)))) return undefined
       return bs.length > 0 && bs.every((b) => b.type === type)
     },
   })
