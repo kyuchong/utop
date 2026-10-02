@@ -275,9 +275,22 @@ async def _lock_conflicts(c, ids: list, cycle_id, mine_name: str, cur=None) -> l
         cn = await c.fetch("SELECT id, name FROM cycle WHERE id = ANY($1::text[])", cids)
         nm = {r["id"]: r["name"] for r in cn}
     live = await _live_runs(c, cids)
+    # 장비 모델 — 「E6100 220.1.12.3」 처럼 IP 앞에 붙인다(지시). id 나 IP 어느 쪽으로 잡혔든 찾는다
+    rids = [b["resource_id"] for b in blocked]
+    mdl: dict = {}
+    try:
+        for r in await c.fetch("SELECT id, ip, model, name FROM device WHERE id = ANY($1::text[]) OR ip = ANY($1::text[])", rids):
+            m = str(r["model"] or r["name"] or "").strip()
+            if m:
+                mdl[str(r["id"])] = m
+                if r["ip"]:
+                    mdl.setdefault(str(r["ip"]), m)
+    except Exception:  # noqa: BLE001
+        mdl = {}
     for b in blocked:
         b["cycle_name"] = nm.get(b.get("cycle_id") or "") or ""
         b["running"] = bool(live.get(b.get("cycle_id") or ""))
+        b["model"] = mdl.get(str(b.get("resource_id") or ""), "")
         b["locked_at"] = b["locked_at"].isoformat() if b.get("locked_at") else None
         b["heartbeat_at"] = b["heartbeat_at"].isoformat() if b.get("heartbeat_at") else None
     return blocked

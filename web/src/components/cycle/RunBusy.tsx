@@ -15,6 +15,8 @@ import './RunBusy.css'
  */
 export interface RunBusyLine {
   resource_id: string
+  /** 장비 모델 — IP 앞에 붙인다 */
+  model?: string | null
   cycle_id?: string | null
   cycle_name?: string | null
   running?: boolean
@@ -68,8 +70,8 @@ export function RunBusyButton({ lines, small = true, round = false }: { lines: R
   const boxRef = useRef<HTMLSpanElement | null>(null)
   const place = () => {
     const r = boxRef.current?.getBoundingClientRect()
-    /* 단추 왼쪽 끝에 맞추되 화면 밖으로 안 나가게(풍선 최대 폭 460) */
-    if (r) setPos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - 470)) })
+    /* 단추 왼쪽 끝에 맞추되 화면 밖으로 안 나가게(풍선이 한 줄로 길어지므로 넉넉히) */
+    if (r) setPos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - 680)) })
   }
   useEffect(() => {
     if (!pin) return
@@ -116,7 +118,10 @@ export function RunBusyButton({ lines, small = true, round = false }: { lines: R
         <b>{head}</b>
         {lines.map((l) => (
           <span className="rbz-row" key={l.resource_id}>
-            <span className="rbz-dev">{l.resource_id}</span>
+            <span className="rbz-dev">
+              {l.model && <span className="rbz-mdl">{l.model}</span>}
+              {l.resource_id}
+            </span>
             <span className="rbz-what">
               {l.cycle_name ? (
                 <>
