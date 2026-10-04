@@ -1815,7 +1815,8 @@ export default function ReqTc({ me }: Props) {
   const [catMenu, setCatMenu] = useState('')
   const [moving, setMoving] = useState('')
   const [editPrj, setEditPrj] = useState('')
-  const [catMenuAt, setCatMenuAt] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  /* upY — 위로 펼 때 메뉴 아래 끝이 닿을 자리(「⋯」 단추 위 끝) */
+  const [catMenuAt, setCatMenuAt] = useState<{ x: number; y: number; upY?: number }>({ x: 0, y: 0 })
   /* 「하위 폴더」 를 고르면 그 폴더 밑에 **이름 칸이 바로 열린다**(지시·사진).
      창을 띄워 묻지 않는 까닭: 어디에 만드는지가 그 자리에 보여야 한다.
      창은 화면 한가운데 떠서 「어느 폴더 밑이더라」 를 다시 생각하게 한다. */
@@ -2140,7 +2141,7 @@ export default function ReqTc({ me }: Props) {
                     aria-expanded={catMenu === c.id}
                     onClick={(e) => {
                       const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                      setCatMenuAt({ x: r.left, y: r.bottom + 4 })
+                      setCatMenuAt({ x: r.left, y: r.bottom + 4, upY: r.top - 4 })
                       setCatMenu((v) => (v === c.id ? '' : c.id))
                     }}
                   >
@@ -2153,6 +2154,17 @@ export default function ReqTc({ me }: Props) {
                         className="tc-menu rqtc-fmenu-pop"
                         role="menu"
                         style={{ position: 'fixed', left: catMenuAt.x, top: catMenuAt.y, right: 'auto' }}
+                        /* 아래 공간이 모자라면 「⋯」 **위로** 편다(지적: 아래쪽 프로젝트의 메뉴가
+                           화면 밖으로 나가 안 보였다 · 승인). 좌우도 화면 안으로 넣는다 */
+                        ref={(el) => {
+                          if (!el) return
+                          const h = el.offsetHeight
+                          const w = el.offsetWidth
+                          if (catMenuAt.y + h + 8 > window.innerHeight)
+                            el.style.top = `${Math.max(8, (catMenuAt.upY ?? catMenuAt.y) - h)}px`
+                          if (catMenuAt.x + w + 8 > window.innerWidth)
+                            el.style.left = `${Math.max(8, window.innerWidth - w - 8)}px`
+                        }}
                       >
                         <button
                           type="button"
