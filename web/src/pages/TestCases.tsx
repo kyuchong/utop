@@ -2308,6 +2308,22 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                         </div>
                       )
                     })()}
+                  {/* 실행 로그 — **1열 아래 30%**(지시: 스텝 70 · 로그 30). 가로로 긴 줄이
+                      넓은 1열에서 그대로 보이고, 탭을 바꾸지 않아도 늘 선다.
+                      내용이 많아지면 제 안에서 구른다 */}
+                  <RunLog
+                    lines={logs}
+                    /* 번호는 **표가 매긴 것**을 쓴다 — 로그가 1,2,3 으로
+                       새로 세면 표의 1.3.1 을 찾을 길이 없다(지적) */
+                    nos={stripNos}
+                    only={logOnly}
+                    onOnly={setLogOnly}
+                    onClear={() => setLogs([])}
+                    onPick={(i) => {
+                      setStepIdx(i)
+                      setRtab('det')
+                    }}
+                  />
                 </section>
                 <Resizer
                   label="스텝 목록 폭 조절"
@@ -2341,13 +2357,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                           없이 안다. */}
                       {termOpen ? '명령어 캡쳐' : '판정 기준'}
                     </button>
-                    <button
-                      type="button"
-                      className={`tc-rtab${rtab === 'log' ? ' on' : ''}`}
-                      onClick={() => setRtab('log')}
-                    >
-                      실행 로그{logs.length ? <em>{logs.length}</em> : null}
-                    </button>
+                    {/* 「실행 로그」 탭은 걷었다(지시) — 로그는 1열 스텝 목록 아래(30%)에 늘 선다.
+                        가로로 긴 줄이 좁은 이 칸에서 접혔고, 볼 때마다 탭을 바꿔야 했다 */}
                     <span className="sp" />
                     {/* 캡쳐는 **이 칸을 바꾸는 일**이라 이 칸 머리에 둔다.
                         2열 실행 줄에 있을 때는 왼쪽을 눌러 오른쪽이 바뀌는
@@ -2367,21 +2378,6 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       <IconCli />
                     </button>
                   </div>
-                  {rtab === 'log' ? (
-                    <RunLog
-                      lines={logs}
-                      /* 번호는 **표가 매긴 것**을 쓴다 — 로그가 1,2,3 으로
-                         새로 세면 표의 1.3.1 을 찾을 길이 없다(지적) */
-                      nos={stripNos}
-                      only={logOnly}
-                      onOnly={setLogOnly}
-                      onClear={() => setLogs([])}
-                      onPick={(i) => {
-                        setStepIdx(i)
-                        setRtab('det')
-                      }}
-                    />
-                  ) : (
                   <>
                   {/* 스텝 띠 — 머리 바로 아래(지시). 색 하나로 어디까지 갔는지
                       읽힌다: 진행 중 파랑 · 적합 초록 · 부적합 빨강 · 그 밖 노랑 ·
@@ -2530,7 +2526,6 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                   />
                   )}
                   </>
-                  )}
                 </section>
               </div>
     ),

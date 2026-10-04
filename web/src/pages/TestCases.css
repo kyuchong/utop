@@ -4237,3 +4237,8 @@ body.sq-resizing { user-select: none; cursor: col-resize; }
 /* 뽑은 값 목록 — Criteria 줄들과 **같은 왼쪽 열**에서 시작한다(지시).
    라벨이 값 영역 안에 있으면 위아래 줄과 어긋나 계단처럼 보인다. */
 .sd-f > .sd-vlist { display: flex; flex-direction: column; gap: 4px; }
+
+/* Automation 1열 — 스텝 70 : 실행 로그 30(지시). 둘 다 제 안에서 구른다.
+   조작 줄(.sq-bulk)은 둘 사이에 고정으로 선다 */
+.railsec[data-sec='steps'] .tc-seqcol > .sq { flex: 7 1 0; min-height: 0; }
+.railsec[data-sec='steps'] .tc-seqcol > .rl { flex: 3 1 0; min-height: 0; }
