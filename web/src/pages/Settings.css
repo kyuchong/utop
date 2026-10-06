@@ -1632,8 +1632,8 @@ button.dcc-st:disabled { cursor: default; }
 .ml-row > .ml-md { flex: 0 0 180px; }
 /* SMTP 칸들은 **폭을 줄인다**(지시) — 화면 끝까지 퍼지면 서버 주소 한 줄이 1,400px 이 되어
    눈이 왼쪽 끝과 오른쪽 끝을 오간다. 다른 설정 판과 같은 폭으로 왼쪽에 모은다 */
-.ml .ml-card.ml-smtp,
-.ml .ml-card.ml-test { max-width: 760px; }
+/* 메일 설정의 **모든 카드**(SMTP·테스트·REQ/TC 공유 폼·플랜 배정 폼·Cycles 알림 폼)를 같은 폭으로(지시) */
+.ml .ml-card { max-width: 760px; }
 /* SMTP 칸은 **한 줄에 하나**(지시: B 안 — 이름 위, 입력 아래).
    폭은 **모두 같게**(지시: 들쑥날쑥하지 않게) — 포트·보안도 다른 칸과 같은 폭 */
 .ml .ml-smtp .ml-row { flex-direction: column; align-items: stretch; gap: 12px; }
@@ -1670,8 +1670,9 @@ button.dcc-st:disabled { cursor: default; }
 }
 .ml-ph { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--c-text-muted); }
 .ml-ph .sp { margin-left: auto; }
-.ml-secs { display: flex; flex-wrap: wrap; gap: 6px 14px; }
-.ml-sec { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-sm); }
+/* 「실어 보낼 것」 은 **한 줄에 하나씩**(지시: B 안) — 나란히 두면 칸이 좁아 「구현 / 내용」 처럼 글자가 꺾였다 */
+.ml-secs { display: flex; flex-direction: column; gap: 6px; }
+.ml-sec { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); white-space: nowrap; }
 .ml-test { background: #fbfcfd; }
 
 /* ── INFO 필드 — 값마다 색, 필드마다 모양(지시) ── */
