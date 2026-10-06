@@ -17,6 +17,8 @@ import {
   type Table,
 } from '@tanstack/react-table'
 import { copyText } from '@/lib/copy'
+import { PeoplePick } from '@/components/AssigneePicker'
+import { useMeName } from '@/components/ntable/useAdmin'
 import { useUserPeople } from '@/pages/qaBits'
 import { Chip, CtxMenu, DatePicker, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
 import { TI } from './icons'
@@ -318,11 +320,21 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   }
   /** 사람 열 후보 — 그 열에 쓰인 이름(모든 연도) + 앱 사용자 이름 */
   const users = useUserPeople()
+  const me = useMeName()
   const people = (c: EfColumn) => {
-    const s = new Set<string>()
-    Object.values(doc.pages).forEach((p) => p.rows.forEach((r) => cellText(r[c.id]).trim() && s.add(cellText(r[c.id]).trim())))
-    users.forEach((u) => s.add(u.name))
-    return [...s].sort((a, b) => a.localeCompare(b, 'ko'))
+    // 앱 사용자(조직 포함) 먼저, 그 열에만 쓰인 이름(퇴사자·외부 인원 등)은 조직 없이 덧붙인다
+    const out = users.map((u) => ({ name: u.name, org: u.org }))
+    const seen = new Set(out.map((u) => u.name))
+    Object.values(doc.pages).forEach((p) =>
+      p.rows.forEach((r) => {
+        const v = cellText(r[c.id]).trim()
+        if (v && !seen.has(v)) {
+          seen.add(v)
+          out.push({ name: v, org: '' })
+        }
+      }),
+    )
+    return out
   }
 
   // ── 키보드(지시: 방향키로 칸 이동) — ↑↓←→ 이동, Shift+방향키 범위, Enter·F2 고치기, 글자를 치면 바로 고치기,
@@ -352,7 +364,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       commit(src, col, !truthy(src[col.id]))
       return
     }
-    const picker = hasOptions(col.type) || col.type === 'date' || col.type === 'daterange'
+    const picker = hasOptions(col.type) || col.type === 'date' || col.type === 'daterange' || col.type === 'person'
     setEdit({ src, col, anchor: td, init: picker ? undefined : init })
   }
   /**
@@ -410,7 +422,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       sk.value = ''
       return
     }
-    if (hasOptions(col.type) || col.type === 'date' || col.type === 'daterange') {
+    if (hasOptions(col.type) || col.type === 'date' || col.type === 'daterange' || col.type === 'person') {
       sk.value = ''
       editAt(r, c)
       return
@@ -809,7 +821,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           const editable = !c.autoSum && c.type !== 'datediff'
           const isEd = edit && edit.src === src && edit.col.id === c.id
           // 팝업으로 고르는 유형 — 선택·상태·다중 선택·날짜·기간
-          const picker = hasOptions(c.type) || c.type === 'date' || c.type === 'daterange'
+          const picker = hasOptions(c.type) || c.type === 'date' || c.type === 'daterange' || c.type === 'person'
           if (isEd && !picker) {
             const kind = c.type === 'url' ? 'url' : c.type === 'email' ? 'email' : c.type === 'phone' ? 'tel' : 'text'
             const init = edit!.init
@@ -852,7 +864,6 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                     className="ef-cell-in"
                     autoFocus
                     type={kind}
-                    list={c.type === 'person' ? 'ef-people' : undefined}
                     inputMode={num ? 'decimal' : undefined}
                     defaultValue={init ?? cellText(src[c.id])}
                     onFocus={(e) => start(e.currentTarget)}
@@ -1135,11 +1146,16 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         <RangePicker anchor={edit.anchor} value={cellText(edit.src[edit.col.id])} onClose={() => setEdit(null)} onPick={(v) => commit(edit.src, edit.col, v)} />
       )}
       {edit && edit.col.type === 'person' && (
-        <datalist id="ef-people">
-          {people(edit.col).map((p) => (
-            <option key={p} value={p} />
-          ))}
-        </datalist>
+        // 사람 — 앱 공용 담당 고르개(조직 레일 · 검색 · 최근 · 나에게 · 비움). 플랜 표·노션 표와 같은 몸통
+        <PeoplePick
+          at={{ x: edit.anchor.getBoundingClientRect().left, y: edit.anchor.getBoundingClientRect().bottom + 2 }}
+          people={people(edit.col)}
+          value={cellText(edit.src[edit.col.id])}
+          me={me}
+          loading={!users.length}
+          onPick={(v) => commit(edit.src, edit.col, v)}
+          onClose={() => setEdit(null)}
+        />
       )}
       {edit && hasOptions(edit.col.type) && edit.col.type !== 'multiselect' && (
         <SelectPicker
