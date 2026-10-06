@@ -23,6 +23,7 @@ import {
   type EfColumn,
   type EfCond,
   type EfDoc,
+  type EfNode,
   type EfType,
   type EfView,
   type EfViewState,
@@ -121,6 +122,7 @@ export default function EffortPlan() {
           key={cur}
           d={tableOf(d, cur)}
           name={d.efTree!.nodes.find((n) => n.id === cur)?.name ?? ''}
+          path={folderPath(d.efTree!.nodes, cur)}
           ver={ver}
           touch={touch}
           toast={toast}
@@ -134,9 +136,25 @@ export default function EffortPlan() {
 }
 
 /** 고른 표 하나 — 제목(표 이름 · 연도 ▾) · 보기 탭 · 도구 줄 · 표 */
+/** 표가 든 폴더 이름들 — 맨 위 폴더부터(빵부스러기) */
+function folderPath(nodes: EfNode[], id: string): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  let p = nodes.find((n) => n.id === id)?.parent ?? null
+  while (p && !seen.has(p)) {
+    seen.add(p)
+    const n = nodes.find((x) => x.id === p)
+    if (!n) break
+    out.unshift(n.name)
+    p = n.parent
+  }
+  return out
+}
+
 function EffortBody({
   d,
   name,
+  path,
   ver,
   touch,
   toast,
@@ -145,6 +163,7 @@ function EffortBody({
 }: {
   d: EfDoc
   name: string
+  path: string[]
   ver: number
   touch: () => void
   toast: (m: string) => void
@@ -246,6 +265,19 @@ function EffortBody({
               {year}년
               <TI n="chevron-down" />
             </button>
+            <nav className="ef-crumb" aria-label="위치" title={[...path, name].join(' › ')}>
+              {path.map((f, i) => (
+                <span key={i} className="ef-crumb-it">
+                  <TI n="folder" />
+                  {f}
+                  <TI n="chevron-right" className="ef-crumb-sep" />
+                </span>
+              ))}
+              <span className="ef-crumb-it ef-crumb-cur">
+                <TI n="table" />
+                {name}
+              </span>
+            </nav>
             <span className={`ef-save ${save}`} onClick={save === 'error' ? retry : undefined}>
               {save === 'saving' || save === 'dirty' ? '저장 중…' : save === 'saved' ? '저장됨' : save === 'error' ? '저장 실패 — 눌러서 다시' : ''}
             </span>

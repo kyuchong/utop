@@ -414,7 +414,8 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
 .ef-t td.ef-sel::after {
   content: '';
   position: absolute;
-  inset: 0;
+  /* 칸 자신의 오른쪽·아래 회색 줄까지 덮는다 — 안 덮으면 열마다 파란 테두리가 끊겨 보인다 */
+  inset: 0 -1px -1px 0;
   pointer-events: none;
   border: 0 solid #2d6fd4;
   z-index: 2;
@@ -908,7 +909,18 @@ input.ef-fsel { cursor: text; }
 .ef-ch-sub { font-size: 11px; font-weight: 600; color: var(--c-text-faint); margin-left: 7px; }
 .ef-chbox.tall { height: 320px; }
 /* 행 번호 — 누르면 행 선택(엑셀식). 선택된 행의 번호는 파랗게 */
-.ef-t td.ef-rnum { cursor: e-resize; user-select: none; }
+/* 행 번호 — 엑셀처럼 오른쪽을 가리키는 검은 화살표(e-resize 는 폭 조절 모양이라 헷갈린다) */
+.ef-t td.ef-rnum {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M2 6h7V2.5L14.5 8 9 13.5V10H2z' fill='%23111' stroke='%23fff' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E") 14 8, pointer;
+  user-select: none;
+}
 .ef-t td.ef-rnum:hover { color: #2d6fd4; }
 .ef-t td.ef-rh.ef-rsel,
 .ef-t tbody tr:hover td.ef-rh.ef-rsel { background: #dbe6fb; color: #2d6fd4; font-weight: 800; }
+
+/* 제목 줄 빵부스러기 — 연도 옆, 표가 든 폴더 › 표 */
+.ef-crumb { display: flex; align-items: center; min-width: 0; margin-left: 4px; padding: 3px 9px; border-radius: 999px; background: #f2f5fa; font-size: 11px; font-weight: 600; color: var(--c-text-faint); white-space: nowrap; overflow: hidden; }
+.ef-crumb-it { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.ef-crumb-it .ef-ti { font-size: 12px; flex: none; }
+.ef-crumb-sep { margin: 0 4px; font-size: 10px !important; opacity: 0.6; }
+.ef-crumb-cur { color: var(--c-text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
