@@ -92,7 +92,7 @@
 .ef-tn.dragging { opacity: 0.45; }
 .ef-tn-tw { width: 16px; height: 16px; flex: none; font-size: 10px; color: var(--c-text-faint); text-align: center; }
 /* 접기·펴기 단추 — 이것만 누르면 접힌다(줄 전체는 안 접힌다) */
-button.ef-tn-tw { border: 0; padding: 0; margin: 0 -3px; background: transparent; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+button.ef-tn-tw { width: 20px; height: 20px; font-size: 13px; border: 0; padding: 0; margin: 0 -3px; background: transparent; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
 button.ef-tn-tw:hover { background: #dfe7f7; color: #2d6fd4; }
 .ef-tn-ic { flex: none; font-size: 12px; }
 .ef-tn-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
