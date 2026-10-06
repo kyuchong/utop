@@ -898,6 +898,8 @@ input.ef-fsel { cursor: text; }
 .ef-kcard { background: #fff; border: 1px solid var(--c-border); border-radius: 10px; padding: 11px 12px; cursor: grab; }
 .ef-kcard:hover { box-shadow: 0 6px 16px rgba(20, 40, 80, 0.1); }
 .ef-kcard.ghost { opacity: 0.4; }
+/* 끄는 중 놓일 자리 — 카드 사이 파란 줄 */
+.ef-kdrop { height: 3px; margin: -6px 2px; border-radius: 2px; background: #2d6fd4; box-shadow: 0 0 0 2px #2d6fd433; pointer-events: none; }
 .ef-kname { font-size: 13px; font-weight: 800; line-height: 1.4; margin-bottom: 7px; color: var(--c-text); }
 .ef-kmeta { font-size: 11px; color: var(--c-text-faint); }
 .ef-cardmenu { width: 160px; }

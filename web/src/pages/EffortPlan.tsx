@@ -366,7 +366,7 @@ function EffortBody({
                     </option>
                   ))}
                 </select>
-                <span className="ef-tbhint">카드 드래그 → 값 변경</span>
+                <span className="ef-tbhint">카드 끌기 → 칸·순서 바꾸기</span>
                 <span className="ef-sp" />
                 <button
                   type="button"

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ArcElement,
@@ -48,6 +48,23 @@ export function chartColOf(view: EfView, cols: EfColumn[]) {
 }
 
 // ── 보드(칸반) ──────────────────────────────────────────────────────
+/**
+ * 카드 놓기 — 칸(lane)의 i 번째 카드 앞에 r 을 넣는다(i = 칸 끝이면 마지막 카드 뒤).
+ * 보드는 행 차례대로 그리므로 **행 자체를 옮긴다**(지시: 보드에서도 행 순서를 바꾼다) — 표도 정렬이 없으면 이 차례로 보인다.
+ * lane 은 놓기 전의 그 칸 카드들(r 이 들어 있을 수도 있다). 빈 칸이면 행은 제자리에 둔다.
+ */
+export function placeRow(rows: EfRow[], r: EfRow, lane: EfRow[], i: number) {
+  const before = lane.slice(i).find((x) => x !== r)
+  const rest = lane.filter((x) => x !== r)
+  const after = before ? undefined : rest[rest.length - 1]
+  if (!before && !after) return
+  const from = rows.indexOf(r)
+  if (from < 0) return
+  rows.splice(from, 1)
+  const at = before ? rows.indexOf(before) : rows.indexOf(after!) + 1
+  rows.splice(at < 0 ? rows.length : at, 0, r)
+}
+
 export function EfBoard({
   d,
   rows,
@@ -64,7 +81,8 @@ export function EfBoard({
   const cols = d.columns
   const bc = boardColOf(view, cols)
   const [dragRow, setDragRow] = useState<EfRow | null>(null)
-  const [over, setOver] = useState<string | null>(null)
+  /** 끄는 중 놓일 자리 — 칸 g 의 i 번째 카드 앞(i = 칸 끝이면 맨 뒤) */
+  const [over, setOver] = useState<{ g: string; i: number } | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; r: EfRow } | null>(null)
   if (!bc) return <div className="ef-empty">선택/상태 타입 열이 있어야 보드를 만들 수 있습니다 — [열 설정]에서 추가하세요</div>
 
@@ -76,16 +94,22 @@ export function EfBoard({
   })
   if (!groups.length) groups.push(NONE)
   const titleCol = cols.find((c) => c.type === 'text')
-  const drop = (g: string) => {
+  const drop = () => {
     const r = dragRow
+    const at = over
     setDragRow(null)
     setOver(null)
-    if (!r) return
-    const nv = g === NONE ? '' : g
-    if (cellText(r[bc.id]) === nv) return
-    if (nv) r[bc.id] = nv
-    else delete r[bc.id]
-    touch()
+    if (!r || !at) return
+    const lane = rows.filter((x) => (cellText(x[bc.id]) || NONE) === at.g)
+    const nv = at.g === NONE ? '' : at.g
+    const moved = cellText(r[bc.id]) !== nv
+    const was = rows.indexOf(r)
+    if (moved) {
+      if (nv) r[bc.id] = nv
+      else delete r[bc.id]
+    }
+    placeRow(rows, r, lane, at.i)
+    if (moved || rows.indexOf(r) !== was) touch()
   }
   return (
     <div className="ef-kanban">
@@ -99,16 +123,19 @@ export function EfBoard({
               <span className="ef-kcnt">{items.length}</span>
             </div>
             <div
-              className={`ef-klist${over === g ? ' over' : ''}`}
+              className={`ef-klist${over?.g === g ? ' over' : ''}`}
               onDragOver={(e) => {
                 if (!dragRow) return
                 e.preventDefault()
-                if (over !== g) setOver(g)
+                // 카드 위가 아니면(빈 자리) 칸 맨 뒤
+                if (e.target === e.currentTarget && (over?.g !== g || over.i !== items.length)) setOver({ g, i: items.length })
               }}
-              onDragLeave={(e) => e.currentTarget === e.target && setOver(null)}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
+              }}
               onDrop={(e) => {
                 e.preventDefault()
-                drop(g)
+                drop()
               }}
             >
               {items.map((r, i) => {
@@ -119,10 +146,19 @@ export function EfBoard({
                   .map((c) => `${c.title}: ${cellText(r[c.id])}`)
                   .join(' · ')
                 return (
+                  <Fragment key={i}>
+                  {over?.g === g && over.i === i && <div className="ef-kdrop" />}
                   <div
-                    key={i}
                     className={`ef-kcard${dragRow === r ? ' ghost' : ''}`}
                     draggable
+                    onDragOver={(e) => {
+                      if (!dragRow) return
+                      e.preventDefault()
+                      // 카드 위쪽 절반이면 그 앞, 아래쪽 절반이면 그 뒤
+                      const b = e.currentTarget.getBoundingClientRect()
+                      const at = e.clientY < b.top + b.height / 2 ? i : i + 1
+                      if (over?.g !== g || over.i !== at) setOver({ g, i: at })
+                    }}
                     onDragStart={(e) => {
                       e.dataTransfer.effectAllowed = 'move'
                       e.dataTransfer.setData('text/plain', 'card')
@@ -140,8 +176,10 @@ export function EfBoard({
                     <div className="ef-kname">{(titleCol && cellText(r[titleCol.id])) || '(제목)'}</div>
                     {meta && <div className="ef-kmeta">{meta}</div>}
                   </div>
+                  </Fragment>
                 )
               })}
+              {over?.g === g && over.i === items.length && <div className="ef-kdrop" />}
             </div>
           </div>
         )
