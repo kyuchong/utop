@@ -20,6 +20,7 @@ import JiraIssues from '@/pages/JiraIssues'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
 import RackView from '@/pages/RackView'
+import EffortPlan from '@/pages/EffortPlan'
 import Help from '@/pages/Help'
 
 /**
@@ -33,7 +34,7 @@ const PAGE_KEY = 'utop.page'
    모르는 이름은 Dashboard 로 보낸다 — 벽보다는 쓸 수 있는 화면이 낫다. */
 const KNOWN_PAGES = new Set([
   'dashboard', 'wiki', 'reqtc', 'cycles', 'runs', 'executions',
-  'devices', 'instruments', 'rackview',
+  'devices', 'instruments', 'rackview', 'effort',
   'defects', 'jira', 'releases', 'ai-tc', 'ai-kb', 'plans-old', 'settings', 'help',
 ])
 
@@ -345,6 +346,8 @@ export default function App() {
         <Instruments me={user} />
       ) : page === 'rackview' ? (
         <RackView />
+      ) : page === 'effort' ? (
+        <EffortPlan />
       ) : page === 'settings' ? (
         <Settings />
       ) : page === 'help' ? (

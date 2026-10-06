@@ -12,6 +12,7 @@ import {
   IconDevice,
   IconInstrument,
   IconRack,
+  IconEffort,
   IconSettings,
   IconSearch,
   IconSparkle,
@@ -77,6 +78,7 @@ export const NAV: NavGroup[] = [
       /* 장비 카탈로그는 설정이 아니라 **장비 곁**이 제자리다(지시) */
       { key: 'instruments', label: 'Traffic Gen', Icon: IconInstrument },
       { key: 'rackview', label: 'Rack View', Icon: IconRack },
+      { key: 'effort', label: 'Effort Plan', Icon: IconEffort },
     ],
   },
   {

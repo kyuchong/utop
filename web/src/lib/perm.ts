@@ -69,6 +69,7 @@ export const PERM_GROUPS: Array<{ title: string; items: PermModule[] }> = [
       { k: 'devices', label: 'Devices', rights: RW },
       { k: 'instruments', label: 'Traffic Gen', rights: ['view', 'edit', 'run'] },
       { k: 'rackview', label: 'Rack View', rights: ['view', 'edit'] },
+      { k: 'effort', label: 'Effort Plan', rights: RW },
     ],
   },
   {
