@@ -300,7 +300,7 @@ export const SHADE = ['아주 진함', '진함', '', '밝음', '옅음', '여림
 
 /** 색을 안 고른 값의 자동 색 — 값 글자로 늘 같은 색이 나오게 */
 // 예전 _RSC_PAL 그대로 — 같은 값이면 예전 화면과 같은 색이 나온다
-const AUTO = ['#2d6fd4', '#00a872', '#7c5cff', '#c9923e', '#e53e5a', '#0ea5e9', '#ec4899', '#14b8a6', '#f59e0b', '#64748b', '#0a9b5a', '#d12d4a']
+export const AUTO = ['#2d6fd4', '#00a872', '#7c5cff', '#c9923e', '#e53e5a', '#0ea5e9', '#ec4899', '#14b8a6', '#f59e0b', '#64748b', '#0a9b5a', '#d12d4a']
 export function autoColor(v: string): string {
   let h = 0
   for (let i = 0; i < v.length; i++) h = (h * 31 + v.charCodeAt(i)) >>> 0

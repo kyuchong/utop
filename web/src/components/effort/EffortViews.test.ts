@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MONTH, chartSetOf, chartTitle, customSeries, mmByGroup, monthTrend } from './EffortViews'
+import { chartsOn, cumTrend, headsByMonth, mmByGroup, monthByGroup, monthTrend, personMonth, quarterSums, setChartsOn, utilByPerson } from './EffortViews'
 import type { EfColumn } from './model'
 
 const cols: EfColumn[] = [
@@ -33,28 +33,40 @@ describe('차트 집계', () => {
   })
 })
 
-describe('차트 추가 — 사용자 차트 자료', () => {
-  it('열별 값 — 공수 합계·행 개수·숫자 열, 큰 차례', () => {
-    expect(customSeries({ id: 'x', kind: 'bar', by: 'dept', val: 'mm' }, rows, cols)).toEqual({ labels: ['A', 'B'], series: [{ name: '합계', data: [3, 0.5] }] })
-    expect(customSeries({ id: 'x', kind: 'bar', by: 'dept', val: 'count' }, rows, cols).series[0]!.data).toEqual([2, 1])
-    expect(customSeries({ id: 'x', kind: 'bar', by: 'dept', val: 'm02' }, rows, cols).series[0]!.data).toEqual([1.5, 0])
+describe('고를 수 있는 차트 — 집계', () => {
+  it('누적 · 분기(월 열이 12개가 아니면 「01월~02월」)', () => {
+    expect(cumTrend(rows, cols)).toEqual([
+      { t: '01월', v: 2 },
+      { t: '02월', v: 3.5 },
+    ])
+    expect(quarterSums(rows, cols)).toEqual([{ t: '01월~02월', v: 3.5 }])
   })
-  it('월별 — 나누지 않으면 한 계열, 나누면 값마다 계열', () => {
-    expect(customSeries({ id: 'x', kind: 'line', by: MONTH, val: 'mm' }, rows, cols)).toEqual({ labels: ['01월', '02월'], series: [{ name: '합계', data: [2, 1.5] }] })
-    const s = customSeries({ id: 'x', kind: 'line', by: MONTH, val: 'mm', split: 'dept' }, rows, cols)
-    expect(s.series).toEqual([
+  it('기준 열 값마다 월별 공수 — 큰 차례', () => {
+    expect(monthByGroup(rows, cols, cols[1]).series).toEqual([
       { name: 'A', data: [1.5, 1.5] },
       { name: 'B', data: [0.5, 0] },
     ])
   })
-  it('제목 — 비우면 자동, 쓰면 그대로', () => {
-    expect(chartTitle({ id: 'x', kind: 'bar', by: 'dept', val: 'count' }, cols)).toBe('부서별 개수')
-    expect(chartTitle({ id: 'x', kind: 'line', by: MONTH, val: 'mm', split: 'dept' }, cols)).toBe('월별 공수 — 부서별')
-    expect(chartTitle({ id: 'x', kind: 'bar', by: 'dept', val: 'mm', title: ' 내 차트 ' }, cols)).toBe('내 차트')
+  it('인원 × 월 · 평균 투입률(%) · 월별 투입 인원', () => {
+    expect(personMonth(rows, cols).people).toEqual([
+      { k: '김', v: [1.5, 1.5] },
+      { k: '이', v: [0.5, 0] },
+    ])
+    expect(utilByPerson(rows, cols)).toEqual([
+      { k: '김', v: 150 },
+      { k: '이', v: 25 },
+    ])
+    expect(headsByMonth(rows, cols)).toEqual([
+      { t: '01월', v: 2 },
+      { t: '02월', v: 1 },
+    ])
   })
-  it('보기에 차트 설정이 없으면 빈 설정을 붙인다', () => {
+  it('켠 차트 — 없으면 기본 네 개, 예전 hidden 은 빼고, 저장은 목록 차례로', () => {
     const v = { id: 'v', name: '차트', type: 'chart' } as { id: string; name: string; type: string; [k: string]: unknown }
-    expect(chartSetOf(v)).toEqual({ hidden: [], custom: [] })
-    expect(v.chartSet).toBe(chartSetOf(v))
+    expect(chartsOn(v)).toEqual(['cnt', 'sum', 'mm', 'mon'])
+    v.chartSet = { hidden: ['sum'], custom: [] }
+    expect(chartsOn(v)).toEqual(['cnt', 'mm', 'mon'])
+    setChartsOn(v, ['heat', 'cnt'])
+    expect(chartsOn(v)).toEqual(['cnt', 'heat'])
   })
 })

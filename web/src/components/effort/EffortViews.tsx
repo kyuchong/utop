@@ -17,7 +17,7 @@ import {
 } from 'chart.js'
 import { Pop } from './EffortMenus'
 import { TI } from './icons'
-import { autoColor, defaultGroup, isNumCol, newId, numFmt, toNum, type EfColumn, type EfDoc, type EfRow, type EfView } from './model'
+import { AUTO, autoColor, defaultGroup, numFmt, toNum, type EfColumn, type EfDoc, type EfRow, type EfView } from './model'
 
 /**
  * Effort Plan 의 보드·차트 보기 — 예전 13-resource.js 의 _rscRenderBoard·_rscRenderChart 를 옮겼다.
@@ -251,135 +251,185 @@ export function monthTrend(rows: EfRow[], cols: EfColumn[]) {
   return months.map((c) => ({ t: c.title, v: Math.round(rows.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0) * 100) / 100 }))
 }
 
-// ── 차트 추가(지시: 보고 싶은 차트를 사용자가 골라 보이게) ───────────────────
-/** 사용자가 만든 차트 하나 — 보기의 chartSet.custom 에 둔다 */
-export type EfChartKind = 'doughnut' | 'bar' | 'hbar' | 'line'
-export interface EfChartSpec {
-  id: string
-  kind: EfChartKind
-  /** 가로축 — 열 id, 또는 MONTH(월 열들) */
-  by: string
-  /** 값 — 'count'(행 개수) · 'mm'(행 공수) · 숫자 열 id. 가로축이 월이면 쓰지 않는다 */
-  val: string
-  /** 가로축이 월일 때 이 열 값마다 선·막대를 나눈다 */
-  split?: string
-  title?: string
-}
-export interface EfChartSet {
-  /** 숨긴 기본 차트 id */
-  hidden: string[]
-  custom: EfChartSpec[]
-}
-export const MONTH = '__month'
-/** 기본 차트 네 개 — 예전 화면 배치 차례 */
-export const BUILTIN_CHARTS: Array<{ id: string; name: string }> = [
-  { id: 'cnt', name: '개수 분포' },
-  { id: 'sum', name: '숫자 열 합계' },
-  { id: 'mm', name: '기준 열별 공수 합계' },
-  { id: 'mon', name: '월별 추이' },
-]
-export const CHART_KINDS: Array<{ k: EfChartKind; name: string; ic: string }> = [
-  { k: 'bar', name: '막대', ic: 'chart-bar' },
-  { k: 'hbar', name: '가로 막대', ic: 'chart-bar' },
-  { k: 'line', name: '선', ic: 'chart-line' },
-  { k: 'doughnut', name: '도넛', ic: 'chart-donut' },
-]
-/** 보기에 붙은 차트 설정 — 없으면 만들어 붙인다(보기와 같이 저장된다) */
-export function chartSetOf(view: EfView): EfChartSet {
-  const cs = view.chartSet as Partial<EfChartSet> | undefined
-  if (!cs || !Array.isArray(cs.hidden) || !Array.isArray(cs.custom)) view.chartSet = { hidden: cs?.hidden ?? [], custom: cs?.custom ?? [] }
-  return view.chartSet as EfChartSet
-}
-/** 가로축이 될 수 있는 열 — 숫자·합계 열 빼고 전부 */
-export const chartByCols = (cols: EfColumn[]) => cols.filter((c) => !isNumCol(c))
-
+// ── 차트 고르기(지시: 만들기가 아니라 여러 차트 중에서 골라 보이게) ───────────────
 const monthCols = (cols: EfColumn[]) => cols.filter((c) => c.type === 'number' && !c.autoSum)
 const r2 = (n: number) => Math.round(n * 100) / 100
-
-export function chartTitle(sp: EfChartSpec, cols: EfColumn[]) {
-  if (sp.title?.trim()) return sp.title.trim()
-  const t = (id?: string) => cols.find((c) => c.id === id)?.title ?? '(지운 열)'
-  if (sp.by === MONTH) return `월별 공수${sp.split ? ` — ${t(sp.split)}별` : ''}`
-  const v = sp.val === 'count' ? '개수' : sp.val === 'mm' ? '공수 합계' : `${t(sp.val)} 합계`
-  return `${t(sp.by)}별 ${v}`
-}
-
-/** 사용자 차트의 자료 — 이름표 + 계열들. 계열이 많으면 큰 차례 10개 + 기타 */
-export function customSeries(sp: EfChartSpec, rows: EfRow[], cols: EfColumn[]) {
+/** 행 공수 — 합계 열(있으면), 없으면 월 열을 더한다 */
+function rowMMOf(cols: EfColumn[]) {
   const months = monthCols(cols)
   const auto = cols.find((c) => c.autoSum)
-  const rowMM = (r: EfRow) => (auto ? (toNum(r[auto.id]) ?? 0) : months.reduce((a, c) => a + (toNum(r[c.id]) ?? 0), 0))
-  if (sp.by === MONTH) {
-    const labels = months.map((c) => c.title)
-    const sum = (rs: EfRow[]) => months.map((c) => r2(rs.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0)))
-    if (!sp.split || !cols.some((c) => c.id === sp.split)) return { labels, series: [{ name: '합계', data: sum(rows) }] }
-    const by = new Map<string, EfRow[]>()
-    rows.forEach((r) => {
-      const k = cellText(r[sp.split!]) || '(빈값)'
-      by.set(k, [...(by.get(k) ?? []), r])
-    })
-    let groups = [...by.entries()].map(([name, rs]) => ({ name, rs, tot: rs.reduce((a, r) => a + rowMM(r), 0) })).sort((a, b) => b.tot - a.tot)
-    if (groups.length > 10) groups = [...groups.slice(0, 9), { name: '기타', rs: groups.slice(9).flatMap((g) => g.rs), tot: 0 }]
-    return { labels, series: groups.map((g) => ({ name: g.name, data: sum(g.rs) })) }
+  return (r: EfRow) => (auto ? (toNum(r[auto.id]) ?? 0) : months.reduce((a, c) => a + (toNum(r[c.id]) ?? 0), 0))
+}
+
+/** 분기별 공수 — 월 열을 차례대로 셋씩 묶는다(12개면 1~4분기, 아니면 「01월~03월」) */
+export function quarterSums(rows: EfRow[], cols: EfColumn[]) {
+  const months = monthCols(cols)
+  const out: Array<{ t: string; v: number }> = []
+  for (let i = 0; i < months.length; i += 3) {
+    const g = months.slice(i, i + 3)
+    const t = months.length === 12 ? `${i / 3 + 1}분기` : g.length > 1 ? `${g[0]!.title}~${g[g.length - 1]!.title}` : g[0]!.title
+    out.push({ t, v: r2(rows.reduce((a, r) => a + g.reduce((b, c) => b + (toNum(r[c.id]) ?? 0), 0), 0)) })
   }
-  const valOf = (r: EfRow) => (sp.val === 'count' ? 1 : sp.val === 'mm' ? rowMM(r) : (toNum(r[sp.val]) ?? 0))
-  const by = new Map<string, number>()
+  return out
+}
+/** 월별 누적 공수 */
+export function cumTrend(rows: EfRow[], cols: EfColumn[]) {
+  let acc = 0
+  return monthTrend(rows, cols).map((x) => ({ t: x.t, v: r2((acc += x.v)) }))
+}
+/** 기준 열 값마다 월별 공수 — 큰 차례 9개 + 기타 */
+export function monthByGroup(rows: EfRow[], cols: EfColumn[], cc: EfColumn | undefined) {
+  const months = monthCols(cols)
+  if (!cc) return { labels: months.map((c) => c.title), series: [] as Array<{ name: string; data: number[] }> }
+  const mm = rowMMOf(cols)
+  const by = new Map<string, EfRow[]>()
   rows.forEach((r) => {
-    const k = cellText(r[sp.by]) || '(빈값)'
-    by.set(k, (by.get(k) ?? 0) + valOf(r))
+    const k = cellText(r[cc.id]) || '(빈값)'
+    by.set(k, [...(by.get(k) ?? []), r])
   })
-  const ent = [...by.entries()].map(([k, v]) => [k, r2(v)] as const).sort((a, b) => b[1] - a[1])
-  return { labels: ent.map((e) => e[0]), series: [{ name: sp.val === 'count' ? '개수' : '합계', data: ent.map((e) => e[1]) }] }
+  let g = [...by.entries()].map(([name, rs]) => ({ name, rs, tot: rs.reduce((a, r) => a + mm(r), 0) })).sort((a, b) => b.tot - a.tot)
+  if (g.length > 10) g = [...g.slice(0, 9), { name: '기타', rs: g.slice(9).flatMap((x) => x.rs), tot: 0 }]
+  return {
+    labels: months.map((c) => c.title),
+    series: g.map((x) => ({ name: x.name, data: months.map((c) => r2(x.rs.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0))) })),
+  }
+}
+/** 인원 × 월 공수 — 인원은 이름 차례 */
+export function personMonth(rows: EfRow[], cols: EfColumn[]) {
+  const months = monthCols(cols)
+  const nameId = defaultGroup(cols)
+  const by = new Map<string, number[]>()
+  rows.forEach((r) => {
+    const k = cellText(r[nameId]) || '(빈값)'
+    const a = by.get(k) ?? months.map(() => 0)
+    months.forEach((c, i) => (a[i]! += toNum(r[c.id]) ?? 0))
+    by.set(k, a)
+  })
+  return {
+    months: months.map((c) => c.title),
+    people: [...by.entries()].map(([k, a]) => ({ k, v: a.map(r2) })).sort((a, b) => a.k.localeCompare(b.k, 'ko')),
+  }
+}
+/** 인원별 평균 투입률(%) — 공수 합 ÷ 월 수, 큰 차례 */
+export function utilByPerson(rows: EfRow[], cols: EfColumn[]) {
+  const { months, people } = personMonth(rows, cols)
+  if (!months.length) return []
+  return people.map((p) => ({ k: p.k, v: Math.round((p.v.reduce((a, b) => a + b, 0) / months.length) * 1000) / 10 })).sort((a, b) => b.v - a.v)
+}
+/** 월별 투입 인원 — 그 달 공수가 0 보다 큰 사람 수 */
+export function headsByMonth(rows: EfRow[], cols: EfColumn[]) {
+  const { months, people } = personMonth(rows, cols)
+  return months.map((t, i) => ({ t, v: people.filter((p) => p.v[i]! > 0).length }))
+}
+
+/** 고를 수 있는 차트 — 이 차례로 그린다. 앞의 네 개가 기본(예전 화면) */
+export const CHARTS: Array<{ id: string; name: string; ic: string; tip: string; def?: boolean }> = [
+  { id: 'cnt', name: '개수 분포', ic: 'chart-donut', tip: '기준 열 값마다 행 개수', def: true },
+  { id: 'sum', name: '숫자 열 합계', ic: 'chart-bar', tip: '숫자 열마다 합계', def: true },
+  { id: 'mm', name: '기준 열별 공수 합계', ic: 'chart-bar-h', tip: '기준 열 값마다 공수 — 가득 찬 투입을 넘으면 주황', def: true },
+  { id: 'mon', name: '월별 추이', ic: 'chart-line', tip: '월마다 공수 합계', def: true },
+  { id: 'share', name: '기준 열별 공수 비중', ic: 'chart-donut', tip: '기준 열 값마다 공수가 차지하는 몫' },
+  { id: 'stack', name: '월별 공수 구성', ic: 'chart-bar', tip: '월마다 공수를 기준 열 값으로 쌓은 막대' },
+  { id: 'lines', name: '기준 열별 월별 추이', ic: 'chart-line', tip: '기준 열 값마다 선 하나' },
+  { id: 'cum', name: '월별 누적 공수', ic: 'chart-line', tip: '1월부터 쌓아 온 공수' },
+  { id: 'qtr', name: '분기별 공수', ic: 'chart-bar', tip: '월 열을 셋씩 묶은 합계' },
+  { id: 'util', name: '인원별 평균 투입률', ic: 'chart-bar-h', tip: '사람마다 한 달 평균 공수(%) — 100% 를 넘으면 주황' },
+  { id: 'heads', name: '월별 투입 인원', ic: 'chart-bar', tip: '그 달에 공수가 있는 사람 수' },
+  { id: 'heat', name: '인원 × 월 투입 표', ic: 'table', tip: '사람·달마다 공수를 색 진하기로 — 1 을 넘으면 주황' },
+]
+/** 보기마다 켠 차트 — view.chartSet.on. 없으면 기본 네 개(예전 hidden 만 있던 설정은 그만큼 뺀다) */
+export function chartsOn(view: EfView): string[] {
+  const cs = view.chartSet as { on?: string[]; hidden?: string[] } | undefined
+  if (Array.isArray(cs?.on)) return cs.on
+  const hid = cs?.hidden ?? []
+  return CHARTS.filter((c) => c.def && !hid.includes(c.id)).map((c) => c.id)
+}
+export function setChartsOn(view: EfView, on: string[]) {
+  view.chartSet = { on: CHARTS.map((c) => c.id).filter((id) => on.includes(id)) }
 }
 
 type Mk = ((el: HTMLCanvasElement) => { destroy: () => void }) | null
 const BLUE = '#2d6fd4'
 const ORANGE = '#e06a34'
+const lineOpts = (legend: boolean) => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: legend, position: 'bottom' as const } },
+  scales: { x: { grid: { display: false } }, y: { beginAtZero: true } },
+})
+const simpleBar = (labels: string[], data: number[], color: string | string[] = BLUE): Mk => (el) =>
+  new Chart(el, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: '합계', data, backgroundColor: color, borderRadius: 5 }] },
+    options: lineOpts(false),
+  })
+const simpleLine = (labels: string[], data: number[]): Mk => (el) =>
+  new Chart(el, {
+    type: 'line',
+    data: { labels, datasets: [{ label: '합계', data, borderColor: BLUE, backgroundColor: 'rgba(45,111,212,.14)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2 }] },
+    options: lineOpts(false),
+  })
+const donut = (labels: string[], data: number[]): Mk => (el) =>
+  new Chart(el, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: labels.map((k) => autoColor(k)), borderWidth: 2, borderColor: '#fff' }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+  })
+const hbar = (labels: string[], data: number[], colors: string[], unit: string, extra?: (i: number) => string): Mk => (el) =>
+  new Chart(el, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: unit, data, backgroundColor: colors, borderRadius: 5 }] },
+    options: {
+      indexAxis: 'y', // 가로 막대 — 위에서부터 큰 차례(예전과 같다)
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: extra ? { afterLabel: (it) => extra(it.dataIndex) } : {} } },
+      scales: { x: { beginAtZero: true }, y: { grid: { display: false } } },
+    },
+  })
 
-function customMk(sp: EfChartSpec, rows: EfRow[], cols: EfColumn[]): Mk {
-  const { labels, series } = customSeries(sp, rows, cols)
-  if (!labels.length || !series.length) return null
-  const multi = series.length > 1
-  const color = (name: string) => (multi ? autoColor(name) : BLUE)
-  if (sp.kind === 'doughnut')
-    return (el) =>
-      new Chart(el, {
-        type: 'doughnut',
-        data: { labels, datasets: [{ data: series[0]!.data, backgroundColor: labels.map((k) => autoColor(k)), borderWidth: 2, borderColor: '#fff' }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
-      })
-  if (sp.kind === 'line')
-    return (el) =>
-      new Chart(el, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: series.map((s) => ({
-            label: s.name, data: s.data, borderColor: color(s.name), backgroundColor: multi ? color(s.name) : 'rgba(45,111,212,.14)',
-            fill: !multi, tension: 0.4, pointRadius: 3, borderWidth: 2,
-          })),
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: multi, position: 'bottom' } },
-          scales: { x: { grid: { display: false } }, y: { beginAtZero: true } },
-        },
-      })
-  const h = sp.kind === 'hbar'
-  return (el) =>
-    new Chart(el, {
-      type: 'bar',
-      data: { labels, datasets: series.map((s) => ({ label: s.name, data: s.data, backgroundColor: color(s.name), borderRadius: 5 })) },
-      options: {
-        indexAxis: h ? 'y' : 'x', responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: multi, position: 'bottom' } },
-        scales: { x: { stacked: multi, beginAtZero: true, grid: { display: h } }, y: { stacked: multi, beginAtZero: true, grid: { display: !h } } },
-      },
-    })
+/** 차트마다 그리는 함수 — 자료가 없으면 null */
+function makeAll(rows: EfRow[], cols: EfColumn[], cc: EfColumn | undefined): Record<string, Mk> {
+  const mk: Record<string, Mk> = {}
+  const mm = mmByGroup(rows, cols, cc)
+  mk.mm = mm.length ? hbar(mm.map((x) => x.k), mm.map((x) => x.sum), mm.map((x) => (x.sum > x.full ? ORANGE : BLUE)), '공수(M/M)', (i) => `가득 찬 투입 ${numFmt(mm[i]!.full)}`) : null
+  mk.share = mm.some((x) => x.sum > 0) ? donut(mm.map((x) => x.k), mm.map((x) => x.sum)) : null
+  const tr = monthTrend(rows, cols)
+  mk.mon = tr.length ? simpleLine(tr.map((x) => x.t), tr.map((x) => x.v)) : null
+  const cu = cumTrend(rows, cols)
+  mk.cum = cu.length ? simpleLine(cu.map((x) => x.t), cu.map((x) => x.v)) : null
+  const q = quarterSums(rows, cols)
+  mk.qtr = q.length ? simpleBar(q.map((x) => x.t), q.map((x) => x.v)) : null
+  const hd = headsByMonth(rows, cols)
+  mk.heads = hd.length ? simpleBar(hd.map((x) => x.t), hd.map((x) => x.v), '#00a872') : null
+  const ut = utilByPerson(rows, cols)
+  mk.util = ut.length ? hbar(ut.map((x) => x.k), ut.map((x) => x.v), ut.map((x) => (x.v > 100 ? ORANGE : BLUE)), '평균 투입률(%)') : null
+  // 개수 분포
+  const cnt: Record<string, number> = {}
+  if (cc) rows.forEach((r) => {
+    const v = cellText(r[cc.id]) || '(빈값)'
+    cnt[v] = (cnt[v] ?? 0) + 1
+  })
+  const ck = Object.keys(cnt)
+  mk.cnt = ck.length ? donut(ck, ck.map((k) => cnt[k]!)) : null
+  // 숫자 열 합계
+  const numCols = cols.filter((c) => c.type === 'number')
+  mk.sum = numCols.length ? simpleBar(numCols.map((c) => c.title), numCols.map((c) => r2(rows.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0)))) : null
+  // 기준 열 값마다 — 쌓은 막대 · 선 여러 개
+  const g = monthByGroup(rows, cols, cc)
+  // 계열 색은 팔레트 차례로(이름 해시는 겹친다) · 기타는 회색
+  const sc = (name: string, i: number) => (name === '기타' ? '#c3cad6' : AUTO[i % AUTO.length]!)
+  const ds = (fill: boolean) =>
+    g.series.map((s, i) => ({ label: s.name, data: s.data, backgroundColor: sc(s.name, i), borderColor: sc(s.name, i), ...(fill ? { borderRadius: 3 } : { tension: 0.35, pointRadius: 2, borderWidth: 2 }) }))
+  mk.stack = g.series.length && g.labels.length
+    ? (el) => new Chart(el, { type: 'bar', data: { labels: g.labels, datasets: ds(true) }, options: { ...lineOpts(true), scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true } } } })
+    : null
+  mk.lines = g.series.length && g.labels.length ? (el) => new Chart(el, { type: 'line', data: { labels: g.labels, datasets: ds(false) }, options: lineOpts(true) }) : null
+  return mk
 }
 
 /** 차트 카드 하나 — 그리는 함수(mk)가 바뀔 때만 다시 그린다 */
-function ChartCard({ title, sub, tall, mk, onHide, hideTip }: { title: string; sub?: string; tall?: boolean; mk: Mk; onHide: () => void; hideTip: string }) {
+function ChartCard({ title, sub, tall, mk, onHide }: { title: string; sub?: string; tall?: boolean; mk: Mk; onHide: () => void }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     if (!ref.current || !mk) return
@@ -388,208 +438,146 @@ function ChartCard({ title, sub, tall, mk, onHide, hideTip }: { title: string; s
   }, [mk])
   return (
     <div className="ef-card">
-      <div className="ef-ch">
-        <span className="ef-ch-t">
-          {title}
-          {sub && <span className="ef-ch-sub">{sub}</span>}
-        </span>
-        <button type="button" className="ef-chx" title={hideTip} aria-label={hideTip} onClick={onHide}>
-          <TI n="x" />
-        </button>
-      </div>
+      <CardHead title={title} sub={sub} onHide={onHide} />
       <div className={`ef-chbox${tall ? ' tall' : ''}`}>{mk ? <canvas ref={ref} /> : <div className="ef-chnone">그릴 자료가 없습니다</div>}</div>
     </div>
   )
 }
-
-/** 차트 보기 — 기본 네 개(개수 분포 · 숫자 열 합계 · 기준 열별 공수 합계 · 월별 추이, 예전 화면 배치) + 사용자가 추가한 차트 */
-export function EfChart({ d, rows, view, ver, touch, toast }: { d: EfDoc; rows: EfRow[]; view: EfView; ver: number; touch: () => void; toast: (m: string) => void }) {
-  const cc = chartColOf(view, d.columns)
-  const cs = chartSetOf(view)
-  const base = useMemo(() => {
-    const mk: Record<string, Mk> = {}
-    // ① 기준 열별 공수 합계 — 가득 찬 투입을 넘으면 주황
-    const mm = mmByGroup(rows, d.columns, cc)
-    mk.mm = !mm.length ? null : (el) =>
-      new Chart(el, {
-        type: 'bar',
-        data: {
-          labels: mm.map((x) => x.k),
-          datasets: [{ label: '공수(M/M)', data: mm.map((x) => x.sum), backgroundColor: mm.map((x) => (x.sum > x.full ? ORANGE : BLUE)), borderRadius: 5 }],
-        },
-        options: {
-          indexAxis: 'y', // 가로 막대 — 위에서부터 큰 차례(예전과 같다)
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { afterLabel: (it) => `가득 찬 투입 ${numFmt(mm[it.dataIndex]!.full)}` } },
-          },
-          scales: { x: { beginAtZero: true }, y: { grid: { display: false } } },
-        },
-      })
-    // ② 월별 추이
-    const tr = monthTrend(rows, d.columns)
-    mk.mon = !tr.length ? null : (el) =>
-      new Chart(el, {
-        type: 'line',
-        data: {
-          labels: tr.map((x) => x.t),
-          datasets: [{ label: '합계', data: tr.map((x) => x.v), borderColor: BLUE, backgroundColor: 'rgba(45,111,212,.14)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2 }],
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } },
-      })
-    // ③ 개수 분포
-    const cnt: Record<string, number> = {}
-    if (cc) rows.forEach((r) => {
-      const v = cellText(r[cc.id]) || '(빈값)'
-      cnt[v] = (cnt[v] ?? 0) + 1
-    })
-    const ck = Object.keys(cnt)
-    mk.cnt = !ck.length ? null : (el) =>
-      new Chart(el, {
-        type: 'doughnut',
-        data: { labels: ck, datasets: [{ data: ck.map((k) => cnt[k]!), backgroundColor: ck.map((k) => autoColor(k)), borderWidth: 2, borderColor: '#fff' }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
-      })
-    // ④ 숫자 열 합계
-    const numCols = d.columns.filter((c) => c.type === 'number')
-    const sums = numCols.map((c) => r2(rows.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0)))
-    mk.sum = !numCols.length ? null : (el) =>
-      new Chart(el, {
-        type: 'bar',
-        data: { labels: numCols.map((c) => c.title), datasets: [{ label: '합계', data: sums, backgroundColor: BLUE, borderRadius: 5 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } },
-      })
-    return mk
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, ver, cc?.id])
-  const custom = useMemo(
-    () => cs.custom.map((sp) => ({ sp, mk: customMk(sp, rows, d.columns) })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, ver, cs.custom],
-  )
-  const hide = (id: string) => {
-    cs.hidden = [...cs.hidden.filter((x) => x !== id), id]
-    touch()
-    toast('차트를 숨겼습니다 — [＋ 차트 추가]에서 다시 켤 수 있습니다')
-  }
-  const del = (id: string) => {
-    cs.custom = cs.custom.filter((x) => x.id !== id)
-    touch()
-    toast('차트를 지웠습니다')
-  }
-  const shown = BUILTIN_CHARTS.filter((b) => !cs.hidden.includes(b.id))
-  if (!shown.length && !custom.length) return <div className="ef-empty">보이는 차트가 없습니다 — [＋ 차트 추가]에서 고르세요</div>
-  const SUB: Record<string, string> = { mm: '많이 들어간 차례 · 가득 찬 투입을 넘으면 주황', mon: '숫자 열 합계(자동 합계 열 제외)' }
+function CardHead({ title, sub, onHide }: { title: string; sub?: string; onHide: () => void }) {
   return (
-    <div className="ef-charts">
-      {shown.map((b) => (
-        <ChartCard key={b.id} title={b.name} sub={SUB[b.id]} tall={b.id === 'mm' || b.id === 'mon'} mk={base[b.id] ?? null} onHide={() => hide(b.id)} hideTip="이 차트 숨기기" />
-      ))}
-      {custom.map(({ sp, mk }) => (
-        <ChartCard key={sp.id} title={chartTitle(sp, d.columns)} tall mk={mk} onHide={() => del(sp.id)} hideTip="이 차트 지우기" />
-      ))}
+    <div className="ef-ch">
+      <span className="ef-ch-t">
+        {title}
+        {sub && <span className="ef-ch-sub">{sub}</span>}
+      </span>
+      <button type="button" className="ef-chx" title="이 차트 숨기기" aria-label="이 차트 숨기기" onClick={onHide}>
+        <TI n="x" />
+      </button>
+    </div>
+  )
+}
+/** 인원 × 월 투입 표 — 칸 색 진하기 = 공수(1 이 가득), 1 을 넘으면 주황 */
+function HeatCard({ rows, cols, onHide }: { rows: EfRow[]; cols: EfColumn[]; onHide: () => void }) {
+  const { months, people } = useMemo(() => personMonth(rows, cols), [rows, cols])
+  return (
+    <div className="ef-card ef-card-wide">
+      <CardHead title="인원 × 월 투입 표" sub="진할수록 많이 · 1 을 넘으면 주황" onHide={onHide} />
+      {!months.length || !people.length ? (
+        <div className="ef-chnone ef-heat-none">그릴 자료가 없습니다</div>
+      ) : (
+        <div className="ef-heat">
+          <table>
+            <thead>
+              <tr>
+                <th />
+                {months.map((m) => (
+                  <th key={m}>{m}</th>
+                ))}
+                <th>합계</th>
+              </tr>
+            </thead>
+            <tbody>
+              {people.map((p) => (
+                <tr key={p.k}>
+                  <th>{p.k}</th>
+                  {p.v.map((v, i) => (
+                    <td
+                      key={i}
+                      style={v > 0 ? { background: v > 1 ? `rgba(224,106,52,${Math.min(0.85, 0.35 + (v - 1) * 0.5)})` : `rgba(45,111,212,${0.08 + v * 0.62})`, color: v > 0.6 ? '#fff' : undefined } : undefined}
+                    >
+                      {v > 0 ? numFmt(v) : ''}
+                    </td>
+                  ))}
+                  <td className="ef-heat-sum">{numFmt(r2(p.v.reduce((a, b) => a + b, 0)))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
 
-/** [＋ 차트 추가] — 위: 기본 차트 켜고 끄기, 아래: 새 차트 만들기(종류 · 가로축 · 값) */
-export function ChartAdd({ anchor, d, view, touch, toast, onClose }: { anchor: HTMLElement; d: EfDoc; view: EfView; touch: () => void; toast: (m: string) => void; onClose: () => void }) {
-  const cols = d.columns
-  const cs = chartSetOf(view)
-  const byCols = chartByCols(cols)
-  const nums = monthCols(cols) // 합계 열은 「공수 합계」 와 같아 뺀다
+/** 차트 보기 — 고른 차트만 정해진 차례로. 기본은 예전 화면의 네 개 */
+export function EfChart({ d, rows, view, ver, touch, toast }: { d: EfDoc; rows: EfRow[]; view: EfView; ver: number; touch: () => void; toast: (m: string) => void }) {
+  const cc = chartColOf(view, d.columns)
+  const on = chartsOn(view)
+  const mk = useMemo(
+    () => makeAll(rows, d.columns, cc),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, ver, cc?.id],
+  )
+  const hide = (id: string) => {
+    setChartsOn(view, on.filter((x) => x !== id))
+    touch()
+    toast('차트를 숨겼습니다 — [＋ 차트 추가]에서 다시 켤 수 있습니다')
+  }
+  const shown = CHARTS.filter((c) => on.includes(c.id))
+  if (!shown.length) return <div className="ef-empty">보이는 차트가 없습니다 — [＋ 차트 추가]에서 고르세요</div>
+  const SUB: Record<string, string> = {
+    mm: '많이 들어간 차례 · 가득 찬 투입을 넘으면 주황',
+    mon: '숫자 열 합계(자동 합계 열 제외)',
+    share: `기준 열: ${cc?.title ?? '-'}`,
+    stack: `기준 열: ${cc?.title ?? '-'}`,
+    lines: `기준 열: ${cc?.title ?? '-'}`,
+    util: '한 달 평균 · 100% 를 넘으면 주황',
+    heads: '그 달 공수가 있는 사람 수',
+  }
+  const TALL = ['mm', 'mon', 'stack', 'lines', 'util', 'cum', 'qtr', 'heads', 'share']
+  return (
+    <div className="ef-charts">
+      {shown.map((c) =>
+        c.id === 'heat' ? (
+          <HeatCard key={c.id} rows={rows} cols={d.columns} onHide={() => hide(c.id)} />
+        ) : (
+          <ChartCard key={c.id} title={c.name} sub={SUB[c.id]} tall={TALL.includes(c.id)} mk={mk[c.id] ?? null} onHide={() => hide(c.id)} />
+        ),
+      )}
+    </div>
+  )
+}
+
+/** [＋ 차트 추가] — 고를 수 있는 차트 목록, 눌러서 켜고 끈다 */
+export function ChartAdd({ anchor, view, touch, onClose }: { anchor: HTMLElement; view: EfView; touch: () => void; onClose: () => void }) {
   const [, re] = useState(0)
-  const [sp, setSp] = useState<EfChartSpec>(() => ({ id: '', kind: 'bar', by: byCols[0]?.id ?? MONTH, val: 'mm' }))
-  const put = (p: Partial<EfChartSpec>) =>
-    setSp((o) => {
-      const n = { ...o, ...p }
-      if (n.by === MONTH && n.kind === 'doughnut') n.kind = 'line' // 월별은 도넛으로 못 그린다
-      return n
-    })
-  const toggle = (id: string) => {
-    cs.hidden = cs.hidden.includes(id) ? cs.hidden.filter((x) => x !== id) : [...cs.hidden, id]
+  const on = chartsOn(view)
+  const flip = (id: string) => {
+    setChartsOn(view, on.includes(id) ? on.filter((x) => x !== id) : [...on, id])
     touch()
     re((x) => x + 1)
   }
-  const add = () => {
-    const n: EfChartSpec = { ...sp, id: newId(), title: sp.title?.trim() || undefined }
-    if (n.by !== MONTH) delete n.split
-    cs.custom = [...cs.custom, n]
-    touch()
-    onClose()
-    toast(`「${chartTitle(n, cols)}」 차트를 추가했습니다`)
-  }
-  const month = sp.by === MONTH
   return (
     <Pop anchor={anchor} cls="ef-menu ef-chadd" onClose={onClose}>
-      <div className="ef-lbl">기본 차트</div>
+      <div className="ef-lbl">
+        보일 차트 고르기 <em className="ef-chadd-n">{on.length}/{CHARTS.length}</em>
+      </div>
       <div className="ef-mlist">
-        {BUILTIN_CHARTS.map((b) => {
-          const on = !cs.hidden.includes(b.id)
+        {CHARTS.map((c) => {
+          const v = on.includes(c.id)
           return (
-            <button key={b.id} type="button" className={`ef-mi${on ? ' on' : ''}`} onClick={() => toggle(b.id)}>
-              <i className="ef-mi-ic"><TI n={on ? 'checkbox' : 'square'} /></i>
-              <span>{b.name}</span>
+            <button key={c.id} type="button" className={`ef-mi${v ? ' on' : ''}`} title={c.tip} onClick={() => flip(c.id)}>
+              <i className={`ef-mi-ic${c.ic === 'chart-bar-h' ? ' ef-rot' : ''}`}>
+                <TI n={c.ic === 'chart-bar-h' ? 'chart-bar' : c.ic} />
+              </i>
+              <span>{c.name}</span>
+              {v && <i className="ef-mi-ck"><TI n="check" /></i>}
             </button>
           )
         })}
       </div>
       <div className="ef-sep" />
-      <div className="ef-lbl">새 차트 만들기</div>
-      <div className="ef-chk">
-        {CHART_KINDS.map((k) => (
-          <button
-            key={k.k}
-            type="button"
-            className={`ef-chk-b${sp.kind === k.k ? ' on' : ''}${k.k === 'hbar' ? ' rot' : ''}`}
-            disabled={month && k.k === 'doughnut'}
-            title={month && k.k === 'doughnut' ? '월별은 도넛으로 그릴 수 없습니다' : k.name}
-            onClick={() => put({ kind: k.k })}
-          >
-            <TI n={k.ic} />
-            <span>{k.name}</span>
-          </button>
-        ))}
-      </div>
-      <label className="ef-chf">
-        <span>가로축</span>
-        <select className="ef-fsel" value={sp.by} onChange={(e) => put({ by: e.target.value })}>
-          <option value={MONTH}>월 (월 열마다)</option>
-          {byCols.map((c) => (
-            <option key={c.id} value={c.id}>{c.title}</option>
-          ))}
-        </select>
-      </label>
-      {month ? (
-        <label className="ef-chf">
-          <span>나눠 보기</span>
-          <select className="ef-fsel" value={sp.split ?? ''} onChange={(e) => put({ split: e.target.value || undefined })}>
-            <option value="">나누지 않음 (전체 합)</option>
-            {byCols.map((c) => (
-              <option key={c.id} value={c.id}>{c.title}별</option>
-            ))}
-          </select>
-        </label>
-      ) : (
-        <label className="ef-chf">
-          <span>값</span>
-          <select className="ef-fsel" value={sp.val} onChange={(e) => put({ val: e.target.value })}>
-            <option value="mm">공수 합계 (M/M)</option>
-            <option value="count">행 개수</option>
-            {nums.map((c) => (
-              <option key={c.id} value={c.id}>{c.title} 합계</option>
-            ))}
-          </select>
-        </label>
-      )}
-      <label className="ef-chf">
-        <span>제목</span>
-        <input className="ef-fsel" value={sp.title ?? ''} placeholder={chartTitle({ ...sp, title: '' }, cols)} onChange={(e) => put({ title: e.target.value })} />
-      </label>
-      <button type="button" className="ef-btn ef-full" onClick={add}>
-        <TI n="plus" /> 차트 추가
+      <button
+        type="button"
+        className="ef-mi"
+        onClick={() => {
+          setChartsOn(view, CHARTS.filter((c) => c.def).map((c) => c.id))
+          touch()
+          re((x) => x + 1)
+        }}
+      >
+        <i className="ef-mi-ic"><TI n="refresh" /></i>
+        <span>기본 네 개로 되돌리기</span>
       </button>
     </Pop>
   )

@@ -522,7 +522,7 @@ function EffortBody({
           }}
         />
       )}
-      {pop?.kind === 'chartadd' && <ChartAdd anchor={pop.anchor} d={d} view={view} touch={touch} toast={toast} onClose={close} />}
+      {pop?.kind === 'chartadd' && <ChartAdd anchor={pop.anchor} view={view} touch={touch} onClose={close} />}
       {pop?.kind === 'filter' && <CondPanel anchor={pop.anchor} cols={cols} rows={rows} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'sort' && <SortPanel anchor={pop.anchor} cols={cols} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'addview' && (

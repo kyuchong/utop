@@ -930,15 +930,16 @@ input.ef-fsel { cursor: text; }
 .ef-card:hover .ef-chx { opacity: 1; }
 .ef-chx:hover { background: #fdecef; color: #e53e5a; }
 .ef-chnone { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--c-text-faint); }
-/* [＋ 차트 추가] 팝업 */
-.ef-chadd { width: 250px; }
-.ef-chk { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 2px 2px 6px; }
-.ef-chk-b { font: inherit; font-size: 10px; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border: 1px solid var(--c-border); border-radius: 7px; background: #fff; color: var(--c-text-muted); cursor: pointer; }
-.ef-chk-b .ef-ti { font-size: 16px; }
-.ef-chk-b.rot .ef-ti { transform: rotate(90deg) scaleX(-1); }
-.ef-chk-b:hover:not(:disabled) { border-color: #2d6fd4; color: #2d6fd4; }
-.ef-chk-b.on { border-color: #2d6fd4; background: #2d6fd414; color: #2d6fd4; }
-.ef-chk-b:disabled { opacity: 0.35; cursor: not-allowed; }
-.ef-chf { display: flex; align-items: center; gap: 6px; margin: 4px 2px; font-size: 10px; font-weight: 700; color: var(--c-text-faint); }
-.ef-chf > span { width: 44px; flex: none; }
-.ef-chf .ef-fsel { font-size: 11px; padding: 5px 7px; }
+/* [＋ 차트 추가] 팝업 — 고를 수 있는 차트 목록 */
+.ef-chadd { width: 200px; }
+.ef-chadd-n { font-style: normal; font-weight: 700; margin-left: 4px; color: #2d6fd4; }
+.ef-rot .ef-ti { transform: rotate(90deg) scaleX(-1); }
+/* 넓은 카드(인원 × 월 표)는 한 줄을 다 쓴다 */
+.ef-card-wide { grid-column: 1 / -1; }
+.ef-heat-none { height: 120px; }
+.ef-heat { overflow: auto; max-height: 520px; }
+.ef-heat table { border-collapse: separate; border-spacing: 2px; font-size: 10.5px; width: 100%; }
+.ef-heat th { font-weight: 700; color: var(--c-text-faint); padding: 3px 6px; white-space: nowrap; position: sticky; top: 0; background: #fff; }
+.ef-heat tbody th { text-align: left; color: var(--c-text-muted); position: sticky; left: 0; }
+.ef-heat td { height: 22px; min-width: 38px; text-align: center; border-radius: 4px; background: #f5f7fb; color: var(--c-text); font-weight: 700; }
+.ef-heat td.ef-heat-sum { background: transparent; color: #2d6fd4; font-weight: 800; }
