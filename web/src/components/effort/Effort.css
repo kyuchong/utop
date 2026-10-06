@@ -865,3 +865,7 @@ input.ef-fsel { cursor: text; }
 /* › 는 줄 오른쪽 끝에 붙는다(이름 칸이 남는 자리를 먹는다) */
 .ef-mi > span.ef-mi-arr { flex: none; margin-left: auto; color: var(--c-text-faint); font-size: 13px; }
 .ef-mi.open > span.ef-mi-arr { color: #2d6fd4; }
+/* 보기 추가 메뉴(예전 rscAddView) — 그림 글자 + 이름, 굵게 */
+.ef-addview { width: 180px; }
+.ef-mi.ef-av { font-weight: 700; padding: 8px 9px; }
+.ef-av-ic { font-size: 14px; }

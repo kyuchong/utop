@@ -205,8 +205,12 @@ function EffortBody({
     touch()
   }
 
-  const addView = () => {
-    const v: EfView = { id: newId(), name: '표 ' + (views.length + 1), type: 'table' }
+  /** 보기 추가 — 고른 종류의 이름으로, 같은 이름이 있으면 번호를 붙인다(표 2, 보드 2 …) */
+  const addView = (type: string) => {
+    const base = viewName(type)
+    let nm = base
+    for (let k = 2; views.some((x) => x.name === nm); k++) nm = `${base} ${k}`
+    const v: EfView = { id: newId(), name: nm, type }
     views.push(v)
     d.curBetaView = v.id
     touch()
@@ -251,11 +255,11 @@ function EffortBody({
                   }}
                   onContextMenu={open('view', v.id)}
                 >
-                  <span className="ef-tab-ic"><TI n={viewIcon(v.type)} /></span>
+                  <span className="ef-tab-ic">{viewIcon(v.type)}</span>
                   {v.name}
                 </button>
               ))}
-              <button type="button" className="ef-tab ef-tab-add" title="표 보기 추가" onClick={addView}>
+              <button type="button" className="ef-tab ef-tab-add" title="보기 추가 — 표·보드·차트·타임라인" onClick={open('addview')}>
                 <TI n="plus" />
               </button>
             </div>
@@ -409,6 +413,27 @@ function EffortBody({
       )}
       {pop?.kind === 'filter' && <CondPanel anchor={pop.anchor} cols={cols} rows={rows} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'sort' && <SortPanel anchor={pop.anchor} cols={cols} st={st} setSt={setSt} onClose={close} />}
+      {pop?.kind === 'addview' && (
+        <Pop anchor={pop.anchor} cls="ef-menu ef-addview" onClose={close}>
+          <div className="ef-lbl">보기 추가</div>
+          <div className="ef-mlist">
+            {Object.entries(VIEW_TYPES).map(([t, [ic, nm]]) => (
+              <button
+                key={t}
+                type="button"
+                className="ef-mi ef-av"
+                onClick={() => {
+                  close()
+                  addView(t)
+                }}
+              >
+                <i className="ef-mi-ic ef-av-ic">{ic}</i>
+                <span>{nm}</span>
+              </button>
+            ))}
+          </div>
+        </Pop>
+      )}
       {pop?.kind === 'group' && (
         <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
           <div className="ef-lbl">그룹 기준</div>
@@ -436,13 +461,14 @@ function EffortBody({
   )
 }
 
+/** 보기 종류 — 탭·보기 추가 메뉴의 그림 글자는 예전(_RSC_VIEWTYPES)과 같게 */
 const VIEW_TYPES: Record<string, [string, string]> = {
-  table: ['table', '표'],
-  board: ['layout-kanban', '보드'],
-  chart: ['chart-bar', '차트'],
-  gantt: ['timeline', '타임라인'],
+  table: ['📋', '표'],
+  board: ['🗂', '보드'],
+  chart: ['📊', '차트'],
+  gantt: ['📅', '타임라인'],
 }
-const viewIcon = (t: string) => VIEW_TYPES[t || 'table']?.[0] ?? 'table'
+const viewIcon = (t: string) => VIEW_TYPES[t || 'table']?.[0] ?? '📋'
 const viewName = (t: string) => VIEW_TYPES[t || 'table']?.[1] ?? t
 
 function AddYear({ anchor, years, onAdd, onClose }: { anchor: HTMLElement; years: string[]; onAdd: (y: string) => void; onClose: () => void }) {
