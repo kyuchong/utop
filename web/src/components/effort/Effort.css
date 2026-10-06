@@ -907,3 +907,8 @@ input.ef-fsel { cursor: text; }
 @media (max-width: 900px) { .ef-charts { grid-template-columns: 1fr; } }
 .ef-ch-sub { font-size: 11px; font-weight: 600; color: var(--c-text-faint); margin-left: 7px; }
 .ef-chbox.tall { height: 320px; }
+/* 행 번호 — 누르면 행 선택(엑셀식). 선택된 행의 번호는 파랗게 */
+.ef-t td.ef-rnum { cursor: e-resize; user-select: none; }
+.ef-t td.ef-rnum:hover { color: #2d6fd4; }
+.ef-t td.ef-rh.ef-rsel,
+.ef-t tbody tr:hover td.ef-rh.ef-rsel { background: #dbe6fb; color: #2d6fd4; font-weight: 800; }

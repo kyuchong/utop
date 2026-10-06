@@ -227,7 +227,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [sel, setSel] = useState<Sel | null>(null)
   const [menu, setMenu] = useState<{ anchor: HTMLElement; colId: string } | null>(null)
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow } | null>(null)
-  const drag = useRef<{ mode: 'sel' | 'fill'; r1: number; c1: number; c2?: number } | null>(null)
+  const drag = useRef<{ mode: 'sel' | 'fill' | 'row'; r1: number; c1: number; c2?: number } | null>(null)
   const leafRef = useRef<EfRow[]>([])
   const paintRef = useRef<ReactNode>(null)
   const tblRef = useRef<HTMLTableElement>(null)
@@ -276,7 +276,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       if (!td) return
       const r = Number(td.getAttribute('data-r'))
       const c = Number(td.getAttribute('data-c'))
-      if (d.mode === 'sel') setSel({ r1: d.r1, c1: d.c1, r2: r, c2: c })
+      if (d.mode === 'sel') setSel({ r1: d.r1, c1: d.c1, r2: r, c2: Math.max(0, c) }) // 행 번호 칸(-1)까지 끌어도 첫 열에서 멈춘다
+      else if (d.mode === 'row') setSel({ r1: d.r1, c1: 0, r2: r, c2: d.c2 ?? 0 }) // 행 번호를 끌면 여러 행 통째로
       else setSel({ r1: d.r1, c1: d.c1, r2: r, c2: d.c2 ?? d.c1 })
     }
     const up = () => {
@@ -523,7 +524,24 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     const src = row.original
     return (
       <tr key={row.id} onContextMenu={(e) => { e.preventDefault(); setRowMenu({ x: e.clientX, y: e.clientY, src }) }}>
-        <td className="ef-rh">{n}</td>
+        {/* 행 번호 — 누르면 그 행 통째로 선택, 끌면 여러 행, Shift 는 지금 선택에서 이어 붙인다 */}
+        <td
+          className={`ef-rh ef-rnum${n0 && n >= n0.r1 && n <= n0.r2 && n0.c1 === 0 && n0.c2 === ordered.length - 1 ? ' ef-rsel' : ''}`}
+          data-r={n}
+          data-c={-1}
+          title="누르면 행 선택 · 끌면 여러 행"
+          onMouseDown={(e) => {
+            if (e.button !== 0) return
+            e.preventDefault()
+            const last = ordered.length - 1
+            const from = e.shiftKey && sel ? sel.r1 : n
+            drag.current = { mode: 'row', r1: from, c1: 0, c2: last }
+            setSel({ r1: from, c1: 0, r2: n, c2: last })
+            setEdit(null)
+          }}
+        >
+          {n}
+        </td>
         {row.getVisibleCells().map((cell, ci) => {
           const c = (cell.column.columnDef.meta as { col: EfColumn }).col
           const num = isNumCol(c)
