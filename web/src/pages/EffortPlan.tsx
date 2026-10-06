@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { EfGrid, leafRows, optionsOf, useEfTable, type EfCtx } from '@/components/effort/EffortTable'
 import { Pop } from '@/components/effort/EffortMenus'
@@ -7,6 +7,7 @@ import EffortTree from '@/components/effort/EffortTree'
 import { EfBoard, EfChart, boardColOf, boardCols, chartColOf, chartCols } from '@/components/effort/EffortViews'
 import {
   TYPES,
+  condMatch,
   condNeedsValue,
   condOps,
   normOp,
@@ -220,6 +221,14 @@ function EffortBody({
 
   // 툴바 필터 수 = 조건식 줄 수(예전 _rscFilters) — 머리글 필터는 머리글에 ▼ 로 보인다
   const fCount = (st.conds ?? []).filter((f) => cols.some((c) => c.id === f.col)).length
+  // 차트에 쓸 행 — 조건식 필터를 건 뒤(표와 같은 condMatch)
+  const chartRows = useMemo(() => {
+    const conds = (st.conds ?? []).filter((f) => cols.some((c) => c.id === f.col))
+    if (!conds.length) return rows
+    const byId = new Map(cols.map((c) => [c.id, c]))
+    return rows.filter((r) => conds.every((f) => condMatch(r, f, byId.get(f.col))))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, st.conds, ver])
   const sCount = st.sorting.filter((s) => cols.some((c) => c.id === s.id)).length
   const gId = table.getState().grouping[0]
   const gName = cols.find((c) => c.id === gId)?.title ?? ''
@@ -378,6 +387,10 @@ function EffortBody({
                     </option>
                   ))}
                 </select>
+                {/* 차트도 표와 같은 조건식 필터 — 걸린 조건에 맞는 행만으로 그린다(차트 탭마다 따로) */}
+                <button type="button" className={`ef-btn gh${fCount ? ' on' : ''}`} onClick={open('filter')}>
+                  <TI n="filter" /> 필터{fCount ? ' ' + fCount : ''}
+                </button>
               </>
             ) : (
               <span className="ef-tbhint">날짜 열 2개(시작·완료) 기준 타임라인</span>
@@ -392,7 +405,7 @@ function EffortBody({
             ) : view.type === 'board' ? (
               <EfBoard d={d} rows={rows} view={view} touch={touch} toast={toast} />
             ) : view.type === 'chart' ? (
-              <EfChart d={d} rows={rows} view={view} ver={ver} />
+              <EfChart d={d} rows={chartRows} view={view} ver={ver} />
             ) : (
               <div className="ef-empty">
                 「{view.name}」은 {viewName(view.type)} 보기입니다 — 타임라인은 아직 옮기지 않았습니다.
