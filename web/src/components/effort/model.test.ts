@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, dayDiff, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -87,5 +87,34 @@ describe('Effort Plan 자료', () => {
     expect(condMatch(r, { col: 'p', op: 'eq', v: '' })).toBe(true) // 값 없는 조건은 통과
     expect(condMatch(r, { col: 'p', op: 'has', v: 'combo' })).toBe(true) // 앞 판에서 저장한 이름도 읽는다
     expect(condOps().map((o) => o[1])).toEqual(['같음', '다름', '포함', '미포함', '초과', '미만', '이상', '이하', '비어있음', '안비어있음'])
+  })
+})
+
+describe('유형별 값', () => {
+  it('날짜 — 여러 꼴을 YYYY-MM-DD 로, 없는 날은 null', () => {
+    expect(normDate('2026-1-5')).toBe('2026-01-05')
+    expect(normDate('2026.01.05')).toBe('2026-01-05')
+    expect(normDate('2026/1/5')).toBe('2026-01-05')
+    expect(normDate('20260105')).toBe('2026-01-05')
+    expect(normDate('2026-02-30')).toBeNull()
+    expect(normDate('내일')).toBeNull()
+  })
+  it('기간 — 「시작 ~ 종료」, 거꾸로면 바꾸고 하나면 같은 날', () => {
+    expect(normRange('2026.3.1~2026.3.20')).toBe('2026-03-01 ~ 2026-03-20')
+    expect(normRange('2026-03-20 ~ 2026-03-01')).toBe('2026-03-01 ~ 2026-03-20')
+    expect(normRange('2026-03-01')).toBe('2026-03-01 ~ 2026-03-01')
+    expect(normRange('')).toBe('')
+    expect(normRange('언제')).toBeNull()
+  })
+  it('기간 일수 — 양끝 포함, 기간 열이 없거나 비면 null', () => {
+    const src = { id: 'p', title: '기간', type: 'daterange' as const }
+    expect(dayDiff({ p: '2026-03-01 ~ 2026-03-20' }, src)).toBe(20)
+    expect(dayDiff({ p: '2026-03-01 ~ 2026-03-01' }, src)).toBe(1)
+    expect(dayDiff({}, src)).toBeNull()
+    expect(dayDiff({ p: '2026-03-01 ~ 2026-03-20' }, undefined)).toBeNull()
+  })
+  it('체크박스 — 켜짐 값', () => {
+    expect([true, 'true', '1', 'Y', '✓', '예'].every(truthy)).toBe(true)
+    expect([false, '', '0', 'no', null].some(truthy)).toBe(false)
   })
 })

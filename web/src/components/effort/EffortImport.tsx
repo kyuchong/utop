@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { parseTable } from '@/lib/parseTable'
 import { TI } from './icons'
-import { autoOptions, newId, recalcAuto, toNum, type EfColumn, type EfRow } from './model'
+import { autoOptions, newId, normDate, normRange, recalcAuto, toNum, type EfColumn, type EfRow } from './model'
 
 /**
  * Effort Plan 가져오기 — 위키 표의 가져오기 팝업과 같은 흐름(지시).
@@ -73,6 +73,10 @@ export function applyImport(cols: EfColumn[], rows: EfRow[], head: string[], bod
         const n = asNum(v)
         if (n !== null) row[c.id] = n
         else if (!BLANK.has(v)) dropped++
+      } else if (c.type === 'date') {
+        if (v) row[c.id] = normDate(v) ?? v
+      } else if (c.type === 'daterange') {
+        if (v) row[c.id] = normRange(v) || v
       } else if (c.type === 'checkbox') {
         if (v) row[c.id] = /^(1|true|y|yes|o|v|✓|✔|예|네)$/i.test(v)
       } else if (v) row[c.id] = v

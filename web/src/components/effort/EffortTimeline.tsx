@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { TI } from './icons'
-import { autoColor, defaultGroup, isNumCol, numFmt, toNum, type EfColumn, type EfRow, type EfView } from './model'
+import { autoColor, defaultGroup, isNumCol, numFmt, parseRange, toNum, type EfColumn, type EfRow, type EfView } from './model'
 
 /**
  * Effort Plan 타임라인 보기(지적: 구현 안 됨).
@@ -31,17 +31,7 @@ export function tlLabelOf(view: EfView, cols: EfColumn[]) {
   )
 }
 
-/** 기간 값 「2026-01-05 ~ 2026-02-10」(예전 _rscDateRangeParse 와 같은 규칙: 구분자는 ~, 없으면 「 - 」) */
-export function parseRange(v: unknown): { s: string; e: string } {
-  if (v == null || v === '') return { s: '', e: '' }
-  if (typeof v === 'object') {
-    const o = v as Record<string, unknown>
-    return { s: cellText(o.s ?? o.start).trim(), e: cellText(o.e ?? o.end).trim() }
-  }
-  const str = String(v)
-  const p = str.includes('~') ? str.split('~') : /\s-\s/.test(str) ? str.split(/\s-\s/) : [str]
-  return { s: (p[0] ?? '').trim(), e: (p[1] ?? '').trim() }
-}
+export { parseRange }
 const toDate = (s: string) => {
   const m = /^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/.exec(s.trim())
   return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null

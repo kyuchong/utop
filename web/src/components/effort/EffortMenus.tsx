@@ -12,11 +12,13 @@ import {
   hasOptions,
   isNumCol,
   missingOptions,
+  normDate,
   natural,
   nearest,
   numFmt,
   optColor,
   optCount,
+  parseRange,
   typeIcon,
   type EfColumn,
   type EfRow,
@@ -175,6 +177,113 @@ export function SelectPicker({
             <TI n="eraser" /> 값 지우기
           </button>
         )}
+      </div>
+    </Pop>
+  )
+}
+
+/** 다중 선택 고르기 — 체크 목록(예전 _rscOptDropdown multi). 누를 때마다 바로 저장하고 창은 열어 둔다 */
+export function MultiPicker({
+  anchor,
+  col,
+  value,
+  options,
+  onPick,
+  onClose,
+}: {
+  anchor: HTMLElement
+  col: EfColumn
+  value: string
+  options: string[]
+  onPick: (v: string) => void
+  onClose: () => void
+}) {
+  const [cur, setCur] = useState(() => value.split(',').map((x) => x.trim()).filter(Boolean))
+  const [q, setQ] = useState('')
+  const t = q.trim()
+  const all = [...options, ...cur.filter((x) => !options.includes(x))]
+  const items = all.filter((o) => !t || o.toLowerCase().includes(t.toLowerCase()))
+  const set = (n: string[]) => {
+    setCur(n)
+    onPick(n.join(', '))
+  }
+  const flip = (o: string) => set(cur.includes(o) ? cur.filter((x) => x !== o) : [...cur, o])
+  return (
+    <Pop anchor={anchor} onClose={onClose}>
+      <div className="ef-pick">
+        <div className="ef-pick-hd">
+          <input
+            autoFocus
+            value={q}
+            placeholder="검색하거나 새 값 입력 후 Enter"
+            aria-label="값 검색 또는 입력"
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && t) {
+                e.preventDefault()
+                if (!cur.includes(t)) set([...cur, t])
+                setQ('')
+              }
+            }}
+          />
+        </div>
+        <div className="ef-pick-lbl">여러 개 고를 수 있습니다{cur.length ? ` · ${cur.length}개 고름` : ''}</div>
+        <div role="listbox" aria-multiselectable="true" className="ef-pick-list">
+          {items.map((o) => {
+            const on = cur.includes(o)
+            return (
+              <button key={o} type="button" role="option" aria-selected={on} className={`ef-pick-it${on ? ' on' : ''}`} onClick={() => flip(o)}>
+                <TI n={on ? 'checkbox' : 'square'} className={on ? 'ef-pick-cb on' : 'ef-pick-cb'} />
+                <Chip col={col} v={o} />
+              </button>
+            )
+          })}
+          {t && !all.includes(t) && (
+            <button type="button" className="ef-pick-it" onClick={() => { set([...cur, t]); setQ('') }}>
+              <span className="ef-pick-new">만들기</span>
+              <Chip col={col} v={t} />
+            </button>
+          )}
+        </div>
+        {cur.length > 0 && (
+          <button type="button" className="ef-pick-it ef-pick-clr" onClick={() => set([])}>
+            <TI n="eraser" /> 모두 지우기
+          </button>
+        )}
+      </div>
+    </Pop>
+  )
+}
+
+/** 기간 고르기 — 시작·종료 달력 두 개(예전 _rscDateRangePopup). 「시작 ~ 종료」 로 저장 */
+export function RangePicker({ anchor, value, onPick, onClose }: { anchor: HTMLElement; value: string; onPick: (v: string) => void; onClose: () => void }) {
+  const p = parseRange(value)
+  const [s, setS] = useState(normDate(p.s) ?? '')
+  const [e, setE] = useState(normDate(p.e) ?? '')
+  const days = s && e ? Math.round((new Date(e + 'T00:00:00').getTime() - new Date(s + 'T00:00:00').getTime()) / 86400000) + 1 : 0
+  const ok = !!s && !!e && days > 0
+  return (
+    <Pop anchor={anchor} cls="ef-menu ef-range" onClose={onClose}>
+      <div className="ef-lbl">기간</div>
+      <label className="ef-range-r">
+        <span>시작</span>
+        <input type="date" className="ef-fsel" value={s} autoFocus onChange={(ev) => setS(ev.target.value)} />
+      </label>
+      <label className="ef-range-r">
+        <span>종료</span>
+        <input type="date" className="ef-fsel" value={e} min={s || undefined} onChange={(ev) => setE(ev.target.value)} />
+      </label>
+      <div className="ef-range-n">{ok ? `${days}일` : s && e ? '종료가 시작보다 앞입니다' : '시작·종료를 고르세요'}</div>
+      <div className="ef-range-b">
+        {value && (
+          <button type="button" className="ef-btn gh" onClick={() => onPick('')}>
+            지우기
+          </button>
+        )}
+        <span className="ef-sp" />
+        <button type="button" className="ef-btn" disabled={!ok} onClick={() => onPick(`${s} ~ ${e}`)}>
+          적용
+        </button>
       </div>
     </Pop>
   )

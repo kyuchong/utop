@@ -222,6 +222,54 @@ export function toNum(v: unknown): number | null {
 }
 export const numFmt = (n: number) => String(Math.round(n * 100) / 100)
 
+// ── 유형별 값 ──────────────────────────────────────────────────────
+/** 날짜 → 「YYYY-MM-DD」. 2026.1.5 · 2026/01/05 · 20260105 도 받는다. 날짜가 아니면 null */
+export function normDate(v: unknown): string | null {
+  const t = (v == null ? '' : String(v)).trim()
+  const m = /^(\d{4})[-./\s]?(\d{1,2})[-./\s]?(\d{1,2})\.?$/.exec(t)
+  if (!m) return null
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3])
+  const dt = new Date(y, mo - 1, d)
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+/** 기간 값 「2026-01-05 ~ 2026-02-10」(예전 _rscDateRangeParse 와 같은 규칙: 구분자는 ~, 없으면 「 - 」) */
+export function parseRange(v: unknown): { s: string; e: string } {
+  if (v == null || v === '') return { s: '', e: '' }
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    return { s: String(o.s ?? o.start ?? '').trim(), e: String(o.e ?? o.end ?? '').trim() }
+  }
+  const str = String(v)
+  const p = str.includes('~') ? str.split('~') : /\s-\s/.test(str) ? str.split(/\s-\s/) : [str]
+  return { s: (p[0] ?? '').trim(), e: (p[1] ?? '').trim() }
+}
+/** 기간 값 다듬기 — 「시작 ~ 종료」. 종료가 앞이면 바꾼다, 하나만 있으면 같은 날. 못 읽으면 null */
+export function normRange(v: unknown): string | null {
+  const p = parseRange(v)
+  if (!p.s && !p.e) return ''
+  let s = normDate(p.s || p.e)
+  let e = normDate(p.e || p.s)
+  if (!s || !e) return null
+  if (e < s) [s, e] = [e, s]
+  return `${s} ~ ${e}`
+}
+/** 체크박스 값 — true·1·y·o·v·✓·예 등이면 켜짐 */
+export const truthy = (v: unknown) => v === true || /^(true|1|y|yes|o|v|✓|✔|☑|예|네)$/i.test(String(v ?? '').trim())
+/** 기간 일수 열이 볼 기간 열 — 지정(srcCol)이 없으면 첫 기간 열(예전과 같다) */
+export const diffSrcOf = (cols: EfColumn[], c: EfColumn) =>
+  cols.find((x) => x.id === c.srcCol && x.type === 'daterange') ?? cols.find((x) => x.type === 'daterange')
+/** 기간 일수 — 시작~종료 양끝 포함(예전 _rscHotDateDiff). 기간이 없으면 null */
+export function dayDiff(r: EfRow, src: EfColumn | undefined): number | null {
+  if (!src) return null
+  const p = parseRange(r[src.id])
+  const s = normDate(p.s)
+  const e = normDate(p.e)
+  if (!s || !e) return null
+  const n = Math.round((new Date(e + 'T00:00:00').getTime() - new Date(s + 'T00:00:00').getTime()) / 86400000) + 1
+  return n > 0 ? n : null
+}
+
 /** 합계 열(autoSum) 다시 계산 — 숫자 열(합계 열 빼고)을 더해 행마다 넣는다 */
 export function recalcAuto(rows: EfRow[], cols: EfColumn[]) {
   const autos = cols.filter((c) => c.autoSum)
@@ -372,9 +420,11 @@ export function nearest(hex: string): string {
 const SIZE: Record<string, number> = {
   부서: 86, 인원: 78, 직급: 58, 사업자: 74, '제품명(프로젝트)': 120, '업무분류(대분류)': 190, 합계: 72,
 }
+/** 유형별 기본 폭 — 기간은 「2026-01-05 ~ 02-10」 이 다 보이게 */
+const TYPE_W: Partial<Record<EfType, number>> = { date: 96, daterange: 176, datediff: 74, checkbox: 52, url: 150, email: 150, phone: 116 }
 export const colSize = (c: EfColumn) =>
   (typeof c.efWidth === 'number' && c.efWidth > 0 ? c.efWidth : 0) ||
-  (SIZE[String(c.title ?? '').trim()] ?? (isNumCol(c) ? 58 : c.width || 96))
+  (SIZE[String(c.title ?? '').trim()] ?? (isNumCol(c) ? 58 : c.width || TYPE_W[c.type] || 96))
 
 /** CSV — 지금 화면에 보이는 열 순서·행 그대로(엑셀이 한글을 읽게 BOM) */
 export function downloadCsv(name: string, cols: EfColumn[], rows: EfRow[]) {

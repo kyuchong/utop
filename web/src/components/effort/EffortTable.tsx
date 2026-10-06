@@ -16,20 +16,28 @@ import {
   type Row,
   type Table,
 } from '@tanstack/react-table'
-import { Chip, CtxMenu, HeadMenu, SelectPicker, type HeadOps } from './EffortMenus'
+import { useUserPeople } from '@/pages/qaBits'
+import { Chip, CtxMenu, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
 import { TI } from './icons'
 import {
   autoOptions,
+  autoColor,
   colSize,
   condMatch,
+  dayDiff,
   defaultGroup,
+  diffSrcOf,
   hasOptions,
   isNumCol,
   natural,
   newId,
+  normDate,
+  normRange,
   numFmt,
+  parseRange,
   recalcAuto,
   toNum,
+  truthy,
   typeIcon,
   type EfColumn,
   type EfDoc,
@@ -123,10 +131,20 @@ export function useEfTable(ctx: EfCtx) {
   const columns = useMemo<ColumnDef<EfRow>[]>(
     () =>
       cols.map((c) => {
-        const num = isNumCol(c)
+        const diff = c.type === 'datediff'
+        const num = isNumCol(c) || diff
+        const src = diff ? diffSrcOf(cols, c) : undefined
         return {
           id: c.id,
-          accessorFn: (r: EfRow) => (num ? (toNum(r[c.id]) ?? undefined) : cellText(r[c.id]) || undefined),
+          // 기간 일수는 저장하지 않고 같은 행의 기간에서 센다(예전과 같다) · 체크박스는 켜짐만 값으로
+          accessorFn: (r: EfRow) =>
+            diff
+              ? (dayDiff(r, src) ?? undefined)
+              : c.type === 'checkbox'
+                ? truthy(r[c.id]) ? '✓' : undefined
+                : num
+                  ? (toNum(r[c.id]) ?? undefined)
+                  : cellText(r[c.id]) || undefined,
           getGroupingValue: (r: EfRow) => cellText(r[c.id]),
           header: c.title,
           size: colSize(c),
@@ -135,7 +153,7 @@ export function useEfTable(ctx: EfCtx) {
           sortUndefined: 'last' as const,
           sortingFn: num ? 'basic' : (a: Row<EfRow>, b: Row<EfRow>, id: string) => natural(cellText(a.getValue(id)), cellText(b.getValue(id))),
           filterFn: num ? fNum : c.type === 'multiselect' ? fMulti : hasOptions(c.type) ? fPick : fText,
-          aggregationFn: num ? 'sum' : undefined,
+          aggregationFn: num && !diff ? 'sum' : undefined,
           enableGrouping: !num,
         } satisfies ColumnDef<EfRow>
       }),
@@ -237,9 +255,25 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
 
   /** 실제 행에 쓴다. 바뀌었으면 true — 합계 열 다시 계산은 부른 쪽이 한 번만 */
   const put = (src: EfRow, c: EfColumn, raw: unknown): boolean => {
-    if (!src || c.autoSum) return false
-    let v: string | number
-    if (c.type === 'number') {
+    if (!src || c.autoSum || c.type === 'datediff') return false
+    let v: string | number | boolean
+    if (c.type === 'checkbox') v = truthy(raw) ? true : ''
+    else if (c.type === 'date') {
+      const t = cellText(raw).trim()
+      const d = t ? normDate(t) : ''
+      if (d === null) {
+        toast('날짜는 2026-01-05 꼴로 넣어 주세요')
+        return false
+      }
+      v = d
+    } else if (c.type === 'daterange') {
+      const d = normRange(raw)
+      if (d === null) {
+        toast('기간은 2026-01-05 ~ 2026-02-10 꼴로 넣어 주세요')
+        return false
+      }
+      v = d
+    } else if (c.type === 'number') {
       const t = cellText(raw).trim()
       if (t === '') v = ''
       else {
@@ -266,6 +300,22 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     }
     recalcAuto(rows, cols)
     touch()
+  }
+
+  /** 다중 선택 — 창을 닫지 않고 저장한다(여러 개를 차례로 고른다). 새 값은 옵션에도 */
+  const keep = (src: EfRow, c: EfColumn, v: string) => {
+    if (!put(src, c, v)) return
+    const add = v.split(',').map((x) => x.trim()).filter((x) => x && !(c.options ?? []).includes(x))
+    if (add.length) c.options = [...(c.options ?? []), ...add]
+    touch()
+  }
+  /** 사람 열 후보 — 그 열에 쓰인 이름(모든 연도) + 앱 사용자 이름 */
+  const users = useUserPeople()
+  const people = (c: EfColumn) => {
+    const s = new Set<string>()
+    Object.values(doc.pages).forEach((p) => p.rows.forEach((r) => cellText(r[c.id]).trim() && s.add(cellText(r[c.id]).trim())))
+    users.forEach((u) => s.add(u.name))
+    return [...s].sort((a, b) => a.localeCompare(b, 'ko'))
   }
 
   // ── 범위 선택 · 채우기 ── 한 번 클릭 = 선택, 끌면 범위, 오른쪽 아래 점을 끌면 그 값으로 채우기(세로)
@@ -566,20 +616,40 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         </td>
         {row.getVisibleCells().map((cell, ci) => {
           const c = (cell.column.columnDef.meta as { col: EfColumn }).col
-          const num = isNumCol(c)
-          const editable = !c.autoSum
+          const num = isNumCol(c) || c.type === 'datediff'
+          // 합계·기간 일수는 계산값이라 못 고친다. 체크박스는 두 번 클릭 = 켜고 끄기(입력칸 없음)
+          const editable = !c.autoSum && c.type !== 'datediff'
           const isEd = edit && edit.src === src && edit.col.id === c.id
-          const picker = hasOptions(c.type) && c.type !== 'multiselect'
+          // 팝업으로 고르는 유형 — 선택·상태·다중 선택·기간
+          const picker = hasOptions(c.type) || c.type === 'daterange'
           if (isEd && !picker) {
+            const kind = c.type === 'date' ? 'date' : c.type === 'url' ? 'url' : c.type === 'email' ? 'email' : c.type === 'phone' ? 'tel' : 'text'
             return (
               <td key={cell.id} className={`${num ? 'ef-n ' : ''}ef-editing`}>
                 <input
                   className="ef-cell-in"
                   autoFocus
+                  type={kind}
+                  list={c.type === 'person' ? 'ef-people' : undefined}
                   inputMode={num ? 'decimal' : undefined}
-                  defaultValue={cellText(src[c.id])}
-                  onFocus={(e) => e.currentTarget.select()}
+                  defaultValue={c.type === 'date' ? (normDate(src[c.id]) ?? '') : cellText(src[c.id])}
+                  onFocus={(e) => {
+                    const el = e.currentTarget
+                    if (kind === 'date') {
+                      // 날짜 — 열자마자 달력을 띄운다(지원하는 브라우저에서)
+                      try {
+                        el.showPicker?.()
+                      } catch {
+                        /* 안 되면 입력칸의 달력 단추로 연다 */
+                      }
+                    } else el.select()
+                  }}
+                  onChange={(e) => {
+                    // 달력에서 날짜를 고르면 바로 저장 — 글쇠로 치는 중(연·월·일 칸을 채우는 중)이면 기다린다
+                    if (kind === 'date' && e.currentTarget.value && Date.now() - keyAt > 400) commit(src, c, e.currentTarget.value)
+                  }}
                   onKeyDown={(e) => {
+                    keyAt = Date.now()
                     if (e.key === 'Enter') {
                       e.preventDefault()
                       commit(src, c, e.currentTarget.value)
@@ -610,10 +680,23 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                 setSel({ r1: n, c1: ci, r2: n, c2: ci })
                 setEdit(null)
               }}
-              onDoubleClick={editable ? (e) => setEdit({ src, col: c, anchor: e.currentTarget }) : undefined}
+              onDoubleClick={
+                !editable
+                  ? undefined
+                  : c.type === 'checkbox'
+                    ? () => commit(src, c, !truthy(src[c.id]))
+                    : (e) => setEdit({ src, col: c, anchor: e.currentTarget })
+              }
             >
               {/* 묶은 열(기본 인원)은 그룹 머리에만 쓰고 행에서는 비운다(예전과 같다) */}
-              {cell.getIsPlaceholder() ? null : <CellView c={c} v={src[c.id]} max={max[c.id] ?? 0} />}
+              {cell.getIsPlaceholder() ? null : (
+                <CellView
+                  c={c}
+                  v={c.type === 'datediff' ? dayDiff(src, diffSrcOf(cols, c)) : src[c.id]}
+                  max={max[c.id] ?? 0}
+                  onToggle={c.type === 'checkbox' ? () => commit(src, c, !truthy(src[c.id])) : undefined}
+                />
+              )}
               {corner && (
                 <span
                   className="ef-fill"
@@ -757,6 +840,26 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         <b>셀 두 번 클릭=수정</b> · <b>머리글 우클릭=열 추가·복제</b> · <b>행 우클릭=행 추가·복제·삭제</b>
       </div>
 
+      {edit && edit.col.type === 'multiselect' && (
+        <MultiPicker
+          anchor={edit.anchor}
+          col={edit.col}
+          value={cellText(edit.src[edit.col.id])}
+          options={optionsOf(rows, edit.col)}
+          onClose={() => setEdit(null)}
+          onPick={(v) => keep(edit.src, edit.col, v)}
+        />
+      )}
+      {edit && edit.col.type === 'daterange' && (
+        <RangePicker anchor={edit.anchor} value={cellText(edit.src[edit.col.id])} onClose={() => setEdit(null)} onPick={(v) => commit(edit.src, edit.col, v)} />
+      )}
+      {edit && edit.col.type === 'person' && (
+        <datalist id="ef-people">
+          {people(edit.col).map((p) => (
+            <option key={p} value={p} />
+          ))}
+        </datalist>
+      )}
       {edit && hasOptions(edit.col.type) && edit.col.type !== 'multiselect' && (
         <SelectPicker
           anchor={edit.anchor}
@@ -825,8 +928,28 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   )
 }
 
+/** 날짜 칸에서 마지막으로 글쇠를 친 때 — 달력 고르기와 손으로 치기를 가른다 */
+let keyAt = 0
+
 /** 칸 보기 — 선택 계열은 칩, 숫자는 열 최대값 대비 막대(85% 넘으면 주황) */
-function CellView({ c, v, max }: { c: EfColumn; v: unknown; max: number }) {
+function CellView({ c, v, max, onToggle }: { c: EfColumn; v: unknown; max: number; onToggle?: () => void }) {
+  // 체크박스 — 비어 있어도 빈 상자를 그린다. 상자를 누르면 켜고 끈다(예전 Handsontable 체크박스처럼)
+  if (c.type === 'checkbox') {
+    const on = truthy(v)
+    return (
+      <button
+        type="button"
+        className={`ef-ckbox${on ? ' on' : ''}`}
+        aria-pressed={on}
+        title={on ? '켜짐 — 눌러서 끄기' : '꺼짐 — 눌러서 켜기'}
+        onMouseDown={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+        onClick={onToggle}
+      >
+        <TI n={on ? 'checkbox' : 'square'} />
+      </button>
+    )
+  }
   if (v == null || v === '') return null
   if (c.type === 'select' || c.type === 'status') return <Chip col={c} v={String(v)} />
   if (c.type === 'multiselect')
@@ -841,7 +964,44 @@ function CellView({ c, v, max }: { c: EfColumn; v: unknown; max: number }) {
           ))}
       </>
     )
-  if (c.type === 'checkbox') return <span className="ef-ck">{v === true || v === 'true' || v === '1' || v === 'Y' ? '☑' : '☐'}</span>
+  if (c.type === 'date') return <span className="ef-date">{String(v)}</span>
+  if (c.type === 'daterange') {
+    const p = parseRange(v)
+    // 같은 해면 뒤쪽 연도를 줄인다 — 「2026-01-05 ~ 02-10」
+    const e = p.e && p.s.slice(0, 5) === p.e.slice(0, 5) ? p.e.slice(5) : p.e
+    return (
+      <span className="ef-drange" title={`${p.s} ~ ${p.e}`}>
+        <TI n="calendar-week" />
+        {p.s} ~ {e}
+      </span>
+    )
+  }
+  if (c.type === 'datediff')
+    return (
+      <span className="ef-ddiff">
+        <TI n="clock-hour-4" />
+        {String(v)}일
+      </span>
+    )
+  if (c.type === 'person') {
+    const s = String(v).trim()
+    return (
+      <span className="ef-person">
+        <i className="ef-ava" style={{ background: autoColor(s) }}>{s.charAt(0)}</i>
+        {s}
+      </span>
+    )
+  }
+  if (c.type === 'url' || c.type === 'email' || c.type === 'phone') {
+    const s = String(v).trim()
+    const href = c.type === 'email' ? 'mailto:' + s : c.type === 'phone' ? 'tel:' + s.replace(/[^\d+]/g, '') : /^https?:/i.test(s) ? s : 'https://' + s
+    return (
+      <a className="ef-link" href={href} target="_blank" rel="noopener noreferrer" onMouseDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()} title={href}>
+        <TI n={c.type === 'email' ? 'mail' : c.type === 'phone' ? 'phone' : 'link'} />
+        {s}
+      </a>
+    )
+  }
   if (!isNumCol(c)) return <>{String(v)}</>
   const n = toNum(v)
   if (n === null) return null
