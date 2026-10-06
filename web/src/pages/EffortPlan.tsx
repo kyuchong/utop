@@ -4,10 +4,12 @@ import { EfGrid, leafRows, optionsOf, useEfTable, type EfCtx } from '@/component
 import { Pop } from '@/components/effort/EffortMenus'
 import { TI } from '@/components/effort/icons'
 import EffortTree from '@/components/effort/EffortTree'
+import { EfBoard, EfChart, boardColOf, boardCols, chartColOf, chartCols } from '@/components/effort/EffortViews'
 import {
   TYPES,
   condNeedsValue,
   condOps,
+  normOp,
   defaultGroup,
   downloadCsv,
   ensureViews,
@@ -264,66 +266,122 @@ function EffortBody({
               </button>
             </div>
             <span className="ef-sp" />
-            <input
-              className="ef-search"
-              placeholder="🔍 검색"
-              aria-label="검색"
-              value={st.q}
-              onChange={(e) => setSt({ q: e.target.value })}
-            />
-            <button type="button" className={`ef-btn gh${fCount ? ' on' : ''}`} onClick={open('filter')}>
-              <TI n="filter" /> 필터{fCount ? ' ' + fCount : ''}
-            </button>
-            <button type="button" className={`ef-btn gh${sCount ? ' on' : ''}`} onClick={open('sort')}>
-              <TI n="arrows-sort" /> 정렬{sCount ? ' ' + sCount : ''}
-            </button>
-            <button type="button" className={`ef-btn gh${gId ? ' on' : ''}`} onClick={open('group')}>
-              <TI n="layout-rows" /> 그룹{gName ? ': ' + gName : ''}
-            </button>
-            <span className="ef-tbsep" />
-            <button type="button" className="ef-btn gh" onClick={() => setColMgr(true)}>
-              <TI n="columns" /> 열 설정
-            </button>
-            <button
-              type="button"
-              className="ef-btn gh"
-              onClick={() => {
-                d.columns.push({ id: newId(), title: '새 속성', type: 'text' })
-                touch()
-                toast('열 추가됨 — 머리글을 눌러 이름·유형을 바꾸세요')
-              }}
-            >
-              <TI n="column-insert-right" /> 열 추가
-            </button>
-            <button
-              type="button"
-              className="ef-btn gh"
-              onClick={() => {
-                rows.push({})
-                touch()
-                toast(
-                  st.q.trim() || fCount
-                    ? '행 추가됨 — 검색·필터에 가려 지금은 안 보입니다'
-                    : gId
-                      ? '행 추가됨 — 그룹 「(빈값)」 아래에 있습니다'
-                      : '행 추가됨 — 맨 아래에 있습니다',
-                )
-              }}
-            >
-              <TI n="plus" /> 행 추가
-            </button>
-            <button
-              type="button"
-              className="ef-btn"
-              onClick={() => {
-                const out = leafRows(table)
-                downloadCsv(`EffortPlan_${name || '표'}_${year}.csv`, table.getVisibleLeafColumns().map((c) => (c.columnDef.meta as { col: EfColumn }).col), out)
-                toast('CSV 내려받음 — ' + out.length + '행')
-              }}
-            >
-              <TI n="download" /> CSV
-            </button>
-            <span className="ef-cnt-all">{shownN}행</span>
+            {isTable ? (
+              <>
+                <input
+                  className="ef-search"
+                  placeholder="🔍 검색"
+                  aria-label="검색"
+                  value={st.q}
+                  onChange={(e) => setSt({ q: e.target.value })}
+                />
+                <button type="button" className={`ef-btn gh${fCount ? ' on' : ''}`} onClick={open('filter')}>
+                  <TI n="filter" /> 필터{fCount ? ' ' + fCount : ''}
+                </button>
+                <button type="button" className={`ef-btn gh${sCount ? ' on' : ''}`} onClick={open('sort')}>
+                  <TI n="arrows-sort" /> 정렬{sCount ? ' ' + sCount : ''}
+                </button>
+                <button type="button" className={`ef-btn gh${gId ? ' on' : ''}`} onClick={open('group')}>
+                  <TI n="layout-rows" /> 그룹{gName ? ': ' + gName : ''}
+                </button>
+                <span className="ef-tbsep" />
+                <button type="button" className="ef-btn gh" onClick={() => setColMgr(true)}>
+                  <TI n="columns" /> 열 설정
+                </button>
+                <button
+                  type="button"
+                  className="ef-btn gh"
+                  onClick={() => {
+                    d.columns.push({ id: newId(), title: '새 속성', type: 'text' })
+                    touch()
+                    toast('열 추가됨 — 머리글을 눌러 이름·유형을 바꾸세요')
+                  }}
+                >
+                  <TI n="column-insert-right" /> 열 추가
+                </button>
+                <button
+                  type="button"
+                  className="ef-btn gh"
+                  onClick={() => {
+                    rows.push({})
+                    touch()
+                    toast(
+                      st.q.trim() || fCount
+                        ? '행 추가됨 — 검색·필터에 가려 지금은 안 보입니다'
+                        : gId
+                          ? '행 추가됨 — 그룹 「(빈값)」 아래에 있습니다'
+                          : '행 추가됨 — 맨 아래에 있습니다',
+                    )
+                  }}
+                >
+                  <TI n="plus" /> 행 추가
+                </button>
+                <button
+                  type="button"
+                  className="ef-btn"
+                  onClick={() => {
+                    const out = leafRows(table)
+                    downloadCsv(`EffortPlan_${name || '표'}_${year}.csv`, table.getVisibleLeafColumns().map((c) => (c.columnDef.meta as { col: EfColumn }).col), out)
+                    toast('CSV 내려받음 — ' + out.length + '행')
+                  }}
+                >
+                  <TI n="download" /> CSV
+                </button>
+                <span className="ef-cnt-all">{shownN}행</span>
+              </>
+            ) : view.type === 'board' ? (
+              <>
+                {/* 예전 보드 툴바 — 기준 열 고르기 · 안내 · 항목 추가 */}
+                <select
+                  className="ef-fsel ef-tbsel"
+                  aria-label="보드 기준 열"
+                  value={boardColOf(view, cols)?.id ?? ''}
+                  onChange={(e) => {
+                    view.boardBy = e.target.value
+                    touch()
+                  }}
+                >
+                  {boardCols(cols).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      기준: {c.title}
+                    </option>
+                  ))}
+                </select>
+                <span className="ef-tbhint">카드 드래그 → 값 변경</span>
+                <span className="ef-sp" />
+                <button
+                  type="button"
+                  className="ef-btn"
+                  onClick={() => {
+                    rows.push({})
+                    touch()
+                  }}
+                >
+                  <TI n="plus" /> 항목
+                </button>
+              </>
+            ) : view.type === 'chart' ? (
+              <>
+                <span className="ef-tbhint">기준 열</span>
+                <select
+                  className="ef-fsel ef-tbsel"
+                  aria-label="차트 기준 열"
+                  value={chartColOf(view, cols)?.id ?? ''}
+                  onChange={(e) => {
+                    view.chartCol = e.target.value
+                    touch()
+                  }}
+                >
+                  {chartCols(cols).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <span className="ef-tbhint">날짜 열 2개(시작·완료) 기준 타임라인</span>
+            )}
           </div>
 
           <div className="ef-wrap">
@@ -331,9 +389,13 @@ function EffortBody({
               <div className="ef-empty">열이 없습니다 — [열 설정]에서 추가하세요</div>
             ) : isTable ? (
               <EfGrid ctx={ctx} api={api} />
+            ) : view.type === 'board' ? (
+              <EfBoard d={d} rows={rows} view={view} touch={touch} toast={toast} />
+            ) : view.type === 'chart' ? (
+              <EfChart d={d} rows={rows} view={view} ver={ver} />
             ) : (
               <div className="ef-empty">
-                「{view.name}」은 {viewName(view.type)} 보기입니다 — Effort Plan 에는 아직 표 보기만 있습니다.
+                「{view.name}」은 {viewName(view.type)} 보기입니다 — 타임라인은 아직 옮기지 않았습니다.
               </div>
             )}
           </div>
@@ -585,11 +647,8 @@ function CondPanel({
       list.map((f, k) => {
         if (k !== i) return f
         const n = { ...f, ...p }
-        // 열을 바꾸면 그 열에 맞는 첫 조건으로, 값은 비운다
-        if (p.col && p.col !== f.col) {
-          n.op = condOps(cols.find((c) => c.id === p.col))[0]![0]
-          n.v = ''
-        }
+        // 열을 바꾸면 값만 비운다(예전 _rscFiltSet)
+        if (p.col && p.col !== f.col) n.v = ''
         return n
       }),
     )
@@ -608,7 +667,7 @@ function CondPanel({
                   </option>
                 ))}
               </select>
-              <select className="ef-fsel" value={f.op} aria-label="조건" onChange={(e) => put(i, { op: e.target.value })}>
+              <select className="ef-fsel" value={normOp(f.op)} aria-label="조건" onChange={(e) => put(i, { op: e.target.value })}>
                 {condOps(c).map(([k, n]) => (
                   <option key={k} value={k}>
                     {n}
@@ -617,9 +676,9 @@ function CondPanel({
               </select>
               {!condNeedsValue(f.op) ? (
                 <span className="ef-sp" />
-              ) : c && hasOptions(c.type) ? (
+              ) : c && (hasOptions(c.type) || (c.options?.length ?? 0) > 0) ? (
                 <select className="ef-fsel" value={f.v} aria-label="값" onChange={(e) => put(i, { v: e.target.value })}>
-                  <option value="">(값 고르기)</option>
+                  <option value="">(값 선택)</option>
                   {optionsOf(rows, c).map((o) => (
                     <option key={o} value={o}>
                       {o}
@@ -650,7 +709,7 @@ function CondPanel({
         className="ef-btn gh ef-full"
         onClick={() => {
           const c = cols[0]
-          if (c) set([...list, { col: c.id, op: condOps(c)[0]![0], v: '' }])
+          if (c) set([...list, { col: c.id, op: 'contains', v: '' }])
         }}
       >
         <TI n="plus" /> 조건 추가

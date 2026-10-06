@@ -883,3 +883,25 @@ input.ef-fsel { cursor: text; }
 .ef-menu .ef-mi-ic,
 .ef-menu .ef-mi-ck { font-size: 13px; }
 .ef-menu .ef-mi > span.ef-mi-arr { font-size: 11px; }
+
+/* ── 보드(칸반) · 차트 — 예전 rsc-kanban · rsc-charts 그대로 ── */
+.ef-tbhint { font-size: 11px; color: var(--c-text-faint); white-space: nowrap; }
+.ef-tbsel { flex: none; width: auto; min-width: 150px; }
+.ef-kanban { position: absolute; inset: 0; display: flex; gap: 14px; overflow: auto; padding: 12px; align-items: flex-start; }
+.ef-kcol { flex: 0 0 290px; background: #f1f3f7; border-radius: 13px; padding: 11px; }
+.ef-kcol-h { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 900; color: var(--c-text-muted); margin-bottom: 10px; padding: 0 4px; }
+.ef-kcnt { background: var(--c-border); color: var(--c-text-faint); border-radius: 20px; font-size: 10.5px; padding: 1px 8px; }
+.ef-kdot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.ef-klist { min-height: 40px; display: flex; flex-direction: column; gap: 9px; border-radius: 8px; }
+.ef-klist.over { box-shadow: 0 0 0 2px #2d6fd455; background: #eaf1fd; }
+.ef-kcard { background: #fff; border: 1px solid var(--c-border); border-radius: 10px; padding: 11px 12px; cursor: grab; }
+.ef-kcard:hover { box-shadow: 0 6px 16px rgba(20, 40, 80, 0.1); }
+.ef-kcard.ghost { opacity: 0.4; }
+.ef-kname { font-size: 13px; font-weight: 800; line-height: 1.4; margin-bottom: 7px; color: var(--c-text); }
+.ef-kmeta { font-size: 11px; color: var(--c-text-faint); }
+.ef-cardmenu { width: 160px; }
+.ef-charts { position: absolute; inset: 0; overflow: auto; padding: 14px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; align-content: start; }
+.ef-card { background: #fff; border: 1px solid var(--c-border); border-radius: 13px; padding: 16px; }
+.ef-ch { font-size: 13px; font-weight: 900; color: var(--c-text-muted); margin-bottom: 12px; }
+.ef-chbox { position: relative; height: 280px; }
+@media (max-width: 900px) { .ef-charts { grid-template-columns: 1fr; } }

@@ -23,6 +23,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@toast-ui/editor": "^3.2.2",
     "@toast-ui/editor-plugin-color-syntax": "^3.1.0",
+    "chart.js": "^4.4.1",
     "dompurify": "^3.4.12",
     "marked": "^18.0.7",
     "mermaid": "^11.6.0",

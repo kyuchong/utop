@@ -299,7 +299,8 @@ export const HUES: Array<[string, string[]]> = [
 export const SHADE = ['아주 진함', '진함', '', '밝음', '옅음', '여림']
 
 /** 색을 안 고른 값의 자동 색 — 값 글자로 늘 같은 색이 나오게 */
-const AUTO = ['#2563eb', '#16a34a', '#ea580c', '#7c3aed', '#0d9488', '#db2777', '#ca8a04', '#4f46e5', '#dc2626', '#0891b2', '#65a30d', '#c026d3']
+// 예전 _RSC_PAL 그대로 — 같은 값이면 예전 화면과 같은 색이 나온다
+const AUTO = ['#2d6fd4', '#00a872', '#7c5cff', '#c9923e', '#e53e5a', '#0ea5e9', '#ec4899', '#14b8a6', '#f59e0b', '#64748b', '#0a9b5a', '#d12d4a']
 export function autoColor(v: string): string {
   let h = 0
   for (let i = 0; i < v.length; i++) h = (h * 31 + v.charCodeAt(i)) >>> 0
@@ -392,46 +393,38 @@ export function downloadCsv(name: string, cols: EfColumn[], rows: EfRow[]) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000)
 }
 
-// ── 툴바 조건식 필터 ─────────────────────────────────────────────────
-const OPS_TEXT: Array<[string, string]> = [['has', '포함'], ['nhas', '포함 안 함'], ['eq', '같음'], ['ne', '같지 않음'], ['empty', '비어 있음'], ['nempty', '비어 있지 않음']]
-const OPS_NUM: Array<[string, string]> = [['eq', '='], ['ne', '≠'], ['gt', '>'], ['ge', '≥'], ['lt', '<'], ['le', '≤'], ['empty', '비어 있음'], ['nempty', '비어 있지 않음']]
-const OPS_SEL: Array<[string, string]> = [['eq', '같음'], ['ne', '같지 않음'], ['empty', '비어 있음'], ['nempty', '비어 있지 않음']]
-const OPS_MULTI: Array<[string, string]> = [['has', '포함'], ['nhas', '포함 안 함'], ['empty', '비어 있음'], ['nempty', '비어 있지 않음']]
-/** 열 유형에 맞는 조건 목록 */
-export function condOps(c: EfColumn | undefined): Array<[string, string]> {
-  if (!c) return OPS_TEXT
-  if (isNumCol(c)) return OPS_NUM
-  if (c.type === 'multiselect') return OPS_MULTI
-  if (hasOptions(c.type)) return OPS_SEL
-  return OPS_TEXT
-}
-export const condNeedsValue = (op: string) => op !== 'empty' && op !== 'nempty'
-/** 행이 조건 하나를 만족하나 — 값이 빈 조건(아직 안 고름)은 거르지 않는다 */
-export function condMatch(r: EfRow, f: EfCond, c: EfColumn | undefined): boolean {
-  if (!c) return true
-  const raw = r[f.col]
-  const s = raw == null ? '' : String(raw).trim()
-  if (f.op === 'empty') return s === ''
-  if (f.op === 'nempty') return s !== ''
-  const want = String(f.v ?? '').trim()
-  if (want === '') return true
-  if (isNumCol(c)) {
-    const a = toNum(raw)
-    const b = toNum(want)
-    if (b === null) return true
-    if (a === null) return f.op === 'ne'
-    return f.op === 'eq' ? a === b : f.op === 'ne' ? a !== b : f.op === 'gt' ? a > b : f.op === 'ge' ? a >= b : f.op === 'lt' ? a < b : a <= b
+// ── 툴바 조건식 필터 — 예전 _RSC_FOPS·_rscMatch 그대로 ─────────────────
+export const FOPS: Array<[string, string]> = [
+  ['eq', '같음'], ['neq', '다름'], ['contains', '포함'], ['ncontains', '미포함'], ['gt', '초과'],
+  ['lt', '미만'], ['gte', '이상'], ['lte', '이하'], ['empty', '비어있음'], ['notempty', '안비어있음'],
+]
+/** 앞 판에서 저장한 조건 이름 → 예전 이름 */
+const OLD_OP: Record<string, string> = { has: 'contains', nhas: 'ncontains', ne: 'neq', ge: 'gte', le: 'lte', nempty: 'notempty' }
+export const normOp = (op: string) => OLD_OP[op] ?? op
+/** 열 유형과 상관없이 같은 조건 목록(예전과 같다) */
+export const condOps = (_c?: EfColumn): Array<[string, string]> => FOPS
+export const condNeedsValue = (op: string) => normOp(op) !== 'empty' && normOp(op) !== 'notempty'
+/** 행이 조건 하나를 만족하나 — 값이 빈 조건은 거르지 않는다(남은 조건 때문에 0행이 되지 않게) */
+export function condMatch(r: EfRow, f: EfCond, _c?: EfColumn): boolean {
+  if (!f || !f.col) return true
+  const v = r[f.col]
+  const vs = v == null ? '' : String(v)
+  const fv = f.v == null ? '' : String(f.v)
+  const op = normOp(f.op)
+  if (op !== 'empty' && op !== 'notempty' && fv.trim() === '') return true
+  switch (op) {
+    case 'eq': return vs === fv
+    case 'neq': return vs !== fv
+    case 'contains': return vs.toLowerCase().includes(fv.toLowerCase())
+    case 'ncontains': return !vs.toLowerCase().includes(fv.toLowerCase())
+    case 'empty': return vs.trim() === ''
+    case 'notempty': return vs.trim() !== ''
+    case 'gt': return parseFloat(vs) > parseFloat(fv)
+    case 'lt': return parseFloat(vs) < parseFloat(fv)
+    case 'gte': return parseFloat(vs) >= parseFloat(fv)
+    case 'lte': return parseFloat(vs) <= parseFloat(fv)
+    default: return vs === fv
   }
-  if (c.type === 'multiselect') {
-    const parts = s.split(',').map((x) => x.trim())
-    return f.op === 'nhas' ? !parts.includes(want) : parts.includes(want)
-  }
-  const low = s.toLowerCase()
-  const w = want.toLowerCase()
-  if (f.op === 'has') return low.includes(w)
-  if (f.op === 'nhas') return !low.includes(w)
-  if (f.op === 'ne') return low !== w
-  return low === w
 }
 /** 옵션 칩 입력칸 너비(글자 칸 수) — 한글은 두 칸으로 센다(예전 _rscBetaChipSize) */
 export const chipSize = (v: string) => Math.max(2, [...String(v)].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? 2 : 1), 0) + 1)

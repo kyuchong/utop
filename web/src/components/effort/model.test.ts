@@ -75,22 +75,17 @@ describe('Effort Plan 자료', () => {
     expect(t2.pages[t2.curPage!]!.rows).toEqual([])
     expect(t2.betaViews).toHaveLength(1)
   })
-  it('툴바 조건식 필터 — 글자·숫자·선택·다중 선택·비어 있음', () => {
-    const t: EfColumn = { id: 'p', title: '제품', type: 'text' }
-    const n: EfColumn = { id: 'm', title: '01월', type: 'number' }
-    const s: EfColumn = { id: 'd', title: '부서', type: 'select' }
-    const ms: EfColumn = { id: 'g', title: '태그', type: 'multiselect' }
-    const r = { p: 'U9500H Combo', m: 0.5, d: '검증1팀', g: 'A, B' }
-    expect(condMatch(r, { col: 'p', op: 'has', v: 'combo' }, t)).toBe(true)
-    expect(condMatch(r, { col: 'p', op: 'nhas', v: 'combo' }, t)).toBe(false)
-    expect(condMatch(r, { col: 'm', op: 'ge', v: '0.5' }, n)).toBe(true)
-    expect(condMatch(r, { col: 'm', op: 'gt', v: '0.5' }, n)).toBe(false)
-    expect(condMatch({}, { col: 'm', op: 'empty', v: '' }, n)).toBe(true)
-    expect(condMatch(r, { col: 'd', op: 'eq', v: '검증1팀' }, s)).toBe(true)
-    expect(condMatch(r, { col: 'd', op: 'ne', v: '검증1팀' }, s)).toBe(false)
-    expect(condMatch(r, { col: 'g', op: 'has', v: 'B' }, ms)).toBe(true)
-    expect(condMatch(r, { col: 'p', op: 'eq', v: '' }, t)).toBe(true) // 값을 아직 안 넣은 조건은 거르지 않는다
-    expect(condOps(n).map((o) => o[0])).toContain('ge')
-    expect(condOps(s).map((o) => o[0])).toEqual(['eq', 'ne', 'empty', 'nempty'])
+  it('툴바 조건식 필터 — 예전 _rscMatch 와 같은 판정', () => {
+    const r = { p: 'U9500H Combo', m: 0.5, d: '검증1팀' }
+    expect(condMatch(r, { col: 'p', op: 'contains', v: 'combo' })).toBe(true)
+    expect(condMatch(r, { col: 'p', op: 'ncontains', v: 'combo' })).toBe(false)
+    expect(condMatch(r, { col: 'd', op: 'eq', v: '검증1팀' })).toBe(true)
+    expect(condMatch(r, { col: 'd', op: 'neq', v: '검증1팀' })).toBe(false)
+    expect(condMatch(r, { col: 'm', op: 'gte', v: '0.5' })).toBe(true)
+    expect(condMatch(r, { col: 'm', op: 'gt', v: '0.5' })).toBe(false)
+    expect(condMatch({}, { col: 'm', op: 'empty', v: '' })).toBe(true)
+    expect(condMatch(r, { col: 'p', op: 'eq', v: '' })).toBe(true) // 값 없는 조건은 통과
+    expect(condMatch(r, { col: 'p', op: 'has', v: 'combo' })).toBe(true) // 앞 판에서 저장한 이름도 읽는다
+    expect(condOps().map((o) => o[1])).toEqual(['같음', '다름', '포함', '미포함', '초과', '미만', '이상', '이하', '비어있음', '안비어있음'])
   })
 })
