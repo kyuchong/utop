@@ -261,8 +261,8 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
 }
 .ef-t th.ef-rh,
 .ef-t td.ef-rh {
-  width: 44px;
-  min-width: 44px;
+  width: 62px;
+  min-width: 62px;
   text-align: right;
   color: var(--c-text-faint);
   position: sticky;
@@ -1052,3 +1052,14 @@ input.ef-fsel { cursor: text; }
 .ef-range-sum span.now { box-shadow: inset 0 0 0 1.5px #2d6fd4; color: #2d6fd4; }
 .ef-range-sum i { font-style: normal; color: var(--c-text-faint); }
 .ef-range-sum b { font-size: 11px; color: #2d6fd4; white-space: nowrap; }
+
+/* ── 체크한 행 줄(예전 rsc-selbar) — 표 위 한 줄, 고르면 N행 선택 · 복사 · 복제 · 삭제 · 해제 ── */
+.ef-gbox { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.ef-gmain { position: relative; flex: 1; min-height: 0; }
+.ef-selbar { flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid #eef1f6; min-height: 38px; box-sizing: border-box; }
+.ef-selbar .ef-btn { font-size: 11px; padding: 4px 10px; }
+.ef-selall { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--c-text-muted); cursor: pointer; margin-right: 4px; }
+.ef-selcnt { font-size: 11px; font-weight: 800; color: #2d6fd4; background: #2d6fd414; border-radius: 999px; padding: 3px 10px; }
+.ef-rnum-in { display: inline-flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px; }
+.ef-rnum-in b { font-weight: inherit; }
+.ef-rck { margin: 0; cursor: pointer; flex: none; }

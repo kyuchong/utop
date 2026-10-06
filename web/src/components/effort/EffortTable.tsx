@@ -16,6 +16,7 @@ import {
   type Row,
   type Table,
 } from '@tanstack/react-table'
+import { copyText } from '@/lib/copy'
 import { useUserPeople } from '@/pages/qaBits'
 import { Chip, CtxMenu, DatePicker, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
 import { TI } from './icons'
@@ -244,6 +245,13 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [menu, setMenu] = useState<{ anchor: HTMLElement; colId: string } | null>(null)
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow } | null>(null)
   const [colMenu, setColMenu] = useState<{ x: number; y: number; colId: string } | null>(null)
+  /** 체크한 행(예전 _rscSelSet) — 행 객체로 들고 있다. 연도·표가 바뀌면(rows 가 다른 배열) 비운다 */
+  const [checked, setChecked] = useState<Set<EfRow>>(() => new Set())
+  const [ckOf, setCkOf] = useState(rows)
+  if (ckOf !== rows) {
+    setCkOf(rows)
+    setChecked(new Set())
+  }
   const drag = useRef<{ mode: 'sel' | 'fill' | 'row'; r1: number; c1: number; c2?: number } | null>(null)
   const leafRef = useRef<EfRow[]>([])
   const paintRef = useRef<ReactNode>(null)
@@ -610,7 +618,25 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
             setEdit(null)
           }}
         >
-          {n}
+          <span className="ef-rnum-in">
+            <input
+              type="checkbox"
+              className="ef-rck"
+              aria-label={`${n}행 선택`}
+              checked={checked.has(src)}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() =>
+                setChecked((o) => {
+                  const k = new Set(o)
+                  if (k.has(src)) k.delete(src)
+                  else k.add(src)
+                  return k
+                })
+              }
+            />
+            <b>{n}</b>
+          </span>
         </td>
         {row.getVisibleCells().map((cell, ci) => {
           const c = (cell.column.columnDef.meta as { col: EfColumn }).col
@@ -805,9 +831,70 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
 
   const menuCol = menu ? table.getColumn(menu.colId) : undefined
   const menuEf = menuCol ? (menuCol.columnDef.meta as { col: EfColumn }).col : undefined
+  // ── 체크한 행 줄(예전 _rscSelBar) — 보이는 행 전체 · N행 선택 · 복사 · 복제 · 삭제 · 해제 ──
+  const shown = table.getFilteredRowModel().rows.map((r) => r.original)
+  const ckList = rows.filter((r) => checked.has(r)) // 표 차례대로
+  const allOn = shown.length > 0 && shown.every((r) => checked.has(r))
+  const someOn = !allOn && shown.some((r) => checked.has(r))
+  const selCopy = async () => {
+    const vc = ordered
+    const lines = [vc.map((c) => c.title).join('\t'), ...ckList.map((r) => vc.map((c) => cellText(r[c.id]).replace(/[\t\n]/g, ' ')).join('\t'))]
+    toast((await copyText(lines.join('\n'))) ? `📋 ${ckList.length}행 복사됨 — 엑셀·다른 표에 붙여넣을 수 있습니다` : '복사하지 못했습니다')
+  }
+  const selDup = () => {
+    // 저마다 바로 아래에 복제(행 우클릭 「행 복제」 와 같게)
+    ckList.forEach((r) => rows.splice(rows.indexOf(r) + 1, 0, JSON.parse(JSON.stringify(r)) as EfRow))
+    setChecked(new Set())
+    setSel(null)
+    touch()
+    toast(`⧉ ${ckList.length}행 복제됨`)
+  }
+  const selDel = () => {
+    if (!window.confirm(`${ckList.length}행을 삭제할까요?\n(서버가 저장 전 상태를 백업해 둡니다)`)) return
+    ckList.forEach((r) => {
+      const i = rows.indexOf(r)
+      if (i >= 0) rows.splice(i, 1)
+    })
+    setChecked(new Set())
+    setSel(null)
+    touch()
+    toast(`🗑 ${ckList.length}행 삭제됨`)
+  }
   return (
+    <div className="ef-gbox">
+    <div className="ef-selbar">
+      <label className="ef-selall">
+        <input
+          type="checkbox"
+          checked={allOn}
+          ref={(el) => {
+            if (el) el.indeterminate = someOn
+          }}
+          onChange={() => setChecked(allOn ? new Set() : new Set([...checked, ...shown]))}
+        />
+        보이는 행 전체
+      </label>
+      {ckList.length > 0 && (
+        <>
+          <span className="ef-selcnt">{ckList.length}행 선택</span>
+          <button type="button" className="ef-btn gh" onClick={() => void selCopy()}>
+            <TI n="copy" /> 복사
+          </button>
+          <button type="button" className="ef-btn gh" onClick={selDup}>
+            <TI n="copy-plus" /> 복제
+          </button>
+          <button type="button" className="ef-btn gh ef-danger" onClick={selDel}>
+            <TI n="trash" /> 삭제
+          </button>
+          <button type="button" className="ef-btn gh" onClick={() => setChecked(new Set())}>
+            해제
+          </button>
+        </>
+      )}
+    </div>
+    <div className="ef-gmain">
     <div className="ef-scroll" translate="no">
-      <table className="ef-t" ref={tblRef} style={{ width: table.getTotalSize() + 44 }}>
+      <table className="ef-t" ref={tblRef} style={{ width: table.getTotalSize() + 62 }}>
         <thead>
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
@@ -910,6 +997,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           />
         )
       })()}
+    </div>
+    </div>
     </div>
   )
 }
