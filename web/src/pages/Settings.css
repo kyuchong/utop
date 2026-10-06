@@ -1671,8 +1671,10 @@ button.dcc-st:disabled { cursor: default; }
 .ml-ph { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--c-text-muted); }
 .ml-ph .sp { margin-left: auto; }
 /* 「실어 보낼 것」 은 **한 줄에 하나씩**(지시: B 안) — 나란히 두면 칸이 좁아 「구현 / 내용」 처럼 글자가 꺾였다 */
-.ml-secs { display: flex; flex-direction: column; gap: 6px; }
+.ml-secs { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .ml-sec { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); white-space: nowrap; }
+/* 체크박스는 **제 폭** — 「.ml .fld input { width:100% }」 이 체크박스까지 늘려 가운데로 밀었다(지적: 왼쪽 정렬) */
+.ml .ml-sec input[type='checkbox'] { width: auto; flex: none; margin: 0; padding: 0; }
 .ml-test { background: #fbfcfd; }
 
 /* ── INFO 필드 — 값마다 색, 필드마다 모양(지시) ── */
