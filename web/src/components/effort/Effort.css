@@ -236,7 +236,7 @@
 }
 .ef-scroll { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; }
 
-table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; }
+table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 12px; }
 .ef-t th,
 .ef-t td {
   border-right: 1px solid #eef1f6;
@@ -341,7 +341,7 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
 .ef-tw.open { transform: rotate(90deg); }
 .ef-gx b { color: #2d6fd4; font-weight: 800; }
 .ef-cnt {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--c-text-muted);
   font-weight: 700;
   background: #fff;
@@ -352,7 +352,7 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
 }
 .ef-t tr.ef-rsum td,
 .ef-t tr.ef-rsum:hover td { font-weight: 700; border-bottom: 1px solid var(--c-border-soft); background: #fcfdff; }
-.ef-tot { display: block; text-align: right; font-size: 11px; opacity: 0.75; }
+.ef-tot { display: block; text-align: right; font-size: 12px; opacity: 0.75; }
 .ef-tot b { font-weight: 800; margin-left: 3px; color: #2d6fd4; }
 .ef-t tfoot td {
   position: sticky;
@@ -375,7 +375,7 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
   display: inline-block;
   padding: 2px 8px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
   line-height: 16px;
@@ -444,7 +444,7 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
   outline: 0;
   padding: 0 6px;
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   background: transparent;
 }
 .ef-t td.ef-n .ef-cell-in { text-align: right; }
@@ -878,9 +878,9 @@ input.ef-fsel { cursor: text; }
 .ef-menu .ef-menu-name { padding: 5px 8px; font-size: 12.5px; margin-bottom: 3px; }
 .ef-menu .ef-sep { margin: 5px 2px 3px; }
 .ef-menu .ef-lbl { margin: 5px 4px 3px; }
-/* 드롭다운 글자 11px (지시: 10px 은 작다) — 아이콘·› 도 글자에 맞춰 줄인다. 옆으로 펼친 하위 메뉴·트리·보기 메뉴도 같은 .ef-menu */
-.ef-menu .ef-mi { font-size: 11px; }
-.ef-menu .ef-menu-name { font-size: 11px; }
+/* 드롭다운 글자 12px (지시: 10·11px 은 작다) — 아이콘·› 도 글자에 맞춰 줄인다. 옆으로 펼친 하위 메뉴·트리·보기 메뉴도 같은 .ef-menu */
+.ef-menu .ef-mi { font-size: 12px; }
+.ef-menu .ef-menu-name { font-size: 12px; }
 .ef-menu .ef-mi-ic,
 .ef-menu .ef-mi-ck { font-size: 13px; }
 .ef-menu .ef-mi > span.ef-mi-arr { font-size: 11px; }
@@ -1013,7 +1013,7 @@ input.ef-fsel { cursor: text; }
 
 /* ── 유형별 칸 — 날짜·기간·기간 일수·체크박스·사람·링크 (예전 rsc-person · rsc-link 등) ── */
 .ef-date { font-variant-numeric: tabular-nums; }
-.ef-drange { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: #eef4fd; color: #2d6fd4; font-weight: 700; font-size: 11px; font-variant-numeric: tabular-nums; }
+.ef-drange { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: #eef4fd; color: #2d6fd4; font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; }
 .ef-drange .ef-ti { font-size: 11px; flex: none; }
 .ef-ddiff { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; color: #2d6fd4; }
 .ef-ddiff .ef-ti { font-size: 11px; }
@@ -1021,7 +1021,7 @@ input.ef-fsel { cursor: text; }
 .ef-ckbox.on { color: #2d6fd4; }
 .ef-ckbox:hover { color: #2d6fd4; }
 .ef-person { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; }
-.ef-ava { flex: none; width: 17px; height: 17px; border-radius: 50%; color: #fff; font-style: normal; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.ef-ava { flex: none; width: 17px; height: 17px; border-radius: 50%; color: #fff; font-style: normal; font-size: 10.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
 .ef-link { display: inline-flex; align-items: center; gap: 4px; color: #2d6fd4; text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .ef-link:hover { text-decoration: underline; }
 .ef-link .ef-ti { font-size: 12px; flex: none; }
@@ -1068,6 +1068,6 @@ input.ef-fsel { cursor: text; }
 .ef-t td.ef-ml { white-space: pre; line-height: 1.45; padding-top: 6px; padding-bottom: 6px; }
 .ef-cell-ta { display: block; resize: none; padding: 7px 6px; line-height: 1.45; min-height: 32px; box-sizing: border-box; overflow: hidden; }
 /* 글쇠 받는 칸 — 고른 칸 위에 투명하게 있다가, 글자가 들어오면 그 칸의 편집기로 보인다 */
-.ef-sink { position: absolute; left: 0; top: 0; width: 1px; min-height: 1px; z-index: 1; opacity: 0; pointer-events: none; border: 0; outline: 0; resize: none; margin: 0; padding: 7px 6px; box-sizing: border-box; font: inherit; font-size: 11px; line-height: 1.45; background: #fff; color: var(--c-text); overflow: hidden; white-space: pre; }
+.ef-sink { position: absolute; left: 0; top: 0; width: 1px; min-height: 1px; z-index: 1; opacity: 0; pointer-events: none; border: 0; outline: 0; resize: none; margin: 0; padding: 7px 6px; box-sizing: border-box; font: inherit; font-size: 12px; line-height: 1.45; background: #fff; color: var(--c-text); overflow: hidden; white-space: pre; }
 .ef-sink.on { opacity: 1; z-index: 6; pointer-events: auto; box-shadow: inset 0 0 0 2px #2d6fd4; }
 .ef-sink.num { text-align: right; }

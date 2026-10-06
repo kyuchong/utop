@@ -417,10 +417,10 @@ export function nearest(hex: string): string {
   return best.toLowerCase()
 }
 
-/** 열 너비 — 글자 10px 기준, 12개월 + 합계가 가로 스크롤 없이 들어가게(예전 값 그대로).
+/** 열 너비 — 예전 값에서, 글자를 12px 로 키우며(지시) 잘리던 제품명·업무분류만 넓혔다.
  *  이 화면에서 끌어 바꾼 너비는 efWidth 에 둔다 — width 는 예전 표가 쓰는 값이라 건드리지 않는다 */
 const SIZE: Record<string, number> = {
-  부서: 86, 인원: 78, 직급: 58, 사업자: 74, '제품명(프로젝트)': 120, '업무분류(대분류)': 190, 합계: 72,
+  부서: 86, 인원: 78, 직급: 58, 사업자: 74, '제품명(프로젝트)': 140, '업무분류(대분류)': 220, 합계: 72,
 }
 /** 유형별 기본 폭 — 기간은 「2026-01-05 ~ 02-10」 이 다 보이게 */
 const TYPE_W: Partial<Record<EfType, number>> = { date: 96, daterange: 176, datediff: 74, checkbox: 52, url: 150, email: 150, phone: 116 }
