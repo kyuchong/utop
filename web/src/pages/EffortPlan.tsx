@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { EfGrid, leafRows, useEfTable, type EfCtx } from '@/components/effort/EffortTable'
 import { FilterBody, Pop } from '@/components/effort/EffortMenus'
+import EffortTree from '@/components/effort/EffortTree'
 import {
   TYPES,
   defaultGroup,
@@ -11,6 +12,7 @@ import {
   isNumCol,
   newId,
   normalize,
+  tableOf,
   viewState,
   type EfColumn,
   type EfDoc,
@@ -102,24 +104,44 @@ export default function EffortPlan() {
   const d = docRef.current
   if (err) return <section className="panel ef"><div className="ef-empty">불러오지 못했습니다 — {err}</div></section>
   if (!d) return <section className="panel ef"><div className="ef-empty">불러오는 중…</div></section>
-  return <EffortBody d={d} ver={ver} touch={touch} toast={toast} save={save} msg={msg} retry={() => void flush()} />
+  const cur = d.efTree!.cur
+  return (
+    <section className="panel ef">
+      <div className="ef-layout">
+        <EffortTree root={d} touch={touch} toast={toast} />
+        {/* 표를 바꾸면 표 쪽 상태(펼침·선택·너비)는 새로 — key 로 다시 만든다 */}
+        <EffortBody
+          key={cur}
+          d={tableOf(d, cur)}
+          name={d.efTree!.nodes.find((n) => n.id === cur)?.name ?? ''}
+          ver={ver}
+          touch={touch}
+          toast={toast}
+          save={save}
+          retry={() => void flush()}
+        />
+      </div>
+      {msg && <div className="ef-toast">{msg}</div>}
+    </section>
+  )
 }
 
+/** 고른 표 하나 — 제목(표 이름 · 연도 ▾) · 보기 탭 · 도구 줄 · 표 */
 function EffortBody({
   d,
+  name,
   ver,
   touch,
   toast,
   save,
-  msg,
   retry,
 }: {
   d: EfDoc
+  name: string
   ver: number
   touch: () => void
   toast: (m: string) => void
   save: SaveState
-  msg: string
   retry: () => void
 }) {
   const year = d.curPage!
@@ -194,36 +216,13 @@ function EffortBody({
   const isTable = (view.type || 'table') === 'table'
 
   return (
-    <section className="panel ef">
-      <div className="ef-layout">
-        <aside className="ef-side">
-          <div className="ef-tree-hd">
-            <span>연도</span>
-            <button type="button" className="ef-tadd" title="연도 추가" onClick={open('addyear')}>
-              ＋
-            </button>
-          </div>
-          <div className="ef-tree">
-            {(d.years ?? []).map((y) => (
-              <button
-                key={y}
-                type="button"
-                className={`ef-yr${y === year ? ' on' : ''}`}
-                title="우클릭: 비우기·삭제"
-                onClick={() => setYear(y)}
-                onContextMenu={open('year', y)}
-              >
-                <span>{y}년</span>
-                <em>{d.pages[y]?.rows.length ?? 0}</em>
-              </button>
-            ))}
-          </div>
-        </aside>
-
+    <>
         <div className="ef-main">
           <div className="ef-head">
             <b>Effort Plan</b>
-            <button type="button" className="ef-yrbtn" title="연도 바꾸기" onClick={open('yearmenu')}>
+            <span className="ef-head-sep">·</span>
+            <span className="ef-head-name">{name}</span>
+            <button type="button" className="ef-yrbtn" title="연도 바꾸기·추가·삭제" onClick={open('yearmenu')}>
               {year}년 ▾
             </button>
             <span className={`ef-save ${save}`} onClick={save === 'error' ? retry : undefined}>
@@ -308,7 +307,7 @@ function EffortBody({
               className="ef-btn"
               onClick={() => {
                 const out = leafRows(table)
-                downloadCsv(`EffortPlan_${year}.csv`, table.getVisibleLeafColumns().map((c) => (c.columnDef.meta as { col: EfColumn }).col), out)
+                downloadCsv(`EffortPlan_${name || '표'}_${year}.csv`, table.getVisibleLeafColumns().map((c) => (c.columnDef.meta as { col: EfColumn }).col), out)
                 toast('CSV 내려받음 — ' + out.length + '행')
               }}
             >
@@ -329,9 +328,6 @@ function EffortBody({
             )}
           </div>
         </div>
-      </div>
-
-      {msg && <div className="ef-toast">{msg}</div>}
 
       {pop?.kind === 'addyear' && <AddYear anchor={pop.anchor} years={d.years ?? []} onAdd={(y) => { close(); addYear(y) }} onClose={close} />}
       {pop?.kind === 'yearmenu' && (
@@ -339,11 +335,16 @@ function EffortBody({
           <div className="ef-lbl">연도</div>
           <div className="ef-mlist">
             {(d.years ?? []).map((y) => (
-              <button key={y} type="button" className={`ef-mi${y === year ? ' on' : ''}`} onClick={() => { close(); setYear(y) }}>
-                <i className="ef-mi-ic">▦</i>
-                <span>{y}년</span>
-                <em className="ef-mi-n">{d.pages[y]?.rows.length ?? 0}</em>
-              </button>
+              <div key={y} className="ef-yrrow">
+                <button type="button" className={`ef-mi${y === year ? ' on' : ''}`} onClick={() => { close(); setYear(y) }}>
+                  <i className="ef-mi-ic">▦</i>
+                  <span>{y}년</span>
+                  <em className="ef-mi-n">{d.pages[y]?.rows.length ?? 0}</em>
+                </button>
+                <button type="button" className="ef-yrmore" title="비우기·삭제" onClick={() => setPop({ kind: 'year', anchor: pop.anchor, id: y })}>
+                  ⋯
+                </button>
+              </div>
             ))}
           </div>
           <div className="ef-sep" />
@@ -372,10 +373,10 @@ function EffortBody({
           view={views.find((v) => v.id === pop.id)!}
           canDelete={views.length > 1}
           onClose={close}
-          onRename={(name) => {
+          onRename={(nm) => {
             const v = views.find((x) => x.id === pop.id)
-            if (v && name && name !== v.name) {
-              v.name = name
+            if (v && nm && nm !== v.name) {
+              v.name = nm
               touch()
             }
           }}
@@ -427,7 +428,7 @@ function EffortBody({
         </Pop>
       )}
       {colMgr && <ColMgr d={d} touch={touch} toast={toast} onClose={() => setColMgr(false)} />}
-    </section>
+    </>
   )
 }
 

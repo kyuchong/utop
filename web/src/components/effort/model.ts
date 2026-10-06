@@ -6,6 +6,10 @@
  *   { columns:[...], pages:{ "2025":{ rows:[...] } }, years:[...], curPage:"2025",
  *     views:[...], curView, betaViews:[...], curBetaView }
  * 이 화면은 beta 쪽 보기(betaViews/curBetaView)를 쓴다. 열·행은 함께 쓴다.
+ *
+ * 왼쪽 트리(폴더 ▸ 표, 지시: 큰 카테고리)는 efTree 에 둔다. 표마다 열·연도·보기가 따로다.
+ * 첫 표(id 'main', 처음 이름 「인원 투입」)는 **문서 맨 위 그대로** — 예전 자료를 그대로 읽고,
+ * 서버 백업(맨 위 pages 의 행 수로 판단)도 예전처럼 돈다. 나머지 표는 efTables[id] 에 같은 꼴로 둔다.
  */
 
 export type EfType =
@@ -37,6 +41,21 @@ export interface EfView {
   ef?: EfViewState
   [k: string]: unknown
 }
+export interface EfNode {
+  id: string
+  kind: 'folder' | 'table'
+  name: string
+  /** 부모 폴더 id — null 이면 맨 위 */
+  parent: string | null
+  /** 폴더가 펼쳐져 있나(기본 펼침) */
+  open?: boolean
+}
+export interface EfTree {
+  nodes: EfNode[]
+  /** 지금 보는 표 */
+  cur: string
+}
+/** 표 하나 — 열·연도 페이지·보기 */
 export interface EfDoc {
   columns: EfColumn[]
   pages: Record<string, { rows: EfRow[] }>
@@ -46,8 +65,13 @@ export interface EfDoc {
   curBetaView?: string
   views?: EfView[]
   curView?: string
+  /** 맨 위 문서에만 — 트리와 첫 표 말고의 표들 */
+  efTree?: EfTree
+  efTables?: Record<string, EfDoc>
   [k: string]: unknown
 }
+
+export const MAIN = 'main'
 
 export const TYPES: Array<{ t: EfType; n: string; ic: string }> = [
   { t: 'text', n: '텍스트', ic: '≡' },
@@ -89,8 +113,44 @@ export function defaultColumns(): EfColumn[] {
   ]
 }
 
-/** 서버에서 받은 것을 이 화면이 쓰는 꼴로 — 연도 페이지를 보장한다(예전 _rscMP 와 같은 일) */
+/** 서버에서 받은 것을 이 화면이 쓰는 꼴로 — 첫 표(맨 위)와 트리·다른 표들까지 */
 export function normalize(raw: unknown): EfDoc {
+  const d = normalizeTable(raw)
+  ensureViews(d)
+  const tables = d.efTables && typeof d.efTables === 'object' ? d.efTables : {}
+  Object.keys(tables).forEach((k) => {
+    tables[k] = normalizeTable(tables[k])
+    ensureViews(tables[k]!)
+  })
+  d.efTables = tables
+  const t = d.efTree && Array.isArray(d.efTree.nodes) ? d.efTree : { nodes: [], cur: MAIN }
+  // 표 노드는 실제 표가 있는 것만, 부모는 있는 폴더만
+  const folders = new Set(t.nodes.filter((n) => n.kind === 'folder').map((n) => n.id))
+  t.nodes = t.nodes.filter((n) => n.kind === 'folder' || n.id === MAIN || tables[n.id])
+  t.nodes.forEach((n) => {
+    if (n.parent && !folders.has(n.parent)) n.parent = null
+  })
+  if (!t.nodes.some((n) => n.id === MAIN)) t.nodes.unshift({ id: MAIN, kind: 'table', name: '인원 투입', parent: null })
+  Object.keys(tables).forEach((k) => {
+    if (!t.nodes.some((n) => n.id === k)) t.nodes.push({ id: k, kind: 'table', name: '표', parent: null })
+  })
+  if (!t.nodes.some((n) => n.kind === 'table' && n.id === t.cur)) t.cur = MAIN
+  d.efTree = t
+  return d
+}
+/** 표 id → 표 문서(첫 표는 맨 위 문서 자신) */
+export const tableOf = (root: EfDoc, id: string): EfDoc => (id === MAIN ? root : (root.efTables?.[id] ?? root))
+/** 표의 행 수(지금 연도) */
+export const tableRows = (t: EfDoc) => t.pages[t.curPage ?? '']?.rows.length ?? 0
+/** 새 표 — 기본 열, 올해 페이지, 표 보기 하나 */
+export function newTable(cols?: EfColumn[]): EfDoc {
+  const d = normalizeTable(cols ? { columns: JSON.parse(JSON.stringify(cols)) } : {})
+  ensureViews(d)
+  return d
+}
+
+/** 표 하나를 이 화면이 쓰는 꼴로 — 연도 페이지를 보장한다(예전 _rscMP 와 같은 일) */
+function normalizeTable(raw: unknown): EfDoc {
   const d = (raw && typeof raw === 'object' ? raw : {}) as EfDoc
   if (!Array.isArray(d.columns) || !d.columns.length) d.columns = defaultColumns()
   if (!d.pages || typeof d.pages !== 'object') d.pages = {}

@@ -416,6 +416,10 @@ def _rsc_backup_kv(key: str):
         if not isinstance(_cur, dict): return
         nrows = sum(len((p or {}).get("rows", []) or []) for p in (_cur.get("pages", {}) or {}).values())
         nrows += len(_cur.get("rows", []) or [])
+        # Effort Plan 의 다른 표들(efTables) — 첫 표가 비어도 다른 표에 자료가 있으면 백업한다
+        for _t in (_cur.get("efTables", {}) or {}).values():
+            if isinstance(_t, dict):
+                nrows += sum(len((p or {}).get("rows", []) or []) for p in (_t.get("pages", {}) or {}).values())
         if nrows == 0: return
         bdir = DATA_DIR / "backups"; bdir.mkdir(exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d-%H%M%S")

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, viewState, type EfColumn } from './model'
+import { MAIN, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -45,5 +45,34 @@ describe('Effort Plan 자료', () => {
   it('표에 쓰였지만 옵션에 없는 값을 찾는다(다중 선택은 값 하나하나)', () => {
     const c: EfColumn = { id: 't', title: '태그', type: 'multiselect', options: ['A'] }
     expect(missingOptions([{ t: 'A, B' }, { t: 'C' }, {}], c)).toEqual(['B', 'C'])
+  })
+  it('트리 — 없으면 첫 표 「인원 투입」 하나, 맨 위 자료가 그 표다', () => {
+    const d = normalize({ pages: { '2025': { rows: [{ name: '김' }] } } })
+    expect(d.efTree!.nodes).toEqual([{ id: MAIN, kind: 'table', name: '인원 투입', parent: null }])
+    expect(d.efTree!.cur).toBe(MAIN)
+    expect(tableOf(d, MAIN).pages['2025']!.rows).toHaveLength(1)
+  })
+
+  it('트리 — 자료 없는 표 노드·없는 부모는 정리하고, 노드 없는 표는 맨 위에 붙인다', () => {
+    const d = normalize({
+      efTree: {
+        cur: 'gone',
+        nodes: [
+          { id: 'f1', kind: 'folder', name: '개발', parent: null },
+          { id: 'gone', kind: 'table', name: '사라진 표', parent: 'f1' },
+          { id: MAIN, kind: 'table', name: '인원', parent: 'nope' },
+        ],
+      },
+      efTables: { t2: { columns: [{ id: 'a', title: 'A', type: 'text' }] } },
+    })
+    const ns = d.efTree!.nodes
+    expect(ns.map((n) => n.id)).toEqual(['f1', MAIN, 't2'])
+    expect(ns.find((n) => n.id === MAIN)!.parent).toBeNull()
+    expect(d.efTree!.cur).toBe(MAIN)
+    // 다른 표도 연도 페이지·보기를 갖춘다
+    const t2 = tableOf(d, 't2')
+    expect(t2.columns.map((c) => c.id)).toEqual(['a'])
+    expect(t2.pages[t2.curPage!]!.rows).toEqual([])
+    expect(t2.betaViews).toHaveLength(1)
   })
 })
