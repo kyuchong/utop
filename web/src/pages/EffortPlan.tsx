@@ -575,14 +575,14 @@ function CondPanel({
           const c = cols.find((x) => x.id === f.col)
           return (
             <div key={i} className="ef-fl-row">
-              <select className="ef-sel" value={f.col} aria-label="열" onChange={(e) => put(i, { col: e.target.value })}>
+              <select className="ef-fsel" value={f.col} aria-label="열" onChange={(e) => put(i, { col: e.target.value })}>
                 {cols.map((x) => (
                   <option key={x.id} value={x.id}>
                     {x.title}
                   </option>
                 ))}
               </select>
-              <select className="ef-sel" value={f.op} aria-label="조건" onChange={(e) => put(i, { op: e.target.value })}>
+              <select className="ef-fsel" value={f.op} aria-label="조건" onChange={(e) => put(i, { op: e.target.value })}>
                 {condOps(c).map(([k, n]) => (
                   <option key={k} value={k}>
                     {n}
@@ -592,7 +592,7 @@ function CondPanel({
               {!condNeedsValue(f.op) ? (
                 <span className="ef-sp" />
               ) : c && hasOptions(c.type) ? (
-                <select className="ef-sel" value={f.v} aria-label="값" onChange={(e) => put(i, { v: e.target.value })}>
+                <select className="ef-fsel" value={f.v} aria-label="값" onChange={(e) => put(i, { v: e.target.value })}>
                   <option value="">(값 고르기)</option>
                   {optionsOf(rows, c).map((o) => (
                     <option key={o} value={o}>
@@ -602,7 +602,7 @@ function CondPanel({
                 </select>
               ) : (
                 <input
-                  className="ef-sel"
+                  className="ef-fsel"
                   value={f.v}
                   inputMode={c && isNumCol(c) ? 'decimal' : undefined}
                   placeholder="값"

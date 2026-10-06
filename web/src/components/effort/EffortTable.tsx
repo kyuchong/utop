@@ -464,7 +464,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           onMouseDown={(e) => colDrag(e, c.id)}
         >
           <span
-            className="ef-lbl"
+            className="ef-hlbl"
             title="누르면 메뉴 (유형·필터·수식·정렬) · 끌면 열 이동"
             onClick={(e) => {
               if (Date.now() - draggedAt < 250) return

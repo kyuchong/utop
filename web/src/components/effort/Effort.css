@@ -273,7 +273,7 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
 .ef-t thead th.ef-rh { z-index: 4; background: #f7f9fc; }
 .ef-hc { display: flex; align-items: center; height: 30px; padding: 0 4px 0 8px; gap: 4px; cursor: grab; }
 .ef-hc:active { cursor: grabbing; }
-.ef-hc .ef-lbl {
+.ef-hc .ef-hlbl {
   flex: 1;
   display: flex;
   align-items: center;
@@ -282,15 +282,27 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
   cursor: pointer;
   user-select: none;
 }
-.ef-hc.num .ef-lbl { justify-content: flex-end; }
-.ef-t thead .ef-hc .ef-lbl { cursor: pointer; }
+.ef-hc.num .ef-hlbl { justify-content: flex-end; }
+.ef-t thead .ef-hc .ef-hlbl { cursor: pointer; }
 .ef-ttl { overflow: hidden; text-overflow: ellipsis; }
-.ef-t thead th:hover .ef-lbl { color: var(--c-text-muted); }
-.ef-hc.filtered .ef-lbl { color: #2d6fd4; }
+.ef-t thead th:hover .ef-hlbl { color: var(--c-text-muted); }
+.ef-hc.filtered .ef-hlbl { color: #2d6fd4; }
 .ef-hicon { font-size: 12px; color: var(--c-text-faint); margin-right: 3px; flex: none; }
 .ef-ar { color: #2d6fd4; font-size: 11px; font-weight: 800; }
 .ef-fon { color: #2d6fd4; font-size: 9px; }
-.ef-t thead th:hover .ef-rz:hover,
+.ef-t thead th.ef-colmoving { background: #e4edfd; box-shadow: 0 0 0 2px #2d6fd4 inset; z-index: 6; }
+/* 열 너비 손잡이 — 머리글 오른쪽 끝(끌면 너비, 두 번 누르면 기본 너비) */
+.ef-rz {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 2;
+}
+.ef-rz:hover,
 .ef-rz.act { background: #2d6fd4; opacity: 0.35; }
 .ef-t td.ef-n { text-align: right; }
 .ef-t tbody tr:hover td,
@@ -836,7 +848,7 @@ input.ef-optchip:focus { background: #fff !important; color: var(--c-text) !impo
 /* 툴바 조건식 필터(예전 rsc-fl-row) */
 .ef-cpanel { width: 420px; }
 .ef-fl-row { display: flex; align-items: center; gap: 6px; margin: 4px 2px; }
-.ef-sel {
+.ef-fsel {
   flex: 1;
   min-width: 0;
   font: inherit;
@@ -847,7 +859,7 @@ input.ef-optchip:focus { background: #fff !important; color: var(--c-text) !impo
   background: #fff;
   color: var(--c-text-muted);
 }
-input.ef-sel { cursor: text; }
+input.ef-fsel { cursor: text; }
 .ef-fl-row .ef-sp { flex: 1; }
 .ef-viewmenu { width: 170px; }
 /* › 는 줄 오른쪽 끝에 붙는다(이름 칸이 남는 자리를 먹는다) */
