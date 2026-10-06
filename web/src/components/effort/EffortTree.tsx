@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Pop } from './EffortMenus'
+import { TI } from './icons'
 import { MAIN, newId, newTable, tableOf, tableRows, type EfDoc, type EfNode } from './model'
 
 /**
@@ -159,7 +160,7 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
           title={folder ? '누르면 접고 펴기 · 우클릭: 메뉴 · 끌어서 옮기기' : '우클릭: 이름·복제·옮기기·삭제 · 끌어서 옮기기'}
         >
           <span className="ef-tn-tw">{folder ? (isOpen ? '▾' : '▸') : ''}</span>
-          <span className="ef-tn-ic">{folder ? '📁' : '▦'}</span>
+          <span className="ef-tn-ic"><TI n={folder ? (isOpen ? 'folder-open' : 'folder') : 'table'} /></span>
           {renaming === n.id ? (
             <input
               className="ef-tn-in"
@@ -192,7 +193,7 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
       <div className="ef-tree-hd">
         <span>목록</span>
         <button type="button" className="ef-tadd" title="새 표·새 폴더" onClick={(e) => setPop({ kind: 'add', anchor: e.currentTarget })}>
-          ＋
+          <TI n="plus" />
         </button>
       </div>
       <div
@@ -219,11 +220,11 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
       {pop?.kind === 'add' && (
         <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
           <button type="button" className="ef-mi" onClick={() => { close(); addTable(null) }}>
-            <i className="ef-mi-ic">▦</i>
+            <i className="ef-mi-ic"><TI n="table" /></i>
             <span>새 표</span>
           </button>
           <button type="button" className="ef-mi" onClick={() => { close(); addFolder(null) }}>
-            <i className="ef-mi-ic">📁</i>
+            <i className="ef-mi-ic"><TI n="folder" /></i>
             <span>새 폴더</span>
           </button>
         </Pop>
@@ -232,17 +233,17 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
         <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
           <div className="ef-lbl">{pn.name}</div>
           <button type="button" className="ef-mi" onClick={() => { close(); setRenaming(pn.id) }}>
-            <i className="ef-mi-ic">✎</i>
+            <i className="ef-mi-ic"><TI n="pencil" /></i>
             <span>이름 바꾸기</span>
           </button>
           {pn.kind === 'folder' ? (
             <>
               <button type="button" className="ef-mi" onClick={() => { close(); addTable(pn.id) }}>
-                <i className="ef-mi-ic">▦</i>
+                <i className="ef-mi-ic"><TI n="table" /></i>
                 <span>이 안에 새 표</span>
               </button>
               <button type="button" className="ef-mi" onClick={() => { close(); addFolder(pn.id) }}>
-                <i className="ef-mi-ic">📁</i>
+                <i className="ef-mi-ic"><TI n="folder" /></i>
                 <span>이 안에 새 폴더</span>
               </button>
             </>
@@ -261,11 +262,11 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
                   addTable(pn.parent, t, pn.name + ' 복사')
                 }}
               >
-                <i className="ef-mi-ic">⧉</i>
+                <i className="ef-mi-ic"><TI n="copy" /></i>
                 <span>복제 — 열만</span>
               </button>
               <button type="button" className="ef-mi" onClick={() => { close(); addTable(pn.parent, tableOf(root, pn.id), pn.name + ' 복사') }}>
-                <i className="ef-mi-ic">⧉</i>
+                <i className="ef-mi-ic"><TI n="copy" /></i>
                 <span>복제 — 자료까지</span>
               </button>
             </>
@@ -274,14 +275,14 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
           <div className="ef-lbl">옮기기</div>
           <div className="ef-mlist ef-movelist">
             <button type="button" className={`ef-mi${pn.parent === null ? ' on' : ''}`} onClick={() => { close(); move(pn.id, null) }}>
-              <i className="ef-mi-ic">⌂</i>
+              <i className="ef-mi-ic"><TI n="layout-list" /></i>
               <span>맨 위</span>
             </button>
             {folders
               .filter((f) => f.id !== pn.id && !(pn.kind === 'folder' && isUnder(f.id, pn.id)))
               .map((f) => (
                 <button key={f.id} type="button" className={`ef-mi${pn.parent === f.id ? ' on' : ''}`} onClick={() => { close(); move(pn.id, f.id) }}>
-                  <i className="ef-mi-ic">📁</i>
+                  <i className="ef-mi-ic"><TI n="folder" /></i>
                   <span>{f.name}</span>
                 </button>
               ))}
@@ -295,7 +296,7 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
               remove(pn)
             }}
           >
-            <i className="ef-mi-ic">✕</i>
+            <i className="ef-mi-ic"><TI n="trash" /></i>
             <span>{pn.kind === 'folder' ? '폴더 삭제' : '표 삭제'}</span>
           </button>
         </Pop>

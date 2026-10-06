@@ -32,7 +32,9 @@ export type EfRow = Record<string, unknown>
 export interface EfSortRule { id: string; desc: boolean }
 export interface EfFilterRule { id: string; value: unknown }
 /** 이 화면의 보기 상태 — 예전 보기(searchQ 등)와 섞이지 않게 ef 에 따로 담는다 */
-export interface EfViewState { q: string; filters: EfFilterRule[]; sorting: EfSortRule[]; group: string | null }
+/** 툴바 필터 조건 한 줄 — 열 · 조건 · 값 (예전 _rscFilters, 모두 만족) */
+export interface EfCond { col: string; op: string; v: string }
+export interface EfViewState { q: string; filters: EfFilterRule[]; sorting: EfSortRule[]; group: string | null; conds?: EfCond[] }
 export interface EfView {
   id: string
   name: string
@@ -73,22 +75,24 @@ export interface EfDoc {
 
 export const MAIN = 'main'
 
-export const TYPES: Array<{ t: EfType; n: string; ic: string }> = [
-  { t: 'text', n: '텍스트', ic: '≡' },
-  { t: 'number', n: '숫자', ic: '#' },
-  { t: 'select', n: '선택', ic: '◉' },
-  { t: 'multiselect', n: '다중 선택', ic: '⊞' },
-  { t: 'status', n: '상태', ic: '◎' },
-  { t: 'date', n: '날짜', ic: '▦' },
-  { t: 'daterange', n: '기간', ic: '▤' },
-  { t: 'datediff', n: '기간 일수', ic: '⏱' },
-  { t: 'person', n: '사람', ic: '☺' },
-  { t: 'checkbox', n: '체크박스', ic: '☑' },
-  { t: 'url', n: 'URL', ic: '⛓' },
-  { t: 'email', n: '이메일', ic: '✉' },
-  { t: 'phone', n: '전화번호', ic: '☎' },
+/** 유형 — ic 는 예전 Tabler 아이콘 이름(ti- 뒤), e 는 열 설정 창 고르기 칸(그림을 못 넣는다)의 예전 글자 */
+export const TYPES: Array<{ t: EfType; n: string; ic: string; e: string }> = [
+  { t: 'text', n: '텍스트', ic: 'align-left', e: '📝' },
+  { t: 'number', n: '숫자', ic: 'hash', e: '🔢' },
+  { t: 'select', n: '선택', ic: 'circle-chevron-down', e: '🔽' },
+  { t: 'multiselect', n: '다중 선택', ic: 'tags', e: '🏷' },
+  { t: 'status', n: '상태', ic: 'circle-dot', e: '◉' },
+  { t: 'date', n: '날짜', ic: 'calendar', e: '📅' },
+  { t: 'daterange', n: '기간', ic: 'calendar-week', e: '🗓' },
+  { t: 'datediff', n: '기간 일수', ic: 'clock-hour-4', e: '⏱' },
+  { t: 'person', n: '사람', ic: 'user', e: '👤' },
+  { t: 'checkbox', n: '체크박스', ic: 'checkbox', e: '☑' },
+  { t: 'url', n: 'URL', ic: 'link', e: '🔗' },
+  { t: 'email', n: '이메일', ic: 'mail', e: '✉' },
+  { t: 'phone', n: '전화번호', ic: 'phone', e: '📞' },
 ]
-export const typeIcon = (c: EfColumn) => (c.autoSum ? 'Σ' : TYPES.find((x) => x.t === c.type)?.ic ?? '≡')
+/** 머리글·메뉴 아이콘 이름 — 합계 열은 Σ(sum) */
+export const typeIcon = (c: EfColumn) => (c.autoSum ? 'sum' : TYPES.find((x) => x.t === c.type)?.ic ?? 'align-left')
 export const hasOptions = (t: string) => t === 'select' || t === 'status' || t === 'multiselect'
 
 export const newId = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
@@ -387,3 +391,47 @@ export function downloadCsv(name: string, cols: EfColumn[], rows: EfRow[]) {
   a.remove()
   setTimeout(() => URL.revokeObjectURL(a.href), 2000)
 }
+
+// ── 툴바 조건식 필터 ─────────────────────────────────────────────────
+const OPS_TEXT: Array<[string, string]> = [['has', '포함'], ['nhas', '포함 안 함'], ['eq', '같음'], ['ne', '같지 않음'], ['empty', '비어 있음'], ['nempty', '비어 있지 않음']]
+const OPS_NUM: Array<[string, string]> = [['eq', '='], ['ne', '≠'], ['gt', '>'], ['ge', '≥'], ['lt', '<'], ['le', '≤'], ['empty', '비어 있음'], ['nempty', '비어 있지 않음']]
+const OPS_SEL: Array<[string, string]> = [['eq', '같음'], ['ne', '같지 않음'], ['empty', '비어 있음'], ['nempty', '비어 있지 않음']]
+const OPS_MULTI: Array<[string, string]> = [['has', '포함'], ['nhas', '포함 안 함'], ['empty', '비어 있음'], ['nempty', '비어 있지 않음']]
+/** 열 유형에 맞는 조건 목록 */
+export function condOps(c: EfColumn | undefined): Array<[string, string]> {
+  if (!c) return OPS_TEXT
+  if (isNumCol(c)) return OPS_NUM
+  if (c.type === 'multiselect') return OPS_MULTI
+  if (hasOptions(c.type)) return OPS_SEL
+  return OPS_TEXT
+}
+export const condNeedsValue = (op: string) => op !== 'empty' && op !== 'nempty'
+/** 행이 조건 하나를 만족하나 — 값이 빈 조건(아직 안 고름)은 거르지 않는다 */
+export function condMatch(r: EfRow, f: EfCond, c: EfColumn | undefined): boolean {
+  if (!c) return true
+  const raw = r[f.col]
+  const s = raw == null ? '' : String(raw).trim()
+  if (f.op === 'empty') return s === ''
+  if (f.op === 'nempty') return s !== ''
+  const want = String(f.v ?? '').trim()
+  if (want === '') return true
+  if (isNumCol(c)) {
+    const a = toNum(raw)
+    const b = toNum(want)
+    if (b === null) return true
+    if (a === null) return f.op === 'ne'
+    return f.op === 'eq' ? a === b : f.op === 'ne' ? a !== b : f.op === 'gt' ? a > b : f.op === 'ge' ? a >= b : f.op === 'lt' ? a < b : a <= b
+  }
+  if (c.type === 'multiselect') {
+    const parts = s.split(',').map((x) => x.trim())
+    return f.op === 'nhas' ? !parts.includes(want) : parts.includes(want)
+  }
+  const low = s.toLowerCase()
+  const w = want.toLowerCase()
+  if (f.op === 'has') return low.includes(w)
+  if (f.op === 'nhas') return !low.includes(w)
+  if (f.op === 'ne') return low !== w
+  return low === w
+}
+/** 옵션 칩 입력칸 너비(글자 칸 수) — 한글은 두 칸으로 센다(예전 _rscBetaChipSize) */
+export const chipSize = (v: string) => Math.max(2, [...String(v)].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? 2 : 1), 0) + 1)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -74,5 +74,23 @@ describe('Effort Plan 자료', () => {
     expect(t2.columns.map((c) => c.id)).toEqual(['a'])
     expect(t2.pages[t2.curPage!]!.rows).toEqual([])
     expect(t2.betaViews).toHaveLength(1)
+  })
+  it('툴바 조건식 필터 — 글자·숫자·선택·다중 선택·비어 있음', () => {
+    const t: EfColumn = { id: 'p', title: '제품', type: 'text' }
+    const n: EfColumn = { id: 'm', title: '01월', type: 'number' }
+    const s: EfColumn = { id: 'd', title: '부서', type: 'select' }
+    const ms: EfColumn = { id: 'g', title: '태그', type: 'multiselect' }
+    const r = { p: 'U9500H Combo', m: 0.5, d: '검증1팀', g: 'A, B' }
+    expect(condMatch(r, { col: 'p', op: 'has', v: 'combo' }, t)).toBe(true)
+    expect(condMatch(r, { col: 'p', op: 'nhas', v: 'combo' }, t)).toBe(false)
+    expect(condMatch(r, { col: 'm', op: 'ge', v: '0.5' }, n)).toBe(true)
+    expect(condMatch(r, { col: 'm', op: 'gt', v: '0.5' }, n)).toBe(false)
+    expect(condMatch({}, { col: 'm', op: 'empty', v: '' }, n)).toBe(true)
+    expect(condMatch(r, { col: 'd', op: 'eq', v: '검증1팀' }, s)).toBe(true)
+    expect(condMatch(r, { col: 'd', op: 'ne', v: '검증1팀' }, s)).toBe(false)
+    expect(condMatch(r, { col: 'g', op: 'has', v: 'B' }, ms)).toBe(true)
+    expect(condMatch(r, { col: 'p', op: 'eq', v: '' }, t)).toBe(true) // 값을 아직 안 넣은 조건은 거르지 않는다
+    expect(condOps(n).map((o) => o[0])).toContain('ge')
+    expect(condOps(s).map((o) => o[0])).toEqual(['eq', 'ne', 'empty', 'nempty'])
   })
 })

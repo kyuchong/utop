@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Column } from '@tanstack/react-table'
+import { TI } from './icons'
 import {
   HUES,
   SHADE,
   TYPES,
+  chipSize,
   chipStyle,
   hex2hsl,
   hasOptions,
@@ -170,7 +172,7 @@ export function SelectPicker({
         </div>
         {value && (
           <button type="button" className="ef-pick-it ef-pick-clr" onClick={() => onPick('')}>
-            값 지우기
+            <TI n="eraser" /> 값 지우기
           </button>
         )}
       </div>
@@ -249,7 +251,7 @@ function OptMenu({
                 style={{ background: cl }}
                 onClick={() => onColor(cl)}
               >
-                ✓
+                <TI n="check" />
               </button>
             )
           })}
@@ -264,7 +266,8 @@ function OptMenu({
           onClose()
         }}
       >
-        삭제
+        <TI n="trash" />
+        <span>삭제</span>
       </button>
     </Pop>
   )
@@ -372,6 +375,7 @@ export function HeadMenu({
   const [sub, setSub] = useState<{ kind: string; anchor: HTMLElement } | null>(null)
   const [optAt, setOptAt] = useState<{ oi: number; anchor: HTMLElement } | null>(null)
   const [title, setTitle] = useState(col.title)
+  const nameRef = useRef<HTMLInputElement>(null)
   const num = isNumCol(col)
   const sorted = column.getIsSorted()
   const open = (kind: string) => (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -390,7 +394,7 @@ export function HeadMenu({
       className={`ef-mi ef-mi-sub${sub?.kind === kind ? ' open' : ''}${on ? ' hasval' : ''}`}
       onClick={open(kind)}
     >
-      <i className="ef-mi-ic">{ic}</i>
+      <i className="ef-mi-ic"><TI n={ic} /></i>
       <span>{name}</span>
       <span className="ef-mi-arr">›</span>
     </button>
@@ -401,6 +405,7 @@ export function HeadMenu({
     <>
       <Pop anchor={anchor} cls="ef-menu" onClose={close}>
         <input
+          ref={nameRef}
           className="ef-menu-name"
           value={title}
           aria-label="열 이름"
@@ -410,9 +415,9 @@ export function HeadMenu({
         />
         <div className="ef-mlist">
           {item('type', typeIcon(col), '유형', false)}
-          {hasOptions(col.type) && item('opts', '⊞', '옵션', false)}
-          {item('filter', '⏷', '필터', column.getIsFiltered())}
-          {item('sort', '⇅', '정렬', !!sorted)}
+          {hasOptions(col.type) && item('opts', 'tags', '옵션', false)}
+          {item('filter', 'filter', '필터', column.getIsFiltered())}
+          {item('sort', 'arrows-sort', '정렬', !!sorted)}
           <button
             type="button"
             className={`ef-mi${grouped ? ' on' : ''}${num ? ' off' : ''}`}
@@ -423,27 +428,40 @@ export function HeadMenu({
               close()
             }}
           >
-            <i className="ef-mi-ic">☰</i>
+            <i className="ef-mi-ic"><TI n="layout-rows" /></i>
             <span>{grouped ? '그룹 해제' : '이 열로 그룹'}</span>
-            {grouped && <i className="ef-mi-ck">✓</i>}
+            {grouped && <i className="ef-mi-ck"><TI n="check" /></i>}
           </button>
         </div>
         <div className="ef-sep" />
         <div className="ef-mlist">
+          {/* 메뉴는 열어 둔 채 맨 위 이름 칸으로 간다(예전과 같다) */}
+          <button
+            type="button"
+            className="ef-mi"
+            onClick={() => {
+              setSub(null)
+              nameRef.current?.focus()
+              nameRef.current?.select()
+            }}
+          >
+            <i className="ef-mi-ic"><TI n="pencil" /></i>
+            <span>이름 바꾸기</span>
+          </button>
           <button type="button" className="ef-mi" onClick={() => { setSub(null); ops.insert(false); close() }}>
-            <i className="ef-mi-ic">⇤</i>
+            <i className="ef-mi-ic"><TI n="arrow-bar-to-left" /></i>
             <span>왼쪽에 열 추가</span>
           </button>
           <button type="button" className="ef-mi" onClick={() => { setSub(null); ops.insert(true); close() }}>
-            <i className="ef-mi-ic">⇥</i>
+            <i className="ef-mi-ic"><TI n="arrow-bar-to-right" /></i>
             <span>오른쪽에 열 추가</span>
           </button>
           <button type="button" className="ef-mi" onClick={() => { setSub(null); ops.duplicate(); close() }}>
-            <i className="ef-mi-ic">⧉</i>
+            <i className="ef-mi-ic"><TI n="copy" /></i>
             <span>열 복제</span>
           </button>
           <button type="button" className="ef-mi del" onClick={() => { setSub(null); ops.remove(); close() }}>
-            <i className="ef-mi-ic">✕</i>
+            <i className="ef-mi-ic"><TI n="trash" /></i>
             <span>열 삭제</span>
           </button>
         </div>
@@ -463,9 +481,9 @@ export function HeadMenu({
                   ops.setType(t.t)
                 }}
               >
-                <i className="ef-mi-ic">{t.ic}</i>
+                <i className="ef-mi-ic"><TI n={t.ic} /></i>
                 <span>{t.n}</span>
-                {col.type === t.t && <i className="ef-mi-ck">✓</i>}
+                {col.type === t.t && <i className="ef-mi-ck"><TI n="check" /></i>}
               </button>
             ))}
           </div>
@@ -473,9 +491,9 @@ export function HeadMenu({
             <>
               <div className="ef-sep" />
               <button type="button" className={`ef-mi${col.autoSum ? ' on' : ''}`} onClick={ops.toggleAutoSum}>
-                <i className="ef-mi-ic">Σ</i>
+                <i className="ef-mi-ic"><TI n="sum" /></i>
                 <span>합계 열(숫자 열 합)</span>
-                {col.autoSum && <i className="ef-mi-ck">✓</i>}
+                {col.autoSum && <i className="ef-mi-ck"><TI n="check" /></i>}
               </button>
             </>
           )}
@@ -495,11 +513,11 @@ export function HeadMenu({
                 ops.touch()
               }}
             >
-              <i className="ef-mi-ic">↻</i>
+              <i className="ef-mi-ic"><TI n="refresh" /></i>
               <span>표에 쓰인 값 {miss.length}개 넣기</span>
             </button>
           )}
-          <OptList col={col} onTouch={ops.touch} onMenu={(oi, a) => setOptAt({ oi, anchor: a })} />
+          <OptList col={col} rows={rows} onTouch={ops.touch} onMenu={(oi, a) => setOptAt({ oi, anchor: a })} />
           <input
             className="ef-in ef-optadd"
             placeholder="＋ 옵션 추가 후 Enter"
@@ -521,7 +539,7 @@ export function HeadMenu({
           <FilterBody column={column} col={col} options={facetOptions} />
           {column.getIsFiltered() && (
             <button type="button" className="ef-mi del" onClick={() => column.setFilterValue(undefined)}>
-              <i className="ef-mi-ic">✕</i>
+              <i className="ef-mi-ic"><TI n="filter-off" /></i>
               <span>필터 해제</span>
             </button>
           )}
@@ -533,18 +551,18 @@ export function HeadMenu({
           <div className="ef-lbl">정렬</div>
           <div className="ef-mlist">
             <button type="button" className={`ef-mi${sorted === 'asc' ? ' on' : ''}`} onClick={() => { column.toggleSorting(false); close() }}>
-              <i className="ef-mi-ic">↑</i>
+              <i className="ef-mi-ic"><TI n="sort-ascending" /></i>
               <span>오름차순</span>
-              {sorted === 'asc' && <i className="ef-mi-ck">✓</i>}
+              {sorted === 'asc' && <i className="ef-mi-ck"><TI n="check" /></i>}
             </button>
             <button type="button" className={`ef-mi${sorted === 'desc' ? ' on' : ''}`} onClick={() => { column.toggleSorting(true); close() }}>
-              <i className="ef-mi-ic">↓</i>
+              <i className="ef-mi-ic"><TI n="sort-descending" /></i>
               <span>내림차순</span>
-              {sorted === 'desc' && <i className="ef-mi-ck">✓</i>}
+              {sorted === 'desc' && <i className="ef-mi-ck"><TI n="check" /></i>}
             </button>
             {sorted && (
               <button type="button" className="ef-mi" onClick={() => { column.clearSorting(); close() }}>
-                <i className="ef-mi-ic">✕</i>
+                <i className="ef-mi-ic"><TI n="x" /></i>
                 <span>정렬 해제</span>
               </button>
             )}
@@ -603,13 +621,15 @@ export function renameOption(rows: EfRow[], col: EfColumn, oi: number, nv: strin
   return true
 }
 
-/** 옵션 목록 — ⠿ 를 끌어 순서를 바꾸고, 칩을 눌러 이름을 고치고, ▾ 로 색·삭제 */
+/** 옵션 목록 — ⠿ 를 끌어 순서를 바꾸고, 칩을 눌러 이름을 고치고, 끝의 ⌄ 로 색·삭제 */
 function OptList({
   col,
+  rows,
   onTouch,
   onMenu,
 }: {
   col: EfColumn
+  rows: EfRow[]
   onTouch: () => void
   onMenu: (oi: number, anchor: HTMLElement) => void
 }) {
@@ -668,11 +688,21 @@ function OptList({
           <span className="ef-grip" title="끌어서 순서 이동" onMouseDown={(e) => drag(e, oi)}>
             ⠿
           </span>
-          <span className="ef-chip ef-optchip" style={chipStyle(optColor(col, o))}>
-            {o}
-          </span>
+          {/* 칩이 곧 입력칸 — 표에 보이는 색 그대로, 눌러 바로 이름을 고친다(예전과 같다) */}
+          <input
+            className="ef-optchip"
+            defaultValue={o}
+            size={chipSize(o)}
+            aria-label="옵션 이름"
+            style={chipStyle(optColor(col, o))}
+            onInput={(e) => (e.currentTarget.size = chipSize(e.currentTarget.value))}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+            onBlur={(e) => {
+              if (renameOption(rows, col, oi, e.currentTarget.value.trim())) onTouch()
+            }}
+          />
           <button type="button" className="ef-optdots" title="이름·색·삭제" onClick={(e) => onMenu(oi, e.currentTarget)}>
-            ▾
+            <TI n="chevron-down" />
           </button>
         </div>
       ))}
@@ -696,7 +726,7 @@ export function RowMenu({ at, onDelete, onClose }: { at: { x: number; y: number 
   return createPortal(
     <div className="ef-pop ef-rowmenu" ref={ref} style={{ left: at.x, top: at.y }}>
       <button type="button" className="ef-mi del" onClick={onDelete}>
-        <i className="ef-mi-ic">✕</i>
+        <i className="ef-mi-ic"><TI n="trash" /></i>
         <span>행 삭제</span>
       </button>
     </div>,

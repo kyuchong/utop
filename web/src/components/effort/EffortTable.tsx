@@ -17,9 +17,11 @@ import {
   type Table,
 } from '@tanstack/react-table'
 import { Chip, HeadMenu, RowMenu, SelectPicker, type HeadOps } from './EffortMenus'
+import { TI } from './icons'
 import {
   autoOptions,
   colSize,
+  condMatch,
   defaultGroup,
   hasOptions,
   isNumCol,
@@ -89,13 +91,19 @@ export function useEfTable(ctx: EfCtx) {
   const [expanded, setExpanded] = useState<ExpandedState>(true)
   const [sizing, setSizing] = useState<ColumnSizingState>({})
 
-  // 검색은 표에 넘기기 전에 거른다 — 행 전체(모든 칸)를 본다(예전과 같다)
+  // 검색과 툴바 조건식 필터는 표에 넘기기 전에 거른다(예전 _rscViewRows 와 같다) — 머리글 필터는 TanStack 이 거른다
   const data = useMemo(() => {
     const q = st.q.trim().toLowerCase()
-    if (!q) return [...rows]
-    return rows.filter((r) => cols.some((c) => cellText(r[c.id]).toLowerCase().includes(q)))
+    const conds = (st.conds ?? []).filter((f) => cols.some((c) => c.id === f.col))
+    if (!q && !conds.length) return [...rows]
+    const byId = new Map(cols.map((c) => [c.id, c]))
+    return rows.filter(
+      (r) =>
+        (!q || cols.some((c) => cellText(r[c.id]).toLowerCase().includes(q))) &&
+        conds.every((f) => condMatch(r, f, byId.get(f.col))),
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, st.q, ver])
+  }, [rows, st.q, st.conds, ver])
 
   const max = useMemo(() => {
     const m: Record<string, number> = {}
@@ -358,6 +366,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       if (!moved) {
         if (Math.abs(e.clientX - x0) < 4) return
         moved = true
+        setMenu(null)
         document.body.style.cursor = 'grabbing'
         cs[from]!.th.classList.add('ef-colmoving')
       }
@@ -449,13 +458,14 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     const num = isNumCol(c)
     return (
       <th key={h.id} data-col={c.id} style={{ width: h.getSize() }}>
-        <div className={`ef-hc${num ? ' num' : ''}${col.getIsFiltered() ? ' filtered' : ''}`}>
-          <span className="ef-cgrip" title="끌어서 열 이동" onMouseDown={(e) => { setMenu(null); colDrag(e, c.id) }}>
-            ⠿
-          </span>
+        {/* 머리글 아무 데나 끌면 열 이동, 누르면 메뉴(예전과 같다) */}
+        <div
+          className={`ef-hc${num ? ' num' : ''}${col.getIsFiltered() ? ' filtered' : ''}`}
+          onMouseDown={(e) => colDrag(e, c.id)}
+        >
           <span
             className="ef-lbl"
-            title="누르면 메뉴(유형·옵션·필터·정렬)"
+            title="누르면 메뉴 (유형·필터·수식·정렬) · 끌면 열 이동"
             onClick={(e) => {
               if (Date.now() - draggedAt < 250) return
               const a = e.currentTarget
@@ -463,7 +473,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               setMenu((m) => (m && m.colId === c.id ? null : { anchor: a, colId: c.id }))
             }}
           >
-            <i className="ef-hicon">{typeIcon(c)}</i>
+            <TI n={typeIcon(c)} className="ef-hicon" />
             <span className="ef-ttl">{c.title}</span>
             {s && <span className="ef-ar">{s === 'asc' ? '↑' : '↓'}</span>}
             {col.getIsFiltered() && <span className="ef-fon">▼</span>}
@@ -561,7 +571,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               }}
               onDoubleClick={editable ? (e) => setEdit({ src, col: c, anchor: e.currentTarget }) : undefined}
             >
-              <CellView c={c} v={src[c.id]} max={max[c.id] ?? 0} />
+              {/* 묶은 열(기본 인원)은 그룹 머리에만 쓰고 행에서는 비운다(예전과 같다) */}
+              {cell.getIsPlaceholder() ? null : <CellView c={c} v={src[c.id]} max={max[c.id] ?? 0} />}
               {corner && (
                 <span
                   className="ef-fill"
@@ -680,7 +691,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         </tfoot>
       </table>
       <div className="ef-hint">
-        <b>머리글 클릭=메뉴</b>(유형·옵션·필터·정렬) · <b>⠿ 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
+        <b>머리글 클릭=메뉴</b>(유형·필터·수식·정렬) · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
         <b>셀 두 번 클릭=수정</b> · 행 우클릭=삭제
       </div>
 

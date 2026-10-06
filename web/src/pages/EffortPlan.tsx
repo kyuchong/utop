@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
-import { EfGrid, leafRows, useEfTable, type EfCtx } from '@/components/effort/EffortTable'
-import { FilterBody, Pop } from '@/components/effort/EffortMenus'
+import { EfGrid, leafRows, optionsOf, useEfTable, type EfCtx } from '@/components/effort/EffortTable'
+import { Pop } from '@/components/effort/EffortMenus'
+import { TI } from '@/components/effort/icons'
 import EffortTree from '@/components/effort/EffortTree'
 import {
   TYPES,
+  condNeedsValue,
+  condOps,
   defaultGroup,
   downloadCsv,
   ensureViews,
@@ -15,6 +18,7 @@ import {
   tableOf,
   viewState,
   type EfColumn,
+  type EfCond,
   type EfDoc,
   type EfType,
   type EfView,
@@ -208,7 +212,8 @@ function EffortBody({
     touch()
   }
 
-  const fCount = st.filters.filter((f) => cols.some((c) => c.id === f.id)).length
+  // 툴바 필터 수 = 조건식 줄 수(예전 _rscFilters) — 머리글 필터는 머리글에 ▼ 로 보인다
+  const fCount = (st.conds ?? []).filter((f) => cols.some((c) => c.id === f.col)).length
   const sCount = st.sorting.filter((s) => cols.some((c) => c.id === s.id)).length
   const gId = table.getState().grouping[0]
   const gName = cols.find((c) => c.id === gId)?.title ?? ''
@@ -223,7 +228,8 @@ function EffortBody({
             <span className="ef-head-sep">·</span>
             <span className="ef-head-name">{name}</span>
             <button type="button" className="ef-yrbtn" title="연도 바꾸기·추가·삭제" onClick={open('yearmenu')}>
-              {year}년 ▾
+              {year}년
+              <TI n="chevron-down" />
             </button>
             <span className={`ef-save ${save}`} onClick={save === 'error' ? retry : undefined}>
               {save === 'saving' || save === 'dirty' ? '저장 중…' : save === 'saved' ? '저장됨' : save === 'error' ? '저장 실패 — 눌러서 다시' : ''}
@@ -245,12 +251,12 @@ function EffortBody({
                   }}
                   onContextMenu={open('view', v.id)}
                 >
-                  <span className="ef-tab-ic">{viewIcon(v.type)}</span>
+                  <span className="ef-tab-ic"><TI n={viewIcon(v.type)} /></span>
                   {v.name}
                 </button>
               ))}
               <button type="button" className="ef-tab ef-tab-add" title="표 보기 추가" onClick={addView}>
-                ＋
+                <TI n="plus" />
               </button>
             </div>
             <span className="ef-sp" />
@@ -262,17 +268,17 @@ function EffortBody({
               onChange={(e) => setSt({ q: e.target.value })}
             />
             <button type="button" className={`ef-btn gh${fCount ? ' on' : ''}`} onClick={open('filter')}>
-              ⏷ 필터{fCount ? ' ' + fCount : ''}
+              <TI n="filter" /> 필터{fCount ? ' ' + fCount : ''}
             </button>
             <button type="button" className={`ef-btn gh${sCount ? ' on' : ''}`} onClick={open('sort')}>
-              ⇅ 정렬{sCount ? ' ' + sCount : ''}
+              <TI n="arrows-sort" /> 정렬{sCount ? ' ' + sCount : ''}
             </button>
             <button type="button" className={`ef-btn gh${gId ? ' on' : ''}`} onClick={open('group')}>
-              ☰ 그룹{gName ? ': ' + gName : ''}
+              <TI n="layout-rows" /> 그룹{gName ? ': ' + gName : ''}
             </button>
             <span className="ef-tbsep" />
             <button type="button" className="ef-btn gh" onClick={() => setColMgr(true)}>
-              ▥ 열 설정
+              <TI n="columns" /> 열 설정
             </button>
             <button
               type="button"
@@ -283,7 +289,7 @@ function EffortBody({
                 toast('열 추가됨 — 머리글을 눌러 이름·유형을 바꾸세요')
               }}
             >
-              ⇥ 열 추가
+              <TI n="column-insert-right" /> 열 추가
             </button>
             <button
               type="button"
@@ -300,7 +306,7 @@ function EffortBody({
                 )
               }}
             >
-              ＋ 행 추가
+              <TI n="plus" /> 행 추가
             </button>
             <button
               type="button"
@@ -311,7 +317,7 @@ function EffortBody({
                 toast('CSV 내려받음 — ' + out.length + '행')
               }}
             >
-              ⤓ CSV
+              <TI n="download" /> CSV
             </button>
             <span className="ef-cnt-all">{shownN}행</span>
           </div>
@@ -337,7 +343,7 @@ function EffortBody({
             {(d.years ?? []).map((y) => (
               <div key={y} className="ef-yrrow">
                 <button type="button" className={`ef-mi${y === year ? ' on' : ''}`} onClick={() => { close(); setYear(y) }}>
-                  <i className="ef-mi-ic">▦</i>
+                  <i className="ef-mi-ic"><TI n="calendar" /></i>
                   <span>{y}년</span>
                   <em className="ef-mi-n">{d.pages[y]?.rows.length ?? 0}</em>
                 </button>
@@ -349,7 +355,7 @@ function EffortBody({
           </div>
           <div className="ef-sep" />
           <button type="button" className="ef-mi" onClick={() => setPop({ kind: 'addyear', anchor: pop.anchor })}>
-            <i className="ef-mi-ic">＋</i>
+            <i className="ef-mi-ic"><TI n="plus" /></i>
             <span>연도 추가</span>
           </button>
         </Pop>
@@ -358,11 +364,11 @@ function EffortBody({
         <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
           <div className="ef-lbl">{pop.id}년</div>
           <button type="button" className="ef-mi" onClick={() => { const y = pop.id!; close(); clearYear(y) }}>
-            <i className="ef-mi-ic">⌫</i>
+            <i className="ef-mi-ic"><TI n="eraser" /></i>
             <span>이 연도 비우기</span>
           </button>
           <button type="button" className="ef-mi del" onClick={() => { const y = pop.id!; close(); delYear(y) }}>
-            <i className="ef-mi-ic">✕</i>
+            <i className="ef-mi-ic"><TI n="trash" /></i>
             <span>연도 삭제</span>
           </button>
         </Pop>
@@ -401,27 +407,25 @@ function EffortBody({
           }}
         />
       )}
-      {pop?.kind === 'filter' && (
-        <FilterPanel anchor={pop.anchor} cols={cols} table={table} onClear={() => setSt({ filters: [] })} onClose={close} />
-      )}
+      {pop?.kind === 'filter' && <CondPanel anchor={pop.anchor} cols={cols} rows={rows} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'sort' && <SortPanel anchor={pop.anchor} cols={cols} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'group' && (
         <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
           <div className="ef-lbl">그룹 기준</div>
           <div className="ef-mlist">
             <button type="button" className={`ef-mi${!gId ? ' on' : ''}`} onClick={() => { close(); setSt({ group: '' }) }}>
-              <i className="ef-mi-ic">≡</i>
+              <i className="ef-mi-ic"><TI n="layout-list" /></i>
               <span>그룹 없음</span>
-              {!gId && <i className="ef-mi-ck">✓</i>}
+              {!gId && <i className="ef-mi-ck"><TI n="check" /></i>}
             </button>
             {cols
               .filter((c) => !isNumCol(c))
               .map((c) => (
                 <button key={c.id} type="button" className={`ef-mi${gId === c.id ? ' on' : ''}`} onClick={() => { close(); setSt({ group: c.id }) }}>
-                  <i className="ef-mi-ic">☰</i>
+                  <i className="ef-mi-ic"><TI n="layout-rows" /></i>
                   <span>{c.title}</span>
                   {c.id === defaultGroup(cols) && <em className="ef-mi-n">기본</em>}
-                  {gId === c.id && <i className="ef-mi-ck">✓</i>}
+                  {gId === c.id && <i className="ef-mi-ck"><TI n="check" /></i>}
                 </button>
               ))}
           </div>
@@ -433,12 +437,12 @@ function EffortBody({
 }
 
 const VIEW_TYPES: Record<string, [string, string]> = {
-  table: ['▦', '표'],
-  board: ['▤', '보드'],
-  chart: ['▥', '차트'],
-  gantt: ['▬', '타임라인'],
+  table: ['table', '표'],
+  board: ['layout-kanban', '보드'],
+  chart: ['chart-bar', '차트'],
+  gantt: ['timeline', '타임라인'],
 }
-const viewIcon = (t: string) => VIEW_TYPES[t || 'table']?.[0] ?? '▦'
+const viewIcon = (t: string) => VIEW_TYPES[t || 'table']?.[0] ?? 'table'
 const viewName = (t: string) => VIEW_TYPES[t || 'table']?.[1] ?? t
 
 function AddYear({ anchor, years, onAdd, onClose }: { anchor: HTMLElement; years: string[]; onAdd: (y: string) => void; onClose: () => void }) {
@@ -491,91 +495,145 @@ function ViewMenu({
   onClose: () => void
 }) {
   const [name, setName] = useState(view.name)
+  const [renaming, setRenaming] = useState(false)
   const done = () => {
-    onRename(name.trim())
+    if (renaming) onRename(name.trim())
     onClose()
   }
+  // 예전 보기 메뉴와 같은 세 줄 — 이름 변경 · 보기 복사 · 보기 삭제(보기가 하나면 숨김)
   return (
-    <Pop anchor={anchor} cls="ef-menu" onClose={done}>
-      <input
-        className="ef-menu-name"
-        value={name}
-        aria-label="보기 이름"
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && done()}
-      />
-      <div className="ef-mlist">
-        <button type="button" className="ef-mi" onClick={onDup}>
-          <i className="ef-mi-ic">⧉</i>
-          <span>보기 복사</span>
-        </button>
-        {canDelete && (
-          <button type="button" className="ef-mi del" onClick={onDelete}>
-            <i className="ef-mi-ic">✕</i>
-            <span>보기 삭제</span>
+    <Pop anchor={anchor} cls="ef-menu ef-viewmenu" onClose={done}>
+      {renaming ? (
+        <input
+          className="ef-menu-name"
+          autoFocus
+          value={name}
+          aria-label="보기 이름"
+          onFocus={(e) => e.currentTarget.select()}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && done()}
+        />
+      ) : (
+        <div className="ef-mlist">
+          <button type="button" className="ef-mi" onClick={() => setRenaming(true)}>
+            <i className="ef-mi-ic"><TI n="pencil" /></i>
+            <span>이름 변경</span>
           </button>
-        )}
-      </div>
+          <button type="button" className="ef-mi" onClick={onDup}>
+            <i className="ef-mi-ic"><TI n="copy" /></i>
+            <span>보기 복사</span>
+          </button>
+          {canDelete && (
+            <button type="button" className="ef-mi del" onClick={onDelete}>
+              <i className="ef-mi-ic"><TI n="trash" /></i>
+              <span>보기 삭제</span>
+            </button>
+          )}
+        </div>
+      )}
     </Pop>
   )
 }
 
-/** 툴바 필터 — 왼쪽은 열 목록(걸린 열은 파랗게), 오른쪽은 고른 열의 필터 */
-function FilterPanel({
+/** 툴바 필터 — 열 · 조건 · 값 줄을 여러 개, 모두 만족(예전 rscFilterMenu 와 같은 꼴).
+ *  머리글 메뉴의 필터(값 고르기·범위)와는 따로 걸린다 — 예전도 둘이 따로였다. */
+function CondPanel({
   anchor,
   cols,
-  table,
-  onClear,
+  rows,
+  st,
+  setSt,
   onClose,
 }: {
   anchor: HTMLElement
   cols: EfColumn[]
-  table: ReturnType<typeof useEfTable>['table']
-  onClear: () => void
+  rows: EfDoc['pages'][string]['rows']
+  st: EfViewState
+  setSt: (p: Partial<EfViewState>) => void
   onClose: () => void
 }) {
-  const on = cols.filter((c) => table.getColumn(c.id)?.getIsFiltered())
-  const [cur, setCur] = useState<string>(on[0]?.id ?? cols[0]?.id ?? '')
-  const col = cols.find((c) => c.id === cur)
-  const tc = col ? table.getColumn(col.id) : undefined
-  const opts = col ? (col.options ?? []) : []
+  const list = (st.conds ?? []).filter((f) => cols.some((c) => c.id === f.col))
+  const set = (next: EfCond[]) => setSt({ conds: next })
+  const put = (i: number, p: Partial<EfCond>) =>
+    set(
+      list.map((f, k) => {
+        if (k !== i) return f
+        const n = { ...f, ...p }
+        // 열을 바꾸면 그 열에 맞는 첫 조건으로, 값은 비운다
+        if (p.col && p.col !== f.col) {
+          n.op = condOps(cols.find((c) => c.id === p.col))[0]![0]
+          n.v = ''
+        }
+        return n
+      }),
+    )
   return (
-    <Pop anchor={anchor} cls="ef-menu ef-fpanel" onClose={onClose}>
-      <div className="ef-fp">
-        <div className="ef-fp-cols">
-          <div className="ef-lbl">열</div>
-          {cols.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className={`ef-mi${c.id === cur ? ' open' : ''}${table.getColumn(c.id)?.getIsFiltered() ? ' hasval' : ''}`}
-              onClick={() => setCur(c.id)}
-            >
-              <span>{c.title}</span>
-              {table.getColumn(c.id)?.getIsFiltered() && <i className="ef-mi-ck">●</i>}
-            </button>
-          ))}
-        </div>
-        <div className="ef-fp-body">
-          {col && tc ? (
-            <>
-              <div className="ef-lbl">{col.title}</div>
-              <FilterBody key={col.id} column={tc} col={col} options={opts} />
-              {tc.getIsFiltered() && (
-                <button type="button" className="ef-mi del" onClick={() => tc.setFilterValue(undefined)}>
-                  <i className="ef-mi-ic">✕</i>
-                  <span>이 열 필터 해제</span>
-                </button>
+    <Pop anchor={anchor} cls="ef-menu ef-cpanel" onClose={onClose}>
+      <div className="ef-lbl">필터 (모든 조건 만족)</div>
+      {list.length ? (
+        list.map((f, i) => {
+          const c = cols.find((x) => x.id === f.col)
+          return (
+            <div key={i} className="ef-fl-row">
+              <select className="ef-sel" value={f.col} aria-label="열" onChange={(e) => put(i, { col: e.target.value })}>
+                {cols.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.title}
+                  </option>
+                ))}
+              </select>
+              <select className="ef-sel" value={f.op} aria-label="조건" onChange={(e) => put(i, { op: e.target.value })}>
+                {condOps(c).map(([k, n]) => (
+                  <option key={k} value={k}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              {!condNeedsValue(f.op) ? (
+                <span className="ef-sp" />
+              ) : c && hasOptions(c.type) ? (
+                <select className="ef-sel" value={f.v} aria-label="값" onChange={(e) => put(i, { v: e.target.value })}>
+                  <option value="">(값 고르기)</option>
+                  {optionsOf(rows, c).map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className="ef-sel"
+                  value={f.v}
+                  inputMode={c && isNumCol(c) ? 'decimal' : undefined}
+                  placeholder="값"
+                  aria-label="값"
+                  onChange={(e) => put(i, { v: e.target.value })}
+                />
               )}
-            </>
-          ) : null}
-          {on.length > 0 && (
-            <button type="button" className="ef-btn gh ef-full ef-danger" onClick={onClear}>
-              모든 필터 지우기({on.length})
-            </button>
-          )}
-        </div>
-      </div>
+              <button type="button" className="ef-x" title="빼기" onClick={() => set(list.filter((_, k) => k !== i))}>
+                ✕
+              </button>
+            </div>
+          )
+        })
+      ) : (
+        <div className="ef-empty-s">조건이 없습니다.</div>
+      )}
+      <button
+        type="button"
+        className="ef-btn gh ef-full"
+        onClick={() => {
+          const c = cols[0]
+          if (c) set([...list, { col: c.id, op: condOps(c)[0]![0], v: '' }])
+        }}
+      >
+        <TI n="plus" /> 조건 추가
+      </button>
+      {list.length > 0 && (
+        <button type="button" className="ef-btn gh ef-full ef-danger" onClick={() => set([])}>
+          모든 필터 지우기
+        </button>
+      )}
     </Pop>
   )
 }
@@ -615,7 +673,7 @@ function SortPanel({
               ))}
             </select>
             <button type="button" className="ef-btn gh" onClick={() => set(list.map((x, k) => (k === i ? { ...x, desc: !x.desc } : x)))}>
-              {s.desc ? '↓ 내림' : '↑ 오름'}
+              <TI n={s.desc ? 'sort-descending' : 'sort-ascending'} /> {s.desc ? '내림' : '오름'}
             </button>
             <button type="button" className="ef-x" title="빼기" onClick={() => set(list.filter((_, k) => k !== i))}>
               ✕
@@ -633,7 +691,7 @@ function SortPanel({
           if (c) set([...list, { id: c.id, desc: false }])
         }}
       >
-        ＋ 정렬 추가
+        <TI n="plus" /> 정렬 추가
       </button>
       {list.length > 0 && (
         <button type="button" className="ef-btn gh ef-full ef-danger" onClick={() => set([])}>
@@ -692,7 +750,7 @@ function ColMgr({ d, touch, toast, onClose }: { d: EfDoc; touch: () => void; toa
               >
                 {TYPES.map((t) => (
                   <option key={t.t} value={t.t}>
-                    {t.ic} {t.n}
+                    {t.e} {t.n}
                   </option>
                 ))}
               </select>
