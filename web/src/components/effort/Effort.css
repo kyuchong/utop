@@ -877,3 +877,9 @@ input.ef-fsel { cursor: text; }
 .ef-menu .ef-menu-name { padding: 5px 8px; font-size: 12.5px; margin-bottom: 3px; }
 .ef-menu .ef-sep { margin: 5px 2px 3px; }
 .ef-menu .ef-lbl { margin: 5px 4px 3px; }
+/* 드롭다운 글자 10px (지시) — 아이콘·› 도 글자에 맞춰 줄인다. 옆으로 펼친 하위 메뉴·트리·보기 메뉴도 같은 .ef-menu */
+.ef-menu .ef-mi { font-size: 10px; }
+.ef-menu .ef-menu-name { font-size: 10px; }
+.ef-menu .ef-mi-ic,
+.ef-menu .ef-mi-ck { font-size: 13px; }
+.ef-menu .ef-mi > span.ef-mi-arr { font-size: 11px; }
