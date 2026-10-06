@@ -417,16 +417,17 @@ export function nearest(hex: string): string {
   return best.toLowerCase()
 }
 
-/** 열 너비 — 예전 값에서, 글자를 12px 로 키우며(지시) 잘리던 제품명·업무분류만 넓혔다.
- *  이 화면에서 끌어 바꾼 너비는 efWidth 에 둔다 — width 는 예전 표가 쓰는 값이라 건드리지 않는다 */
+/** 열 너비 — 머리글 12px · 내용 11px 기준으로 다시 잼(지시): 머리글이 안 잘리고 내용 9할이 다 보이는 폭.
+ *  월 열은 머리글(# 01월)이 58 에서 잘려 64. 이 화면에서 끌어 바꾼 너비는 efWidth 에 둔다(그게 우선) */
 const SIZE: Record<string, number> = {
-  부서: 86, 인원: 78, 직급: 58, 사업자: 74, '제품명(프로젝트)': 140, '업무분류(대분류)': 220, 합계: 72,
+  부서: 78, 인원: 64, 직급: 62, 사업자: 74, '제품명(프로젝트)': 128, '업무분류(대분류)': 200, 합계: 64,
 }
+const NUM_W = 64
 /** 유형별 기본 폭 — 기간은 「2026-01-05 ~ 02-10」 이 다 보이게 */
 const TYPE_W: Partial<Record<EfType, number>> = { date: 96, daterange: 176, datediff: 74, checkbox: 52, url: 150, email: 150, phone: 116 }
 export const colSize = (c: EfColumn) =>
   (typeof c.efWidth === 'number' && c.efWidth > 0 ? c.efWidth : 0) ||
-  (SIZE[String(c.title ?? '').trim()] ?? (isNumCol(c) ? 58 : c.width || TYPE_W[c.type] || 96))
+  (SIZE[String(c.title ?? '').trim()] ?? (isNumCol(c) ? NUM_W : c.width || TYPE_W[c.type] || 96))
 
 /** CSV — 지금 화면에 보이는 열 순서·행 그대로(엑셀이 한글을 읽게 BOM) */
 export function downloadCsv(name: string, cols: EfColumn[], rows: EfRow[]) {
