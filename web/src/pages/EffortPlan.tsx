@@ -359,6 +359,10 @@ function EffortBody({
                 >
                   <TI n="plus" /> 행 추가
                 </button>
+                {/* 가져오기는 CSV 바로 왼쪽(지시) — 짝으로 붙여 둔다 */}
+                <button type="button" className="ef-btn gh" title="엑셀(.xlsx)·CSV·붙여넣기 — 열을 맞춰 들인다" onClick={() => setImp(true)}>
+                  <TI n="upload" /> 가져오기
+                </button>
                 <button
                   type="button"
                   className="ef-btn"
@@ -369,10 +373,6 @@ function EffortBody({
                   }}
                 >
                   <TI n="download" /> CSV
-                </button>
-                {/* 가져오기는 내려받기 바로 오른쪽 — 위키 표처럼 짝으로 둔다 */}
-                <button type="button" className="ef-btn gh" title="엑셀(.xlsx)·CSV·붙여넣기 — 열을 맞춰 들인다" onClick={() => setImp(true)}>
-                  <TI n="upload" /> 가져오기
                 </button>
                 <span className="ef-cnt-all">{shownN}행</span>
               </>
