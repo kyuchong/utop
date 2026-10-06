@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Column } from '@tanstack/react-table'
 import { TI } from './icons'
@@ -710,9 +710,18 @@ function OptList({
   )
 }
 
-/** 행 우클릭 메뉴 — 지금은 삭제만(예전과 같다) */
-export function RowMenu({ at, onDelete, onClose }: { at: { x: number; y: number }; onDelete: () => void; onClose: () => void }) {
+/** 우클릭 메뉴 한 줄 — sep 이면 그 앞에 실금 */
+export interface CtxItem { ic: string; label: string; on: () => void; del?: boolean; sep?: boolean }
+/** 우클릭 메뉴 — 누른 자리에 뜬다(행 우클릭 · 머리글 우클릭이 같이 쓴다) */
+export function CtxMenu({ at, items, onClose }: { at: { x: number; y: number }; items: CtxItem[]; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState(at)
+  useLayoutEffect(() => {
+    // 화면 끝에서 열면 안쪽으로 당긴다
+    const el = ref.current
+    if (!el) return
+    setPos({ x: Math.min(at.x, window.innerWidth - el.offsetWidth - 8), y: Math.min(at.y, window.innerHeight - el.offsetHeight - 8) })
+  }, [at])
   useEffect(() => {
     const down = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && onClose()
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -724,11 +733,23 @@ export function RowMenu({ at, onDelete, onClose }: { at: { x: number; y: number 
     }
   }, [onClose])
   return createPortal(
-    <div className="ef-pop ef-rowmenu" ref={ref} style={{ left: at.x, top: at.y }}>
-      <button type="button" className="ef-mi del" onClick={onDelete}>
-        <i className="ef-mi-ic"><TI n="trash" /></i>
-        <span>행 삭제</span>
-      </button>
+    <div className="ef-pop ef-menu ef-rowmenu" ref={ref} style={{ left: pos.x, top: pos.y }} onContextMenu={(e) => e.preventDefault()}>
+      {items.map((it, i) => (
+        <Fragment key={i}>
+          {it.sep && <div className="ef-sep" />}
+          <button
+            type="button"
+            className={`ef-mi${it.del ? ' del' : ''}`}
+            onClick={() => {
+              onClose()
+              it.on()
+            }}
+          >
+            <i className="ef-mi-ic"><TI n={it.ic} /></i>
+            <span>{it.label}</span>
+          </button>
+        </Fragment>
+      ))}
     </div>,
     document.body,
   )

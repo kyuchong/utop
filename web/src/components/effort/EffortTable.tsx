@@ -16,7 +16,7 @@ import {
   type Row,
   type Table,
 } from '@tanstack/react-table'
-import { Chip, HeadMenu, RowMenu, SelectPicker, type HeadOps } from './EffortMenus'
+import { Chip, CtxMenu, HeadMenu, SelectPicker, type HeadOps } from './EffortMenus'
 import { TI } from './icons'
 import {
   autoOptions,
@@ -227,6 +227,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [sel, setSel] = useState<Sel | null>(null)
   const [menu, setMenu] = useState<{ anchor: HTMLElement; colId: string } | null>(null)
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow } | null>(null)
+  const [colMenu, setColMenu] = useState<{ x: number; y: number; colId: string } | null>(null)
   const drag = useRef<{ mode: 'sel' | 'fill' | 'row'; r1: number; c1: number; c2?: number } | null>(null)
   const leafRef = useRef<EfRow[]>([])
   const paintRef = useRef<ReactNode>(null)
@@ -399,6 +400,20 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     document.addEventListener('mouseup', up, true)
   }
 
+  /**
+   * 행 추가·복제(행 우클릭) — 누른 행 바로 위·아래에 넣는다.
+   * 그룹으로 보고 있으면 빈 행에도 그 그룹 값을 넣어 둔다 — 안 그러면 「(빈값)」 그룹으로 가 버려 안 보인다.
+   */
+  const addRow = (src: EfRow, after: boolean, copy: boolean) => {
+    const i = rows.indexOf(src)
+    const g = table.getState().grouping[0]
+    const nr: EfRow = copy ? { ...src } : g && src[g] != null ? { [g]: src[g] } : {}
+    rows.splice(i < 0 ? rows.length : i + (after ? 1 : 0), 0, nr)
+    setSel(null)
+    touch()
+    toast(copy ? '행을 복제했습니다' : '행 추가됨')
+  }
+
   // ── 머리글 메뉴가 하는 열 조작 — 열은 모든 연도가 함께 쓴다 ──
   const opsFor = (c: EfColumn): HeadOps => {
     const allRows = () => Object.values(doc.pages).flatMap((p) => p.rows)
@@ -464,6 +479,13 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         <div
           className={`ef-hc${num ? ' num' : ''}${col.getIsFiltered() ? ' filtered' : ''}`}
           onMouseDown={(e) => colDrag(e, c.id)}
+          onContextMenu={(e) => {
+            // 머리글 우클릭 — 열 추가·복제(지시)
+            e.preventDefault()
+            setMenu(null)
+            setEdit(null)
+            setColMenu({ x: e.clientX, y: e.clientY, colId: c.id })
+          }}
         >
           <span
             className="ef-hlbl"
@@ -661,7 +683,17 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               <tr>
                 <td className="ef-rh" />
                 <td colSpan={ordered.length} className="ef-none">
-                  <span className="ef-none-msg">{rows.length ? '조건에 맞는 행이 없습니다' : '행이 없습니다 — [행 추가]로 시작하세요'}</span>
+                  {rows.length ? (
+                    <span className="ef-none-msg">조건에 맞는 행이 없습니다</span>
+                  ) : (
+                    <span className="ef-none-msg">
+                      행이 없습니다 —{' '}
+                      <button type="button" className="ef-btn gh" onClick={() => { rows.push({}); touch() }}>
+                        <TI n="plus" /> 첫 행 추가
+                      </button>{' '}
+                      또는 [가져오기]
+                    </span>
+                  )}
                 </td>
               </tr>
             )}
@@ -722,7 +754,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       </table>
       <div className="ef-hint">
         <b>머리글 클릭=메뉴</b>(유형·필터·수식·정렬) · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
-        <b>셀 두 번 클릭=수정</b> · 행 우클릭=삭제
+        <b>셀 두 번 클릭=수정</b> · <b>머리글 우클릭=열 추가·복제</b> · <b>행 우클릭=행 추가·복제·삭제</b>
       </div>
 
       {edit && hasOptions(edit.col.type) && edit.col.type !== 'multiselect' && (
@@ -749,20 +781,46 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         />
       )}
       {rowMenu && (
-        <RowMenu
+        <CtxMenu
           at={rowMenu}
           onClose={() => setRowMenu(null)}
-          onDelete={() => {
-            const i = rows.indexOf(rowMenu.src)
-            setRowMenu(null)
-            if (i < 0) return
-            rows.splice(i, 1)
-            setSel(null)
-            touch()
-            toast('1행 삭제됨')
-          }}
+          items={[
+            { ic: 'arrow-bar-to-up', label: '위에 행 추가', on: () => addRow(rowMenu.src, false, false) },
+            { ic: 'arrow-bar-to-down', label: '아래에 행 추가', on: () => addRow(rowMenu.src, true, false) },
+            { ic: 'copy', label: '행 복제', on: () => addRow(rowMenu.src, true, true) },
+            {
+              ic: 'trash',
+              label: '행 삭제',
+              del: true,
+              sep: true,
+              on: () => {
+                const i = rows.indexOf(rowMenu.src)
+                if (i < 0) return
+                rows.splice(i, 1)
+                setSel(null)
+                touch()
+                toast('1행 삭제됨')
+              },
+            },
+          ]}
         />
       )}
+      {colMenu && (() => {
+        const c = cols.find((x) => x.id === colMenu.colId)
+        if (!c) return null
+        const ops = opsFor(c)
+        return (
+          <CtxMenu
+            at={colMenu}
+            onClose={() => setColMenu(null)}
+            items={[
+              { ic: 'arrow-bar-to-left', label: '왼쪽에 열 추가', on: () => { ops.insert(false); toast('열 추가됨 — 머리글을 눌러 이름·유형을 바꾸세요') } },
+              { ic: 'arrow-bar-to-right', label: '오른쪽에 열 추가', on: () => { ops.insert(true); toast('열 추가됨 — 머리글을 눌러 이름·유형을 바꾸세요') } },
+              { ic: 'copy', label: '열 복제', on: () => { ops.duplicate(); toast(`「${c.title} 복사」 열을 만들었습니다`) } },
+            ]}
+          />
+        )
+      })()}
     </div>
   )
 }

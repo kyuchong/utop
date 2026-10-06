@@ -331,34 +331,6 @@ function EffortBody({
                 <button type="button" className="ef-btn gh" onClick={() => setColMgr(true)}>
                   <TI n="columns" /> 열 설정
                 </button>
-                <button
-                  type="button"
-                  className="ef-btn gh"
-                  onClick={() => {
-                    d.columns.push({ id: newId(), title: '새 속성', type: 'text' })
-                    touch()
-                    toast('열 추가됨 — 머리글을 눌러 이름·유형을 바꾸세요')
-                  }}
-                >
-                  <TI n="column-insert-right" /> 열 추가
-                </button>
-                <button
-                  type="button"
-                  className="ef-btn gh"
-                  onClick={() => {
-                    rows.push({})
-                    touch()
-                    toast(
-                      st.q.trim() || fCount
-                        ? '행 추가됨 — 검색·필터에 가려 지금은 안 보입니다'
-                        : gId
-                          ? '행 추가됨 — 그룹 「(빈값)」 아래에 있습니다'
-                          : '행 추가됨 — 맨 아래에 있습니다',
-                    )
-                  }}
-                >
-                  <TI n="plus" /> 행 추가
-                </button>
                 {/* 가져오기는 CSV 바로 왼쪽(지시) — 짝으로 붙여 둔다 */}
                 <button type="button" className="ef-btn gh" title="엑셀(.xlsx)·CSV·붙여넣기 — 열을 맞춰 들인다" onClick={() => setImp(true)}>
                   <TI n="upload" /> 가져오기

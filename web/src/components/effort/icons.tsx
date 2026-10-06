@@ -1,7 +1,9 @@
 import {
   IconAlignLeft,
   IconArrowBarToLeft,
+  IconArrowBarToDown,
   IconArrowBarToRight,
+  IconArrowBarToUp,
   IconArrowsSort,
   IconCalendar,
   IconCalendarPlus,
@@ -59,7 +61,9 @@ import {
 const MAP: Record<string, Icon> = {
   'align-left': IconAlignLeft,
   'arrow-bar-to-left': IconArrowBarToLeft,
+  'arrow-bar-to-down': IconArrowBarToDown,
   'arrow-bar-to-right': IconArrowBarToRight,
+  'arrow-bar-to-up': IconArrowBarToUp,
   'arrows-sort': IconArrowsSort,
   calendar: IconCalendar,
   'calendar-plus': IconCalendarPlus,
