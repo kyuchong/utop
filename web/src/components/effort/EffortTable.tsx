@@ -113,20 +113,18 @@ export function useEfTable(ctx: EfCtx) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, st.q, st.conds, ver])
 
+  /**
+   * 숫자 막대의 「가득」 — 값 크기 그대로 보이게(지적: 열 최대값 기준이면 0.1 도 꽉 찼다).
+   * 월 열은 1(한 사람 한 달), 합계 열은 월 열 수(1년 꽉 채움). 넘으면 꽉 찬 주황.
+   */
   const max = useMemo(() => {
     const m: Record<string, number> = {}
+    const months = cols.filter((c) => c.type === 'number' && !c.autoSum).length
     cols.forEach((c) => {
-      if (!isNumCol(c)) return
-      let mx = 0
-      rows.forEach((r) => {
-        const v = toNum(r[c.id])
-        if (v !== null && v > mx) mx = v
-      })
-      m[c.id] = mx
+      if (isNumCol(c)) m[c.id] = c.autoSum ? Math.max(1, months) : 1
     })
     return m
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, ver])
+  }, [cols])
 
   const columns = useMemo<ColumnDef<EfRow>[]>(
     () =>
@@ -990,10 +988,11 @@ function CellView({ c, v, max, onToggle }: { c: EfColumn; v: unknown; max: numbe
   if (!isNumCol(c)) return <>{String(v)}</>
   const n = toNum(v)
   if (n === null) return null
-  const pct = max > 0 ? Math.max(4, Math.min(100, (n / max) * 100)) : 0
+  // max = 가득 기준(월 1 · 합계 12). 비율 그대로, 0 보다 크면 최소 3% 는 보이게, 넘치면 꽉 찬 주황
+  const pct = max > 0 && n > 0 ? Math.max(3, Math.min(100, (n / max) * 100)) : 0
   return (
-    <span className="ef-numbar">
-      <i className={`ef-numbar-fill${max > 0 && n / max >= 0.85 ? ' hot' : ''}`} style={{ width: pct + '%' }} />
+    <span className="ef-numbar" title={max > 0 ? `${numFmt(n)} / ${numFmt(max)} (${Math.round((n / max) * 100)}%)` : undefined}>
+      <i className={`ef-numbar-fill${max > 0 && n > max + 1e-9 ? ' hot' : ''}`} style={{ width: pct + '%' }} />
       <b>{numFmt(n)}</b>
     </span>
   )
