@@ -229,6 +229,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow } | null>(null)
   const drag = useRef<{ mode: 'sel' | 'fill'; r1: number; c1: number; c2?: number } | null>(null)
   const leafRef = useRef<EfRow[]>([])
+  const paintRef = useRef<ReactNode>(null)
   const tblRef = useRef<HTMLTableElement>(null)
 
   const ordered = table.getVisibleLeafColumns().map((c) => (c.columnDef.meta as { col: EfColumn }).col)
@@ -611,24 +612,80 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     </tr>
   )
 
-  const shown = table.getFilteredRowModel().rows.map((r) => r.original)
-  const body: ReactNode[] = []
-  const leaf: EfRow[] = []
-  let ord = 0
-  let openGroup: Row<EfRow> | null = null
-  table.getRowModel().rows.forEach((r) => {
-    if (r.getIsGrouped()) {
-      if (openGroup) body.push(subRow(openGroup))
-      body.push(bodyRow(r, 0))
-      openGroup = r.getIsExpanded() ? r : null
-    } else {
-      ord++
-      leaf[ord] = r.original
-      body.push(bodyRow(r, ord))
-    }
-  })
-  if (openGroup) body.push(subRow(openGroup))
-  leafRef.current = leaf
+  // ★ 열 너비를 끄는 동안은 머리글 너비만 바뀐다 — 본문(363행 × 19칸)을 매번 새로 그리면 한 번 움직일 때
+  //   0.3초씩 걸려 끊겼다. 끄는 동안은 직전에 그린 본문을 그대로 쓴다(같은 요소면 React 가 건너뛴다).
+  let painted = paintRef.current
+  if (!resizing || !painted) {
+    const shown = table.getFilteredRowModel().rows.map((r) => r.original)
+    const body: ReactNode[] = []
+    const leaf: EfRow[] = []
+    let ord = 0
+    let openGroup: Row<EfRow> | null = null
+    table.getRowModel().rows.forEach((r) => {
+      if (r.getIsGrouped()) {
+        if (openGroup) body.push(subRow(openGroup))
+        body.push(bodyRow(r, 0))
+        openGroup = r.getIsExpanded() ? r : null
+      } else {
+        ord++
+        leaf[ord] = r.original
+        body.push(bodyRow(r, ord))
+      }
+    })
+    if (openGroup) body.push(subRow(openGroup))
+    leafRef.current = leaf
+    painted = (
+      <>
+          <tbody>
+            {body.length ? (
+              body
+            ) : (
+              <tr>
+                <td className="ef-rh" />
+                <td colSpan={ordered.length} className="ef-none">
+                  <span className="ef-none-msg">{rows.length ? '조건에 맞는 행이 없습니다' : '행이 없습니다 — [행 추가]로 시작하세요'}</span>
+                </td>
+              </tr>
+            )}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td className="ef-rh" />
+              {ordered.map((c) => {
+                if (isNumCol(c)) {
+                  const s = shown.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0)
+                  return (
+                    <td key={c.id} className="ef-n">
+                      {s ? (
+                        <span className="ef-tot">
+                          합계<b>{numFmt(Math.round(s * 1e4) / 1e4)}</b>
+                        </span>
+                      ) : null}
+                    </td>
+                  )
+                }
+                if (c.id === 'name')
+                  return (
+                    <td key={c.id}>
+                      <span className="ef-flbl">인원</span>
+                      <b>{new Set(shown.map((r) => cellText(r[c.id])).filter(Boolean)).size}</b>
+                    </td>
+                  )
+                if (c.id === 'dept')
+                  return (
+                    <td key={c.id}>
+                      <span className="ef-flbl">개수</span>
+                      <b>{shown.length}</b>
+                    </td>
+                  )
+                return <td key={c.id} />
+              })}
+            </tr>
+          </tfoot>
+      </>
+    )
+    paintRef.current = painted
+  }
 
   const menuCol = menu ? table.getColumn(menu.colId) : undefined
   const menuEf = menuCol ? (menuCol.columnDef.meta as { col: EfColumn }).col : undefined
@@ -643,52 +700,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
             </tr>
           ))}
         </thead>
-        <tbody>
-          {body.length ? (
-            body
-          ) : (
-            <tr>
-              <td className="ef-rh" />
-              <td colSpan={ordered.length} className="ef-none">
-                <span className="ef-none-msg">{rows.length ? '조건에 맞는 행이 없습니다' : '행이 없습니다 — [행 추가]로 시작하세요'}</span>
-              </td>
-            </tr>
-          )}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td className="ef-rh" />
-            {ordered.map((c) => {
-              if (isNumCol(c)) {
-                const s = shown.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0)
-                return (
-                  <td key={c.id} className="ef-n">
-                    {s ? (
-                      <span className="ef-tot">
-                        합계<b>{numFmt(Math.round(s * 1e4) / 1e4)}</b>
-                      </span>
-                    ) : null}
-                  </td>
-                )
-              }
-              if (c.id === 'name')
-                return (
-                  <td key={c.id}>
-                    <span className="ef-flbl">인원</span>
-                    <b>{new Set(shown.map((r) => cellText(r[c.id])).filter(Boolean)).size}</b>
-                  </td>
-                )
-              if (c.id === 'dept')
-                return (
-                  <td key={c.id}>
-                    <span className="ef-flbl">개수</span>
-                    <b>{shown.length}</b>
-                  </td>
-                )
-              return <td key={c.id} />
-            })}
-          </tr>
-        </tfoot>
+        {painted}
       </table>
       <div className="ef-hint">
         <b>머리글 클릭=메뉴</b>(유형·필터·수식·정렬) · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
