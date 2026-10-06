@@ -85,7 +85,7 @@ export function Pop({
     }
   }, [anchor, onClose])
   return createPortal(
-    <div className={cls || 'ef-pop'} ref={ref} style={pos}>
+    <div className={cls || 'ef-pop'} data-efpop="" ref={ref} style={pos}>
       {children}
     </div>,
     document.body,

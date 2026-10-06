@@ -240,7 +240,8 @@ let draggedAt = 0 // 끌고 나서 바로 뒤따라오는 click(= 메뉴 열기)
 export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const { rows, cols, doc, touch, toast } = ctx
   const { table, max, sizing, setSizing } = api
-  const [edit, setEdit] = useState<{ src: EfRow; col: EfColumn; anchor: HTMLElement } | null>(null)
+  /** init = 칸을 고른 채 글자를 쳐서 시작했을 때 그 글자(엑셀처럼 기존 값을 바꿔 쓴다) */
+  const [edit, setEdit] = useState<{ src: EfRow; col: EfColumn; anchor: HTMLElement; init?: string } | null>(null)
   const [sel, setSel] = useState<Sel | null>(null)
   const [menu, setMenu] = useState<{ anchor: HTMLElement; colId: string } | null>(null)
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow } | null>(null)
@@ -322,6 +323,168 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     Object.values(doc.pages).forEach((p) => p.rows.forEach((r) => cellText(r[c.id]).trim() && s.add(cellText(r[c.id]).trim())))
     users.forEach((u) => s.add(u.name))
     return [...s].sort((a, b) => a.localeCompare(b, 'ko'))
+  }
+
+  // ── 키보드(지시: 방향키로 칸 이동) — ↑↓←→ 이동, Shift+방향키 범위, Enter·F2 고치기, 글자를 치면 바로 고치기,
+  //    Tab 오른쪽, Delete 지우기. 표 밖(검색칸·팝업 입력)에 글쇠가 있을 때·메뉴가 열려 있을 때는 안 받는다 ──
+  /** 고른 칸을 옮긴다 — 끝 칸(r2,c2) 기준, extend 면 범위를 늘린다 */
+  const moveSel = (dr: number, dc: number, extend = false) => {
+    const last = leafRef.current.length - 1
+    const lc = ordered.length - 1
+    setSel((s0) => {
+      if (!s0 || last < 1) return s0
+      const r = Math.min(last, Math.max(1, s0.r2 + dr))
+      const c = Math.min(lc, Math.max(0, s0.c2 + dc))
+      const nx = extend ? { ...s0, r2: r, c2: c } : { r1: r, c1: c, r2: r, c2: c }
+      requestAnimationFrame(() =>
+        tblRef.current?.querySelector(`td[data-r="${r}"][data-c="${c}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }),
+      )
+      return nx
+    })
+  }
+  /** 고른 칸에서 고치기 시작 — 체크박스는 켜고 끄기, 계산 칸은 안 됨 */
+  const editAt = (r: number, c: number, init?: string) => {
+    const src = leafRef.current[r]
+    const col = ordered[c]
+    const td = tblRef.current?.querySelector<HTMLElement>(`td[data-r="${r}"][data-c="${c}"]`)
+    if (!src || !col || !td || col.autoSum || col.type === 'datediff') return
+    if (col.type === 'checkbox') {
+      commit(src, col, !truthy(src[col.id]))
+      return
+    }
+    const picker = hasOptions(col.type) || col.type === 'date' || col.type === 'daterange'
+    setEdit({ src, col, anchor: td, init: picker ? undefined : init })
+  }
+  /**
+   * 글쇠 받는 칸(sink) — 고른 칸 위에 보이지 않게 놓은 입력칸에 늘 포커스를 둔다(Handsontable 방식).
+   * 칸만 고른 채 한글을 치면 입력기(IME) 조합이 이 입력칸에서 시작되고, 첫 글자가 들어오는 순간 이 입력칸이
+   * 그대로 보이는 편집기가 된다 — 포커스를 옮기지 않으므로 첫 글자가 사라지지 않는다(실제로 사라졌다).
+   */
+  const sinkRef = useRef<HTMLTextAreaElement>(null)
+  const [typing, setTyping] = useState<{ r: number; c: number } | null>(null)
+  const typingRef = useRef(typing)
+  typingRef.current = typing
+  /** 칸을 누르는 그 자리에서 글쇠 받는 칸으로 포커스(누르자마자 쳐도 첫 글자가 들어가게) */
+  const grab = () => {
+    // 덮어쓰기 중에 다른 칸을 누르면 — 포커스가 안 옮겨가 blur 가 없으니 여기서 저장
+    if (typingRef.current) endTyping(true)
+    const sk = sinkRef.current
+    if (sk && document.activeElement !== sk) sk.focus({ preventScroll: true })
+  }
+  const placeSink = (r: number, c: number) => {
+    const sk = sinkRef.current
+    const box = sk?.parentElement
+    const td = tblRef.current?.querySelector<HTMLElement>(`td[data-r="${r}"][data-c="${c}"]`)
+    if (!sk || !box || !td) return
+    const a = td.getBoundingClientRect()
+    const b = box.getBoundingClientRect()
+    sk.style.left = `${a.left - b.left + box.scrollLeft}px`
+    sk.style.top = `${a.top - b.top + box.scrollTop}px`
+    sk.style.width = `${a.width}px`
+    sk.style.minHeight = `${a.height}px`
+  }
+  // 칸을 고르면(고치는 중·메뉴가 없을 때) 그 칸 위로 옮기고 글쇠를 받는다. 누른 뒤 브라우저가 포커스를 옮기므로 한 박자 늦게
+  useEffect(() => {
+    if (!sel || edit || typing || menu || rowMenu || colMenu) return
+    const t = window.setTimeout(() => {
+      const sk = sinkRef.current
+      if (!sk) return
+      placeSink(sel.r2, sel.c2)
+      const a = document.activeElement as HTMLElement | null
+      if (a && a !== sk && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) return // 검색칸 등에 쓰는 중
+      if (document.querySelector('[data-efpop], .ef-imp-back, .ef-modal')) return // 열린 팝업
+      sk.focus({ preventScroll: true })
+    }, 0)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel, edit, typing, menu, rowMenu, colMenu])
+  /** 글자가 들어와 고치기 시작 — 고르는 유형은 고르기 창, 못 고치는 칸은 버린다 */
+  const sinkStart = () => {
+    if (typingRef.current || !sel) return
+    const sk = sinkRef.current!
+    const r = sel.r2
+    const c = sel.c2
+    const col = ordered[c]
+    const src = leafRef.current[r]
+    if (!col || !src || col.autoSum || col.type === 'datediff' || col.type === 'checkbox') {
+      sk.value = ''
+      return
+    }
+    if (hasOptions(col.type) || col.type === 'date' || col.type === 'daterange') {
+      sk.value = ''
+      editAt(r, c)
+      return
+    }
+    typingRef.current = { r, c }
+    placeSink(r, c)
+    setTyping({ r, c })
+  }
+  const endTyping = (save: boolean) => {
+    const t = typingRef.current
+    const sk = sinkRef.current
+    if (!t || !sk) return
+    const v = sk.value
+    sk.value = ''
+    sk.rows = 1
+    typingRef.current = null
+    setTyping(null)
+    const src = leafRef.current[t.r]
+    const col = ordered[t.c]
+    if (save && src && col) commit(src, col, v)
+  }
+  const sinkKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing) return // 한글 조합 중의 Enter·방향키는 입력기 몫
+    const t = typingRef.current
+    if (t) {
+      // 덮어쓰기 고치기 중 — Enter 저장 후 아래, Shift+Enter 는 글자 칸이면 줄 바꿈, Tab 오른쪽, Esc 취소
+      const col = ordered[t.c]
+      if (e.key === 'Enter' && !(e.shiftKey && col?.type === 'text')) {
+        e.preventDefault()
+        endTyping(true)
+        moveSel(1, 0)
+      } else if (e.key === 'Tab') {
+        e.preventDefault()
+        endTyping(true)
+        moveSel(0, e.shiftKey ? -1 : 1)
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        endTyping(false)
+      }
+      return
+    }
+    if (!sel) return
+    const k = e.key
+    const mv: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }
+    if (mv[k]) {
+      e.preventDefault()
+      moveSel(mv[k]![0], mv[k]![1], e.shiftKey)
+    } else if (k === 'Tab') {
+      e.preventDefault()
+      moveSel(0, e.shiftKey ? -1 : 1)
+    } else if (k === 'Enter' || k === 'F2') {
+      e.preventDefault()
+      editAt(sel.r2, sel.c2)
+    } else if (k === ' ' && ordered[sel.c2]?.type === 'checkbox') {
+      e.preventDefault()
+      editAt(sel.r2, sel.c2)
+    } else if (k === 'Delete' || k === 'Backspace') {
+      e.preventDefault()
+      const n = norm(sel)!
+      let changed = false
+      for (let r = n.r1; r <= n.r2; r++)
+        for (let c = n.c1; c <= n.c2; c++) {
+          const src = leafRef.current[r]
+          const col = ordered[c]
+          if (src && col && put(src, col, '')) changed = true
+        }
+      if (changed) {
+        recalcAuto(rows, cols)
+        touch()
+      }
+    } else if (k === 'Escape') {
+      setSel(null)
+    }
+    // 글자는 막지 않는다 — 입력칸에 들어가고 onInput·조합 시작에서 고치기가 열린다
   }
 
   // ── 범위 선택 · 채우기 ── 한 번 클릭 = 선택, 끌면 범위, 오른쪽 아래 점을 끌면 그 값으로 채우기(세로)
@@ -613,6 +776,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
             e.preventDefault()
             const last = ordered.length - 1
             const from = e.shiftKey && sel ? sel.r1 : n
+            grab()
             drag.current = { mode: 'row', r1: from, c1: 0, c2: last }
             setSel({ r1: from, c1: 0, r2: n, c2: last })
             setEdit(null)
@@ -648,27 +812,54 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           const picker = hasOptions(c.type) || c.type === 'date' || c.type === 'daterange'
           if (isEd && !picker) {
             const kind = c.type === 'url' ? 'url' : c.type === 'email' ? 'email' : c.type === 'phone' ? 'tel' : 'text'
+            const init = edit!.init
+            // 고치기 끝 — Enter 는 저장 후 아래 칸, Tab 은 오른쪽 칸(엑셀처럼), Esc 는 취소
+            const keys = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+              if (e.key === 'Enter' && !(e.shiftKey && c.type === 'text')) {
+                e.preventDefault()
+                commit(src, c, e.currentTarget.value)
+                moveSel(1, 0)
+              } else if (e.key === 'Tab') {
+                e.preventDefault()
+                commit(src, c, e.currentTarget.value)
+                moveSel(0, e.shiftKey ? -1 : 1)
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                setEdit(null)
+              }
+            }
+            const start = (el: HTMLInputElement | HTMLTextAreaElement) => {
+              // 글자를 쳐서 시작했으면 커서를 끝에, 아니면 전체 선택
+              if (init !== undefined) el.setSelectionRange(el.value.length, el.value.length)
+              else el.select()
+            }
             return (
               <td key={cell.id} className={`${num ? 'ef-n ' : ''}ef-editing`}>
-                <input
-                  className="ef-cell-in"
-                  autoFocus
-                  type={kind}
-                  list={c.type === 'person' ? 'ef-people' : undefined}
-                  inputMode={num ? 'decimal' : undefined}
-                  defaultValue={cellText(src[c.id])}
-                  onFocus={(e) => e.currentTarget.select()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      commit(src, c, e.currentTarget.value)
-                    } else if (e.key === 'Escape') {
-                      e.preventDefault()
-                      setEdit(null)
-                    }
-                  }}
-                  onBlur={(e) => commit(src, c, e.currentTarget.value)}
-                />
+                {c.type === 'text' ? (
+                  // 글자 칸 — Shift+Enter 로 줄 바꿈(지시), 줄 수만큼 칸이 늘어난다
+                  <textarea
+                    className="ef-cell-in ef-cell-ta"
+                    autoFocus
+                    rows={Math.max(1, (init ?? cellText(src[c.id])).split('\n').length)}
+                    defaultValue={init ?? cellText(src[c.id])}
+                    onFocus={(e) => start(e.currentTarget)}
+                    onInput={(e) => (e.currentTarget.rows = Math.max(1, e.currentTarget.value.split('\n').length))}
+                    onKeyDown={keys}
+                    onBlur={(e) => commit(src, c, e.currentTarget.value)}
+                  />
+                ) : (
+                  <input
+                    className="ef-cell-in"
+                    autoFocus
+                    type={kind}
+                    list={c.type === 'person' ? 'ef-people' : undefined}
+                    inputMode={num ? 'decimal' : undefined}
+                    defaultValue={init ?? cellText(src[c.id])}
+                    onFocus={(e) => start(e.currentTarget)}
+                    onKeyDown={keys}
+                    onBlur={(e) => commit(src, c, e.currentTarget.value)}
+                  />
+                )}
               </td>
             )
           }
@@ -682,9 +873,11 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               key={cell.id}
               data-r={n}
               data-c={ci}
-              className={`${num ? 'ef-n ' : ''}${editable ? 'ef-ed ' : 'ef-auto '}${isEd ? 'ef-editing ' : ''}${edge}`}
+              className={`${num ? 'ef-n ' : ''}${editable ? 'ef-ed ' : 'ef-auto '}${isEd ? 'ef-editing ' : ''}${c.type === 'text' && cellText(src[c.id]).includes('\n') ? 'ef-ml ' : ''}${edge}`}
               onMouseDown={(e) => {
                 if (e.button !== 0) return
+                e.preventDefault() // 글자 끌어 고르기 대신 칸 고르기 — 포커스는 바로 글쇠 받는 칸으로
+                grab()
                 drag.current = { mode: 'sel', r1: n, c1: ci }
                 setSel({ r1: n, c1: ci, r2: n, c2: ci })
                 setEdit(null)
@@ -894,6 +1087,21 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     </div>
     <div className="ef-gmain">
     <div className="ef-scroll" translate="no">
+      <textarea
+        ref={sinkRef}
+        className={`ef-sink${typing ? ' on' : ''}${typing && ordered[typing.c] && isNumCol(ordered[typing.c]) ? ' num' : ''}`}
+        aria-label="고른 칸에 입력"
+        tabIndex={-1}
+        rows={1}
+        spellCheck={false}
+        onKeyDown={sinkKey}
+        onCompositionStart={() => sinkStart()}
+        onInput={(e) => {
+          if (!typingRef.current) sinkStart()
+          e.currentTarget.rows = Math.max(1, e.currentTarget.value.split('\n').length)
+        }}
+        onBlur={() => typingRef.current && endTyping(true)}
+      />
       <table className="ef-t" ref={tblRef} style={{ width: table.getTotalSize() + 62 }}>
         <thead>
           {table.getHeaderGroups().map((hg) => (
@@ -907,7 +1115,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       </table>
       <div className="ef-hint">
         <b>머리글 클릭=메뉴</b>(유형·필터·수식·정렬) · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
-        <b>셀 두 번 클릭=수정</b> · <b>머리글 우클릭=열 추가·복제</b> · <b>행 우클릭=행 추가·복제·삭제</b>
+        <b>셀 두 번 클릭·Enter·F2·바로 입력=수정</b> · 방향키=이동 · Shift+Enter=줄 바꿈 · <b>머리글 우클릭=열 추가·복제</b> · <b>행 우클릭=행 추가·복제·삭제</b>
       </div>
 
       {edit && edit.col.type === 'multiselect' && (
