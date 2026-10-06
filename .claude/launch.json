@@ -23,11 +23,27 @@
     },
     {
       "name": "live-dev",
-      "runtimeExecutable": "sg",
+      "runtimeExecutable": "docker",
       "runtimeArgs": [
-        "docker",
-        "-c",
-        "docker run --rm -p 5175:5175 --network utop_default -e VITE_API_TARGET=http://utop-api-1:8000 -v /home/utop/utop/.claude/worktrees/tc-screen-dev-c6dd80/web:/w -w /w node:22-alpine npx vite --host 0.0.0.0 --port 5175"
+        "run",
+        "--rm",
+        "-p",
+        "5175:5175",
+        "--network",
+        "utop_default",
+        "-e",
+        "VITE_API_TARGET=http://utop-api-1:8000",
+        "-v",
+        "/home/utop/utop/.claude/worktrees/tc-screen-dev-c6dd80/web:/w",
+        "-w",
+        "/w",
+        "node:22-alpine",
+        "npx",
+        "vite",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5175"
       ],
       "port": 5175
     }
