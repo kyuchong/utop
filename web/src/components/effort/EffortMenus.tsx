@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Column } from '@tanstack/react-table'
 import { TI } from './icons'
@@ -255,33 +255,127 @@ export function MultiPicker({
   )
 }
 
-/** 기간 고르기 — 시작·종료 달력 두 개(예전 _rscDateRangePopup). 「시작 ~ 종료」 로 저장 */
+const ymdOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/** 달력 한 장 — ‹ › 는 달만 넘기고, 날을 눌러야 onDay(지적: 기본 달력은 달을 넘기면 값이 골라졌다) */
+function CalGrid({ init, cls, onDay }: { init: string | null; cls: (v: string) => string; onDay: (v: string) => void }) {
+  const base = init ? new Date(init + 'T00:00:00') : new Date()
+  const [ym, setYm] = useState({ y: base.getFullYear(), m: base.getMonth() })
+  // 밖에서 날짜를 쳐 넣으면 그 달로 옮긴다
+  useEffect(() => {
+    if (init) setYm({ y: Number(init.slice(0, 4)), m: Number(init.slice(5, 7)) - 1 })
+  }, [init])
+  const first = new Date(ym.y, ym.m, 1)
+  const start = new Date(ym.y, ym.m, 1 - first.getDay()) // 1일이 든 주의 일요일부터 6주
+  const days = Array.from({ length: 42 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i))
+  const move = (n: number) => setYm((o) => ({ y: new Date(o.y, o.m + n, 1).getFullYear(), m: new Date(o.y, o.m + n, 1).getMonth() }))
+  const t = ymdOf(new Date())
+  return (
+    <>
+      <div className="ef-cal-h">
+        <button type="button" className="ef-cal-nav" aria-label="이전 달" onClick={() => move(-1)}>
+          ‹
+        </button>
+        <b>
+          {ym.y}년 {ym.m + 1}월
+        </b>
+        <button type="button" className="ef-cal-nav" aria-label="다음 달" onClick={() => move(1)}>
+          ›
+        </button>
+      </div>
+      <div className="ef-cal-g">
+        {['일', '월', '화', '수', '목', '금', '토'].map((w, i) => (
+          <span key={w} className={`ef-cal-w${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}`}>
+            {w}
+          </span>
+        ))}
+        {days.map((d) => {
+          const v = ymdOf(d)
+          return (
+            <button
+              key={v}
+              type="button"
+              className={`ef-cal-d${d.getMonth() !== ym.m ? ' out' : ''}${v === t ? ' today' : ''}${d.getDay() === 0 ? ' sun' : d.getDay() === 6 ? ' sat' : ''} ${cls(v)}`}
+              onClick={() => onDay(v)}
+            >
+              {d.getDate()}
+            </button>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
+/** 날짜 고르기 — 직접 그린 달력(예전 Pikaday 처럼). 날을 누르면 바로 저장, 위 칸에 쳐 넣고 Enter 도 된다 */
+export function DatePicker({ anchor, value, onPick, onClose }: { anchor: HTMLElement; value: string; onPick: (v: string) => void; onClose: () => void }) {
+  const cur = normDate(value)
+  const [txt, setTxt] = useState(cur ?? '')
+  return (
+    <Pop anchor={anchor} cls="ef-menu ef-cal" onClose={onClose}>
+      <input
+        className="ef-fsel ef-cal-in"
+        autoFocus
+        value={txt}
+        placeholder="2026-01-05 입력 후 Enter"
+        aria-label="날짜 입력"
+        onChange={(e) => setTxt(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            onPick(txt.trim())
+          }
+        }}
+      />
+      <CalGrid init={normDate(txt) ?? cur} cls={(v) => (v === cur ? 'on' : '')} onDay={onPick} />
+      <div className="ef-cal-f">
+        <button type="button" className="ef-btn gh" onClick={() => onPick(ymdOf(new Date()))}>
+          오늘
+        </button>
+        <span className="ef-sp" />
+        {cur && (
+          <button type="button" className="ef-btn gh" onClick={() => onPick('')}>
+            지우기
+          </button>
+        )}
+      </div>
+    </Pop>
+  )
+}
+
+/** 기간 고르기 — 같은 달력에서 시작 → 종료를 차례로 누른다(그 사이를 칠한다). 「시작 ~ 종료」 로 저장 */
 export function RangePicker({ anchor, value, onPick, onClose }: { anchor: HTMLElement; value: string; onPick: (v: string) => void; onClose: () => void }) {
   const p = parseRange(value)
   const [s, setS] = useState(normDate(p.s) ?? '')
   const [e, setE] = useState(normDate(p.e) ?? '')
   const days = s && e ? Math.round((new Date(e + 'T00:00:00').getTime() - new Date(s + 'T00:00:00').getTime()) / 86400000) + 1 : 0
-  const ok = !!s && !!e && days > 0
+  const day = (v: string) => {
+    // 처음 · 둘 다 골라져 있으면 새 시작, 시작보다 앞을 누르면 시작을 바꾼다, 아니면 종료
+    if (!s || (s && e) || v < s) {
+      setS(v)
+      setE('')
+    } else setE(v)
+  }
+  const cls = (v: string) =>
+    v === s || v === e ? 'on' : s && e && v > s && v < e ? 'mid' : ''
+  const init = useMemo(() => normDate(p.s), [p.s])
   return (
-    <Pop anchor={anchor} cls="ef-menu ef-range" onClose={onClose}>
-      <div className="ef-lbl">기간</div>
-      <label className="ef-range-r">
-        <span>시작</span>
-        <input type="date" className="ef-fsel" value={s} autoFocus onChange={(ev) => setS(ev.target.value)} />
-      </label>
-      <label className="ef-range-r">
-        <span>종료</span>
-        <input type="date" className="ef-fsel" value={e} min={s || undefined} onChange={(ev) => setE(ev.target.value)} />
-      </label>
-      <div className="ef-range-n">{ok ? `${days}일` : s && e ? '종료가 시작보다 앞입니다' : '시작·종료를 고르세요'}</div>
-      <div className="ef-range-b">
+    <Pop anchor={anchor} cls="ef-menu ef-cal ef-range" onClose={onClose}>
+      <div className="ef-range-sum">
+        <span className={!s || (s && e) ? 'now' : ''}>{s || '시작'}</span>
+        <i>~</i>
+        <span className={s && !e ? 'now' : ''}>{e || '종료'}</span>
+        {days > 0 && <b>{days}일</b>}
+      </div>
+      <CalGrid init={init} cls={cls} onDay={day} />
+      <div className="ef-cal-f">
         {value && (
           <button type="button" className="ef-btn gh" onClick={() => onPick('')}>
             지우기
           </button>
         )}
         <span className="ef-sp" />
-        <button type="button" className="ef-btn" disabled={!ok} onClick={() => onPick(`${s} ~ ${e}`)}>
+        <button type="button" className="ef-btn" disabled={!(s && e)} onClick={() => onPick(`${s} ~ ${e}`)}>
           적용
         </button>
       </div>

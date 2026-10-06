@@ -17,7 +17,7 @@ import {
   type Table,
 } from '@tanstack/react-table'
 import { useUserPeople } from '@/pages/qaBits'
-import { Chip, CtxMenu, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
+import { Chip, CtxMenu, DatePicker, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
 import { TI } from './icons'
 import {
   autoOptions,
@@ -620,10 +620,10 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           // 합계·기간 일수는 계산값이라 못 고친다. 체크박스는 두 번 클릭 = 켜고 끄기(입력칸 없음)
           const editable = !c.autoSum && c.type !== 'datediff'
           const isEd = edit && edit.src === src && edit.col.id === c.id
-          // 팝업으로 고르는 유형 — 선택·상태·다중 선택·기간
-          const picker = hasOptions(c.type) || c.type === 'daterange'
+          // 팝업으로 고르는 유형 — 선택·상태·다중 선택·날짜·기간
+          const picker = hasOptions(c.type) || c.type === 'date' || c.type === 'daterange'
           if (isEd && !picker) {
-            const kind = c.type === 'date' ? 'date' : c.type === 'url' ? 'url' : c.type === 'email' ? 'email' : c.type === 'phone' ? 'tel' : 'text'
+            const kind = c.type === 'url' ? 'url' : c.type === 'email' ? 'email' : c.type === 'phone' ? 'tel' : 'text'
             return (
               <td key={cell.id} className={`${num ? 'ef-n ' : ''}ef-editing`}>
                 <input
@@ -632,24 +632,9 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                   type={kind}
                   list={c.type === 'person' ? 'ef-people' : undefined}
                   inputMode={num ? 'decimal' : undefined}
-                  defaultValue={c.type === 'date' ? (normDate(src[c.id]) ?? '') : cellText(src[c.id])}
-                  onFocus={(e) => {
-                    const el = e.currentTarget
-                    if (kind === 'date') {
-                      // 날짜 — 열자마자 달력을 띄운다(지원하는 브라우저에서)
-                      try {
-                        el.showPicker?.()
-                      } catch {
-                        /* 안 되면 입력칸의 달력 단추로 연다 */
-                      }
-                    } else el.select()
-                  }}
-                  onChange={(e) => {
-                    // 달력에서 날짜를 고르면 바로 저장 — 글쇠로 치는 중(연·월·일 칸을 채우는 중)이면 기다린다
-                    if (kind === 'date' && e.currentTarget.value && Date.now() - keyAt > 400) commit(src, c, e.currentTarget.value)
-                  }}
+                  defaultValue={cellText(src[c.id])}
+                  onFocus={(e) => e.currentTarget.select()}
                   onKeyDown={(e) => {
-                    keyAt = Date.now()
                     if (e.key === 'Enter') {
                       e.preventDefault()
                       commit(src, c, e.currentTarget.value)
@@ -850,6 +835,9 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           onPick={(v) => keep(edit.src, edit.col, v)}
         />
       )}
+      {edit && edit.col.type === 'date' && (
+        <DatePicker anchor={edit.anchor} value={cellText(edit.src[edit.col.id])} onClose={() => setEdit(null)} onPick={(v) => commit(edit.src, edit.col, v)} />
+      )}
       {edit && edit.col.type === 'daterange' && (
         <RangePicker anchor={edit.anchor} value={cellText(edit.src[edit.col.id])} onClose={() => setEdit(null)} onPick={(v) => commit(edit.src, edit.col, v)} />
       )}
@@ -927,9 +915,6 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     </div>
   )
 }
-
-/** 날짜 칸에서 마지막으로 글쇠를 친 때 — 달력 고르기와 손으로 치기를 가른다 */
-let keyAt = 0
 
 /** 칸 보기 — 선택 계열은 칩, 숫자는 열 최대값 대비 막대(85% 넘으면 주황) */
 function CellView({ c, v, max, onToggle }: { c: EfColumn; v: unknown; max: number; onToggle?: () => void }) {
