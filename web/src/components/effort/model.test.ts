@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, dayDiff, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, chipStyle, dayDiff, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -116,5 +116,16 @@ describe('유형별 값', () => {
   it('체크박스 — 켜짐 값', () => {
     expect([true, 'true', '1', 'Y', '✓', '예'].every(truthy)).toBe(true)
     expect([false, '', '0', 'no', null].some(truthy)).toBe(false)
+  })
+})
+
+describe('칩 색', () => {
+  it('늘 옅은 바탕 — 색판 오른쪽 칸일수록 칩도 연하다(밝은 색은 글자만 진하게)', () => {
+    expect(chipStyle('#ea580c')).toEqual({ background: '#ea580c22', color: '#ea580c' })
+    const light = chipStyle('#fdba74')
+    expect(light.background).toBe('#fdba7422')
+    expect(light.color).not.toBe('#fdba74')
+    expect(chipStyle('#d0d0d0').color).toBe('#374151')
+    expect(chipStyle('#ffffff').background).toBe('#f3f4f6')
   })
 })

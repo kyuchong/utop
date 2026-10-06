@@ -384,13 +384,15 @@ function hsl2hex(h: number, s: number, l: number): string {
   }
   return '#' + f(0) + f(8) + f(4)
 }
-/** 칩 색 — 어두운·중간 색은 옅은 바탕+그 색 글자, 밝은 색은 바탕으로 쓰고 글자를 어둡게(예전 _rscChipStyle) */
+/** 칩 색 — 늘 옅은 바탕+그 색 글자, 밝은 색은 글자만 같은 계열로 진하게 */
 export function chipStyle(hex: string): { background: string; color: string } {
+  // 늘 옅은 바탕(그 색 13%) — 예전 _rscTagHtml 과 같다. 색이 밝을수록 칩도 연하다(지적: 밝기 0.72 를 넘으면
+  // 꽉 찬 바탕으로 바꾸던 탓에 색판 5번째 칸이 4번째보다 진해 보였다). 밝은 색은 글자만 같은 계열로 진하게 — 읽히게
   const c = String(hex || '')
   const hsl = hex2hsl(c)
-  if (!hsl || hsl.l <= 0.72) return { background: c + '22', color: c }
-  const fg = hsl2hex(hsl.h, Math.max(hsl.s, 0.45), hsl.l > 0.93 ? 0.34 : 0.3)
-  return { background: c, color: hsl.s < 0.06 ? '#374151' : fg }
+  if (!hsl || hsl.l <= 0.6) return { background: c + '22', color: c }
+  const fg = hsl.s < 0.06 ? '#374151' : hsl2hex(hsl.h, Math.max(hsl.s, 0.45), 0.32)
+  return { background: c.toLowerCase() === '#ffffff' ? '#f3f4f6' : c + '22', color: fg }
 }
 /** 색판에서 가장 가까운 칸 — 메뉴를 열면 지금 색 자리에 체크가 서게 */
 export function nearest(hex: string): string {
