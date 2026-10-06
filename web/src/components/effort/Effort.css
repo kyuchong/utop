@@ -943,3 +943,34 @@ input.ef-fsel { cursor: text; }
 .ef-heat tbody th { text-align: left; color: var(--c-text-muted); position: sticky; left: 0; }
 .ef-heat td { height: 22px; min-width: 38px; text-align: center; border-radius: 4px; background: #f5f7fb; color: var(--c-text); font-weight: 700; }
 .ef-heat td.ef-heat-sum { background: transparent; color: #2d6fd4; font-weight: 800; }
+
+/* ── 가져오기 팝업 — 위키 표 가져오기와 같은 배치(ef- 이름으로 따로) ── */
+.ef-imp-back { position: fixed; inset: 0; z-index: 1000; background: rgba(15, 23, 42, 0.35); display: flex; align-items: center; justify-content: center; }
+.ef-imp { width: 680px; max-width: 92vw; max-height: 92vh; overflow: auto; background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25); font-size: 12px; }
+.ef-imp-h { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 14px; }
+.ef-imp-yr { font-size: 11px; font-weight: 700; color: #2d6fd4; background: #2d6fd414; border-radius: 999px; padding: 2px 8px; }
+.ef-imp-x { width: 26px; height: 26px; border: 0; border-radius: 7px; background: #f2f5fa; color: var(--c-text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+.ef-imp-x:hover { background: #e6ebf3; }
+.ef-imp-p { font-size: 12px; color: var(--c-text-muted); margin: 0 0 10px; line-height: 1.6; }
+.ef-imp-file { font-size: 12px; }
+.ef-imp-t { width: 100%; height: 180px; margin-top: 8px; padding: 8px; border: 1px solid var(--c-border); border-radius: 8px; font-family: var(--font-mono); font-size: 12px; resize: vertical; box-sizing: border-box; }
+.ef-imp-i { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--c-text); flex-wrap: wrap; }
+.ef-imp-i .ef-btn { font-size: 11px; padding: 4px 9px; }
+.ef-imp-map { margin-top: 10px; border: 1px solid var(--c-border); border-radius: 8px; overflow: hidden; }
+.ef-imp-mh,
+.ef-imp-mr { display: grid; grid-template-columns: 1fr 110px 1.1fr; gap: 8px; align-items: center; padding: 5px 8px; }
+.ef-imp-mh { background: #f2f6fb; border-bottom: 1px solid var(--c-border); font-size: 11px; font-weight: 700; color: var(--c-text-muted); }
+.ef-imp-mb { max-height: 300px; overflow-y: auto; }
+.ef-imp-mr + .ef-imp-mr { border-top: 1px solid #eef1f6; }
+.ef-imp-mr.dup { background: #fdecef; }
+.ef-imp-mr.skip .ef-imp-mn,
+.ef-imp-mr.skip .ef-imp-mv { color: var(--c-text-faint); text-decoration: line-through; }
+.ef-imp-mn,
+.ef-imp-mv { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ef-imp-mv { font-family: var(--font-mono); font-size: 11px; color: var(--c-text-muted); }
+.ef-imp-mr .ef-fsel { padding: 4px 7px; font-size: 12px; }
+.ef-imp-w { margin-top: 8px; color: #e53e5a; font-size: 12px; }
+.ef-imp-c { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; }
+.ef-imp-e { margin-top: 8px; color: #e53e5a; font-size: 12px; }
+.ef-imp-b { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.ef-btn:disabled { opacity: 0.45; cursor: not-allowed; }

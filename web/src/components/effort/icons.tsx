@@ -45,6 +45,7 @@ import {
   IconTags,
   IconTimeline,
   IconTrash,
+  IconUpload,
   IconUser,
   IconX,
   type Icon,
@@ -102,6 +103,7 @@ const MAP: Record<string, Icon> = {
   tags: IconTags,
   timeline: IconTimeline,
   trash: IconTrash,
+  upload: IconUpload,
   user: IconUser,
   x: IconX,
 }

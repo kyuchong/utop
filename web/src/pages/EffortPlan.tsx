@@ -4,6 +4,7 @@ import { EfGrid, leafRows, optionsOf, useEfTable, type EfCtx } from '@/component
 import { Pop } from '@/components/effort/EffortMenus'
 import { TI } from '@/components/effort/icons'
 import EffortTree from '@/components/effort/EffortTree'
+import { EfImport } from '@/components/effort/EffortImport'
 import { ChartAdd, EfBoard, EfChart, boardColOf, boardCols, chartColOf, chartCols } from '@/components/effort/EffortViews'
 import {
   TYPES,
@@ -188,6 +189,7 @@ function EffortBody({
 
   const [pop, setPop] = useState<{ kind: string; anchor: HTMLElement; id?: string } | null>(null)
   const [colMgr, setColMgr] = useState(false)
+  const [imp, setImp] = useState(false)
   const open = (kind: string, id?: string) => (e: React.MouseEvent<HTMLElement>) => {
     e.preventDefault()
     const a = e.currentTarget
@@ -367,6 +369,10 @@ function EffortBody({
                   }}
                 >
                   <TI n="download" /> CSV
+                </button>
+                {/* 가져오기는 내려받기 바로 오른쪽 — 위키 표처럼 짝으로 둔다 */}
+                <button type="button" className="ef-btn gh" title="엑셀(.xlsx)·CSV·붙여넣기 — 열을 맞춰 들인다" onClick={() => setImp(true)}>
+                  <TI n="upload" /> 가져오기
                 </button>
                 <span className="ef-cnt-all">{shownN}행</span>
               </>
@@ -567,6 +573,18 @@ function EffortBody({
               ))}
           </div>
         </Pop>
+      )}
+      {imp && (
+        <EfImport
+          cols={cols}
+          rows={rows}
+          year={year}
+          onDone={(m) => {
+            touch()
+            toast(m)
+          }}
+          onClose={() => setImp(false)}
+        />
       )}
       {colMgr && <ColMgr d={d} touch={touch} toast={toast} onClose={() => setColMgr(false)} />}
     </>
