@@ -8,11 +8,15 @@ import {
   Chart,
   DoughnutController,
   Legend,
+  Filler,
+  LineController,
+  LineElement,
   LinearScale,
+  PointElement,
   Tooltip,
 } from 'chart.js'
 import { TI } from './icons'
-import { autoColor, toNum, type EfColumn, type EfDoc, type EfRow, type EfView } from './model'
+import { autoColor, defaultGroup, numFmt, toNum, type EfColumn, type EfDoc, type EfRow, type EfView } from './model'
 
 /**
  * Effort Plan 의 보드·차트 보기 — 예전 13-resource.js 의 _rscRenderBoard·_rscRenderChart 를 옮겼다.
@@ -20,7 +24,10 @@ import { autoColor, toNum, type EfColumn, type EfDoc, type EfRow, type EfView } 
  * 기준 열은 보기마다 v.boardBy · v.chartCol 에 둔다(예전 보기와 같은 이름).
  */
 
-Chart.register(DoughnutController, ArcElement, BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip)
+Chart.register(
+  DoughnutController, ArcElement, BarController, BarElement, LineController, LineElement, PointElement, Filler,
+  CategoryScale, LinearScale, Legend, Tooltip,
+)
 
 const NONE = '(미지정)'
 const cellText = (v: unknown) => (v == null ? '' : String(v))
@@ -216,14 +223,89 @@ function CardMenu({
 }
 
 // ── 차트 ────────────────────────────────────────────────────────────
-/** 기준 열 값별 개수(도넛) + 숫자 열 합계(막대) — 예전 _rscRenderChart 와 같은 두 장 */
+/** 기준 열 값별 공수 합계 — 큰 차례. full = 그 값에 든 인원 수 × 월 열 수(한 달 1 M/M 가 가득 찬 투입) */
+export function mmByGroup(rows: EfRow[], cols: EfColumn[], cc: EfColumn | undefined) {
+  if (!cc) return []
+  const months = cols.filter((c) => c.type === 'number' && !c.autoSum)
+  const auto = cols.find((c) => c.autoSum)
+  const nameId = defaultGroup(cols)
+  const by = new Map<string, { sum: number; people: Set<string> }>()
+  rows.forEach((r) => {
+    const k = cellText(r[cc.id]) || '(빈값)'
+    // 행 공수 = 합계 열(있으면), 없으면 월 열을 더한다
+    const mm = auto ? (toNum(r[auto.id]) ?? 0) : months.reduce((a, c) => a + (toNum(r[c.id]) ?? 0), 0)
+    const g = by.get(k) ?? { sum: 0, people: new Set<string>() }
+    g.sum += mm
+    const who = cellText(r[nameId])
+    if (who) g.people.add(who)
+    by.set(k, g)
+  })
+  return [...by.entries()]
+    .map(([k, g]) => ({ k, sum: Math.round(g.sum * 100) / 100, full: Math.max(1, g.people.size) * months.length }))
+    .sort((a, b) => b.sum - a.sum)
+}
+/** 월별 추이 — 숫자 열(자동 합계 열 제외)마다 합 */
+export function monthTrend(rows: EfRow[], cols: EfColumn[]) {
+  const months = cols.filter((c) => c.type === 'number' && !c.autoSum)
+  return months.map((c) => ({ t: c.title, v: Math.round(rows.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0) * 100) / 100 }))
+}
+
+/** 차트 보기 — 위: 개수 분포 · 숫자 열 합계, 아래: 기준 열별 공수 합계(가로 막대) · 월별 추이(예전 화면 배치) */
 export function EfChart({ d, rows, view, ver }: { d: EfDoc; rows: EfRow[]; view: EfView; ver: number }) {
   const cc = chartColOf(view, d.columns)
+  const mmRef = useRef<HTMLCanvasElement>(null)
+  const monRef = useRef<HTMLCanvasElement>(null)
   const cntRef = useRef<HTMLCanvasElement>(null)
   const sumRef = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     // 차트 종류가 달라 한 배열의 타입을 맞추지 않는다 — 정리할 때 destroy 만 부른다
     const charts: Array<{ destroy: () => void }> = []
+    const BLUE = '#2d6fd4'
+    const ORANGE = '#e06a34'
+
+    // ① 기준 열별 공수 합계 — 가득 찬 투입을 넘으면 주황
+    const mm = mmByGroup(rows, d.columns, cc)
+    if (mmRef.current && mm.length)
+      charts.push(
+        new Chart(mmRef.current, {
+          type: 'bar',
+          data: {
+            labels: mm.map((x) => x.k),
+            datasets: [{ label: '공수(M/M)', data: mm.map((x) => x.sum), backgroundColor: mm.map((x) => (x.sum > x.full ? ORANGE : BLUE)), borderRadius: 5 }],
+          },
+          options: {
+            indexAxis: 'y', // 가로 막대 — 위에서부터 큰 차례(예전과 같다)
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { afterLabel: (it) => `가득 찬 투입 ${numFmt(mm[it.dataIndex]!.full)}` } },
+            },
+            scales: { x: { beginAtZero: true }, y: { grid: { display: false } } },
+          },
+        }),
+      )
+
+    // ② 월별 추이
+    const tr = monthTrend(rows, d.columns)
+    if (monRef.current && tr.length)
+      charts.push(
+        new Chart(monRef.current, {
+          type: 'line',
+          data: {
+            labels: tr.map((x) => x.t),
+            datasets: [{ label: '합계', data: tr.map((x) => x.v), borderColor: BLUE, backgroundColor: 'rgba(45,111,212,.14)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2 }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { grid: { display: false } }, y: { beginAtZero: true } },
+          },
+        }),
+      )
+
+    // ③ 개수 분포
     const cnt: Record<string, number> = {}
     if (cc) rows.forEach((r) => {
       const v = cellText(r[cc.id]) || '(빈값)'
@@ -238,13 +320,15 @@ export function EfChart({ d, rows, view, ver }: { d: EfDoc; rows: EfRow[]; view:
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
         }),
       )
+
+    // ④ 숫자 열 합계
     const numCols = d.columns.filter((c) => c.type === 'number')
     const sums = numCols.map((c) => Math.round(rows.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0) * 100) / 100)
     if (sumRef.current && numCols.length)
       charts.push(
         new Chart(sumRef.current, {
           type: 'bar',
-          data: { labels: numCols.map((c) => c.title), datasets: [{ label: '합계', data: sums, backgroundColor: '#2d6fd4', borderRadius: 5 }] },
+          data: { labels: numCols.map((c) => c.title), datasets: [{ label: '합계', data: sums, backgroundColor: BLUE, borderRadius: 5 }] },
           options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -268,6 +352,22 @@ export function EfChart({ d, rows, view, ver }: { d: EfDoc; rows: EfRow[]; view:
         <div className="ef-ch">숫자 열 합계</div>
         <div className="ef-chbox">
           <canvas ref={sumRef} />
+        </div>
+      </div>
+      <div className="ef-card">
+        <div className="ef-ch">
+          기준 열별 공수 합계 <span className="ef-ch-sub">많이 들어간 차례 · 가득 찬 투입을 넘으면 주황</span>
+        </div>
+        <div className="ef-chbox tall">
+          <canvas ref={mmRef} />
+        </div>
+      </div>
+      <div className="ef-card">
+        <div className="ef-ch">
+          월별 추이 <span className="ef-ch-sub">숫자 열 합계(자동 합계 열 제외)</span>
+        </div>
+        <div className="ef-chbox tall">
+          <canvas ref={monRef} />
         </div>
       </div>
     </div>
