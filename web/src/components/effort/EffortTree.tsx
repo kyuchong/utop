@@ -143,23 +143,45 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
             if (id) move(id, n.id)
           }}
           onClick={() => {
-            if (renaming === n.id) return
-            if (folder) {
-              n.open = !isOpen
-              touch()
-            } else open(n.id)
+            // 폴더는 줄을 눌러도 접히지 않는다 — ▸ 단추로만(지시). 표는 누르면 연다
+            if (renaming === n.id || folder) return
+            open(n.id)
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && renaming !== n.id) (e.currentTarget as HTMLElement).click()
+            if (renaming === n.id) return
+            if (e.key === 'Enter' && !folder) open(n.id)
+            // 글쇠로는 → 펴기 · ← 접기(단추와 같은 일)
+            if (folder && (e.key === 'ArrowRight' || e.key === 'ArrowLeft') && isOpen !== (e.key === 'ArrowRight')) {
+              n.open = e.key === 'ArrowRight'
+              touch()
+            }
             if (e.key === 'F2') setRenaming(n.id)
           }}
           onContextMenu={(e) => {
             e.preventDefault()
             setPop({ kind: 'node', anchor: e.currentTarget, id: n.id })
           }}
-          title={folder ? '누르면 접고 펴기 · 우클릭: 메뉴 · 끌어서 옮기기' : '우클릭: 이름·복제·옮기기·삭제 · 끌어서 옮기기'}
+          title={folder ? '▸ 단추: 접고 펴기 · 우클릭: 메뉴 · 끌어서 옮기기' : '우클릭: 이름·복제·옮기기·삭제 · 끌어서 옮기기'}
         >
-          <span className="ef-tn-tw">{folder ? (isOpen ? '▾' : '▸') : ''}</span>
+          {folder ? (
+            <button
+              type="button"
+              className="ef-tn-tw"
+              aria-label={isOpen ? '접기' : '펴기'}
+              title={isOpen ? '접기' : '펴기'}
+              draggable={false}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                n.open = !isOpen
+                touch()
+              }}
+            >
+              {isOpen ? '▾' : '▸'}
+            </button>
+          ) : (
+            <span className="ef-tn-tw" />
+          )}
           <span className="ef-tn-ic"><TI n={folder ? (isOpen ? 'folder-open' : 'folder') : 'table'} /></span>
           {renaming === n.id ? (
             <input
