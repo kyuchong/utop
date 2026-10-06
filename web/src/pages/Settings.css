@@ -1634,11 +1634,12 @@ button.dcc-st:disabled { cursor: default; }
    눈이 왼쪽 끝과 오른쪽 끝을 오간다. 다른 설정 판과 같은 폭으로 왼쪽에 모은다 */
 .ml .ml-card.ml-smtp,
 .ml .ml-card.ml-test { max-width: 760px; }
-/* SMTP 칸은 **한 줄에 하나**(지시: B 안 — 이름 위, 입력 아래). 포트·보안은 짧은 폭 그대로 */
+/* SMTP 칸은 **한 줄에 하나**(지시: B 안 — 이름 위, 입력 아래).
+   폭은 **모두 같게**(지시: 들쑥날쑥하지 않게) — 포트·보안도 다른 칸과 같은 폭 */
 .ml .ml-smtp .ml-row { flex-direction: column; align-items: stretch; gap: 12px; }
-.ml .ml-smtp .ml-row > .fld { flex: none; width: 100%; }
-.ml .ml-smtp .ml-row > .ml-sm { width: 110px; }
-.ml .ml-smtp .ml-row > .ml-md { width: 180px; }
+.ml .ml-smtp .ml-row > .fld,
+.ml .ml-smtp .ml-row > .ml-sm,
+.ml .ml-smtp .ml-row > .ml-md { flex: none; width: 100%; }
 .ml .fld { display: flex; flex-direction: column; gap: 4px; }
 .ml .fld > span { font-size: var(--fs-xs); color: var(--c-text-muted); }
 .ml .fld input,
