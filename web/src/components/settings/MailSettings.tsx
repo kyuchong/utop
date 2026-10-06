@@ -287,7 +287,7 @@ export default function MailSettings() {
 
       {tab === 'smtp' && (
         <>
-          <div className="ml-card">
+          <div className="ml-card ml-smtp">
             <label className="ml-on">
               <input
                 type="checkbox"

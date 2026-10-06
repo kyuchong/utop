@@ -1630,6 +1630,10 @@ button.dcc-st:disabled { cursor: default; }
 .ml-row > .fld { flex: 1 1 220px; min-width: 0; }
 .ml-row > .ml-sm { flex: 0 0 110px; }
 .ml-row > .ml-md { flex: 0 0 180px; }
+/* SMTP 칸들은 **폭을 줄인다**(지시) — 화면 끝까지 퍼지면 서버 주소 한 줄이 1,400px 이 되어
+   눈이 왼쪽 끝과 오른쪽 끝을 오간다. 다른 설정 판과 같은 폭으로 왼쪽에 모은다 */
+.ml .ml-card.ml-smtp,
+.ml .ml-card.ml-test { max-width: 760px; }
 .ml .fld { display: flex; flex-direction: column; gap: 4px; }
 .ml .fld > span { font-size: var(--fs-xs); color: var(--c-text-muted); }
 .ml .fld input,
