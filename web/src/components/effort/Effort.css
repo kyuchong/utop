@@ -977,3 +977,36 @@ input.ef-fsel { cursor: text; }
 .ef-imp-e { margin-top: 8px; color: #e53e5a; font-size: 12px; }
 .ef-imp-b { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .ef-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── 타임라인 — 왼쪽 이름 기둥(230) + 달 칸(66)씩. 이름 기둥·달 머리줄은 붙박이 ── */
+.ef-tl { position: absolute; inset: 0; overflow: auto; padding: 12px; }
+.ef-tl-in { position: relative; min-width: 100%; background: #fff; border: 1px solid var(--c-border); border-radius: 12px; }
+.ef-tl-head { display: flex; position: sticky; top: 0; z-index: 4; background: #f7f9fc; border-bottom: 2px solid #e3e8f0; border-radius: 12px 12px 0 0; }
+.ef-tl-axis { display: flex; }
+.ef-tl-m { flex: none; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800; color: var(--c-text-faint); border-left: 1px solid #eef1f6; }
+.ef-tl-m.now { color: #2d6fd4; background: #2d6fd414; }
+.ef-tl-body { position: relative; }
+.ef-tl-row { display: flex; min-height: 30px; border-bottom: 1px solid #f0f2f6; }
+.ef-tl-lab { flex: 0 0 230px; width: 230px; box-sizing: border-box; position: sticky; left: 0; z-index: 3; background: #fff; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 28px; font-size: 11px; color: var(--c-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #e3e8f0; }
+.ef-tl-corner { background: #f7f9fc; padding-left: 8px; }
+.ef-tl-all { font: inherit; font-size: 10.5px; font-weight: 700; border: 1px solid var(--c-border); border-radius: 7px; background: #fff; color: var(--c-text-muted); padding: 3px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.ef-tl-all:hover { border-color: #2d6fd4; color: #2d6fd4; }
+.ef-tl-lane { position: relative; flex: 1; min-height: 30px;
+  background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(var(--ef-tl-w) - 1px), #f0f2f6 calc(var(--ef-tl-w) - 1px), #f0f2f6 var(--ef-tl-w)); }
+.ef-tl-grp { min-height: 34px; background: #fafbfd; }
+.ef-tl-grp .ef-tl-lab { background: #fafbfd; padding-left: 8px; cursor: pointer; color: var(--c-text); }
+.ef-tl-grp .ef-tl-lab:hover b { color: #2d6fd4; }
+.ef-tl-grp .ef-tl-lab b { font-weight: 800; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.ef-tl-grp .ef-tl-lab em { font-style: normal; font-size: 10px; font-weight: 700; color: var(--c-text-faint); background: #eef1f6; border-radius: 999px; padding: 1px 7px; }
+.ef-tl-tot { margin-left: auto; font-size: 10.5px; font-weight: 800; color: #2d6fd4; }
+.ef-tl-car { font-size: 12px; flex: none; color: var(--c-text-faint); }
+.ef-tl-load { position: absolute; top: 5px; bottom: 5px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800; color: var(--c-text); }
+.ef-tl-load.zero { background: transparent; }
+.ef-tl-load.over { background: #e06a34; color: #fff; }
+.ef-tl-sum { position: absolute; top: 12px; height: 10px; border-radius: 5px; background: #2d6fd455; }
+.ef-tl-bar { position: absolute; top: 5px; bottom: 5px; border: 1px solid; border-left-width: 3px; border-radius: 6px; display: flex; align-items: center; overflow: hidden; font-size: 10.5px; font-weight: 700; color: var(--c-text); }
+.ef-tl-bar > span { padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ef-tl-bar > span.ef-tl-v { flex: none; padding: 0; text-align: center; box-sizing: border-box; margin-left: -3px; }
+.ef-tl-bar > span.ef-tl-v + span.ef-tl-v { margin-left: 0; }
+.ef-tl-none { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 10.5px; color: var(--c-text-faint); }
+.ef-tl-today { position: absolute; top: 0; bottom: 0; width: 2px; background: #e53e5a; z-index: 2; pointer-events: none; }

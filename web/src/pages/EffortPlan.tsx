@@ -5,6 +5,7 @@ import { Pop } from '@/components/effort/EffortMenus'
 import { TI } from '@/components/effort/icons'
 import EffortTree from '@/components/effort/EffortTree'
 import { EfImport } from '@/components/effort/EffortImport'
+import { EfTimeline, tlByOf, tlCols, tlLabelOf, tlModeOf, tlModes } from '@/components/effort/EffortTimeline'
 import { ChartAdd, EfBoard, EfChart, boardColOf, boardCols, chartColOf, chartCols } from '@/components/effort/EffortViews'
 import {
   TYPES,
@@ -38,7 +39,7 @@ import '@/components/effort/Effort.css'
  * 자료는 예전과 같은 /api/resource/manpower(KV "manpower") 문서 한 벌이다 — 서버가 저장 전에
  * 백업(최근 30개)을 남긴다. 연도는 페이지(pages[YYYY].rows), 열은 모든 연도가 함께 쓴다.
  * 보기 탭은 betaViews — 탭마다 검색·필터·정렬·그룹을 따로 기억한다(v.ef).
- * 보드·차트·타임라인 보기는 아직 옮기지 않았다(탭은 남기고 안내만 한다).
+ * 보드·차트·타임라인 보기는 components/effort 의 EffortViews · EffortTimeline 에 있다.
  */
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -406,9 +407,58 @@ function EffortBody({
                   <TI n="filter" /> 필터{fCount ? ' ' + fCount : ''}
                 </button>
               </>
-            ) : (
-              <span className="ef-tbhint">날짜 열 2개(시작·완료) 기준 타임라인</span>
-            )}
+            ) : view.type === 'gantt' ? (
+              <>
+                {/* 타임라인 — 묶기 열(한 줄에 하나) · 막대 이름 열 · 필터(차트처럼 탭마다) */}
+                {tlModes(cols).length > 1 && (
+                  <select
+                    className="ef-fsel ef-tbsel"
+                    aria-label="타임라인 기준"
+                    value={tlModeOf(view, cols)}
+                    onChange={(e) => {
+                      view.tlMode = e.target.value
+                      touch()
+                    }}
+                  >
+                    <option value="month">기준: 월 열(공수)</option>
+                    <option value="date">기준: 기간·날짜 열</option>
+                  </select>
+                )}
+                <select
+                  className="ef-fsel ef-tbsel"
+                  aria-label="타임라인 묶기 열"
+                  value={tlByOf(view, cols)?.id ?? ''}
+                  onChange={(e) => {
+                    view.tlBy = e.target.value
+                    touch()
+                  }}
+                >
+                  {tlCols(cols).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      묶기: {c.title}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="ef-fsel ef-tbsel"
+                  aria-label="타임라인 막대 이름 열"
+                  value={tlLabelOf(view, cols)?.id ?? ''}
+                  onChange={(e) => {
+                    view.tlLabel = e.target.value
+                    touch()
+                  }}
+                >
+                  {tlCols(cols).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      막대 이름: {c.title}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" className={`ef-btn gh${fCount ? ' on' : ''}`} onClick={open('filter')}>
+                  <TI n="filter" /> 필터{fCount ? ' ' + fCount : ''}
+                </button>
+              </>
+            ) : null}
           </div>
 
           <div className="ef-wrap">
@@ -420,10 +470,10 @@ function EffortBody({
               <EfBoard d={d} rows={rows} view={view} touch={touch} toast={toast} />
             ) : view.type === 'chart' ? (
               <EfChart d={d} rows={chartRows} view={view} ver={ver} touch={touch} toast={toast} />
+            ) : view.type === 'gantt' ? (
+              <EfTimeline cols={cols} rows={chartRows} view={view} year={year} />
             ) : (
-              <div className="ef-empty">
-                「{view.name}」은 {viewName(view.type)} 보기입니다 — 타임라인은 아직 옮기지 않았습니다.
-              </div>
+              <div className="ef-empty">「{view.name}」은 알 수 없는 보기({viewName(view.type)})입니다</div>
             )}
           </div>
         </div>
