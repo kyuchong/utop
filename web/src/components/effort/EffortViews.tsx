@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ArcElement,
@@ -80,9 +80,7 @@ export function EfBoard({
 }) {
   const cols = d.columns
   const bc = boardColOf(view, cols)
-  const [dragRow, setDragRow] = useState<EfRow | null>(null)
-  /** 끄는 중 놓일 자리 — 칸 g 의 i 번째 카드 앞(i = 칸 끝이면 맨 뒤) */
-  const [over, setOver] = useState<{ g: string; i: number } | null>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; r: EfRow } | null>(null)
   if (!bc) return <div className="ef-empty">선택/상태 타입 열이 있어야 보드를 만들 수 있습니다 — [열 설정]에서 추가하세요</div>
 
@@ -94,27 +92,128 @@ export function EfBoard({
   })
   if (!groups.length) groups.push(NONE)
   const titleCol = cols.find((c) => c.type === 'text')
-  const drop = () => {
-    const r = dragRow
-    const at = over
-    setDragRow(null)
-    setOver(null)
-    if (!r || !at) return
-    const lane = rows.filter((x) => (cellText(x[bc.id]) || NONE) === at.g)
-    const nv = at.g === NONE ? '' : at.g
-    const moved = cellText(r[bc.id]) !== nv
-    const was = rows.indexOf(r)
-    if (moved) {
-      if (nv) r[bc.id] = nv
-      else delete r[bc.id]
+  const laneOf = (g: string) => rows.filter((r) => (cellText(r[bc.id]) || NONE) === g)
+
+  /**
+   * 카드 끌기 — 표 머리글 열 이동과 같은 방식(지시): 끄는 카드가 마우스를 따라오고,
+   * 다른 카드들이 비켜서 들어갈 자리가 열린다. React 를 거치지 않고 transform 만 바꾼다
+   * (카드 수백 장을 움직일 때마다 다시 그리면 끊긴다). 놓으면 그 칸·그 자리로 행을 옮긴다.
+   */
+  const cardDrag = (ev: React.MouseEvent<HTMLDivElement>, r: EfRow) => {
+    if (ev.button !== 0) return
+    const box = boxRef.current
+    if (!box) return
+    ev.preventDefault()
+    const el = ev.currentTarget
+    const x0 = ev.clientX
+    const y0 = ev.clientY
+    let moved = false
+    // 위치는 판(스크롤되는 상자) 안의 좌표로 잡는다 — 끄는 중 판이 굴러도 맞게
+    const br0 = box.getBoundingClientRect()
+    const sl0 = box.scrollLeft
+    const st0 = box.scrollTop
+    const toBox = (x: number, y: number) => {
+      const b = box.getBoundingClientRect()
+      return { x: x - b.left + box.scrollLeft, y: y - b.top + box.scrollTop }
     }
-    placeRow(rows, r, lane, at.i)
-    if (moved || rows.indexOf(r) !== was) touch()
+    const lanes = [...box.querySelectorAll<HTMLElement>('.ef-klist')].map((list) => {
+      const col = list.closest<HTMLElement>('.ef-kcol')!
+      const cr = col.getBoundingClientRect()
+      const cards = [...list.querySelectorAll<HTMLElement>('.ef-kcard')].filter((c) => c !== el)
+      return {
+        g: list.dataset.g!,
+        list,
+        left: cr.left - br0.left + sl0,
+        right: cr.right - br0.left + sl0,
+        cards: cards.map((c) => {
+          const rr = c.getBoundingClientRect()
+          return { el: c, mid: rr.top - br0.top + st0 + rr.height / 2, k: Number(c.dataset.k) }
+        }),
+      }
+    })
+    const src = lanes.find((l) => l.list.contains(el))
+    if (!src) return
+    const f = Number(el.dataset.k) // 끄는 카드의 칸 안 차례
+    const H = el.getBoundingClientRect().height + 9 // 카드 높이 + 사이(gap)
+    let tg = src
+    let ti = src.cards.filter((c) => c.k < f).length // 끄는 카드를 뺀 목록에서 들어갈 차례
+    let px = x0
+    let py = y0
+    const set = (e: HTMLElement, t: string) => e.style.transform !== t && (e.style.transform = t)
+    const apply = () => {
+      const p = toBox(px, py)
+      tg = lanes.find((l) => p.x >= l.left - 7 && p.x < l.right + 7) ?? tg
+      ti = tg.cards.filter((c) => c.mid < p.y).length
+      lanes.forEach((l) => {
+        l.list.style.paddingBottom = l === tg && tg !== src ? `${H}px` : ''
+        l.cards.forEach((c, w) => {
+          // 처음엔 끄는 카드가 앞에 있었나 · 지금은 앞에 들어가나 — 그 차이만큼 비켜선다
+          const was = l === src && c.k > f ? 1 : 0
+          const now = l === tg && w >= ti ? 1 : 0
+          set(c.el, now - was ? `translateY(${(now - was) * H}px)` : '')
+        })
+      })
+      set(el, `translate(${px - x0 + box.scrollLeft - sl0}px, ${py - y0 + box.scrollTop - st0}px) rotate(1.5deg)`)
+    }
+    // 판 가장자리에 대고 있으면 그쪽으로 굴린다(긴 칸 아래쪽·오른쪽 칸으로 끌 때)
+    let roll = 0
+    const tick = () => {
+      const b = box.getBoundingClientRect()
+      const vx = px > b.right - 40 ? 14 : px < b.left + 40 ? -14 : 0
+      const vy = py > b.bottom - 40 ? 14 : py < b.top + 40 ? -14 : 0
+      if (vx || vy) {
+        box.scrollLeft += vx
+        box.scrollTop += vy
+        apply()
+      }
+      roll = requestAnimationFrame(tick)
+    }
+    const mv = (e: MouseEvent) => {
+      px = e.clientX
+      py = e.clientY
+      if (!moved) {
+        if (Math.hypot(px - x0, py - y0) < 4) return
+        moved = true
+        setMenu(null)
+        document.body.style.cursor = 'grabbing'
+        el.classList.add('ef-kmoving')
+        box.classList.add('ef-kdragging')
+        roll = requestAnimationFrame(tick)
+      }
+      apply()
+    }
+    const up = () => {
+      document.removeEventListener('mousemove', mv, true)
+      document.removeEventListener('mouseup', up, true)
+      cancelAnimationFrame(roll)
+      document.body.style.cursor = ''
+      el.classList.remove('ef-kmoving')
+      box.classList.remove('ef-kdragging')
+      el.style.transform = ''
+      lanes.forEach((l) => {
+        l.list.style.paddingBottom = ''
+        l.cards.forEach((c) => (c.el.style.transform = ''))
+      })
+      if (!moved) return
+      const nv = tg.g === NONE ? '' : tg.g
+      const changed = cellText(r[bc.id]) !== nv
+      const was = rows.indexOf(r)
+      const lane = laneOf(tg.g).filter((x) => x !== r)
+      if (changed) {
+        if (nv) r[bc.id] = nv
+        else delete r[bc.id]
+      }
+      placeRow(rows, r, lane, ti)
+      if (changed || rows.indexOf(r) !== was) touch()
+    }
+    document.addEventListener('mousemove', mv, true)
+    document.addEventListener('mouseup', up, true)
   }
+
   return (
-    <div className="ef-kanban">
+    <div className="ef-kanban" ref={boxRef}>
       {groups.map((g) => {
-        const items = rows.filter((r) => (cellText(r[bc.id]) || NONE) === g)
+        const items = laneOf(g)
         return (
           <div className="ef-kcol" key={g}>
             <div className="ef-kcol-h">
@@ -122,22 +221,7 @@ export function EfBoard({
               {g}
               <span className="ef-kcnt">{items.length}</span>
             </div>
-            <div
-              className={`ef-klist${over?.g === g ? ' over' : ''}`}
-              onDragOver={(e) => {
-                if (!dragRow) return
-                e.preventDefault()
-                // 카드 위가 아니면(빈 자리) 칸 맨 뒤
-                if (e.target === e.currentTarget && (over?.g !== g || over.i !== items.length)) setOver({ g, i: items.length })
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(null)
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                drop()
-              }}
-            >
+            <div className="ef-klist" data-g={g}>
               {items.map((r, i) => {
                 // 제목 열·기준 열 말고 값이 있는 칸 셋(예전과 같다)
                 const meta = cols
@@ -146,28 +230,11 @@ export function EfBoard({
                   .map((c) => `${c.title}: ${cellText(r[c.id])}`)
                   .join(' · ')
                 return (
-                  <Fragment key={i}>
-                  {over?.g === g && over.i === i && <div className="ef-kdrop" />}
                   <div
-                    className={`ef-kcard${dragRow === r ? ' ghost' : ''}`}
-                    draggable
-                    onDragOver={(e) => {
-                      if (!dragRow) return
-                      e.preventDefault()
-                      // 카드 위쪽 절반이면 그 앞, 아래쪽 절반이면 그 뒤
-                      const b = e.currentTarget.getBoundingClientRect()
-                      const at = e.clientY < b.top + b.height / 2 ? i : i + 1
-                      if (over?.g !== g || over.i !== at) setOver({ g, i: at })
-                    }}
-                    onDragStart={(e) => {
-                      e.dataTransfer.effectAllowed = 'move'
-                      e.dataTransfer.setData('text/plain', 'card')
-                      setDragRow(r)
-                    }}
-                    onDragEnd={() => {
-                      setDragRow(null)
-                      setOver(null)
-                    }}
+                    key={i}
+                    className="ef-kcard"
+                    data-k={i}
+                    onMouseDown={(e) => cardDrag(e, r)}
                     onContextMenu={(e) => {
                       e.preventDefault()
                       setMenu({ x: e.clientX, y: e.clientY, r })
@@ -176,10 +243,8 @@ export function EfBoard({
                     <div className="ef-kname">{(titleCol && cellText(r[titleCol.id])) || '(제목)'}</div>
                     {meta && <div className="ef-kmeta">{meta}</div>}
                   </div>
-                  </Fragment>
                 )
               })}
-              {over?.g === g && over.i === items.length && <div className="ef-kdrop" />}
             </div>
           </div>
         )
