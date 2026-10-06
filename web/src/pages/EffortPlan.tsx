@@ -4,7 +4,7 @@ import { EfGrid, leafRows, optionsOf, useEfTable, type EfCtx } from '@/component
 import { Pop } from '@/components/effort/EffortMenus'
 import { TI } from '@/components/effort/icons'
 import EffortTree from '@/components/effort/EffortTree'
-import { EfBoard, EfChart, boardColOf, boardCols, chartColOf, chartCols } from '@/components/effort/EffortViews'
+import { ChartAdd, EfBoard, EfChart, boardColOf, boardCols, chartColOf, chartCols } from '@/components/effort/EffortViews'
 import {
   TYPES,
   condMatch,
@@ -403,6 +403,10 @@ function EffortBody({
               </>
             ) : view.type === 'chart' ? (
               <>
+                {/* 보고 싶은 차트를 고른다 — 기본 차트 켜고 끄기 · 새 차트 만들기(지시) */}
+                <button type="button" className={`ef-btn gh${pop?.kind === 'chartadd' ? ' on' : ''}`} onClick={open('chartadd')}>
+                  <TI n="plus" /> 차트 추가
+                </button>
                 <span className="ef-tbhint">기준 열</span>
                 <select
                   className="ef-fsel ef-tbsel"
@@ -437,7 +441,7 @@ function EffortBody({
             ) : view.type === 'board' ? (
               <EfBoard d={d} rows={rows} view={view} touch={touch} toast={toast} />
             ) : view.type === 'chart' ? (
-              <EfChart d={d} rows={chartRows} view={view} ver={ver} />
+              <EfChart d={d} rows={chartRows} view={view} ver={ver} touch={touch} toast={toast} />
             ) : (
               <div className="ef-empty">
                 「{view.name}」은 {viewName(view.type)} 보기입니다 — 타임라인은 아직 옮기지 않았습니다.
@@ -518,6 +522,7 @@ function EffortBody({
           }}
         />
       )}
+      {pop?.kind === 'chartadd' && <ChartAdd anchor={pop.anchor} d={d} view={view} touch={touch} toast={toast} onClose={close} />}
       {pop?.kind === 'filter' && <CondPanel anchor={pop.anchor} cols={cols} rows={rows} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'sort' && <SortPanel anchor={pop.anchor} cols={cols} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'addview' && (

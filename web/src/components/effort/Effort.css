@@ -903,12 +903,11 @@ input.ef-fsel { cursor: text; }
 .ef-cardmenu { width: 160px; }
 .ef-charts { position: absolute; inset: 0; overflow: auto; padding: 14px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; align-content: start; }
 .ef-card { background: #fff; border: 1px solid var(--c-border); border-radius: 13px; padding: 16px; }
-.ef-ch { font-size: 13px; font-weight: 900; color: var(--c-text-muted); margin-bottom: 12px; }
+.ef-ch { font-size: 13px; font-weight: 900; color: var(--c-text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
 .ef-chbox { position: relative; height: 280px; }
 @media (max-width: 900px) { .ef-charts { grid-template-columns: 1fr; } }
 .ef-ch-sub { font-size: 11px; font-weight: 600; color: var(--c-text-faint); margin-left: 7px; }
 .ef-chbox.tall { height: 320px; }
-/* 행 번호 — 누르면 행 선택(엑셀식). 선택된 행의 번호는 파랗게 */
 /* 행 번호 — 엑셀처럼 오른쪽을 가리키는 검은 화살표(e-resize 는 폭 조절 모양이라 헷갈린다) */
 .ef-t td.ef-rnum {
   cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M2 6h7V2.5L14.5 8 9 13.5V10H2z' fill='%23111' stroke='%23fff' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E") 14 8, pointer;
@@ -924,3 +923,22 @@ input.ef-fsel { cursor: text; }
 .ef-crumb-it .ef-ti { font-size: 12px; flex: none; }
 .ef-crumb-sep { margin: 0 4px; font-size: 10px !important; opacity: 0.6; }
 .ef-crumb-cur { color: var(--c-text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+
+/* 차트 카드 머리 오른쪽 × — 기본 차트는 숨기고, 만든 차트는 지운다. 카드에 올렸을 때만 보인다 */
+.ef-ch-t { flex: 1; min-width: 0; }
+.ef-chx { flex: none; width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--c-text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; opacity: 0; }
+.ef-card:hover .ef-chx { opacity: 1; }
+.ef-chx:hover { background: #fdecef; color: #e53e5a; }
+.ef-chnone { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--c-text-faint); }
+/* [＋ 차트 추가] 팝업 */
+.ef-chadd { width: 250px; }
+.ef-chk { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 2px 2px 6px; }
+.ef-chk-b { font: inherit; font-size: 10px; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border: 1px solid var(--c-border); border-radius: 7px; background: #fff; color: var(--c-text-muted); cursor: pointer; }
+.ef-chk-b .ef-ti { font-size: 16px; }
+.ef-chk-b.rot .ef-ti { transform: rotate(90deg) scaleX(-1); }
+.ef-chk-b:hover:not(:disabled) { border-color: #2d6fd4; color: #2d6fd4; }
+.ef-chk-b.on { border-color: #2d6fd4; background: #2d6fd414; color: #2d6fd4; }
+.ef-chk-b:disabled { opacity: 0.35; cursor: not-allowed; }
+.ef-chf { display: flex; align-items: center; gap: 6px; margin: 4px 2px; font-size: 10px; font-weight: 700; color: var(--c-text-faint); }
+.ef-chf > span { width: 44px; flex: none; }
+.ef-chf .ef-fsel { font-size: 11px; padding: 5px 7px; }
