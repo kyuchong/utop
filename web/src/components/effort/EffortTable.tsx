@@ -1755,13 +1755,15 @@ function CellView({ c, v, max, fx, onToggle }: { c: EfColumn; v: unknown; max: n
     )
   }
   if (c.type === 'datediff') {
-    // 남은 일수(오늘 → 종료일) — 사흘 안이면 주황, 지났으면 흐리게. 기간 길이는 마우스를 올리면
+    // 「총 N일 / N일 남음」(지시) — 총은 기간 시작~종료(양끝 포함), 남음은 오늘 → 종료일.
+    // 사흘 안이면 주황, 지났으면 흐리게. 종료일만 있거나 시작만 있으면(총을 못 세면) 남음만
     const { left, span } = (v ?? {}) as { left: number | null; span: number | null }
     if (left == null) return null
     const txt = left > 0 ? `${left}일 남음` : left === 0 ? '오늘 마감' : `${-left}일 지남`
     return (
-      <span className={`ef-ddiff${left < 0 ? ' past' : left <= 3 ? ' soon' : ''}`} title={`${span ? `기간 ${span}일 · ` : ''}${DIFF_HINT}`}>
+      <span className={`ef-ddiff${left < 0 ? ' past' : left <= 3 ? ' soon' : ''}`} title={DIFF_HINT}>
         <TI n="clock-hour-4" />
+        {span ? <span className="ef-dtot">총 {span}일 /</span> : null}
         {txt}
       </span>
     )

@@ -664,7 +664,7 @@ const SIZE: Record<string, number> = {
 }
 const NUM_W = 64
 /** 유형별 기본 폭 — 기간은 「2026-01-05 ~ 02-10」 이 다 보이게 */
-const TYPE_W: Partial<Record<EfType, number>> = { date: 96, daterange: 176, datediff: 120, checkbox: 52, url: 150, email: 150, phone: 116 }
+const TYPE_W: Partial<Record<EfType, number>> = { date: 96, daterange: 176, datediff: 150, checkbox: 52, url: 150, email: 150, phone: 116 }
 export const colSize = (c: EfColumn) =>
   (typeof c.efWidth === 'number' && c.efWidth > 0 ? c.efWidth : 0) ||
   (SIZE[String(c.title ?? '').trim()] ?? (isNumCol(c) ? NUM_W : c.width || TYPE_W[c.type] || 96))

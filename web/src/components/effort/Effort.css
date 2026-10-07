@@ -1024,7 +1024,7 @@ input.ef-fsel { cursor: text; }
 .ef-date { font-variant-numeric: tabular-nums; }
 .ef-drange { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: #eef4fd; color: #2d6fd4; font-weight: 700; font-size: 11px; font-variant-numeric: tabular-nums; }
 .ef-drange .ef-ti { font-size: 11px; flex: none; }
-.ef-ddiff { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; color: #2d6fd4; }
+.ef-ddiff { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; color: #2d6fd4; white-space: nowrap; }
 .ef-ddiff .ef-ti { font-size: 11px; }
 .ef-ckbox { border: 0; background: transparent; padding: 0; cursor: pointer; font-size: 15px; line-height: 1; color: #c0c6d0; display: inline-flex; vertical-align: middle; }
 .ef-ckbox.on { color: #2d6fd4; }
@@ -1197,3 +1197,6 @@ input.ef-fsel { cursor: text; }
 .ef-sidebtn { flex: none; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 6px; background: var(--c-primary-bg); color: var(--c-primary); cursor: pointer; padding: 0; }
 .ef-sidebtn svg { width: 16px; height: 16px; }
 .ef-sidebtn:hover { background: var(--c-primary); color: #fff; }
+
+/* 남은 일수 앞 「총 N일 /」 — 남음보다 한 단계 흐리게 */
+.ef-dtot { color: var(--c-text-muted); font-weight: 600; }
