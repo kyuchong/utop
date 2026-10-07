@@ -645,7 +645,7 @@ function EffortBody({
                 <button key={c.id} type="button" className={`ef-mi${gId === c.id ? ' on' : ''}`} onClick={() => { close(); setSt({ group: c.id }) }}>
                   <i className="ef-mi-ic"><TI n="layout-rows" /></i>
                   <span>{c.title}</span>
-                  {c.id === defaultGroup(cols) && <em className="ef-mi-n">기본</em>}
+                  {d.efTree && c.id === defaultGroup(cols) && <em className="ef-mi-n">기본</em>}
                   {gId === c.id && <i className="ef-mi-ck"><TI n="check" /></i>}
                 </button>
               ))}

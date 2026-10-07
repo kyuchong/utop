@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, optionsOf, ROW_ID, calcFormula, formulaText, isNumCol, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, newTable, optionsOf, ROW_ID, calcFormula, formulaText, isNumCol, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -264,5 +264,12 @@ describe('optionsOf — 고르기 목록', () => {
   it('선택은 칸 값 그대로(쉼표가 든 값도 하나)', () => {
     const c: EfColumn = { id: 's', title: 'S', type: 'select', options: ['a'] }
     expect(optionsOf([{ s: 'a' }, { s: 'b, c' }], c)).toEqual(['a', 'b, c'])
+  })
+})
+
+describe('새 표 — 노션처럼 이름·태그 두 열로 시작', () => {
+  it('열을 안 넘기면 이름(글)·태그(다중 선택), 넘기면 그 열(복제 — 열만)', () => {
+    expect(newTable().columns.map((c) => [c.title, c.type])).toEqual([['이름', 'text'], ['태그', 'multiselect']])
+    expect(newTable([{ id: 'a', title: 'A', type: 'number' }]).columns.map((c) => c.id)).toEqual(['a'])
   })
 })

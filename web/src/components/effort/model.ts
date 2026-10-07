@@ -161,9 +161,17 @@ export function normalize(raw: unknown): EfDoc {
 export const tableOf = (root: EfDoc, id: string): EfDoc => (id === MAIN ? root : (root.efTables?.[id] ?? root))
 /** 표의 행 수(지금 연도) */
 export const tableRows = (t: EfDoc) => t.pages[t.curPage ?? '']?.rows.length ?? 0
-/** 새 표 — 기본 열, 올해 페이지, 표 보기 하나 */
+/**
+ * 새 표의 열 — 노션 새 데이터베이스처럼 「이름」·「태그」 둘만(지적: 노션은 기본 열이 없다).
+ * 인원 투입 틀(defaultColumns)은 원래 표(인원 투입)를 처음 세울 때만 쓴다
+ */
+export const blankColumns = (): EfColumn[] => [
+  { id: 'title', title: '이름', type: 'text' },
+  { id: 'tags', title: '태그', type: 'multiselect', options: [] },
+]
+/** 새 표 — 이름·태그 열(또는 넘긴 열), 올해 페이지, 표 보기 하나 */
 export function newTable(cols?: EfColumn[]): EfDoc {
-  const d = normalizeTable(cols ? { columns: JSON.parse(JSON.stringify(cols)) } : {})
+  const d = normalizeTable({ columns: JSON.parse(JSON.stringify(cols ?? blankColumns())) })
   ensureViews(d)
   return d
 }
@@ -221,7 +229,7 @@ export function viewState(v: EfView | undefined, cols: EfColumn[]): EfViewState 
   return { q: String(v?.searchQ ?? ''), filters: [], sorting: sorts, group: null }
 }
 
-/** 기본 그룹 — 인원 열(예전과 같다) */
+/** 기본 그룹 — 인원 열(예전과 같다). 원래 표(인원 투입)에서만 쓴다 — 새 표는 노션처럼 묶지 않은 채 시작 */
 export function defaultGroup(cols: EfColumn[]): string {
   const c =
     cols.find((x) => x.id === 'name') ||

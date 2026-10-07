@@ -120,8 +120,9 @@ export function useEfTable(ctx: EfCtx) {
   const [expanded, setExpanded] = useState<ExpandedState>(true)
   const [sizing, setSizing] = useState<ColumnSizingState>({})
 
-  // null = 아직 안 고름 → 기본 인원 열, '' = 그룹 없음
-  const g0 = st.group === null ? defaultGroup(cols) : st.group
+  // null = 아직 안 고름 → 원래 표(인원 투입)만 기본 인원 열, 새 표는 묶지 않는다(지적: 노션은 기본 그룹이 없다). '' = 그룹 없음
+  const isMain = !!ctx.doc.efTree
+  const g0 = st.group === null ? (isMain ? defaultGroup(cols) : '') : st.group
   // 숨긴 그룹(지시: 그룹 숨기기) — 지금 묶은 열에서 숨긴 값들. 묶음을 풀면 다시 다 보인다
   const hidG = (g0 && st.hiddenGroups?.[g0]) || []
   const hidGKey = hidG.join('\u0001')
