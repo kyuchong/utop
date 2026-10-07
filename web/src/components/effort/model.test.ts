@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, newTable, optionsOf, ROW_ID, calcFormula, formulaText, isNumCol, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, filterSeed, newTable, optionsOf, ROW_ID, calcFormula, formulaText, isNumCol, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -271,5 +271,32 @@ describe('새 표 — 노션처럼 이름·태그 두 열로 시작', () => {
   it('열을 안 넘기면 이름(글)·태그(다중 선택), 넘기면 그 열(복제 — 열만)', () => {
     expect(newTable().columns.map((c) => [c.title, c.type])).toEqual([['이름', 'text'], ['태그', 'multiselect']])
     expect(newTable([{ id: 'a', title: 'A', type: 'number' }]).columns.map((c) => c.id)).toEqual(['a'])
+  })
+})
+
+describe('filterSeed — 필터 중 새 행에 미리 넣을 값', () => {
+  it('툴바 조건 같음·포함·이상은 그 값, 아님·비어 있음은 건너뜀', () => {
+    expect(
+      filterSeed(
+        [
+          { col: 's', op: 'eq', v: '완료' },
+          { col: 't', op: 'contains', v: 'abc' },
+          { col: 'n', op: 'gte', v: '3' },
+          { col: 'x', op: 'neq', v: 'a' },
+          { col: 'y', op: 'empty', v: '' },
+        ],
+        [],
+      ),
+    ).toEqual({ s: '완료', t: 'abc', n: '3' })
+  })
+  it('머리글 필터 — 고른 값은 첫째, 글자는 그대로, 숫자 범위는 최소(없으면 최대). 툴바 조건이 먼저', () => {
+    expect(
+      filterSeed([{ col: 'a', op: 'eq', v: '1' }], [
+        { id: 'a', value: ['2'] },
+        { id: 'b', value: ['PA1', 'PA2'] },
+        { id: 'c', value: 'kt' },
+        { id: 'd', value: [undefined, 5] },
+      ]),
+    ).toEqual({ a: '1', b: 'PA1', c: 'kt', d: 5 })
   })
 })

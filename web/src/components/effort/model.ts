@@ -719,6 +719,28 @@ export function condMatch(r: EfRow, f: EfCond, _c?: EfColumn): boolean {
     default: return vs === fv
   }
 }
+/**
+ * 새 행에 미리 넣을 값 — 지금 걸린 필터를 만족하게(노션처럼, 지적: 필터 중 「새로 만들기」 행이 안 보인다).
+ * 툴바 조건(같음·포함·이상·이하)과 머리글 필터(고른 값·글자·숫자 범위)에서 하나씩. 못 맞추는 조건(아님·비어 있음…)은 건너뛴다
+ */
+export function filterSeed(conds: EfCond[], headerFilters: Array<{ id: string; value: unknown }>): EfRow {
+  const out: EfRow = {}
+  conds.forEach((f) => {
+    if (!f?.col || out[f.col] != null) return
+    const v = f.v == null ? '' : String(f.v)
+    const op = normOp(f.op)
+    if (v.trim() && (op === 'eq' || op === 'contains' || op === 'gte' || op === 'lte')) out[f.col] = v
+  })
+  headerFilters.forEach(({ id, value }) => {
+    if (out[id] != null) return
+    if (Array.isArray(value)) {
+      // 고른 값들(선택·다중 선택) 또는 숫자 범위 [최소, 최대]
+      const first = value.find((x) => x != null && x !== '')
+      if (first != null) out[id] = typeof first === 'number' ? first : String(first)
+    } else if (typeof value === 'string' && value.trim()) out[id] = value.trim()
+  })
+  return out
+}
 /** 옵션 칩 입력칸 너비(글자 칸 수) — 한글은 두 칸으로 센다(예전 _rscBetaChipSize) */
 export const chipSize = (v: string) => Math.max(2, [...String(v)].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? 2 : 1), 0) + 1)
 

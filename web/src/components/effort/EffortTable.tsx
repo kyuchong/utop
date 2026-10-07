@@ -50,6 +50,7 @@ import {
   natural,
   newId,
   normDate,
+  filterSeed,
   optionsOf,
   normRange,
   numFmt,
@@ -127,6 +128,20 @@ export function useEfTable(ctx: EfCtx) {
   const hidG = (g0 && st.hiddenGroups?.[g0]) || []
   const hidGKey = hidG.join('\u0001')
 
+  /**
+   * 방금 만든 행 — 필터·검색에 안 맞아도 보이게 둔다(노션처럼, 지적: 새로 만들기 행이 필터 때문에 안 보였다).
+   * 검색·필터를 바꾸면 비운다(그때부터는 조건대로)
+   */
+  const fresh = useRef(new WeakSet<EfRow>())
+  const filterKey = JSON.stringify([st.q, st.conds ?? [], st.filters])
+  const lastFilterKey = useRef(filterKey)
+  if (lastFilterKey.current !== filterKey) {
+    lastFilterKey.current = filterKey
+    fresh.current = new WeakSet()
+  }
+  const markFresh = (r: EfRow) => fresh.current.add(r)
+  const keep = (fn: FilterFn<EfRow>): FilterFn<EfRow> => (row, id, fv, add) => fresh.current.has(row.original) || fn(row, id, fv, add)
+
   // 검색과 툴바 조건식 필터·숨긴 그룹은 표에 넘기기 전에 거른다(예전 _rscViewRows 와 같다) — 머리글 필터는 TanStack 이 거른다
   const data = useMemo(() => {
     const q = st.q.trim().toLowerCase()
@@ -136,6 +151,7 @@ export function useEfTable(ctx: EfCtx) {
     const hid = new Set(hidG)
     return rows.filter(
       (r) =>
+        fresh.current.has(r) ||
         (!hid.size || !hid.has(cellText(r[g0!]))) &&
         (!q || cols.some((c) => cellText(r[c.id]).toLowerCase().includes(q))) &&
         conds.every((f) => condMatch(r, f, byId.get(f.col))),
@@ -179,7 +195,7 @@ export function useEfTable(ctx: EfCtx) {
           meta: { col: c },
           sortUndefined: 'last' as const,
           sortingFn: num ? 'basic' : (a: Row<EfRow>, b: Row<EfRow>, id: string) => natural(cellText(a.getValue(id)), cellText(b.getValue(id))),
-          filterFn: num ? fNum : c.type === 'multiselect' ? fMulti : hasOptions(c.type) ? fPick : fText,
+          filterFn: keep(num ? fNum : c.type === 'multiselect' ? fMulti : hasOptions(c.type) ? fPick : fText),
           aggregationFn: num && !diff ? 'sum' : undefined,
           enableGrouping: !num,
         } satisfies ColumnDef<EfRow>
@@ -229,7 +245,7 @@ export function useEfTable(ctx: EfCtx) {
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedMinMaxValues: getFacetedMinMaxValues(),
   })
-  return { table, max, sizing, setSizing }
+  return { table, max, sizing, setSizing, markFresh }
 }
 export type EfTableApi = ReturnType<typeof useEfTable>
 
@@ -261,7 +277,13 @@ let draggedAt = 0 // 끌고 나서 바로 뒤따라오는 click(= 메뉴 열기)
 
 export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const { rows, cols, doc, touch, toast } = ctx
-  const { table, max, sizing, setSizing } = api
+  const { table, max, sizing, setSizing, markFresh } = api
+  /** 새 행 준비 — 지금 필터를 만족하는 값을 채우고(base 값이 먼저), 필터에 걸려도 보이게 표시 */
+  const seedNew = (base: EfRow): EfRow => {
+    const nr: EfRow = { ...filterSeed((ctx.st.conds ?? []).filter((f) => cols.some((c) => c.id === f.col)), table.getState().columnFilters), ...base }
+    markFresh(nr)
+    return nr
+  }
   /** init = 칸을 고른 채 글자를 쳐서 시작했을 때 그 글자(엑셀처럼 기존 값을 바꿔 쓴다) */
   const [edit, setEdit] = useState<{ src: EfRow; col: EfColumn; anchor: HTMLElement; init?: string } | null>(null)
   const [sel, setSel] = useState<Sel | null>(null)
@@ -858,7 +880,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     if (!g) return
     let at = -1
     rows.forEach((r, i) => cellText(r[g]) === v && (at = i))
-    const nr: EfRow = v ? { [g]: v } : {}
+    const nr = seedNew(v ? { [g]: v } : {})
     rows.splice(at < 0 ? rows.length : at + 1, 0, nr)
     pickAfter.current = { r: nr, cell: true }
     touch()
@@ -868,12 +890,10 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
    * 검색·필터에 걸려 안 보일 수 있으면 알린다
    */
   const addAtEnd = () => {
-    const nr: EfRow = {}
+    const nr = seedNew({})
     rows.push(nr)
     pickAfter.current = { r: nr, cell: true }
     touch()
-    if (ctx.st.q.trim() || (ctx.st.conds ?? []).length || table.getState().columnFilters.length)
-      toast('행을 추가했습니다 — 검색·필터 때문에 안 보일 수 있습니다')
   }
   /** 옮긴 행 — 다시 그린 뒤 그 행을 골라 둔다(어디로 갔는지 보이게) */
   //   cell = 새로 만든 행 — 행 통째가 아니라 첫 칸을 고르고 보이게 굴린다(바로 쳐서 넣게)
@@ -898,7 +918,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const addRow = (src: EfRow, after: boolean, copy: boolean) => {
     const i = rows.indexOf(src)
     const g = table.getState().grouping[0]
-    const nr: EfRow = copy ? cloneRow(src) : g && src[g] != null ? { [g]: src[g] } : {}
+    const nr = copy ? cloneRow(src) : seedNew(g && src[g] != null ? { [g]: src[g] } : {})
+    if (copy) markFresh(nr)
     rows.splice(i < 0 ? rows.length : i + (after ? 1 : 0), 0, nr)
     setSel(null)
     touch()
