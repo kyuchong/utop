@@ -19,15 +19,15 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 3px; /* 목록과 표 사이에 폭 손잡이(8px)가 들어가 3+8+3 = 예전 14px 간격 */
-  padding: 12px 14px;
+  /* 카드 두 장(목록 · 본문) — REQ-Coverage 2열처럼(지시). 사이는 폭 손잡이(8px)가 전부 */
+  gap: 0;
 }
 
 /* 왼쪽 트리 — 폴더 ▸ 표 */
 .ef-side {
   flex: 0 0 190px;
-  border: 1px solid var(--c-border-soft);
-  border-radius: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
   background: var(--c-surface);
   display: flex;
   flex-direction: column;
@@ -124,6 +124,11 @@ button.ef-tn-tw:hover { background: #dfe7f7; color: #2d6fd4; }
   min-height: 0;
   display: flex;
   flex-direction: column;
+  /* 본문 카드 — 앱 .panel 과 같은 바탕·테두리·모서리 */
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+  padding: 12px 14px;
 }
 .ef-head {
   display: flex;

@@ -135,7 +135,8 @@ export default function EffortPlan() {
   if (!d) return <section className="panel ef"><div className="ef-empty">불러오는 중…</div></section>
   const cur = d.efTree!.cur
   return (
-    <section className="panel ef">
+    // 바깥 흰 판 없이 카드 두 장(목록 · 본문) — REQ-Coverage 2열과 같은 꼴(지시)
+    <section className="ef">
       <div className="ef-layout" ref={layoutRef}>
         {!sideHide && (
           <>
