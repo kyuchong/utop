@@ -99,10 +99,35 @@ export function tlGroups(rows: EfRow[], by: EfColumn | undefined) {
     .sort((a, b) => (a.k === NONE ? 1 : b.k === NONE ? -1 : a.k.localeCompare(b.k, 'ko')))
 }
 
-const W = 66 // 한 달 칸 폭
+/** 폭 — 보기마다 v.tlW(한 달 칸) · v.tlLabW(왼쪽 이름 기둥)에 둔다(지적: 열 폭 조절이 안 된다). 머리줄 경계를 끌어 바꾼다 */
+export const TL_W = 66
+export const TL_LAB = 230
+const clamp = (v: unknown, lo: number, hi: number, d: number) => {
+  const n = typeof v === 'number' && Number.isFinite(v) ? v : d
+  return Math.round(Math.max(lo, Math.min(hi, n)))
+}
+const clampW = (n: unknown) => clamp(n, 24, 240, TL_W)
+const clampLab = (n: unknown) => clamp(n, 120, 640, TL_LAB)
+export const tlWOf = (v: EfView) => clampW(v.tlW)
+export const tlLabOf = (v: EfView) => clampLab(v.tlLabW)
 const fmtM = (d: Date) => `${String(d.getFullYear()).slice(2)}.${String(d.getMonth() + 1).padStart(2, '0')}`
 
-export function EfTimeline({ cols, rows, view, year }: { cols: EfColumn[]; rows: EfRow[]; view: EfView; year: string }) {
+export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]; rows: EfRow[]; view: EfView; year: string; touch: () => void }) {
+  // 끄는 동안은 여기 값으로 바로 그리고, 놓을 때 보기에 적어 저장한다
+  const [live, setLive] = useState<{ w?: number; lab?: number } | null>(null)
+  const W = live?.w ?? tlWOf(view)
+  const LAB = live?.lab ?? tlLabOf(view)
+  const sizing = {
+    W,
+    LAB,
+    onLive: setLive,
+    onDone: (p: { w?: number; lab?: number }) => {
+      setLive(null)
+      if (p.w !== undefined) view.tlW = p.w
+      if (p.lab !== undefined) view.tlLabW = p.lab
+      touch()
+    },
+  }
   const by = tlByOf(view, cols)
   const lab = tlLabelOf(view, cols)
   const mode = tlModeOf(view, cols)
@@ -156,6 +181,7 @@ export function EfTimeline({ cols, rows, view, year }: { cols: EfColumn[]; rows:
     const dgroups = tlGroups(items.map((x) => x.r), by)
     return (
       <Frame
+        sz={sizing}
         axis={axis.map((d) => ({ t: fmtM(d), now: d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() }))}
         allOpen={dgroups.every((g) => open.has(g.k))}
         onAll={() => setOpen(dgroups.every((g) => open.has(g.k)) ? new Set() : new Set(dgroups.map((g) => g.k)))}
@@ -200,6 +226,7 @@ export function EfTimeline({ cols, rows, view, year }: { cols: EfColumn[]; rows:
   if (!rows.length) return <div className="ef-empty">행이 없습니다</div>
   return (
     <Frame
+      sz={sizing}
       axis={months.map((c, i) => ({ t: c.title, now: thisYear && months.length === 12 && i === nowM }))}
       allOpen={allOpen}
       onAll={() => setOpen(allOpen ? new Set() : new Set(groups.map((g) => g.k)))}
@@ -264,38 +291,86 @@ export function EfTimeline({ cols, rows, view, year }: { cols: EfColumn[]; rows:
 const fmtD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 /** 틀 — 왼쪽 이름 기둥 + 위 달 머리줄(둘 다 붙박이), 오른쪽이 가로로 구른다 */
+interface TlSizing {
+  W: number
+  LAB: number
+  onLive: (p: { w?: number; lab?: number }) => void
+  onDone: (p: { w?: number; lab?: number }) => void
+}
+
+/** 경계 끌기 — 움직이는 동안 onLive, 놓으면 onDone(안 움직였으면 아무것도). 두 번 누르면 기본 폭 */
+function edgeDrag(ev: React.MouseEvent, calc: (dx: number) => { w?: number; lab?: number }, sz: TlSizing) {
+  if (ev.button !== 0) return
+  ev.preventDefault()
+  ev.stopPropagation()
+  const x0 = ev.clientX
+  let last: { w?: number; lab?: number } | null = null
+  const mv = (e: MouseEvent) => {
+    last = calc(e.clientX - x0)
+    sz.onLive(last)
+  }
+  const up = () => {
+    document.removeEventListener('mousemove', mv, true)
+    document.removeEventListener('mouseup', up, true)
+    document.body.style.cursor = ''
+    if (last) sz.onDone(last)
+  }
+  document.body.style.cursor = 'col-resize'
+  document.addEventListener('mousemove', mv, true)
+  document.addEventListener('mouseup', up, true)
+}
+
 function Frame({
+  sz,
   axis,
   allOpen,
   onAll,
   nowX,
   children,
 }: {
+  sz: TlSizing
   axis: Array<{ t: string; now: boolean }>
   allOpen: boolean
   onAll: () => void
   nowX: number | null
   children: React.ReactNode
 }) {
+  const { W, LAB } = sz
+  const lab0 = LAB
+  const w0 = W
   return (
-    <div className="ef-tl">
-      <div className="ef-tl-in" style={{ width: 230 + axis.length * W }}>
+    <div className="ef-tl" style={{ ['--ef-tl-lab' as string]: `${LAB}px` }}>
+      <div className="ef-tl-in" style={{ width: LAB + axis.length * W }}>
         <div className="ef-tl-head">
           <div className="ef-tl-lab ef-tl-corner">
             <button type="button" className="ef-tl-all" onClick={onAll}>
               <TI n={allOpen ? 'chevron-down' : 'chevron-right'} /> {allOpen ? '모두 접기' : '모두 펼치기'}
             </button>
+            {/* 이름 기둥 폭 — 끌면 바뀌고, 두 번 누르면 기본 */}
+            <span
+              className="ef-tl-rz"
+              aria-label="이름 열 폭"
+              onMouseDown={(e) => edgeDrag(e, (dx) => ({ lab: clampLab(lab0 + dx) }), sz)}
+              onDoubleClick={() => sz.onDone({ lab: TL_LAB })}
+            />
           </div>
           <div className="ef-tl-axis">
             {axis.map((a, i) => (
               <div key={i} className={`ef-tl-m${a.now ? ' now' : ''}`} style={{ width: W }}>
                 {a.t}
+                {/* 달 칸 폭 — 어느 경계를 끌든 모든 달이 같이 바뀐다(그 경계가 마우스를 따라오게) */}
+                <span
+                  className="ef-tl-rz"
+                  aria-label="달 칸 폭"
+                  onMouseDown={(e) => edgeDrag(e, (dx) => ({ w: clampW(w0 + dx / (i + 1)) }), sz)}
+                  onDoubleClick={() => sz.onDone({ w: TL_W })}
+                />
               </div>
             ))}
           </div>
         </div>
         <div className="ef-tl-body" style={{ ['--ef-tl-w' as string]: `${W}px` }}>
-          {nowX !== null && <div className="ef-tl-today" style={{ left: 230 + nowX }} title="오늘" />}
+          {nowX !== null && <div className="ef-tl-today" style={{ left: LAB + nowX }} title="오늘" />}
           {children}
         </div>
       </div>

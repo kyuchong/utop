@@ -965,12 +965,15 @@ input.ef-fsel { cursor: text; }
 .ef-tl-in { position: relative; min-width: 100%; background: #fff; border: 1px solid var(--c-border); border-radius: 12px; }
 .ef-tl-head { display: flex; position: sticky; top: 0; z-index: 4; background: #f7f9fc; border-bottom: 2px solid #e3e8f0; border-radius: 12px 12px 0 0; }
 .ef-tl-axis { display: flex; }
-.ef-tl-m { flex: none; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800; color: var(--c-text-faint); border-left: 1px solid #eef1f6; }
+.ef-tl-m { flex: none; position: relative; height: 32px; overflow: hidden; white-space: nowrap; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800; color: var(--c-text-faint); border-left: 1px solid #eef1f6; }
 .ef-tl-m.now { color: #2d6fd4; background: #2d6fd414; }
 .ef-tl-body { position: relative; }
 .ef-tl-row { display: flex; min-height: 30px; border-bottom: 1px solid #f0f2f6; }
-.ef-tl-lab { flex: 0 0 230px; width: 230px; box-sizing: border-box; position: sticky; left: 0; z-index: 3; background: #fff; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 28px; font-size: 11px; color: var(--c-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #e3e8f0; }
+.ef-tl-lab { flex: 0 0 var(--ef-tl-lab, 230px); width: var(--ef-tl-lab, 230px); box-sizing: border-box; position: sticky; left: 0; z-index: 3; background: #fff; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 28px; font-size: 11px; color: var(--c-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #e3e8f0; }
 .ef-tl-corner { background: #f7f9fc; padding-left: 8px; }
+/* 폭 손잡이 — 이름 기둥 오른쪽 끝 · 달 칸 오른쪽 끝(표 머리글의 .ef-rz 와 같은 모양) */
+.ef-tl-rz { position: absolute; right: 0; top: 0; width: 6px; height: 100%; cursor: col-resize; user-select: none; z-index: 2; }
+.ef-tl-rz:hover { background: #2d6fd4; opacity: 0.35; }
 .ef-tl-all { font: inherit; font-size: 10.5px; font-weight: 700; border: 1px solid var(--c-border); border-radius: 7px; background: #fff; color: var(--c-text-muted); padding: 3px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .ef-tl-all:hover { border-color: #2d6fd4; color: #2d6fd4; }
 .ef-tl-lane { position: relative; flex: 1; min-height: 30px;

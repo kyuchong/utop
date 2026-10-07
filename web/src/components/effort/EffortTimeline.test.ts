@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dateSpanOf, monthSegments, parseRange, tlGroups } from './EffortTimeline'
+import { TL_LAB, TL_W, dateSpanOf, monthSegments, parseRange, tlGroups, tlLabOf, tlWOf } from './EffortTimeline'
 import type { EfColumn } from './model'
 
 const months: EfColumn[] = ['01월', '02월', '03월', '04월'].map((t, i) => ({ id: 'm' + i, title: t, type: 'number' }))
@@ -34,5 +34,16 @@ describe('타임라인', () => {
       ['이', 2],
       ['(빈값)', 1],
     ])
+  })
+})
+
+describe('타임라인 폭 — 보기에 저장, 범위 밖·잘못된 값은 기본/한계로', () => {
+  it('없으면 기본(달 66 · 이름 230), 범위 밖은 한계', () => {
+    expect(tlWOf({ id: 'v', name: 'v', type: 'gantt' })).toBe(TL_W)
+    expect(tlLabOf({ id: 'v', name: 'v', type: 'gantt' })).toBe(TL_LAB)
+    expect(tlWOf({ id: 'v', name: 'v', type: 'gantt', tlW: 5 })).toBe(24)
+    expect(tlLabOf({ id: 'v', name: 'v', type: 'gantt', tlLabW: 9999 })).toBe(640)
+    expect(tlWOf({ id: 'v', name: 'v', type: 'gantt', tlW: '90' })).toBe(TL_W)
+    expect(tlLabOf({ id: 'v', name: 'v', type: 'gantt', tlLabW: 300.4 })).toBe(300)
   })
 })

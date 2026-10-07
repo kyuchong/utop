@@ -473,7 +473,7 @@ function EffortBody({
             ) : view.type === 'chart' ? (
               <EfNotionChart cols={cols} rows={chartRows} view={view} ver={ver} panel={ncPanel} setPanel={setNcPanel} touch={touch} />
             ) : view.type === 'gantt' ? (
-              <EfTimeline cols={cols} rows={chartRows} view={view} year={year} />
+              <EfTimeline cols={cols} rows={chartRows} view={view} year={year} touch={touch} />
             ) : (
               <div className="ef-empty">「{view.name}」은 알 수 없는 보기({viewName(view.type)})입니다</div>
             )}
