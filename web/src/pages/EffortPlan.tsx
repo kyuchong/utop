@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { IconPanel } from '@/components/icons'
@@ -31,6 +31,7 @@ import {
   tableOf,
   viewState,
   type EfColumn,
+  type EfRow,
   type EfCond,
   type EfDoc,
   type EfNode,
@@ -50,7 +51,27 @@ import '@/components/effort/Effort.css'
  * 보드·차트·타임라인 보기는 components/effort 의 EffortViews · EffortTimeline 에 있다.
  */
 
-type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
+export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
+
+/**
+ * 다른 화면이 이 몸통(제목·보기 탭·도구 줄·표·차트)을 빌려 쓸 때 — Jira Issue(지시: Effort 양식을 Jira 에).
+ * 행·열은 못 바꾸고(lock), 연도·가져오기·열 설정이 없다. 제목·오른쪽 단추·더 넣을 도구는 빌려 쓰는 쪽이 준다
+ */
+export interface EfHost {
+  /** 제목 자리 — 접기 단추 오른쪽 */
+  title: ReactNode
+  /** 제목 줄 오른쪽(Sync 등) */
+  headRight?: ReactNode
+  /** 표 도구 줄 CSV 왼쪽에 더 넣을 것(지라 칸 더하기 등) */
+  toolRight?: ReactNode
+  /** 보기 추가에서 고를 수 있는 종류 */
+  viewTypes: string[]
+  csvName: string
+  onOpen?: (r: EfRow) => void
+  onPut?: (r: EfRow, c: EfColumn, v: unknown) => void
+  onCheck?: (rs: EfRow[]) => void
+  pageSize?: number
+}
 /** 이 PC 의 보던 자리(항해 상태 — 계정 동기화 목록 SYNC 에 넣지 않는다) */
 const NAV_KEY = 'utop.ef.nav'
 
@@ -202,7 +223,7 @@ function folderPath(nodes: EfNode[], id: string): string[] {
   return out
 }
 
-function EffortBody({
+export function EffortBody({
   d,
   name,
   path,
@@ -214,6 +235,7 @@ function EffortBody({
   retry,
   sideHide,
   onToggleSide,
+  host,
 }: {
   d: EfDoc
   name: string
@@ -228,6 +250,8 @@ function EffortBody({
   /** 목록 판이 접혀 있나 · 접고 펴기(제목 옆 단추) */
   sideHide: boolean
   onToggleSide: () => void
+  /** 빌려 쓰는 화면(Jira Issue) — 없으면 Effort Plan */
+  host?: EfHost
 }) {
   const year = d.curPage!
   const rows = d.pages[year]!.rows
@@ -241,7 +265,17 @@ function EffortBody({
     view.ef = { ...st, ...p }
     touch()
   }
-  const ctx: EfCtx = { doc: d, rows, cols, st, setSt, touch, toast, ver }
+  const ctx: EfCtx = {
+    doc: d,
+    rows,
+    cols,
+    st,
+    setSt,
+    touch,
+    toast,
+    ver,
+    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, pageSize: host.pageSize } : {}),
+  }
   const api = useEfTable(ctx)
   const { table } = api
 
@@ -364,6 +398,14 @@ function EffortBody({
             >
               <IconPanel open={sideHide} />
             </button>
+            {host ? (
+              <>
+                {host.title}
+                <span className="ef-sp" />
+                {host.headRight}
+              </>
+            ) : (
+            <>
             <b>Effort Plan</b>
             <span className="ef-head-sep">·</span>
             {/* 빵부스러기를 제목에 그대로(지시) — 「Effort Plan · 폴더 › 표 2026년」 */}
@@ -381,6 +423,8 @@ function EffortBody({
             <span className={`ef-save ${save}`} onClick={save === 'error' ? retry : undefined}>
               {save === 'saving' || save === 'dirty' ? '저장 중…' : save === 'saved' ? '저장됨' : save === 'error' ? '저장 실패 — 눌러서 다시' : ''}
             </span>
+            </>
+            )}
           </div>
 
           <div className="ef-toolbar">
@@ -433,19 +477,24 @@ function EffortBody({
                   </button>
                 )}
                 <span className="ef-tbsep" />
-                <button type="button" className="ef-btn gh" onClick={() => setColMgr(true)}>
-                  <TI n="columns" /> 열 설정
-                </button>
-                {/* 가져오기는 CSV 바로 왼쪽(지시) — 짝으로 붙여 둔다 */}
-                <button type="button" className="ef-btn gh" title="엑셀(.xlsx)·CSV·붙여넣기 — 열을 맞춰 들인다" onClick={() => setImp(true)}>
-                  <TI n="upload" /> 가져오기
-                </button>
+                {!host && (
+                  <>
+                    <button type="button" className="ef-btn gh" onClick={() => setColMgr(true)}>
+                      <TI n="columns" /> 열 설정
+                    </button>
+                    {/* 가져오기는 CSV 바로 왼쪽(지시) — 짝으로 붙여 둔다 */}
+                    <button type="button" className="ef-btn gh" title="엑셀(.xlsx)·CSV·붙여넣기 — 열을 맞춰 들인다" onClick={() => setImp(true)}>
+                      <TI n="upload" /> 가져오기
+                    </button>
+                  </>
+                )}
+                {host?.toolRight}
                 <button
                   type="button"
                   className="ef-btn"
                   onClick={() => {
                     const out = leafRows(table)
-                    downloadCsv(`EffortPlan_${name || '표'}_${year}.csv`, table.getVisibleLeafColumns().map((c) => (c.columnDef.meta as { col: EfColumn }).col), out)
+                    downloadCsv(host ? host.csvName : `EffortPlan_${name || '표'}_${year}.csv`, table.getVisibleLeafColumns().map((c) => (c.columnDef.meta as { col: EfColumn }).col), out)
                     toast('CSV 내려받음 — ' + out.length + '행')
                   }}
                 >
@@ -667,7 +716,9 @@ function EffortBody({
         <Pop anchor={pop.anchor} cls="ef-menu ef-addview" onClose={close}>
           <div className="ef-lbl">보기 추가</div>
           <div className="ef-mlist">
-            {Object.entries(VIEW_TYPES).map(([t, [ic, nm]]) => (
+            {Object.entries(VIEW_TYPES)
+              .filter(([t]) => !host || host.viewTypes.includes(t))
+              .map(([t, [ic, nm]]) => (
               <button
                 key={t}
                 type="button"

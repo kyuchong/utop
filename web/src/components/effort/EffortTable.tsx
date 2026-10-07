@@ -86,6 +86,19 @@ export interface EfCtx {
   touch: () => void
   toast: (m: string) => void
   ver: number
+  /**
+   * 다른 화면이 이 표를 빌려 쓸 때(Jira Issue) — 행을 늘리거나 지우거나 옮기지 않는다, 열 유형·이름·추가·삭제도 없다.
+   * 칸 값은 열마다 readOnly 로 막고, 고칠 수 있는 열만 onPut 으로 바깥에 알린다
+   */
+  lock?: boolean
+  /** link 열을 누르면(또는 그 칸에서 Enter) — 그 행을 연다 */
+  onOpen?: (r: EfRow) => void
+  /** 칸 하나를 고쳤다(put 이 실제로 바꾼 뒤) */
+  onPut?: (r: EfRow, c: EfColumn, v: unknown) => void
+  /** 체크한 행이 바뀌었다 */
+  onCheck?: (rs: EfRow[]) => void
+  /** 한 번에 그릴 행 수 — 많으면 「더 보기」(수천 행을 다 그리면 무겁다). 없으면 전부 */
+  pageSize?: number
 }
 
 const cellText = (v: unknown) => (v == null ? '' : String(v))
@@ -277,6 +290,9 @@ let draggedAt = 0 // 끌고 나서 바로 뒤따라오는 click(= 메뉴 열기)
 
 export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const { rows, cols, doc, touch, toast } = ctx
+  const lock = !!ctx.lock
+  /** 그릴 행 수(더 보기로 늘린다) — 표가 바뀌면(행 배열이 달라지면) 처음 수로 */
+  const [limit, setLimit] = useState(ctx.pageSize ?? Infinity)
   const { table, max, sizing, setSizing, markFresh } = api
   /** 새 행 준비 — 지금 필터를 만족하는 값을 채우고(base 값이 먼저), 필터에 걸려도 보이게 표시 */
   const seedNew = (base: EfRow): EfRow => {
@@ -312,7 +328,13 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   if (ckOf !== rows) {
     setCkOf(rows)
     setChecked(new Set())
+    setLimit(ctx.pageSize ?? Infinity) // 다른 행 묶음(프로젝트·연도)이면 그릴 수도 처음부터
   }
+  // 체크한 행을 바깥에 알린다(Jira — LLM 분류 대상)
+  const onCheck = ctx.onCheck
+  useEffect(() => {
+    onCheck?.([...checked])
+  }, [checked, onCheck])
   const drag = useRef<{ mode: 'sel' | 'fill' | 'row'; r1: number; c1: number; c2?: number; add?: boolean } | null>(null)
   const leafRef = useRef<EfRow[]>([])
   const paintRef = useRef<ReactNode>(null)
@@ -322,7 +344,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
 
   /** 실제 행에 쓴다. 바뀌었으면 true — 합계 열 다시 계산은 부른 쪽이 한 번만 */
   const put = (src: EfRow, c: EfColumn, raw: unknown): boolean => {
-    if (!src || c.autoSum || c.type === 'datediff' || c.type === 'formula') return false
+    if (!src || c.autoSum || c.readOnly || c.type === 'datediff' || c.type === 'formula') return false
     // 수식 칸에 값을 직접 넣으면 엑셀처럼 수식을 지우고 값으로
     const hadFx = !!src[fxKey(c)]
     if (hadFx) delete src[fxKey(c)]
@@ -358,6 +380,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     if (!hadFx && cellText(src[c.id]) === String(v)) return false // 안 바뀌었으면 저장도 안 함(수식을 지웠으면 저장)
     if (v === '') delete src[c.id]
     else src[c.id] = v
+    ctx.onPut?.(src, c, v)
     return true
   }
   const commit = (src: EfRow, c: EfColumn, raw: unknown) => {
@@ -421,6 +444,11 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     const col = ordered[c]
     const td = tblRef.current?.querySelector<HTMLElement>(`td[data-r="${r}"][data-c="${c}"]`)
     if (!src || !col || !td || col.autoSum) return
+    if (col.readOnly) {
+      // 못 고치는 칸 — 여는 열(지라 키)이면 그 행을 연다
+      if (col.link && ctx.onOpen) ctx.onOpen(src)
+      return
+    }
     if (col.type === 'formula') {
       openFormula(col, td)
       return
@@ -487,7 +515,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     const c = sel.c2
     const col = ordered[c]
     const src = leafRef.current[r]
-    if (!col || !src || col.autoSum || col.type === 'checkbox' || col.type === 'formula' || col.type === 'datediff') {
+    if (!col || !src || col.autoSum || col.readOnly || col.type === 'checkbox' || col.type === 'formula' || col.type === 'datediff') {
       sk.value = ''
       return
     }
@@ -1109,6 +1137,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       <tr
         key={row.id}
         onContextMenu={(e) => {
+          if (lock) return // 빌려 쓰는 표(Jira)는 행 추가·복제·삭제가 없다 — 브라우저 메뉴 그대로
           e.preventDefault()
           const td = (e.target as HTMLElement).closest<HTMLElement>('td[data-c]')
           setRowMenu({ x: e.clientX, y: e.clientY, src, c: td ? Number(td.dataset.c) : undefined })
@@ -1120,10 +1149,10 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           className={`ef-rh ef-rnum${n0 && n >= n0.r1 && n <= n0.r2 && n0.c1 === 0 && n0.c2 === ordered.length - 1 ? ' ef-rsel' : ''}${rowOnly(n) ? ' ef-rmov' : ''}`}
           data-r={n}
           data-c={-1}
-          title={rowOnly(n) ? '끌면 행 옮기기' : '누르면 행 선택 · 끌면 여러 행'}
+          title={rowOnly(n) && !lock ? '끌면 행 옮기기' : '누르면 행 선택 · 끌면 여러 행'}
           onMouseDown={(e) => {
             if (e.button !== 0) return
-            if (!e.shiftKey && rowOnly(n) && !table.getState().sorting.length) {
+            if (!e.shiftKey && !lock && rowOnly(n) && !table.getState().sorting.length) {
               rowDrag(e, src)
               return
             }
@@ -1137,9 +1166,11 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           }}
         >
           <span className="ef-rnum-in">
-            <i className="ef-rgrip" aria-label={`${n}행 끌어 옮기기`} onMouseDown={(e) => rowDrag(e, src)}>
-              <TI n="grip" />
-            </i>
+            {!lock && (
+              <i className="ef-rgrip" aria-label={`${n}행 끌어 옮기기`} onMouseDown={(e) => rowDrag(e, src)}>
+                <TI n="grip" />
+              </i>
+            )}
             <input
               type="checkbox"
               className="ef-rck"
@@ -1163,7 +1194,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           const c = (cell.column.columnDef.meta as { col: EfColumn }).col
           const num = isNumCol(c) || c.type === 'datediff'
           // 합계는 계산값이라 못 고친다. 체크박스는 두 번 클릭 = 켜고 끄기, 남은 일수는 = 이 행의 기준 기간 고르기
-          const editable = !c.autoSum
+          const editable = !c.autoSum && !c.readOnly
           const isEd = edit && edit.src === src && edit.col.id === c.id
           // 팝업으로 고르는 유형 — 선택·상태·다중 선택·날짜·기간
           const picker = hasOptions(c.type) || c.type === 'date' || c.type === 'daterange' || c.type === 'person'
@@ -1229,11 +1260,18 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               key={cell.id}
               data-r={n}
               data-c={ci}
-              className={`${num ? 'ef-n ' : ''}${editable ? 'ef-ed ' : 'ef-auto '}${isEd ? 'ef-editing ' : ''}${c.type === 'text' && cellText(src[c.id]).includes('\n') ? 'ef-ml ' : ''}${marks.get(src)?.has(c.id) ? (fx ? 'ef-pk ' : 'ef-ref ') : ''}${fx && fxTargetCol(c) ? 'ef-fxok ' : ''}${edge}`}
+              className={`${num ? 'ef-n ' : ''}${editable ? 'ef-ed ' : c.readOnly ? 'ef-ro ' : 'ef-auto '}${isEd ? 'ef-editing ' : ''}${c.type === 'text' && cellText(src[c.id]).includes('\n') ? 'ef-ml ' : ''}${marks.get(src)?.has(c.id) ? (fx ? 'ef-pk ' : 'ef-ref ') : ''}${fx && fxTargetCol(c) ? 'ef-fxok ' : ''}${edge}`}
               onMouseDown={(e) => {
                 if (e.button !== 0) return
                 e.preventDefault() // 글자 끌어 고르기 대신 칸 고르기 — 포커스는 바로 글쇠 받는 칸으로
                 grab()
+                // 여는 열의 글자(지라 키)를 누르면 그 행을 연다 — 칸은 고른 채로
+                if (c.link && ctx.onOpen && (e.target as HTMLElement).closest('.ef-link')) {
+                  setSel({ r1: n, c1: ci, r2: n, c2: ci })
+                  setEdit(null)
+                  ctx.onOpen(src)
+                  return
+                }
                 if (fxRef.current) {
                   fxPlace(src, c) // 수식 결과 칸 지정
                   setSel({ r1: n, c1: ci, r2: n, c2: ci })
@@ -1245,7 +1283,9 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               }}
               onDoubleClick={
                 !editable
-                  ? undefined
+                  ? c.link && ctx.onOpen
+                    ? () => ctx.onOpen!(src)
+                    : undefined
                   : c.type === 'checkbox'
                     ? () => commit(src, c, !truthy(src[c.id]))
                     : c.type === 'formula'
@@ -1275,7 +1315,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                   onToggle={c.type === 'checkbox' ? () => commit(src, c, !truthy(src[c.id])) : undefined}
                 />
               )}
-              {corner && (
+              {corner && !lock && (
                 <span
                   className="ef-fill"
                   title="끌어서 아래로 채우기"
@@ -1351,23 +1391,51 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     let openGroup: Row<EfRow> | null = null
     // 그룹 끝 — 노션처럼 「+ 새로 만들기」(그 그룹 값으로) 다음 소계
     const closeGroup = (g: Row<EfRow>) => {
-      body.push(newRowTr('new-' + g.id, () => addToGroup(String(g.groupingValue ?? ''))))
+      if (!lock) body.push(newRowTr('new-' + g.id, () => addToGroup(String(g.groupingValue ?? ''))))
       body.push(subRow(g))
     }
+    // 한 번에 그릴 행 수(pageSize) — 넘으면 거기서 멈추고 아래에 「더 보기」. 바닥줄 계산은 그대로 전체로 센다
+    let total = 0
+    let cut = false
     table.getRowModel().rows.forEach((r) => {
       if (r.getIsGrouped()) {
+        if (cut) return
         if (openGroup) closeGroup(openGroup)
         body.push(bodyRow(r, 0))
         openGroup = r.getIsExpanded() ? r : null
       } else {
+        total++
+        if (ord >= limit) {
+          cut = true
+          return
+        }
         ord++
         leaf[ord] = r.original
         body.push(bodyRow(r, ord))
       }
     })
-    if (openGroup) closeGroup(openGroup)
+    if (openGroup && !cut) closeGroup(openGroup)
+    if (cut) {
+      const step = ctx.pageSize ?? 200
+      body.push(
+        <tr key="more" className="ef-newrow ef-morerow">
+          <td className="ef-rh" />
+          <td colSpan={ordered.length}>
+            <span className="ef-more-n">
+              {ord.toLocaleString()} / {total.toLocaleString()}행
+            </span>
+            <button type="button" className="ef-newrow-btn" onClick={() => setLimit((l) => l + step * 2.5)}>
+              <TI n="chevron-down" /> 더 보기
+            </button>
+            <button type="button" className="ef-newrow-btn" onClick={() => setLimit(Infinity)}>
+              모두 보기
+            </button>
+          </td>
+        </tr>,
+      )
+    }
     // 묶지 않았으면 표 맨 아래에 하나
-    if (body.length && !table.getState().grouping.length) body.push(newRowTr('new-end', addAtEnd))
+    if (body.length && !lock && !cut && !table.getState().grouping.length) body.push(newRowTr('new-end', addAtEnd))
     leafRef.current = leaf
     painted = (
       <>
@@ -1377,15 +1445,15 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
             ) : (
               // 빈 표도 노션처럼 「+ 새로 만들기」(지시). 행은 있는데 검색·필터에 걸렸으면 그 안내를 위에
               <>
-                {rows.length > 0 && (
+                {(rows.length > 0 || lock) && (
                   <tr>
                     <td className="ef-rh" />
                     <td colSpan={ordered.length} className="ef-none">
-                      <span className="ef-none-msg">조건에 맞는 행이 없습니다</span>
+                      <span className="ef-none-msg">{rows.length ? '조건에 맞는 행이 없습니다' : '행이 없습니다'}</span>
                     </td>
                   </tr>
                 )}
-                {newRowTr('new-end', addAtEnd)}
+                {!lock && newRowTr('new-end', addAtEnd)}
               </>
             )}
           </tbody>
@@ -1497,12 +1565,16 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           <button type="button" className="ef-btn gh" onClick={() => void selCopy()}>
             <TI n="copy" /> 복사
           </button>
-          <button type="button" className="ef-btn gh" onClick={selDup}>
-            <TI n="copy-plus" /> 복제
-          </button>
-          <button type="button" className="ef-btn gh ef-danger" onClick={selDel}>
-            <TI n="trash" /> 삭제
-          </button>
+          {!lock && (
+            <>
+              <button type="button" className="ef-btn gh" onClick={selDup}>
+                <TI n="copy-plus" /> 복제
+              </button>
+              <button type="button" className="ef-btn gh ef-danger" onClick={selDel}>
+                <TI n="trash" /> 삭제
+              </button>
+            </>
+          )}
           <button type="button" className="ef-btn gh" onClick={() => setChecked(new Set())}>
             해제
           </button>
@@ -1591,6 +1663,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           facetOptions={optionsOf(rows, menuEf)}
           ops={opsFor(menuEf)}
           allCols={cols}
+          lock={lock}
           onClose={() => setMenu(null)}
         />
       )}
@@ -1599,7 +1672,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           at={groupMenu}
           onClose={() => setGroupMenu(null)}
           items={[
-            { ic: 'plus', label: '이 그룹에 행 추가', on: () => addToGroup(groupMenu.v) },
+            ...(lock ? [] : [{ ic: 'plus', label: '이 그룹에 행 추가', on: () => addToGroup(groupMenu.v) }]),
             { ic: 'eye-off', label: '그룹 숨기기', on: () => hideGroup(groupMenu.v) },
             { ic: 'chevron-right', label: '모든 그룹 접기', on: () => table.toggleAllRowsExpanded(false), sep: true },
             { ic: 'chevron-down', label: '모든 그룹 펼치기', on: () => table.toggleAllRowsExpanded(true) },
@@ -1711,6 +1784,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
 
 /** 칸 보기 — 선택 계열은 칩, 숫자는 열 최대값 대비 막대(85% 넘으면 주황) */
 function CellView({ c, v, max, fx, onToggle }: { c: EfColumn; v: unknown; max: number; fx?: string; onToggle?: () => void }) {
+  // 여는 열(지라 키) — 누르면 그 행을 연다(표가 누름을 받아 EfCtx.onOpen 으로)
+  if (c.link) return v == null || v === '' ? null : <span className="ef-link">{String(v)}</span>
   // 체크박스 — 비어 있어도 빈 상자를 그린다. 상자를 누르면 켜고 끈다(예전 Handsontable 체크박스처럼)
   if (c.type === 'checkbox') {
     const on = truthy(v)

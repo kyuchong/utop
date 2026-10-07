@@ -701,11 +701,14 @@ export function HeadMenu({
   facetOptions,
   ops,
   allCols,
+  lock,
   onClose,
 }: {
   anchor: HTMLElement
   column: Column<EfRow, unknown>
   col: EfColumn
+  /** 빌려 쓰는 표(Jira) — 필터·정렬·그룹·열 숨기기만(유형·옵션·이름·추가·복제·삭제 없음) */
+  lock?: boolean
   /** 표의 모든 열 — 남은 일수가 볼 기간 열 목록 */
   allCols: EfColumn[]
   rows: EfRow[]
@@ -755,16 +758,17 @@ export function HeadMenu({
           className="ef-menu-name"
           value={title}
           aria-label="열 이름"
+          readOnly={lock}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           onBlur={() => title.trim() && title.trim() !== col.title && ops.rename(title.trim())}
         />
         <div className="ef-mlist">
-          {item('type', typeIcon(col), '유형', false)}
-          {hasOptions(col.type) && item('opts', 'tags', '옵션', false)}
+          {!lock && item('type', typeIcon(col), '유형', false)}
+          {!lock && hasOptions(col.type) && item('opts', 'tags', '옵션', false)}
           {item('filter', 'filter', '필터', column.getIsFiltered())}
           {item('sort', 'arrows-sort', '정렬', !!sorted)}
-          {col.type === 'formula' && (
+          {!lock && col.type === 'formula' && (
             <button type="button" className="ef-mi" onClick={() => { setSub(null); close(); ops.editFormula() }}>
               <i className="ef-mi-ic"><TI n="math-function" /></i>
               <span>수식 설정</span>
@@ -788,6 +792,7 @@ export function HeadMenu({
         <div className="ef-sep" />
         <div className="ef-mlist">
           {/* 메뉴는 열어 둔 채 맨 위 이름 칸으로 간다(예전과 같다) */}
+          {!lock && (<>
           <button
             type="button"
             className="ef-mi"
@@ -812,14 +817,17 @@ export function HeadMenu({
             <i className="ef-mi-ic"><TI n="copy" /></i>
             <span>열 복제</span>
           </button>
+          </>)}
           <button type="button" className="ef-mi" onClick={() => { setSub(null); close(); ops.hide() }}>
             <i className="ef-mi-ic"><TI n="eye-off" /></i>
             <span>열 숨기기</span>
           </button>
-          <button type="button" className="ef-mi del" onClick={() => { setSub(null); ops.remove(); close() }}>
-            <i className="ef-mi-ic"><TI n="trash" /></i>
-            <span>열 삭제</span>
-          </button>
+          {!lock && (
+            <button type="button" className="ef-mi del" onClick={() => { setSub(null); ops.remove(); close() }}>
+              <i className="ef-mi-ic"><TI n="trash" /></i>
+              <span>열 삭제</span>
+            </button>
+          )}
         </div>
       </Pop>
 

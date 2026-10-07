@@ -1212,3 +1212,11 @@ input.ef-fsel { cursor: text; }
 .ef-nc-range { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
 .ef-nc-range > input { flex: 1; min-width: 0; font-size: 12px; padding: 5px 6px; }
 .ef-nc-range > i { font-style: normal; color: var(--c-text-faint); }
+
+/* 빌려 쓰는 표(Jira) — 못 고치는 칸은 보통 글씨(계산 칸 ef-auto 처럼 굵게 하지 않는다), 여는 열은 링크처럼 */
+.ef-t td.ef-ro { cursor: cell; user-select: none; }
+.ef-link { color: #2d6fd4; font-weight: 700; cursor: pointer; }
+.ef-link:hover { text-decoration: underline; }
+/* 많은 행 — 「더 보기」 줄 */
+.ef-morerow .ef-more-n { position: sticky; left: 62px; display: inline-block; padding: 0 10px; font-size: 11.5px; font-weight: 700; color: var(--c-text-muted); }
+.ef-morerow .ef-newrow-btn { position: static; }

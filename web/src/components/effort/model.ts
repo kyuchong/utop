@@ -28,6 +28,10 @@ export interface EfColumn {
   autoSum?: boolean
   /** 남은 일수 열이 볼 기간 열 id — 머리글 › 유형 › 남은 일수 에서 고른다. 없으면 맨 앞 기간 열 */
   diffSrc?: string
+  /** 못 고치는 열 — 다른 곳이 정본인 값(Jira Issue 의 지라 칸). 표가 쓰기를 막는다 */
+  readOnly?: boolean
+  /** 누르면 그 행을 여는 열(Jira 키 → 오른쪽 상세 창) — 표 바깥 EfCtx.onOpen 이 연다 */
+  link?: boolean
   [k: string]: unknown
 }
 export type EfRow = Record<string, unknown>

@@ -380,3 +380,16 @@
   border: 1px solid var(--c-border-soft, #dfe4ea);
   border-radius: 10px;
 }
+
+/* ── Effort 양식(지시) — 본문·목록은 Effort.css(ef-*) 를 그대로 쓰고, 지라에만 있는 것만 여기 ── */
+.jri-ef { position: relative; }
+.jri-hr { display: inline-flex; align-items: center; gap: 6px; }
+.jri-ef .jri-toast { z-index: 60; }
+/* 목록의 프로젝트 빼기 — 올렸을 때만 */
+.jri-prm { visibility: hidden; border: 0; background: none; padding: 0 2px; color: var(--c-text-faint); cursor: pointer; display: inline-flex; align-items: center; font-size: 12px; }
+.ef-tn:hover .jri-prm { visibility: visible; }
+.jri-prm:hover { color: #d14343; }
+.jri-side-empty { padding: 14px 8px; font-size: 12px; color: var(--c-text-faint); line-height: 1.6; }
+/* 프로젝트 고르기 창 — 목록 판 머리의 「＋」 에서 오른쪽(본문 쪽)으로 열린다. 판이 잘라 내지 않게 */
+.jri-ef .ef-side { overflow: visible; }
+.jri-ef .ef-tree-hd { border-radius: var(--r-box) var(--r-box) 0 0; }
