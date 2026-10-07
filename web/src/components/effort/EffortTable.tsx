@@ -22,6 +22,7 @@ import { useMeName } from '@/components/ntable/useAdmin'
 import { useUserPeople } from '@/pages/qaBits'
 import { Chip, CtxMenu, DatePicker, FormulaEditor, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
 import { TI } from './icons'
+import { placeRow } from './EffortViews'
 import {
   autoOptions,
   autoColor,
@@ -745,6 +746,118 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   }
 
   /**
+   * 행 끌어 옮기기(지시: 표에서 행 상/하 드래그) — 행 번호 칸의 손잡이(⋮⋮)를 잡고 끈다.
+   * 열 이동·보드 카드와 같은 방식: 끄는 행이 마우스를 따라오고 다른 행이 비켜서 자리가 열린다(칸 transform 만).
+   * 정렬이 걸려 있으면 차례를 정렬이 정하므로 옮기지 않는다. 그룹으로 보면 그 그룹 안에서만 옮긴다.
+   * 놓으면 실제 행 배열(rows)에서 자리를 바꾼다 — 필터로 숨은 행은 보이는 이웃 기준으로 자리를 잡는다.
+   */
+  const rowDrag = (ev: React.MouseEvent, r: EfRow) => {
+    if (ev.button !== 0) return
+    ev.preventDefault()
+    ev.stopPropagation()
+    if (table.getState().sorting.length) {
+      toast('정렬이 걸려 있으면 행을 옮길 수 없습니다 — 정렬을 풀고 끌어 주세요')
+      return
+    }
+    const tbl = tblRef.current
+    const box = tbl?.closest<HTMLElement>('.ef-scroll')
+    if (!tbl || !box) return
+    // 끄는 행과 같은 묶음(그룹 머리 줄 사이)의 행들만 대상
+    let gi = 0
+    const all: Array<{ tr: HTMLTableRowElement; row: EfRow; g: number }> = []
+    for (const tr of tbl.tBodies[0]?.rows ?? []) {
+      if (tr.classList.contains('ef-grp')) gi++
+      const td = tr.querySelector<HTMLElement>('td.ef-rnum')
+      const row = td && leafRef.current[Number(td.dataset.r)]
+      if (row) all.push({ tr, row, g: gi })
+    }
+    const me = all.find((x) => x.row === r)
+    if (!me) return
+    const lane = all.filter((x) => x.g === me.g)
+    const f = lane.indexOf(me)
+    const b0 = box.getBoundingClientRect()
+    const st0 = box.scrollTop
+    const H = me.tr.getBoundingClientRect().height
+    const others = lane
+      .filter((x) => x !== me)
+      .map((x) => {
+        const rr = x.tr.getBoundingClientRect()
+        return { ...x, k: lane.indexOf(x), mid: rr.top - b0.top + st0 + rr.height / 2 }
+      })
+    const top0 = me.tr.getBoundingClientRect().top - b0.top + st0
+    const lo = lane[0]!.tr.getBoundingClientRect().top - b0.top + st0 - top0
+    const hi = lane[lane.length - 1]!.tr.getBoundingClientRect().top - b0.top + st0 - top0
+    const y0 = ev.clientY
+    let py = y0
+    let ti = f
+    let moved = false
+    const set = (tr: HTMLTableRowElement, t: string) =>
+      [...tr.cells].forEach((td) => td.style.transform !== t && (td.style.transform = t))
+    const apply = () => {
+      const dy = Math.max(lo, Math.min(hi, py - y0 + box.scrollTop - st0))
+      const mid = top0 + dy + H / 2
+      ti = others.filter((c) => c.mid < mid).length
+      others.forEach((c, w) => {
+        const was = c.k > f ? 1 : 0
+        const now = w >= ti ? 1 : 0
+        set(c.tr, now - was ? `translateY(${(now - was) * H}px)` : '')
+      })
+      set(me.tr, `translateY(${dy}px)`)
+    }
+    // 표 위·아래 끝에 대고 있으면 그쪽으로 굴린다(긴 표)
+    let roll = 0
+    const tick = () => {
+      const b = box.getBoundingClientRect()
+      const vy = py > b.bottom - 36 ? 12 : py < b.top + 56 ? -12 : 0
+      if (vy) {
+        box.scrollTop += vy
+        apply()
+      }
+      roll = requestAnimationFrame(tick)
+    }
+    const mv = (e: MouseEvent) => {
+      py = e.clientY
+      if (!moved) {
+        if (Math.abs(py - y0) < 4) return
+        moved = true
+        setRowMenu(null)
+        setEdit(null)
+        document.body.style.cursor = 'grabbing'
+        me.tr.classList.add('ef-rmoving')
+        tbl.classList.add('ef-rdragging')
+        roll = requestAnimationFrame(tick)
+      }
+      apply()
+    }
+    const up = () => {
+      document.removeEventListener('mousemove', mv, true)
+      document.removeEventListener('mouseup', up, true)
+      cancelAnimationFrame(roll)
+      document.body.style.cursor = ''
+      me.tr.classList.remove('ef-rmoving')
+      tbl.classList.remove('ef-rdragging')
+      lane.forEach((x) => set(x.tr, ''))
+      if (!moved || ti === f) return
+      const was = rows.indexOf(r)
+      placeRow(rows, r, others.map((x) => x.row), ti)
+      if (rows.indexOf(r) === was) return
+      pickAfter.current = r
+      touch()
+    }
+    document.addEventListener('mousemove', mv, true)
+    document.addEventListener('mouseup', up, true)
+  }
+  /** 옮긴 행 — 다시 그린 뒤 그 행을 골라 둔다(어디로 갔는지 보이게) */
+  const pickAfter = useRef<EfRow | null>(null)
+  useEffect(() => {
+    const r = pickAfter.current
+    if (!r) return
+    pickAfter.current = null
+    const n = leafRef.current.indexOf(r)
+    if (n > 0) setSel({ r1: n, c1: 0, r2: n, c2: ordered.length - 1 })
+  })
+
+  /**
    * 행 추가·복제(행 우클릭) — 누른 행 바로 위·아래에 넣는다.
    * 그룹으로 보고 있으면 빈 행에도 그 그룹 값을 넣어 둔다 — 안 그러면 「(빈값)」 그룹으로 가 버려 안 보인다.
    */
@@ -939,6 +1052,9 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           }}
         >
           <span className="ef-rnum-in">
+            <i className="ef-rgrip" aria-label={`${n}행 끌어 옮기기`} onMouseDown={(e) => rowDrag(e, src)}>
+              <TI n="grip" />
+            </i>
             <input
               type="checkbox"
               className="ef-rck"
