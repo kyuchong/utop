@@ -1155,3 +1155,10 @@ input.ef-fsel { cursor: text; }
 .ef-src-none { font-size: 11px; color: var(--c-text-faint); padding: 4px 2px; }
 .ef-fxval { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; color: var(--c-text); }
 .ef-fxval .ef-ti { font-size: 12px; color: #7c5cff; }
+
+/* 계산 줄 — 바닥줄 칸을 누르면 계산 고르기(노션). 계산 안함 칸은 올렸을 때만 「계산 ▾」 */
+.ef-t tfoot td.ef-fcalc { cursor: pointer; }
+.ef-t tfoot td.ef-fcalc:hover { background: #eef3fb; }
+.ef-fhint { visibility: hidden; font-size: 10.5px; color: var(--c-text-faint); }
+.ef-t tfoot td.ef-fcalc:hover .ef-fhint { visibility: visible; }
+.ef-calcmenu { width: 210px; }

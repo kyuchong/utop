@@ -20,8 +20,9 @@ import { copyText } from '@/lib/copy'
 import { PeoplePick } from '@/components/AssigneePicker'
 import { useMeName } from '@/components/ntable/useAdmin'
 import { useUserPeople } from '@/pages/qaBits'
-import { Chip, CtxMenu, DatePicker, FormulaEditor, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
+import { CalcMenu, Chip, CtxMenu, DatePicker, FormulaEditor, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
 import { TI } from './icons'
+import { CALC_MENU, calc, calcMenuFor, calcOf, type CalcKey } from './calc'
 import { placeRow } from './EffortViews'
 import {
   autoOptions,
@@ -41,7 +42,6 @@ import {
   condMatch,
   dayDiff,
   dayLeft,
-  footStat,
   defaultGroup,
   diffSrcOf,
   rowSrcOf,
@@ -267,6 +267,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [menu, setMenu] = useState<{ anchor: HTMLElement; colId: string } | null>(null)
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow; c?: number } | null>(null)
   const [colMenu, setColMenu] = useState<{ x: number; y: number; colId: string } | null>(null)
+  /** 바닥줄 계산 고르기 — 누른 칸 위치 */
+  const [calcMenu, setCalcMenu] = useState<{ x: number; top: number; colId: string } | null>(null)
   /** 수식 설정 창 — 수식 열(지시: 노션처럼 열 전체에 같은 식) */
   const [formulaEd, setFormulaEd] = useState<{ colId: string; anchor: HTMLElement } | null>(null)
   const openFormula = (c: EfColumn, at?: HTMLElement) => {
@@ -1224,6 +1226,21 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     <tr key={'sum-' + g.id} className="ef-rsum">
       <td className="ef-rh" />
       {ordered.map((c) => {
+        // 바닥줄에서 계산을 골랐으면 그룹 소계도 같은 계산(그 그룹 행들로), 자동이면 예전처럼 숫자 합계만
+        const k = calcOf(c, ctx.st.calc)
+        if (k !== 'auto') {
+          const f = c.id === table.getState().grouping[0] ? null : calc(k, c, g.getLeafRows().filter((r) => !r.getIsGrouped()).map((r) => r.original), cols)
+          return (
+            <td key={c.id} className={isNumCol(c) || c.type === 'datediff' ? 'ef-n' : ''}>
+              {f && (
+                <span className="ef-tot">
+                  {f.lbl}
+                  <b>{f.val}</b>
+                </span>
+              )}
+            </td>
+          )
+        }
         if (!isNumCol(c)) return <td key={c.id} />
         const v = Number(g.getValue(c.id))
         return (
@@ -1288,24 +1305,31 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           <tfoot>
             <tr>
               <td className="ef-rh" />
+              {/* 계산 줄(노션 Calculate) — 칸을 누르면 그 열의 계산을 고른다(지시). 안 고르면 유형별 자동 값 */}
               {ordered.map((c) => {
-                if (isNumCol(c)) {
-                  const s = shown.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0)
-                  return (
-                    <td key={c.id} className="ef-n">
-                      <span className="ef-tot">
-                        합계<b>{numFmt(Math.round(s * 1e4) / 1e4)}</b>
-                      </span>
-                    </td>
-                  )
-                }
-                // 그 밖의 유형은 그 열에 맞는 값 하나(지시) — 최다·종류·범위·완료 비율… 규칙은 model.footStat 한 곳
-                const f = footStat(c, shown, cols)
+                const k = calcOf(c, ctx.st.calc)
+                const f = calc(k, c, shown, cols)
+                const num = isNumCol(c) || c.type === 'datediff'
                 // 좁은 열(부서·직급…)의 최다는 그 값만 — 「최다 검증3…」 처럼 잘렸다. 이름표·개수·분포는 올리면 보인다
-                const slim = f.short && (table.getColumn(c.id)?.getSize() ?? 999) < 110
+                const slim = f?.short && (table.getColumn(c.id)?.getSize() ?? 999) < 110
                 return (
-                  <td key={c.id} className="ef-fst" title={`${f.lbl} — ${f.tip ?? f.val}`}>
-                    {slim ? (
+                  <td
+                    key={c.id}
+                    className={`ef-fcalc${num ? ' ef-n' : ' ef-fst'}`}
+                    title={f ? `${f.lbl} — ${f.tip ?? f.val} · 눌러서 계산 바꾸기` : '눌러서 계산 고르기'}
+                    onClick={(e) => {
+                      const r = e.currentTarget.getBoundingClientRect()
+                      setCalcMenu({ x: r.left, top: r.top, colId: c.id })
+                    }}
+                  >
+                    {!f ? (
+                      <span className="ef-fhint">계산 ▾</span>
+                    ) : num ? (
+                      <span className="ef-tot">
+                        {f.lbl}
+                        <b>{f.val}</b>
+                      </span>
+                    ) : slim ? (
                       <b>{f.short}</b>
                     ) : (
                       <>
@@ -1427,7 +1451,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         {painted}
       </table>
       <div className="ef-hint">
-        <b>머리글 클릭=메뉴</b>(유형·필터·정렬·수식 설정) · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
+        <b>머리글 클릭=메뉴</b>(유형·필터·정렬·수식 설정) · <b>바닥줄 클릭=계산 고르기</b> · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
         <b>셀 두 번 클릭·Enter·F2·바로 입력=수정</b> · 방향키=이동 · Shift+Enter=줄 바꿈 · <b>머리글 우클릭=열 추가·복제</b> · <b>행 우클릭=행 추가·복제·삭제</b>
       </div>
 
@@ -1588,6 +1612,27 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           />
         )
       })()}
+      {calcMenu &&
+        (() => {
+          const c = cols.find((x) => x.id === calcMenu.colId)
+          if (!c) return null
+          return (
+            <CalcMenu
+              at={{ x: calcMenu.x, top: calcMenu.top }}
+              groups={calcMenuFor(c)}
+              cur={calcOf(c, ctx.st.calc)}
+              name={(k) => CALC_MENU[k as CalcKey]}
+              onPick={(k) => {
+                // 자동은 저장값을 지운다(유형 기본으로)
+                const m = { ...(ctx.st.calc ?? {}) }
+                if (k === 'auto') delete m[c.id]
+                else m[c.id] = k
+                ctx.setSt({ calc: m })
+              }}
+              onClose={() => setCalcMenu(null)}
+            />
+          )
+        })()}
       {colMenu && (() => {
         const c = cols.find((x) => x.id === colMenu.colId)
         if (!c) return null

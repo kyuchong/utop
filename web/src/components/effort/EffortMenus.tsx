@@ -1100,3 +1100,98 @@ export function CtxMenu({ at, items, onClose }: { at: { x: number; y: number }; 
     document.body,
   )
 }
+
+/**
+ * 바닥줄 계산 고르기 — 노션 모양(지시): 자동 · 계산 안함 · 수 › · 비율(%) › · 더 많은 옵션 ›
+ * 바닥줄 칸 위로 연다(아래는 화면 끝). 하위 메뉴는 그 줄 오른쪽(모자라면 왼쪽)에.
+ */
+export function CalcMenu({
+  at,
+  groups,
+  cur,
+  name,
+  onPick,
+  onClose,
+}: {
+  /** 누른 칸의 화면 위치 — 메뉴 아래쪽을 칸 위에 맞춘다 */
+  at: { x: number; top: number }
+  groups: Array<{ sub?: string; keys: string[] }>
+  cur: string
+  name: (k: string) => string
+  onPick: (k: string) => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  /** 크기는 메뉴 상자로 잰다 — 바깥 상자(ref)는 바깥 누름 판정용이라 폭이 화면 전체다 */
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ x: number; y: number }>({ x: at.x, y: -9999 })
+  const [open, setOpen] = useState<{ i: number; x: number; y: number; left: boolean } | null>(null)
+  useLayoutEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    setPos({ x: Math.max(8, Math.min(at.x, window.innerWidth - el.offsetWidth - 8)), y: Math.max(8, at.top - el.offsetHeight - 4) })
+  }, [at])
+  useEffect(() => {
+    const down = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && onClose()
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('mousedown', down)
+    document.addEventListener('keydown', key)
+    return () => {
+      document.removeEventListener('mousedown', down)
+      document.removeEventListener('keydown', key)
+    }
+  }, [onClose])
+  const pick = (k: string) => {
+    onPick(k)
+    onClose()
+  }
+  const item = (k: string) => (
+    <button key={k} type="button" className={`ef-mi${k === cur ? ' on' : ''}`} onClick={() => pick(k)}>
+      <span>{name(k)}</span>
+      {k === cur && <i className="ef-mi-ck"><TI n="check" /></i>}
+    </button>
+  )
+  // 하위 메뉴 — 그 줄 오른쪽(모자라면 왼쪽), 화면 아래로 넘치면 위로 올린다
+  const openSub = (i: number, el: HTMLElement) => {
+    const r = el.getBoundingClientRect()
+    const left = r.right + 220 > window.innerWidth
+    const h = groups[i]!.keys.length * 31 + 14
+    setOpen({ i, x: left ? r.left - 4 : r.right + 4, y: Math.max(8, Math.min(r.top - 6, window.innerHeight - h - 8)), left })
+  }
+  const sub = open && groups[open.i]
+  return createPortal(
+    // 하위 메뉴도 이 상자 안(DOM)에 두어 바깥 누름 판정에 같이 든다
+    <div ref={ref} className="ef-calcmenu-root">
+      <div ref={boxRef} className="ef-pop ef-menu ef-calcmenu" style={{ left: pos.x, top: pos.y }} onContextMenu={(e) => e.preventDefault()}>
+        {groups.map((g, i) =>
+          g.sub ? (
+            <button
+              key={g.sub}
+              type="button"
+              className={`ef-mi${open?.i === i ? ' open' : ''}${g.keys.includes(cur) ? ' on' : ''}`}
+              onMouseEnter={(e) => openSub(i, e.currentTarget)}
+              onClick={(e) => openSub(i, e.currentTarget)}
+            >
+              <span>{g.sub}</span>
+              <i className="ef-mi-arr"><TI n="chevron-right" /></i>
+            </button>
+          ) : (
+            <div key={i} onMouseEnter={() => setOpen(null)}>
+              {g.keys.map(item)}
+              <div className="ef-sep" />
+            </div>
+          ),
+        )}
+      </div>
+      {sub && (
+        <div
+          className="ef-pop ef-menu ef-submenu ef-submenu-wide"
+          style={open.left ? { right: window.innerWidth - open.x, top: open.y } : { left: open.x, top: open.y }}
+        >
+          {sub.keys.map(item)}
+        </div>
+      )}
+    </div>,
+    document.body,
+  )
+}

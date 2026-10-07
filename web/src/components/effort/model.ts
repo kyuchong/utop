@@ -42,6 +42,8 @@ export interface EfViewState {
   conds?: EfCond[]
   /** 숨긴 열 id — 보기마다(노션처럼) */
   hidden?: string[]
+  /** 바닥줄 계산 — 열 id → 계산(calc.ts 의 CalcKey). 없으면 유형별 자동 */
+  calc?: Record<string, string>
 }
 export interface EfView {
   id: string
