@@ -1,4 +1,5 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { TI } from './icons'
 import { autoColor, defaultGroup, isNumCol, numFmt, parseRange, toNum, type EfColumn, type EfRow, type EfView } from './model'
 
@@ -126,6 +127,39 @@ const fmtM = (d: Date) => `${String(d.getFullYear()).slice(2)}.${String(d.getMon
 export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]; rows: EfRow[]; view: EfView; year: string; touch: () => void }) {
   // 끄는 동안은 여기 값으로 바로 그리고, 놓을 때 보기에 적어 저장한다
   const [live, setLive] = useState<TlLive | null>(null)
+  /**
+   * 마우스를 올리면 보이는 검은 설명(지시: 막대가 좁아도 값이 보이게) — 이름·기간(일수)·그 행의 다른 값.
+   * 브라우저 흰 설명(title)은 두지 않는다(두 개가 겹친다)
+   */
+  const [hint, setHint] = useState<{ x: number; y: number; head: string; lines: string[] } | null>(null)
+  const hov = (head: string, lines: string[]) => ({
+    onMouseEnter: (e: React.MouseEvent) => setHint({ x: e.clientX, y: e.clientY, head, lines }),
+    onMouseMove: (e: React.MouseEvent) => setHint((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h)),
+    onMouseLeave: () => setHint(null),
+  })
+  // 올린 막대가 다시 그려지며 사라지면(기준·묶기 바꿈, 접기) mouseleave 가 안 와 설명이 남는다 — 그때·구를 때 지운다
+  useEffect(() => setHint(null), [view.tlMode, view.tlBy, view.tlLabel, rows, cols])
+  useEffect(() => {
+    if (!hint) return
+    const off = () => setHint(null)
+    window.addEventListener('scroll', off, true)
+    window.addEventListener('mousedown', off, true)
+    return () => {
+      window.removeEventListener('scroll', off, true)
+      window.removeEventListener('mousedown', off, true)
+    }
+  }, [hint])
+  const hintEl =
+    hint &&
+    createPortal(
+      <div className="ef-tl-hint" style={{ left: Math.min(hint.x + 14, window.innerWidth - 300), top: Math.min(hint.y + 16, window.innerHeight - 40 - hint.lines.length * 17) }}>
+        <b>{hint.head}</b>
+        {hint.lines.map((l, i) => (
+          <div key={i}>{l}</div>
+        ))}
+      </div>,
+      document.body,
+    )
   const LAB = live?.lab ?? tlLabOf(view)
   const colW = (k: string) => (live?.k === k && live.w !== undefined ? live.w : tlColW(view, k))
   /** 머리줄 칸들(키·글·이번 달) → 폭·위치까지 붙인 틀 값 */
@@ -166,11 +200,7 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
       return n
     })
   const label = (r: EfRow) => (lab && cellText(r[lab.id])) || '(이름 없음)'
-  const tip = (r: EfRow) =>
-    cols
-      .filter((c) => !isNumCol(c) && cellText(r[c.id]))
-      .map((c) => `${c.title}: ${cellText(r[c.id])}`)
-      .join('\n')
+  const tipLines = (r: EfRow) => cols.filter((c) => !isNumCol(c) && cellText(r[c.id])).map((c) => `${c.title}: ${cellText(r[c.id])}`)
 
   // ── 날짜 모드 — 자료의 첫 달부터 마지막 달까지(최대 60달) ──
   const dated = useMemo(() => {
@@ -221,8 +251,8 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
           const on = open.has(g.k)
           return (
             <Fragment key={g.k}>
-              <GroupHead k={g.k} n={g.rs.length} on={on} onFlip={() => flip(g.k)} by={by}>
-                <div className="ef-tl-sum" style={{ left: pos(s), width: Math.max(8, end(e) - pos(s)) }} title={`${fmtD(s)} ~ ${fmtD(e)}`} />
+              <GroupHead k={g.k} n={g.rs.length} on={on} onFlip={() => flip(g.k)} by={by} sub={fmtSpan(s, e)}>
+                <div className="ef-tl-sum" style={{ left: pos(s), width: Math.max(8, end(e) - pos(s)) }} {...hov(g.k, [periodText(s, e), `${g.rs.length}건`])} />
               </GroupHead>
               {on &&
                 g.rs.map((r, i) => {
@@ -230,7 +260,11 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
                   const c = autoColor(label(r))
                   return (
                     <div className="ef-tl-row" key={i}>
-                      <div className="ef-tl-lab" title={tip(r)}>{label(r)}</div>
+                      {/* 왼쪽 이름 기둥에 기간도 — 막대 폭과 상관없이 늘 보인다(지시: 왼쪽에) */}
+                      <div className="ef-tl-lab" {...hov(label(r), [periodText(d.s, d.e), ...tipLines(r)])}>
+                        <span className="ef-tl-nm">{label(r)}</span>
+                        <em className="ef-tl-dt">{fmtSpan(d.s, d.e)}</em>
+                      </div>
                       <div className="ef-tl-lane">
                         {(() => {
                           // 짧은 기간(며칠)은 막대가 좁아 이름이 잘린다(지적) — 막대 안에 안 들어가면 이름을 막대 오른쪽 밖에 둔다
@@ -238,14 +272,14 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
                           const w = Math.max(12, end(d.e) - x)
                           const t = label(r)
                           const fits = w >= textW(t) + 14
-                          const title = `${tip(r)}\n${fmtD(d.s)} ~ ${fmtD(d.e)}`
+                          const h = hov(t, [periodText(d.s, d.e), ...tipLines(r)])
                           return (
                             <>
-                              <div className={`ef-tl-bar${fits ? '' : ' slim'}`} style={{ left: x, width: w, background: c + '26', borderColor: c }} title={title}>
+                              <div className={`ef-tl-bar${fits ? '' : ' slim'}`} style={{ left: x, width: w, background: c + '26', borderColor: c }} {...h}>
                                 {fits && <span>{t}</span>}
                               </div>
                               {!fits && (
-                                <span className="ef-tl-out" style={{ left: x + w + 5 }} title={title}>
+                                <span className="ef-tl-out" style={{ left: x + w + 5 }} {...h}>
                                   {t}
                                   <em>{fmtSpan(d.s, d.e)}</em>
                                 </span>
@@ -260,6 +294,7 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
             </Fragment>
           )
         })}
+        {hintEl}
       </Frame>
     )
   }
@@ -293,7 +328,7 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
                     key={i}
                     className={`ef-tl-load${v > 0 ? '' : ' zero'}${load > 1.0001 ? ' over' : ''}`}
                     style={{ left: xs[i]! + 3, width: ws[i]! - 6, ...(v > 0 && load <= 1.0001 ? { background: `rgba(45,111,212,${0.12 + Math.min(1, load) * 0.6})`, color: load > 0.55 ? '#fff' : undefined } : {}) }}
-                    title={`${months[i]!.title} · ${numFmt(Math.round(v * 100) / 100)} M/M${full > 1 ? ` (가득 ${full})` : ''}`}
+                    {...hov(`${g.k} · ${months[i]!.title}`, [`${numFmt(Math.round(v * 100) / 100)} M/M${full > 1 ? ` (가득 ${full})` : ''}`])}
                   >
                     {v > 0 ? numFmt(Math.round(v * 100) / 100) : ''}
                   </div>
@@ -306,14 +341,16 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
                 const c = autoColor(label(r))
                 return (
                   <div className="ef-tl-row" key={i}>
-                    <div className="ef-tl-lab" title={tip(r)}>{label(r)}</div>
+                    <div className="ef-tl-lab" {...hov(label(r), tipLines(r))}>
+                      <span className="ef-tl-nm">{label(r)}</span>
+                    </div>
                     <div className="ef-tl-lane">
                       {segs.map((s, k) => (
                         <div
                           key={k}
                           className="ef-tl-bar"
                           style={{ left: xs[s.a]! + 3, width: xs[s.b]! + ws[s.b]! - xs[s.a]! - 6, background: c + '26', borderColor: c }}
-                          title={tip(r)}
+                          {...hov(label(r), [s.v.map((v, j) => `${months[s.a + j]!.title} ${numFmt(v ?? 0)}`).join(' · '), ...tipLines(r)])}
                         >
                           {s.v.map((v, j) => (
                             <span key={j} className="ef-tl-v" style={{ width: ws[s.a + j] }}>
@@ -330,7 +367,8 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
           </Fragment>
         )
       })}
-    </Frame>
+      {hintEl}
+      </Frame>
   )
 }
 
@@ -341,6 +379,8 @@ const fmtSpan = (s: Date, e: Date) => {
   const md = (d: Date) => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   return s.getTime() === e.getTime() ? md(s) : `${md(s)}~${md(e)}`
 }
+/** 설명 속 기간 — 2026-10-12 ~ 2026-10-16 (5일) */
+const periodText = (s: Date, e: Date) => `${fmtD(s)} ~ ${fmtD(e)} (${Math.round((e.getTime() - s.getTime()) / 86400000) + 1}일)`
 const fmtKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 const fmtD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
@@ -443,6 +483,7 @@ function GroupHead({
   onFlip,
   by,
   total,
+  sub,
   children,
 }: {
   k: string
@@ -451,6 +492,8 @@ function GroupHead({
   onFlip: () => void
   by: EfColumn | undefined
   total?: number
+  /** 이름 옆 글(날짜 모드 — 묶음 전체 기간) */
+  sub?: string
   children: React.ReactNode
 }) {
   return (
@@ -460,6 +503,7 @@ function GroupHead({
         <b>{k}</b>
         <em>{n}</em>
         {total !== undefined && total > 0 && <span className="ef-tl-tot">{numFmt(Math.round(total * 100) / 100)}</span>}
+        {sub && <span className="ef-tl-dt">{sub}</span>}
       </div>
       <div className="ef-tl-lane">{children}</div>
     </div>
