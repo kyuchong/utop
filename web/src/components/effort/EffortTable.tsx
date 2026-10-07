@@ -183,6 +183,9 @@ export function useEfTable(ctx: EfCtx) {
   const sorting = useMemo(() => st.sorting.filter((s) => idKey.split('|').includes(s.id)), [st.sorting, idKey])
   const columnFilters = useMemo(() => st.filters.filter((f) => idKey.split('|').includes(f.id)), [st.filters, idKey])
   const grouping = useMemo(() => (g0 && idKey.split('|').includes(g0) ? [g0] : []), [g0, idKey])
+  // 숨긴 열(지시: 머리글 → 열 숨기기) — 보기마다
+  const hiddenKey = (st.hidden ?? []).join('|')
+  const columnVisibility = useMemo(() => Object.fromEntries((st.hidden ?? []).map((id) => [id, false])), [hiddenKey])
   const table = useReactTable<EfRow>({
     data,
     columns,
@@ -192,6 +195,7 @@ export function useEfTable(ctx: EfCtx) {
       grouping,
       expanded,
       columnSizing: sizing,
+      columnVisibility,
     },
     onSortingChange: (u) => setSt({ sorting: typeof u === 'function' ? u(st.sorting) : u }),
     onColumnFiltersChange: (u) => setSt({ filters: typeof u === 'function' ? u(st.filters) : u }),
@@ -818,6 +822,16 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       },
       group: (on) => ctx.setSt({ group: on ? c.id : '' }),
       editFormula: () => window.setTimeout(() => openFormula(c), 30),
+      hide: () => {
+        const hid = ctx.st.hidden ?? []
+        if (cols.filter((x) => !hid.includes(x.id)).length <= 1) {
+          toast('마지막 열은 숨길 수 없습니다')
+          return
+        }
+        ctx.setSt({ hidden: [...hid.filter((x) => x !== c.id), c.id] })
+        setSel(null)
+        toast(`「${c.title}」 열을 숨겼습니다 — 도구 줄 「숨긴 열」에서 다시 보입니다`)
+      },
       touch,
     }
   }

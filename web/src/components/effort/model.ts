@@ -34,7 +34,15 @@ export interface EfFilterRule { id: string; value: unknown }
 /** 이 화면의 보기 상태 — 예전 보기(searchQ 등)와 섞이지 않게 ef 에 따로 담는다 */
 /** 툴바 필터 조건 한 줄 — 열 · 조건 · 값 (예전 _rscFilters, 모두 만족) */
 export interface EfCond { col: string; op: string; v: string }
-export interface EfViewState { q: string; filters: EfFilterRule[]; sorting: EfSortRule[]; group: string | null; conds?: EfCond[] }
+export interface EfViewState {
+  q: string
+  filters: EfFilterRule[]
+  sorting: EfSortRule[]
+  group: string | null
+  conds?: EfCond[]
+  /** 숨긴 열 id — 보기마다(노션처럼) */
+  hidden?: string[]
+}
 export interface EfView {
   id: string
   name: string

@@ -682,6 +682,8 @@ export interface HeadOps {
   group: (on: boolean) => void
   /** 수식 열 — 수식 설정 창 열기 */
   editFormula: () => void
+  /** 이 열 숨기기(보기마다) */
+  hide: () => void
   /** 옵션을 고쳤다 — 저장하고 다시 그린다 */
   touch: () => void
 }
@@ -799,6 +801,10 @@ export function HeadMenu({
           <button type="button" className="ef-mi" onClick={() => { setSub(null); ops.duplicate(); close() }}>
             <i className="ef-mi-ic"><TI n="copy" /></i>
             <span>열 복제</span>
+          </button>
+          <button type="button" className="ef-mi" onClick={() => { setSub(null); close(); ops.hide() }}>
+            <i className="ef-mi-ic"><TI n="eye-off" /></i>
+            <span>열 숨기기</span>
           </button>
           <button type="button" className="ef-mi del" onClick={() => { setSub(null); ops.remove(); close() }}>
             <i className="ef-mi-ic"><TI n="trash" /></i>

@@ -273,6 +273,7 @@ function EffortBody({
   const gName = cols.find((c) => c.id === gId)?.title ?? ''
   const shownN = table.getFilteredRowModel().rows.length
   const isTable = (view.type || 'table') === 'table'
+  const hidCols = cols.filter((c) => (st.hidden ?? []).includes(c.id))
 
   return (
     <>
@@ -339,6 +340,12 @@ function EffortBody({
                 <button type="button" className={`ef-btn gh${gId ? ' on' : ''}`} onClick={open('group')}>
                   <TI n="layout-rows" /> 그룹{gName ? ': ' + gName : ''}
                 </button>
+                {/* 숨긴 열 — 있을 때만, 눌러서 다시 보이기 */}
+                {hidCols.length > 0 && (
+                  <button type="button" className={`ef-btn gh on${pop?.kind === 'hidden' ? ' open' : ''}`} onClick={open('hidden')}>
+                    <TI n="eye-off" /> 숨긴 열 {hidCols.length}
+                  </button>
+                )}
                 <span className="ef-tbsep" />
                 <button type="button" className="ef-btn gh" onClick={() => setColMgr(true)}>
                   <TI n="columns" /> 열 설정
@@ -541,6 +548,33 @@ function EffortBody({
             touch()
           }}
         />
+      )}
+      {pop?.kind === 'hidden' && (
+        <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
+          <div className="ef-lbl">숨긴 열 — 눌러서 다시 보이기</div>
+          <div className="ef-mlist">
+            {hidCols.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className="ef-mi"
+                onClick={() => {
+                  const left = (st.hidden ?? []).filter((x) => x !== c.id)
+                  setSt({ hidden: left })
+                  if (!left.length) close()
+                }}
+              >
+                <i className="ef-mi-ic"><TI n="eye" /></i>
+                <span>{c.title}</span>
+              </button>
+            ))}
+          </div>
+          <div className="ef-sep" />
+          <button type="button" className="ef-mi" onClick={() => { close(); setSt({ hidden: [] }) }}>
+            <i className="ef-mi-ic"><TI n="eye" /></i>
+            <span>모두 보이기</span>
+          </button>
+        </Pop>
       )}
       {pop?.kind === 'filter' && <CondPanel anchor={pop.anchor} cols={cols} rows={rows} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'sort' && <SortPanel anchor={pop.anchor} cols={cols} st={st} setSt={setSt} onClose={close} />}
