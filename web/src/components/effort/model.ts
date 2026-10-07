@@ -256,6 +256,11 @@ export function normRange(v: unknown): string | null {
 }
 /** 체크박스 값 — true·1·y·o·v·✓·예 등이면 켜짐 */
 export const truthy = (v: unknown) => v === true || /^(true|1|y|yes|o|v|✓|✔|☑|예|네)$/i.test(String(v ?? '').trim())
+/** 행에서 따로 고른 기준 기간 열이 담기는 키 — 칸 값이 아니라 숨은 값(예전 화면·CSV 는 모른다) */
+export const srcKey = (c: EfColumn) => `_src_${c.id}`
+/** 이 행의 남은 일수가 볼 기간 열 — 행에서 고른 것 > 머리글에서 정한 것 > 첫 기간 열(지시: 셀마다) */
+export const rowSrcOf = (r: EfRow, cols: EfColumn[], c: EfColumn) =>
+  cols.find((x) => x.id === r[srcKey(c)] && x.type === 'daterange') ?? diffSrcOf(cols, c)
 /** 기간 일수 열이 볼 기간 열 — 지정(srcCol)이 없으면 첫 기간 열(예전과 같다) */
 export const diffSrcOf = (cols: EfColumn[], c: EfColumn) =>
   cols.find((x) => x.id === c.srcCol && x.type === 'daterange') ?? cols.find((x) => x.type === 'daterange')
@@ -437,7 +442,7 @@ const SIZE: Record<string, number> = {
 }
 const NUM_W = 64
 /** 유형별 기본 폭 — 기간은 「2026-01-05 ~ 02-10」 이 다 보이게 */
-const TYPE_W: Partial<Record<EfType, number>> = { date: 96, daterange: 176, datediff: 92, checkbox: 52, url: 150, email: 150, phone: 116 }
+const TYPE_W: Partial<Record<EfType, number>> = { date: 96, daterange: 176, datediff: 120, checkbox: 52, url: 150, email: 150, phone: 116 }
 export const colSize = (c: EfColumn) =>
   (typeof c.efWidth === 'number' && c.efWidth > 0 ? c.efWidth : 0) ||
   (SIZE[String(c.title ?? '').trim()] ?? (isNumCol(c) ? NUM_W : c.width || TYPE_W[c.type] || 96))

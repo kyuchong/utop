@@ -679,7 +679,7 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
 .ef-pick-ck { margin-left: auto; color: #2d6fd4; font-weight: 800; }
 .ef-pick-clr { color: #d12d4a; margin-top: 4px; border-top: 1px solid #edf0f4; border-radius: 0; padding-top: 6px; }
 
-.ef-rowmenu { width: 140px; }
+.ef-rowmenu { width: auto; min-width: 140px; max-width: 280px; white-space: nowrap; }
 
 /* 툴바 패널 — 필터(열 목록 | 몸통) · 정렬 · 연도 추가 */
 .ef-fpanel { width: auto; }
@@ -1089,3 +1089,5 @@ input.ef-fsel { cursor: text; }
 .ef-ddiff.soon { color: #e06a34; }
 .ef-ddiff.past { color: var(--c-text-faint); font-weight: 700; }
 .ef-src-none { font-size: 11px; color: var(--c-text-faint); padding: 6px 8px 8px; line-height: 1.5; }
+/* 남은 일수 — 행에서 따로 고른 기준 기간 열 이름(작게) */
+.ef-dsrc { font-size: 9.5px; font-weight: 700; color: var(--c-text-faint); background: #f1f4f9; border-radius: 4px; padding: 0 4px; margin-right: 2px; }

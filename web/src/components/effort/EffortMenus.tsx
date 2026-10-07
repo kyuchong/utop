@@ -576,6 +576,9 @@ export interface HeadOps {
   setSrc: (id: string) => void
   /** 표의 기간 열들 — 남은 일수의 기준 고르기에 */
   ranges: EfColumn[]
+  /** 행에서 따로 기준을 고른 칸 수 · 모두 지우기(열 기본으로) */
+  rowSrcCount: number
+  clearRowSrc: () => void
   /** 옵션을 고쳤다 — 저장하고 다시 그린다 */
   touch: () => void
 }
@@ -797,6 +800,15 @@ export function HeadMenu({
             </div>
           ) : (
             <div className="ef-src-none">기간 열이 없습니다 — 기간 유형 열을 먼저 만드세요</div>
+          )}
+          {ops.rowSrcCount > 0 && (
+            <>
+              <div className="ef-sep" />
+              <button type="button" className="ef-mi" onClick={() => { ops.clearRowSrc(); close() }}>
+                <i className="ef-mi-ic"><TI n="eraser" /></i>
+                <span>행별 지정 {ops.rowSrcCount}개 지우기</span>
+              </button>
+            </>
           )}
         </Pop>
       )}

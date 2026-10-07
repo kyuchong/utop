@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, chipStyle, dayDiff, dayLeft, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, chipStyle, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -139,5 +139,18 @@ describe('남은 일수 — 오늘부터 종료일까지', () => {
     expect(dayLeft({ p: '2026-09-01 ~ 2026-10-04' }, src, today)).toBe(-3)
     expect(dayLeft({ p: '2026-11-01 ~ 2026-11-10' }, src, today)).toBe(34)
     expect(dayLeft({}, src, today)).toBeNull()
+  })
+})
+
+describe('남은 일수 — 기준 기간: 행 > 머리글 > 첫 기간 열', () => {
+  const p1 = { id: 'p1', title: '기간', type: 'daterange' as const }
+  const p2 = { id: 'p2', title: '기간2', type: 'daterange' as const }
+  const dd = { id: 'dd', title: '일수', type: 'datediff' as const }
+  const cols = [p1, p2, dd]
+  it('지정이 없으면 첫 기간 열, 머리글 지정, 행 지정이 가장 먼저, 지운 열이면 다음으로', () => {
+    expect(rowSrcOf({}, cols, dd)).toBe(p1)
+    expect(rowSrcOf({}, cols, { ...dd, srcCol: 'p2' })).toBe(p2)
+    expect(rowSrcOf({ [srcKey(dd)]: 'p1' }, cols, { ...dd, srcCol: 'p2' })).toBe(p1)
+    expect(rowSrcOf({ [srcKey(dd)]: 'gone' }, cols, { ...dd, srcCol: 'p2' })).toBe(p2)
   })
 })
