@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, ROW_ID, calcKey, chipStyle, cloneRow, recalcCalc, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, ROW_ID, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -155,31 +155,58 @@ describe('남은 일수 — 기준 기간: 행에서 고른 것 > 맨 앞 기간
   })
 })
 
-describe('계산 열 — 고른 칸의 합', () => {
+describe('수식 칸 — 고른 칸들로 합계·평균·최소·최대·개수', () => {
   const m1 = { id: 'm1', title: '01월', type: 'number' as const }
+  const m2 = { id: 'm2', title: '02월', type: 'number' as const }
   const tot = { id: 'tot', title: '합계', type: 'number' as const, autoSum: true }
-  const cc = { id: 'cc', title: '계산', type: 'calc' as const }
-  const cols = [m1, tot, cc]
-  it('행 이름표로 기억 — 순서가 바뀌어도 그 행, 지운 행·계산 열은 빼고 합', () => {
-    const a: Record<string, unknown> = { m1: 1, tot: 1 }
-    const b: Record<string, unknown> = { m1: 0.5, tot: 0.5 }
+  const cols = [m1, m2, tot]
+  it('행 이름표로 기억 — 차례가 바뀌어도 그 행, 지운 행·빈 칸은 빼고, 값이 바뀌면 다시', () => {
+    const a: Record<string, unknown> = { m1: 1 }
+    const b: Record<string, unknown> = { m1: 0.5 }
     const c: Record<string, unknown> = {}
-    c[calcKey(cc)] = [
+    const refs = [
       { r: rowId(a), c: 'm1' },
       { r: rowId(b), c: 'm1' },
-      { r: rowId(b), c: 'tot' },
       { r: 'gone', c: 'm1' },
-      { r: rowId(a), c: 'cc' },
+      { r: rowId(a), c: 'm2' }, // 빈 칸
     ]
-    const rows = [b, c, a] // 차례를 바꿔도
-    recalcCalc(rows, cols)
-    expect(c.cc).toBe(2)
-    b.m1 = 2
-    recalcCalc(rows, cols)
-    expect(c.cc).toBe(3.5)
-    delete c[calcKey(cc)]
-    recalcCalc(rows, cols)
-    expect('cc' in c).toBe(false)
+    c[fxKey(m2)] = { fn: 'sum', refs }
+    const rows = [b, c, a]
+    recalcFx(rows, cols)
+    expect(c.m2).toBe(1.5)
+    c[fxKey(m2)] = { fn: 'avg', refs }
+    recalcFx(rows, cols)
+    expect(c.m2).toBe(0.75)
+    c[fxKey(m2)] = { fn: 'count', refs }
+    recalcFx(rows, cols)
+    expect(c.m2).toBe(2)
+    c[fxKey(m2)] = { fn: 'max', refs }
+    b.m1 = 3
+    recalcFx(rows, cols)
+    expect(c.m2).toBe(3)
+  })
+  it('월 열의 수식 값이 합계 열에 들어가고, 합계를 보는 수식도 다시', () => {
+    const a: Record<string, unknown> = { m1: 2 }
+    const c: Record<string, unknown> = { m1: 1 }
+    c[fxKey(m2)] = { fn: 'sum', refs: [{ r: rowId(a), c: 'm1' }] }
+    const d: Record<string, unknown> = {}
+    d[fxKey(m1)] = { fn: 'sum', refs: [{ r: rowId(c), c: 'tot' }] }
+    recalcAuto([a, c, d], cols)
+    expect(c.m2).toBe(2)
+    expect(c.tot).toBe(3)
+    expect(d.m1).toBe(3)
+  })
+  it('예전 「계산」 유형 열은 숫자 열 + 합계 수식으로', () => {
+    const doc = normalize({
+      columns: [m1, { id: 'cc', title: '계산', type: 'calc' }],
+      pages: { '2026': { rows: [{ _id: 'ra', m1: 1 }, { _calc_cc: [{ r: 'ra', c: 'm1' }] }] } },
+      years: ['2026'],
+      curPage: '2026',
+    })
+    expect(doc.columns[1]!.type).toBe('number')
+    const r = doc.pages['2026']!.rows[1]!
+    expect(r._calc_cc).toBeUndefined()
+    expect(r._fx_cc).toEqual({ fn: 'sum', refs: [{ r: 'ra', c: 'm1' }] })
   })
   it('행 복제는 이름표를 뗀다(같은 이름표가 둘이면 엉뚱한 행을 본다)', () => {
     const a: Record<string, unknown> = { m1: 1 }

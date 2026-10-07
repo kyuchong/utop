@@ -14,7 +14,7 @@
 
 export type EfType =
   | 'text' | 'number' | 'select' | 'multiselect' | 'status' | 'date' | 'daterange'
-  | 'datediff' | 'person' | 'checkbox' | 'url' | 'email' | 'phone' | 'calc'
+  | 'datediff' | 'person' | 'checkbox' | 'url' | 'email' | 'phone'
 
 export interface EfColumn {
   id: string
@@ -90,7 +90,6 @@ export const TYPES: Array<{ t: EfType; n: string; ic: string; e: string }> = [
   { t: 'url', n: 'URL', ic: 'link', e: '🔗' },
   { t: 'email', n: '이메일', ic: 'mail', e: '✉' },
   { t: 'phone', n: '전화번호', ic: 'phone', e: '📞' },
-  { t: 'calc', n: '계산(고른 칸 합)', ic: 'sum', e: '∑' },
 ]
 /** 머리글·메뉴 아이콘 이름 — 합계 열은 Σ(sum) */
 export const typeIcon = (c: EfColumn) => (c.autoSum ? 'sum' : TYPES.find((x) => x.t === c.type)?.ic ?? 'align-left')
@@ -174,6 +173,7 @@ function normalizeTable(raw: unknown): EfDoc {
   if (Array.isArray(top) && top.length && !d.pages[d.curPage]!.rows.length) d.pages[d.curPage]!.rows = top
   delete (d as { rows?: unknown }).rows
   delete (d as { _rowsPage?: unknown })._rowsPage
+  migrateCalcCols(d)
   return d
 }
 
@@ -215,7 +215,7 @@ export function defaultGroup(cols: EfColumn[]): string {
   return c ? c.id : ''
 }
 
-export const isNumCol = (c: EfColumn | undefined) => !!c && (c.type === 'number' || !!c.autoSum || c.type === 'calc')
+export const isNumCol = (c: EfColumn | undefined) => !!c && (c.type === 'number' || !!c.autoSum)
 export function toNum(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null
   const n = parseFloat(String(v).replace(/,/g, ''))
@@ -288,60 +288,102 @@ export function dayDiff(r: EfRow, src: EfColumn | undefined): number | null {
   return n > 0 ? n : null
 }
 
-// ── 계산 열(지시: 엑셀 =SUM 처럼 칸을 골라 합) ──────────────────────────────
-/** 행 이름표 — 계산 칸이 「몇 행」 이 아니라 「그 행」 을 기억하게(정렬·이동해도 따라간다). 숨은 값 */
+// ── 수식 칸(지시: 칸을 먼저 고르고 → 우클릭 「수식」 → 결과를 넣을 칸) ──────────────────────
+/** 행 이름표 — 수식이 「몇 행」 이 아니라 「그 행」 을 기억하게(정렬·이동해도 따라간다). 숨은 값 */
 export const ROW_ID = '_id'
-/** 계산 칸이 고른 칸들 — 행의 숨은 값. [{ r: 행 이름표, c: 열 id }] */
-export const calcKey = (c: EfColumn) => `_calc_${c.id}`
+export type FxFn = 'sum' | 'avg' | 'min' | 'max' | 'count'
+export const FX_NAME: Record<FxFn, string> = { sum: '합계', avg: '평균', min: '최소', max: '최대', count: '개수' }
 export interface CalcRef {
   r: string
   c: string
 }
-export const refsOf = (r: EfRow, c: EfColumn): CalcRef[] => (Array.isArray(r[calcKey(c)]) ? (r[calcKey(c)] as CalcRef[]) : [])
+export interface FxSpec {
+  fn: FxFn
+  refs: CalcRef[]
+}
+/** 수식이 담기는 행의 숨은 값 — 이 열 칸의 수식 */
+export const fxKey = (c: EfColumn) => `_fx_${c.id}`
+export function fxOf(r: EfRow, c: EfColumn): FxSpec | null {
+  const v = r[fxKey(c)] as FxSpec | undefined
+  return v && Array.isArray(v.refs) && FX_NAME[v.fn] ? v : null
+}
 /** 행 이름표 — 없으면 붙인다 */
 export function rowId(r: EfRow): string {
   if (typeof r[ROW_ID] !== 'string' || !r[ROW_ID]) r[ROW_ID] = 'r' + newId().slice(1)
   return r[ROW_ID] as string
 }
-/** 계산 칸이 더할 수 있는 열 — 숫자·합계 열(계산 열끼리는 안 엮는다) */
+/** 수식이 볼 수 있는 칸 — 숫자·합계 열 */
 export const pickableCol = (c: EfColumn | undefined) => !!c && (c.type === 'number' || !!c.autoSum)
-/** 행 복제 — 깊은 복사, 이름표는 떼서(같은 이름표가 둘이면 계산이 엉뚱한 행을 본다) */
+/** 수식을 넣을 수 있는 칸 — 숫자 열(합계 열은 저절로 계산돼서 안 된다) */
+export const fxTargetCol = (c: EfColumn | undefined) => !!c && c.type === 'number' && !c.autoSum
+/** 행 복제 — 깊은 복사, 이름표는 떼서(같은 이름표가 둘이면 수식이 엉뚱한 행을 본다) */
 export function cloneRow(r: EfRow): EfRow {
   const n = JSON.parse(JSON.stringify(r)) as EfRow
   delete n[ROW_ID]
   return n
 }
-/** 계산 열 다시 계산 — 고른 칸들의 합을 그 칸 값으로 둔다(정렬·필터·CSV·차트가 숫자로 쓰게). 지운 행·열은 건너뛴다 */
-export function recalcCalc(rows: EfRow[], cols: EfColumn[]) {
-  const calcs = cols.filter((c) => c.type === 'calc')
-  if (!calcs.length) return
+const fxCalc = (fn: FxFn, v: number[]): number | null => {
+  if (fn === 'count') return v.length
+  if (!v.length) return null
+  if (fn === 'sum') return v.reduce((a, b) => a + b, 0)
+  if (fn === 'avg') return v.reduce((a, b) => a + b, 0) / v.length
+  return fn === 'min' ? Math.min(...v) : Math.max(...v)
+}
+/**
+ * 수식 칸 다시 계산 — 결과를 칸 값으로 둔다(정렬·필터·CSV·차트가 숫자로 쓰게). 지운 행·열은 건너뛴다.
+ * 수식이 다른 수식 칸을 볼 수 있어 바뀌지 않을 때까지 몇 번 돈다(돌고 도는 수식은 5번에서 멈춘다)
+ */
+export function recalcFx(rows: EfRow[], cols: EfColumn[]) {
+  const targets = cols.filter(fxTargetCol)
+  const has = rows.some((r) => targets.some((c) => r[fxKey(c)]))
+  if (!has) return
   const byId = new Map<string, EfRow>()
   rows.forEach((r) => typeof r[ROW_ID] === 'string' && byId.set(r[ROW_ID] as string, r))
   const colBy = new Map(cols.map((c) => [c.id, c]))
-  rows.forEach((r) =>
-    calcs.forEach((c) => {
-      const refs = refsOf(r, c)
-      if (!refs.length) {
-        delete r[c.id]
-        return
-      }
-      let s = 0
-      refs.forEach((x) => {
-        const rr = byId.get(x.r)
-        if (rr && pickableCol(colBy.get(x.c))) s += toNum(rr[x.c]) ?? 0
-      })
-      r[c.id] = Math.round(s * 1e6) / 1e6
-    }),
-  )
+  for (let pass = 0; pass < 5; pass++) {
+    let changed = false
+    rows.forEach((r) =>
+      targets.forEach((c) => {
+        const fx = fxOf(r, c)
+        if (!fx) return
+        const vals: number[] = []
+        fx.refs.forEach((x) => {
+          const rr = byId.get(x.r)
+          const n = rr && pickableCol(colBy.get(x.c)) ? toNum(rr[x.c]) : null
+          if (n !== null) vals.push(n)
+        })
+        const v = fxCalc(fx.fn, vals)
+        const nv = v === null ? undefined : Math.round(v * 1e6) / 1e6
+        if (r[c.id] !== nv) {
+          if (nv === undefined) delete r[c.id]
+          else r[c.id] = nv
+          changed = true
+        }
+      }),
+    )
+    if (!changed) break
+  }
+}
+/** 예전 「계산」 유형 열 → 숫자 열 + 합계 수식(지시: 유형 대신 수식으로 바꿨다) */
+function migrateCalcCols(d: EfDoc) {
+  d.columns.forEach((c) => {
+    if ((c.type as string) !== 'calc') return
+    c.type = 'number'
+    const old = `_calc_${c.id}`
+    Object.values(d.pages).forEach((p) =>
+      p.rows.forEach((r) => {
+        if (Array.isArray(r[old])) r[fxKey(c)] = { fn: 'sum', refs: r[old] }
+        delete r[old]
+      }),
+    )
+  })
 }
 
 /** 합계 열(autoSum) 다시 계산 — 숫자 열(합계 열 빼고)을 더해 행마다 넣는다 */
 export function recalcAuto(rows: EfRow[], cols: EfColumn[]) {
+  recalcFx(rows, cols) // 수식 칸 먼저(월 열에 든 수식이 합계에 들어가게)
   const autos = cols.filter((c) => c.autoSum)
-  if (!autos.length) {
-    recalcCalc(rows, cols)
-    return
-  }
+  if (!autos.length) return
   const nums = cols.filter((c) => c.type === 'number' && !c.autoSum)
   rows.forEach((r) => {
     let s = 0
@@ -358,7 +400,7 @@ export function recalcAuto(rows: EfRow[], cols: EfColumn[]) {
       else delete r[ac.id]
     })
   })
-  recalcCalc(rows, cols) // 합계가 바뀌면 그것을 고른 계산 칸도
+  recalcFx(rows, cols) // 합계를 보는 수식 칸도 다시
 }
 
 /** 표에 쓰인 값 중 옵션에 없는 것 */
