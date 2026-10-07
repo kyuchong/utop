@@ -6,7 +6,8 @@ import { TI } from '@/components/effort/icons'
 import EffortTree from '@/components/effort/EffortTree'
 import { EfImport } from '@/components/effort/EffortImport'
 import { EfTimeline, tlByOf, tlCols, tlLabelOf, tlModeOf, tlModes } from '@/components/effort/EffortTimeline'
-import { ChartAdd, EfBoard, EfChart, boardColOf, boardCols, chartColOf, chartCols } from '@/components/effort/EffortViews'
+import { EfNotionChart } from '@/components/effort/EffortChart'
+import { EfBoard, boardColOf, boardCols } from '@/components/effort/EffortViews'
 import {
   TYPES,
   condMatch,
@@ -191,6 +192,8 @@ function EffortBody({
   const [pop, setPop] = useState<{ kind: string; anchor: HTMLElement; id?: string } | null>(null)
   const [colMgr, setColMgr] = useState(false)
   const [imp, setImp] = useState(false)
+  /** 차트 설정 패널 — 처음 만든 차트 보기는 열어 둔다(무엇을 그릴지 고르게) */
+  const [ncPanel, setNcPanel] = useState(() => view.type === 'chart' && !view.nchart)
   const open = (kind: string, id?: string) => (e: React.MouseEvent<HTMLElement>) => {
     e.preventDefault()
     const a = e.currentTarget
@@ -251,6 +254,7 @@ function EffortBody({
     const v: EfView = { id: newId(), name: nm, type }
     views.push(v)
     d.curBetaView = v.id
+    if (type === 'chart') setNcPanel(true) // 새 차트 — 무엇을 그릴지 고르게 설정 패널을 연다(노션처럼)
     touch()
   }
 
@@ -389,26 +393,10 @@ function EffortBody({
               </>
             ) : view.type === 'chart' ? (
               <>
-                {/* 보고 싶은 차트를 고른다 — 기본 차트 켜고 끄기 · 새 차트 만들기(지시) */}
-                <button type="button" className={`ef-btn gh${pop?.kind === 'chartadd' ? ' on' : ''}`} onClick={open('chartadd')}>
-                  <TI n="plus" /> 차트 추가
+                {/* 노션식 차트(지시) — 설정은 차트 오른쪽 패널, 도구 줄엔 설정 열기·필터 */}
+                <button type="button" className={`ef-btn gh${ncPanel ? ' on' : ''}`} onClick={() => setNcPanel(!ncPanel)}>
+                  <TI n="chart-bar" /> 차트 설정
                 </button>
-                <span className="ef-tbhint">기준 열</span>
-                <select
-                  className="ef-fsel ef-tbsel"
-                  aria-label="차트 기준 열"
-                  value={chartColOf(view, cols)?.id ?? ''}
-                  onChange={(e) => {
-                    view.chartCol = e.target.value
-                    touch()
-                  }}
-                >
-                  {chartCols(cols).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title}
-                    </option>
-                  ))}
-                </select>
                 {/* 차트도 표와 같은 조건식 필터 — 걸린 조건에 맞는 행만으로 그린다(차트 탭마다 따로) */}
                 <button type="button" className={`ef-btn gh${fCount ? ' on' : ''}`} onClick={open('filter')}>
                   <TI n="filter" /> 필터{fCount ? ' ' + fCount : ''}
@@ -476,7 +464,7 @@ function EffortBody({
             ) : view.type === 'board' ? (
               <EfBoard d={d} rows={rows} view={view} touch={touch} toast={toast} />
             ) : view.type === 'chart' ? (
-              <EfChart d={d} rows={chartRows} view={view} ver={ver} touch={touch} toast={toast} />
+              <EfNotionChart cols={cols} rows={chartRows} view={view} ver={ver} panel={ncPanel} setPanel={setNcPanel} touch={touch} />
             ) : view.type === 'gantt' ? (
               <EfTimeline cols={cols} rows={chartRows} view={view} year={year} />
             ) : (
@@ -554,7 +542,6 @@ function EffortBody({
           }}
         />
       )}
-      {pop?.kind === 'chartadd' && <ChartAdd anchor={pop.anchor} view={view} touch={touch} onClose={close} />}
       {pop?.kind === 'filter' && <CondPanel anchor={pop.anchor} cols={cols} rows={rows} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'sort' && <SortPanel anchor={pop.anchor} cols={cols} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'addview' && (
