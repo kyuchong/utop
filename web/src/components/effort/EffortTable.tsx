@@ -714,22 +714,6 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         touch()
       },
       group: (on) => ctx.setSt({ group: on ? c.id : '' }),
-      setSrc: (id) => {
-        if (c.srcCol === id) return
-        c.srcCol = id
-        touch()
-        toast(`「${doc.columns.find((x) => x.id === id)?.title ?? ''}」 기준으로 남은 일수를 셉니다`)
-      },
-      ranges: doc.columns.filter((x) => x.type === 'daterange'),
-      rowSrcCount: allRows().filter((r) => r[srcKey(c)] != null).length,
-      clearRowSrc: () => {
-        const n = allRows().filter((r) => r[srcKey(c)] != null)
-        if (!n.length) return
-        if (!window.confirm(`행마다 따로 고른 기준 기간 ${n.length}개를 지우고 열 기본으로 되돌릴까요?`)) return
-        n.forEach((r) => delete r[srcKey(c)])
-        touch()
-        toast(`${n.length}개를 열 기본으로 되돌렸습니다`)
-      },
       touch,
     }
   }
@@ -1187,7 +1171,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         <DatePicker anchor={edit.anchor} value={cellText(edit.src[edit.col.id])} onClose={() => setEdit(null)} onPick={(v) => commit(edit.src, edit.col, v)} />
       )}
       {edit && edit.col.type === 'datediff' && (() => {
-        // 이 행의 기준 기간 — 열 기본 따르기 · 기간 열들(지시: 셀마다)
+        // 이 행의 기준 기간 — 기본(맨 앞 기간 열) · 기간 열들(지시: 셀마다, 머리글 지정은 뺐다)
         const c = edit.col
         const r = edit.src
         const ranges = cols.filter((x) => x.type === 'daterange')
@@ -1208,7 +1192,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
             items={
               ranges.length
                 ? [
-                    { ic: own ? 'calendar' : 'check', label: `열 기본 따르기${def ? ` (${def.title})` : ''}`, on: () => pick(null) },
+                    { ic: own ? 'calendar' : 'check', label: `기본 — 맨 앞 기간 열${def ? ` (${def.title})` : ''}`, on: () => pick(null) },
                     ...ranges.map((x, i) => ({ ic: own === x.id ? 'check' : 'calendar-week', label: `${x.title} 기준`, on: () => pick(x.id), sep: i === 0 })),
                   ]
                 : [{ ic: 'x', label: '기간 열이 없습니다', on: () => {} }]

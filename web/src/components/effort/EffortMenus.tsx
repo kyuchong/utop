@@ -572,13 +572,6 @@ export interface HeadOps {
   duplicate: () => void
   remove: () => void
   group: (on: boolean) => void
-  /** 남은 일수 열이 볼 기간 열(srcCol)을 정한다 */
-  setSrc: (id: string) => void
-  /** 표의 기간 열들 — 남은 일수의 기준 고르기에 */
-  ranges: EfColumn[]
-  /** 행에서 따로 기준을 고른 칸 수 · 모두 지우기(열 기본으로) */
-  rowSrcCount: number
-  clearRowSrc: () => void
   /** 옵션을 고쳤다 — 저장하고 다시 그린다 */
   touch: () => void
 }
@@ -649,8 +642,6 @@ export function HeadMenu({
           {hasOptions(col.type) && item('opts', 'tags', '옵션', false)}
           {item('filter', 'filter', '필터', column.getIsFiltered())}
           {item('sort', 'arrows-sort', '정렬', !!sorted)}
-          {/* 남은 일수 — 기간 열이 여럿이면 어느 기간으로 셀지 고른다(지시) */}
-          {col.type === 'datediff' && item('src', 'calendar-week', '기준 기간 열', !!col.srcCol)}
           <button
             type="button"
             className={`ef-mi${grouped ? ' on' : ''}${num ? ' off' : ''}`}
@@ -779,39 +770,6 @@ export function HeadMenu({
         </Pop>
       )}
 
-      {sub?.kind === 'src' && (
-        <Pop anchor={sub.anchor} side cls="ef-menu ef-submenu" onClose={() => setSub(null)}>
-          <div className="ef-lbl">기준 기간 열</div>
-          {ops.ranges.length ? (
-            <div className="ef-mlist">
-              {ops.ranges.map((r, i) => {
-                // 지정이 없거나 지운 열이면 첫 기간 열을 본다
-                const cur = ops.ranges.find((x) => x.id === col.srcCol) ?? ops.ranges[0]
-                const on = cur?.id === r.id
-                return (
-                  <button key={r.id} type="button" className={`ef-mi${on ? ' on' : ''}`} onClick={() => { ops.setSrc(r.id); close() }}>
-                    <i className="ef-mi-ic"><TI n="calendar-week" /></i>
-                    <span>{r.title}</span>
-                    {!col.srcCol && i === 0 && <em className="ef-mi-n">기본</em>}
-                    {on && <i className="ef-mi-ck"><TI n="check" /></i>}
-                  </button>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="ef-src-none">기간 열이 없습니다 — 기간 유형 열을 먼저 만드세요</div>
-          )}
-          {ops.rowSrcCount > 0 && (
-            <>
-              <div className="ef-sep" />
-              <button type="button" className="ef-mi" onClick={() => { ops.clearRowSrc(); close() }}>
-                <i className="ef-mi-ic"><TI n="eraser" /></i>
-                <span>행별 지정 {ops.rowSrcCount}개 지우기</span>
-              </button>
-            </>
-          )}
-        </Pop>
-      )}
       {sub?.kind === 'sort' && (
         <Pop anchor={sub.anchor} side cls="ef-menu ef-submenu" onClose={() => setSub(null)}>
           <div className="ef-lbl">정렬</div>
