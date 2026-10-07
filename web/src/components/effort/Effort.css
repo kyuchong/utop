@@ -232,7 +232,6 @@ button.ef-tn-tw:hover { background: #dfe7f7; color: #2d6fd4; }
 .ef-btn.gh.on { background: #2d6fd414; border-color: #2d6fd455; color: #2d6fd4; }
 .ef-btn.ef-full { width: 100%; margin-top: 6px; }
 .ef-btn.ef-danger { color: #e53e5a; }
-.ef-cnt-all { font-size: 11.5px; font-weight: 800; color: var(--c-text-muted); white-space: nowrap; }
 
 /* 표 틀 — 남은 높이를 다 쓰고 안에서 스크롤 */
 .ef-wrap {

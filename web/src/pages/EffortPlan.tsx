@@ -312,7 +312,6 @@ function EffortBody({
   const sCount = st.sorting.filter((s) => cols.some((c) => c.id === s.id)).length
   const gId = table.getState().grouping[0]
   const gName = cols.find((c) => c.id === gId)?.title ?? ''
-  const shownN = table.getFilteredRowModel().rows.length
   const isTable = (view.type || 'table') === 'table'
   const hidCols = cols.filter((c) => (st.hidden ?? []).includes(c.id))
   // 숨긴 그룹 — 지금 묶은 열에서 숨긴 값들(묶음을 바꾸면 그 열 것만)
@@ -436,7 +435,6 @@ function EffortBody({
                 >
                   <TI n="download" /> CSV
                 </button>
-                <span className="ef-cnt-all">{shownN}행</span>
               </>
             ) : view.type === 'board' ? (
               <>
