@@ -44,6 +44,8 @@ const SYNC = new Set([
   'utop.rls.w1',
   // 결함 창(서랍)을 끌어 맞춘 폭
   'utop.dfx.w',
+  // Effort Plan 목록(트리) 판 — 끌어 맞춘 폭 · 접어 둠
+  'utop.ef.sideW', 'utop.ef.sideHide',
   // Releases 바닥 줄에서 고른 한 쪽 줄 수 — 계정을 따라가야 자리를 옮겨
   // 앉아도 같은 쪽 크기로 열린다
   'utop.rls.per',

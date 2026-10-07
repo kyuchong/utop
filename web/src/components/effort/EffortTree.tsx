@@ -12,7 +12,20 @@ import { MAIN, newId, newTable, tableOf, tableRows, type EfDoc, type EfNode } fr
  * - 줄을 끌어 폴더 위에 놓으면 그 안으로, 표 위에 놓으면 그 앞으로 옮긴다.
  * 첫 표(main)는 자료가 문서 맨 위에 있어(예전 자료·서버 백업 호환) 지우지 못한다 — 이름·자리는 바꿀 수 있다.
  */
-export default function EffortTree({ root, touch, redraw, toast }: { root: EfDoc; touch: () => void; redraw: () => void; toast: (m: string) => void }) {
+export default function EffortTree({
+  root,
+  touch,
+  redraw,
+  toast,
+  width,
+}: {
+  root: EfDoc
+  touch: () => void
+  redraw: () => void
+  toast: (m: string) => void
+  /** 끌어 맞춘 판 폭(px) — 이름이 길면 넓힌다(지시) */
+  width?: number
+}) {
   const tree = root.efTree!
   const nodes = tree.nodes
   const [pop, setPop] = useState<{ kind: 'add' | 'node'; anchor: HTMLElement; id?: string } | null>(null)
@@ -211,7 +224,7 @@ export default function EffortTree({ root, touch, redraw, toast }: { root: EfDoc
   const pn = pop?.id ? nodes.find((x) => x.id === pop.id) : undefined
   const folders = nodes.filter((x) => x.kind === 'folder')
   return (
-    <aside className="ef-side">
+    <aside className="ef-side" style={width ? { flex: `0 0 ${width}px` } : undefined}>
       <div className="ef-tree-hd">
         <span>목록</span>
         <button type="button" className="ef-tadd" title="새 표·새 폴더" onClick={(e) => setPop({ kind: 'add', anchor: e.currentTarget })}>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import { prefGet, prefSet } from '@/lib/prefs'
+import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { EfGrid, leafRows, optionsOf, useEfTable, type EfCtx } from '@/components/effort/EffortTable'
 import { Pop } from '@/components/effort/EffortMenus'
 import { TI } from '@/components/effort/icons'
@@ -54,6 +56,16 @@ export default function EffortPlan() {
   const [msg, setMsg] = useState('')
   const timer = useRef<number | undefined>(undefined)
   const toastT = useRef<number | undefined>(undefined)
+  /** 목록(트리) 판 — 끌어 맞춘 폭 · 접어 둠(지시: 노션처럼 닫기). 계정을 따라간다 */
+  const [sideW, setSideW] = useResizableWidth('utop.ef.sideW', 190, 150, 520)
+  const [sideHide, setSideHide] = useState(() => prefGet('utop.ef.sideHide') === '1')
+  const toggleSide = useCallback(() => {
+    setSideHide((h) => {
+      prefSet('utop.ef.sideHide', h ? '0' : '1')
+      return !h
+    })
+  }, [])
+  const layoutRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let off = false
@@ -124,8 +136,17 @@ export default function EffortPlan() {
   const cur = d.efTree!.cur
   return (
     <section className="panel ef">
-      <div className="ef-layout">
-        <EffortTree root={d} touch={touch} redraw={redraw} toast={toast} />
+      <div className="ef-layout" ref={layoutRef}>
+        {!sideHide && (
+          <>
+            <EffortTree root={d} touch={touch} redraw={redraw} toast={toast} width={sideW} />
+            <Resizer
+              label="목록 폭 조절"
+              onResize={setSideW}
+              getOrigin={() => layoutRef.current?.querySelector('.ef-side')?.getBoundingClientRect().left ?? 0}
+            />
+          </>
+        )}
         {/* 표를 바꾸면 표 쪽 상태(펼침·선택·너비)는 새로 — key 로 다시 만든다 */}
         <EffortBody
           key={cur}
@@ -138,6 +159,8 @@ export default function EffortPlan() {
           toast={toast}
           save={save}
           retry={() => void flush()}
+          sideHide={sideHide}
+          onToggleSide={toggleSide}
         />
       </div>
       {msg && <div className="ef-toast">{msg}</div>}
@@ -171,6 +194,8 @@ function EffortBody({
   toast,
   save,
   retry,
+  sideHide,
+  onToggleSide,
 }: {
   d: EfDoc
   name: string
@@ -182,6 +207,9 @@ function EffortBody({
   toast: (m: string) => void
   save: SaveState
   retry: () => void
+  /** 목록 판이 접혀 있나 · 접고 펴기(제목 옆 단추) */
+  sideHide: boolean
+  onToggleSide: () => void
 }) {
   const year = d.curPage!
   const rows = d.pages[year]!.rows
@@ -309,6 +337,16 @@ function EffortBody({
     <>
         <div className="ef-main">
           <div className="ef-head">
+            {/* 목록 닫기·열기 — 노션 사이드바 단추처럼 제목 옆(지시) */}
+            <button
+              type="button"
+              className="ef-sidebtn"
+              aria-label={sideHide ? '목록 열기' : '목록 닫기'}
+              title={sideHide ? '목록 열기' : '목록 닫기'}
+              onClick={onToggleSide}
+            >
+              <TI n={sideHide ? 'sidebar-open' : 'sidebar-close'} />
+            </button>
             <b>Effort Plan</b>
             <span className="ef-head-sep">·</span>
             {/* 빵부스러기를 제목에 그대로(지시) — 「Effort Plan · 폴더 › 표 2026년」 */}
