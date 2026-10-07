@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArcElement,
   BarController,
@@ -20,8 +20,10 @@ import { AUTO, isNumCol, natural, normDate, numFmt, optColor, parseRange, toNum,
 
 /**
  * Effort Plan 차트 보기 — 노션 방식(지시): **차트 보기 하나 = 차트 하나**, 오른쪽 설정 패널에서 꾸민다.
- *   종류(세로 막대·가로 막대·선·도넛) · X축(열 또는 월) · Y축(개수 / 합계·평균·중앙값·최소·최대 + 대상) ·
- *   그룹 기준(쌓기·여러 선) · 정렬 · 0 숨기기 · 날짜 단위 · 높이 · 색 · 눈금선 · 축 이름 · 값 라벨 · 범례 · 선(곡선·채우기·누적)
+ *   종류(세로 막대·가로 막대·선·도넛) ·
+ *   X축 — 표시 대상(열 또는 월, 날짜 묶음) · 정렬 기준 · 값 생략(고른 값 · 0 인 값) ·
+ *   Y축 — 표시 대상(개수 / 합계·평균·중앙값·최소·최대 + 대상 열) · 그룹화(쌓기·여러 선) · 범위 · 기준선 ·
+ *   모양 — 높이 · 색 · 눈금선 · 축 이름 · 값 라벨 · 범례 · 선(곡선·채우기·누적)   (지시: 노션 차트 설정처럼)
  * 설정은 보기의 view.nchart 에 둔다. 필터는 표처럼 보기마다(EffortPlan 이 걸러서 rows 로 준다).
  */
 
@@ -43,8 +45,17 @@ export interface NcSpec {
   of: string
   /** 그룹 기준 — 열 id, '' 이면 없음(도넛은 안 쓴다) */
   group: string
-  sort: 'x' | 'desc' | 'asc'
+  /** 정렬 기준 — X축 차례 · X축 역순 · 값 큰 차례 · 값 작은 차례 */
+  sort: 'x' | 'xdesc' | 'desc' | 'asc'
   omitZero: boolean
+  /** 값 생략 — 숨길 X 값(이름표)들 */
+  omit: string[]
+  /** Y축 범위 — null 이면 자동 */
+  yMin: number | null
+  yMax: number | null
+  /** 기준선 — 값 축의 이 값에 점선, 이름은 선 옆에 */
+  ref: number | null
+  refLabel: string
   height: 'S' | 'M' | 'L' | 'XL'
   color: 'auto' | 'one'
   grid: boolean
@@ -80,6 +91,11 @@ export function ncOf(view: EfView, cols: EfColumn[]): NcSpec {
     group: '',
     sort: 'x',
     omitZero: false,
+    omit: [],
+    yMin: null,
+    yMax: null,
+    ref: null,
+    refLabel: '',
     height: 'M',
     color: 'auto',
     grid: true,
@@ -195,11 +211,15 @@ export function ncData(sp: NcSpec, rows: EfRow[], cols: EfColumn[]) {
       series = [...series.filter((s) => keep.has(s.name)), { name: '기타', data: labels.map((_, i) => r2(rest.reduce((a, s) => a + s.data[i]!, 0))) }]
     }
   }
-  // 정렬 · 0 숨기기 — X 이름표 단위로(계열 합 기준)
+  // 값 생략 · 0 숨기기 · 정렬 — X 이름표 단위로(계열 합 기준). 생략 고르기 목록은 생략 전 이름표 전부
+  const allLabels = [...labels]
   const total = labels.map((_, i) => series.reduce((a, s) => a + s.data[i]!, 0))
   let idx = labels.map((_, i) => i)
+  const omit = new Set(sp.omit ?? [])
+  if (omit.size) idx = idx.filter((i) => !omit.has(labels[i]!))
   if (sp.omitZero) idx = idx.filter((i) => total[i] !== 0)
-  if (sp.sort !== 'x') idx.sort((a, b) => (sp.sort === 'desc' ? total[b]! - total[a]! : total[a]! - total[b]!))
+  if (sp.sort === 'xdesc') idx.reverse()
+  else if (sp.sort !== 'x') idx.sort((a, b) => (sp.sort === 'desc' ? total[b]! - total[a]! : total[a]! - total[b]!))
   labels = idx.map((i) => labels[i]!)
   series = series.map((s) => ({ name: s.name, data: idx.map((i) => s.data[i]!) }))
   if (sp.kind === 'line' && sp.cumulative)
@@ -207,7 +227,49 @@ export function ncData(sp: NcSpec, rows: EfRow[], cols: EfColumn[]) {
       let acc = 0
       return { name: s.name, data: s.data.map((v) => r2((acc += v))) }
     })
-  return { labels, series, xCol: xc, gCol: gc }
+  return { labels, series, xCol: xc, gCol: gc, allLabels }
+}
+
+/** 기준선 — 값 축의 그 값에 점선과 이름(노션 Y축 「기준선」). 가로 막대면 세로선 */
+const refLine: Plugin = {
+  id: 'efRefLine',
+  afterDatasetsDraw(chart, _args, opts) {
+    const o = opts as { value?: number | null; label?: string; horiz?: boolean }
+    if (o.value == null || !Number.isFinite(o.value)) return
+    const sc = chart.scales[o.horiz ? 'x' : 'y']
+    if (!sc) return
+    const p = sc.getPixelForValue(o.value)
+    const a = chart.chartArea
+    if (o.horiz ? p < a.left || p > a.right : p < a.top || p > a.bottom) return
+    const ctx = chart.ctx
+    ctx.save()
+    ctx.strokeStyle = '#e06a34'
+    ctx.lineWidth = 1.5
+    ctx.setLineDash([6, 4])
+    ctx.beginPath()
+    if (o.horiz) {
+      ctx.moveTo(p, a.top)
+      ctx.lineTo(p, a.bottom)
+    } else {
+      ctx.moveTo(a.left, p)
+      ctx.lineTo(a.right, p)
+    }
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.fillStyle = '#e06a34'
+    ctx.font = '700 11px Pretendard, system-ui, sans-serif'
+    const t = `${o.label ? o.label + ' ' : ''}${numFmt(o.value)}`
+    if (o.horiz) {
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'top'
+      ctx.fillText(t, p + 4, a.top + 2)
+    } else {
+      ctx.textAlign = 'right'
+      ctx.textBaseline = 'bottom'
+      ctx.fillText(t, a.right - 2, p - 3)
+    }
+    ctx.restore()
+  },
 }
 
 /** 값 라벨 — 막대 끝·선 점·도넛 조각 위에 숫자(작은 플러그인, 라이브러리를 더 들이지 않는다) */
@@ -278,6 +340,7 @@ export function EfNotionChart({
 }) {
   const sp = ncOf(view, cols)
   const ref = useRef<HTMLCanvasElement>(null)
+  const [omitOpen, setOmitOpen] = useState(false)
   const data = useMemo(
     () => ncData(sp, rows, cols),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -347,7 +410,10 @@ export function EfNotionChart({
       })
       const ax = (title: string, isVal: boolean) => ({
         stacked: multi && !line,
-        beginAtZero: true,
+        beginAtZero: !(isVal && sp.yMin != null),
+        // Y축 범위(노션) — 값 축만, 비우면 자동
+        ...(isVal && sp.yMin != null ? { min: sp.yMin } : {}),
+        ...(isVal && sp.yMax != null ? { max: sp.yMax } : {}),
         grid: { display: sp.grid && isVal },
         title: { display: sp.axisNames, text: title, font: { size: 11, weight: 700 as const } },
         ticks: { font: { size: 11 } },
@@ -359,17 +425,23 @@ export function EfNotionChart({
           indexAxis: horiz ? 'y' : 'x',
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: sp.legend && multi, position: 'bottom' } },
+          plugins: {
+            legend: { display: sp.legend && multi, position: 'bottom' },
+            ...({ efRefLine: { value: sp.ref, label: sp.refLabel, horiz } } as object),
+          },
           scales: horiz ? { x: ax(yTitle, true), y: ax(xTitle, false) } : { x: ax(xTitle, false), y: ax(yTitle, true) },
         },
-        plugins: sp.labels ? [valueLabels] : [],
+        plugins: [...(sp.labels ? [valueLabels] : []), refLine],
       })
     }
     return () => ch.destroy()
-  }, [data, sp.kind, sp.color, sp.legend, sp.labels, sp.grid, sp.axisNames, sp.smooth, sp.fill, yTitle, xTitle])
+  }, [data, sp.kind, sp.color, sp.legend, sp.labels, sp.grid, sp.axisNames, sp.smooth, sp.fill, sp.yMin, sp.yMax, sp.ref, sp.refLabel, yTitle, xTitle])
 
   const xs = xCols(cols)
   const nums = monthCols(cols)
+  const donut = sp.kind === 'donut'
+  /** 입력칸 숫자 — 비우면 null(자동) */
+  const numIn = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) ? null : Number(v))
   const xc = cols.find((c) => c.id === sp.x)
   const dateX = xc && (xc.type === 'date' || xc.type === 'daterange')
   const Seg = <T extends string>({ v, opts, on }: { v: T; opts: Array<[T, string, string?]>; on: (v: T) => void }) => (
@@ -424,10 +496,11 @@ export function EfNotionChart({
             ]}
             on={(k) => set({ kind: k })}
           />
-          <div className="ef-nc-sec">데이터</div>
+          {/* 노션 차트 설정처럼 X축 · Y축 두 묶음(지시) */}
+          <div className="ef-nc-sec">{donut ? '조각' : 'X축'}</div>
           <label className="ef-nc-f">
-            <span>{sp.kind === 'donut' ? '조각' : 'X축'}</span>
-            <select className="ef-fsel" value={sp.x} onChange={(e) => set({ x: e.target.value })}>
+            <span>표시 대상</span>
+            <select className="ef-fsel" value={sp.x} onChange={(e) => set({ x: e.target.value, omit: [] })}>
               {nums.length > 0 && <option value={MONTH}>월 (01월~12월 열)</option>}
               {xs.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -438,8 +511,8 @@ export function EfNotionChart({
           </label>
           {dateX && (
             <label className="ef-nc-f">
-              <span>묶음</span>
-              <select className="ef-fsel" value={sp.unit} onChange={(e) => set({ unit: e.target.value as NcSpec['unit'] })}>
+              <span>날짜 묶음</span>
+              <select className="ef-fsel" value={sp.unit} onChange={(e) => set({ unit: e.target.value as NcSpec['unit'], omit: [] })}>
                 <option value="day">일</option>
                 <option value="week">주</option>
                 <option value="month">월</option>
@@ -448,7 +521,47 @@ export function EfNotionChart({
             </label>
           )}
           <label className="ef-nc-f">
-            <span>{sp.kind === 'donut' ? '값' : 'Y축'}</span>
+            <span>정렬 기준</span>
+            <select className="ef-fsel" value={sp.sort} onChange={(e) => set({ sort: e.target.value as NcSpec['sort'] })}>
+              <option value="x">{donut ? '조각' : 'X축'} 차례</option>
+              <option value="xdesc">{donut ? '조각' : 'X축'} 역순</option>
+              <option value="desc">값 큰 차례</option>
+              <option value="asc">값 작은 차례</option>
+            </select>
+          </label>
+          {/* 값 생략 — 숨길 X 값 고르기(노션 「Omit values」) + 0 인 값 모두 */}
+          <button type="button" className="ef-nc-f ef-nc-more" onClick={() => setOmitOpen((o) => !o)} aria-expanded={omitOpen}>
+            <span>값 생략</span>
+            <em>{(sp.omit?.length ?? 0) + (sp.omitZero ? 1 : 0) ? `${sp.omit?.length ?? 0}개${sp.omitZero ? ' · 0 값' : ''}` : '없음'}</em>
+            <TI n={omitOpen ? 'chevron-down' : 'chevron-right'} />
+          </button>
+          {omitOpen && (
+            <div className="ef-nc-omit">
+              <Tog k="omitZero" t="0 인 값 모두 생략" />
+              {data.allLabels.map((l) => {
+                const on = (sp.omit ?? []).includes(l)
+                return (
+                  <label key={l} className="ef-nc-tog">
+                    <span className={on ? 'off' : ''}>{l}</span>
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => set({ omit: on ? sp.omit.filter((x) => x !== l) : [...(sp.omit ?? []), l] })}
+                    />
+                  </label>
+                )
+              })}
+              {(sp.omit?.length ?? 0) > 0 && (
+                <button type="button" className="ef-nc-link" onClick={() => set({ omit: [] })}>
+                  생략 모두 풀기
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="ef-nc-sec">{donut ? '값' : 'Y축'}</div>
+          <label className="ef-nc-f">
+            <span>표시 대상</span>
             <select className="ef-fsel" value={sp.agg} onChange={(e) => set({ agg: e.target.value as NcAgg })}>
               {(Object.keys(AGG_NAME) as NcAgg[]).map((a) => (
                 <option key={a} value={a}>
@@ -459,7 +572,7 @@ export function EfNotionChart({
           </label>
           {sp.agg !== 'count' && sp.x !== MONTH && (
             <label className="ef-nc-f">
-              <span>대상</span>
+              <span>대상 열</span>
               <select className="ef-fsel" value={sp.of} onChange={(e) => set({ of: e.target.value })}>
                 {nums.length > 0 && <option value={MM}>공수 (M/M, 행 합계)</option>}
                 {nums.map((c) => (
@@ -470,9 +583,9 @@ export function EfNotionChart({
               </select>
             </label>
           )}
-          {sp.kind !== 'donut' && (
+          {!donut && (
             <label className="ef-nc-f">
-              <span>그룹</span>
+              <span>그룹화</span>
               <select className="ef-fsel" value={sp.group} onChange={(e) => set({ group: e.target.value })}>
                 <option value="">없음</option>
                 {xs
@@ -485,15 +598,25 @@ export function EfNotionChart({
               </select>
             </label>
           )}
-          <label className="ef-nc-f">
-            <span>정렬</span>
-            <select className="ef-fsel" value={sp.sort} onChange={(e) => set({ sort: e.target.value as NcSpec['sort'] })}>
-              <option value="x">{sp.kind === 'donut' ? '조각' : 'X축'} 차례</option>
-              <option value="desc">값 큰 차례</option>
-              <option value="asc">값 작은 차례</option>
-            </select>
-          </label>
-          <Tog k="omitZero" t="0 인 값 숨기기" />
+          {!donut && (
+            <div className="ef-nc-f">
+              <span>범위</span>
+              <div className="ef-nc-range">
+                <input className="ef-fsel" type="number" placeholder="자동" aria-label="최솟값" value={sp.yMin ?? ''} onChange={(e) => set({ yMin: numIn(e.target.value) })} />
+                <i>~</i>
+                <input className="ef-fsel" type="number" placeholder="자동" aria-label="최댓값" value={sp.yMax ?? ''} onChange={(e) => set({ yMax: numIn(e.target.value) })} />
+              </div>
+            </div>
+          )}
+          {!donut && (
+            <div className="ef-nc-f">
+              <span>기준선</span>
+              <div className="ef-nc-range">
+                <input className="ef-fsel" type="number" placeholder="값" aria-label="기준선 값" value={sp.ref ?? ''} onChange={(e) => set({ ref: numIn(e.target.value) })} />
+                <input className="ef-fsel" placeholder="이름 (목표 등)" aria-label="기준선 이름" value={sp.refLabel ?? ''} onChange={(e) => set({ refLabel: e.target.value })} />
+              </div>
+            </div>
+          )}
           <div className="ef-nc-sec">모양</div>
           <label className="ef-nc-f">
             <span>높이</span>

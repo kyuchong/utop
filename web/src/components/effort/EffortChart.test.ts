@@ -50,3 +50,17 @@ describe('노션식 차트 자료', () => {
     expect(ncData(base({ kind: 'line', x: MONTH, agg: 'sum', cumulative: true }), rows, cols).series[0]!.data).toEqual([1.5, 3])
   })
 })
+
+describe('노션식 X축 — 값 생략 · X축 역순', () => {
+  const cols: EfColumn[] = [{ id: 's', title: '상태', type: 'select', options: ['A', 'B', 'C'] }]
+  const rows = [{ s: 'A' }, { s: 'B' }, { s: 'B' }, { s: 'C' }]
+  const base = { kind: 'bar', x: 's', unit: 'month', agg: 'count', of: '', group: '', sort: 'x', omitZero: false, omit: [], yMin: null, yMax: null, ref: null, refLabel: '', height: 'M', color: 'auto', grid: true, axisNames: false, labels: false, legend: true, smooth: true, fill: false, cumulative: false } as NcSpec
+  it('고른 값은 빠지고, 고르기 목록(allLabels)에는 남는다', () => {
+    const d = ncData({ ...base, omit: ['B'] }, rows, cols)
+    expect(d.labels).toEqual(['A', 'C'])
+    expect(d.allLabels).toEqual(['A', 'B', 'C'])
+  })
+  it('X축 역순', () => {
+    expect(ncData({ ...base, sort: 'xdesc' }, rows, cols).labels).toEqual(['C', 'B', 'A'])
+  })
+})

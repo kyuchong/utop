@@ -1112,7 +1112,7 @@ input.ef-fsel { cursor: text; }
 .ef-nc-sec { font-size: 10.5px; font-weight: 800; color: var(--c-text-faint); letter-spacing: 0.3px; margin: 14px 0 6px; padding-top: 10px; border-top: 1px solid #eef1f6; }
 .ef-nc-sec:first-of-type { border-top: 0; padding-top: 0; }
 .ef-nc-f { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; color: var(--c-text-muted); }
-.ef-nc-f > span { flex: 0 0 34px; font-weight: 700; }
+.ef-nc-f > span { flex: 0 0 58px; font-weight: 700; } /* 「표시 대상」「정렬 기준」 이 한 줄에 들게 */
 .ef-nc-f .ef-fsel { font-size: 12px; padding: 5px 8px; }
 .ef-nc-f .ef-nc-seg { flex: 1; }
 .ef-nc-seg { display: flex; gap: 3px; background: #eef1f6; border-radius: 8px; padding: 3px; }
@@ -1199,3 +1199,16 @@ input.ef-fsel { cursor: text; }
 
 /* 남은 일수 앞 「총 N일 /」 — 남음보다 한 단계 흐리게 */
 .ef-dtot { color: var(--c-text-muted); font-weight: 600; }
+
+/* 차트 설정 — 노션식 X축·Y축(값 생략 펼침 · 범위 · 기준선) */
+.ef-nc-f > .ef-fsel { flex: 1; min-width: 0; }
+.ef-nc-more { width: 100%; border: 0; background: none; padding: 4px 0; font: inherit; text-align: left; cursor: pointer; border-radius: 6px; }
+.ef-nc-more:hover { background: #f4f7fc; }
+.ef-nc-more > em { flex: 1; font-style: normal; color: var(--c-text-faint); font-size: 11.5px; text-align: right; }
+.ef-nc-omit { margin: 2px 0 8px 8px; padding: 4px 8px; border-left: 2px solid #e3e8f0; max-height: 220px; overflow: auto; }
+.ef-nc-omit .ef-nc-tog { margin: 5px 0; }
+.ef-nc-omit .ef-nc-tog span.off { text-decoration: line-through; color: var(--c-text-faint); }
+.ef-nc-link { border: 0; background: none; padding: 2px 0; font: inherit; font-size: 11px; font-weight: 700; color: #2d6fd4; cursor: pointer; }
+.ef-nc-range { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
+.ef-nc-range > input { flex: 1; min-width: 0; font-size: 12px; padding: 5px 6px; }
+.ef-nc-range > i { font-style: normal; color: var(--c-text-faint); }
