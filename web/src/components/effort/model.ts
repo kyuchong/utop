@@ -84,7 +84,7 @@ export const TYPES: Array<{ t: EfType; n: string; ic: string; e: string }> = [
   { t: 'status', n: '상태', ic: 'circle-dot', e: '◉' },
   { t: 'date', n: '날짜', ic: 'calendar', e: '📅' },
   { t: 'daterange', n: '기간', ic: 'calendar-week', e: '🗓' },
-  { t: 'datediff', n: '기간 일수', ic: 'clock-hour-4', e: '⏱' },
+  { t: 'datediff', n: '남은 일수', ic: 'clock-hour-4', e: '⏱' },
   { t: 'person', n: '사람', ic: 'user', e: '👤' },
   { t: 'checkbox', n: '체크박스', ic: 'checkbox', e: '☑' },
   { t: 'url', n: 'URL', ic: 'link', e: '🔗' },
@@ -259,7 +259,20 @@ export const truthy = (v: unknown) => v === true || /^(true|1|y|yes|o|v|✓|✔|
 /** 기간 일수 열이 볼 기간 열 — 지정(srcCol)이 없으면 첫 기간 열(예전과 같다) */
 export const diffSrcOf = (cols: EfColumn[], c: EfColumn) =>
   cols.find((x) => x.id === c.srcCol && x.type === 'daterange') ?? cols.find((x) => x.type === 'daterange')
-/** 기간 일수 — 시작~종료 양끝 포함(예전 _rscHotDateDiff). 기간이 없으면 null */
+const ymdLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const dayGap = (a: string, b: string) => Math.round((new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86400000)
+/**
+ * 남은 일수 — **오늘부터 종료일까지**(지시: 기간 길이가 아니라 얼마 남았나). 오늘 끝나면 0, 지났으면 음수.
+ * 종료일이 없으면 null. today 는 시험용(기본 지금)
+ */
+export function dayLeft(r: EfRow, src: EfColumn | undefined, today = new Date()): number | null {
+  if (!src) return null
+  const p = parseRange(r[src.id])
+  const e = normDate(p.e || p.s)
+  if (!e) return null
+  return dayGap(ymdLocal(today), e)
+}
+/** 기간 길이 — 시작~종료 양끝 포함(예전 _rscHotDateDiff). 남은 일수 칸에 마우스를 올리면 보인다 */
 export function dayDiff(r: EfRow, src: EfColumn | undefined): number | null {
   if (!src) return null
   const p = parseRange(r[src.id])
@@ -424,7 +437,7 @@ const SIZE: Record<string, number> = {
 }
 const NUM_W = 64
 /** 유형별 기본 폭 — 기간은 「2026-01-05 ~ 02-10」 이 다 보이게 */
-const TYPE_W: Partial<Record<EfType, number>> = { date: 96, daterange: 176, datediff: 74, checkbox: 52, url: 150, email: 150, phone: 116 }
+const TYPE_W: Partial<Record<EfType, number>> = { date: 96, daterange: 176, datediff: 92, checkbox: 52, url: 150, email: 150, phone: 116 }
 export const colSize = (c: EfColumn) =>
   (typeof c.efWidth === 'number' && c.efWidth > 0 ? c.efWidth : 0) ||
   (SIZE[String(c.title ?? '').trim()] ?? (isNumCol(c) ? NUM_W : c.width || TYPE_W[c.type] || 96))

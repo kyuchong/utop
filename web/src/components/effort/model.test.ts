@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, chipStyle, dayDiff, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, chipStyle, dayDiff, dayLeft, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -127,5 +127,17 @@ describe('칩 색', () => {
     expect(light.color).not.toBe('#fdba74')
     expect(chipStyle('#d0d0d0').color).toBe('#374151')
     expect(chipStyle('#ffffff').background).toBe('#f3f4f6')
+  })
+})
+
+describe('남은 일수 — 오늘부터 종료일까지', () => {
+  const src = { id: 'p', title: '기간', type: 'daterange' as const }
+  const today = new Date(2026, 9, 7) // 2026-10-07
+  it('남음 · 오늘 마감 · 지남 · 시작 전도 종료일 기준', () => {
+    expect(dayLeft({ p: '2026-10-01 ~ 2026-10-09' }, src, today)).toBe(2)
+    expect(dayLeft({ p: '2026-10-01 ~ 2026-10-07' }, src, today)).toBe(0)
+    expect(dayLeft({ p: '2026-09-01 ~ 2026-10-04' }, src, today)).toBe(-3)
+    expect(dayLeft({ p: '2026-11-01 ~ 2026-11-10' }, src, today)).toBe(34)
+    expect(dayLeft({}, src, today)).toBeNull()
   })
 })

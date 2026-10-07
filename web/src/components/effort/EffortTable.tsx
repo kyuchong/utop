@@ -28,6 +28,7 @@ import {
   colSize,
   condMatch,
   dayDiff,
+  dayLeft,
   defaultGroup,
   diffSrcOf,
   hasOptions,
@@ -140,7 +141,7 @@ export function useEfTable(ctx: EfCtx) {
           // 기간 일수는 저장하지 않고 같은 행의 기간에서 센다(예전과 같다) · 체크박스는 켜짐만 값으로
           accessorFn: (r: EfRow) =>
             diff
-              ? (dayDiff(r, src) ?? undefined)
+              ? (dayLeft(r, src) ?? undefined)
               : c.type === 'checkbox'
                 ? truthy(r[c.id]) ? '✓' : undefined
                 : num
@@ -905,7 +906,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               {cell.getIsPlaceholder() ? null : (
                 <CellView
                   c={c}
-                  v={c.type === 'datediff' ? dayDiff(src, diffSrcOf(cols, c)) : src[c.id]}
+                  v={c.type === 'datediff' ? { left: dayLeft(src, diffSrcOf(cols, c)), span: dayDiff(src, diffSrcOf(cols, c)) } : src[c.id]}
                   max={max[c.id] ?? 0}
                   onToggle={c.type === 'checkbox' ? () => commit(src, c, !truthy(src[c.id])) : undefined}
                 />
@@ -1272,13 +1273,18 @@ function CellView({ c, v, max, onToggle }: { c: EfColumn; v: unknown; max: numbe
       </span>
     )
   }
-  if (c.type === 'datediff')
+  if (c.type === 'datediff') {
+    // 남은 일수(오늘 → 종료일) — 사흘 안이면 주황, 지났으면 흐리게. 기간 길이는 마우스를 올리면
+    const { left, span } = (v ?? {}) as { left: number | null; span: number | null }
+    if (left == null) return null
+    const txt = left > 0 ? `${left}일 남음` : left === 0 ? '오늘 마감' : `${-left}일 지남`
     return (
-      <span className="ef-ddiff">
+      <span className={`ef-ddiff${left < 0 ? ' past' : left <= 3 ? ' soon' : ''}`} title={span ? `기간 ${span}일` : undefined}>
         <TI n="clock-hour-4" />
-        {String(v)}일
+        {txt}
       </span>
     )
+  }
   if (c.type === 'person') {
     const s = String(v).trim()
     return (
