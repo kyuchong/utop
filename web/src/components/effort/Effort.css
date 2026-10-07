@@ -988,8 +988,8 @@ input.ef-fsel { cursor: text; }
 .ef-tl-dt { margin-left: auto; flex: none; font-style: normal; font-size: 10px; font-weight: 600; color: var(--c-text-faint); }
 .ef-tl-tot + .ef-tl-dt { margin-left: 6px; }
 /* 막대·칸에 올리면 뜨는 검은 설명 */
-.ef-tl-hint { position: fixed; z-index: 9999; pointer-events: none; max-width: 300px; background: #1f2633; color: #fff; border-radius: 8px; padding: 7px 10px; font-size: 11px; line-height: 1.55; box-shadow: 0 8px 24px rgba(0,0,0,0.25); white-space: pre-wrap; }
-.ef-tl-hint b { display: block; font-size: 12px; margin-bottom: 2px; }
+.ef-tl-hint { position: fixed; z-index: 9999; pointer-events: none; max-width: 380px; background: #1f2633; color: #fff; border-radius: 10px; padding: 10px 14px; font-size: 13px; line-height: 1.6; box-shadow: 0 8px 24px rgba(0,0,0,0.25); white-space: pre-wrap; }
+.ef-tl-hint b { display: block; font-size: 15px; margin-bottom: 4px; }
 .ef-tl-tot { margin-left: auto; font-size: 10.5px; font-weight: 800; color: #2d6fd4; }
 .ef-tl-car { font-size: 12px; flex: none; color: var(--c-text-faint); }
 .ef-tl-load { position: absolute; top: 5px; bottom: 5px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800; color: var(--c-text); }

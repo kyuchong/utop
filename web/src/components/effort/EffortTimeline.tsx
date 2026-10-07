@@ -152,7 +152,7 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
   const hintEl =
     hint &&
     createPortal(
-      <div className="ef-tl-hint" style={{ left: Math.min(hint.x + 14, window.innerWidth - 300), top: Math.min(hint.y + 16, window.innerHeight - 40 - hint.lines.length * 17) }}>
+      <div className="ef-tl-hint" style={{ left: Math.min(hint.x + 14, window.innerWidth - 390), top: Math.max(8, Math.min(hint.y + 16, window.innerHeight - 50 - hint.lines.length * 21)) }}>
         <b>{hint.head}</b>
         {hint.lines.map((l, i) => (
           <div key={i}>{l}</div>
