@@ -153,6 +153,8 @@ const prjOf = (r: EfRow) => String(r.project ?? '')
 const CLS_CAP = 200
 
 const PRJ_KEY = 'utop.jira.projects'
+/** 유형 고르기 창 — 「전체」 를 볼 때 고른 프로젝트 모두 */
+const ALL_PRJ = '*'
 /** 프로젝트마다 고른 이슈 유형 — 없거나 빈 배열이면 전부. 계정을 따라간다(SYNC) */
 const TYPES_KEY = 'utop.jira.types'
 /** 열 배치·폭·보기 — 계정을 따라간다(SYNC) */
@@ -304,7 +306,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   /** 유형 고르기 창의 목록 — 지라가 이 프로젝트에 둔 유형(만들 수 있는 것) + 받아 둔 이슈에 있는 유형 */
   const tyQuery = useQuery({
     queryKey: ['jira-issuetypes', tyPop?.prj ?? ''],
-    enabled: !!tyPop,
+    enabled: !!tyPop && tyPop.prj !== ALL_PRJ,
     staleTime: 30 * 60_000,
     queryFn: async () => {
       const r = await apiFetch(`/api/jira/issuetypes?project=${encodeURIComponent(tyPop!.prj)}`)
@@ -314,11 +316,26 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   const tyList = useMemo(() => {
     if (!tyPop) return [] as Array<[string, number]>
     const n = new Map<string, number>()
-    baseRows.forEach((r) => prjOf(r) === tyPop.prj && n.set(String(r.issuetype ?? ''), (n.get(String(r.issuetype ?? '')) ?? 0) + 1))
+    const inPop = (r: EfRow) => (tyPop.prj === ALL_PRJ ? picked.includes(prjOf(r)) : prjOf(r) === tyPop.prj)
+    baseRows.forEach((r) => inPop(r) && n.set(String(r.issuetype ?? ''), (n.get(String(r.issuetype ?? '')) ?? 0) + 1))
     ;(tyQuery.data?.issuetypes ?? []).forEach((t) => t.name && !n.has(t.name) && n.set(t.name, 0))
     n.delete('')
     return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
-  }, [tyPop, baseRows, tyQuery.data])
+  }, [tyPop, baseRows, tyQuery.data, picked])
+  /** 제목 옆 드롭다운이 보는 프로젝트 — 하나를 보고 있으면 그것, 「전체」 면 고른 프로젝트 모두(ALL_PRJ) */
+  const tyTarget = curOk || (picked.length === 1 ? picked[0]! : ALL_PRJ)
+  /** 드롭다운 글 — 고른 유형(전체면 프로젝트마다 같을 때만 그 값) */
+  const tyNow = (() => {
+    const keys = tyTarget === ALL_PRJ ? picked : [tyTarget]
+    const sets = keys.map((k) => (types[k] ?? []).join('\u0001'))
+    if (new Set(sets).size > 1) return null // 프로젝트마다 다름
+    return types[keys[0] ?? ''] ?? []
+  })()
+  const openTypes = (prj: string, el: HTMLElement) => {
+    const r = el.getBoundingClientRect()
+    const cur0 = prj === ALL_PRJ ? (tyNow ?? []) : (types[prj] ?? [])
+    setTyPop({ prj, x: r.left, y: r.bottom + 4, pick: [...cur0] })
+  }
 
   /** 사람이 더한 지라 칸 — **온 서버에 한 벌**이다(Sync 도 한 벌이라 그렇다) */
   const extraQuery = useQuery({
@@ -810,10 +827,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
                       type="button"
                       className={`jri-tyrow${ts.length ? ' on' : ''}`}
                       title="이 프로젝트에서 보고 받아 올 이슈 유형 고르기"
-                      onClick={(e) => {
-                        const r = e.currentTarget.getBoundingClientRect()
-                        setTyPop({ prj: k, x: r.left, y: r.bottom + 4, pick: [...ts] })
-                      }}
+                      onClick={(e) => openTypes(k, e.currentTarget)}
                     >
                       <TI n="filter" />
                       <span>유형: {ts.length ? (ts.length === 1 ? ts[0] : `${ts[0]} 외 ${ts.length - 1}`) : '전체'}</span>
@@ -851,6 +865,23 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
                 <span className="ef-head-name" title={curOk ? prjName(curOk) : picked.join(', ')}>
                   {curOk || (picked.length ? (picked.length === 1 ? picked[0] : `전체 ${picked.length}개`) : '프로젝트를 고르세요')}
                 </span>
+                {/* 이슈 유형 드롭다운(지시: 제목 옆) — 왼쪽 「유형」 줄과 같은 고르기 창. 전체를 보고 있으면 고른 프로젝트 모두에 */}
+                {picked.length > 0 && (
+                  <button
+                    type="button"
+                    className={`jri-tysel${tyNow?.length || tyNow === null ? ' on' : ''}`}
+                    aria-haspopup="dialog"
+                    title="보고 받아 올 이슈 유형 고르기"
+                    onClick={(e) => openTypes(tyTarget, e.currentTarget)}
+                  >
+                    <TI n="filter" />
+                    <span className="jri-tysel-l">이슈 유형</span>
+                    <span className="jri-tysel-v">
+                      {tyNow === null ? '프로젝트마다 다름' : !tyNow.length ? '전체' : tyNow.length <= 2 ? tyNow.join(', ') : `${tyNow[0]} 외 ${tyNow.length - 1}`}
+                    </span>
+                    <TI n="chevron-down" />
+                  </button>
+                )}
                 {issQuery.isLoading && <span className="jri-last">읽는 중…</span>}
               </>
             ),
@@ -883,7 +914,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
         <>
           <span className="jri-veil" onClick={() => setTyPop(null)} aria-hidden="true" />
           <div className="jri-typop" style={{ left: tyPop.x, top: tyPop.y }} role="dialog" aria-label={`${tyPop.prj} 이슈 유형`}>
-            <b>{tyPop.prj} · 이슈 유형</b>
+            <b>{tyPop.prj === ALL_PRJ ? `고른 프로젝트 ${picked.length}개` : tyPop.prj} · 이슈 유형</b>
             <span className="jri-tyhint">고른 유형만 보이고, Sync 도 그것만 받습니다</span>
             <div className="jri-tylist">
               {tyQuery.isLoading && !tyList.length && <span className="jri-none">지라에서 유형을 읽는 중…</span>}
@@ -913,18 +944,22 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
                 onClick={() => {
                   const k = tyPop.prj
                   const pick = tyPop.pick
+                  // 「전체」 에서 고르면 고른 프로젝트 모두에 같은 유형
+                  const keys = k === ALL_PRJ ? picked : [k]
                   setTypes((m) => {
                     const n = { ...m }
-                    if (pick.length) n[k] = pick
-                    else delete n[k]
+                    keys.forEach((x) => {
+                      if (pick.length) n[x] = pick
+                      else delete n[x]
+                    })
                     return n
                   })
                   setTyPop(null)
-                  const notYet = pick.filter((t) => !baseRows.some((r) => prjOf(r) === k && String(r.issuetype ?? '') === t))
+                  const notYet = pick.filter((t) => !baseRows.some((r) => keys.includes(prjOf(r)) && String(r.issuetype ?? '') === t))
                   setFlash(
                     notYet.length
-                      ? `${k} — ${notYet.join(', ')} 은(는) 아직 받지 않았습니다. 위의 Sync 를 누르면 받아 옵니다`
-                      : `${k} — ${pick.length ? pick.join(', ') + ' 만' : '모든 유형을'} 보고 받아 옵니다`,
+                      ? `${keys.join(', ')} — ${notYet.join(', ')} 은(는) 아직 받지 않았습니다. 위의 Sync 를 누르면 받아 옵니다`
+                      : `${keys.join(', ')} — ${pick.length ? pick.join(', ') + ' 만' : '모든 유형을'} 보고 받아 옵니다`,
                   )
                   window.setTimeout(() => setFlash(''), 6000)
                 }}

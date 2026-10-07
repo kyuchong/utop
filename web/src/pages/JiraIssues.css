@@ -410,3 +410,16 @@
 .jri-tylist > label > em { font-style: normal; font-size: 10.5px; color: var(--c-text-faint); font-weight: 600; }
 .jri-tyft { display: flex; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px solid var(--c-border-soft); }
 .jri-tyft .sp { flex: 1; }
+
+/* 제목 옆 이슈 유형 드롭다운(지시) — 고르기 창은 왼쪽 「유형」 줄과 같다 */
+.jri-tysel { display: inline-flex; align-items: center; gap: 6px; height: 30px; margin-left: 10px; padding: 0 10px; border: 1px solid var(--c-border); border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: var(--c-text-muted); cursor: pointer; max-width: 340px; }
+.jri-tysel:hover { border-color: #2d6fd4; }
+.jri-tysel.on { border-color: #2d6fd4; background: #eef3ff; color: #2d6fd4; }
+.jri-tysel-l { font-weight: 700; flex: none; }
+.jri-tysel-v { font-weight: 800; color: var(--c-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jri-tysel.on .jri-tysel-v { color: #2d6fd4; }
+/* 좁은 창 — 제목은 꺾지 않고, 드롭다운·오른쪽 단추가 다음 줄로 넘어간다 */
+.jri-ef .ef-head { flex-wrap: wrap; row-gap: 6px; }
+.jri-ef .ef-head > b,
+.jri-ef .ef-head-name { white-space: nowrap; flex: none; }
+.jri-ef .jri-tysel { flex: 0 1 auto; min-width: 0; }
