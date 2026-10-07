@@ -3,6 +3,7 @@ import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import './AssigneePicker.css'
+import { baseOf, chartKeys } from '@/lib/orgMatch'
 
 /**
  * 담당 고르개 — 온 화면 공용(플랜 표·플랜 항목·러너·노션 표).
@@ -34,8 +35,6 @@ const pushRecent = (name: string) => {
   }
 }
 
-/** 계정 이름의 꼬리를 뗀다 — 「구병근(검증)」 → 「구병근」. 조직도는 꼬리 없는 이름을 쓴다 */
-const baseOf = (v: string) => (v.split(/[([_]/)[0] ?? '').trim()
 
 /** 조직도 한 마디 — 계정 관리(Accounts)와 같은 꼴 */
 interface OrgNode {
@@ -106,9 +105,11 @@ export function PeoplePick({
   const rail = useMemo(() => {
     const rows: RailRow[] = []
     const chart = new Set<string>()
+    const entries: Array<{ base: string; path: string }> = []
     const root = orgQ.data
     if (root) {
-      const walk = (n: OrgNode, depth: number): Set<string> => {
+      const walk = (n: OrgNode, depth: number, path = ''): Set<string> => {
+        const here = depth >= 0 ? `${path} › ${String(n.name ?? '')}` : ''
         const direct = new Set<string>()
         const lb = leadBase(n.lead)
         if (lb) direct.add(lb)
@@ -116,22 +117,25 @@ export function PeoplePick({
           const b = baseOf(String(m?.name ?? ''))
           if (b) direct.add(b)
         }
+        for (const b of direct) entries.push({ base: b, path: here })
         const bases = new Set(direct)
         const row: RailRow = { key: '', label: String(n.name ?? ''), depth, cnt: 0, bases, direct }
         const at2 = rows.length
         if (depth >= 0) rows.push(row)
-        for (const c of n.children ?? []) for (const b of walk(c, depth + 1)) bases.add(b)
+        for (const c of n.children ?? []) for (const b of walk(c, depth + 1, here)) bases.add(b)
         row.key = `t:${at2}:${row.label}`
         return bases
       }
       walk(root, -1)
       for (const r of rows) for (const b of r.bases) chart.add(b)
-      for (const r of rows) r.cnt = people.filter((u) => r.bases.has(baseOf(u.name))).length
     }
+    const keys = chartKeys(people, entries)
+    const keyOf = (nm: string) => keys.get(nm) ?? baseOf(nm)
+    for (const r of rows) r.cnt = people.filter((u) => r.bases.has(keyOf(u.name))).length
     const treeRows = rows.filter((r) => r.cnt > 0)
 
     /* 조직도 밖 — 이름이 조직도에 없는 계정. 꼬리 조직(검증·Bilab…)으로 묶는다 */
-    const out = people.filter((u) => !chart.has(baseOf(u.name)))
+    const out = people.filter((u) => !chart.has(keyOf(u.name)))
     const g = new Map<string, Set<string>>()
     for (const u of out) {
       const k = u.org || '기타'
@@ -152,7 +156,7 @@ export function PeoplePick({
     const flatNames = new Map<string, Set<string>>(
       [...g.entries()].map(([o, names]) => [`f:${o}`, names]),
     )
-    return { treeRows, flatRows, flatNames }
+    return { treeRows, flatRows, flatNames, keyOf }
   }, [orgQ.data, people])
   const railRows = useMemo(() => [...rail.treeRows, ...rail.flatRows], [rail])
 
@@ -166,7 +170,7 @@ export function PeoplePick({
     if (sel !== null || people.length === 0 || orgQ.isLoading) return
     const rowOf = (nm?: string) => {
       if (!nm) return undefined
-      const b = baseOf(nm)
+      const b = rail.keyOf(nm)
       let best: RailRow | undefined
       for (const r of railRows)
         if (r.direct.has(b) || rail.flatNames.get(r.key)?.has(nm))
@@ -190,7 +194,7 @@ export function PeoplePick({
     const names = rail.flatNames.get(row.key)
     const mine = names
       ? people.filter((u) => names.has(u.name))
-      : people.filter((u) => row.bases.has(baseOf(u.name)))
+      : people.filter((u) => row.bases.has(rail.keyOf(u.name)))
     return mine
       .map((u) => ({ name: u.name, org: '' }))
       .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
