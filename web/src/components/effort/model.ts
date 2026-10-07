@@ -46,6 +46,8 @@ export interface EfViewState {
   hidden?: string[]
   /** 바닥줄 계산 — 열 id → 계산(calc.ts 의 CalcKey). 없으면 유형별 자동 */
   calc?: Record<string, string>
+  /** 숨긴 그룹(노션 「그룹 숨기기」) — 묶은 열 id → 숨긴 값들('' = 빈값). 그 행은 표·합계에서 빠진다 */
+  hiddenGroups?: Record<string, string[]>
 }
 export interface EfView {
   id: string

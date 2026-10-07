@@ -120,19 +120,27 @@ export function useEfTable(ctx: EfCtx) {
   const [expanded, setExpanded] = useState<ExpandedState>(true)
   const [sizing, setSizing] = useState<ColumnSizingState>({})
 
-  // 검색과 툴바 조건식 필터는 표에 넘기기 전에 거른다(예전 _rscViewRows 와 같다) — 머리글 필터는 TanStack 이 거른다
+  // null = 아직 안 고름 → 기본 인원 열, '' = 그룹 없음
+  const g0 = st.group === null ? defaultGroup(cols) : st.group
+  // 숨긴 그룹(지시: 그룹 숨기기) — 지금 묶은 열에서 숨긴 값들. 묶음을 풀면 다시 다 보인다
+  const hidG = (g0 && st.hiddenGroups?.[g0]) || []
+  const hidGKey = hidG.join('\u0001')
+
+  // 검색과 툴바 조건식 필터·숨긴 그룹은 표에 넘기기 전에 거른다(예전 _rscViewRows 와 같다) — 머리글 필터는 TanStack 이 거른다
   const data = useMemo(() => {
     const q = st.q.trim().toLowerCase()
     const conds = (st.conds ?? []).filter((f) => cols.some((c) => c.id === f.col))
-    if (!q && !conds.length) return [...rows]
+    if (!q && !conds.length && !hidG.length) return [...rows]
     const byId = new Map(cols.map((c) => [c.id, c]))
+    const hid = new Set(hidG)
     return rows.filter(
       (r) =>
+        (!hid.size || !hid.has(cellText(r[g0!]))) &&
         (!q || cols.some((c) => cellText(r[c.id]).toLowerCase().includes(q))) &&
         conds.every((f) => condMatch(r, f, byId.get(f.col))),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, st.q, st.conds, ver])
+  }, [rows, st.q, st.conds, ver, g0, hidGKey])
 
   /**
    * 숫자 막대의 「가득」 — 값 크기 그대로 보이게(지적: 열 최대값 기준이면 0.1 도 꽉 찼다).
@@ -182,8 +190,6 @@ export function useEfTable(ctx: EfCtx) {
   // ★ 표에 넘기는 상태 배열은 참조가 그대로여야 한다 — 그릴 때마다 새 배열을 주면 TanStack 이
   //   행 모델을 매번 다시 만들고, 그때마다 내부 상태를 되돌려(setState) 끝없이 다시 그린다(실제로 멈췄다)
   const idKey = cols.map((c) => c.id).join('|')
-  // null = 아직 안 고름 → 기본 인원 열, '' = 그룹 없음
-  const g0 = st.group === null ? defaultGroup(cols) : st.group
   const sorting = useMemo(() => st.sorting.filter((s) => idKey.split('|').includes(s.id)), [st.sorting, idKey])
   const columnFilters = useMemo(() => st.filters.filter((f) => idKey.split('|').includes(f.id)), [st.filters, idKey])
   const grouping = useMemo(() => (g0 && idKey.split('|').includes(g0) ? [g0] : []), [g0, idKey])
@@ -835,6 +841,15 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     document.addEventListener('mousemove', mv, true)
     document.addEventListener('mouseup', up, true)
   }
+  /** 그룹 숨기기(지시: 노션처럼 그룹 통째로) — 지금 묶은 열의 그 값. 보기마다 저장, 표·합계에서 빠진다 */
+  const hideGroup = (v: string) => {
+    const g = table.getState().grouping[0]
+    if (!g) return
+    const m = { ...(ctx.st.hiddenGroups ?? {}) }
+    m[g] = [...new Set([...(m[g] ?? []), v])]
+    ctx.setSt({ hiddenGroups: m })
+    toast(`「${v || '(빈값)'}」 그룹을 숨겼습니다 — 도구 줄 「숨긴 그룹」 에서 다시 보입니다`)
+  }
   /** 옮긴 행 — 다시 그린 뒤 그 행을 골라 둔다(어디로 갔는지 보이게) */
   const pickAfter = useRef<EfRow | null>(null)
   useEffect(() => {
@@ -1010,11 +1025,17 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           {row.getVisibleCells().map((cell) =>
             cell.getIsGrouped() ? (
               <td key={cell.id} className="ef-gcell">
+                <span className="ef-ghead">
                 <button type="button" className="ef-gx" onClick={row.getToggleExpandedHandler()} aria-expanded={row.getIsExpanded()}>
                   <span className={`ef-tw${row.getIsExpanded() ? ' open' : ''}`}>▸</span>
                   <b>{String(row.groupingValue ?? '') || '(빈값)'}</b>
                   <span className="ef-cnt">{row.subRows.length}개</span>
                 </button>
+                {/* 그룹 숨기기(노션) — 올렸을 때만 보인다. 다시 보이기는 도구 줄 「숨긴 그룹 N」 */}
+                <button type="button" className="ef-ghide" onClick={() => hideGroup(String(row.groupingValue ?? ''))}>
+                  <TI n="eye-off" /> 숨기기
+                </button>
+                </span>
               </td>
             ) : (
               <td key={cell.id} />

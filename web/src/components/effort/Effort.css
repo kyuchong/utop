@@ -320,6 +320,13 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
 .ef-t tr.ef-grp:hover td,
 .ef-t tr.ef-grp td.ef-rh { background: #eef3fb; height: 36px; border-bottom: 1px solid var(--c-border-soft); }
 .ef-t td.ef-gcell { overflow: visible; }
+/* 그룹 숨기기 — 그룹 머리에 올렸을 때만 */
+/* 그룹 이름·개수·숨기기를 한 줄로 — 묶은 열 칸이 좁아도 겹치지 않게(칸 밖으로 넘쳐 보인다) */
+.ef-ghead { display: inline-flex; align-items: center; white-space: nowrap; }
+.ef-ghead .ef-gx { max-width: none; }
+.ef-ghide { visibility: hidden; margin-left: 8px; border: 1px solid var(--c-border); background: #fff; color: var(--c-text-muted); font: inherit; font-size: 11px; font-weight: 700; border-radius: 7px; padding: 1px 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; white-space: nowrap; }
+.ef-t tr.ef-grp:hover .ef-ghide { visibility: visible; }
+.ef-ghide:hover { border-color: #2d6fd4; color: #2d6fd4; }
 .ef-gx {
   display: inline-flex;
   align-items: center;

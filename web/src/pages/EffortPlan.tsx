@@ -284,6 +284,16 @@ function EffortBody({
   const shownN = table.getFilteredRowModel().rows.length
   const isTable = (view.type || 'table') === 'table'
   const hidCols = cols.filter((c) => (st.hidden ?? []).includes(c.id))
+  // 숨긴 그룹 — 지금 묶은 열에서 숨긴 값들(묶음을 바꾸면 그 열 것만)
+  const hidGroups = gId ? (st.hiddenGroups?.[gId] ?? []) : []
+  const showGroups = (vals: string[]) => {
+    const m = { ...(st.hiddenGroups ?? {}) }
+    const left = (m[gId!] ?? []).filter((x) => !vals.includes(x))
+    if (left.length) m[gId!] = left
+    else delete m[gId!]
+    setSt({ hiddenGroups: m })
+    return left.length
+  }
 
   return (
     <>
@@ -350,6 +360,12 @@ function EffortBody({
                 <button type="button" className={`ef-btn gh${gId ? ' on' : ''}`} onClick={open('group')}>
                   <TI n="layout-rows" /> 그룹{gName ? ': ' + gName : ''}
                 </button>
+                {/* 숨긴 그룹 — 있을 때만, 눌러서 다시 보이기 */}
+                {hidGroups.length > 0 && (
+                  <button type="button" className={`ef-btn gh on${pop?.kind === 'hidgroups' ? ' open' : ''}`} onClick={open('hidgroups')}>
+                    <TI n="eye-off" /> 숨긴 그룹 {hidGroups.length}
+                  </button>
+                )}
                 {/* 숨긴 열 — 있을 때만, 눌러서 다시 보이기 */}
                 {hidCols.length > 0 && (
                   <button type="button" className={`ef-btn gh on${pop?.kind === 'hidden' ? ' open' : ''}`} onClick={open('hidden')}>
@@ -558,6 +574,24 @@ function EffortBody({
             touch()
           }}
         />
+      )}
+      {pop?.kind === 'hidgroups' && (
+        <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
+          <div className="ef-lbl">숨긴 그룹({gName}) — 눌러서 다시 보이기</div>
+          <div className="ef-mlist">
+            {hidGroups.map((v) => (
+              <button key={v} type="button" className="ef-mi" onClick={() => !showGroups([v]) && close()}>
+                <i className="ef-mi-ic"><TI n="eye" /></i>
+                <span>{v || '(빈값)'}</span>
+              </button>
+            ))}
+          </div>
+          <div className="ef-sep" />
+          <button type="button" className="ef-mi" onClick={() => { close(); showGroups(hidGroups) }}>
+            <i className="ef-mi-ic"><TI n="eye" /></i>
+            <span>모두 보이기</span>
+          </button>
+        </Pop>
       )}
       {pop?.kind === 'hidden' && (
         <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
