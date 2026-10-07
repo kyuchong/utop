@@ -92,6 +92,11 @@ export default function EffortPlan() {
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => void flush(), 700)
   }, [flush])
+  /**
+   * 다시 그리기만 — 저장하지 않는다(지적: 표·차트·보드 보기, 표·연도를 옮겨 다닐 때마다 저장했다).
+   * 지금 보고 있는 보기·표·연도는 문서에 적어 두므로, 다음에 무언가를 고쳐 저장할 때 함께 간다
+   */
+  const redraw = useCallback(() => setVer((v) => v + 1), [])
   // 화면을 떠나기 전에 남은 저장을 보낸다
   useEffect(() => {
     const bye = (e: BeforeUnloadEvent) => {
@@ -119,7 +124,7 @@ export default function EffortPlan() {
   return (
     <section className="panel ef">
       <div className="ef-layout">
-        <EffortTree root={d} touch={touch} toast={toast} />
+        <EffortTree root={d} touch={touch} redraw={redraw} toast={toast} />
         {/* 표를 바꾸면 표 쪽 상태(펼침·선택·너비)는 새로 — key 로 다시 만든다 */}
         <EffortBody
           key={cur}
@@ -128,6 +133,7 @@ export default function EffortPlan() {
           path={folderPath(d.efTree!.nodes, cur)}
           ver={ver}
           touch={touch}
+          redraw={redraw}
           toast={toast}
           save={save}
           retry={() => void flush()}
@@ -160,6 +166,7 @@ function EffortBody({
   path,
   ver,
   touch,
+  redraw,
   toast,
   save,
   retry,
@@ -169,6 +176,8 @@ function EffortBody({
   path: string[]
   ver: number
   touch: () => void
+  /** 다시 그리기만(저장 안 함) — 보기·연도 옮기기 */
+  redraw: () => void
   toast: (m: string) => void
   save: SaveState
   retry: () => void
@@ -203,7 +212,7 @@ function EffortBody({
 
   const setYear = (y: string) => {
     d.curPage = y
-    touch()
+    redraw() // 옮기기만 — 저장하지 않는다(새 연도 만들기·이름 바꾸기 쪽은 따로 저장한다)
   }
   const addYear = (y: string) => {
     if (!/^\d{4}$/.test(y)) return toast('연도는 숫자 4자리입니다')
@@ -213,7 +222,8 @@ function EffortBody({
     }
     d.pages[y] = { rows: [] }
     d.years = [...(d.years ?? []), y].sort().reverse()
-    setYear(y)
+    d.curPage = y
+    touch() // 새 연도는 저장한다(옮기기만 하는 setYear 와 다르다)
     toast(y + '년 추가됨')
   }
   const clearYear = (y: string) => {
@@ -232,8 +242,8 @@ function EffortBody({
     d.pages[to] = d.pages[from]!
     delete d.pages[from]
     d.years = (d.years ?? []).map((x) => (x === from ? to : x)).sort().reverse()
-    if (d.curPage === from) setYear(to)
-    else touch()
+    if (d.curPage === from) d.curPage = to
+    touch()
     toast(`${from}년 → ${to}년으로 바꿨습니다`)
   }
   const delYear = (y: string) => {
@@ -309,7 +319,7 @@ function EffortBody({
                   onClick={() => {
                     if (d.curBetaView === v.id) return
                     d.curBetaView = v.id
-                    touch()
+                    redraw() // 옮기기만 — 저장하지 않는다
                   }}
                   onContextMenu={open('view', v.id)}
                 >

@@ -12,7 +12,7 @@ import { MAIN, newId, newTable, tableOf, tableRows, type EfDoc, type EfNode } fr
  * - 줄을 끌어 폴더 위에 놓으면 그 안으로, 표 위에 놓으면 그 앞으로 옮긴다.
  * 첫 표(main)는 자료가 문서 맨 위에 있어(예전 자료·서버 백업 호환) 지우지 못한다 — 이름·자리는 바꿀 수 있다.
  */
-export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch: () => void; toast: (m: string) => void }) {
+export default function EffortTree({ root, touch, redraw, toast }: { root: EfDoc; touch: () => void; redraw: () => void; toast: (m: string) => void }) {
   const tree = root.efTree!
   const nodes = tree.nodes
   const [pop, setPop] = useState<{ kind: 'add' | 'node'; anchor: HTMLElement; id?: string } | null>(null)
@@ -36,7 +36,7 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
   const open = (id: string) => {
     if (tree.cur === id) return
     tree.cur = id
-    touch()
+    redraw() // 표 옮기기만 — 저장하지 않는다(지적)
   }
   const addTable = (parent: string | null, from?: EfDoc, name = '새 표') => {
     const id = 't' + newId()
@@ -153,7 +153,7 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
             // 글쇠로는 → 펴기 · ← 접기(단추와 같은 일)
             if (folder && (e.key === 'ArrowRight' || e.key === 'ArrowLeft') && isOpen !== (e.key === 'ArrowRight')) {
               n.open = e.key === 'ArrowRight'
-              touch()
+              redraw()
             }
             if (e.key === 'F2') setRenaming(n.id)
           }}
@@ -174,7 +174,7 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
               onClick={(e) => {
                 e.stopPropagation()
                 n.open = !isOpen
-                touch()
+                redraw() // 접고 펴기도 저장하지 않는다
               }}
             >
               {isOpen ? '▾' : '▸'}
