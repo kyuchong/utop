@@ -14,7 +14,7 @@
 
 export type EfType =
   | 'text' | 'number' | 'select' | 'multiselect' | 'status' | 'date' | 'daterange'
-  | 'datediff' | 'person' | 'checkbox' | 'url' | 'email' | 'phone'
+  | 'datediff' | 'person' | 'checkbox' | 'url' | 'email' | 'phone' | 'formula'
 
 export interface EfColumn {
   id: string
@@ -90,6 +90,7 @@ export const TYPES: Array<{ t: EfType; n: string; ic: string; e: string }> = [
   { t: 'url', n: 'URL', ic: 'link', e: '🔗' },
   { t: 'email', n: '이메일', ic: 'mail', e: '✉' },
   { t: 'phone', n: '전화번호', ic: 'phone', e: '📞' },
+  { t: 'formula', n: '수식', ic: 'math-function', e: 'ƒ' },
 ]
 /** 머리글·메뉴 아이콘 이름 — 합계 열은 Σ(sum) */
 export const typeIcon = (c: EfColumn) => (c.autoSum ? 'sum' : TYPES.find((x) => x.t === c.type)?.ic ?? 'align-left')
@@ -215,7 +216,8 @@ export function defaultGroup(cols: EfColumn[]): string {
   return c ? c.id : ''
 }
 
-export const isNumCol = (c: EfColumn | undefined) => !!c && (c.type === 'number' || !!c.autoSum)
+export const isNumCol = (c: EfColumn | undefined) =>
+  !!c && (c.type === 'number' || !!c.autoSum || (c.type === 'formula' && formulaOf(c).fn !== 'if'))
 export function toNum(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null
   const n = parseFloat(String(v).replace(/,/g, ''))
@@ -379,9 +381,95 @@ function migrateCalcCols(d: EfDoc) {
   })
 }
 
+// ── 수식 열(지시: 노션처럼 열 전체에 같은 식, 글 대신 골라서) ─────────────────────
+export type FormulaFn = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'sub' | 'mul' | 'div' | 'if'
+export type FormulaOp = '>' | '>=' | '<' | '<=' | '=' | '!='
+export interface FormulaSpec {
+  fn: FormulaFn
+  /** 대상 열 — 체크한 차례(빼기·나누기는 이 차례로) */
+  cols: string[]
+  /** 조건일 때 — [열] [비교] [값] 이면 참 글자, 아니면 거짓 글자 */
+  cond?: { col: string; op: FormulaOp; v: number; t: string; f: string }
+}
+export const FORMULA_FNS: Array<{ k: FormulaFn; n: string; tip: string }> = [
+  { k: 'sum', n: '합계', tip: '고른 열을 더한다' },
+  { k: 'avg', n: '평균', tip: '값이 있는 칸의 평균' },
+  { k: 'min', n: '최소', tip: '가장 작은 값' },
+  { k: 'max', n: '최대', tip: '가장 큰 값' },
+  { k: 'count', n: '개수', tip: '값이 있는 칸 수' },
+  { k: 'sub', n: '빼기', tip: '첫 열 − 나머지(체크한 차례)' },
+  { k: 'mul', n: '곱하기', tip: '고른 열을 곱한다' },
+  { k: 'div', n: '나누기', tip: '첫 열 ÷ 나머지(체크한 차례)' },
+  { k: 'if', n: '조건', tip: '조건이 맞으면 참 글자, 아니면 거짓 글자' },
+]
+export const FORMULA_OPS: FormulaOp[] = ['>', '>=', '<', '<=', '=', '!=']
+const OP_TXT: Record<FormulaOp, string> = { '>': '>', '>=': '≥', '<': '<', '<=': '≤', '=': '=', '!=': '≠' }
+export function formulaOf(c: EfColumn): FormulaSpec {
+  const f = c.formula as Partial<FormulaSpec> | undefined
+  return { fn: f?.fn && FORMULA_FNS.some((x) => x.k === f.fn) ? f.fn : 'sum', cols: Array.isArray(f?.cols) ? f.cols : [], cond: f?.cond }
+}
+/** 수식이 볼 수 있는 열 — 숫자·합계 열(수식 열끼리는 안 엮는다) */
+export const formulaSrcCols = (cols: EfColumn[], self?: EfColumn) =>
+  cols.filter((c) => c.id !== self?.id && (c.type === 'number' || !!c.autoSum))
+/** 한 행의 결과 — 숫자(조건이면 글자), 계산할 값이 없으면 null */
+export function calcFormula(r: EfRow, f: FormulaSpec, cols: EfColumn[]): number | string | null {
+  const ok = new Set(formulaSrcCols(cols).map((c) => c.id))
+  if (f.fn === 'if') {
+    const k = f.cond
+    if (!k || !ok.has(k.col)) return null
+    const v = toNum(r[k.col]) ?? 0
+    const hit = k.op === '>' ? v > k.v : k.op === '>=' ? v >= k.v : k.op === '<' ? v < k.v : k.op === '<=' ? v <= k.v : k.op === '=' ? v === k.v : v !== k.v
+    return (hit ? k.t : k.f) || null
+  }
+  const ids = f.cols.filter((id) => ok.has(id))
+  if (!ids.length) return null
+  const vals = ids.map((id) => toNum(r[id]))
+  const got = vals.filter((n): n is number => n !== null)
+  let out: number | null
+  if (f.fn === 'count') out = got.length
+  else if (!got.length) out = null
+  else if (f.fn === 'sum') out = got.reduce((a, b) => a + b, 0)
+  else if (f.fn === 'avg') out = got.reduce((a, b) => a + b, 0) / got.length
+  else if (f.fn === 'min') out = Math.min(...got)
+  else if (f.fn === 'max') out = Math.max(...got)
+  else if (f.fn === 'mul') out = got.reduce((a, b) => a * b, 1)
+  else {
+    // 빼기·나누기 — 체크한 차례 그대로, 빈 칸은 0(나누기에서 0 으로 나누면 비움)
+    const seq = vals.map((n) => n ?? 0)
+    out = seq.slice(1).reduce<number | null>((a, b) => (a === null ? null : f.fn === 'sub' ? a - b : b === 0 ? null : a / b), seq[0]!)
+  }
+  return out === null ? null : Math.round(out * 1e6) / 1e6
+}
+/** 머리글·설명용 식 글자 — 「01월 + 02월 + 03월」 */
+export function formulaText(f: FormulaSpec, cols: EfColumn[]): string {
+  const t = (id: string) => cols.find((c) => c.id === id)?.title ?? '(지운 열)'
+  if (f.fn === 'if') return f.cond ? `${t(f.cond.col)} ${OP_TXT[f.cond.op]} ${f.cond.v} ? 「${f.cond.t}」 : 「${f.cond.f}」` : '조건 없음'
+  if (!f.cols.length) return '대상 열 없음'
+  const names = f.cols.map(t)
+  if (f.fn === 'sum') return names.join(' + ')
+  if (f.fn === 'sub') return names.join(' − ')
+  if (f.fn === 'mul') return names.join(' × ')
+  if (f.fn === 'div') return names.join(' ÷ ')
+  return `${FORMULA_FNS.find((x) => x.k === f.fn)!.n}(${names.join(', ')})`
+}
+/** 수식 열 다시 계산 — 결과를 칸 값으로 둔다(정렬·필터·CSV·차트가 쓰게) */
+export function recalcFormula(rows: EfRow[], cols: EfColumn[]) {
+  const fs = cols.filter((c) => c.type === 'formula')
+  if (!fs.length) return
+  fs.forEach((c) => {
+    const f = formulaOf(c)
+    rows.forEach((r) => {
+      const v = calcFormula(r, f, cols)
+      if (v === null) delete r[c.id]
+      else r[c.id] = v
+    })
+  })
+}
+
 /** 합계 열(autoSum) 다시 계산 — 숫자 열(합계 열 빼고)을 더해 행마다 넣는다 */
 export function recalcAuto(rows: EfRow[], cols: EfColumn[]) {
   recalcFx(rows, cols) // 수식 칸 먼저(월 열에 든 수식이 합계에 들어가게)
+  recalcFormula(rows, cols)
   const autos = cols.filter((c) => c.autoSum)
   if (!autos.length) return
   const nums = cols.filter((c) => c.type === 'number' && !c.autoSum)
@@ -401,6 +489,7 @@ export function recalcAuto(rows: EfRow[], cols: EfColumn[]) {
     })
   })
   recalcFx(rows, cols) // 합계를 보는 수식 칸도 다시
+  recalcFormula(rows, cols) // 합계를 보는 수식 열도
 }
 
 /** 표에 쓰인 값 중 옵션에 없는 것 */

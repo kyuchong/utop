@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, ROW_ID, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, ROW_ID, calcFormula, formulaText, isNumCol, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -214,5 +214,44 @@ describe('수식 칸 — 고른 칸들로 합계·평균·최소·최대·개수
     const n = cloneRow(a)
     expect(n[ROW_ID]).toBeUndefined()
     expect(n.m1).toBe(1)
+  })
+})
+
+describe('수식 열 — 행마다 같은 식', () => {
+  const m1 = { id: 'm1', title: '01월', type: 'number' as const }
+  const m2 = { id: 'm2', title: '02월', type: 'number' as const }
+  const m3 = { id: 'm3', title: '03월', type: 'number' as const }
+  const tot = { id: 'tot', title: '합계', type: 'number' as const, autoSum: true }
+  const q1 = { id: 'q1', title: '1분기', type: 'formula' as const, formula: { fn: 'sum', cols: ['m1', 'm2', 'm3'] } }
+  const cols = [m1, m2, m3, tot, q1]
+  const r = { m1: 1, m2: 0.5, m3: '', tot: 1.5 }
+  it('합계·평균·최소·최대·개수·곱하기(빈 칸은 뺀다)', () => {
+    expect(calcFormula(r, { fn: 'sum', cols: ['m1', 'm2', 'm3'] }, cols)).toBe(1.5)
+    expect(calcFormula(r, { fn: 'avg', cols: ['m1', 'm2', 'm3'] }, cols)).toBe(0.75)
+    expect(calcFormula(r, { fn: 'min', cols: ['m1', 'm2'] }, cols)).toBe(0.5)
+    expect(calcFormula(r, { fn: 'max', cols: ['m1', 'm2'] }, cols)).toBe(1)
+    expect(calcFormula(r, { fn: 'count', cols: ['m1', 'm2', 'm3'] }, cols)).toBe(2)
+    expect(calcFormula(r, { fn: 'mul', cols: ['m1', 'm2'] }, cols)).toBe(0.5)
+  })
+  it('빼기·나누기는 체크한 차례, 0 으로 나누면 비움, 수식 열·지운 열은 안 본다', () => {
+    expect(calcFormula(r, { fn: 'sub', cols: ['tot', 'm1'] }, cols)).toBe(0.5)
+    expect(calcFormula(r, { fn: 'div', cols: ['m1', 'm2'] }, cols)).toBe(2)
+    expect(calcFormula(r, { fn: 'div', cols: ['m1', 'm3'] }, cols)).toBeNull()
+    expect(calcFormula(r, { fn: 'sum', cols: ['q1', 'gone'] }, cols)).toBeNull()
+  })
+  it('조건 — 맞으면 참 글자, 아니면 거짓 글자 · 조건 수식 열은 숫자 열이 아니다', () => {
+    const f = { fn: 'if' as const, cols: [], cond: { col: 'tot', op: '>' as const, v: 1, t: '초과', f: '정상' } }
+    expect(calcFormula(r, f, cols)).toBe('초과')
+    expect(calcFormula({ tot: 0.5 }, f, cols)).toBe('정상')
+    expect(isNumCol({ id: 'x', title: 'x', type: 'formula', formula: f })).toBe(false)
+    expect(isNumCol(q1)).toBe(true)
+  })
+  it('다시 계산하면 칸 값으로 · 식 글자', () => {
+    const row: Record<string, unknown> = { m1: 1, m2: 2, m3: 3 }
+    recalcAuto([row], cols)
+    expect(row.tot).toBe(6)
+    expect(row.q1).toBe(6)
+    expect(formulaText({ fn: 'sum', cols: ['m1', 'm2', 'm3'] }, cols)).toBe('01월 + 02월 + 03월')
+    expect(formulaText({ fn: 'div', cols: ['m1', 'm2'] }, cols)).toBe('01월 ÷ 02월')
   })
 })

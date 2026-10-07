@@ -31,7 +31,7 @@ export function guessMap(label: string, cols: EfColumn[]): string {
       return b.length === 1 ? b[0] : undefined
     })()
   if (!hit) return MAP_NEW
-  return hit.autoSum ? MAP_SKIP : hit.id
+  return hit.autoSum || hit.type === 'formula' ? MAP_SKIP : hit.id // 합계·수식 열은 저절로 계산
 }
 
 const BLANK = new Set(['', '-', '–', '—'])
@@ -67,7 +67,7 @@ export function applyImport(cols: EfColumn[], rows: EfRow[], head: string[], bod
   body.forEach((r) => {
     const row: EfRow = {}
     target.forEach((c, i) => {
-      if (!c || c.autoSum) return
+      if (!c || c.autoSum || c.type === 'formula') return
       const v = (r[i] ?? '').trim()
       if (c.type === 'number') {
         const n = asNum(v)

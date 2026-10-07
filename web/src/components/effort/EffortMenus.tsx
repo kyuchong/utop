@@ -12,6 +12,14 @@ import {
   hasOptions,
   isNumCol,
   missingOptions,
+  FORMULA_FNS,
+  FORMULA_OPS,
+  calcFormula,
+  formulaOf,
+  formulaSrcCols,
+  formulaText,
+  type FormulaOp,
+  type FormulaSpec,
   normDate,
   natural,
   nearest,
@@ -404,6 +412,106 @@ export function RangePicker({ anchor, value, onPick, onClose }: { anchor: HTMLEl
   )
 }
 
+/**
+ * 수식 설정 — 함수 · 대상 열(체크한 차례) · 조건 · 미리보기(지시: 노션처럼 열 전체에 같은 식, 글 대신 골라서)
+ */
+export function FormulaEditor({
+  anchor,
+  col,
+  cols,
+  rows,
+  onApply,
+  onClose,
+}: {
+  anchor: HTMLElement
+  col: EfColumn
+  cols: EfColumn[]
+  rows: EfRow[]
+  onApply: (f: FormulaSpec) => void
+  onClose: () => void
+}) {
+  const [f, setF] = useState<FormulaSpec>(() => formulaOf(col))
+  const srcs = formulaSrcCols(cols, col)
+  const flip = (id: string) => setF((o) => ({ ...o, cols: o.cols.includes(id) ? o.cols.filter((x) => x !== id) : [...o.cols, id] }))
+  const ordered = f.fn === 'sub' || f.fn === 'div'
+  const cond = f.cond ?? { col: srcs[0]?.id ?? '', op: '>' as FormulaOp, v: 0, t: '', f: '' }
+  const setCond = (p: Partial<typeof cond>) => setF((o) => ({ ...o, cond: { ...cond, ...p } }))
+  const prev = rows.slice(0, 4).map((r) => calcFormula(r, f.fn === 'if' ? { ...f, cond } : f, cols))
+  return (
+    <Pop anchor={anchor} cls="ef-menu ef-fxed" onClose={onClose}>
+      <div className="ef-lbl">수식 — {col.title}</div>
+      <div className="ef-fxfns">
+        {FORMULA_FNS.map((x) => (
+          <button key={x.k} type="button" className={f.fn === x.k ? 'on' : ''} title={x.tip} onClick={() => setF((o) => ({ ...o, fn: x.k }))}>
+            {x.n}
+          </button>
+        ))}
+      </div>
+      {f.fn === 'if' ? (
+        <div className="ef-fxcond">
+          <div className="ef-fxrow">
+            <select className="ef-fsel" value={cond.col} onChange={(e) => setCond({ col: e.target.value })} aria-label="조건 열">
+              {srcs.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+            <select className="ef-fsel ef-fxop" value={cond.op} onChange={(e) => setCond({ op: e.target.value as FormulaOp })} aria-label="비교">
+              {FORMULA_OPS.map((o) => (
+                <option key={o} value={o}>
+                  {{ '>': '>', '>=': '≥', '<': '<', '<=': '≤', '=': '=', '!=': '≠' }[o]}
+                </option>
+              ))}
+            </select>
+            <input className="ef-fsel ef-fxnum" type="number" value={cond.v} onChange={(e) => setCond({ v: Number(e.target.value) || 0 })} aria-label="값" />
+          </div>
+          <div className="ef-fxrow">
+            <span>맞으면</span>
+            <input className="ef-fsel" value={cond.t} placeholder="예: 초과" onChange={(e) => setCond({ t: e.target.value })} />
+          </div>
+          <div className="ef-fxrow">
+            <span>아니면</span>
+            <input className="ef-fsel" value={cond.f} placeholder="예: 정상" onChange={(e) => setCond({ f: e.target.value })} />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="ef-lbl">대상 열{ordered ? ' — 체크한 차례로 계산' : ''}</div>
+          <div className="ef-fxcols">
+            {srcs.length ? (
+              srcs.map((c) => {
+                const i = f.cols.indexOf(c.id)
+                return (
+                  <button key={c.id} type="button" className={`ef-fxcol${i >= 0 ? ' on' : ''}`} onClick={() => flip(c.id)}>
+                    <TI n={i >= 0 ? 'checkbox' : 'square'} />
+                    <span>{c.title}</span>
+                    {ordered && i >= 0 && <em>{i + 1}</em>}
+                  </button>
+                )
+              })
+            ) : (
+              <div className="ef-src-none">숫자 열이 없습니다</div>
+            )}
+          </div>
+        </>
+      )}
+      <div className="ef-fxprev">
+        <b>{formulaText(f.fn === 'if' ? { ...f, cond } : f, cols)}</b>
+        <span>미리보기: {prev.map((v) => (v === null ? '—' : typeof v === 'number' ? numFmt(v) : v)).join(' · ') || '행 없음'}</span>
+      </div>
+      <div className="ef-fxbtns">
+        <button type="button" className="ef-btn gh" onClick={onClose}>
+          취소
+        </button>
+        <button type="button" className="ef-btn" onClick={() => onApply(f.fn === 'if' ? { ...f, cond } : { fn: f.fn, cols: f.cols })}>
+          적용
+        </button>
+      </div>
+    </Pop>
+  )
+}
+
 /** 옵션 하나 — 이름 · 색(17색×6단계) · 삭제를 한 자리에(노션식) */
 function OptMenu({
   anchor,
@@ -572,6 +680,8 @@ export interface HeadOps {
   duplicate: () => void
   remove: () => void
   group: (on: boolean) => void
+  /** 수식 열 — 수식 설정 창 열기 */
+  editFormula: () => void
   /** 옵션을 고쳤다 — 저장하고 다시 그린다 */
   touch: () => void
 }
@@ -642,6 +752,12 @@ export function HeadMenu({
           {hasOptions(col.type) && item('opts', 'tags', '옵션', false)}
           {item('filter', 'filter', '필터', column.getIsFiltered())}
           {item('sort', 'arrows-sort', '정렬', !!sorted)}
+          {col.type === 'formula' && (
+            <button type="button" className="ef-mi" onClick={() => { setSub(null); close(); ops.editFormula() }}>
+              <i className="ef-mi-ic"><TI n="math-function" /></i>
+              <span>수식 설정</span>
+            </button>
+          )}
           <button
             type="button"
             className={`ef-mi${grouped ? ' on' : ''}${num ? ' off' : ''}`}

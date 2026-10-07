@@ -20,12 +20,14 @@ import { copyText } from '@/lib/copy'
 import { PeoplePick } from '@/components/AssigneePicker'
 import { useMeName } from '@/components/ntable/useAdmin'
 import { useUserPeople } from '@/pages/qaBits'
-import { Chip, CtxMenu, DatePicker, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
+import { Chip, CtxMenu, DatePicker, FormulaEditor, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
 import { TI } from './icons'
 import {
   autoOptions,
   autoColor,
   FX_NAME,
+  formulaOf,
+  formulaText,
   fxKey,
   fxOf,
   fxTargetCol,
@@ -259,6 +261,12 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [menu, setMenu] = useState<{ anchor: HTMLElement; colId: string } | null>(null)
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow; c?: number } | null>(null)
   const [colMenu, setColMenu] = useState<{ x: number; y: number; colId: string } | null>(null)
+  /** 수식 설정 창 — 수식 열(지시: 노션처럼 열 전체에 같은 식) */
+  const [formulaEd, setFormulaEd] = useState<{ colId: string; anchor: HTMLElement } | null>(null)
+  const openFormula = (c: EfColumn, at?: HTMLElement) => {
+    const a = at ?? tblRef.current?.querySelector<HTMLElement>(`th[data-col="${c.id}"]`)
+    if (a) setFormulaEd({ colId: c.id, anchor: a })
+  }
   /** 체크한 행(예전 _rscSelSet) — 행 객체로 들고 있다. 연도·표가 바뀌면(rows 가 다른 배열) 비운다 */
   /**
    * 수식(지시: 칸 먼저 → 우클릭 「수식」 → 결과 칸) — 고른 칸들과 함수를 들고 「결과를 넣을 칸」 을 기다리는 상태.
@@ -282,7 +290,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
 
   /** 실제 행에 쓴다. 바뀌었으면 true — 합계 열 다시 계산은 부른 쪽이 한 번만 */
   const put = (src: EfRow, c: EfColumn, raw: unknown): boolean => {
-    if (!src || c.autoSum || c.type === 'datediff') return false
+    if (!src || c.autoSum || c.type === 'datediff' || c.type === 'formula') return false
     // 수식 칸에 값을 직접 넣으면 엑셀처럼 수식을 지우고 값으로
     const hadFx = !!src[fxKey(c)]
     if (hadFx) delete src[fxKey(c)]
@@ -381,6 +389,10 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     const col = ordered[c]
     const td = tblRef.current?.querySelector<HTMLElement>(`td[data-r="${r}"][data-c="${c}"]`)
     if (!src || !col || !td || col.autoSum) return
+    if (col.type === 'formula') {
+      openFormula(col, td)
+      return
+    }
     if (col.type === 'checkbox') {
       commit(src, col, !truthy(src[col.id]))
       return
@@ -439,7 +451,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     const c = sel.c2
     const col = ordered[c]
     const src = leafRef.current[r]
-    if (!col || !src || col.autoSum || col.type === 'checkbox') {
+    if (!col || !src || col.autoSum || col.type === 'checkbox' || col.type === 'formula') {
       sk.value = ''
       return
     }
@@ -752,6 +764,19 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       },
       setType: (t: EfType) => {
         if (c.type === t) return
+        if (t === 'formula') {
+          // 열 값이 수식 결과로 바뀐다 — 값이 있으면 묻는다
+          const n = allRows().filter((r) => r[c.id] != null && r[c.id] !== '').length
+          if (n && !window.confirm(`「${c.title}」 열의 값 ${n}개가 수식 결과로 바뀝니다. 계속할까요?\n(서버가 저장 전 상태를 백업해 둡니다)`)) return
+          c.type = 'formula'
+          c.autoSum = false
+          if (!c.formula) c.formula = { fn: 'sum', cols: [] }
+          Object.values(doc.pages).forEach((p) => recalcAuto(p.rows, cols))
+          touch()
+          setMenu(null) // 머리글 메뉴는 닫고
+          window.setTimeout(() => openFormula(c), 60) // 바로 무엇을 계산할지 고르게
+          return
+        }
         c.type = t
         if (hasOptions(t)) autoOptions(allRows(), c)
         if (t !== 'number') c.autoSum = false
@@ -792,6 +817,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         touch()
       },
       group: (on) => ctx.setSt({ group: on ? c.id : '' }),
+      editFormula: () => window.setTimeout(() => openFormula(c), 30),
       touch,
     }
   }
@@ -817,7 +843,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         >
           <span
             className="ef-hlbl"
-            title="누르면 메뉴 (유형·필터·수식·정렬) · 끌면 열 이동"
+            title={c.type === 'formula' ? `수식: ${formulaText(formulaOf(c), cols)} · 누르면 메뉴 · 끌면 열 이동` : '누르면 메뉴 (유형·필터·정렬) · 끌면 열 이동'}
             onClick={(e) => {
               if (Date.now() - draggedAt < 250) return
               const a = e.currentTarget
@@ -1007,7 +1033,9 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                   ? undefined
                   : c.type === 'checkbox'
                     ? () => commit(src, c, !truthy(src[c.id]))
-                    : (e) => setEdit({ src, col: c, anchor: e.currentTarget })
+                    : c.type === 'formula'
+                      ? (e) => openFormula(c, e.currentTarget)
+                      : (e) => setEdit({ src, col: c, anchor: e.currentTarget })
               }
             >
               {/* 묶은 열(기본 인원)은 그룹 머리에만 쓰고 행에서는 비운다(예전과 같다) */}
@@ -1260,7 +1288,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         {painted}
       </table>
       <div className="ef-hint">
-        <b>머리글 클릭=메뉴</b>(유형·필터·수식·정렬) · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
+        <b>머리글 클릭=메뉴</b>(유형·필터·정렬·수식 설정) · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
         <b>셀 두 번 클릭·Enter·F2·바로 입력=수정</b> · 방향키=이동 · Shift+Enter=줄 바꿈 · <b>머리글 우클릭=열 추가·복제</b> · <b>행 우클릭=행 추가·복제·삭제</b>
       </div>
 
@@ -1401,6 +1429,26 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           ]}
         />
       )}
+      {formulaEd && (() => {
+        const c = cols.find((x) => x.id === formulaEd.colId)
+        if (!c || c.type !== 'formula') return null
+        return (
+          <FormulaEditor
+            anchor={formulaEd.anchor}
+            col={c}
+            cols={cols}
+            rows={rows}
+            onClose={() => setFormulaEd(null)}
+            onApply={(f) => {
+              c.formula = f
+              Object.values(doc.pages).forEach((p) => recalcAuto(p.rows, cols))
+              setFormulaEd(null)
+              touch()
+              toast(`「${c.title}」 = ${formulaText(f, cols)}`)
+            }}
+          />
+        )
+      })()}
       {colMenu && (() => {
         const c = cols.find((x) => x.id === colMenu.colId)
         if (!c) return null
@@ -1498,6 +1546,16 @@ function CellView({ c, v, max, fx, onToggle }: { c: EfColumn; v: unknown; max: n
         <TI n={c.type === 'email' ? 'mail' : c.type === 'phone' ? 'phone' : 'link'} />
         {s}
       </a>
+    )
+  }
+  if (c.type === 'formula') {
+    // 수식 열 — 숫자는 ƒ 와 함께, 조건 결과(글자)는 그대로
+    const n = typeof v === 'number' ? v : null
+    return n === null ? <span className="ef-fxval">{String(v)}</span> : (
+      <span className="ef-fxval">
+        <TI n="math-function" />
+        {numFmt(n)}
+      </span>
     )
   }
   if (!isNumCol(c)) return <>{String(v)}</>
