@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { TI } from './icons'
-import { autoColor, type EfColumn, type EfDoc, type EfRow, type EfView } from './model'
+import { autoColor, cloneRow, type EfColumn, type EfDoc, type EfRow, type EfView } from './model'
 
 /**
  * Effort Plan 의 보드 보기 — 예전 13-resource.js 의 _rscRenderBoard 를 옮겼다(지금 연도 페이지의 모든 행).
@@ -227,7 +227,7 @@ export function EfBoard({
           onClose={() => setMenu(null)}
           onCopy={() => {
             const i = rows.indexOf(menu.r)
-            rows.splice(i < 0 ? rows.length : i + 1, 0, JSON.parse(JSON.stringify(menu.r)) as EfRow)
+            rows.splice(i < 0 ? rows.length : i + 1, 0, cloneRow(menu.r))
             setMenu(null)
             touch()
             toast('📋 복사됨 (전체 내용 복제)')

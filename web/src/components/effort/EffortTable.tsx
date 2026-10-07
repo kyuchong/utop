@@ -25,6 +25,12 @@ import { TI } from './icons'
 import {
   autoOptions,
   autoColor,
+  calcKey,
+  cloneRow,
+  pickableCol,
+  refsOf,
+  rowId,
+  ROW_ID,
   colSize,
   condMatch,
   dayDiff,
@@ -251,13 +257,20 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow } | null>(null)
   const [colMenu, setColMenu] = useState<{ x: number; y: number; colId: string } | null>(null)
   /** 체크한 행(예전 _rscSelSet) — 행 객체로 들고 있다. 연도·표가 바뀌면(rows 가 다른 배열) 비운다 */
+  /**
+   * 계산 칸 고르기(지시: 엑셀 =SUM 처럼) — 계산 칸을 두 번 누르면 이 상태가 된다. 끌어서 범위, Ctrl(⌘)+끌기·클릭으로 더하기·빼기,
+   * Enter/[확인] 으로 그 칸들의 합을 둔다. 고른 칸은 「행 이름표 + 열」 로 기억한다(정렬·이동해도 따라간다)
+   */
+  const [pick, setPick] = useState<{ src: EfRow; col: EfColumn; cells: Array<{ row: EfRow; col: string }> } | null>(null)
+  const pickRef = useRef(pick)
+  pickRef.current = pick
   const [checked, setChecked] = useState<Set<EfRow>>(() => new Set())
   const [ckOf, setCkOf] = useState(rows)
   if (ckOf !== rows) {
     setCkOf(rows)
     setChecked(new Set())
   }
-  const drag = useRef<{ mode: 'sel' | 'fill' | 'row'; r1: number; c1: number; c2?: number } | null>(null)
+  const drag = useRef<{ mode: 'sel' | 'fill' | 'row'; r1: number; c1: number; c2?: number; add?: boolean } | null>(null)
   const leafRef = useRef<EfRow[]>([])
   const paintRef = useRef<ReactNode>(null)
   const tblRef = useRef<HTMLTableElement>(null)
@@ -266,7 +279,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
 
   /** 실제 행에 쓴다. 바뀌었으면 true — 합계 열 다시 계산은 부른 쪽이 한 번만 */
   const put = (src: EfRow, c: EfColumn, raw: unknown): boolean => {
-    if (!src || c.autoSum || c.type === 'datediff') return false
+    if (!src || c.autoSum || c.type === 'datediff' || c.type === 'calc') return false
     let v: string | number | boolean
     if (c.type === 'checkbox') v = truthy(raw) ? true : ''
     else if (c.type === 'date') {
@@ -358,10 +371,15 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   }
   /** 고른 칸에서 고치기 시작 — 체크박스는 켜고 끄기, 계산 칸은 안 됨 */
   const editAt = (r: number, c: number, init?: string) => {
+    if (pickRef.current) return // 계산 칸 고르는 중엔 고치지 않는다
     const src = leafRef.current[r]
     const col = ordered[c]
     const td = tblRef.current?.querySelector<HTMLElement>(`td[data-r="${r}"][data-c="${c}"]`)
     if (!src || !col || !td || col.autoSum) return
+    if (col.type === 'calc') {
+      startPick(src, col)
+      return
+    }
     if (col.type === 'checkbox') {
       commit(src, col, !truthy(src[col.id]))
       return
@@ -416,11 +434,15 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const sinkStart = () => {
     if (typingRef.current || !sel) return
     const sk = sinkRef.current!
+    if (pickRef.current) {
+      sk.value = ''
+      return
+    }
     const r = sel.r2
     const c = sel.c2
     const col = ordered[c]
     const src = leafRef.current[r]
-    if (!col || !src || col.autoSum || col.type === 'checkbox') {
+    if (!col || !src || col.autoSum || col.type === 'checkbox' || col.type === 'calc') {
       sk.value = ''
       return
     }
@@ -466,6 +488,12 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       }
       return
     }
+    if (pickRef.current && (e.key === 'Enter' || e.key === 'Escape')) {
+      e.preventDefault()
+      if (e.key === 'Enter') pickDone()
+      else setPick(null)
+      return
+    }
     if (!sel) return
     const k = e.key
     const mv: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }
@@ -489,7 +517,12 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         for (let c = n.c1; c <= n.c2; c++) {
           const src = leafRef.current[r]
           const col = ordered[c]
-          if (src && col?.type === 'datediff') {
+          if (src && col?.type === 'calc') {
+            if (src[calcKey(col)] != null) {
+              delete src[calcKey(col)] // 계산 칸 — 고른 칸을 지운다
+              changed = true
+            }
+          } else if (src && col?.type === 'datediff') {
             if (src[srcKey(col)] != null) {
               delete src[srcKey(col)] // 행별 기준을 지워 열 기본으로
               changed = true
@@ -505,6 +538,47 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     }
     // 글자는 막지 않는다 — 입력칸에 들어가고 onInput·조합 시작에서 고치기가 열린다
   }
+
+  /** 계산 칸 고르기 시작 — 지금 고른 칸들을 불러와 표시 */
+  const startPick = (src: EfRow, col: EfColumn) => {
+    const byId = new Map(rows.filter((r) => typeof r[ROW_ID] === 'string').map((r) => [r[ROW_ID] as string, r]))
+    const cells = refsOf(src, col)
+      .map((x) => ({ row: byId.get(x.r), col: x.c }))
+      .filter((x): x is { row: EfRow; col: string } => !!x.row && pickableCol(cols.find((c) => c.id === x.col)))
+    setEdit(null)
+    setPick({ src, col, cells })
+  }
+  const pickDone = (clear = false) => {
+    const pk = pickRef.current
+    if (!pk) return
+    if (clear || !pk.cells.length) delete pk.src[calcKey(pk.col)]
+    else pk.src[calcKey(pk.col)] = pk.cells.map((x) => ({ r: rowId(x.row), c: x.col }))
+    recalcAuto(rows, cols)
+    setPick(null)
+    touch()
+    toast(clear || !pk.cells.length ? '계산 칸을 비웠습니다' : `${pk.cells.length}칸의 합 = ${numFmt(Number(pk.src[pk.col.id] ?? 0))}`)
+  }
+  /** 표시할 칸 — 고르는 중이면 고른 칸(점선), 아니면 고른 계산 칸 하나가 더하는 칸(옅게) */
+  const marks = (() => {
+    const m = new Map<EfRow, Set<string>>()
+    const add = (row: EfRow, col: string) => {
+      if (!m.has(row)) m.set(row, new Set())
+      m.get(row)!.add(col)
+    }
+    if (pick) pick.cells.forEach((x) => add(x.row, x.col))
+    else if (sel && sel.r1 === sel.r2 && sel.c1 === sel.c2) {
+      const col = ordered[sel.c1]
+      const src = leafRef.current[sel.r1]
+      if (col?.type === 'calc' && src) {
+        const byId = new Map(rows.filter((r) => typeof r[ROW_ID] === 'string').map((r) => [r[ROW_ID] as string, r]))
+        refsOf(src, col).forEach((x) => {
+          const row = byId.get(x.r)
+          if (row) add(row, x.c)
+        })
+      }
+    }
+    return m
+  })()
 
   // ── 범위 선택 · 채우기 ── 한 번 클릭 = 선택, 끌면 범위, 오른쪽 아래 점을 끌면 그 값으로 채우기(세로)
   useEffect(() => {
@@ -523,6 +597,27 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       const d = drag.current
       if (!d) return
       drag.current = null
+      const pk = pickRef.current
+      if (pk && d.mode === 'sel') {
+        // 고른 범위의 숫자 칸 — 그냥 끌면 바꾸고, Ctrl(⌘)이면 더한다(이미 다 들어 있으면 뺀다)
+        const n = norm(sel)
+        if (!n) return
+        const leaf = leafRef.current
+        const add: Array<{ row: EfRow; col: string }> = []
+        for (let r = n.r1; r <= n.r2; r++)
+          for (let c = n.c1; c <= n.c2; c++) {
+            const row = leaf[r]
+            const mc = ordered[c]
+            if (row && pickableCol(mc) && !(row === pk.src && mc!.id === pk.col.id)) add.push({ row, col: mc!.id })
+          }
+        const has = (x: { row: EfRow; col: string }) => pk.cells.some((y) => y.row === x.row && y.col === x.col)
+        let cells: Array<{ row: EfRow; col: string }>
+        if (!d.add) cells = add
+        else if (add.length && add.every(has)) cells = pk.cells.filter((y) => !add.some((x) => x.row === y.row && x.col === y.col))
+        else cells = [...pk.cells, ...add.filter((x) => !has(x))]
+        setPick({ ...pk, cells })
+        return
+      }
       if (d.mode !== 'fill') return
       const n = norm(sel)
       if (!n) return
@@ -657,7 +752,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const addRow = (src: EfRow, after: boolean, copy: boolean) => {
     const i = rows.indexOf(src)
     const g = table.getState().grouping[0]
-    const nr: EfRow = copy ? { ...src } : g && src[g] != null ? { [g]: src[g] } : {}
+    const nr: EfRow = copy ? cloneRow(src) : g && src[g] != null ? { [g]: src[g] } : {}
     rows.splice(i < 0 ? rows.length : i + (after ? 1 : 0), 0, nr)
     setSel(null)
     touch()
@@ -903,21 +998,23 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               key={cell.id}
               data-r={n}
               data-c={ci}
-              className={`${num ? 'ef-n ' : ''}${editable ? 'ef-ed ' : 'ef-auto '}${isEd ? 'ef-editing ' : ''}${c.type === 'text' && cellText(src[c.id]).includes('\n') ? 'ef-ml ' : ''}${edge}`}
+              className={`${num ? 'ef-n ' : ''}${editable ? 'ef-ed ' : 'ef-auto '}${isEd ? 'ef-editing ' : ''}${c.type === 'text' && cellText(src[c.id]).includes('\n') ? 'ef-ml ' : ''}${marks.get(src)?.has(c.id) ? (pick ? 'ef-pk ' : 'ef-ref ') : ''}${pick && pick.src === src && pick.col.id === c.id ? 'ef-pktgt ' : ''}${edge}`}
               onMouseDown={(e) => {
                 if (e.button !== 0) return
                 e.preventDefault() // 글자 끌어 고르기 대신 칸 고르기 — 포커스는 바로 글쇠 받는 칸으로
                 grab()
-                drag.current = { mode: 'sel', r1: n, c1: ci }
+                drag.current = { mode: 'sel', r1: n, c1: ci, add: e.ctrlKey || e.metaKey }
                 setSel({ r1: n, c1: ci, r2: n, c2: ci })
                 setEdit(null)
               }}
               onDoubleClick={
-                !editable
+                pick || !editable
                   ? undefined
                   : c.type === 'checkbox'
                     ? () => commit(src, c, !truthy(src[c.id]))
-                    : (e) => setEdit({ src, col: c, anchor: e.currentTarget })
+                    : c.type === 'calc'
+                      ? () => startPick(src, c)
+                      : (e) => setEdit({ src, col: c, anchor: e.currentTarget })
               }
             >
               {/* 묶은 열(기본 인원)은 그룹 머리에만 쓰고 행에서는 비운다(예전과 같다) */}
@@ -1075,7 +1172,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   }
   const selDup = () => {
     // 저마다 바로 아래에 복제(행 우클릭 「행 복제」 와 같게)
-    ckList.forEach((r) => rows.splice(rows.indexOf(r) + 1, 0, JSON.parse(JSON.stringify(r)) as EfRow))
+    ckList.forEach((r) => rows.splice(rows.indexOf(r) + 1, 0, cloneRow(r)))
     setChecked(new Set())
     setSel(null)
     touch()
@@ -1094,6 +1191,28 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   }
   return (
     <div className="ef-gbox">
+    {pick && (
+      <div className="ef-pickbar">
+        <TI n="sum" />
+        <span>
+          <b>「{pick.col.title}」</b> 에 더할 칸을 고르세요
+        </span>
+        <span className="ef-pickhint">끌어서 범위 · Ctrl(⌘)+끌기·클릭으로 더하기/빼기 · 숫자 칸만</span>
+        <span className="ef-sp" />
+        <span className="ef-pickn">
+          {pick.cells.length}칸 · 합 {numFmt(Math.round(pick.cells.reduce((a, x) => a + (toNum(x.row[x.col]) ?? 0), 0) * 1e4) / 1e4)}
+        </span>
+        <button type="button" className="ef-btn gh" onClick={() => pickDone(true)}>
+          비우기
+        </button>
+        <button type="button" className="ef-btn gh" onClick={() => setPick(null)}>
+          취소
+        </button>
+        <button type="button" className="ef-btn" onClick={() => pickDone()}>
+          확인
+        </button>
+      </div>
+    )}
     <div className="ef-selbar">
       <label className="ef-selall">
         <input
@@ -1360,6 +1479,15 @@ function CellView({ c, v, max, onToggle }: { c: EfColumn; v: unknown; max: numbe
         <TI n={c.type === 'email' ? 'mail' : c.type === 'phone' ? 'phone' : 'link'} />
         {s}
       </a>
+    )
+  }
+  if (c.type === 'calc') {
+    const n = toNum(v)
+    return n === null ? null : (
+      <span className="ef-calcv" title="고른 칸들의 합 — 두 번 눌러 칸 고르기">
+        <TI n="sum" />
+        {numFmt(n)}
+      </span>
     )
   }
   if (!isNumCol(c)) return <>{String(v)}</>

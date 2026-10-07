@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, chipStyle, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, ROW_ID, calcKey, chipStyle, cloneRow, recalcCalc, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -152,5 +152,40 @@ describe('남은 일수 — 기준 기간: 행에서 고른 것 > 맨 앞 기간
     expect(rowSrcOf({}, cols, { ...dd, srcCol: 'p2' })).toBe(p1)
     expect(rowSrcOf({ [srcKey(dd)]: 'p2' }, cols, dd)).toBe(p2)
     expect(rowSrcOf({ [srcKey(dd)]: 'gone' }, cols, dd)).toBe(p1)
+  })
+})
+
+describe('계산 열 — 고른 칸의 합', () => {
+  const m1 = { id: 'm1', title: '01월', type: 'number' as const }
+  const tot = { id: 'tot', title: '합계', type: 'number' as const, autoSum: true }
+  const cc = { id: 'cc', title: '계산', type: 'calc' as const }
+  const cols = [m1, tot, cc]
+  it('행 이름표로 기억 — 순서가 바뀌어도 그 행, 지운 행·계산 열은 빼고 합', () => {
+    const a: Record<string, unknown> = { m1: 1, tot: 1 }
+    const b: Record<string, unknown> = { m1: 0.5, tot: 0.5 }
+    const c: Record<string, unknown> = {}
+    c[calcKey(cc)] = [
+      { r: rowId(a), c: 'm1' },
+      { r: rowId(b), c: 'm1' },
+      { r: rowId(b), c: 'tot' },
+      { r: 'gone', c: 'm1' },
+      { r: rowId(a), c: 'cc' },
+    ]
+    const rows = [b, c, a] // 차례를 바꿔도
+    recalcCalc(rows, cols)
+    expect(c.cc).toBe(2)
+    b.m1 = 2
+    recalcCalc(rows, cols)
+    expect(c.cc).toBe(3.5)
+    delete c[calcKey(cc)]
+    recalcCalc(rows, cols)
+    expect('cc' in c).toBe(false)
+  })
+  it('행 복제는 이름표를 뗀다(같은 이름표가 둘이면 엉뚱한 행을 본다)', () => {
+    const a: Record<string, unknown> = { m1: 1 }
+    rowId(a)
+    const n = cloneRow(a)
+    expect(n[ROW_ID]).toBeUndefined()
+    expect(n.m1).toBe(1)
   })
 })
