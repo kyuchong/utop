@@ -794,8 +794,11 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     const set = (tr: HTMLTableRowElement, t: string) =>
       [...tr.cells].forEach((td) => td.style.transform !== t && (td.style.transform = t))
     const apply = () => {
-      const dy = Math.max(lo, Math.min(hi, py - y0 + box.scrollTop - st0))
-      const mid = top0 + dy + H / 2
+      const raw = py - y0 + box.scrollTop - st0
+      const dy = Math.max(lo, Math.min(hi, raw))
+      // 들어갈 자리는 마우스 그대로로 센다 — 묶은 dy 로 세면 맨 위·맨 아래에서 끄는 행 가운데가
+      // 첫·끝 행 가운데와 딱 겹쳐 높이가 조금만 달라도 그 행을 못 넘는다(지적: 1번 행이랑 위치 변경이 안돼)
+      const mid = top0 + raw + H / 2
       ti = others.filter((c) => c.mid < mid).length
       others.forEach((c, w) => {
         const was = c.k > f ? 1 : 0
