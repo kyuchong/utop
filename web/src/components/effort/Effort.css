@@ -32,8 +32,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  align-self: flex-start;
-  max-height: 100%;
+  align-self: stretch; /* 아래 여백까지 늘린다(지시) — 내용이 길면 안쪽 .ef-tree 가 구른다 */
 }
 .ef-tree-hd {
   display: flex;
@@ -61,6 +60,7 @@
 }
 .ef-tadd:hover { background: #e3eaf5; }
 .ef-tree {
+  flex: 1;
   padding: 6px;
   overflow: auto;
   display: flex;
