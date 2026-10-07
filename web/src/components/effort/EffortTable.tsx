@@ -51,6 +51,7 @@ import {
   natural,
   newId,
   normDate,
+  optionsOf,
   normRange,
   numFmt,
   parseRange,
@@ -236,16 +237,8 @@ export function leafRows(table: Table<EfRow>): EfRow[] {
   return out
 }
 
-/** 선택 칸의 옵션 — 열 옵션 순서 그대로 + 표에만 쓰인 값 */
-export function optionsOf(rows: EfRow[], c: EfColumn): string[] {
-  const have = (c.options ?? []).filter((o) => o !== '' && o != null)
-  const extra = new Set<string>()
-  rows.forEach((r) => {
-    const v = cellText(r[c.id])
-    if (v && !have.includes(v)) extra.add(v)
-  })
-  return [...have, ...[...extra].sort(natural)]
-}
+/** 선택 칸의 옵션 — model.optionsOf(페이지·필터에서도 이 이름으로 쓴다) */
+export { optionsOf }
 
 interface Sel {
   r1: number

@@ -516,6 +516,21 @@ export function missingOptions(rows: EfRow[], c: EfColumn): string[] {
   const have = c.options ?? []
   return [...used].filter((v) => !have.includes(v)).sort(natural)
 }
+/**
+ * 고르기 목록 — 정해 둔 옵션 + 표에만 쓰인 값(뒤에, 이름 순).
+ * 다중 선택은 칸 값을 쉼표로 나눠 낱개로 센다(지적: 「q, w」 「e, r」 가 옵션 하나처럼 목록에 나왔다)
+ */
+export function optionsOf(rows: EfRow[], c: EfColumn): string[] {
+  const have = (c.options ?? []).filter((o) => o !== '' && o != null)
+  const extra = new Set<string>()
+  rows.forEach((r) => {
+    const v = r[c.id] == null ? '' : String(r[c.id]).trim()
+    if (!v) return
+    const parts = c.type === 'multiselect' ? v.split(',').map((x) => x.trim()).filter(Boolean) : [v]
+    parts.forEach((x) => !have.includes(x) && extra.add(x))
+  })
+  return [...have, ...[...extra].sort(natural)]
+}
 /** 유형을 선택 계열로 바꿀 때 쓰인 값을 옵션으로(예전 _rscAutoOptions) */
 export function autoOptions(rows: EfRow[], c: EfColumn) {
   const add = missingOptions(rows, c)

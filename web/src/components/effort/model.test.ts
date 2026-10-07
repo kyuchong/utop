@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, ROW_ID, calcFormula, formulaText, isNumCol, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, optionsOf, ROW_ID, calcFormula, formulaText, isNumCol, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -253,5 +253,16 @@ describe('수식 열 — 행마다 같은 식', () => {
     expect(row.q1).toBe(6)
     expect(formulaText({ fn: 'sum', cols: ['m1', 'm2', 'm3'] }, cols)).toBe('01월 + 02월 + 03월')
     expect(formulaText({ fn: 'div', cols: ['m1', 'm2'] }, cols)).toBe('01월 ÷ 02월')
+  })
+})
+
+describe('optionsOf — 고르기 목록', () => {
+  it('다중 선택은 칸 값을 쉼표로 나눠 낱개만(「q, w」 가 옵션 하나로 나오지 않게)', () => {
+    const c: EfColumn = { id: 'm', title: 'M', type: 'multiselect', options: ['q', 'w', 'e', 'r'] }
+    expect(optionsOf([{ m: 'q, w' }, { m: 'e,r' }, { m: 'z, q' }], c)).toEqual(['q', 'w', 'e', 'r', 'z'])
+  })
+  it('선택은 칸 값 그대로(쉼표가 든 값도 하나)', () => {
+    const c: EfColumn = { id: 's', title: 'S', type: 'select', options: ['a'] }
+    expect(optionsOf([{ s: 'a' }, { s: 'b, c' }], c)).toEqual(['a', 'b, c'])
   })
 })
