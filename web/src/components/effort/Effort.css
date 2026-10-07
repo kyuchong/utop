@@ -1088,3 +1088,4 @@ input.ef-fsel { cursor: text; }
 /* 남은 일수 — 사흘 안 주황, 지난 것 흐리게 */
 .ef-ddiff.soon { color: #e06a34; }
 .ef-ddiff.past { color: var(--c-text-faint); font-weight: 700; }
+.ef-src-none { font-size: 11px; color: var(--c-text-faint); padding: 6px 8px 8px; line-height: 1.5; }

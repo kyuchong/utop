@@ -696,6 +696,13 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         touch()
       },
       group: (on) => ctx.setSt({ group: on ? c.id : '' }),
+      setSrc: (id) => {
+        if (c.srcCol === id) return
+        c.srcCol = id
+        touch()
+        toast(`「${doc.columns.find((x) => x.id === id)?.title ?? ''}」 기준으로 남은 일수를 셉니다`)
+      },
+      ranges: doc.columns.filter((x) => x.type === 'daterange'),
       touch,
     }
   }
