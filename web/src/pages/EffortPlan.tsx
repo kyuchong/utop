@@ -276,24 +276,18 @@ function EffortBody({
           <div className="ef-head">
             <b>Effort Plan</b>
             <span className="ef-head-sep">·</span>
-            <span className="ef-head-name">{name}</span>
+            {/* 빵부스러기를 제목에 그대로(지시) — 「Effort Plan · 폴더 › 표 2026년」 */}
+            {path.map((f, i) => (
+              <span key={i} className="ef-head-path">
+                {f}
+                <span className="ef-head-psep">›</span>
+              </span>
+            ))}
+            <span className="ef-head-name" title={[...path, name].join(' › ')}>{name}</span>
             <button type="button" className="ef-yrbtn" title="연도 바꾸기·추가·삭제" onClick={open('yearmenu')}>
               {year}년
               <TI n="chevron-down" />
             </button>
-            <nav className="ef-crumb" aria-label="위치" title={[...path, name].join(' › ')}>
-              {path.map((f, i) => (
-                <span key={i} className="ef-crumb-it">
-                  <TI n="folder" />
-                  {f}
-                  <TI n="chevron-right" className="ef-crumb-sep" />
-                </span>
-              ))}
-              <span className="ef-crumb-it ef-crumb-cur">
-                <TI n="table" />
-                {name}
-              </span>
-            </nav>
             <span className={`ef-save ${save}`} onClick={save === 'error' ? retry : undefined}>
               {save === 'saving' || save === 'dirty' ? '저장 중…' : save === 'saved' ? '저장됨' : save === 'error' ? '저장 실패 — 눌러서 다시' : ''}
             </span>

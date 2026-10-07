@@ -924,12 +924,9 @@ input.ef-fsel { cursor: text; }
 .ef-t td.ef-rh.ef-rsel,
 .ef-t tbody tr:hover td.ef-rh.ef-rsel { background: #dbe6fb; color: #2d6fd4; font-weight: 800; }
 
-/* 제목 줄 빵부스러기 — 연도 옆, 표가 든 폴더 › 표 */
-.ef-crumb { display: flex; align-items: center; min-width: 0; margin-left: 4px; padding: 3px 9px; border-radius: 999px; background: #f2f5fa; font-size: 11px; font-weight: 600; color: var(--c-text-faint); white-space: nowrap; overflow: hidden; }
-.ef-crumb-it { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
-.ef-crumb-it .ef-ti { font-size: 12px; flex: none; }
-.ef-crumb-sep { margin: 0 4px; font-size: 10px !important; opacity: 0.6; }
-.ef-crumb-cur { color: var(--c-text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+/* 제목 속 폴더 길 — 표 이름과 같은 크기, 조금 흐리게 */
+.ef-head-path { display: inline-flex; align-items: center; font-size: 18px; font-weight: 800; color: var(--c-text-muted); white-space: nowrap; }
+.ef-head-psep { margin-left: 8px; color: var(--c-text-faint); font-weight: 400; }
 
 /* 차트 카드 머리 오른쪽 × — 기본 차트는 숨기고, 만든 차트는 지운다. 카드에 올렸을 때만 보인다 */
 .ef-ch-t { flex: 1; min-width: 0; }
