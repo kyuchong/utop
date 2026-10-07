@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Column } from '@tanstack/react-table'
 import { TI } from './icons'
@@ -348,23 +348,44 @@ export function RangePicker({ anchor, value, onPick, onClose }: { anchor: HTMLEl
   const p = parseRange(value)
   const [s, setS] = useState(normDate(p.s) ?? '')
   const [e, setE] = useState(normDate(p.e) ?? '')
+  /** 지금 고르는 쪽 — 위의 시작·종료 칸을 눌러 바꾼다(지적: 시작·종료를 골라 바꿀 수 없었다) */
+  const [act, setAct] = useState<'s' | 'e'>(s ? 'e' : 's')
   const days = s && e ? Math.round((new Date(e + 'T00:00:00').getTime() - new Date(s + 'T00:00:00').getTime()) / 86400000) + 1 : 0
   const day = (v: string) => {
-    // 처음 · 둘 다 골라져 있으면 새 시작, 시작보다 앞을 누르면 시작을 바꾼다, 아니면 종료
-    if (!s || (s && e) || v < s) {
+    if (act === 's') {
       setS(v)
-      setE('')
-    } else setE(v)
+      if (e && v > e) setE('') // 종료보다 뒤로 옮긴 시작 — 종료를 다시 고르게
+      setAct('e')
+    } else if (s && v < s) {
+      // 시작보다 앞을 종료로 누르면 둘을 바꿔 잡는다
+      setE(s)
+      setS(v)
+    } else {
+      setE(v)
+      if (!s) {
+        setS(v)
+      }
+    }
   }
   const cls = (v: string) =>
     v === s || v === e ? 'on' : s && e && v > s && v < e ? 'mid' : ''
-  const init = useMemo(() => normDate(p.s), [p.s])
+  // 달력은 지금 고르는 쪽의 달을 보인다
+  const init = act === 's' ? s || e || null : e || s || null
   return (
     <Pop anchor={anchor} cls="ef-menu ef-cal ef-range" onClose={onClose}>
       <div className="ef-range-sum">
-        <span className={!s || (s && e) ? 'now' : ''}>{s || '시작'}</span>
+        <button type="button" className={act === 's' ? 'now' : ''} title="눌러서 시작일 고르기" onClick={() => setAct('s')}>
+          <em>시작</em>
+          {s || '—'}
+        </button>
         <i>~</i>
-        <span className={s && !e ? 'now' : ''}>{e || '종료'}</span>
+        <button type="button" className={act === 'e' ? 'now' : ''} title="눌러서 종료일 고르기" onClick={() => setAct('e')}>
+          <em>종료</em>
+          {e || '—'}
+        </button>
+      </div>
+      <div className="ef-range-hint">
+        {act === 's' ? '달력에서 시작일을 누르세요' : '달력에서 종료일을 누르세요'}
         {days > 0 && <b>{days}일</b>}
       </div>
       <CalGrid init={init} cls={cls} onDay={day} />

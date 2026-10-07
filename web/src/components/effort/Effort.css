@@ -1026,10 +1026,14 @@ input.ef-fsel { cursor: text; }
 .ef-cal-d.mid { background: #2d6fd41f; border-radius: 0; color: #2d6fd4; }
 /* 기간 고르기 — 위에 「시작 ~ 종료 · N일」, 지금 고를 쪽을 파랗게 */
 .ef-range-sum { display: flex; align-items: center; gap: 6px; margin: 2px 2px 8px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
-.ef-range-sum span { flex: 1; text-align: center; padding: 4px 0; border-radius: 6px; background: #f2f5fa; color: var(--c-text-muted); font-weight: 700; }
-.ef-range-sum span.now { box-shadow: inset 0 0 0 1.5px #2d6fd4; color: #2d6fd4; }
+.ef-range-sum button { flex: 1; min-width: 0; font: inherit; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; padding: 4px 0 5px; border: 0; border-radius: 6px; background: #f2f5fa; color: var(--c-text-muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.ef-range-sum button em { font-style: normal; font-size: 9.5px; font-weight: 800; color: var(--c-text-faint); }
+.ef-range-sum button:hover { background: #e8eef8; }
+.ef-range-sum button.now { box-shadow: inset 0 0 0 1.5px #2d6fd4; color: #2d6fd4; background: #eef4fd; }
+.ef-range-sum button.now em { color: #2d6fd4; }
+.ef-range-hint { display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; color: var(--c-text-faint); margin: -2px 2px 6px; }
+.ef-range-hint b { font-size: 11px; color: #2d6fd4; }
 .ef-range-sum i { font-style: normal; color: var(--c-text-faint); }
-.ef-range-sum b { font-size: 11px; color: #2d6fd4; white-space: nowrap; }
 
 /* ── 체크한 행 줄(예전 rsc-selbar) — 표 위 한 줄, 고르면 N행 선택 · 복사 · 복제 · 삭제 · 해제 ── */
 .ef-gbox { position: absolute; inset: 0; display: flex; flex-direction: column; }
