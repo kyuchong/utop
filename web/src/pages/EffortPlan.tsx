@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
+import { IconPanel } from '@/components/icons'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { EfGrid, leafRows, optionsOf, useEfTable, type EfCtx } from '@/components/effort/EffortTable'
 import { Pop } from '@/components/effort/EffortMenus'
@@ -338,15 +339,15 @@ function EffortBody({
     <>
         <div className="ef-main">
           <div className="ef-head">
-            {/* 목록 닫기·열기 — 노션 사이드바 단추처럼 제목 옆(지시) */}
+            {/* 목록 접기·펴기 — REQ-Coverage 접기 단추와 같은 모양·같은 아이콘(지시) */}
             <button
               type="button"
               className="ef-sidebtn"
-              aria-label={sideHide ? '목록 열기' : '목록 닫기'}
-              title={sideHide ? '목록 열기' : '목록 닫기'}
+              aria-label={sideHide ? '목록 펴기' : '목록 접기'}
+              title={sideHide ? '목록 펴기' : '목록 접기'}
               onClick={onToggleSide}
             >
-              <TI n={sideHide ? 'sidebar-open' : 'sidebar-close'} />
+              <IconPanel open={sideHide} />
             </button>
             <b>Effort Plan</b>
             <span className="ef-head-sep">·</span>

@@ -269,7 +269,6 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow; c?: number } | null>(null)
   /** 그룹 머리 「⋯」·우클릭 메뉴 — v 는 그 그룹 값('' = 빈값) */
   const [groupMenu, setGroupMenu] = useState<{ x: number; y: number; v: string } | null>(null)
-  const [colMenu, setColMenu] = useState<{ x: number; y: number; colId: string } | null>(null)
   /** 바닥줄 계산 고르기 — 누른 칸 위치 */
   const [calcMenu, setCalcMenu] = useState<{ x: number; top: number; bottom: number; colId: string } | null>(null)
   /** 수식 설정 창 — 수식 열(지시: 노션처럼 열 전체에 같은 식) */
@@ -445,7 +444,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   }
   // 칸을 고르면(고치는 중·메뉴가 없을 때) 그 칸 위로 옮기고 글쇠를 받는다. 누른 뒤 브라우저가 포커스를 옮기므로 한 박자 늦게
   useEffect(() => {
-    if (!sel || edit || typing || menu || rowMenu || colMenu) return
+    if (!sel || edit || typing || menu || rowMenu) return
     const t = window.setTimeout(() => {
       const sk = sinkRef.current
       if (!sk) return
@@ -457,7 +456,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     }, 0)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sel, edit, typing, menu, rowMenu, colMenu])
+  }, [sel, edit, typing, menu, rowMenu])
   /** 글자가 들어와 고치기 시작 — 고르는 유형은 고르기 창, 못 고치는 칸은 버린다 */
   const sinkStart = () => {
     if (typingRef.current || !sel) return
@@ -1004,13 +1003,6 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         <div
           className={`ef-hc${num ? ' num' : ''}${col.getIsFiltered() ? ' filtered' : ''}`}
           onMouseDown={(e) => colDrag(e, c.id)}
-          onContextMenu={(e) => {
-            // 머리글 우클릭 — 열 추가·복제(지시)
-            e.preventDefault()
-            setMenu(null)
-            setEdit(null)
-            setColMenu({ x: e.clientX, y: e.clientY, colId: c.id })
-          }}
         >
           <span
             className="ef-hlbl"
@@ -1526,7 +1518,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       </table>
       <div className="ef-hint">
         <b>머리글 클릭=메뉴</b>(유형·필터·정렬·수식 설정) · <b>바닥줄 클릭=계산 고르기</b> · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
-        <b>셀 두 번 클릭·Enter·F2·바로 입력=수정</b> · 방향키=이동 · Shift+Enter=줄 바꿈 · <b>머리글 우클릭=열 추가·복제</b> · <b>행 우클릭=행 추가·복제·삭제</b>
+        <b>셀 두 번 클릭·Enter·F2·바로 입력=수정</b> · 방향키=이동 · Shift+Enter=줄 바꿈 · <b>행 우클릭=행 추가·복제·삭제</b>
       </div>
 
       {edit && edit.col.type === 'multiselect' && (
@@ -1690,22 +1682,6 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
             />
           )
         })()}
-      {colMenu && (() => {
-        const c = cols.find((x) => x.id === colMenu.colId)
-        if (!c) return null
-        const ops = opsFor(c)
-        return (
-          <CtxMenu
-            at={colMenu}
-            onClose={() => setColMenu(null)}
-            items={[
-              { ic: 'arrow-bar-to-left', label: '왼쪽에 열 추가', on: () => { ops.insert(false); toast('열 추가됨 — 머리글을 눌러 이름·유형을 바꾸세요') } },
-              { ic: 'arrow-bar-to-right', label: '오른쪽에 열 추가', on: () => { ops.insert(true); toast('열 추가됨 — 머리글을 눌러 이름·유형을 바꾸세요') } },
-              { ic: 'copy', label: '열 복제', on: () => { ops.duplicate(); toast(`「${c.title} 복사」 열을 만들었습니다`) } },
-            ]}
-          />
-        )
-      })()}
     </div>
     </div>
     </div>
