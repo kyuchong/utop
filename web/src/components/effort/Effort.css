@@ -320,13 +320,13 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
 .ef-t tr.ef-grp:hover td,
 .ef-t tr.ef-grp td.ef-rh { background: #eef3fb; height: 36px; border-bottom: 1px solid var(--c-border-soft); }
 .ef-t td.ef-gcell { overflow: visible; }
-/* 그룹 숨기기 — 그룹 머리에 올렸을 때만 */
+/* 그룹 머리 「⋯」 — 노션처럼 올렸을 때만 */
+.ef-gmore { visibility: hidden; margin-left: 6px; width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--c-text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
+.ef-t tr.ef-grp:hover .ef-gmore { visibility: visible; }
+.ef-gmore:hover { background: #dde7f7; color: #2d6fd4; }
 /* 그룹 이름·개수·숨기기를 한 줄로 — 묶은 열 칸이 좁아도 겹치지 않게(칸 밖으로 넘쳐 보인다) */
 .ef-ghead { display: inline-flex; align-items: center; white-space: nowrap; }
 .ef-ghead .ef-gx { max-width: none; }
-.ef-ghide { visibility: hidden; margin-left: 8px; border: 1px solid var(--c-border); background: #fff; color: var(--c-text-muted); font: inherit; font-size: 11px; font-weight: 700; border-radius: 7px; padding: 1px 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; white-space: nowrap; }
-.ef-t tr.ef-grp:hover .ef-ghide { visibility: visible; }
-.ef-ghide:hover { border-color: #2d6fd4; color: #2d6fd4; }
 .ef-gx {
   display: inline-flex;
   align-items: center;
@@ -1167,3 +1167,14 @@ input.ef-fsel { cursor: text; }
 .ef-fhint { visibility: hidden; font-size: 10.5px; color: var(--c-text-faint); }
 .ef-t tfoot td.ef-fcalc:hover .ef-fhint { visibility: visible; }
 .ef-calcmenu { width: 210px; }
+
+/* 그룹 창 — 그룹마다 눈(노션 보기 설정 › 그룹). 숨긴 그룹은 흐리게 */
+.ef-gpanel { width: 240px; }
+.ef-glbl { display: flex; align-items: center; justify-content: space-between; }
+.ef-glink { border: 0; background: none; padding: 0; font: inherit; font-size: 10.5px; font-weight: 700; color: #2d6fd4; cursor: pointer; }
+.ef-glink:hover { text-decoration: underline; }
+.ef-gvis .ef-mi-ic { color: var(--c-text-muted); }
+.ef-gvis.off > span,
+.ef-gvis.off .ef-mi-n { opacity: 0.45; }
+.ef-gvis.off .ef-mi-ic { color: var(--c-text-faint); }
+.ef-btn-sub { font-style: normal; font-weight: 700; opacity: 0.8; }

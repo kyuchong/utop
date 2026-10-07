@@ -266,6 +266,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [sel, setSel] = useState<Sel | null>(null)
   const [menu, setMenu] = useState<{ anchor: HTMLElement; colId: string } | null>(null)
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow; c?: number } | null>(null)
+  /** 그룹 머리 「⋯」·우클릭 메뉴 — v 는 그 그룹 값('' = 빈값) */
+  const [groupMenu, setGroupMenu] = useState<{ x: number; y: number; v: string } | null>(null)
   const [colMenu, setColMenu] = useState<{ x: number; y: number; colId: string } | null>(null)
   /** 바닥줄 계산 고르기 — 누른 칸 위치 */
   const [calcMenu, setCalcMenu] = useState<{ x: number; top: number; bottom: number; colId: string } | null>(null)
@@ -848,7 +850,18 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     const m = { ...(ctx.st.hiddenGroups ?? {}) }
     m[g] = [...new Set([...(m[g] ?? []), v])]
     ctx.setSt({ hiddenGroups: m })
-    toast(`「${v || '(빈값)'}」 그룹을 숨겼습니다 — 도구 줄 「숨긴 그룹」 에서 다시 보입니다`)
+    toast(`「${v || '(빈값)'}」 그룹을 숨겼습니다 — 도구 줄 「그룹」 에서 눈을 눌러 다시 보입니다`)
+  }
+  /** 이 그룹에 행 추가 — 그 그룹 마지막 행 바로 아래에, 묶은 열 값을 채워서(노션 그룹 「+」) */
+  const addToGroup = (v: string) => {
+    const g = table.getState().grouping[0]
+    if (!g) return
+    let at = -1
+    rows.forEach((r, i) => cellText(r[g]) === v && (at = i))
+    rows.splice(at < 0 ? rows.length : at + 1, 0, v ? { [g]: v } : {})
+    setSel(null)
+    touch()
+    toast(`「${v || '(빈값)'}」 그룹에 행 추가됨`)
   }
   /** 옮긴 행 — 다시 그린 뒤 그 행을 골라 둔다(어디로 갔는지 보이게) */
   const pickAfter = useRef<EfRow | null>(null)
@@ -1020,7 +1033,14 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const bodyRow = (row: Row<EfRow>, n: number): ReactNode => {
     if (row.getIsGrouped()) {
       return (
-        <tr key={row.id} className="ef-grp">
+        <tr
+          key={row.id}
+          className="ef-grp"
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setGroupMenu({ x: e.clientX, y: e.clientY, v: String(row.groupingValue ?? '') })
+          }}
+        >
           <td className="ef-rh" />
           {row.getVisibleCells().map((cell) =>
             cell.getIsGrouped() ? (
@@ -1031,9 +1051,17 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                   <b>{String(row.groupingValue ?? '') || '(빈값)'}</b>
                   <span className="ef-cnt">{row.subRows.length}개</span>
                 </button>
-                {/* 그룹 숨기기(노션) — 올렸을 때만 보인다. 다시 보이기는 도구 줄 「숨긴 그룹 N」 */}
-                <button type="button" className="ef-ghide" onClick={() => hideGroup(String(row.groupingValue ?? ''))}>
-                  <TI n="eye-off" /> 숨기기
+                {/* 노션처럼 올렸을 때만 「⋯」 — 그룹 숨기기 · 이 그룹에 행 추가 · 모두 접기/펼치기. 다시 보이기는 「그룹」 창의 눈 */}
+                <button
+                  type="button"
+                  className="ef-gmore"
+                  aria-label="그룹 메뉴"
+                  onClick={(e) => {
+                    const r = e.currentTarget.getBoundingClientRect()
+                    setGroupMenu({ x: r.left, y: r.bottom + 2, v: String(row.groupingValue ?? '') })
+                  }}
+                >
+                  <TI n="dots" />
                 </button>
                 </span>
               </td>
@@ -1517,6 +1545,18 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           ops={opsFor(menuEf)}
           allCols={cols}
           onClose={() => setMenu(null)}
+        />
+      )}
+      {groupMenu && (
+        <CtxMenu
+          at={groupMenu}
+          onClose={() => setGroupMenu(null)}
+          items={[
+            { ic: 'plus', label: '이 그룹에 행 추가', on: () => addToGroup(groupMenu.v) },
+            { ic: 'eye-off', label: '그룹 숨기기', on: () => hideGroup(groupMenu.v) },
+            { ic: 'chevron-right', label: '모든 그룹 접기', on: () => table.toggleAllRowsExpanded(false), sep: true },
+            { ic: 'chevron-down', label: '모든 그룹 펼치기', on: () => table.toggleAllRowsExpanded(true) },
+          ]}
         />
       )}
       {rowMenu && (

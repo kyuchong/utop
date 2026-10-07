@@ -9,6 +9,7 @@ import { EfTimeline, tlByOf, tlCols, tlLabelOf, tlModeOf, tlModes } from '@/comp
 import { EfNotionChart } from '@/components/effort/EffortChart'
 import { EfBoard, boardColOf, boardCols } from '@/components/effort/EffortViews'
 import {
+  natural,
   TYPES,
   condMatch,
   condNeedsValue,
@@ -286,14 +287,23 @@ function EffortBody({
   const hidCols = cols.filter((c) => (st.hidden ?? []).includes(c.id))
   // 숨긴 그룹 — 지금 묶은 열에서 숨긴 값들(묶음을 바꾸면 그 열 것만)
   const hidGroups = gId ? (st.hiddenGroups?.[gId] ?? []) : []
-  const showGroups = (vals: string[]) => {
+  /** 숨긴 그룹 값들을 통째로 바꾼다(그룹 창의 눈 · 모두 숨기기/보이기) */
+  const setHidGroups = (vals: string[]) => {
     const m = { ...(st.hiddenGroups ?? {}) }
-    const left = (m[gId!] ?? []).filter((x) => !vals.includes(x))
-    if (left.length) m[gId!] = left
+    if (vals.length) m[gId!] = vals
     else delete m[gId!]
     setSt({ hiddenGroups: m })
-    return left.length
   }
+  // 그룹 창에 늘어놓을 그룹들 — 이 연도 모든 행의 묶은 열 값(빈값 포함)과 행 수, 이름 순(빈값은 끝)
+  const groupList = (() => {
+    if (!gId) return [] as Array<[string, number]>
+    const m = new Map<string, number>()
+    rows.forEach((r) => {
+      const v = r[gId] == null ? '' : String(r[gId])
+      m.set(v, (m.get(v) ?? 0) + 1)
+    })
+    return [...m].sort((a, b) => (a[0] === '' ? 1 : b[0] === '' ? -1 : natural(a[0], b[0])))
+  })()
 
   return (
     <>
@@ -359,13 +369,8 @@ function EffortBody({
                 </button>
                 <button type="button" className={`ef-btn gh${gId ? ' on' : ''}`} onClick={open('group')}>
                   <TI n="layout-rows" /> 그룹{gName ? ': ' + gName : ''}
+                  {hidGroups.length > 0 && <em className="ef-btn-sub"> · 숨김 {hidGroups.length}</em>}
                 </button>
-                {/* 숨긴 그룹 — 있을 때만, 눌러서 다시 보이기 */}
-                {hidGroups.length > 0 && (
-                  <button type="button" className={`ef-btn gh on${pop?.kind === 'hidgroups' ? ' open' : ''}`} onClick={open('hidgroups')}>
-                    <TI n="eye-off" /> 숨긴 그룹 {hidGroups.length}
-                  </button>
-                )}
                 {/* 숨긴 열 — 있을 때만, 눌러서 다시 보이기 */}
                 {hidCols.length > 0 && (
                   <button type="button" className={`ef-btn gh on${pop?.kind === 'hidden' ? ' open' : ''}`} onClick={open('hidden')}>
@@ -575,24 +580,6 @@ function EffortBody({
           }}
         />
       )}
-      {pop?.kind === 'hidgroups' && (
-        <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
-          <div className="ef-lbl">숨긴 그룹({gName}) — 눌러서 다시 보이기</div>
-          <div className="ef-mlist">
-            {hidGroups.map((v) => (
-              <button key={v} type="button" className="ef-mi" onClick={() => !showGroups([v]) && close()}>
-                <i className="ef-mi-ic"><TI n="eye" /></i>
-                <span>{v || '(빈값)'}</span>
-              </button>
-            ))}
-          </div>
-          <div className="ef-sep" />
-          <button type="button" className="ef-mi" onClick={() => { close(); showGroups(hidGroups) }}>
-            <i className="ef-mi-ic"><TI n="eye" /></i>
-            <span>모두 보이기</span>
-          </button>
-        </Pop>
-      )}
       {pop?.kind === 'hidden' && (
         <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
           <div className="ef-lbl">숨긴 열 — 눌러서 다시 보이기</div>
@@ -644,7 +631,7 @@ function EffortBody({
         </Pop>
       )}
       {pop?.kind === 'group' && (
-        <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
+        <Pop anchor={pop.anchor} cls="ef-menu ef-gpanel" onClose={close}>
           <div className="ef-lbl">그룹 기준</div>
           <div className="ef-mlist">
             <button type="button" className={`ef-mi${!gId ? ' on' : ''}`} onClick={() => { close(); setSt({ group: '' }) }}>
@@ -663,6 +650,36 @@ function EffortBody({
                 </button>
               ))}
           </div>
+          {/* 그룹 — 눈을 눌러 숨기기/보이기(노션 보기 설정 › 그룹). 창은 열어 둔 채 */}
+          {gId && groupList.length > 0 && (
+            <>
+              <div className="ef-sep" />
+              <div className="ef-lbl ef-glbl">
+                <span>그룹 ({gName})</span>
+                <button type="button" className="ef-glink" onClick={() => setHidGroups(hidGroups.length ? [] : groupList.map(([v]) => v))}>
+                  {hidGroups.length ? '모두 보이기' : '모두 숨기기'}
+                </button>
+              </div>
+              <div className="ef-mlist">
+                {groupList.map(([v, n]) => {
+                  const off = hidGroups.includes(v)
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`ef-mi ef-gvis${off ? ' off' : ''}`}
+                      title={off ? '눌러서 다시 보이기' : '눌러서 숨기기'}
+                      onClick={() => setHidGroups(off ? hidGroups.filter((x) => x !== v) : [...hidGroups, v])}
+                    >
+                      <span>{v || '(빈값)'}</span>
+                      <em className="ef-mi-n">{n}</em>
+                      <i className="ef-mi-ic"><TI n={off ? 'eye-off' : 'eye'} /></i>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </Pop>
       )}
       {imp && (
