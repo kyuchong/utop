@@ -608,6 +608,55 @@ async def jira_issues(projects: str = "", q: str = "", limit: int = 2000):
             "sync": {k: v for k, v in st.items() if k.split("::")[0] in keys} if keys else st}
 
 
+@router.post("/api/jira/usernames")
+async def jira_usernames(payload: dict):
+    """지라 아이디 → 표시 이름(지시: 등록자·담당자를 아이디 말고 성+이름으로).
+
+    받아 둔 이슈의 사람 칸은 아이디(name)다. 이름은 한 번 물어 jira.usernames 에 담아 두고
+    다음부터는 그것을 쓴다 — Sync 도 받을 때 이름을 함께 적어 둔다. 지라에 못 물으면 빈 이름(화면은 아이디)."""
+    import asyncio as _aio
+    ids = list(dict.fromkeys(str(i).strip() for i in (payload.get("ids") or []) if str(i).strip()))[:600]
+    cache = await db.kv_get("jira.usernames") or {}
+    miss = [i for i in ids if i not in cache]
+    if miss:
+        cfg = _jira_cfg()
+        gate = _aio.Semaphore(8)
+
+        async def one(i: str):
+            async with gate:
+                r, err = await _aio.to_thread(_jira_call, "GET", "/rest/api/2/user", cfg=cfg, params={"username": i})
+            if err or r is None:
+                return i, None
+            return i, ((r.json() or {}).get("displayName") if r.is_success else "") or ""
+
+        got = await _aio.gather(*[one(i) for i in miss])
+        changed = False
+        for i, dn in got:
+            if dn is not None:  # 지라에 못 물은 것(연결 실패)은 담지 않는다 — 다음에 다시 묻는다
+                cache[i] = dn
+                changed = True
+        if changed:
+            await db.kv_set("jira.usernames", cache)
+    return {"ok": True, "names": {i: cache.get(i, "") for i in ids}}
+
+
+@router.post("/api/jira/issues/delete")
+async def jira_issues_delete(payload: dict, token: str = ""):
+    """UTOP 에 받아 둔 이슈를 지운다 — **지라는 그대로**(지시: 표에서 고른 행 삭제).
+
+    받아 둔 자료는 온 서버에 한 벌이라 관리자만 지운다. 분류(발생상황 등)는 남긴다 —
+    지라에서 그 이슈가 바뀌거나 「전체 다시」 로 다시 받으면 분류도 그대로 되살아난다."""
+    core.require_admin(token)
+    keys = [str(k).strip() for k in (payload.get("keys") or []) if str(k).strip()][:20000]
+    if not keys:
+        return {"ok": False, "error": "지울 이슈가 없습니다"}
+    async with db.pool().acquire() as c:
+        n = await c.fetchval(
+            "WITH d AS (DELETE FROM jira_issue WHERE key = ANY($1::text[]) RETURNING 1) SELECT count(*) FROM d",
+            keys)
+    return {"ok": True, "deleted": int(n or 0)}
+
+
 @router.post("/api/jira/issues/backfill")
 async def jira_issues_backfill(payload: dict):
     """더한 칸의 값을 **이미 받아 둔 이슈에** 채운다.
@@ -728,6 +777,16 @@ async def jira_issues_sync(payload: dict):
 
         added = upd = same = 0
         newest = mark
+        # 받는 김에 사람 이름도 적어 둔다(아이디 → 표시 이름) — 화면이 따로 묻지 않아도 되게
+        names = await db.kv_get("jira.usernames") or {}
+        n0 = len(names)
+        for it in issues[:cap]:
+            for fk in ("reporter", "assignee"):
+                o = (it.get("fields") or {}).get(fk)
+                if isinstance(o, dict) and o.get("name") and o.get("displayName"):
+                    names[str(o["name"])] = str(o["displayName"])
+        if len(names) != n0:
+            await db.kv_set("jira.usernames", names)
         async with db.pool().acquire() as c:
             for it in issues[:cap]:
                 row = _jira_row(it, extra)

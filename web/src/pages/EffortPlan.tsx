@@ -70,6 +70,7 @@ export interface EfHost {
   onOpen?: (r: EfRow) => void
   onPut?: (r: EfRow, c: EfColumn, v: unknown) => void
   onCheck?: (rs: EfRow[]) => void
+  onDelete?: (rs: EfRow[]) => void
   pageSize?: number
 }
 /** 이 PC 의 보던 자리(항해 상태 — 계정 동기화 목록 SYNC 에 넣지 않는다) */
@@ -274,7 +275,7 @@ export function EffortBody({
     touch,
     toast,
     ver,
-    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, pageSize: host.pageSize } : {}),
+    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, onDelete: host.onDelete, pageSize: host.pageSize } : {}),
   }
   const api = useEfTable(ctx)
   const { table } = api

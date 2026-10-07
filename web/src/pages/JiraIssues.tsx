@@ -146,6 +146,15 @@ const clsFields = (r: EfRow, c: DefClass) => {
   r.cls_type3 = c.type3 ?? ''
 }
 
+/** 사람 칸(등록자·담당자) — 지라에 담긴 것은 아이디라, 표에는 「성+이름」(지시) */
+const PERSON_KEYS = ['reporter', 'assignee'] as const
+/** 지라 표시 이름에서 성+이름만 — 「김형일 책임」·「김형일(검증)」 이면 김형일. 한글 이름이 아니면 표시 이름 그대로 */
+const personName = (dn: string) => {
+  const t = dn.trim()
+  const m = /^([가-힣]{2,5})(?=$|[\s(（/_·,.-])/.exec(t)
+  return m ? m[1]! : t
+}
+
 /* 프로젝트는 「프로젝트」 값으로 가른다 — 키 앞글자가 프로젝트와 다른 것이 있다(E6100 의 P88-4340) */
 const prjOf = (r: EfRow) => String(r.project ?? '')
 
@@ -286,6 +295,38 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     baseRows.forEach((r) => clsFields(r, classes[String(r.issuekey ?? '')] ?? {}))
     setVer((v) => v + 1)
   }, [baseRows, classes])
+  /* 사람 이름 — 받아 둔 이슈의 아이디들을 서버에 물어(서버가 지라에 한 번 묻고 담아 둔다) 칸 값을 이름으로 바꾼다.
+     아이디는 _id 칸에 남긴다. 이름을 모르면 아이디 그대로 */
+  const personIds = useMemo(() => {
+    const set = new Set<string>()
+    baseRows.forEach((r) => PERSON_KEYS.forEach((k) => {
+      const id = String(r[k + '_id'] ?? r[k] ?? '').trim()
+      if (id) set.add(id)
+    }))
+    return [...set].sort()
+  }, [baseRows])
+  const nameQuery = useQuery({
+    queryKey: ['jira-usernames', personIds.join(',')],
+    enabled: personIds.length > 0,
+    staleTime: 60 * 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/jira/usernames', { method: 'POST', body: JSON.stringify({ ids: personIds }) })
+      return (await r.json()) as { ok?: boolean; names?: Record<string, string> }
+    },
+  })
+  useEffect(() => {
+    const names = nameQuery.data?.names
+    if (!names) return
+    baseRows.forEach((r) =>
+      PERSON_KEYS.forEach((k) => {
+        const id = String(r[k + '_id'] ?? r[k] ?? '').trim()
+        if (!id) return
+        r[k + '_id'] = id
+        r[k] = names[id] ? personName(names[id]) : id
+      }),
+    )
+    setVer((v) => v + 1)
+  }, [baseRows, nameQuery.data])
   /** 고른 유형에 드는 행만 — 프로젝트마다 고른 것이 없으면 전부 */
   const typedRows = useMemo(
     () =>
@@ -563,6 +604,43 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classes])
   const onOpen = useCallback((r: EfRow) => setSel(String(r.issuekey ?? '')), [])
+  /**
+   * 고른 행 삭제(지시: 해제 오른쪽) — **UTOP 에 받아 둔 복사본만** 지운다. 지라는 그대로.
+   * 온 서버에 한 벌이라 관리자만. 분류는 남겨 다시 받으면 되살아난다
+   */
+  async function delRows(rs: EfRow[]) {
+    const keys = rs.map((r) => String(r.issuekey ?? '')).filter(Boolean)
+    if (!keys.length || busy) return
+    if (!isAdminUser(me)) {
+      setFlash('받아 둔 이슈를 지우는 것은 관리자만 합니다 — 모두가 함께 보는 자료입니다')
+      window.setTimeout(() => setFlash(''), 5000)
+      return
+    }
+    if (
+      !window.confirm(
+        `고른 ${keys.length}건을 UTOP 에서 지웁니다.\n\n· 지라의 이슈는 그대로입니다\n· 지라에서 그 이슈가 바뀌거나 「전체 다시」 를 누르면 다시 들어옵니다\n· 매겨 둔 분류는 남겨 두어 다시 받으면 되살아납니다\n\n지울까요?`,
+      )
+    )
+      return
+    setBusy(true)
+    try {
+      const r = await apiFetch('/api/jira/issues/delete', { method: 'POST', body: JSON.stringify({ keys }) })
+      const j = (await r.json()) as { ok?: boolean; deleted?: number; error?: string; detail?: string }
+      if (!r.ok || !j.ok) {
+        setFlash(`지우지 못했습니다 — ${j.error ?? j.detail ?? r.status}`)
+        return
+      }
+      setFlash(`● UTOP 에서 ${j.deleted ?? 0}건을 지웠습니다 (지라는 그대로)`)
+      await qc.invalidateQueries({ queryKey: ['jira-issues'] })
+      window.setTimeout(() => setFlash(''), 6000)
+    } catch (e) {
+      setFlash(`지우지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const onDelete = useCallback((rs: EfRow[]) => void delRows(rs), // eslint-disable-next-line react-hooks/exhaustive-deps
+    [busy, me])
 
   /** 지라에 있는 칸 전부 — 열 때만 부른다(246 개, 서버가 30 분 담아 둔다) */
   const fldQuery = useQuery({
@@ -904,6 +982,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
             onOpen,
             onPut,
             onCheck,
+            onDelete,
             pageSize: 200,
           }}
         />

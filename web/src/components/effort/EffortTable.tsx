@@ -97,6 +97,8 @@ export interface EfCtx {
   onPut?: (r: EfRow, c: EfColumn, v: unknown) => void
   /** 체크한 행이 바뀌었다 */
   onCheck?: (rs: EfRow[]) => void
+  /** 잠근 표에서도 고른 행을 지우게 한다(Jira — 받아 둔 복사본만 지운다). 지우는 일은 바깥이 한다 */
+  onDelete?: (rs: EfRow[]) => void
   /** 한 번에 그릴 행 수 — 많으면 「더 보기」(수천 행을 다 그리면 무겁다). 없으면 전부 */
   pageSize?: number
 }
@@ -1421,15 +1423,18 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         <tr key="more" className="ef-newrow ef-morerow">
           <td className="ef-rh" />
           <td colSpan={ordered.length}>
-            <span className="ef-more-n">
-              {ord.toLocaleString()} / {total.toLocaleString()}행
+            {/* 한 묶음으로 왼쪽에 붙인다 — 글자·단추를 따로 붙이면 같은 자리로 밀려 겹쳤다(지적) */}
+            <span className="ef-more-in">
+              <span className="ef-more-n">
+                {ord.toLocaleString()} / {total.toLocaleString()}행
+              </span>
+              <button type="button" className="ef-more-btn" onClick={() => setLimit((l) => l + step * 2.5)}>
+                <TI n="chevron-down" /> 더 보기
+              </button>
+              <button type="button" className="ef-more-btn" onClick={() => setLimit(Infinity)}>
+                모두 보기
+              </button>
             </span>
-            <button type="button" className="ef-newrow-btn" onClick={() => setLimit((l) => l + step * 2.5)}>
-              <TI n="chevron-down" /> 더 보기
-            </button>
-            <button type="button" className="ef-newrow-btn" onClick={() => setLimit(Infinity)}>
-              모두 보기
-            </button>
           </td>
         </tr>,
       )
@@ -1578,6 +1583,12 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           <button type="button" className="ef-btn gh" onClick={() => setChecked(new Set())}>
             해제
           </button>
+          {/* 잠근 표(Jira)의 삭제 — 해제 오른쪽(지시). 무엇을 지우는지는 바깥(onDelete)이 정하고 묻는다 */}
+          {lock && ctx.onDelete && (
+            <button type="button" className="ef-btn gh ef-danger" onClick={() => ctx.onDelete!(ckList)}>
+              <TI n="trash" /> 삭제
+            </button>
+          )}
         </>
       )}
     </div>
