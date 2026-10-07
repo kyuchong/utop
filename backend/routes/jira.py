@@ -605,7 +605,7 @@ async def jira_issues(projects: str = "", q: str = "", limit: int = 2000):
         out.append(d)
     st = await db.kv_get("jira.issues.sync") or {}
     return {"ok": True, "rows": out, "total": int(cnt or 0), "shown": len(out),
-            "sync": {k: st.get(k) for k in keys} if keys else st}
+            "sync": {k: v for k, v in st.items() if k.split("::")[0] in keys} if keys else st}
 
 
 @router.post("/api/jira/issues/backfill")
@@ -692,16 +692,21 @@ async def jira_issues_sync(payload: dict):
     res: dict = {"added": 0, "updated": 0, "same": 0, "got": 0, "projects": {}}
     t0 = datetime.now(_tz.utc)
 
+    # 이슈 유형을 골라 받기(지시) — {프로젝트: [유형 이름…]}. 고른 것이 없으면 그 프로젝트 전부(예전 그대로).
+    # 받아 둔 자료는 온 서버에 한 벌이라, 유형마다 「마지막으로 받은 갱신 시각」 을 따로 둔다(프로젝트::유형).
+    # 프로젝트 전부를 받은 표시(프로젝트)가 있으면 그것도 그 유형을 덮으므로 둘 중 늦은 것부터 부른다.
+    tmap = payload.get("types") or {}
+    jobs: list[tuple[str, str | None]] = []
     for pk in keys:
-        mark = "" if full else str((st.get(pk) or {}).get("last_updated") or "")
-        jql = f'project = "{pk}"'
-        if mark:
-            try:
-                m = datetime.fromisoformat(mark) - _td(minutes=5)
-                jql += f' AND updated >= "{m.strftime("%Y-%m-%d %H:%M")}"'
-            except Exception:
-                mark = ""
-        jql += " ORDER BY updated ASC"
+        ts = [str(t).strip() for t in (tmap.get(pk) or []) if str(t).strip()]
+        jobs += [(pk, t) for t in ts] if ts else [(pk, None)]
+    for pk, typ in jobs:
+        mk = _sync_mark_key(pk, typ)
+        mark = "" if full else _sync_mark_of(st, pk, typ)
+        jql = _sync_jql(pk, mark, typ)
+        if not jql:
+            mark = ""
+            jql = _sync_jql(pk, "", typ)
         issues: list[dict] = []
         start = 0
         total = None
@@ -753,9 +758,10 @@ async def jira_issues_sync(payload: dict):
                     # 하나가 통째로** JSONB 에 들어가 data->>'summary' 같은
                     # 질의가 영영 안 맞는다(검색·집계가 조용히 빈다).
                     _iso_ts(raw_upd), row)
-        st[pk] = {"at": t0.isoformat(), "last_updated": newest,
+        st[mk] = {"at": t0.isoformat(), "last_updated": newest,
                   "n": len(issues), "total": total or len(issues)}
-        res["projects"][pk] = {"got": len(issues), "added": added, "updated": upd, "same": same}
+        pr = res["projects"].setdefault(pk, {"got": 0, "added": 0, "updated": 0, "same": 0})
+        pr["got"] += len(issues); pr["added"] += added; pr["updated"] += upd; pr["same"] += same
         res["added"] += added
         res["updated"] += upd
         res["same"] += same
@@ -764,8 +770,39 @@ async def jira_issues_sync(payload: dict):
     await db.kv_set("jira.issues.sync", st)
     res["ms"] = int((datetime.now(_tz.utc) - t0).total_seconds() * 1000)
     res["ok"] = True
-    res["sync"] = {k: st.get(k) for k in keys}
+    res["sync"] = {k: v for k, v in st.items() if k.split("::")[0] in keys}
     return res
+
+
+def _sync_mark_key(pk: str, typ: str | None) -> str:
+    """Sync 표시 열쇠 — 프로젝트 전부면 「P106」, 유형만이면 「P106::Defect」."""
+    return f"{pk}::{typ}" if typ else pk
+
+
+def _sync_mark_of(st: dict, pk: str, typ: str | None) -> str:
+    """이번에 어디서부터 받을까 — 유형만 받을 때는 그 유형 표시와 프로젝트 전부 표시 중 늦은 것."""
+    own = str((st.get(_sync_mark_key(pk, typ)) or {}).get("last_updated") or "")
+    if not typ:
+        return own
+    allm = str((st.get(pk) or {}).get("last_updated") or "")
+    return max(own, allm)
+
+
+def _sync_jql(pk: str, mark: str, typ: str | None) -> str:
+    """Sync JQL — 프로젝트(+유형) · 마지막 갱신 5 분 앞부터 · 갱신 차례. 표시 시각을 못 읽으면 ''."""
+    def q(v: str) -> str:
+        return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"'
+    jql = f"project = {q(pk)}"
+    if typ:
+        jql += f" AND issuetype = {q(typ)}"
+    if mark:
+        try:
+            from datetime import timedelta as _td
+            m = datetime.fromisoformat(mark) - _td(minutes=5)
+            jql += f' AND updated >= "{m.strftime("%Y-%m-%d %H:%M")}"'
+        except Exception:
+            return ""
+    return jql + " ORDER BY updated ASC"
 
 
 def _iso_ts(v: str):

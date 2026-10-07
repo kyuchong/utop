@@ -153,6 +153,8 @@ const prjOf = (r: EfRow) => String(r.project ?? '')
 const CLS_CAP = 200
 
 const PRJ_KEY = 'utop.jira.projects'
+/** 프로젝트마다 고른 이슈 유형 — 없거나 빈 배열이면 전부. 계정을 따라간다(SYNC) */
+const TYPES_KEY = 'utop.jira.types'
 /** 열 배치·폭·보기 — 계정을 따라간다(SYNC) */
 const LAYOUT_KEY = 'utop.jira.ef'
 /** 왼쪽에서 고른 프로젝트 — 이 PC 의 보던 자리(SYNC 아님) */
@@ -192,6 +194,13 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   useEffect(() => {
     prefSet(PRJ_KEY, JSON.stringify(picked))
   }, [picked])
+  /** 프로젝트마다 고른 이슈 유형(지시: 이슈 유형을 골라서 가져오기) — 보이는 것도, Sync 로 받는 것도 이것만 */
+  const [types, setTypes] = useState<Record<string, string[]>>(() => prefJson<Record<string, string[]>>(TYPES_KEY, {}))
+  useEffect(() => {
+    prefSet(TYPES_KEY, JSON.stringify(types))
+  }, [types])
+  /** 유형 고르기 창 — 어느 프로젝트의, 어디에 */
+  const [tyPop, setTyPop] = useState<{ prj: string; x: number; y: number; pick: string[] } | null>(null)
   /** 왼쪽 목록에서 보는 프로젝트 — '' 이면 고른 것 전부 */
   const [cur, setCur] = useState(() => prefGet(CUR_KEY) || '')
   const pickCur = (k: string) => {
@@ -275,14 +284,41 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     baseRows.forEach((r) => clsFields(r, classes[String(r.issuekey ?? '')] ?? {}))
     setVer((v) => v + 1)
   }, [baseRows, classes])
+  /** 고른 유형에 드는 행만 — 프로젝트마다 고른 것이 없으면 전부 */
+  const typedRows = useMemo(
+    () =>
+      baseRows.filter((r) => {
+        const ts = types[prjOf(r)]
+        return !ts?.length || ts.includes(String(r.issuetype ?? ''))
+      }),
+    [baseRows, types],
+  )
   /** 프로젝트별 행 수(목록 판) */
   const counts = useMemo(() => {
     const m = new Map<string, number>()
-    baseRows.forEach((r) => m.set(prjOf(r), (m.get(prjOf(r)) ?? 0) + 1))
+    typedRows.forEach((r) => m.set(prjOf(r), (m.get(prjOf(r)) ?? 0) + 1))
     return m
-  }, [baseRows])
+  }, [typedRows])
   const curOk = cur && picked.includes(cur) ? cur : ''
-  const rows = useMemo(() => (curOk ? baseRows.filter((r) => prjOf(r) === curOk) : baseRows), [baseRows, curOk])
+  const rows = useMemo(() => (curOk ? typedRows.filter((r) => prjOf(r) === curOk) : typedRows), [typedRows, curOk])
+  /** 유형 고르기 창의 목록 — 지라가 이 프로젝트에 둔 유형(만들 수 있는 것) + 받아 둔 이슈에 있는 유형 */
+  const tyQuery = useQuery({
+    queryKey: ['jira-issuetypes', tyPop?.prj ?? ''],
+    enabled: !!tyPop,
+    staleTime: 30 * 60_000,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/jira/issuetypes?project=${encodeURIComponent(tyPop!.prj)}`)
+      return (await r.json()) as { ok?: boolean; issuetypes?: Array<{ name?: string; subtask?: boolean }> }
+    },
+  })
+  const tyList = useMemo(() => {
+    if (!tyPop) return [] as Array<[string, number]>
+    const n = new Map<string, number>()
+    baseRows.forEach((r) => prjOf(r) === tyPop.prj && n.set(String(r.issuetype ?? ''), (n.get(String(r.issuetype ?? '')) ?? 0) + 1))
+    ;(tyQuery.data?.issuetypes ?? []).forEach((t) => t.name && !n.has(t.name) && n.set(t.name, 0))
+    n.delete('')
+    return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
+  }, [tyPop, baseRows, tyQuery.data])
 
   /** 사람이 더한 지라 칸 — **온 서버에 한 벌**이다(Sync 도 한 벌이라 그렇다) */
   const extraQuery = useQuery({
@@ -401,7 +437,8 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     try {
       const r = await apiFetch('/api/jira/issues/sync', {
         method: 'POST',
-        body: JSON.stringify({ projects: picked, full }),
+        // 고른 유형만 받는다 — 서버는 유형마다 마지막 받은 시각을 따로 둔다
+        body: JSON.stringify({ projects: picked, full, types: Object.fromEntries(picked.filter((k) => types[k]?.length).map((k) => [k, types[k]])) }),
       })
       const j = (await r.json()) as {
         ok?: boolean
@@ -762,7 +799,27 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
                       <TI n="x" />
                     </button>
                   </div>
-                ))}
+                )).flatMap((node, i) => {
+                  // 프로젝트 아래 한 줄 — 고른 이슈 유형(누르면 고르기 창)
+                  const k = picked[i]!
+                  const ts = types[k] ?? []
+                  return [
+                    node,
+                    <button
+                      key={k + '-ty'}
+                      type="button"
+                      className={`jri-tyrow${ts.length ? ' on' : ''}`}
+                      title="이 프로젝트에서 보고 받아 올 이슈 유형 고르기"
+                      onClick={(e) => {
+                        const r = e.currentTarget.getBoundingClientRect()
+                        setTyPop({ prj: k, x: r.left, y: r.bottom + 4, pick: [...ts] })
+                      }}
+                    >
+                      <TI n="filter" />
+                      <span>유형: {ts.length ? (ts.length === 1 ? ts[0] : `${ts[0]} 외 ${ts.length - 1}`) : '전체'}</span>
+                    </button>,
+                  ]
+                })}
                 {!picked.length && <div className="jri-side-empty">「＋」 로 볼 프로젝트를 고르세요</div>}
               </div>
             </aside>
@@ -820,6 +877,64 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
           }}
         />
       </div>
+
+      {/* 이슈 유형 고르기 — 고른 유형만 보이고, Sync 도 그것만 받는다(지시). 하나도 안 고르면 전부 */}
+      {tyPop && (
+        <>
+          <span className="jri-veil" onClick={() => setTyPop(null)} aria-hidden="true" />
+          <div className="jri-typop" style={{ left: tyPop.x, top: tyPop.y }} role="dialog" aria-label={`${tyPop.prj} 이슈 유형`}>
+            <b>{tyPop.prj} · 이슈 유형</b>
+            <span className="jri-tyhint">고른 유형만 보이고, Sync 도 그것만 받습니다</span>
+            <div className="jri-tylist">
+              {tyQuery.isLoading && !tyList.length && <span className="jri-none">지라에서 유형을 읽는 중…</span>}
+              {tyList.map(([t, n]) => {
+                const on = tyPop.pick.includes(t)
+                return (
+                  <label key={t} className={on ? 'on' : ''}>
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => setTyPop({ ...tyPop, pick: on ? tyPop.pick.filter((x) => x !== t) : [...tyPop.pick, t] })}
+                    />
+                    <span>{t}</span>
+                    <em>{n ? `${n}건` : '아직 안 받음'}</em>
+                  </label>
+                )
+              })}
+            </div>
+            <div className="jri-tyft">
+              <button type="button" className="btn small" onClick={() => setTyPop({ ...tyPop, pick: [] })}>
+                전체로
+              </button>
+              <span className="sp" />
+              <button
+                type="button"
+                className="btn small primary"
+                onClick={() => {
+                  const k = tyPop.prj
+                  const pick = tyPop.pick
+                  setTypes((m) => {
+                    const n = { ...m }
+                    if (pick.length) n[k] = pick
+                    else delete n[k]
+                    return n
+                  })
+                  setTyPop(null)
+                  const notYet = pick.filter((t) => !baseRows.some((r) => prjOf(r) === k && String(r.issuetype ?? '') === t))
+                  setFlash(
+                    notYet.length
+                      ? `${k} — ${notYet.join(', ')} 은(는) 아직 받지 않았습니다. 위의 Sync 를 누르면 받아 옵니다`
+                      : `${k} — ${pick.length ? pick.join(', ') + ' 만' : '모든 유형을'} 보고 받아 옵니다`,
+                  )
+                  window.setTimeout(() => setFlash(''), 6000)
+                }}
+              >
+                적용
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 지라 칸 더하기 — 지라에 칸이 이백사십여 개다. **볼 것만 골라** 세운다. 고른 것은 온 서버에 한 벌이라
           (Sync·받아 둔 자료도 한 벌) 더하는 것은 관리자만 한다. */}
