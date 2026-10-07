@@ -1361,22 +1361,18 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
             {body.length ? (
               body
             ) : (
-              <tr>
-                <td className="ef-rh" />
-                <td colSpan={ordered.length} className="ef-none">
-                  {rows.length ? (
-                    <span className="ef-none-msg">조건에 맞는 행이 없습니다</span>
-                  ) : (
-                    <span className="ef-none-msg">
-                      행이 없습니다 —{' '}
-                      <button type="button" className="ef-btn gh" onClick={() => { rows.push({}); touch() }}>
-                        <TI n="plus" /> 첫 행 추가
-                      </button>{' '}
-                      또는 [가져오기]
-                    </span>
-                  )}
-                </td>
-              </tr>
+              // 빈 표도 노션처럼 「+ 새로 만들기」(지시). 행은 있는데 검색·필터에 걸렸으면 그 안내를 위에
+              <>
+                {rows.length > 0 && (
+                  <tr>
+                    <td className="ef-rh" />
+                    <td colSpan={ordered.length} className="ef-none">
+                      <span className="ef-none-msg">조건에 맞는 행이 없습니다</span>
+                    </td>
+                  </tr>
+                )}
+                {newRowTr('new-end', addAtEnd)}
+              </>
             )}
           </tbody>
           <tfoot>
