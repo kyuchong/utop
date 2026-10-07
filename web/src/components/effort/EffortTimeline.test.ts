@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TL_LAB, TL_W, dateSpanOf, monthSegments, parseRange, tlGroups, tlLabOf, tlWOf } from './EffortTimeline'
+import { TL_LAB, TL_W, dateSpanOf, monthSegments, parseRange, tlColW, tlGroups, tlLabOf, tlOffsets } from './EffortTimeline'
 import type { EfColumn } from './model'
 
 const months: EfColumn[] = ['01월', '02월', '03월', '04월'].map((t, i) => ({ id: 'm' + i, title: t, type: 'number' }))
@@ -39,11 +39,23 @@ describe('타임라인', () => {
 
 describe('타임라인 폭 — 보기에 저장, 범위 밖·잘못된 값은 기본/한계로', () => {
   it('없으면 기본(달 66 · 이름 230), 범위 밖은 한계', () => {
-    expect(tlWOf({ id: 'v', name: 'v', type: 'gantt' })).toBe(TL_W)
     expect(tlLabOf({ id: 'v', name: 'v', type: 'gantt' })).toBe(TL_LAB)
-    expect(tlWOf({ id: 'v', name: 'v', type: 'gantt', tlW: 5 })).toBe(24)
+    expect(tlColW({ id: 'v', name: 'v', type: 'gantt', tlWs: { a: 5 } }, 'a')).toBe(24)
     expect(tlLabOf({ id: 'v', name: 'v', type: 'gantt', tlLabW: 9999 })).toBe(640)
-    expect(tlWOf({ id: 'v', name: 'v', type: 'gantt', tlW: '90' })).toBe(TL_W)
+    expect(tlColW({ id: 'v', name: 'v', type: 'gantt', tlWs: { a: '90' } }, 'a')).toBe(TL_W)
     expect(tlLabOf({ id: 'v', name: 'v', type: 'gantt', tlLabW: 300.4 })).toBe(300)
+  })
+})
+
+describe('달 칸 폭 — 칸마다 따로(끈 칸만 바뀐다)', () => {
+  it('따로 정한 칸만 그 폭, 나머지는 보기 기본', () => {
+    const v = { id: 'v', name: 'v', type: 'gantt', tlW: 80, tlWs: { m1: 120 } }
+    expect(tlColW(v, 'm1')).toBe(120)
+    expect(tlColW(v, 'm0')).toBe(TL_W) // 예전 한꺼번 폭(tlW)은 안 읽는다
+    expect(tlColW({ id: 'v', name: 'v', type: 'gantt' }, 'm0')).toBe(TL_W)
+  })
+  it('폭들 → 왼쪽 끝 위치(누적)', () => {
+    expect(tlOffsets([66, 120, 66])).toEqual([0, 66, 186])
+    expect(tlOffsets([])).toEqual([])
   })
 })

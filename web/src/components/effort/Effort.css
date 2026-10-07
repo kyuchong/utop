@@ -976,8 +976,8 @@ input.ef-fsel { cursor: text; }
 .ef-tl-rz:hover { background: #2d6fd4; opacity: 0.35; }
 .ef-tl-all { font: inherit; font-size: 10.5px; font-weight: 700; border: 1px solid var(--c-border); border-radius: 7px; background: #fff; color: var(--c-text-muted); padding: 3px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .ef-tl-all:hover { border-color: #2d6fd4; color: #2d6fd4; }
-.ef-tl-lane { position: relative; flex: 1; min-height: 30px;
-  background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(var(--ef-tl-w) - 1px), #f0f2f6 calc(var(--ef-tl-w) - 1px), #f0f2f6 var(--ef-tl-w)); }
+.ef-tl-lane { position: relative; flex: 1; min-height: 30px; }
+.ef-tl-vl { position: absolute; top: 0; bottom: 0; width: 1px; background: #f0f2f6; pointer-events: none; }
 .ef-tl-grp { min-height: 34px; background: #fafbfd; }
 .ef-tl-grp .ef-tl-lab { background: #fafbfd; padding-left: 8px; cursor: pointer; color: var(--c-text); }
 .ef-tl-grp .ef-tl-lab:hover b { color: #2d6fd4; }
@@ -990,6 +990,10 @@ input.ef-fsel { cursor: text; }
 .ef-tl-load.over { background: #e06a34; color: #fff; }
 .ef-tl-sum { position: absolute; top: 12px; height: 10px; border-radius: 5px; background: #2d6fd455; }
 .ef-tl-bar { position: absolute; top: 5px; bottom: 5px; border: 1px solid; border-left-width: 3px; border-radius: 6px; display: flex; align-items: center; overflow: hidden; font-size: 10.5px; font-weight: 700; color: var(--c-text); }
+/* 좁은 막대(며칠짜리) — 테두리 두께 3px·둥근 모서리 때문에 「0」 처럼 보였다. 얇은 테두리·작은 모서리로 */
+.ef-tl-bar.slim { border-width: 1px; border-radius: 3px; }
+.ef-tl-out { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10.5px; font-weight: 700; color: var(--c-text); white-space: nowrap; pointer-events: auto; }
+.ef-tl-out em { font-style: normal; font-weight: 600; color: var(--c-text-faint); margin-left: 5px; }
 .ef-tl-bar > span { padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ef-tl-bar > span.ef-tl-v { flex: none; padding: 0; text-align: center; box-sizing: border-box; margin-left: -3px; }
 .ef-tl-bar > span.ef-tl-v + span.ef-tl-v { margin-left: 0; }

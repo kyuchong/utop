@@ -99,7 +99,11 @@ export function tlGroups(rows: EfRow[], by: EfColumn | undefined) {
     .sort((a, b) => (a.k === NONE ? 1 : b.k === NONE ? -1 : a.k.localeCompare(b.k, 'ko')))
 }
 
-/** 폭 — 보기마다 v.tlW(한 달 칸) · v.tlLabW(왼쪽 이름 기둥)에 둔다(지적: 열 폭 조절이 안 된다). 머리줄 경계를 끌어 바꾼다 */
+/**
+ * 폭 — 보기마다 둔다(지적: 열 폭 조절이 안 된다). 머리줄 경계를 끌어 바꾸고, 두 번 누르면 기본.
+ *   · v.tlWs[달 키] — 달 칸마다 따로(지적: 끈 열만 늘어야 한다). 키는 월 모드면 열 id, 날짜 모드면 'YYYY-MM'
+ *   · v.tlLabW — 왼쪽 이름 기둥. (잠깐 있던 v.tlW — 모든 달을 한꺼번에 — 는 읽지 않는다: 그게 지적받은 동작이다)
+ */
 export const TL_W = 66
 export const TL_LAB = 230
 const clamp = (v: unknown, lo: number, hi: number, d: number) => {
@@ -108,25 +112,43 @@ const clamp = (v: unknown, lo: number, hi: number, d: number) => {
 }
 const clampW = (n: unknown) => clamp(n, 24, 240, TL_W)
 const clampLab = (n: unknown) => clamp(n, 120, 640, TL_LAB)
-export const tlWOf = (v: EfView) => clampW(v.tlW)
 export const tlLabOf = (v: EfView) => clampLab(v.tlLabW)
+/** 그 달 칸의 폭 — 따로 정한 값, 없으면 보기 기본 */
+export function tlColW(v: EfView, k: string) {
+  const ws = v.tlWs as Record<string, unknown> | undefined
+  return ws && ws[k] !== undefined ? clampW(ws[k]) : TL_W
+}
+/** 칸 폭들 → 왼쪽 끝 위치들(누적) */
+export const tlOffsets = (ws: number[]) => ws.reduce<number[]>((a, _w, i) => (a.push(i ? a[i - 1]! + ws[i - 1]! : 0), a), [])
+type TlLive = { k?: string; w?: number; lab?: number }
 const fmtM = (d: Date) => `${String(d.getFullYear()).slice(2)}.${String(d.getMonth() + 1).padStart(2, '0')}`
 
 export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]; rows: EfRow[]; view: EfView; year: string; touch: () => void }) {
   // 끄는 동안은 여기 값으로 바로 그리고, 놓을 때 보기에 적어 저장한다
-  const [live, setLive] = useState<{ w?: number; lab?: number } | null>(null)
-  const W = live?.w ?? tlWOf(view)
+  const [live, setLive] = useState<TlLive | null>(null)
   const LAB = live?.lab ?? tlLabOf(view)
-  const sizing = {
-    W,
-    LAB,
-    onLive: setLive,
-    onDone: (p: { w?: number; lab?: number }) => {
-      setLive(null)
-      if (p.w !== undefined) view.tlW = p.w
-      if (p.lab !== undefined) view.tlLabW = p.lab
-      touch()
-    },
+  const colW = (k: string) => (live?.k === k && live.w !== undefined ? live.w : tlColW(view, k))
+  /** 머리줄 칸들(키·글·이번 달) → 폭·위치까지 붙인 틀 값 */
+  const layout = (axis: Array<{ k: string; t: string; now: boolean }>): TlSizing => {
+    const ws = axis.map((a) => colW(a.k))
+    return {
+      LAB,
+      axis,
+      ws,
+      xs: tlOffsets(ws),
+      onLive: setLive,
+      onDone: (p) => {
+        setLive(null)
+        if (p.lab !== undefined) view.tlLabW = p.lab
+        if (p.k !== undefined) {
+          const m = { ...((view.tlWs as Record<string, number> | undefined) ?? {}) }
+          if (p.w === undefined) delete m[p.k]
+          else m[p.k] = p.w
+          view.tlWs = m
+        }
+        touch()
+      },
+    }
   }
   const by = tlByOf(view, cols)
   const lab = tlLabelOf(view, cols)
@@ -169,20 +191,25 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
     const { items, axis } = dated
     if (!items.length) return <div className="ef-empty">시작·완료일이 입력된 행이 없습니다</div>
     const x0 = axis[0]!
-    const pos = (d: Date) => {
-      const mi = (d.getFullYear() - x0.getFullYear()) * 12 + d.getMonth() - x0.getMonth()
-      const dim = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-      return (mi + (d.getDate() - 1) / dim) * W
-    }
-    const end = (d: Date) => pos(d) + W / new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
     const today = new Date()
+    const sz = layout(axis.map((d) => ({ k: fmtKey(d), t: fmtM(d), now: d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() })))
+    const total = sz.xs[sz.xs.length - 1]! + sz.ws[sz.ws.length - 1]!
+    // 달마다 폭이 달라서 그 달 칸 안에서 날짜 비율로 놓는다
+    const at = (d: Date, plusDay: number) => {
+      const mi = (d.getFullYear() - x0.getFullYear()) * 12 + d.getMonth() - x0.getMonth()
+      if (mi < 0) return 0
+      if (mi >= axis.length) return total
+      const dim = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+      return sz.xs[mi]! + ((d.getDate() - 1 + plusDay) / dim) * sz.ws[mi]!
+    }
+    const pos = (d: Date) => at(d, 0)
+    const end = (d: Date) => at(d, 1)
     const todayX = today >= x0 && today <= new Date(axis[axis.length - 1]!.getFullYear(), axis[axis.length - 1]!.getMonth() + 1, 0) ? pos(today) : null
     const byRow = new Map(items.map((x) => [x.r, x.d]))
     const dgroups = tlGroups(items.map((x) => x.r), by)
     return (
       <Frame
-        sz={sizing}
-        axis={axis.map((d) => ({ t: fmtM(d), now: d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() }))}
+        sz={sz}
         allOpen={dgroups.every((g) => open.has(g.k))}
         onAll={() => setOpen(dgroups.every((g) => open.has(g.k)) ? new Set() : new Set(dgroups.map((g) => g.k)))}
         nowX={todayX}
@@ -205,9 +232,27 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
                     <div className="ef-tl-row" key={i}>
                       <div className="ef-tl-lab" title={tip(r)}>{label(r)}</div>
                       <div className="ef-tl-lane">
-                        <div className="ef-tl-bar" style={{ left: pos(d.s), width: Math.max(10, end(d.e) - pos(d.s)), background: c + '26', borderColor: c }} title={`${tip(r)}\n${fmtD(d.s)} ~ ${fmtD(d.e)}`}>
-                          <span>{label(r)}</span>
-                        </div>
+                        {(() => {
+                          // 짧은 기간(며칠)은 막대가 좁아 이름이 잘린다(지적) — 막대 안에 안 들어가면 이름을 막대 오른쪽 밖에 둔다
+                          const x = pos(d.s)
+                          const w = Math.max(12, end(d.e) - x)
+                          const t = label(r)
+                          const fits = w >= textW(t) + 14
+                          const title = `${tip(r)}\n${fmtD(d.s)} ~ ${fmtD(d.e)}`
+                          return (
+                            <>
+                              <div className={`ef-tl-bar${fits ? '' : ' slim'}`} style={{ left: x, width: w, background: c + '26', borderColor: c }} title={title}>
+                                {fits && <span>{t}</span>}
+                              </div>
+                              {!fits && (
+                                <span className="ef-tl-out" style={{ left: x + w + 5 }} title={title}>
+                                  {t}
+                                  <em>{fmtSpan(d.s, d.e)}</em>
+                                </span>
+                              )}
+                            </>
+                          )
+                        })()}
                       </div>
                     </div>
                   )
@@ -224,10 +269,11 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
   const thisYear = String(new Date().getFullYear()) === year
   const nowM = new Date().getMonth()
   if (!rows.length) return <div className="ef-empty">행이 없습니다</div>
+  const sz = layout(months.map((c, i) => ({ k: c.id, t: c.title, now: thisYear && months.length === 12 && i === nowM })))
+  const { xs, ws } = sz
   return (
     <Frame
-      sz={sizing}
-      axis={months.map((c, i) => ({ t: c.title, now: thisYear && months.length === 12 && i === nowM }))}
+      sz={sz}
       allOpen={allOpen}
       onAll={() => setOpen(allOpen ? new Set() : new Set(groups.map((g) => g.k)))}
       nowX={null}
@@ -246,7 +292,7 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
                   <div
                     key={i}
                     className={`ef-tl-load${v > 0 ? '' : ' zero'}${load > 1.0001 ? ' over' : ''}`}
-                    style={{ left: i * W + 3, width: W - 6, ...(v > 0 && load <= 1.0001 ? { background: `rgba(45,111,212,${0.12 + Math.min(1, load) * 0.6})`, color: load > 0.55 ? '#fff' : undefined } : {}) }}
+                    style={{ left: xs[i]! + 3, width: ws[i]! - 6, ...(v > 0 && load <= 1.0001 ? { background: `rgba(45,111,212,${0.12 + Math.min(1, load) * 0.6})`, color: load > 0.55 ? '#fff' : undefined } : {}) }}
                     title={`${months[i]!.title} · ${numFmt(Math.round(v * 100) / 100)} M/M${full > 1 ? ` (가득 ${full})` : ''}`}
                   >
                     {v > 0 ? numFmt(Math.round(v * 100) / 100) : ''}
@@ -266,11 +312,11 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
                         <div
                           key={k}
                           className="ef-tl-bar"
-                          style={{ left: s.a * W + 3, width: (s.b - s.a + 1) * W - 6, background: c + '26', borderColor: c }}
+                          style={{ left: xs[s.a]! + 3, width: xs[s.b]! + ws[s.b]! - xs[s.a]! - 6, background: c + '26', borderColor: c }}
                           title={tip(r)}
                         >
                           {s.v.map((v, j) => (
-                            <span key={j} className="ef-tl-v" style={{ width: W }}>
+                            <span key={j} className="ef-tl-v" style={{ width: ws[s.a + j] }}>
                               {numFmt(v ?? 0)}
                             </span>
                           ))}
@@ -288,23 +334,34 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
   )
 }
 
+/** 막대 이름이 차지할 대략의 폭(10.5px 굵은 글씨) — 한글은 넓게 */
+const textW = (t: string) => [...t].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? 11 : 6.5), 0)
+/** 막대 밖 이름 옆 날짜 — 하루면 MM-DD, 아니면 MM-DD~MM-DD */
+const fmtSpan = (s: Date, e: Date) => {
+  const md = (d: Date) => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return s.getTime() === e.getTime() ? md(s) : `${md(s)}~${md(e)}`
+}
+const fmtKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 const fmtD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 /** 틀 — 왼쪽 이름 기둥 + 위 달 머리줄(둘 다 붙박이), 오른쪽이 가로로 구른다 */
 interface TlSizing {
-  W: number
   LAB: number
-  onLive: (p: { w?: number; lab?: number }) => void
-  onDone: (p: { w?: number; lab?: number }) => void
+  axis: Array<{ k: string; t: string; now: boolean }>
+  /** 달 칸 폭 · 왼쪽 끝 위치 */
+  ws: number[]
+  xs: number[]
+  onLive: (p: TlLive) => void
+  onDone: (p: TlLive) => void
 }
 
 /** 경계 끌기 — 움직이는 동안 onLive, 놓으면 onDone(안 움직였으면 아무것도). 두 번 누르면 기본 폭 */
-function edgeDrag(ev: React.MouseEvent, calc: (dx: number) => { w?: number; lab?: number }, sz: TlSizing) {
+function edgeDrag(ev: React.MouseEvent, calc: (dx: number) => TlLive, sz: TlSizing) {
   if (ev.button !== 0) return
   ev.preventDefault()
   ev.stopPropagation()
   const x0 = ev.clientX
-  let last: { w?: number; lab?: number } | null = null
+  let last: TlLive | null = null
   const mv = (e: MouseEvent) => {
     last = calc(e.clientX - x0)
     sz.onLive(last)
@@ -322,25 +379,22 @@ function edgeDrag(ev: React.MouseEvent, calc: (dx: number) => { w?: number; lab?
 
 function Frame({
   sz,
-  axis,
   allOpen,
   onAll,
   nowX,
   children,
 }: {
   sz: TlSizing
-  axis: Array<{ t: string; now: boolean }>
   allOpen: boolean
   onAll: () => void
   nowX: number | null
   children: React.ReactNode
 }) {
-  const { W, LAB } = sz
-  const lab0 = LAB
-  const w0 = W
+  const { LAB, axis, ws, xs } = sz
+  const total = axis.length ? xs[xs.length - 1]! + ws[ws.length - 1]! : 0
   return (
     <div className="ef-tl" style={{ ['--ef-tl-lab' as string]: `${LAB}px` }}>
-      <div className="ef-tl-in" style={{ width: LAB + axis.length * W }}>
+      <div className="ef-tl-in" style={{ width: LAB + total }}>
         <div className="ef-tl-head">
           <div className="ef-tl-lab ef-tl-corner">
             <button type="button" className="ef-tl-all" onClick={onAll}>
@@ -350,26 +404,30 @@ function Frame({
             <span
               className="ef-tl-rz"
               aria-label="이름 열 폭"
-              onMouseDown={(e) => edgeDrag(e, (dx) => ({ lab: clampLab(lab0 + dx) }), sz)}
+              onMouseDown={(e) => edgeDrag(e, (dx) => ({ lab: clampLab(LAB + dx) }), sz)}
               onDoubleClick={() => sz.onDone({ lab: TL_LAB })}
             />
           </div>
           <div className="ef-tl-axis">
             {axis.map((a, i) => (
-              <div key={i} className={`ef-tl-m${a.now ? ' now' : ''}`} style={{ width: W }}>
+              <div key={a.k} className={`ef-tl-m${a.now ? ' now' : ''}`} style={{ width: ws[i] }}>
                 {a.t}
-                {/* 달 칸 폭 — 어느 경계를 끌든 모든 달이 같이 바뀐다(그 경계가 마우스를 따라오게) */}
+                {/* 달 칸 폭 — 끈 그 칸만 바뀐다(지적: 다 늘어난다). 두 번 누르면 그 칸만 기본으로 */}
                 <span
                   className="ef-tl-rz"
-                  aria-label="달 칸 폭"
-                  onMouseDown={(e) => edgeDrag(e, (dx) => ({ w: clampW(w0 + dx / (i + 1)) }), sz)}
-                  onDoubleClick={() => sz.onDone({ w: TL_W })}
+                  aria-label={`${a.t} 칸 폭`}
+                  onMouseDown={(e) => edgeDrag(e, (dx) => ({ k: a.k, w: clampW(ws[i]! + dx) }), sz)}
+                  onDoubleClick={() => sz.onDone({ k: a.k })}
                 />
               </div>
             ))}
           </div>
         </div>
-        <div className="ef-tl-body" style={{ ['--ef-tl-w' as string]: `${W}px` }}>
+        <div className="ef-tl-body">
+          {/* 달 경계 세로줄 — 칸 폭이 저마다라 배경 무늬 대신 줄을 한 번만 긋는다(행 배경 위 · 막대 아래) */}
+          {xs.map((x, i) => (
+            <div key={i} className="ef-tl-vl" style={{ left: LAB + x + ws[i]! - 1 }} />
+          ))}
           {nowX !== null && <div className="ef-tl-today" style={{ left: LAB + nowX }} title="오늘" />}
           {children}
         </div>
