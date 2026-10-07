@@ -336,8 +336,8 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
                   data-key={key}
                   aria-current={key === current ? 'page' : undefined}
                   onClick={() => onNavigate(key)}
-                  // 접힌 상태에서는 글자가 안 보이므로 이름을 툴팁으로 남긴다.
-                  title={collapsed ? label : undefined}
+                  // 접힌 상태의 이름 설명은 검은 말풍선(nav-tip) 하나만 — title 까지 두면 두 개가 겹쳤다(지적)
+                  aria-label={label}
                 >
                   <span className="nav-icon">
                     <Icon />
@@ -468,13 +468,14 @@ function TopAbout({ helpOn, onHelp }: { helpOn: boolean; onHelp: () => void }) {
           보기 전용 · {lic.gate.why}
         </span>
       )}
-      <span className="tpa-btn" title={verTip} tabIndex={0} aria-label={verTip}>
+      {/* 설명은 검은 말풍선(tpa-tip) 하나만 — title 을 같이 두면 브라우저 흰 말풍선이 겹쳐 나왔다(지적) */}
+      <span className="tpa-btn" tabIndex={0} aria-label={verTip}>
         <IconTag />
         <span className="tpa-tip" aria-hidden="true">
           {verTip}
         </span>
       </span>
-      <span className={`tpa-btn lic ${tone}`} title={licTip} tabIndex={0} aria-label={licTip}>
+      <span className={`tpa-btn lic ${tone}`} tabIndex={0} aria-label={licTip}>
         <IconLicense />
         <span className="tpa-tip" aria-hidden="true">
           {licTip}
@@ -483,7 +484,6 @@ function TopAbout({ helpOn, onHelp }: { helpOn: boolean; onHelp: () => void }) {
       <button
         type="button"
         className={`tpa-btn${helpOn ? ' on' : ''}`}
-        title="도움말"
         aria-label="도움말"
         aria-current={helpOn ? 'page' : undefined}
         onClick={onHelp}
