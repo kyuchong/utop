@@ -1292,13 +1292,25 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                   const s = shown.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0)
                   return (
                     <td key={c.id} className="ef-n">
-                      {s ? (
-                        <span className="ef-tot">
-                          합계<b>{numFmt(Math.round(s * 1e4) / 1e4)}</b>
-                        </span>
-                      ) : null}
+                      <span className="ef-tot">
+                        합계<b>{numFmt(Math.round(s * 1e4) / 1e4)}</b>
+                      </span>
                     </td>
                   )
+                }
+                // 그 밖의 유형도 비우지 않는다(지적: 통계가 안 나오는 열) — 유형마다 하나씩 정해 둔 값
+                const stat = (lbl: string, v: ReactNode) => (
+                  <td key={c.id}>
+                    <span className="ef-flbl">{lbl}</span> <b>{v}</b>
+                  </td>
+                )
+                if (c.type === 'checkbox') return stat('체크', `${shown.filter((r) => truthy(r[c.id])).length}/${shown.length}`)
+                if (c.type === 'datediff') {
+                  const ds = shown.map((r) => dayLeft(r, rowSrcOf(r, cols, c))).filter((d): d is number => d != null)
+                  if (ds.length) {
+                    const m = Math.min(...ds)
+                    return stat('최소', m < 0 ? `${-m}일 지남` : `${m}일`)
+                  }
                 }
                 if (c.id === 'name')
                   return (
@@ -1314,7 +1326,11 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                       <b>{shown.length}</b>
                     </td>
                   )
-                return <td key={c.id} />
+                const filled = (r: EfRow) => {
+                  const v = c.type === 'datediff' ? dayLeft(r, rowSrcOf(r, cols, c)) : r[c.id]
+                  return Array.isArray(v) ? v.length > 0 : cellText(v).trim() !== ''
+                }
+                return stat('입력됨', shown.filter(filled).length)
               })}
             </tr>
           </tfoot>
