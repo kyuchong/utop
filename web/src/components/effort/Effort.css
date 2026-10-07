@@ -19,9 +19,11 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  /* 카드 두 장(목록 · 본문) — REQ-Coverage 2열처럼(지시). 사이는 폭 손잡이(8px)가 전부 */
+  /* 카드 두 장(목록 · 본문) — REQ-Coverage 2열처럼(지시). 사이는 폭 손잡이가 전부 */
   gap: 0;
 }
+/* 두 카드 사이 6px — REQ-Coverage(.rqtc 가운데 6px 칸)와 같게(지시). 공용 .resizer 는 8px 이라 여기서만 줄인다 */
+.ef-layout > .resizer { flex: 0 0 6px; }
 
 /* 왼쪽 트리 — 폴더 ▸ 표 */
 .ef-side {
