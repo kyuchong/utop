@@ -1103,7 +1103,7 @@ export function CtxMenu({ at, items, onClose }: { at: { x: number; y: number }; 
 
 /**
  * 바닥줄 계산 고르기 — 노션 모양(지시): 자동 · 계산 안함 · 수 › · 비율(%) › · 더 많은 옵션 ›
- * 바닥줄 칸 위로 연다(아래는 화면 끝). 하위 메뉴는 그 줄 오른쪽(모자라면 왼쪽)에.
+ * 바닥줄 칸 아래로 연다(지시) — 아래가 모자라면 위로. 하위 메뉴는 그 줄 오른쪽(모자라면 왼쪽)에.
  */
 export function CalcMenu({
   at,
@@ -1113,8 +1113,8 @@ export function CalcMenu({
   onPick,
   onClose,
 }: {
-  /** 누른 칸의 화면 위치 — 메뉴 아래쪽을 칸 위에 맞춘다 */
-  at: { x: number; top: number }
+  /** 누른 칸의 화면 위치 — 칸 바로 아래에 연다 */
+  at: { x: number; top: number; bottom: number }
   groups: Array<{ sub?: string; keys: string[] }>
   cur: string
   name: (k: string) => string
@@ -1129,7 +1129,12 @@ export function CalcMenu({
   useLayoutEffect(() => {
     const el = boxRef.current
     if (!el) return
-    setPos({ x: Math.max(8, Math.min(at.x, window.innerWidth - el.offsetWidth - 8)), y: Math.max(8, at.top - el.offsetHeight - 4) })
+    const h = el.offsetHeight
+    const below = at.bottom + 4
+    setPos({
+      x: Math.max(8, Math.min(at.x, window.innerWidth - el.offsetWidth - 8)),
+      y: below + h <= window.innerHeight - 8 ? below : Math.max(8, at.top - h - 4),
+    })
   }, [at])
   useEffect(() => {
     const down = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && onClose()

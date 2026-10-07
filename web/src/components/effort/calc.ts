@@ -2,7 +2,8 @@ import { dayLeft, footStat, isNumCol, normDate, numFmt, parseRange, rowSrcOf, to
 
 /**
  * 표 바닥줄 계산 — 노션처럼 칸을 눌러 고른다(지시). 고른 값은 보기마다 view.ef.calc[열 id].
- * 안 골랐으면 「자동」 — 유형마다 정해 둔 값(model.footStat: 숫자 합계 · 선택 최다 · 글 종류 …).
+ * 안 골랐으면 숫자 열은 「자동」(합계), 그 밖은 「계산 안함」(지시: 기본은 계산 안함, 숫자 유형은 예외).
+ * 「자동」 을 고르면 유형마다 정해 둔 값(model.footStat: 선택 최다 · 글 종류 …).
  * 메뉴는 노션과 같은 묶음: 계산 안함 · 수 › · 비율(%) › · (숫자·날짜는) 더 많은 옵션 ›
  */
 
@@ -83,9 +84,11 @@ export function calcMenuFor(c: EfColumn): CalcGroup[] {
   return g
 }
 
+/** 안 골랐을 때 — 숫자 열만 자동(합계), 나머지는 계산 안함 */
+export const defaultCalc = (c: EfColumn): CalcKey => (isNumCol(c) ? 'auto' : 'none')
 export function calcOf(c: EfColumn, picked: Record<string, string> | undefined): CalcKey {
   const k = picked?.[c.id] as CalcKey | undefined
-  return k && calcMenuFor(c).some((g) => g.keys.includes(k)) ? k : 'auto'
+  return k && calcMenuFor(c).some((g) => g.keys.includes(k)) ? k : defaultCalc(c)
 }
 
 const cellText = (v: unknown) => (v == null ? '' : String(v).trim())

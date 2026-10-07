@@ -22,7 +22,7 @@ import { useMeName } from '@/components/ntable/useAdmin'
 import { useUserPeople } from '@/pages/qaBits'
 import { CalcMenu, Chip, CtxMenu, DatePicker, FormulaEditor, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
 import { TI } from './icons'
-import { CALC_MENU, calc, calcMenuFor, calcOf, type CalcKey } from './calc'
+import { CALC_MENU, calc, calcMenuFor, calcOf, defaultCalc, type CalcKey } from './calc'
 import { placeRow } from './EffortViews'
 import {
   autoOptions,
@@ -268,7 +268,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow; c?: number } | null>(null)
   const [colMenu, setColMenu] = useState<{ x: number; y: number; colId: string } | null>(null)
   /** 바닥줄 계산 고르기 — 누른 칸 위치 */
-  const [calcMenu, setCalcMenu] = useState<{ x: number; top: number; colId: string } | null>(null)
+  const [calcMenu, setCalcMenu] = useState<{ x: number; top: number; bottom: number; colId: string } | null>(null)
   /** 수식 설정 창 — 수식 열(지시: 노션처럼 열 전체에 같은 식) */
   const [formulaEd, setFormulaEd] = useState<{ colId: string; anchor: HTMLElement } | null>(null)
   const openFormula = (c: EfColumn, at?: HTMLElement) => {
@@ -1226,7 +1226,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     <tr key={'sum-' + g.id} className="ef-rsum">
       <td className="ef-rh" />
       {ordered.map((c) => {
-        // 바닥줄에서 계산을 골랐으면 그룹 소계도 같은 계산(그 그룹 행들로), 자동이면 예전처럼 숫자 합계만
+        // 그룹 소계도 바닥줄과 같은 계산(그 그룹 행들로) — 숫자 열의 자동은 예전처럼 TanStack 합계
         const k = calcOf(c, ctx.st.calc)
         if (k !== 'auto') {
           const f = c.id === table.getState().grouping[0] ? null : calc(k, c, g.getLeafRows().filter((r) => !r.getIsGrouped()).map((r) => r.original), cols)
@@ -1319,7 +1319,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                     title={f ? `${f.lbl} — ${f.tip ?? f.val} · 눌러서 계산 바꾸기` : '눌러서 계산 고르기'}
                     onClick={(e) => {
                       const r = e.currentTarget.getBoundingClientRect()
-                      setCalcMenu({ x: r.left, top: r.top, colId: c.id })
+                      setCalcMenu({ x: r.left, top: r.top, bottom: r.bottom, colId: c.id })
                     }}
                   >
                     {!f ? (
@@ -1618,14 +1618,14 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           if (!c) return null
           return (
             <CalcMenu
-              at={{ x: calcMenu.x, top: calcMenu.top }}
+              at={{ x: calcMenu.x, top: calcMenu.top, bottom: calcMenu.bottom }}
               groups={calcMenuFor(c)}
               cur={calcOf(c, ctx.st.calc)}
               name={(k) => CALC_MENU[k as CalcKey]}
               onPick={(k) => {
-                // 자동은 저장값을 지운다(유형 기본으로)
+                // 기본값(숫자=자동, 나머지=계산 안함)을 고르면 저장값을 지운다
                 const m = { ...(ctx.st.calc ?? {}) }
-                if (k === 'auto') delete m[c.id]
+                if (k === defaultCalc(c)) delete m[c.id]
                 else m[c.id] = k
                 ctx.setSt({ calc: m })
               }}

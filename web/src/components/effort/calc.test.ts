@@ -12,10 +12,12 @@ describe('바닥줄 계산 고르기 — 노션 Calculate', () => {
     expect(calcMenuFor(col({ type: 'date' })).at(-1)!.keys).toEqual(['earliest', 'latest', 'dateRange'])
     expect(calcMenuFor(col({ type: 'checkbox' }))[1]!.keys).toEqual(['count', 'checked', 'unchecked'])
   })
-  it('안 골랐거나 그 열에 없는 계산이면 자동', () => {
-    expect(calcOf(col({}), undefined)).toBe('auto')
-    expect(calcOf(col({}), { x: 'sum' })).toBe('auto')
+  it('안 골랐거나 그 열에 없는 계산이면 기본 — 숫자 열은 자동(합계), 나머지는 계산 안함', () => {
+    expect(calcOf(col({}), undefined)).toBe('none')
+    expect(calcOf(col({}), { x: 'sum' })).toBe('none')
+    expect(calcOf(col({ type: 'number' }), undefined)).toBe('auto')
     expect(calcOf(col({ type: 'number' }), { x: 'sum' })).toBe('sum')
+    expect(calcOf(col({ type: 'select' }), { x: 'auto' })).toBe('auto')
   })
   it('수 — 모두·값·중복 제외·빈 값·비어 있지 않은 값 (다중 선택은 값마다)', () => {
     const rs = rows(['a', 'b', 'a', undefined])
