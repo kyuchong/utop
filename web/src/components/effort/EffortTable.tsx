@@ -43,7 +43,6 @@ import {
   dayDiff,
   dayLeft,
   defaultGroup,
-  diffSrcOf,
   rowSrcOf,
   srcKey,
   hasOptions,
@@ -89,6 +88,8 @@ export interface EfCtx {
 }
 
 const cellText = (v: unknown) => (v == null ? '' : String(v))
+/** 남은 일수 칸은 계산 값 — 기준 기간 열은 열마다 머리글에서 고른다 */
+const DIFF_HINT = '기준 기간 열은 머리글 › 유형 › 남은 일수 › 기간 열에서 고릅니다'
 
 const fNum: FilterFn<EfRow> = (row, id, fv) => {
   const [lo, hi] = (fv as [number?, number?] | undefined) ?? []
@@ -398,7 +399,11 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       commit(src, col, !truthy(src[col.id]))
       return
     }
-    const picker = hasOptions(col.type) || col.type === 'date' || col.type === 'daterange' || col.type === 'person' || col.type === 'datediff'
+    if (col.type === 'datediff') {
+      toast(DIFF_HINT)
+      return
+    }
+    const picker = hasOptions(col.type) || col.type === 'date' || col.type === 'daterange' || col.type === 'person'
     setEdit({ src, col, anchor: td, init: picker ? undefined : init })
   }
   /**
@@ -452,11 +457,11 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     const c = sel.c2
     const col = ordered[c]
     const src = leafRef.current[r]
-    if (!col || !src || col.autoSum || col.type === 'checkbox' || col.type === 'formula') {
+    if (!col || !src || col.autoSum || col.type === 'checkbox' || col.type === 'formula' || col.type === 'datediff') {
       sk.value = ''
       return
     }
-    if (hasOptions(col.type) || col.type === 'date' || col.type === 'daterange' || col.type === 'person' || col.type === 'datediff') {
+    if (hasOptions(col.type) || col.type === 'date' || col.type === 'daterange' || col.type === 'person') {
       sk.value = ''
       editAt(r, c)
       return
@@ -526,12 +531,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         for (let c = n.c1; c <= n.c2; c++) {
           const src = leafRef.current[r]
           const col = ordered[c]
-          if (src && col?.type === 'datediff') {
-            if (src[srcKey(col)] != null) {
-              delete src[srcKey(col)] // 행별 기준을 지워 열 기본으로
-              changed = true
-            }
-          } else if (src && col && put(src, col, '')) changed = true
+          if (src && col && put(src, col, '')) changed = true
         }
       if (changed) {
         recalcAuto(rows, cols)
@@ -623,18 +623,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         const mc = ordered[c]
         const srcRow = leaf[d.r1]
         if (!mc || mc.autoSum || !srcRow) continue
-        if (mc.type === 'datediff') {
-          // 남은 일수는 값이 아니라 행별 기준 기간을 아래로 복사
-          const k = srcKey(mc)
-          for (let r = n.r1; r <= n.r2; r++) {
-            const t = leaf[r]
-            if (r === d.r1 || !t || t[k] === srcRow[k]) continue
-            if (srcRow[k] == null) delete t[k]
-            else t[k] = srcRow[k]
-            changed = true
-          }
-          continue
-        }
+        if (mc.type === 'datediff') continue // 계산 값 — 채울 것이 없다(기준 기간은 열마다)
         const val = srcRow[mc.id]
         for (let r = n.r1; r <= n.r2; r++) {
           if (r === d.r1 || !leaf[r]) continue
@@ -899,6 +888,15 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         recalcAuto(rows, cols)
         touch()
       },
+      setDiffSrc: (id: string) => {
+        // 남은 일수 열로(이미면 그대로) 바꾸고 볼 기간 열을 정한다. 예전에 행마다 골라 둔 기준은 지워 열 하나로 맞춘다
+        c.type = 'datediff'
+        c.autoSum = false
+        c.diffSrc = id
+        allRows().forEach((r) => delete r[srcKey(c)])
+        Object.values(doc.pages).forEach((p) => recalcAuto(p.rows, cols))
+        touch()
+      },
       toggleAutoSum: () => {
         if (!c.autoSum && c.type !== 'number') {
           toast('숫자 열에서만 켤 수 있습니다 — 유형을 [숫자]로 먼저 바꾸세요')
@@ -1087,7 +1085,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           const editable = !c.autoSum
           const isEd = edit && edit.src === src && edit.col.id === c.id
           // 팝업으로 고르는 유형 — 선택·상태·다중 선택·날짜·기간
-          const picker = hasOptions(c.type) || c.type === 'date' || c.type === 'daterange' || c.type === 'person' || c.type === 'datediff'
+          const picker = hasOptions(c.type) || c.type === 'date' || c.type === 'daterange' || c.type === 'person'
           if (isEd && !picker) {
             const kind = c.type === 'url' ? 'url' : c.type === 'email' ? 'email' : c.type === 'phone' ? 'tel' : 'text'
             const init = edit!.init
@@ -1171,7 +1169,9 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                     ? () => commit(src, c, !truthy(src[c.id]))
                     : c.type === 'formula'
                       ? (e) => openFormula(c, e.currentTarget)
-                      : (e) => setEdit({ src, col: c, anchor: e.currentTarget })
+                      : c.type === 'datediff'
+                        ? () => toast(DIFF_HINT)
+                        : (e) => setEdit({ src, col: c, anchor: e.currentTarget })
               }
             >
               {/* 묶은 열(기본 인원)은 그룹 머리에만 쓰고 행에서는 비운다(예전과 같다) */}
@@ -1183,8 +1183,6 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                       ? {
                           left: dayLeft(src, rowSrcOf(src, cols, c)),
                           span: dayDiff(src, rowSrcOf(src, cols, c)),
-                          // 행에서 따로 고른 기준이면 그 열 이름을 작게(같은 열에 기준이 섞이면 헷갈린다)
-                          own: cols.find((x) => x.id === src[srcKey(c)] && x.type === 'daterange')?.title,
                         }
                       : src[c.id]
                   }
@@ -1461,36 +1459,6 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       {edit && edit.col.type === 'date' && (
         <DatePicker anchor={edit.anchor} value={cellText(edit.src[edit.col.id])} onClose={() => setEdit(null)} onPick={(v) => commit(edit.src, edit.col, v)} />
       )}
-      {edit && edit.col.type === 'datediff' && (() => {
-        // 이 행의 기준 기간 — 기본(맨 앞 기간 열) · 기간 열들(지시: 셀마다, 머리글 지정은 뺐다)
-        const c = edit.col
-        const r = edit.src
-        const ranges = cols.filter((x) => x.type === 'daterange')
-        const def = diffSrcOf(cols, c)
-        const own = r[srcKey(c)] as string | undefined
-        const b = edit.anchor.getBoundingClientRect()
-        const pick = (id: string | null) => {
-          setEdit(null)
-          if ((own ?? null) === id) return
-          if (id) r[srcKey(c)] = id
-          else delete r[srcKey(c)]
-          touch()
-        }
-        return (
-          <CtxMenu
-            at={{ x: b.left, y: b.bottom + 2 }}
-            onClose={() => setEdit(null)}
-            items={
-              ranges.length
-                ? [
-                    { ic: own ? 'calendar' : 'check', label: `기본 — 맨 앞 기간 열${def ? ` (${def.title})` : ''}`, on: () => pick(null) },
-                    ...ranges.map((x, i) => ({ ic: own === x.id ? 'check' : 'calendar-week', label: `${x.title} 기준`, on: () => pick(x.id), sep: i === 0 })),
-                  ]
-                : [{ ic: 'x', label: '기간 열이 없습니다', on: () => {} }]
-            }
-          />
-        )
-      })()}
       {edit && edit.col.type === 'daterange' && (
         <RangePicker anchor={edit.anchor} value={cellText(edit.src[edit.col.id])} onClose={() => setEdit(null)} onPick={(v) => commit(edit.src, edit.col, v)} />
       )}
@@ -1526,6 +1494,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           grouped={table.getState().grouping[0] === menuEf.id}
           facetOptions={optionsOf(rows, menuEf)}
           ops={opsFor(menuEf)}
+          allCols={cols}
           onClose={() => setMenu(null)}
         />
       )}
@@ -1695,12 +1664,11 @@ function CellView({ c, v, max, fx, onToggle }: { c: EfColumn; v: unknown; max: n
   }
   if (c.type === 'datediff') {
     // 남은 일수(오늘 → 종료일) — 사흘 안이면 주황, 지났으면 흐리게. 기간 길이는 마우스를 올리면
-    const { left, span, own } = (v ?? {}) as { left: number | null; span: number | null; own?: string }
-    if (left == null) return own ? <span className="ef-dsrc">{own}</span> : null
+    const { left, span } = (v ?? {}) as { left: number | null; span: number | null }
+    if (left == null) return null
     const txt = left > 0 ? `${left}일 남음` : left === 0 ? '오늘 마감' : `${-left}일 지남`
     return (
-      <span className={`ef-ddiff${left < 0 ? ' past' : left <= 3 ? ' soon' : ''}`} title={`${own ? `${own} 기준 · ` : ''}${span ? `기간 ${span}일` : ''} — 두 번 눌러 기준 기간 바꾸기`}>
-        {own && <span className="ef-dsrc">{own}</span>}
+      <span className={`ef-ddiff${left < 0 ? ' past' : left <= 3 ? ' soon' : ''}`} title={`${span ? `기간 ${span}일 · ` : ''}${DIFF_HINT}`}>
         <TI n="clock-hour-4" />
         {txt}
       </span>

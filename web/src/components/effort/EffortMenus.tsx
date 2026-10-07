@@ -9,6 +9,7 @@ import {
   chipSize,
   chipStyle,
   hex2hsl,
+  diffSrcOf,
   hasOptions,
   isNumCol,
   missingOptions,
@@ -675,6 +676,8 @@ export function FilterBody({ column, col, options }: { column: Column<EfRow, unk
 export interface HeadOps {
   rename: (title: string) => void
   setType: (t: EfType) => void
+  /** 남은 일수 열로 바꾸고(이미면 그대로) 볼 기간 열을 정한다 */
+  setDiffSrc: (id: string) => void
   toggleAutoSum: () => void
   insert: (after: boolean) => void
   duplicate: () => void
@@ -697,11 +700,14 @@ export function HeadMenu({
   grouped,
   facetOptions,
   ops,
+  allCols,
   onClose,
 }: {
   anchor: HTMLElement
   column: Column<EfRow, unknown>
   col: EfColumn
+  /** 표의 모든 열 — 남은 일수가 볼 기간 열 목록 */
+  allCols: EfColumn[]
   rows: EfRow[]
   grouped: boolean
   facetOptions: string[]
@@ -709,6 +715,10 @@ export function HeadMenu({
   onClose: () => void
 }) {
   const [sub, setSub] = useState<{ kind: string; anchor: HTMLElement } | null>(null)
+  /** 유형 › 남은 일수 옆에 펼친 기간 열 목록 */
+  const [diffAt, setDiffAt] = useState<HTMLElement | null>(null)
+  const ranges = allCols.filter((x) => x.type === 'daterange')
+  const curSrc = diffSrcOf(allCols, col)
   const [optAt, setOptAt] = useState<{ oi: number; anchor: HTMLElement } | null>(null)
   const [title, setTitle] = useState(col.title)
   const nameRef = useRef<HTMLInputElement>(null)
@@ -817,21 +827,38 @@ export function HeadMenu({
         <Pop anchor={sub.anchor} side cls="ef-menu ef-submenu" onClose={() => setSub(null)}>
           <div className="ef-lbl">유형</div>
           <div className="ef-mlist">
-            {TYPES.map((t) => (
-              <button
-                key={t.t}
-                type="button"
-                className={`ef-mi${col.type === t.t ? ' on' : ''}`}
-                onClick={() => {
-                  setSub(null)
-                  ops.setType(t.t)
-                }}
-              >
-                <i className="ef-mi-ic"><TI n={t.ic} /></i>
-                <span>{t.n}</span>
-                {col.type === t.t && <i className="ef-mi-ck"><TI n="check" /></i>}
-              </button>
-            ))}
+            {TYPES.map((t) =>
+              t.t === 'datediff' ? (
+                // 남은 일수 — 옆에 어느 기간 열로 셀지 고르는 목록을 펼친다(지시)
+                <button
+                  key={t.t}
+                  type="button"
+                  className={`ef-mi ef-mi-sub${col.type === t.t ? ' on' : ''}${diffAt ? ' open' : ''}`}
+                  onMouseEnter={(e) => setDiffAt(e.currentTarget)}
+                  onClick={(e) => setDiffAt(e.currentTarget)}
+                >
+                  <i className="ef-mi-ic"><TI n={t.ic} /></i>
+                  <span>{t.n}</span>
+                  {col.type === t.t && <i className="ef-mi-ck"><TI n="check" /></i>}
+                  <span className="ef-mi-arr">›</span>
+                </button>
+              ) : (
+                <button
+                  key={t.t}
+                  type="button"
+                  className={`ef-mi${col.type === t.t ? ' on' : ''}`}
+                  onMouseEnter={() => setDiffAt(null)}
+                  onClick={() => {
+                    setSub(null)
+                    ops.setType(t.t)
+                  }}
+                >
+                  <i className="ef-mi-ic"><TI n={t.ic} /></i>
+                  <span>{t.n}</span>
+                  {col.type === t.t && <i className="ef-mi-ck"><TI n="check" /></i>}
+                </button>
+              ),
+            )}
           </div>
           {col.type === 'number' && (
             <>
@@ -843,6 +870,37 @@ export function HeadMenu({
               </button>
             </>
           )}
+        </Pop>
+      )}
+
+      {sub?.kind === 'type' && diffAt && (
+        <Pop anchor={diffAt} side cls="ef-menu ef-submenu ef-submenu-wide" onClose={() => setDiffAt(null)}>
+          <div className="ef-lbl">어느 기간 열로 셀까요</div>
+          <div className="ef-mlist">
+            {ranges.length ? (
+              ranges.map((x) => {
+                const on = col.type === 'datediff' && curSrc?.id === x.id
+                return (
+                  <button
+                    key={x.id}
+                    type="button"
+                    className={`ef-mi${on ? ' on' : ''}`}
+                    onClick={() => {
+                      setDiffAt(null)
+                      setSub(null)
+                      ops.setDiffSrc(x.id)
+                    }}
+                  >
+                    <i className="ef-mi-ic"><TI n="calendar-week" /></i>
+                    <span>{x.title}</span>
+                    {on && <i className="ef-mi-ck"><TI n="check" /></i>}
+                  </button>
+                )
+              })
+            ) : (
+              <div className="ef-empty-s">기간 열이 없습니다 — 먼저 기간 유형 열을 만드세요</div>
+            )}
+          </div>
         </Pop>
       )}
 

@@ -26,6 +26,8 @@ export interface EfColumn {
   optColors?: Record<string, string>
   /** 숫자 열들의 합을 행마다 넣는 열(합계) */
   autoSum?: boolean
+  /** 남은 일수 열이 볼 기간 열 id — 머리글 › 유형 › 남은 일수 에서 고른다. 없으면 맨 앞 기간 열 */
+  diffSrc?: string
   [k: string]: unknown
 }
 export type EfRow = Record<string, unknown>
@@ -269,13 +271,16 @@ export function normRange(v: unknown): string | null {
 }
 /** 체크박스 값 — true·1·y·o·v·✓·예 등이면 켜짐 */
 export const truthy = (v: unknown) => v === true || /^(true|1|y|yes|o|v|✓|✔|☑|예|네)$/i.test(String(v ?? '').trim())
-/** 행에서 따로 고른 기준 기간 열이 담기는 키 — 칸 값이 아니라 숨은 값(예전 화면·CSV 는 모른다) */
+/** 예전에 행마다 고르던 기준 기간 열이 담기던 숨은 키 — 이제 안 읽는다(열에서 고르면 지운다) */
 export const srcKey = (c: EfColumn) => `_src_${c.id}`
-/** 이 행의 남은 일수가 볼 기간 열 — 행에서 고른 것, 없으면(또는 그 열이 지워졌으면) 맨 앞 기간 열 */
-export const rowSrcOf = (r: EfRow, cols: EfColumn[], c: EfColumn) =>
-  cols.find((x) => x.id === r[srcKey(c)] && x.type === 'daterange') ?? diffSrcOf(cols, c)
-/** 남은 일수 열의 기본 기간 열 — 맨 앞 기간 열. 머리글에서 정하던 srcCol 은 뺐다(지시: 셀마다만) */
-export const diffSrcOf = (cols: EfColumn[], _c?: EfColumn) => cols.find((x) => x.type === 'daterange')
+/**
+ * 남은 일수 열이 볼 기간 열 — 열에서 고른 것(c.diffSrc), 없거나 그 열이 지워졌으면 맨 앞 기간 열.
+ * 지시: 셀마다 더블클릭으로 고르던 것을 머리글 › 유형 › 남은 일수 › 기간 열 고르기로 바꿨다
+ */
+export const diffSrcOf = (cols: EfColumn[], c?: EfColumn) =>
+  cols.find((x) => x.id === c?.diffSrc && x.type === 'daterange') ?? cols.find((x) => x.type === 'daterange')
+/** 이 행의 남은 일수가 볼 기간 열 — 열마다 하나(행 r 은 예전 호출 모양을 지키려고 받기만 한다) */
+export const rowSrcOf = (_r: EfRow, cols: EfColumn[], c: EfColumn) => diffSrcOf(cols, c)
 const ymdLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const dayGap = (a: string, b: string) => Math.round((new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86400000)
 /**

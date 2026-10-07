@@ -1114,8 +1114,6 @@ input.ef-fsel { cursor: text; }
 /* 남은 일수 — 사흘 안 주황, 지난 것 흐리게 */
 .ef-ddiff.soon { color: #e06a34; }
 .ef-ddiff.past { color: var(--c-text-faint); font-weight: 700; }
-/* 남은 일수 — 행에서 따로 고른 기준 기간 열 이름(작게) */
-.ef-dsrc { font-size: 9.5px; font-weight: 700; color: var(--c-text-faint); background: #f1f4f9; border-radius: 4px; padding: 0 4px; margin-right: 2px; }
 
 /* ── 수식 — 결과 칸을 기다리는 중의 고른 칸(점선), 수식 칸이 보는 칸(옅게), 넣을 수 있는 칸(마우스 올림) ── */
 .ef-pickbar { flex: none; display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: #eef4fd; border-bottom: 1px solid #c9dbf5; font-size: 12px; color: var(--c-text); }

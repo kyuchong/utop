@@ -142,16 +142,16 @@ describe('남은 일수 — 오늘부터 종료일까지', () => {
   })
 })
 
-describe('남은 일수 — 기준 기간: 행에서 고른 것 > 맨 앞 기간 열', () => {
+describe('남은 일수 — 기준 기간: 열에서 고른 것 > 맨 앞 기간 열', () => {
   const p1 = { id: 'p1', title: '기간', type: 'daterange' as const }
   const p2 = { id: 'p2', title: '기간2', type: 'daterange' as const }
   const dd = { id: 'dd', title: '일수', type: 'datediff' as const }
   const cols = [p1, p2, dd]
-  it('지정이 없으면 맨 앞 기간 열(예전 머리글 지정 srcCol 은 안 본다), 행 지정이 먼저, 지운 열이면 맨 앞', () => {
+  it('지정이 없으면 맨 앞 기간 열, 열 지정(diffSrc)이 먼저, 지운 열이면 맨 앞, 예전 행 지정은 안 본다', () => {
     expect(rowSrcOf({}, cols, dd)).toBe(p1)
-    expect(rowSrcOf({}, cols, { ...dd, srcCol: 'p2' })).toBe(p1)
-    expect(rowSrcOf({ [srcKey(dd)]: 'p2' }, cols, dd)).toBe(p2)
-    expect(rowSrcOf({ [srcKey(dd)]: 'gone' }, cols, dd)).toBe(p1)
+    expect(rowSrcOf({}, cols, { ...dd, diffSrc: 'p2' })).toBe(p2)
+    expect(rowSrcOf({}, cols, { ...dd, diffSrc: 'gone' })).toBe(p1)
+    expect(rowSrcOf({ [srcKey(dd)]: 'p2' }, cols, dd)).toBe(p1)
   })
 })
 
