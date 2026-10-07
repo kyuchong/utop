@@ -220,6 +220,19 @@ function EffortBody({
     d.pages[y]!.rows.splice(0)
     touch()
   }
+  /** 연도 이름 바꾸기 — 그 연도 표를 새 연도로 옮긴다(행·내용 그대로). 숫자 4자리 · 없는 연도만(예전 화면도 4자리만 연도로 읽는다) */
+  const renameYear = (from: string, to: string) => {
+    to = to.trim()
+    if (!to || to === from) return
+    if (!/^\d{4}$/.test(to)) return toast('연도는 숫자 4자리입니다')
+    if (d.pages[to]) return toast(`${to}년은 이미 있습니다`)
+    d.pages[to] = d.pages[from]!
+    delete d.pages[from]
+    d.years = (d.years ?? []).map((x) => (x === from ? to : x)).sort().reverse()
+    if (d.curPage === from) setYear(to)
+    else touch()
+    toast(`${from}년 → ${to}년으로 바꿨습니다`)
+  }
   const delYear = (y: string) => {
     if ((d.years ?? []).length <= 1) return toast('마지막 연도는 삭제할 수 없습니다')
     const n = d.pages[y]?.rows.length ?? 0
@@ -490,7 +503,7 @@ function EffortBody({
                   <span>{y}년</span>
                   <em className="ef-mi-n">{d.pages[y]?.rows.length ?? 0}</em>
                 </button>
-                <button type="button" className="ef-yrmore" title="비우기·삭제" onClick={() => setPop({ kind: 'year', anchor: pop.anchor, id: y })}>
+                <button type="button" className="ef-yrmore" title="이름 변경·비우기·삭제" onClick={() => setPop({ kind: 'year', anchor: pop.anchor, id: y })}>
                   ⋯
                 </button>
               </div>
@@ -504,17 +517,14 @@ function EffortBody({
         </Pop>
       )}
       {pop?.kind === 'year' && pop.id && (
-        <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
-          <div className="ef-lbl">{pop.id}년</div>
-          <button type="button" className="ef-mi" onClick={() => { const y = pop.id!; close(); clearYear(y) }}>
-            <i className="ef-mi-ic"><TI n="eraser" /></i>
-            <span>이 연도 비우기</span>
-          </button>
-          <button type="button" className="ef-mi del" onClick={() => { const y = pop.id!; close(); delYear(y) }}>
-            <i className="ef-mi-ic"><TI n="trash" /></i>
-            <span>연도 삭제</span>
-          </button>
-        </Pop>
+        <YearMenu
+          anchor={pop.anchor}
+          year={pop.id}
+          onRename={(to) => renameYear(pop.id!, to)}
+          onClear={() => { const y = pop.id!; close(); clearYear(y) }}
+          onDelete={() => { const y = pop.id!; close(); delYear(y) }}
+          onClose={close}
+        />
       )}
       {pop?.kind === 'view' && pop.id && (
         <ViewMenu
@@ -651,6 +661,68 @@ function AddYear({ anchor, years, onAdd, onClose }: { anchor: HTMLElement; years
       <button type="button" className="ef-btn ef-full" onClick={() => onAdd(v)}>
         추가
       </button>
+    </Pop>
+  )
+}
+
+/** 연도 ⋯ 메뉴 — 이름 변경(지시) · 비우기 · 삭제. 이름 변경은 보기 메뉴처럼 그 자리에서 칸이 열린다 */
+function YearMenu({
+  anchor,
+  year,
+  onRename,
+  onClear,
+  onDelete,
+  onClose,
+}: {
+  anchor: HTMLElement
+  year: string
+  onRename: (to: string) => void
+  onClear: () => void
+  onDelete: () => void
+  onClose: () => void
+}) {
+  const [renaming, setRenaming] = useState(false)
+  const [v, setV] = useState(year)
+  const done = () => {
+    if (renaming) onRename(v)
+    onClose()
+  }
+  return (
+    <Pop anchor={anchor} cls="ef-menu" onClose={done}>
+      <div className="ef-lbl">{year}년</div>
+      {renaming ? (
+        <>
+          <input
+            className="ef-menu-name"
+            autoFocus
+            inputMode="numeric"
+            value={v}
+            aria-label="새 연도"
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setV(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') done()
+              else if (e.key === 'Escape') onClose()
+            }}
+          />
+          <div className="ef-yrhint">숫자 4자리 · Enter 로 바꾸기 (행은 그대로 옮겨 갑니다)</div>
+        </>
+      ) : (
+        <div className="ef-mlist">
+          <button type="button" className="ef-mi" onClick={() => setRenaming(true)}>
+            <i className="ef-mi-ic"><TI n="pencil" /></i>
+            <span>이름 변경</span>
+          </button>
+          <button type="button" className="ef-mi" onClick={onClear}>
+            <i className="ef-mi-ic"><TI n="eraser" /></i>
+            <span>이 연도 비우기</span>
+          </button>
+          <button type="button" className="ef-mi del" onClick={onDelete}>
+            <i className="ef-mi-ic"><TI n="trash" /></i>
+            <span>연도 삭제</span>
+          </button>
+        </div>
+      )}
     </Pop>
   )
 }
