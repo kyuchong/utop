@@ -1003,6 +1003,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   }
 
   const n0 = norm(sel)
+  /** n 번째 행 하나만 통째로 골라져 있나 — 그러면 행 번호를 끌어 옮긴다 */
+  const rowOnly = (n: number) => !!n0 && n0.r1 === n && n0.r2 === n && n0.c1 === 0 && n0.c2 === ordered.length - 1
   const bodyRow = (row: Row<EfRow>, n: number): ReactNode => {
     if (row.getIsGrouped()) {
       return (
@@ -1034,14 +1036,19 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           setRowMenu({ x: e.clientX, y: e.clientY, src, c: td ? Number(td.dataset.c) : undefined })
         }}
       >
-        {/* 행 번호 — 누르면 그 행 통째로 선택, 끌면 여러 행, Shift 는 지금 선택에서 이어 붙인다 */}
+        {/* 행 번호 — 누르면 그 행 통째로 선택, 끌면 여러 행, Shift 는 지금 선택에서 이어 붙인다.
+            이미 그 한 행만 골라져 있으면 끌어서 옮긴다(구글 시트처럼 — 손잡이를 못 찾아도 늘 누르던 자리에서) */}
         <td
-          className={`ef-rh ef-rnum${n0 && n >= n0.r1 && n <= n0.r2 && n0.c1 === 0 && n0.c2 === ordered.length - 1 ? ' ef-rsel' : ''}`}
+          className={`ef-rh ef-rnum${n0 && n >= n0.r1 && n <= n0.r2 && n0.c1 === 0 && n0.c2 === ordered.length - 1 ? ' ef-rsel' : ''}${rowOnly(n) ? ' ef-rmov' : ''}`}
           data-r={n}
           data-c={-1}
-          title="누르면 행 선택 · 끌면 여러 행"
+          title={rowOnly(n) ? '끌면 행 옮기기' : '누르면 행 선택 · 끌면 여러 행'}
           onMouseDown={(e) => {
             if (e.button !== 0) return
+            if (!e.shiftKey && rowOnly(n) && !table.getState().sorting.length) {
+              rowDrag(e, src)
+              return
+            }
             e.preventDefault()
             const last = ordered.length - 1
             const from = e.shiftKey && sel ? sel.r1 : n

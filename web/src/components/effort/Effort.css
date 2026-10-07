@@ -914,6 +914,8 @@ input.ef-fsel { cursor: text; }
   user-select: none;
 }
 .ef-t td.ef-rnum:hover { color: #2d6fd4; }
+/* 한 행만 골라져 있으면 그 행 번호는 끌어 옮기는 자리 */
+.ef-t td.ef-rnum.ef-rmov { cursor: grab; }
 .ef-t td.ef-rh.ef-rsel,
 .ef-t tbody tr:hover td.ef-rh.ef-rsel { background: #dbe6fb; color: #2d6fd4; font-weight: 800; }
 
