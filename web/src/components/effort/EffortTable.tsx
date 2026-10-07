@@ -1312,20 +1312,10 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                     return stat('최소', m < 0 ? `${-m}일 지남` : `${m}일`)
                   }
                 }
-                if (c.id === 'name')
-                  return (
-                    <td key={c.id}>
-                      <span className="ef-flbl">인원</span>
-                      <b>{new Set(shown.map((r) => cellText(r[c.id])).filter(Boolean)).size}</b>
-                    </td>
-                  )
-                if (c.id === 'dept')
-                  return (
-                    <td key={c.id}>
-                      <span className="ef-flbl">개수</span>
-                      <b>{shown.length}</b>
-                    </td>
-                  )
+                // 인원 — 열 id 가 아니라 보이는 것(사람 유형이거나 이름이 「인원」)으로 정한다(지적: 인원이 아닌 열에 인원이 나온다).
+                // 새 표의 앞 두 열이 예전 표와 같은 id(name·dept)로 만들어져, 이름을 바꿔도 인원·개수가 붙어 다녔다
+                if (c.type === 'person' || (c.type === 'text' && c.title.trim() === '인원'))
+                  return stat('인원', new Set(shown.map((r) => cellText(r[c.id]).trim()).filter(Boolean)).size)
                 const filled = (r: EfRow) => {
                   const v = c.type === 'datediff' ? dayLeft(r, rowSrcOf(r, cols, c)) : r[c.id]
                   return Array.isArray(v) ? v.length > 0 : cellText(v).trim() !== ''
