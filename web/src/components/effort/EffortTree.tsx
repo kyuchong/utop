@@ -262,11 +262,11 @@ export default function EffortTree({ root, touch, toast }: { root: EfDoc; touch:
             <>
               <button type="button" className="ef-mi" onClick={() => { close(); addTable(pn.id) }}>
                 <i className="ef-mi-ic"><TI n="table" /></i>
-                <span>이 안에 새 표</span>
+                <span>하위 표 추가</span>
               </button>
               <button type="button" className="ef-mi" onClick={() => { close(); addFolder(pn.id) }}>
                 <i className="ef-mi-ic"><TI n="folder" /></i>
-                <span>이 안에 새 폴더</span>
+                <span>하위 폴더 추가</span>
               </button>
             </>
           ) : (
