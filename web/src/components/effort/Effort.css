@@ -997,10 +997,9 @@ input.ef-fsel { cursor: text; }
 .ef-tl-load.over { background: #e06a34; color: #fff; }
 .ef-tl-sum { position: absolute; top: 12px; height: 10px; border-radius: 5px; background: #2d6fd455; }
 .ef-tl-bar { position: absolute; top: 5px; bottom: 5px; border: 1px solid; border-left-width: 3px; border-radius: 6px; display: flex; align-items: center; overflow: hidden; font-size: 10.5px; font-weight: 700; color: var(--c-text); }
-/* 좁은 막대(며칠짜리) — 테두리 두께 3px·둥근 모서리 때문에 「0」 처럼 보였다. 얇은 테두리·작은 모서리로 */
-.ef-tl-bar.slim { border-width: 1px; border-radius: 3px; }
-.ef-tl-out { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10.5px; font-weight: 700; color: var(--c-text); white-space: nowrap; pointer-events: auto; }
-.ef-tl-out em { font-style: normal; font-weight: 600; color: var(--c-text-faint); margin-left: 5px; }
+/* 칩 — 기간보다 이름이 길어 이름만큼 넓힌 막대(실제 기간은 왼쪽·설명에). 모서리를 더 둥글게 해 막대와 구별 */
+.ef-tl-bar.chip { border-width: 1px; border-radius: 999px; justify-content: center; }
+.ef-tl-bar.chip > span { padding: 0 7px; }
 .ef-tl-bar > span { padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ef-tl-bar > span.ef-tl-v { flex: none; padding: 0; text-align: center; box-sizing: border-box; margin-left: -3px; }
 .ef-tl-bar > span.ef-tl-v + span.ef-tl-v { margin-left: 0; }

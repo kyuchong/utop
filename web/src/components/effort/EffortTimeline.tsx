@@ -267,24 +267,17 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
                       </div>
                       <div className="ef-tl-lane">
                         {(() => {
-                          // 짧은 기간(며칠)은 막대가 좁아 이름이 잘린다(지적) — 막대 안에 안 들어가면 이름을 막대 오른쪽 밖에 둔다
+                          // 짧은 기간(며칠)은 막대가 좁아 이름이 잘린다(지적) — 이름이 들어갈 만큼 넓혀 칩으로 보인다(지시).
+                          // 실제 기간·일수는 왼쪽 이름 기둥과 올리면 뜨는 설명에
                           const x = pos(d.s)
-                          const w = Math.max(12, end(d.e) - x)
                           const t = label(r)
-                          const fits = w >= textW(t) + 14
-                          const h = hov(t, [periodText(d.s, d.e), ...tipLines(r)])
+                          const span = end(d.e) - x
+                          const chip = span < textW(t) + 14
+                          const w = chip ? textW(t) + 14 : span
                           return (
-                            <>
-                              <div className={`ef-tl-bar${fits ? '' : ' slim'}`} style={{ left: x, width: w, background: c + '26', borderColor: c }} {...h}>
-                                {fits && <span>{t}</span>}
-                              </div>
-                              {!fits && (
-                                <span className="ef-tl-out" style={{ left: x + w + 5 }} {...h}>
-                                  {t}
-                                  <em>{fmtSpan(d.s, d.e)}</em>
-                                </span>
-                              )}
-                            </>
+                            <div className={`ef-tl-bar${chip ? ' chip' : ''}`} style={{ left: x, width: w, background: c + '26', borderColor: c }} {...hov(t, [periodText(d.s, d.e), ...tipLines(r)])}>
+                              <span>{t}</span>
+                            </div>
                           )
                         })()}
                       </div>
@@ -372,9 +365,20 @@ export function EfTimeline({ cols, rows, view, year, touch }: { cols: EfColumn[]
   )
 }
 
-/** 막대 이름이 차지할 대략의 폭(10.5px 굵은 글씨) — 한글은 넓게 */
-const textW = (t: string) => [...t].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? 11 : 6.5), 0)
-/** 막대 밖 이름 옆 날짜 — 하루면 MM-DD, 아니면 MM-DD~MM-DD */
+/** 막대 이름이 차지할 폭(10.5px 굵은 글씨) — 화면 글꼴로 실제로 잰다(어림셈은 영문 대문자에서 모자라 잘렸다), 못 재면 어림 */
+let measure: CanvasRenderingContext2D | null | undefined
+const textW = (t: string) => {
+  if (measure === undefined) {
+    try {
+      measure = document.createElement('canvas').getContext('2d')
+      if (measure) measure.font = `700 10.5px ${getComputedStyle(document.body).fontFamily}`
+    } catch {
+      measure = null
+    }
+  }
+  return measure ? Math.ceil(measure.measureText(t).width) + 2 : [...t].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? 11 : 7.5), 0)
+}
+/** 이름 기둥·묶음 줄의 짧은 기간 — 하루면 MM-DD, 아니면 MM-DD~MM-DD */
 const fmtSpan = (s: Date, e: Date) => {
   const md = (d: Date) => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   return s.getTime() === e.getTime() ? md(s) : `${md(s)}~${md(e)}`
