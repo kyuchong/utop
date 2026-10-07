@@ -1222,3 +1222,6 @@ input.ef-fsel { cursor: text; }
 .ef-more-n { font-size: 11.5px; font-weight: 700; color: var(--c-text-muted); margin-right: 6px; white-space: nowrap; }
 .ef-more-btn { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--c-border); border-radius: 6px; background: #fff; font: inherit; font-size: 11.5px; font-weight: 700; color: var(--c-text-muted); cursor: pointer; white-space: nowrap; }
 .ef-more-btn:hover { border-color: #2d6fd4; color: #2d6fd4; }
+
+/* 목록이 비었을 때 — 빌려 쓰는 화면(Jira Issue)은 페이지를 다 지울 수 있다 */
+.ef-tree-empty { padding: 14px 8px; font-size: 12px; color: var(--c-text-faint); line-height: 1.6; }

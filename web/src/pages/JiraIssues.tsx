@@ -12,7 +12,11 @@
  * 본문은 EffortPlan 의 EffortBody 를 그대로 빌린다(host). 지라 값은 못 고치고(지라가 정본),
  * 우리가 매기는 분류 다섯 칸만 고친다. 키를 누르면 오른쪽에 지라 이슈 창(IssueDrawer) — 예전 그대로(지시).
  *
- * 열 배치·폭·보기(탭마다 검색·필터·정렬·그룹·숨긴 열·계산)는 계정을 따라간다(utop.jira.ef).
+ * 왼쪽 목록은 Effort Plan 과 같은 **폴더 ▸ 페이지**다(지시). 페이지마다 프로젝트·이슈 유형·이슈단계를
+ * 제목 줄의 고르개 셋으로 고르고, Sync 는 그 페이지의 프로젝트·유형만 받는다 — 필요한 것만.
+ * 이슈단계는 **보기만 거른다**: 단계는 이슈가 진행하며 바뀌어, 받을 때 거르면 단계를 넘긴 이슈가 옛 값으로 남는다.
+ *
+ * 열 배치·폭·보기(탭마다 검색·필터·정렬·그룹·숨긴 열·계산)는 계정을 따라간다(utop.jira.ef) — 페이지가 함께 쓴다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -22,8 +26,9 @@ import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IssueDrawer } from '@/components/jira/IssueDrawer'
 import { useJiraBase } from '@/components/jira/useJiraBase'
 import { EffortBody } from '@/pages/EffortPlan'
+import EffortTree, { type TreeKit } from '@/components/effort/EffortTree'
 import { TI } from '@/components/effort/icons'
-import { ensureViews, type EfColumn, type EfDoc, type EfRow, type EfView } from '@/components/effort/model'
+import { ensureViews, newId, type EfColumn, type EfDoc, type EfNode, type EfRow, type EfView } from '@/components/effort/model'
 import '@/components/effort/Effort.css'
 import './JiraIssues.css'
 
@@ -161,19 +166,40 @@ const prjOf = (r: EfRow) => String(r.project ?? '')
 /** 한 번에 가를 수 있는 최대 — 로컬 LLM 이 한 건에 1~2초다. 이백이면 한 잔 마실 참 */
 const CLS_CAP = 200
 
+/* 예전 「고른 프로젝트」·「프로젝트마다 고른 유형」 — 처음 한 번 페이지로 옮겨 받는다 */
 const PRJ_KEY = 'utop.jira.projects'
-/** 유형 고르기 창 — 「전체」 를 볼 때 고른 프로젝트 모두 */
-const ALL_PRJ = '*'
-/** 프로젝트마다 고른 이슈 유형 — 없거나 빈 배열이면 전부. 계정을 따라간다(SYNC) */
 const TYPES_KEY = 'utop.jira.types'
+/** 폴더 ▸ 페이지 목록과 페이지마다 고른 것 — 계정을 따라간다(SYNC) */
+const TREE_KEY = 'utop.jira.tree'
 /** 열 배치·폭·보기 — 계정을 따라간다(SYNC) */
 const LAYOUT_KEY = 'utop.jira.ef'
-/** 왼쪽에서 고른 프로젝트 — 이 PC 의 보던 자리(SYNC 아님) */
+/** 지금 보는 페이지 — 이 PC 의 보던 자리(SYNC 아님) */
 const CUR_KEY = 'utop.jira.cur'
 /* 예전 NTable 화면의 열 숨김·폭·차례 — 처음 한 번 새 양식으로 옮겨 받는다 */
 const OLD_COL_KEY = 'utop.jira.cols'
 const OLD_W_KEY = 'utop.jira.w'
 const OLD_ORD_KEY = 'utop.jira.order'
+
+/** 페이지 하나 — 볼 프로젝트 · 이슈 유형 · 이슈단계(빈 배열이면 전부) */
+interface JPage {
+  prj: string[]
+  types: string[]
+  stages: string[]
+}
+interface JTree {
+  nodes: EfNode[]
+  pages: Record<string, JPage>
+}
+const blankPage = (): JPage => ({ prj: [], types: [], stages: [] })
+/** 이 행이 페이지에 드는가 — 단계는 빼고 볼 수 있다(단계 고르개의 건수) */
+const inPage = (p: JPage, r: EfRow, noStage = false) =>
+  p.prj.includes(prjOf(r)) &&
+  (!p.types.length || p.types.includes(String(r.issuetype ?? ''))) &&
+  (noStage || !p.stages.length || p.stages.includes(String(r.stage ?? '')))
+/** 떠 있는 창의 왼쪽 — 창 폭(w)이 화면 오른쪽 끝을 넘지 않게 */
+const fitX = (left: number, w: number) => Math.max(8, Math.min(left, window.innerWidth - w - 12))
+/** 고르개 글 — 하나·둘이면 그대로, 많으면 「첫째 외 n」 */
+const chipTxt = (vs: string[], none = '전체') => (!vs.length ? none : vs.length <= 2 ? vs.join(', ') : `${vs[0]} 외 ${vs.length - 1}`)
 
 interface JiraLayout {
   order?: string[]
@@ -194,31 +220,72 @@ function prefJson<T>(key: string, dflt: T): T {
   }
 }
 
+/** 목록을 꺼낸다 — 처음이면 예전에 고른 프로젝트를 프로젝트마다 한 페이지로(고른 유형도 함께) */
+function loadTree(): JTree {
+  const t = prefJson<JTree | null>(TREE_KEY, null)
+  if (t && Array.isArray(t.nodes)) return { nodes: t.nodes, pages: t.pages ?? {} }
+  const picked = prefJson<unknown>(PRJ_KEY, [])
+  const types = prefJson<Record<string, string[]>>(TYPES_KEY, {})
+  const out: JTree = { nodes: [], pages: {} }
+  ;(Array.isArray(picked) ? (picked as string[]) : []).forEach((k) => {
+    const id = 't' + newId()
+    out.nodes.push({ id, kind: 'table', name: k, parent: null })
+    out.pages[id] = { prj: [k], types: types[k] ?? [], stages: [] }
+  })
+  if (!out.nodes.length) {
+    const id = 't' + newId()
+    out.nodes.push({ id, kind: 'table', name: '새 페이지', parent: null })
+    out.pages[id] = blankPage()
+  }
+  return out
+}
+
 export default function JiraIssues({ me }: { me?: MeUser | null }) {
   const qc = useQueryClient()
   const jbase = useJiraBase()
-  /** 고른 프로젝트 — 계정을 따라간다 */
-  const [picked, setPicked] = useState<string[]>(() => {
-    const v = prefJson<unknown>(PRJ_KEY, [])
-    return Array.isArray(v) ? (v as string[]) : []
-  })
-  useEffect(() => {
-    prefSet(PRJ_KEY, JSON.stringify(picked))
-  }, [picked])
-  /** 프로젝트마다 고른 이슈 유형(지시: 이슈 유형을 골라서 가져오기) — 보이는 것도, Sync 로 받는 것도 이것만 */
-  const [types, setTypes] = useState<Record<string, string[]>>(() => prefJson<Record<string, string[]>>(TYPES_KEY, {}))
-  useEffect(() => {
-    prefSet(TYPES_KEY, JSON.stringify(types))
-  }, [types])
-  /** 유형 고르기 창 — 어느 프로젝트의, 어디에 */
-  const [tyPop, setTyPop] = useState<{ prj: string; x: number; y: number; pick: string[] } | null>(null)
-  /** 왼쪽 목록에서 보는 프로젝트 — '' 이면 고른 것 전부 */
-  const [cur, setCur] = useState(() => prefGet(CUR_KEY) || '')
-  const pickCur = (k: string) => {
-    setCur(k)
-    prefSet(CUR_KEY, k)
+  /* 목록(폴더 ▸ 페이지) — EffortTree 가 nodes·cur 를 제자리에서 고친다. 페이지 속(고른 것)은 pagesRef */
+  const treeRef = useRef<EfDoc | null>(null)
+  const pagesRef = useRef<Record<string, JPage>>({})
+  if (!treeRef.current) {
+    const t = loadTree()
+    pagesRef.current = t.pages
+    const saved = prefGet(CUR_KEY) || ''
+    const cur0 = t.nodes.some((n) => n.id === saved && n.kind === 'table') ? saved : (t.nodes.find((n) => n.kind === 'table')?.id ?? '')
+    treeRef.current = { columns: [], pages: {}, efTree: { nodes: t.nodes, cur: cur0 } }
   }
-  const [prjOpen, setPrjOpen] = useState(false)
+  const tdoc = treeRef.current
+  const [tver, setTver] = useState(0)
+  /** 목록·페이지를 고쳤다 — 계정 설정에 적고 다시 그린다 */
+  const treeTouch = useCallback(() => {
+    const t = treeRef.current!.efTree!
+    prefSet(TREE_KEY, JSON.stringify({ nodes: t.nodes, pages: pagesRef.current }))
+    prefSet(CUR_KEY, t.cur)
+    setTver((v) => v + 1)
+  }, [])
+  /** 페이지만 옮겼다(접고 펴기 포함) — 보던 자리만 적는다 */
+  const treeRedraw = useCallback(() => {
+    prefSet(CUR_KEY, treeRef.current!.efTree!.cur)
+    setTver((v) => v + 1)
+  }, [])
+  const curId = tdoc.efTree!.cur
+  const curNode = tdoc.efTree!.nodes.find((n) => n.id === curId && n.kind === 'table')
+  const page: JPage | null = curNode ? (pagesRef.current[curId] ??= blankPage()) : null
+  const pageName = curNode?.name ?? ''
+  const prj = page?.prj ?? []
+  const setPage = (p: Partial<JPage>) => {
+    if (!curNode) return
+    pagesRef.current[curId] = { ...(page ?? blankPage()), ...p }
+    treeTouch()
+  }
+  /** 모든 페이지의 프로젝트 — 한 번에 읽어 페이지마다 가른다(목록 숫자도 이것으로) */
+  const allPrj = useMemo(
+    () => [...new Set(Object.values(pagesRef.current).flatMap((p) => p.prj))].sort(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tver],
+  )
+  /** 제목 줄 고르개 창 — 프로젝트 / 유형·단계 */
+  const [prjPop, setPrjPop] = useState<{ x: number; y: number } | null>(null)
+  const [pickPop, setPickPop] = useState<{ kind: 'type' | 'stage'; x: number; y: number; pick: string[] } | null>(null)
   const [prjQ, setPrjQ] = useState('')
   const [busy, setBusy] = useState(false)
   const [flash, setFlash] = useState('')
@@ -252,11 +319,11 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   const projects = prjQuery.data?.projects ?? []
 
   const issQuery = useQuery({
-    queryKey: ['jira-issues', picked.join(',')],
-    enabled: picked.length > 0,
+    queryKey: ['jira-issues', allPrj.join(',')],
+    enabled: allPrj.length > 0,
     queryFn: async () => {
       // 서버 기본은 2,000건에서 자른다 — 표가 200건씩 「더 보기」 로 그리므로 서버 한도(20,000)까지 받는다
-      const r = await apiFetch(`/api/jira/issues?projects=${encodeURIComponent(picked.join(','))}&limit=20000`)
+      const r = await apiFetch(`/api/jira/issues?projects=${encodeURIComponent(allPrj.join(','))}&limit=20000`)
       return (await r.json()) as {
         ok?: boolean
         rows?: Array<Record<string, string>>
@@ -327,55 +394,66 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
     )
     setVer((v) => v + 1)
   }, [baseRows, nameQuery.data])
-  /** 고른 유형에 드는 행만 — 프로젝트마다 고른 것이 없으면 전부 */
-  const typedRows = useMemo(
-    () =>
-      baseRows.filter((r) => {
-        const ts = types[prjOf(r)]
-        return !ts?.length || ts.includes(String(r.issuetype ?? ''))
-      }),
-    [baseRows, types],
+  /** 이 페이지의 행 — 프로젝트 · 유형 · 단계 */
+  const rows = useMemo(
+    () => (page ? baseRows.filter((r) => inPage(page, r)) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [baseRows, tver, curId],
   )
-  /** 프로젝트별 행 수(목록 판) */
-  const counts = useMemo(() => {
+  /** 목록 숫자 — 페이지마다 든 행 수 */
+  const pageCounts = useMemo(() => {
     const m = new Map<string, number>()
-    typedRows.forEach((r) => m.set(prjOf(r), (m.get(prjOf(r)) ?? 0) + 1))
+    Object.entries(pagesRef.current).forEach(([id, p]) => m.set(id, p.prj.length ? baseRows.filter((r) => inPage(p, r)).length : 0))
     return m
-  }, [typedRows])
-  const curOk = cur && picked.includes(cur) ? cur : ''
-  const rows = useMemo(() => (curOk ? typedRows.filter((r) => prjOf(r) === curOk) : typedRows), [typedRows, curOk])
-  /** 유형 고르기 창의 목록 — 지라가 이 프로젝트에 둔 유형(만들 수 있는 것) + 받아 둔 이슈에 있는 유형 */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseRows, tver])
+  const kit: TreeKit = {
+    noun: '페이지',
+    count: (id) => pageCounts.get(id) ?? 0,
+    make: (id, from) => {
+      const src = from ? pagesRef.current[from] : undefined
+      pagesRef.current[id] = src ? (JSON.parse(JSON.stringify(src)) as JPage) : blankPage()
+    },
+    ask: (id) => `「${tdoc.efTree!.nodes.find((n) => n.id === id)?.name ?? ''}」 페이지를 지울까요?\n\n받아 둔 이슈는 UTOP DB 에 그대로 남습니다.`,
+    drop: (id) => {
+      delete pagesRef.current[id]
+    },
+  }
+  /** 유형 고르개 목록 — 지라가 이 프로젝트들에 둔 유형(만들 수 있는 것) + 받아 둔 이슈에 있는 유형 */
   const tyQuery = useQuery({
-    queryKey: ['jira-issuetypes', tyPop?.prj ?? ''],
-    enabled: !!tyPop && tyPop.prj !== ALL_PRJ,
+    queryKey: ['jira-issuetypes', prj.join(',')],
+    enabled: pickPop?.kind === 'type' && prj.length > 0,
     staleTime: 30 * 60_000,
     queryFn: async () => {
-      const r = await apiFetch(`/api/jira/issuetypes?project=${encodeURIComponent(tyPop!.prj)}`)
-      return (await r.json()) as { ok?: boolean; issuetypes?: Array<{ name?: string; subtask?: boolean }> }
+      const got = await Promise.all(
+        prj.map(async (k) => {
+          const r = await apiFetch(`/api/jira/issuetypes?project=${encodeURIComponent(k)}`)
+          const j = (await r.json()) as { issuetypes?: Array<{ name?: string }> }
+          return (j.issuetypes ?? []).map((t) => t.name ?? '')
+        }),
+      )
+      return [...new Set(got.flat().filter(Boolean))]
     },
   })
-  const tyList = useMemo(() => {
-    if (!tyPop) return [] as Array<[string, number]>
+  /** 고르개 창 목록 — [값, 받아 둔 건수]. 단계는 고른 유형 안에서 센다 */
+  const pickList = useMemo(() => {
+    if (!pickPop || !page) return [] as Array<[string, number]>
     const n = new Map<string, number>()
-    const inPop = (r: EfRow) => (tyPop.prj === ALL_PRJ ? picked.includes(prjOf(r)) : prjOf(r) === tyPop.prj)
-    baseRows.forEach((r) => inPop(r) && n.set(String(r.issuetype ?? ''), (n.get(String(r.issuetype ?? '')) ?? 0) + 1))
-    ;(tyQuery.data?.issuetypes ?? []).forEach((t) => t.name && !n.has(t.name) && n.set(t.name, 0))
+    const key = pickPop.kind === 'type' ? 'issuetype' : 'stage'
+    const scope: JPage = pickPop.kind === 'type' ? { prj: page.prj, types: [], stages: [] } : page
+    baseRows.forEach((r) => {
+      if (!inPage(scope, r, true)) return
+      const v = String(r[key] ?? '')
+      n.set(v, (n.get(v) ?? 0) + 1)
+    })
+    if (pickPop.kind === 'type') (tyQuery.data ?? []).forEach((t) => !n.has(t) && n.set(t, 0))
     n.delete('')
     return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
-  }, [tyPop, baseRows, tyQuery.data, picked])
-  /** 제목 옆 드롭다운이 보는 프로젝트 — 하나를 보고 있으면 그것, 「전체」 면 고른 프로젝트 모두(ALL_PRJ) */
-  const tyTarget = curOk || (picked.length === 1 ? picked[0]! : ALL_PRJ)
-  /** 드롭다운 글 — 고른 유형(전체면 프로젝트마다 같을 때만 그 값) */
-  const tyNow = (() => {
-    const keys = tyTarget === ALL_PRJ ? picked : [tyTarget]
-    const sets = keys.map((k) => (types[k] ?? []).join('\u0001'))
-    if (new Set(sets).size > 1) return null // 프로젝트마다 다름
-    return types[keys[0] ?? ''] ?? []
-  })()
-  const openTypes = (prj: string, el: HTMLElement) => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickPop, baseRows, tyQuery.data, tver, curId])
+  const openPick = (kind: 'type' | 'stage', el: HTMLElement) => {
     const r = el.getBoundingClientRect()
-    const cur0 = prj === ALL_PRJ ? (tyNow ?? []) : (types[prj] ?? [])
-    setTyPop({ prj, x: r.left, y: r.bottom + 4, pick: [...cur0] })
+    setPickPop({ kind, x: fitX(r.left, 280), y: r.bottom + 4, pick: [...((kind === 'type' ? page?.types : page?.stages) ?? [])] })
   }
 
   /** 사람이 더한 지라 칸 — **온 서버에 한 벌**이다(Sync 도 한 벌이라 그렇다) */
@@ -489,14 +567,14 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   }, [])
 
   async function sync(full = false) {
-    if (!picked.length || busy) return
+    if (!page || !prj.length || busy) return
     setBusy(true)
     setFlash('')
     try {
       const r = await apiFetch('/api/jira/issues/sync', {
         method: 'POST',
-        // 고른 유형만 받는다 — 서버는 유형마다 마지막 받은 시각을 따로 둔다
-        body: JSON.stringify({ projects: picked, full, types: Object.fromEntries(picked.filter((k) => types[k]?.length).map((k) => [k, types[k]])) }),
+        // 이 페이지의 프로젝트 · 고른 유형만 받는다(지시: 필요한 것만) — 서버는 유형마다 마지막 받은 시각을 따로 둔다
+        body: JSON.stringify({ projects: prj, full, types: page.types.length ? Object.fromEntries(prj.map((k) => [k, page.types])) : {} }),
       })
       const j = (await r.json()) as {
         ok?: boolean
@@ -685,13 +763,13 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
 
   /** 더한 칸의 값을 이미 받아 둔 이슈에 채운다 */
   async function backfill() {
-    if (!picked.length || busy) return
+    if (!prj.length || busy) return
     setBusy(true)
     setFlash('● 더한 칸의 값을 지라에서 받는 중… 건수에 따라 몇 분 걸립니다')
     try {
       const r = await apiFetch('/api/jira/issues/backfill', {
         method: 'POST',
-        body: JSON.stringify({ projects: picked }),
+        body: JSON.stringify({ projects: prj }),
       })
       const j = (await r.json()) as { ok?: boolean; error?: string; filled?: number; ms?: number; message?: string }
       setFlash(
@@ -711,8 +789,10 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   }
 
   const syncMark = issQuery.data?.sync ?? {}
-  const lastAt = Object.values(syncMark)
-    .map((m) => m?.at || '')
+  // 이 페이지의 프로젝트 것만 — 표시는 「P106」·「P106::Defect」 둘 다다
+  const lastAt = Object.entries(syncMark)
+    .filter(([k]) => prj.includes(k.split('::')[0]!))
+    .map(([, m]) => m?.at || '')
     .filter(Boolean)
     .sort()
     .pop()
@@ -720,7 +800,6 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   const prjList = projects.filter(
     (p) => !prjQ.trim() || `${p.key} ${p.name}`.toLowerCase().includes(prjQ.trim().toLowerCase()),
   )
-  const prjName = (k: string) => projects.find((p) => p.key === k)?.name ?? ''
 
   /** 제목 줄 오른쪽 — 마지막 받은 때 · LLM 분류 · 전체 다시 · Sync(예전 위쪽 줄 그대로) */
   const headRight = (
@@ -767,7 +846,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
       <button
         type="button"
         className="ef-btn gh"
-        disabled={!picked.length || busy}
+        disabled={!prj.length || busy}
         title="처음부터 다시 받습니다 — 오래 걸립니다"
         onClick={() => void sync(true)}
       >
@@ -776,7 +855,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
       <button
         type="button"
         className="ef-btn"
-        disabled={!picked.length || busy}
+        disabled={!prj.length || busy}
         title="마지막으로 받은 뒤에 바뀐 것만 받습니다"
         onClick={() => void sync(false)}
       >
@@ -792,129 +871,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
       <div className="ef-layout" ref={layoutRef}>
         {!sideHide && (
           <>
-            <aside className="ef-side" style={{ flex: `0 0 ${sideW}px` }}>
-              <div className="ef-tree-hd">
-                <span>프로젝트</span>
-                {/* 프로젝트 고르기 — 245 개 중 몇 개다. 고른 것만 받고(Sync) 목록에 선다 */}
-                <span className="jri-prjwrap">
-                  <button
-                    type="button"
-                    className="ef-tadd"
-                    title="프로젝트 고르기"
-                    aria-haspopup="listbox"
-                    aria-expanded={prjOpen}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setPrjOpen((v) => !v)
-                    }}
-                  >
-                    <TI n="plus" />
-                  </button>
-                  {prjOpen && (
-                    <>
-                      <span className="jri-veil" onClick={() => setPrjOpen(false)} aria-hidden="true" />
-                      <span className="jri-prjpop" role="listbox">
-                        <input
-                          autoFocus
-                          value={prjQ}
-                          placeholder="프로젝트 키 · 이름 찾기"
-                          onChange={(e) => setPrjQ(e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <span className="jri-prjlist">
-                          {prjList.slice(0, 200).map((p) => {
-                            const on = picked.includes(p.key)
-                            return (
-                              <button
-                                key={p.key}
-                                type="button"
-                                className={on ? 'on' : ''}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setPicked((v) => (on ? v.filter((x) => x !== p.key) : [...v, p.key]))
-                                }}
-                              >
-                                <i aria-hidden="true">{on ? '✓' : ''}</i>
-                                <b>{p.key}</b>
-                                <span>{p.name}</span>
-                              </button>
-                            )
-                          })}
-                          {!prjList.length && <span className="jri-none">맞는 프로젝트가 없습니다</span>}
-                        </span>
-                        {!!picked.length && (
-                          <span className="jri-prjft">
-                            <button type="button" onClick={() => setPicked([])}>
-                              모두 해제
-                            </button>
-                          </span>
-                        )}
-                      </span>
-                    </>
-                  )}
-                </span>
-              </div>
-              <div className="ef-tree" role="tree" aria-label="프로젝트 목록">
-                {picked.length > 1 && (
-                  <div className={`ef-tn${!curOk ? ' on' : ''}`} role="treeitem" aria-selected={!curOk} onClick={() => pickCur('')}>
-                    <span className="ef-tn-tw" />
-                    <span className="ef-tn-ic">
-                      <TI n="layout-list" />
-                    </span>
-                    <span className="ef-tn-name">전체</span>
-                    <em className="ef-tn-n">{baseRows.length}</em>
-                  </div>
-                )}
-                {picked.map((k) => (
-                  <div
-                    key={k}
-                    className={`ef-tn${curOk === k || (picked.length === 1 && !curOk) ? ' on' : ''}`}
-                    role="treeitem"
-                    aria-selected={curOk === k}
-                    title={prjName(k)}
-                    onClick={() => pickCur(k)}
-                  >
-                    <span className="ef-tn-tw" />
-                    <span className="ef-tn-ic">
-                      <TI n="table" />
-                    </span>
-                    <span className="ef-tn-name">{k}</span>
-                    <em className="ef-tn-n">{counts.get(k) ?? 0}</em>
-                    <button
-                      type="button"
-                      className="jri-prm"
-                      title="목록에서 빼기(받아 둔 이슈는 DB 에 그대로)"
-                      aria-label={`${k} 빼기`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPicked((v) => v.filter((x) => x !== k))
-                        if (curOk === k) pickCur('')
-                      }}
-                    >
-                      <TI n="x" />
-                    </button>
-                  </div>
-                )).flatMap((node, i) => {
-                  // 프로젝트 아래 한 줄 — 고른 이슈 유형(누르면 고르기 창)
-                  const k = picked[i]!
-                  const ts = types[k] ?? []
-                  return [
-                    node,
-                    <button
-                      key={k + '-ty'}
-                      type="button"
-                      className={`jri-tyrow${ts.length ? ' on' : ''}`}
-                      title="이 프로젝트에서 보고 받아 올 이슈 유형 고르기"
-                      onClick={(e) => openTypes(k, e.currentTarget)}
-                    >
-                      <TI n="filter" />
-                      <span>유형: {ts.length ? (ts.length === 1 ? ts[0] : `${ts[0]} 외 ${ts.length - 1}`) : '전체'}</span>
-                    </button>,
-                  ]
-                })}
-                {!picked.length && <div className="jri-side-empty">「＋」 로 볼 프로젝트를 고르세요</div>}
-              </div>
-            </aside>
+            <EffortTree root={tdoc} touch={treeTouch} redraw={treeRedraw} toast={toast} width={sideW} kit={kit} />
             <Resizer
               label="목록 폭 조절"
               onResize={setSideW}
@@ -923,7 +880,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
           </>
         )}
         <EffortBody
-          key={curOk || 'all'}
+          key={curId || 'none'}
           d={doc}
           name=""
           path={[]}
@@ -938,27 +895,51 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
           host={{
             title: (
               <>
-                <b>Jira Issue</b>
-                <span className="ef-head-sep">·</span>
-                <span className="ef-head-name" title={curOk ? prjName(curOk) : picked.join(', ')}>
-                  {curOk || (picked.length ? (picked.length === 1 ? picked[0] : `전체 ${picked.length}개`) : '프로젝트를 고르세요')}
-                </span>
-                {/* 이슈 유형 드롭다운(지시: 제목 옆) — 왼쪽 「유형」 줄과 같은 고르기 창. 전체를 보고 있으면 고른 프로젝트 모두에 */}
-                {picked.length > 0 && (
-                  <button
-                    type="button"
-                    className={`jri-tysel${tyNow?.length || tyNow === null ? ' on' : ''}`}
-                    aria-haspopup="dialog"
-                    title="보고 받아 올 이슈 유형 고르기"
-                    onClick={(e) => openTypes(tyTarget, e.currentTarget)}
-                  >
-                    <TI n="filter" />
-                    <span className="jri-tysel-l">이슈 유형</span>
-                    <span className="jri-tysel-v">
-                      {tyNow === null ? '프로젝트마다 다름' : !tyNow.length ? '전체' : tyNow.length <= 2 ? tyNow.join(', ') : `${tyNow[0]} 외 ${tyNow.length - 1}`}
-                    </span>
-                    <TI n="chevron-down" />
-                  </button>
+                {/* 고르개 셋(지시: 제목 자리에 프로젝트 · 유형 옆에 이슈단계) — 이 페이지가 볼 것 */}
+                <button
+                  type="button"
+                  className={`jri-tysel jri-prjsel${prj.length ? ' on' : ''}`}
+                  aria-haspopup="listbox"
+                  title={page ? '이 페이지에서 볼 프로젝트 고르기' : '왼쪽 「＋」 로 페이지를 먼저 만드세요'}
+                  disabled={!page}
+                  onClick={(e) => {
+                    const r = e.currentTarget.getBoundingClientRect()
+                    setPrjQ('')
+                    setPrjPop({ x: fitX(r.left, 340), y: r.bottom + 4 })
+                  }}
+                >
+                  <TI n="table" />
+                  <span className="jri-tysel-l">프로젝트</span>
+                  <span className="jri-tysel-v">{chipTxt(prj, '고르세요')}</span>
+                  <TI n="chevron-down" />
+                </button>
+                {prj.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      className={`jri-tysel${page?.types.length ? ' on' : ''}`}
+                      aria-haspopup="dialog"
+                      title="보고 받아 올 이슈 유형 고르기 — Sync 도 이것만 받습니다"
+                      onClick={(e) => openPick('type', e.currentTarget)}
+                    >
+                      <TI n="filter" />
+                      <span className="jri-tysel-l">이슈 유형</span>
+                      <span className="jri-tysel-v">{chipTxt(page?.types ?? [])}</span>
+                      <TI n="chevron-down" />
+                    </button>
+                    <button
+                      type="button"
+                      className={`jri-tysel${page?.stages.length ? ' on' : ''}`}
+                      aria-haspopup="dialog"
+                      title="볼 이슈단계 고르기 — 보기만 거릅니다(Sync 는 프로젝트·유형으로)"
+                      onClick={(e) => openPick('stage', e.currentTarget)}
+                    >
+                      <TI n="filter" />
+                      <span className="jri-tysel-l">이슈단계</span>
+                      <span className="jri-tysel-v">{chipTxt(page?.stages ?? [])}</span>
+                      <TI n="chevron-down" />
+                    </button>
+                  </>
                 )}
                 {issQuery.isLoading && <span className="jri-last">읽는 중…</span>}
               </>
@@ -978,7 +959,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
               </button>
             ),
             viewTypes: ['table', 'chart'],
-            csvName: `Jira_${curOk || picked.join('_') || 'issues'}.csv`,
+            csvName: `Jira_${pageName || prj.join('_') || 'issues'}.csv`,
             onOpen,
             onPut,
             onCheck,
@@ -988,23 +969,73 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
         />
       </div>
 
-      {/* 이슈 유형 고르기 — 고른 유형만 보이고, Sync 도 그것만 받는다(지시). 하나도 안 고르면 전부 */}
-      {tyPop && (
+      {/* 프로젝트 고르기 — 245 개 중 몇 개다. 고른 것만 이 페이지에 보이고 Sync 로 받는다 */}
+      {prjPop && page && (
         <>
-          <span className="jri-veil" onClick={() => setTyPop(null)} aria-hidden="true" />
-          <div className="jri-typop" style={{ left: tyPop.x, top: tyPop.y }} role="dialog" aria-label={`${tyPop.prj} 이슈 유형`}>
-            <b>{tyPop.prj === ALL_PRJ ? `고른 프로젝트 ${picked.length}개` : tyPop.prj} · 이슈 유형</b>
-            <span className="jri-tyhint">고른 유형만 보이고, Sync 도 그것만 받습니다</span>
+          <span className="jri-veil" onClick={() => setPrjPop(null)} aria-hidden="true" />
+          <span className="jri-prjpop fx" role="listbox" style={{ left: prjPop.x, top: prjPop.y }}>
+            <input autoFocus value={prjQ} placeholder="프로젝트 키 · 이름 찾기" onChange={(e) => setPrjQ(e.target.value)} />
+            <span className="jri-prjlist">
+              {prjList.slice(0, 200).map((p) => {
+                const on = prj.includes(p.key)
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    className={on ? 'on' : ''}
+                    onClick={() => setPage({ prj: on ? prj.filter((x) => x !== p.key) : [...prj, p.key] })}
+                  >
+                    <i aria-hidden="true">{on ? '✓' : ''}</i>
+                    <b>{p.key}</b>
+                    <span>{p.name}</span>
+                  </button>
+                )
+              })}
+              {prjQuery.isLoading && <span className="jri-none">지라에서 프로젝트를 읽는 중…</span>}
+              {!prjQuery.isLoading && !prjList.length && <span className="jri-none">맞는 프로젝트가 없습니다</span>}
+            </span>
+            {!!prj.length && (
+              <span className="jri-prjft">
+                <button type="button" onClick={() => setPage({ prj: [] })}>
+                  모두 해제
+                </button>
+              </span>
+            )}
+          </span>
+        </>
+      )}
+
+      {/* 이슈 유형 · 이슈단계 고르기 — 유형은 보기와 Sync 둘 다, 단계는 보기만. 하나도 안 고르면 전부 */}
+      {pickPop && page && (
+        <>
+          <span className="jri-veil" onClick={() => setPickPop(null)} aria-hidden="true" />
+          <div
+            className="jri-typop"
+            style={{ left: pickPop.x, top: pickPop.y }}
+            role="dialog"
+            aria-label={pickPop.kind === 'type' ? '이슈 유형' : '이슈단계'}
+          >
+            <b>
+              {chipTxt(prj)} · {pickPop.kind === 'type' ? '이슈 유형' : '이슈단계'}
+            </b>
+            <span className="jri-tyhint">
+              {pickPop.kind === 'type'
+                ? '고른 유형만 보이고, Sync 도 그것만 받습니다'
+                : '고른 단계만 보입니다 — 단계는 이슈가 진행하며 바뀌어 Sync 는 거르지 않습니다'}
+            </span>
             <div className="jri-tylist">
-              {tyQuery.isLoading && !tyList.length && <span className="jri-none">지라에서 유형을 읽는 중…</span>}
-              {tyList.map(([t, n]) => {
-                const on = tyPop.pick.includes(t)
+              {pickPop.kind === 'type' && tyQuery.isLoading && !pickList.length && (
+                <span className="jri-none">지라에서 유형을 읽는 중…</span>
+              )}
+              {pickPop.kind === 'stage' && !pickList.length && <span className="jri-none">받아 둔 이슈에 이슈단계 값이 없습니다</span>}
+              {pickList.map(([t, n]) => {
+                const on = pickPop.pick.includes(t)
                 return (
                   <label key={t} className={on ? 'on' : ''}>
                     <input
                       type="checkbox"
                       checked={on}
-                      onChange={() => setTyPop({ ...tyPop, pick: on ? tyPop.pick.filter((x) => x !== t) : [...tyPop.pick, t] })}
+                      onChange={() => setPickPop({ ...pickPop, pick: on ? pickPop.pick.filter((x) => x !== t) : [...pickPop.pick, t] })}
                     />
                     <span>{t}</span>
                     <em>{n ? `${n}건` : '아직 안 받음'}</em>
@@ -1013,7 +1044,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
               })}
             </div>
             <div className="jri-tyft">
-              <button type="button" className="btn small" onClick={() => setTyPop({ ...tyPop, pick: [] })}>
+              <button type="button" className="btn small" onClick={() => setPickPop({ ...pickPop, pick: [] })}>
                 전체로
               </button>
               <span className="sp" />
@@ -1021,24 +1052,18 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
                 type="button"
                 className="btn small primary"
                 onClick={() => {
-                  const k = tyPop.prj
-                  const pick = tyPop.pick
-                  // 「전체」 에서 고르면 고른 프로젝트 모두에 같은 유형
-                  const keys = k === ALL_PRJ ? picked : [k]
-                  setTypes((m) => {
-                    const n = { ...m }
-                    keys.forEach((x) => {
-                      if (pick.length) n[x] = pick
-                      else delete n[x]
-                    })
-                    return n
-                  })
-                  setTyPop(null)
-                  const notYet = pick.filter((t) => !baseRows.some((r) => keys.includes(prjOf(r)) && String(r.issuetype ?? '') === t))
+                  const { kind, pick } = pickPop
+                  setPickPop(null)
+                  if (kind === 'stage') {
+                    setPage({ stages: pick })
+                    return
+                  }
+                  setPage({ types: pick })
+                  const notYet = pick.filter((t) => !baseRows.some((r) => prj.includes(prjOf(r)) && String(r.issuetype ?? '') === t))
                   setFlash(
                     notYet.length
-                      ? `${keys.join(', ')} — ${notYet.join(', ')} 은(는) 아직 받지 않았습니다. 위의 Sync 를 누르면 받아 옵니다`
-                      : `${keys.join(', ')} — ${pick.length ? pick.join(', ') + ' 만' : '모든 유형을'} 보고 받아 옵니다`,
+                      ? `${notYet.join(', ')} 은(는) 아직 받지 않았습니다. 위의 Sync 를 누르면 받아 옵니다`
+                      : `${pick.length ? pick.join(', ') + ' 만' : '모든 유형을'} 보고 받아 옵니다`,
                   )
                   window.setTimeout(() => setFlash(''), 6000)
                 }}
@@ -1105,7 +1130,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
               <button
                 type="button"
                 className="btn small"
-                disabled={!extras.length || !picked.length || busy}
+                disabled={!extras.length || !prj.length || busy}
                 title="더한 칸의 값을 이미 받아 둔 이슈에 채웁니다"
                 onClick={() => void backfill()}
               >
