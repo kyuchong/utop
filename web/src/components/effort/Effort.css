@@ -370,6 +370,8 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
 .ef-t tfoot td.ef-rh { z-index: 4; background: #fafbfd; }
 .ef-t tfoot b { color: #2d6fd4; font-weight: 800; margin-left: 3px; }
 .ef-flbl { font-weight: 700; }
+/* 유형별 통계 칸 — 값이 길면(최다 「2.개선-13.상시망 결합 검증」) 말줄임, 전체는 올리면 */
+.ef-t tfoot td.ef-fst { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ef-none { height: 120px; color: var(--c-text-faint); font-size: 12px; }
 /* 표가 넓어도 화면 왼쪽에 보이게(가운데 정렬이면 오른쪽 끝에 숨는다) */
 .ef-none-msg { position: sticky; left: 64px; }

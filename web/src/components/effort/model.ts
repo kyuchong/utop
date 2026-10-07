@@ -689,3 +689,86 @@ export function condMatch(r: EfRow, f: EfCond, _c?: EfColumn): boolean {
 }
 /** 옵션 칩 입력칸 너비(글자 칸 수) — 한글은 두 칸으로 센다(예전 _rscBetaChipSize) */
 export const chipSize = (v: string) => Math.max(2, [...String(v)].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? 2 : 1), 0) + 1)
+
+// ── 하단 통계 줄 — 숫자 열(합계) 말고 유형마다 그 열에 맞는 값 하나(지시: 입력됨 말고 열에 맞는 통계) ──
+export interface FootStat {
+  lbl: string
+  val: string
+  /** 마우스를 올리면 보일 자세한 값(상위 3개 분포 · 전체 날짜) */
+  tip?: string
+  /** 좁은 열에서 이름표·값 대신 보일 짧은 글(최다 → 그 값만) */
+  short?: string
+}
+/** 값별 개수 — 많은 순, 같으면 이름 순 */
+function tally(vals: string[]): Array<[string, number]> {
+  const m = new Map<string, number>()
+  vals.forEach((v) => m.set(v, (m.get(v) ?? 0) + 1))
+  return [...m].sort((a, b) => b[1] - a[1] || natural(a[0], b[0]))
+}
+const top3 = (t: Array<[string, number]>) => t.slice(0, 3).map(([v, n]) => `${v} ${n}`).join(' · ')
+const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0)
+/** 날짜 범위 — 모두 같은 해면 MM-DD, 아니면 YY-MM-DD */
+function dateSpan(ds: string[]): FootStat | null {
+  if (!ds.length) return null
+  const s = [...ds].sort()
+  const a = s[0]!
+  const b = s[s.length - 1]!
+  const short = (d: string) => (a.slice(0, 4) === b.slice(0, 4) ? d.slice(5) : d.slice(2))
+  return { lbl: '범위', val: a === b ? short(a) : `${short(a)} ~ ${short(b)}`, tip: `${a} ~ ${b}` }
+}
+export function footStat(c: EfColumn, rows: EfRow[], cols: EfColumn[], today = new Date()): FootStat {
+  const txt = (r: EfRow) => (r[c.id] == null ? '' : String(r[c.id]).trim())
+  const vals = rows.map(txt).filter(Boolean)
+  const filled: FootStat = { lbl: '입력됨', val: String(vals.length) }
+  const most = (vs: string[]): FootStat => {
+    const t = tally(vs)
+    return t.length ? { lbl: '최다', val: `${t[0]![0]} ${t[0]![1]}`, tip: top3(t), short: t[0]![0] } : { lbl: '최다', val: '—' }
+  }
+  // 인원 — 사람 유형이거나 이름이 「인원」인 글 열(열 id 로 정하지 않는다)
+  if (c.type === 'person' || (c.type === 'text' && c.title.trim() === '인원')) {
+    const t = tally(vals)
+    return { lbl: '인원', val: String(t.length), tip: top3(t) || undefined }
+  }
+  switch (c.type) {
+    case 'text': {
+      const t = tally(vals)
+      return { lbl: '종류', val: String(t.length), tip: top3(t) || undefined }
+    }
+    case 'select':
+      return most(vals)
+    case 'multiselect':
+      return most(vals.flatMap((v) => v.split(',').map((x) => x.trim()).filter(Boolean)))
+    case 'status': {
+      // 옵션 맨 끝 단계를 「완료」로 본다(지시) — 옵션이 없으면 선택처럼 최다
+      const last = c.options?.[c.options.length - 1]
+      if (!last) return most(vals)
+      const done = vals.filter((v) => v === last).length
+      return { lbl: last, val: `${done}/${rows.length} (${pct(done, rows.length)}%)`, tip: top3(tally(vals)) || undefined }
+    }
+    case 'checkbox': {
+      const n = rows.filter((r) => truthy(r[c.id])).length
+      return { lbl: '체크', val: `${n}/${rows.length} (${pct(n, rows.length)}%)` }
+    }
+    case 'date':
+      return dateSpan(rows.map((r) => normDate(r[c.id])).filter((d): d is string => !!d)) ?? { lbl: '범위', val: '—' }
+    case 'daterange': {
+      const ds: string[] = []
+      rows.forEach((r) => {
+        const p = parseRange(r[c.id])
+        const s = normDate(p.s)
+        const e = normDate(p.e || p.s)
+        if (s) ds.push(s)
+        if (e) ds.push(e)
+      })
+      return dateSpan(ds) ?? { lbl: '범위', val: '—' }
+    }
+    case 'datediff': {
+      const ds = rows.map((r) => dayLeft(r, rowSrcOf(r, cols, c), today)).filter((d): d is number => d != null)
+      if (!ds.length) return { lbl: '최소', val: '—' }
+      const m = Math.min(...ds)
+      return { lbl: '최소', val: m < 0 ? `${-m}일 지남` : `${m}일` }
+    }
+    default:
+      return filled
+  }
+}

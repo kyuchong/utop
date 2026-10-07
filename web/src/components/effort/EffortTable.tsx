@@ -41,6 +41,7 @@ import {
   condMatch,
   dayDiff,
   dayLeft,
+  footStat,
   defaultGroup,
   diffSrcOf,
   rowSrcOf,
@@ -1298,29 +1299,21 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                     </td>
                   )
                 }
-                // 그 밖의 유형도 비우지 않는다(지적: 통계가 안 나오는 열) — 유형마다 하나씩 정해 둔 값
-                const stat = (lbl: string, v: ReactNode) => (
-                  <td key={c.id}>
-                    <span className="ef-flbl">{lbl}</span> <b>{v}</b>
+                // 그 밖의 유형은 그 열에 맞는 값 하나(지시) — 최다·종류·범위·완료 비율… 규칙은 model.footStat 한 곳
+                const f = footStat(c, shown, cols)
+                // 좁은 열(부서·직급…)의 최다는 그 값만 — 「최다 검증3…」 처럼 잘렸다. 이름표·개수·분포는 올리면 보인다
+                const slim = f.short && (table.getColumn(c.id)?.getSize() ?? 999) < 110
+                return (
+                  <td key={c.id} className="ef-fst" title={`${f.lbl} — ${f.tip ?? f.val}`}>
+                    {slim ? (
+                      <b>{f.short}</b>
+                    ) : (
+                      <>
+                        <span className="ef-flbl">{f.lbl}</span> <b>{f.val}</b>
+                      </>
+                    )}
                   </td>
                 )
-                if (c.type === 'checkbox') return stat('체크', `${shown.filter((r) => truthy(r[c.id])).length}/${shown.length}`)
-                if (c.type === 'datediff') {
-                  const ds = shown.map((r) => dayLeft(r, rowSrcOf(r, cols, c))).filter((d): d is number => d != null)
-                  if (ds.length) {
-                    const m = Math.min(...ds)
-                    return stat('최소', m < 0 ? `${-m}일 지남` : `${m}일`)
-                  }
-                }
-                // 인원 — 열 id 가 아니라 보이는 것(사람 유형이거나 이름이 「인원」)으로 정한다(지적: 인원이 아닌 열에 인원이 나온다).
-                // 새 표의 앞 두 열이 예전 표와 같은 id(name·dept)로 만들어져, 이름을 바꿔도 인원·개수가 붙어 다녔다
-                if (c.type === 'person' || (c.type === 'text' && c.title.trim() === '인원'))
-                  return stat('인원', new Set(shown.map((r) => cellText(r[c.id]).trim()).filter(Boolean)).size)
-                const filled = (r: EfRow) => {
-                  const v = c.type === 'datediff' ? dayLeft(r, rowSrcOf(r, cols, c)) : r[c.id]
-                  return Array.isArray(v) ? v.length > 0 : cellText(v).trim() !== ''
-                }
-                return stat('입력됨', shown.filter(filled).length)
               })}
             </tr>
           </tfoot>
