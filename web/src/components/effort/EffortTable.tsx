@@ -22,6 +22,7 @@ import { useMeName } from '@/components/ntable/useAdmin'
 import { useUserPeople } from '@/pages/qaBits'
 import { Chip, CtxMenu, DatePicker, HeadMenu, MultiPicker, RangePicker, SelectPicker, type HeadOps } from './EffortMenus'
 import { TI } from './icons'
+import { CALC_NAME, calc, calcOf, calcsFor, type CalcKey } from './calc'
 import {
   autoOptions,
   autoColor,
@@ -250,6 +251,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [menu, setMenu] = useState<{ anchor: HTMLElement; colId: string } | null>(null)
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; src: EfRow } | null>(null)
   const [colMenu, setColMenu] = useState<{ x: number; y: number; colId: string } | null>(null)
+  const [calcMenu, setCalcMenu] = useState<{ x: number; y: number; colId: string } | null>(null)
   /** 체크한 행(예전 _rscSelSet) — 행 객체로 들고 있다. 연도·표가 바뀌면(rows 가 다른 배열) 비운다 */
   const [checked, setChecked] = useState<Set<EfRow>>(() => new Set())
   const [ckOf, setCkOf] = useState(rows)
@@ -957,24 +959,30 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   }
 
   // 그룹 소계 — 그룹 맨 아래 한 줄. 값은 TanStack 이 aggregationFn(sum)으로 모은 것
-  const subRow = (g: Row<EfRow>) => (
-    <tr key={'sum-' + g.id} className="ef-rsum">
-      <td className="ef-rh" />
-      {ordered.map((c) => {
-        if (!isNumCol(c)) return <td key={c.id} />
-        const v = Number(g.getValue(c.id))
-        return (
-          <td key={c.id} className="ef-n">
-            {v ? (
-              <span className="ef-tot">
-                합계<b>{numFmt(v)}</b>
-              </span>
-            ) : null}
-          </td>
-        )
-      })}
-    </tr>
-  )
+  // 그룹 소계 — 그룹 맨 아래 한 줄. 바닥줄과 같은 계산(열마다 고른 것)을 그 그룹 행들로. 묶은 열은 비운다
+  const subRow = (g: Row<EfRow>) => {
+    const leafs = g.getLeafRows().filter((r) => !r.getIsGrouped()).map((r) => r.original)
+    const gid = table.getState().grouping[0]
+    return (
+      <tr key={'sum-' + g.id} className="ef-rsum">
+        <td className="ef-rh" />
+        {ordered.map((c) => {
+          const k = calcOf(c, ctx.st.calc)
+          const t = c.id === gid ? '' : calc(k, c, leafs, cols)
+          return (
+            <td key={c.id} className={isNumCol(c) || c.type === 'datediff' ? 'ef-n' : ''}>
+              {t ? (
+                <span className="ef-tot">
+                  {CALC_NAME[k]}
+                  <b>{t}</b>
+                </span>
+              ) : null}
+            </td>
+          )
+        })}
+      </tr>
+    )
+  }
 
   // ★ 열 너비를 끄는 동안은 머리글 너비만 바뀐다 — 본문(363행 × 19칸)을 매번 새로 그리면 한 번 움직일 때
   //   0.3초씩 걸려 끊겼다. 끄는 동안은 직전에 그린 본문을 그대로 쓴다(같은 요소면 React 가 건너뛴다).
@@ -1025,34 +1033,30 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           <tfoot>
             <tr>
               <td className="ef-rh" />
+              {/* 계산 줄(노션 Calculate) — 칸을 누르면 그 열의 계산을 고른다(지시) */}
               {ordered.map((c) => {
-                if (isNumCol(c)) {
-                  const s = shown.reduce((a, r) => a + (toNum(r[c.id]) ?? 0), 0)
-                  return (
-                    <td key={c.id} className="ef-n">
-                      {s ? (
-                        <span className="ef-tot">
-                          합계<b>{numFmt(Math.round(s * 1e4) / 1e4)}</b>
-                        </span>
-                      ) : null}
-                    </td>
-                  )
-                }
-                if (c.id === 'name')
-                  return (
-                    <td key={c.id}>
-                      <span className="ef-flbl">인원</span>
-                      <b>{new Set(shown.map((r) => cellText(r[c.id])).filter(Boolean)).size}</b>
-                    </td>
-                  )
-                if (c.id === 'dept')
-                  return (
-                    <td key={c.id}>
-                      <span className="ef-flbl">개수</span>
-                      <b>{shown.length}</b>
-                    </td>
-                  )
-                return <td key={c.id} />
+                const k = calcOf(c, ctx.st.calc)
+                const t = calc(k, c, shown, cols)
+                return (
+                  <td
+                    key={c.id}
+                    className={`ef-fcalc${isNumCol(c) || c.type === 'datediff' ? ' ef-n' : ''}`}
+                    title="눌러서 계산 고르기"
+                    onClick={(e) => {
+                      const b = e.currentTarget.getBoundingClientRect()
+                      setCalcMenu({ x: b.left, y: b.top, colId: c.id })
+                    }}
+                  >
+                    {t ? (
+                      <>
+                        <span className="ef-flbl">{CALC_NAME[k]}</span>
+                        <b>{t}</b>
+                      </>
+                    ) : (
+                      <span className="ef-fhint">계산 ▾</span>
+                    )}
+                  </td>
+                )
               })}
             </tr>
           </tfoot>
@@ -1153,7 +1157,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         {painted}
       </table>
       <div className="ef-hint">
-        <b>머리글 클릭=메뉴</b>(유형·필터·수식·정렬) · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
+        <b>머리글 클릭=메뉴</b>(유형·필터·정렬) · <b>바닥줄 클릭=계산 고르기</b> · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
         <b>셀 두 번 클릭·Enter·F2·바로 입력=수정</b> · 방향키=이동 · Shift+Enter=줄 바꿈 · <b>머리글 우클릭=열 추가·복제</b> · <b>행 우클릭=행 추가·복제·삭제</b>
       </div>
 
@@ -1263,6 +1267,23 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           ]}
         />
       )}
+      {calcMenu && (() => {
+        // 계산 고르기 — 세기 · 숫자 · 체크 · 날짜 묶음, 지금 것에 ✓. 바닥줄 위로 연다
+        const c = cols.find((x) => x.id === calcMenu.colId)
+        if (!c) return null
+        const cur = calcOf(c, ctx.st.calc)
+        const ic = (k: CalcKey) =>
+          k === cur ? 'check' : k === 'none' ? 'x' : ['sum', 'avg', 'median', 'min', 'max', 'range'].includes(k) ? 'sum' : ['checked', 'unchecked', 'pctChecked'].includes(k) ? 'checkbox' : ['earliest', 'latest', 'dateRange'].includes(k) ? 'calendar' : 'hash'
+        const items = calcsFor(c).flatMap((grp, gi) =>
+          grp.map((k, i) => ({
+            ic: ic(k),
+            label: CALC_NAME[k],
+            sep: gi > 0 && i === 0,
+            on: () => ctx.setSt({ calc: { ...(ctx.st.calc ?? {}), [c.id]: k } }),
+          })),
+        )
+        return <CtxMenu at={{ x: calcMenu.x, y: Math.max(8, calcMenu.y - 8 - items.length * 26) }} items={items} onClose={() => setCalcMenu(null)} />
+      })()}
       {colMenu && (() => {
         const c = cols.find((x) => x.id === colMenu.colId)
         if (!c) return null
