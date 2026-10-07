@@ -21,6 +21,9 @@ import {
   defaultGroup,
   downloadCsv,
   ensureViews,
+  applyNav,
+  navOf,
+  type EfNav,
   hasOptions,
   isNumCol,
   newId,
@@ -48,6 +51,8 @@ import '@/components/effort/Effort.css'
  */
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
+/** 이 PC 의 보던 자리(항해 상태 — 계정 동기화 목록 SYNC 에 넣지 않는다) */
+const NAV_KEY = 'utop.ef.nav'
 
 export default function EffortPlan() {
   const docRef = useRef<EfDoc | null>(null)
@@ -76,6 +81,12 @@ export default function EffortPlan() {
         if (off) return
         const d = normalize(raw)
         ensureViews(d)
+        // 이 PC 에서 마지막으로 보던 표·보기·연도로(옮기기는 서버에 저장하지 않는다)
+        try {
+          applyNav(d, JSON.parse(prefGet(NAV_KEY) || 'null') as EfNav | null)
+        } catch {
+          /* 깨진 값이면 서버 문서 그대로 */
+        }
         docRef.current = d
         setVer((v) => v + 1)
       })
@@ -124,6 +135,11 @@ export default function EffortPlan() {
       if (timer.current !== undefined) void flush()
     }
   }, [flush])
+
+  // 보던 자리를 그릴 때마다 적어 둔다 — 보기 탭·표·연도를 옮겨도(저장 없이 다시 그리기만) 새로고침 뒤 그 자리로
+  useEffect(() => {
+    if (docRef.current) prefSet(NAV_KEY, JSON.stringify(navOf(docRef.current)))
+  }, [ver])
 
   const toast = useCallback((m: string) => {
     setMsg(m)

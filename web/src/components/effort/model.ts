@@ -159,6 +159,31 @@ export function normalize(raw: unknown): EfDoc {
 }
 /** 표 id → 표 문서(첫 표는 맨 위 문서 자신) */
 export const tableOf = (root: EfDoc, id: string): EfDoc => (id === MAIN ? root : (root.efTables?.[id] ?? root))
+/**
+ * 보던 자리(지적: 새로고침하면 마지막 보던 화면이 아니다) — 지금 표 · 표마다 보던 보기와 연도.
+ * 옮겨 다니는 것은 서버에 저장하지 않으므로(보기·표·연도 옮기기) 이 PC 화면 설정에 따로 둔다
+ */
+export interface EfNav {
+  cur?: string
+  t?: Record<string, { v?: string; y?: string }>
+}
+export function navOf(root: EfDoc): EfNav {
+  const t: NonNullable<EfNav['t']> = { [MAIN]: { v: root.curBetaView, y: root.curPage } }
+  Object.entries(root.efTables ?? {}).forEach(([id, d]) => (t[id] = { v: d.curBetaView, y: d.curPage }))
+  return { cur: root.efTree?.cur, t }
+}
+/** 보던 자리를 문서에 되살린다 — 없어진 표·보기·연도는 건너뛴다 */
+export function applyNav(root: EfDoc, nav: EfNav | null | undefined) {
+  if (!nav || typeof nav !== 'object') return
+  const tree = root.efTree
+  if (tree && nav.cur && tree.nodes.some((n) => n.id === nav.cur && n.kind === 'table')) tree.cur = nav.cur
+  Object.entries(nav.t ?? {}).forEach(([id, p]) => {
+    const d = id === MAIN ? root : root.efTables?.[id]
+    if (!d || !p) return
+    if (p.v && (d.betaViews ?? []).some((v) => v.id === p.v)) d.curBetaView = p.v
+    if (p.y && d.pages?.[p.y]) d.curPage = p.y
+  })
+}
 /** 표의 행 수(지금 연도) */
 export const tableRows = (t: EfDoc) => t.pages[t.curPage ?? '']?.rows.length ?? 0
 /**

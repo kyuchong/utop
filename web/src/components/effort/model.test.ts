@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN, filterSeed, newTable, optionsOf, ROW_ID, calcFormula, formulaText, isNumCol, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn } from './model'
+import { MAIN, applyNav, navOf, filterSeed, newTable, optionsOf, ROW_ID, calcFormula, formulaText, isNumCol, chipStyle, cloneRow, fxKey, recalcFx, rowId, dayDiff, dayLeft, rowSrcOf, srcKey, normDate, normRange, truthy, condMatch, condOps, defaultGroup, ensureViews, missingOptions, normalize, recalcAuto, tableOf, viewState, type EfColumn, type EfDoc } from './model'
 
 describe('Effort Plan 자료', () => {
   it('비어 있으면 올해 페이지와 기본 열을 세운다', () => {
@@ -298,5 +298,24 @@ describe('filterSeed — 필터 중 새 행에 미리 넣을 값', () => {
         { id: 'd', value: [undefined, 5] },
       ]),
     ).toEqual({ a: '1', b: 'PA1', c: 'kt', d: 5 })
+  })
+})
+
+describe('보던 자리 — navOf / applyNav', () => {
+  it('지금 표·표마다 보기·연도를 적고, 없어진 것은 건너뛰며 되살린다', () => {
+    const root = normalize({}) as EfDoc
+    ensureViews(root)
+    const v0 = root.betaViews![0]!.id
+    root.betaViews!.push({ id: 'v2', name: '차트', type: 'chart' })
+    root.curBetaView = 'v2'
+    const nav = navOf(root)
+    expect(nav.t?.[MAIN]?.v).toBe('v2')
+    root.curBetaView = v0
+    applyNav(root, nav)
+    expect(root.curBetaView).toBe('v2')
+    applyNav(root, { cur: 'nope', t: { [MAIN]: { v: 'gone', y: '1999' } } })
+    expect(root.curBetaView).toBe('v2')
+    expect(root.efTree?.cur).toBe(MAIN)
+    applyNav(root, null)
   })
 })
