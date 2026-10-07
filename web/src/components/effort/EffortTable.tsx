@@ -837,7 +837,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       const was = rows.indexOf(r)
       placeRow(rows, r, others.map((x) => x.row), ti)
       if (rows.indexOf(r) === was) return
-      pickAfter.current = r
+      pickAfter.current = { r }
       touch()
     }
     document.addEventListener('mousemove', mv, true)
@@ -858,19 +858,37 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     if (!g) return
     let at = -1
     rows.forEach((r, i) => cellText(r[g]) === v && (at = i))
-    rows.splice(at < 0 ? rows.length : at + 1, 0, v ? { [g]: v } : {})
-    setSel(null)
+    const nr: EfRow = v ? { [g]: v } : {}
+    rows.splice(at < 0 ? rows.length : at + 1, 0, nr)
+    pickAfter.current = { r: nr, cell: true }
     touch()
-    toast(`「${v || '(빈값)'}」 그룹에 행 추가됨`)
+  }
+  /**
+   * 표 맨 아래 「+ 새로 만들기」(지시: 노션처럼) — 맨 끝에 빈 행, 그 첫 칸을 골라 둬 바로 칠 수 있게.
+   * 검색·필터에 걸려 안 보일 수 있으면 알린다
+   */
+  const addAtEnd = () => {
+    const nr: EfRow = {}
+    rows.push(nr)
+    pickAfter.current = { r: nr, cell: true }
+    touch()
+    if (ctx.st.q.trim() || (ctx.st.conds ?? []).length || table.getState().columnFilters.length)
+      toast('행을 추가했습니다 — 검색·필터 때문에 안 보일 수 있습니다')
   }
   /** 옮긴 행 — 다시 그린 뒤 그 행을 골라 둔다(어디로 갔는지 보이게) */
-  const pickAfter = useRef<EfRow | null>(null)
+  //   cell = 새로 만든 행 — 행 통째가 아니라 첫 칸을 고르고 보이게 굴린다(바로 쳐서 넣게)
+  const pickAfter = useRef<{ r: EfRow; cell?: boolean } | null>(null)
   useEffect(() => {
-    const r = pickAfter.current
-    if (!r) return
+    const p = pickAfter.current
+    if (!p) return
     pickAfter.current = null
-    const n = leafRef.current.indexOf(r)
-    if (n > 0) setSel({ r1: n, c1: 0, r2: n, c2: ordered.length - 1 })
+    const n = leafRef.current.indexOf(p.r)
+    if (n <= 0) return
+    setSel({ r1: n, c1: 0, r2: n, c2: p.cell ? 0 : ordered.length - 1 })
+    if (p.cell) {
+      grab()
+      requestAnimationFrame(() => tblRef.current?.querySelector(`td.ef-rnum[data-r="${n}"]`)?.scrollIntoView({ block: 'nearest' }))
+    }
   })
 
   /**
@@ -1296,6 +1314,18 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     </tr>
   )
 
+  /** 「+ 새로 만들기」 줄 — 행 번호 칸 + 나머지 전체 한 칸 */
+  const newRowTr = (key: string, on: () => void) => (
+    <tr key={key} className="ef-newrow">
+      <td className="ef-rh" />
+      <td colSpan={ordered.length}>
+        <button type="button" className="ef-newrow-btn" onClick={on}>
+          <TI n="plus" /> 새로 만들기
+        </button>
+      </td>
+    </tr>
+  )
+
   // ★ 열 너비를 끄는 동안은 머리글 너비만 바뀐다 — 본문(363행 × 19칸)을 매번 새로 그리면 한 번 움직일 때
   //   0.3초씩 걸려 끊겼다. 끄는 동안은 직전에 그린 본문을 그대로 쓴다(같은 요소면 React 가 건너뛴다).
   let painted = paintRef.current
@@ -1305,9 +1335,14 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     const leaf: EfRow[] = []
     let ord = 0
     let openGroup: Row<EfRow> | null = null
+    // 그룹 끝 — 노션처럼 「+ 새로 만들기」(그 그룹 값으로) 다음 소계
+    const closeGroup = (g: Row<EfRow>) => {
+      body.push(newRowTr('new-' + g.id, () => addToGroup(String(g.groupingValue ?? ''))))
+      body.push(subRow(g))
+    }
     table.getRowModel().rows.forEach((r) => {
       if (r.getIsGrouped()) {
-        if (openGroup) body.push(subRow(openGroup))
+        if (openGroup) closeGroup(openGroup)
         body.push(bodyRow(r, 0))
         openGroup = r.getIsExpanded() ? r : null
       } else {
@@ -1316,7 +1351,9 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         body.push(bodyRow(r, ord))
       }
     })
-    if (openGroup) body.push(subRow(openGroup))
+    if (openGroup) closeGroup(openGroup)
+    // 묶지 않았으면 표 맨 아래에 하나
+    if (body.length && !table.getState().grouping.length) body.push(newRowTr('new-end', addAtEnd))
     leafRef.current = leaf
     painted = (
       <>

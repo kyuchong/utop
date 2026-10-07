@@ -1178,3 +1178,10 @@ input.ef-fsel { cursor: text; }
 .ef-gvis.off .ef-mi-n { opacity: 0.45; }
 .ef-gvis.off .ef-mi-ic { color: var(--c-text-faint); }
 .ef-btn-sub { font-style: normal; font-weight: 700; opacity: 0.8; }
+
+/* 표 맨 아래·그룹 끝 「+ 새로 만들기」(노션) — 흐린 글씨, 올리면 진하게 */
+.ef-t tr.ef-newrow td,
+.ef-t tbody tr.ef-newrow:hover td { background: #fff; height: 30px; padding: 0; border-bottom: 1px solid var(--c-border-soft); }
+.ef-newrow-btn { position: sticky; left: 62px; display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 11.5px; font-weight: 600; color: var(--c-text-faint); cursor: pointer; }
+.ef-newrow-btn:hover { color: #2d6fd4; }
+.ef-t tr.ef-newrow:hover td:not(.ef-rh) { background: #f6f9ff; }
