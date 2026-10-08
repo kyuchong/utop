@@ -2775,6 +2775,8 @@ export default function CyclesBoard({
         <div className="cyb-ntb">
         <EfNTable
           scope="cycles.items"
+          /* 보기 탭 줄은 안 세운다(지시) — 정렬·묶기는 사이클 문서가 쥐고, 한 보기로 본다 */
+          noViews
           layoutKey="utop.efn.cycles.items"
           meName={meName}
           isAdmin={isAdminUser(me)}

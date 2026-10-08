@@ -79,6 +79,8 @@ export interface EfNTableProps {
    * 사람·PC 마다 달라지면 안 된다). 바뀌면 onBaseView 로 돌려준다. 예전 표와 같은 꼴(sorts·groupBy)
    */
   baseView?: { sorts: Array<{ key: string; dir: 'asc' | 'desc' }>; groupBy: string }
+  /** 보기 탭 없이 「기본」 하나로만(Cycles 시험 항목 — 정렬·묶기는 사이클 문서가 쥔다). 서버 보기는 안 읽는다 */
+  noViews?: boolean
   onBaseView?: (v: { sorts: Array<{ key: string; dir: 'asc' | 'desc' }>; groupBy: string }) => void
 }
 
@@ -134,6 +136,7 @@ export default function EfNTable(p: EfNTableProps) {
   // ── 서버 보기 ──
   const vq = useQuery({
     queryKey: ['views', p.scope],
+    enabled: !p.noViews,
     queryFn: async () => {
       const r = await apiFetch(`/api/views?scope=${encodeURIComponent(p.scope)}`)
       if (!r.ok) throw new Error('보기를 못 읽었습니다')
@@ -542,6 +545,7 @@ export default function EfNTable(p: EfNTableProps) {
           onExport: (rs, vc) => void exportXlsx(rs, vc),
           colDefs: p.onColumns ? { types: DEF_TYPES, add: true } : undefined,
           toolLeft: p.toolbarLeft,
+          noTabs: p.noViews,
           rowClass: p.rowClass ? (r) => p.rowClass!(r as NRow) : undefined,
           reorder: p.onReorder ? { key: p.reorderKey, on: (rs) => p.onReorder!(rs.map((r) => String(r.__id ?? ''))) } : undefined,
           initChecked: p.initSelected,

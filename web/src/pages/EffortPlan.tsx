@@ -95,6 +95,8 @@ export interface EfHost {
   colDefs?: { types: EfType[]; add: boolean }
   /** 도구 줄 보기 탭 오른쪽에 넣을 것(Cycles: Add TC · Test Start …) */
   toolLeft?: ReactNode
+  /** 보기 탭 줄(탭들 · ＋)을 세우지 않는다 — 한 보기로만 쓰는 표(Cycles 시험 항목) */
+  noTabs?: boolean
   rowClass?: (r: EfRow) => string
   reorder?: { key?: string; on: (rs: EfRow[]) => void }
   initChecked?: string[]
@@ -467,6 +469,7 @@ export function EffortBody({
           )}
 
           <div className="ef-toolbar">
+            {!host?.noTabs && (
             <div className="ef-tabs">
               {(host?.viewPolicy ? tabsOnRow : views).map((v) => (
                 <button
@@ -498,6 +501,7 @@ export function EffortBody({
                 <TI n="plus" />
               </button>
             </div>
+            )}
             {host?.toolLeft}
             <span className="ef-sp" />
             {isTable ? (
