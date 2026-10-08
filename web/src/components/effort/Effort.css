@@ -1228,7 +1228,8 @@ input.ef-fsel { cursor: text; }
 .ef-tree-empty { padding: 14px 8px; font-size: 12px; color: var(--c-text-faint); line-height: 1.6; }
 
 /* ── 빌려 쓰는 화면이 제 머리줄을 가진 경우(REQ-Coverage) — 제목 줄·카드 테두리 없이 ── */
-.ef-main.bare { border: 0; border-radius: 0; padding: 0; background: transparent; }
+/* 여백은 남긴다(지적: 도구 줄이 위 머리줄에 붙고 오른쪽 「엑셀」 이 끝에 걸렸다) — 본문 카드와 같은 결로 위·옆만 */
+.ef-main.bare { border: 0; border-radius: 0; padding: 10px 12px 0; background: transparent; }
 /* 정책 표의 보기 탭 — 나만 보는 탭 점, 넘친 탭 「⋯ 더보기」, 메뉴의 작은 꼬리말 */
 .ef-tab-priv { font-style: normal; font-size: 8px; color: #8a96a3; margin-left: 5px; vertical-align: 2px; }
 .ef-tab.ef-tab-more { color: var(--c-text-muted); }
