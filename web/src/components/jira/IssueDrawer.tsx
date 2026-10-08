@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
+import { copyText } from '@/lib/copy'
 import './IssueDrawer.css'
 
 /** 서랍 넓게 보기 — 계정 설정(SYNC) */
@@ -50,7 +51,41 @@ function jiraHtml(html: string, base: string): string {
     /(<a\b[^>]*?\bhref=")(\/[^"]*)(")/gi,
     (_m, a: string, u: string, b: string) => `${a}${base}${u}${b} target="_blank" rel="noopener"`,
   )
+  /* 복사 단추(지시) — 묶음 상자(1. 현상 …) 머리 오른쪽, 로그·코드 상자 오른쪽 위.
+     on… 속성을 걷은 뒤에 넣는다. 누르는 것은 서랍 몸통의 클릭 하나가 받는다(copyFrom) */
+  s = s.replace(/(<div class="panelHeader"[^>]*>)([\s\S]*?)(<\/div>)/gi, (_m, a: string, t: string, b: string) => `${a}<span class="rls-cpt">${t}</span>${COPY_BTN}${b}`)
+  s = s.replace(/(<div class="(?:preformatted|code) panel"[^>]*>)/gi, `$1${COPY_BTN}`)
   return s
+}
+
+/** 복사 단추 — 겹친 네모(지시: A안). 「✓ 복사됨」 은 누르면 이 왼쪽에 잠깐 선다 */
+const COPY_BTN =
+  '<span class="rls-cpw"><button type="button" class="rls-cp" title="내용 복사" aria-label="내용 복사">' +
+  '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+  '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button></span>'
+
+/**
+ * 복사 단추를 눌렀다 — 묶음 상자면 머리(1. 현상)는 빼고 내용만, 로그 상자면 로그만(줄·칸 그대로).
+ * 다 되면 단추 왼쪽에 「✓ 복사됨」 을 1.5초. 복사 단추가 아니면 false
+ */
+function copyFrom(t: HTMLElement): boolean {
+  const btn = t.closest('.rls-cp')
+  if (!btn) return false
+  const wrap = btn.parentElement as HTMLElement
+  const head = wrap.closest('.panelHeader')
+  const panel = (head ? head.parentElement : wrap.closest('.panel')) as HTMLElement | null
+  let text = ''
+  if (head) text = (panel?.querySelector(':scope > .panelContent') as HTMLElement | null)?.innerText ?? ''
+  else text = panel?.querySelector('pre')?.textContent ?? ''
+  void copyText(text.replace(/\n{3,}/g, '\n\n').trim()).then((ok) => {
+    wrap.querySelector('.rls-cpok')?.remove()
+    const lab = document.createElement('span')
+    lab.className = `rls-cpok${ok ? '' : ' bad'}`
+    lab.textContent = ok ? '✓ 복사됨' : '복사하지 못했습니다'
+    wrap.insertBefore(lab, btn)
+    window.setTimeout(() => lab.remove(), 1500)
+  })
+  return true
 }
 
 /** 파일 크기 — 사람이 읽는 꼴로 */
@@ -451,6 +486,11 @@ export function IssueDrawer({
              건너가 이 화면을 잃는다(지적) — 여기서 잡아 크게만 띄운다. */
           onClick={(e) => {
             const t = e.target as HTMLElement
+            if (copyFrom(t)) {
+              e.preventDefault()
+              e.stopPropagation()
+              return
+            }
             if (t.tagName !== 'IMG' || !t.closest('.rls-jira')) return
             if (t.dataset.fail) return /* 못 받은 자리 — 크게 볼 것이 없다 */
             e.preventDefault()

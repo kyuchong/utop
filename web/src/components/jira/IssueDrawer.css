@@ -213,6 +213,23 @@
 .rls-jira .codeContent { padding: 0; }
 .rls-jira .preformatted pre,
 .rls-jira .code pre { margin: 0; border: 0; border-radius: 0; background: transparent; padding: 9px 12px; max-height: 360px; overflow: auto; line-height: 1.5; }
+/* 복사 단추(지시) — 묶음 상자 머리 오른쪽, 로그 상자 오른쪽 위(굴림 막대를 비켜). 「✓ 복사됨」 은 단추 왼쪽 */
+.rls-jira .panelHeader { display: flex; align-items: center; gap: 8px; }
+.rls-jira .rls-cpt { flex: 1; min-width: 0; }
+.rls-jira .preformatted,
+.rls-jira .code { position: relative; }
+.rls-jira .preformatted > .rls-cpw,
+.rls-jira .code > .rls-cpw { position: absolute; top: 5px; right: 18px; z-index: 1; }
+.rls-cpw { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.rls-cp {
+  display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0;
+  border: 0; border-radius: 5px; background: transparent; color: #7c8a91; cursor: pointer;
+}
+.rls-cp:hover { background: #e9eef0; color: #2c3a41; }
+.rls-jira .preformatted .rls-cp,
+.rls-jira .code .rls-cp { background: #f5f7f8cc; }
+.rls-cpok { font-size: 11.5px; font-weight: 600; color: #1f8a4c; white-space: nowrap; }
+.rls-cpok.bad { color: #c0392b; }
 .rls-cmt { border-top: 1px solid #f0f2f3; padding: 10px 0 2px; }
 .rls-cmt:first-of-type { border-top: 0; }
 .rls-cmth { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; font-size: 11px; color: #8a949a; }
