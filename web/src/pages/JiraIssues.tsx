@@ -25,6 +25,7 @@ import { prefGet, prefSet } from '@/lib/prefs'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { IssueDrawer } from '@/components/jira/IssueDrawer'
 import { useJiraBase } from '@/components/jira/useJiraBase'
+import { personName } from '@/components/jira/personName'
 import { EffortBody } from '@/pages/EffortPlan'
 import EffortTree, { type TreeKit } from '@/components/effort/EffortTree'
 import { TI } from '@/components/effort/icons'
@@ -151,14 +152,8 @@ const clsFields = (r: EfRow, c: DefClass) => {
   r.cls_type3 = c.type3 ?? ''
 }
 
-/** 사람 칸(등록자·담당자) — 지라에 담긴 것은 아이디라, 표에는 「성+이름」(지시) */
+/** 사람 칸(등록자·담당자) — 지라에 담긴 것은 아이디라, 표에는 「성+이름(부서)」(지시) */
 const PERSON_KEYS = ['reporter', 'assignee'] as const
-/** 지라 표시 이름에서 성+이름만 — 「김형일 책임」·「김형일(검증)」 이면 김형일. 한글 이름이 아니면 표시 이름 그대로 */
-const personName = (dn: string) => {
-  const t = dn.trim()
-  const m = /^([가-힣]{2,5})(?=$|[\s(（/_·,.-])/.exec(t)
-  return m ? m[1]! : t
-}
 
 /* 프로젝트는 「프로젝트」 값으로 가른다 — 키 앞글자가 프로젝트와 다른 것이 있다(E6100 의 P88-4340) */
 const prjOf = (r: EfRow) => String(r.project ?? '')

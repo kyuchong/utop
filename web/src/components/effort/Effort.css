@@ -257,6 +257,8 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
   text-overflow: ellipsis;
   vertical-align: middle;
 }
+/* 칸 글자 — 11px 가 작다(지적: Jira Issue 와 같게). 머리글·바닥줄은 그대로 */
+.ef-t tbody td { font-size: 12px; }
 .ef-t thead th {
   position: sticky;
   top: 0;
@@ -463,7 +465,6 @@ table.ef-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
   outline: 0;
   padding: 0 6px;
   font: inherit;
-  font-size: 11px;
   background: transparent;
 }
 .ef-t td.ef-n .ef-cell-in { text-align: right; }
@@ -1089,7 +1090,7 @@ input.ef-fsel { cursor: text; }
 .ef-t td.ef-ml { white-space: pre; line-height: 1.45; padding-top: 6px; padding-bottom: 6px; }
 .ef-cell-ta { display: block; resize: none; padding: 7px 6px; line-height: 1.45; min-height: 32px; box-sizing: border-box; overflow: hidden; }
 /* 글쇠 받는 칸 — 고른 칸 위에 투명하게 있다가, 글자가 들어오면 그 칸의 편집기로 보인다 */
-.ef-sink { position: absolute; left: 0; top: 0; width: 1px; min-height: 1px; z-index: 1; opacity: 0; pointer-events: none; border: 0; outline: 0; resize: none; margin: 0; padding: 7px 6px; box-sizing: border-box; font: inherit; font-size: 11px; line-height: 1.45; background: #fff; color: var(--c-text); overflow: hidden; white-space: pre; }
+.ef-sink { position: absolute; left: 0; top: 0; width: 1px; min-height: 1px; z-index: 1; opacity: 0; pointer-events: none; border: 0; outline: 0; resize: none; margin: 0; padding: 7px 6px; box-sizing: border-box; font: inherit; font-size: 12px; line-height: 1.45; background: #fff; color: var(--c-text); overflow: hidden; white-space: pre; }
 .ef-sink.on { opacity: 1; z-index: 6; pointer-events: auto; box-shadow: inset 0 0 0 2px #2d6fd4; }
 .ef-sink.num { text-align: right; }
 

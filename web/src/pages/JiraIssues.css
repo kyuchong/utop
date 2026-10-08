@@ -424,8 +424,7 @@
 .jri-ef .ef-head-name { white-space: nowrap; flex: none; }
 .jri-ef .jri-tysel { flex: 0 1 auto; min-width: 0; }
 
-/* 표 글자 — 지라 표는 글이 길어 11px 가 작다(지적: 프로젝트·요약이 작다). 칸 글자만 12px */
-.jri-ef .ef-t tbody td { font-size: 12px; }
+/* 표 칸 글자 12px 는 Effort.css(.ef-t tbody td) 한 곳 — Effort Plan 과 같게 */
 
 /* 제목 자리 프로젝트 고르개(지시: 「Jira Issue · P106」 대신) — 고르기 창은 단추 아래 떠 있다 */
 .jri-ef .jri-prjsel { margin-left: 0; }
