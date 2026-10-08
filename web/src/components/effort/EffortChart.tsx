@@ -22,7 +22,7 @@ import { AUTO, isNumCol, natural, normDate, numFmt, optColor, parseRange, toNum,
  * Effort Plan 차트 보기 — 노션 방식(지시): **차트 보기 하나 = 차트 하나**, 오른쪽 설정 패널에서 꾸민다.
  *   종류(세로 막대·가로 막대·선·도넛) ·
  *   X축 — 표시 대상(열 또는 월, 날짜 묶음) · 정렬 기준 · 값 생략(고른 값 · 0 인 값) ·
- *   Y축 — 표시 대상(개수 / 합계·평균·중앙값·최소·최대 + 대상 열) · 그룹화(쌓기·여러 선) · 범위 · 기준선 ·
+ *   Y축 — 표시 대상(개수 / 합계·평균·중앙값·최소·최대 + 대상 열) · 그룹화(나란히·쌓기 / 여러 선) · 범위 · 기준선 ·
  *   모양 — 높이 · 색 · 눈금선 · 축 이름 · 값 라벨 · 범례 · 선(곡선·채우기·누적)   (지시: 노션 차트 설정처럼)
  * 설정은 보기의 view.nchart 에 둔다. 필터는 표처럼 보기마다(EffortPlan 이 걸러서 rows 로 준다).
  */
@@ -45,6 +45,11 @@ export interface NcSpec {
   of: string
   /** 그룹 기준 — 열 id, '' 이면 없음(도넛은 안 쓴다) */
   group: string
+  /**
+   * 그룹 막대 배치 — 나란히(그룹마다 막대 하나씩) · 쌓기(한 막대를 그룹으로 쪼갬, 노션 기본).
+   * 지시: 그룹화하면 그룹대로 갈라져 나와야 한다 — 그래서 기본은 나란히
+   */
+  stack: 'side' | 'stack'
   /** 정렬 기준 — X축 차례 · X축 역순 · 값 큰 차례 · 값 작은 차례 */
   sort: 'x' | 'xdesc' | 'desc' | 'asc'
   omitZero: boolean
@@ -89,6 +94,7 @@ export function ncOf(view: EfView, cols: EfColumn[]): NcSpec {
     agg: months.length ? 'sum' : 'count',
     of: MM,
     group: '',
+    stack: 'side',
     sort: 'x',
     omitZero: false,
     omit: [],
@@ -280,8 +286,8 @@ const valueLabels: Plugin = {
     const horiz = (chart.options as { indexAxis?: string }).indexAxis === 'y'
     const donut = (chart.config as { type?: string }).type === 'doughnut'
     const bar = (chart.config as { type?: string }).type === 'bar'
-    // 쌓은 막대는 조각 가운데에(위에 쓰면 겹친다), 얇은 조각은 건너뛴다
-    const stacked = bar && chart.data.datasets.length > 1
+    // 쌓은 막대는 조각 가운데에(위에 쓰면 겹친다), 얇은 조각은 건너뛴다. 나란히 선 막대는 저마다 끝에
+    const stacked = bar && chart.data.datasets.length > 1 && !!(chart.options as { scales?: { x?: { stacked?: boolean } } }).scales?.x?.stacked
     ctx.save()
     ctx.font = '600 11px Pretendard, system-ui, sans-serif'
     ctx.fillStyle = donut ? '#fff' : '#374151'
@@ -409,7 +415,7 @@ export function EfNotionChart({
           : { label: s.name || yTitle, data: s.data, backgroundColor: perBar ?? c, borderRadius: 4, maxBarThickness: 48 }
       })
       const ax = (title: string, isVal: boolean) => ({
-        stacked: multi && !line,
+        stacked: multi && !line && sp.stack === 'stack',
         beginAtZero: !(isVal && sp.yMin != null),
         // Y축 범위(노션) — 값 축만, 비우면 자동
         ...(isVal && sp.yMin != null ? { min: sp.yMin } : {}),
@@ -435,7 +441,7 @@ export function EfNotionChart({
       })
     }
     return () => ch.destroy()
-  }, [data, sp.kind, sp.color, sp.legend, sp.labels, sp.grid, sp.axisNames, sp.smooth, sp.fill, sp.yMin, sp.yMax, sp.ref, sp.refLabel, yTitle, xTitle])
+  }, [data, sp.kind, sp.color, sp.legend, sp.labels, sp.grid, sp.axisNames, sp.smooth, sp.fill, sp.yMin, sp.yMax, sp.ref, sp.refLabel, sp.stack, yTitle, xTitle])
 
   const xs = xCols(cols)
   const nums = monthCols(cols)
@@ -596,6 +602,13 @@ export function EfNotionChart({
                     </option>
                   ))}
               </select>
+            </label>
+          )}
+          {/* 그룹 막대 배치(지시: 그룹화대로 갈라져 나오게) — 막대 차트에 그룹이 있을 때만 */}
+          {!!sp.group && (sp.kind === 'bar' || sp.kind === 'hbar') && (
+            <label className="ef-nc-f">
+              <span>막대 배치</span>
+              <Seg v={sp.stack} opts={[['side', '나란히'], ['stack', '쌓기']]} on={(v) => set({ stack: v })} />
             </label>
           )}
           {!donut && (
