@@ -1578,20 +1578,10 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         </button>
       </div>
     )}
-    <div className="ef-selbar">
-      <label className="ef-selall">
-        <input
-          type="checkbox"
-          checked={allOn}
-          ref={(el) => {
-            if (el) el.indeterminate = someOn
-          }}
-          onChange={() => setChecked(allOn ? new Set() : new Set([...checked, ...shown]))}
-        />
-        보이는 행 전체
-      </label>
-      {ckList.length > 0 && (
-        <>
+    <div className="ef-gmain">
+    {/* 고른 행이 있을 때만 — 머리 줄 위에 겹쳐 뜬다(노션처럼). 표 위에 끼어들면 표가 밀려 다음 체크박스 자리가 어긋난다 */}
+    {ckList.length > 0 && (
+      <div className="ef-selbar ef-selfloat">
           <span className="ef-selcnt">{ckList.length}행 선택</span>
           <button type="button" className="ef-btn gh" onClick={() => void selCopy()}>
             <TI n="copy" /> 복사
@@ -1632,10 +1622,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                   <TI n="trash" /> {b.label}
                 </button>
               ))}
-        </>
-      )}
-    </div>
-    <div className="ef-gmain">
+              </div>
+    )}
     <div className="ef-scroll" translate="no">
       <textarea
         ref={sinkRef}
@@ -1656,7 +1644,27 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         <thead>
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
-              <th className="ef-rh" />
+              <th className="ef-rh ef-rhck">
+                {/* 보이는 행 전체 고르기(지시: 머리 줄 첫 칸) — 행 체크박스와 같은 틀이라 줄이 맞는다 */}
+                <span className="ef-rnum-in">
+                  {!lock && (
+                    <i className="ef-rgrip ef-rgrip-ph" aria-hidden="true">
+                      <TI n="grip" />
+                    </i>
+                  )}
+                  <input
+                    type="checkbox"
+                    className="ef-rck"
+                    aria-label="보이는 행 전체 고르기"
+                    title="보이는 행 전체 고르기"
+                    checked={allOn}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someOn
+                    }}
+                    onChange={() => setChecked(allOn ? new Set() : new Set([...checked, ...shown]))}
+                  />
+                </span>
+              </th>
               {hg.headers.map(headCell)}
             </tr>
           ))}

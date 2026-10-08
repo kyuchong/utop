@@ -1250,3 +1250,11 @@ input.ef-fsel { cursor: text; }
 .efn-open:hover { color: #2d6fd4; border-color: #2d6fd4; }
 /* 선택 칸 알약(설정 색·그림) — 여러 개면 잇는다 */
 .efn-pills { display: inline-flex; gap: 4px; min-width: 0; overflow: hidden; }
+
+/* ── 보이는 행 전체 고르기는 머리 줄 첫 칸(지시), 선택 줄은 고른 행이 있을 때만 머리 줄 위에 겹쳐 ── */
+.ef-t th.ef-rhck { cursor: default; padding: 0 6px; } /* 행 칸과 같은 안쪽 여백 — 체크박스 줄을 맞춘다 */
+.ef-rgrip-ph { visibility: hidden !important; }
+.ef-selbar.ef-selfloat {
+  position: absolute; top: 0; left: 62px; right: 0; height: 31px; min-height: 0; z-index: 6;
+  padding: 0 10px; background: #eef4ff; border-bottom: 1px solid #c9d8f5; box-shadow: 0 2px 6px rgb(45 111 212 / 10%);
+}
