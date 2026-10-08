@@ -29,3 +29,11 @@ def test_mark_per_type_falls_back_to_whole_project_mark():
     assert _sync_mark_of(st, "P106", "Task") == "2026-10-01T00:00:00"
     assert _sync_mark_of({}, "P106", "Task") == ""
     assert _sync_mark_of(st, "P106", None) == "2026-10-01T00:00:00"
+
+
+def test_sync_gap_full_when_utop_has_fewer():
+    from routes.jira import _sync_gap
+    assert _sync_gap(1, 1061) is True      # 지운 뒤 · 덜 받은 것 → 처음부터
+    assert _sync_gap(1061, 1061) is False  # 다 있다 → 증분
+    assert _sync_gap(1070, 1061) is False  # 지라에서 지운 것이 남았다 → 증분
+    assert _sync_gap(0, 0) is False

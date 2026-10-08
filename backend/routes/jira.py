@@ -756,6 +756,19 @@ async def jira_issues_sync(payload: dict):
         if not jql:
             mark = ""
             jql = _sync_jql(pk, "", typ)
+        if mark:
+            # 빈 곳 검사 — 지라의 건수(한 번, 몸통 없이)와 UTOP 에 받아 둔 건수를 견준다
+            async with db.pool().acquire() as c:
+                db_n = await c.fetchval(
+                    "SELECT count(*) FROM jira_issue WHERE project=$1"
+                    + (" AND data->>'issuetype'=$2" if typ else ""),
+                    *([pk, typ] if typ else [pk]))
+            r0, e0 = _jira_call("GET", "/rest/api/2/search", cfg=cfg,
+                                params={"jql": _sync_jql(pk, "", typ), "startAt": 0, "maxResults": 0, "fields": "key"})
+            if not e0 and r0 is not None and r0.is_success and _sync_gap(db_n, (r0.json() or {}).get("total") or 0):
+                mark = ""
+                jql = _sync_jql(pk, "", typ)
+                res.setdefault("healed", []).append(mk)
         issues: list[dict] = []
         start = 0
         total = None
@@ -847,6 +860,15 @@ def _sync_mark_of(st: dict, pk: str, typ: str | None) -> str:
     return max(own, allm)
 
 
+def _sync_gap(db_n: int, jira_n: int) -> bool:
+    """UTOP 에 받아 둔 것이 지라보다 적은가 — 그러면 증분으로는 못 메운다(처음부터 받는다).
+
+    증분은 「마지막 갱신 시각 뒤에 바뀐 것」 만 부른다. 받아 둔 이슈를 지웠거나(삭제 단추)
+    예전에 덜 받았으면, 그 이슈가 지라에서 바뀌기 전까지 영영 안 돌아온다(지적: 253 P106 Defect 1건).
+    지라에서 지운 이슈는 UTOP 에 남아 db_n 이 더 클 수 있다 — 그때는 증분 그대로."""
+    return int(jira_n or 0) > int(db_n or 0)
+
+
 def _sync_jql(pk: str, mark: str, typ: str | None) -> str:
     """Sync JQL — 프로젝트(+유형) · 마지막 갱신 5 분 앞부터 · 갱신 차례. 표시 시각을 못 읽으면 ''."""
     def q(v: str) -> str:
@@ -886,6 +908,47 @@ async def jira_issuetypes(project: str):
         for t in (p.get("issuetypes") or []):
             types.append({"id": t.get("id"), "name": t.get("name"), "subtask": t.get("subtask", False)})
     return {"ok": True, "issuetypes": types}
+
+@router.get("/api/jira/pick-values")
+async def jira_pick_values(project: str, kind: str = "stage", types: str = ""):
+    """고르개 창에 낼 값 — 지라가 이 프로젝트에 둔 **이슈단계·이슈 상태 전부**(지적: 받아 둔 이슈의 값만 나와 한 줄뿐).
+
+    단계(customfield_10302)는 만들기 화면(createmeta)의 고를 수 있는 값, 상태는 프로젝트의 유형별 상태 목록.
+    types(쉼표)를 주면 그 이슈 유형 것만. 화면은 이것에 받아 둔 건수를 붙인다."""
+    want = {t.strip() for t in str(types or "").split(",") if t.strip()}
+    vals: list[str] = []
+
+    def add(v):
+        v = str(v or "").strip()
+        if v and v not in vals:
+            vals.append(v)
+    if kind == "status":
+        r, err = _jira_call("GET", f"/rest/api/2/project/{project}/statuses")
+        if err:
+            return err
+        if not r.is_success:
+            return {"ok": False, "error": f"{r.status_code} · {r.text[:200]}"}
+        for it in (r.json() or []):
+            if want and it.get("name") not in want:
+                continue
+            for st in (it.get("statuses") or []):
+                add(st.get("name"))
+    else:
+        fid = JIRA_CF["stage"]
+        r, err = _jira_call("GET", f"/rest/api/2/issue/createmeta?projectKeys={project}&expand=projects.issuetypes.fields")
+        if err:
+            return err
+        if not r.is_success:
+            return {"ok": False, "error": f"{r.status_code} · {r.text[:200]}"}
+        for p in (r.json().get("projects") or []):
+            for it in (p.get("issuetypes") or []):
+                if want and it.get("name") not in want:
+                    continue
+                f = (it.get("fields") or {}).get(fid) or {}
+                for o in (f.get("allowedValues") or []):
+                    add(o.get("value") or o.get("name"))
+    return {"ok": True, "values": vals}
+
 
 @router.get("/api/jira/createmeta")
 async def jira_createmeta(project: str, issuetype: str = None):

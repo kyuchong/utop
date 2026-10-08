@@ -14,7 +14,7 @@
  *
  * 왼쪽 목록은 Effort Plan 과 같은 **폴더 ▸ 페이지**다(지시). 페이지마다 프로젝트·이슈 유형·이슈단계를
  * 제목 줄의 고르개 셋으로 고르고, Sync 는 그 페이지의 프로젝트·유형만 받는다 — 필요한 것만.
- * 이슈단계는 **보기만 거른다**: 단계는 이슈가 진행하며 바뀌어, 받을 때 거르면 단계를 넘긴 이슈가 옛 값으로 남는다.
+ * 이슈단계·이슈 상태는 **보기만 거른다**: 이슈가 진행하며 바뀌어, 받을 때 거르면 넘어간 이슈가 옛 값으로 남는다.
  *
  * 열 배치·폭·보기(탭마다 검색·필터·정렬·그룹·숨긴 열·계산)는 계정을 따라간다(utop.jira.ef) — 페이지가 함께 쓴다.
  */
@@ -185,17 +185,28 @@ interface JPage {
   prj: string[]
   types: string[]
   stages: string[]
+  /** 이슈 상태 — 단계처럼 보기만 거른다(예전에 만든 페이지에는 없다) */
+  statuses?: string[]
 }
 interface JTree {
   nodes: EfNode[]
   pages: Record<string, JPage>
 }
-const blankPage = (): JPage => ({ prj: [], types: [], stages: [] })
-/** 이 행이 페이지에 드는가 — 단계는 빼고 볼 수 있다(단계 고르개의 건수) */
-const inPage = (p: JPage, r: EfRow, noStage = false) =>
+const blankPage = (): JPage => ({ prj: [], types: [], stages: [], statuses: [] })
+/** 고르개 하나 — 무엇을 고르나 · 행의 어느 칸 · 페이지의 어느 값 */
+type PickKind = 'type' | 'stage' | 'status'
+const PICK: Record<PickKind, { label: string; col: string; of: (p: JPage) => string[] }> = {
+  type: { label: '이슈 유형', col: 'issuetype', of: (p) => p.types },
+  stage: { label: '이슈단계', col: 'stage', of: (p) => p.stages },
+  status: { label: '이슈 상태', col: 'status', of: (p) => p.statuses ?? [] },
+}
+/** 이 행이 페이지에 드는가 — skip 은 그 고르개 하나를 빼고 본다(고르개 창의 건수) */
+const inPage = (p: JPage, r: EfRow, skip?: PickKind) =>
   p.prj.includes(prjOf(r)) &&
-  (!p.types.length || p.types.includes(String(r.issuetype ?? ''))) &&
-  (noStage || !p.stages.length || p.stages.includes(String(r.stage ?? '')))
+  (Object.keys(PICK) as PickKind[]).every((k) => {
+    const vs = PICK[k].of(p)
+    return k === skip || !vs.length || vs.includes(String(r[PICK[k].col] ?? ''))
+  })
 /** 떠 있는 창의 왼쪽 — 창 폭(w)이 화면 오른쪽 끝을 넘지 않게 */
 const fitX = (left: number, w: number) => Math.max(8, Math.min(left, window.innerWidth - w - 12))
 /** 고르개 글 — 하나·둘이면 그대로, 많으면 「첫째 외 n」 */
@@ -285,7 +296,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
   )
   /** 제목 줄 고르개 창 — 프로젝트 / 유형·단계 */
   const [prjPop, setPrjPop] = useState<{ x: number; y: number } | null>(null)
-  const [pickPop, setPickPop] = useState<{ kind: 'type' | 'stage'; x: number; y: number; pick: string[] } | null>(null)
+  const [pickPop, setPickPop] = useState<{ kind: PickKind; x: number; y: number; pick: string[] } | null>(null)
   const [prjQ, setPrjQ] = useState('')
   const [busy, setBusy] = useState(false)
   const [flash, setFlash] = useState('')
@@ -419,41 +430,53 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
       delete pagesRef.current[id]
     },
   }
-  /** 유형 고르개 목록 — 지라가 이 프로젝트들에 둔 유형(만들 수 있는 것) + 받아 둔 이슈에 있는 유형 */
+  /**
+   * 고르개 목록 — **지라가 이 프로젝트들에 둔 값 전부** + 받아 둔 이슈에 있는 값(지적: 받아 둔 값만 나와 한 줄뿐).
+   * 유형은 만들 수 있는 유형, 단계는 만들기 화면의 고를 수 있는 값, 상태는 고른 유형의 상태 목록
+   */
+  const pickKind = pickPop?.kind
+  const pickTypes = pickKind === 'status' ? (page?.types ?? []) : []
   const tyQuery = useQuery({
-    queryKey: ['jira-issuetypes', prj.join(',')],
-    enabled: pickPop?.kind === 'type' && prj.length > 0,
+    queryKey: ['jira-pickvals', pickKind ?? '', prj.join(','), pickTypes.join(',')],
+    enabled: !!pickKind && prj.length > 0,
     staleTime: 30 * 60_000,
     queryFn: async () => {
       const got = await Promise.all(
         prj.map(async (k) => {
-          const r = await apiFetch(`/api/jira/issuetypes?project=${encodeURIComponent(k)}`)
-          const j = (await r.json()) as { issuetypes?: Array<{ name?: string }> }
-          return (j.issuetypes ?? []).map((t) => t.name ?? '')
+          if (pickKind === 'type') {
+            const r = await apiFetch(`/api/jira/issuetypes?project=${encodeURIComponent(k)}`)
+            const j = (await r.json()) as { issuetypes?: Array<{ name?: string }> }
+            return (j.issuetypes ?? []).map((t) => t.name ?? '')
+          }
+          const r = await apiFetch(
+            `/api/jira/pick-values?project=${encodeURIComponent(k)}&kind=${pickKind}&types=${encodeURIComponent(pickTypes.join(','))}`,
+          )
+          const j = (await r.json()) as { values?: string[] }
+          return j.values ?? []
         }),
       )
       return [...new Set(got.flat().filter(Boolean))]
     },
   })
-  /** 고르개 창 목록 — [값, 받아 둔 건수]. 단계는 고른 유형 안에서 센다 */
+  /** 고르개 창 목록 — [값, 받아 둔 건수]. 유형은 프로젝트 전부에서, 단계·상태는 다른 고르개를 거친 행에서 센다 */
   const pickList = useMemo(() => {
     if (!pickPop || !page) return [] as Array<[string, number]>
     const n = new Map<string, number>()
-    const key = pickPop.kind === 'type' ? 'issuetype' : 'stage'
-    const scope: JPage = pickPop.kind === 'type' ? { prj: page.prj, types: [], stages: [] } : page
+    const key = PICK[pickPop.kind].col
+    const scope: JPage = pickPop.kind === 'type' ? { ...blankPage(), prj: page.prj } : page
     baseRows.forEach((r) => {
-      if (!inPage(scope, r, true)) return
+      if (!inPage(scope, r, pickPop.kind)) return
       const v = String(r[key] ?? '')
       n.set(v, (n.get(v) ?? 0) + 1)
     })
-    if (pickPop.kind === 'type') (tyQuery.data ?? []).forEach((t) => !n.has(t) && n.set(t, 0))
+    ;(tyQuery.data ?? []).forEach((t) => !n.has(t) && n.set(t, 0))
     n.delete('')
     return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickPop, baseRows, tyQuery.data, tver, curId])
-  const openPick = (kind: 'type' | 'stage', el: HTMLElement) => {
+  const openPick = (kind: PickKind, el: HTMLElement) => {
     const r = el.getBoundingClientRect()
-    setPickPop({ kind, x: fitX(r.left, 280), y: r.bottom + 4, pick: [...((kind === 'type' ? page?.types : page?.stages) ?? [])] })
+    setPickPop({ kind, x: fitX(r.left, 280), y: r.bottom + 4, pick: page ? [...PICK[kind].of(page)] : [] })
   }
 
   /** 사람이 더한 지라 칸 — **온 서버에 한 벌**이다(Sync 도 한 벌이라 그렇다) */
@@ -584,13 +607,16 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
         updated?: number
         same?: number
         ms?: number
+        /** 받아 둔 것이 지라보다 적어 처음부터 받은 것(프로젝트::유형) */
+        healed?: string[]
       }
       if (!j.ok) {
         setFlash(`동기화 실패 — ${j.error ?? '알 수 없는 까닭'}`)
         return
       }
       setFlash(
-        `● 지라에서 ${j.got ?? 0}건 받아 DB 에 저장했습니다 — 새로 ${j.added ?? 0} · 갱신 ${j.updated ?? 0} · 변경 없음 ${j.same ?? 0} (${j.ms ?? 0}ms)`,
+        `● 지라에서 ${j.got ?? 0}건 받아 DB 에 저장했습니다 — 새로 ${j.added ?? 0} · 갱신 ${j.updated ?? 0} · 변경 없음 ${j.same ?? 0} (${j.ms ?? 0}ms)` +
+          (j.healed?.length ? ` · 빠진 이슈가 있어 처음부터 받음: ${j.healed.join(', ')}` : ''),
       )
       void qc.invalidateQueries({ queryKey: ['jira-issues'] })
       window.setTimeout(() => setFlash(''), 8000)
@@ -939,6 +965,18 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
                       <span className="jri-tysel-v">{chipTxt(page?.stages ?? [])}</span>
                       <TI n="chevron-down" />
                     </button>
+                    <button
+                      type="button"
+                      className={`jri-tysel${page?.statuses?.length ? ' on' : ''}`}
+                      aria-haspopup="dialog"
+                      title="볼 이슈 상태 고르기 — 보기만 거릅니다(Sync 는 프로젝트·유형으로)"
+                      onClick={(e) => openPick('status', e.currentTarget)}
+                    >
+                      <TI n="filter" />
+                      <span className="jri-tysel-l">이슈 상태</span>
+                      <span className="jri-tysel-v">{chipTxt(page?.statuses ?? [])}</span>
+                      <TI n="chevron-down" />
+                    </button>
                   </>
                 )}
                 {issQuery.isLoading && <span className="jri-last">읽는 중…</span>}
@@ -1013,21 +1051,19 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
             className="jri-typop"
             style={{ left: pickPop.x, top: pickPop.y }}
             role="dialog"
-            aria-label={pickPop.kind === 'type' ? '이슈 유형' : '이슈단계'}
+            aria-label={PICK[pickPop.kind].label}
           >
             <b>
-              {chipTxt(prj)} · {pickPop.kind === 'type' ? '이슈 유형' : '이슈단계'}
+              {chipTxt(prj)} · {PICK[pickPop.kind].label}
             </b>
             <span className="jri-tyhint">
               {pickPop.kind === 'type'
                 ? '고른 유형만 보이고, Sync 도 그것만 받습니다'
-                : '고른 단계만 보입니다 — 단계는 이슈가 진행하며 바뀌어 Sync 는 거르지 않습니다'}
+                : `고른 ${pickPop.kind === 'stage' ? '단계' : '상태'}만 보입니다 — 이슈가 진행하며 바뀌어 Sync 는 거르지 않습니다`}
             </span>
             <div className="jri-tylist">
-              {pickPop.kind === 'type' && tyQuery.isLoading && !pickList.length && (
-                <span className="jri-none">지라에서 유형을 읽는 중…</span>
-              )}
-              {pickPop.kind === 'stage' && !pickList.length && <span className="jri-none">받아 둔 이슈에 이슈단계 값이 없습니다</span>}
+              {tyQuery.isFetching && <span className="jri-none">지라에서 {PICK[pickPop.kind].label} 목록을 읽는 중…</span>}
+              {!tyQuery.isFetching && !pickList.length && <span className="jri-none">{PICK[pickPop.kind].label} 값이 없습니다</span>}
               {pickList.map(([t, n]) => {
                 const on = pickPop.pick.includes(t)
                 return (
@@ -1038,7 +1074,7 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
                       onChange={() => setPickPop({ ...pickPop, pick: on ? pickPop.pick.filter((x) => x !== t) : [...pickPop.pick, t] })}
                     />
                     <span>{t}</span>
-                    <em>{n ? `${n}건` : '아직 안 받음'}</em>
+                    <em>{n ? `${n}건` : pickPop.kind === 'type' ? '아직 안 받음' : '0건'}</em>
                   </label>
                 )
               })}
@@ -1054,8 +1090,8 @@ export default function JiraIssues({ me }: { me?: MeUser | null }) {
                 onClick={() => {
                   const { kind, pick } = pickPop
                   setPickPop(null)
-                  if (kind === 'stage') {
-                    setPage({ stages: pick })
+                  if (kind !== 'type') {
+                    setPage(kind === 'stage' ? { stages: pick } : { statuses: pick })
                     return
                   }
                   setPage({ types: pick })
