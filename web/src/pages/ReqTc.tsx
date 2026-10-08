@@ -18,10 +18,8 @@ import {
   IconSettings,
 } from '@/components/icons'
 import GlobalParams from '@/components/settings/GlobalParams'
-import NTable from '@/components/ntable/NTable'
 import EfNTable from '@/components/effort/EfNTable'
-import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
-import { EMPTY_VIEW, type NCalc, type NCol, type NOption, type NRow, type NView } from '@/components/ntable/types'
+import { type NCol, type NOption, type NRow } from '@/components/ntable/types'
 import { paintOfAny } from '@/components/ntable/palette'
 import { type CfType, type CfMeta, type CustomField } from '@/hooks/useCustomFields'
 import ListSortBtn, {
@@ -452,7 +450,6 @@ export default function ReqTc({ me }: Props) {
   /* ── 노션 꼴 표(승인) — 기존 표는 그대로 두고 **골라서 켠다**.
      열·색은 SETUP 이 정본이라, 여기서는 그 값을 노션 모양으로 옮겨 담기만
      한다(두 벌 관리 금지). ── */
-  const [nview, setNview] = useState<NView>({ ...EMPTY_VIEW })
   /* 폭·숨김·순서는 prefSet 으로만 남는데 그것은 상태가 아니다 — 고쳐도
      화면이 안 다시 그려졌다(검증). 이 숫자를 올려 다시 읽게 한다. */
   const [nColRev, setNColRev] = useState(0)
@@ -719,18 +716,6 @@ export default function ReqTc({ me }: Props) {
       }
     }
   }
-  /* 열마다 아래에서 세는 것·줄 수 — 계정을 따라간다(prefs 접두어 동기화) */
-  const [nCalc, setNCalc] = useState<Record<string, NCalc>>(() => {
-    try {
-      return JSON.parse(prefGet('utop.ntb.calc') ?? '{}') as Record<string, NCalc>
-    } catch {
-      return {}
-    }
-  })
-  const [nPer, setNPer] = useState(() => Number(prefGet('utop.ntb.per') ?? '') || 100)
-  /* 고른 보기(탭) — 만들면 나만 보기로 시작하고 「모두에게 보이기」 로
-     공용이 된다(승인). 탭을 고르면 그 한 벌이 화면에 얹힌다. */
-  const [nvId, setNvId] = useState('')
   /** 노션 표가 제 목록(거르기·정렬·묶기·건수)을 통째로 쥔 상태 */
   /** 표가 제 목록(거르기·정렬·묶기·건수)을 쥔다 — 옛 조종간은 물러났다 */
   const nOwn = true
@@ -1483,59 +1468,13 @@ export default function ReqTc({ me }: Props) {
   const nReqCols = nEdit && mode === 'req' ? nEdit : nReqColsBase
   const nCols = nEdit && mode === 'tc' ? nEdit : nColsBase
 
-  /** 지금 화면 한 벌 — 새 탭·덮어쓰기가 이것을 담는다 */
-  const nBody: ViewBody = useMemo(
-    () => ({
-      hidden: nCols.filter((c) => c.hidden).map((c) => c.key),
-      widths: Object.fromEntries(nCols.filter((c) => c.width).map((c) => [c.key, c.width!])),
-      order: nCols.map((c) => c.key),
-      flt: nview as ViewBody['flt'],
-    }),
-    [nCols, nview],
-  )
-  /* 「기본」 의 필터 — 탭으로 갔다 돌아오면 이걸 되살린다(승인: 기본과
-     보기의 필터를 가른다). 저장은 안 한다 — 기본은 휘발성 작업대다. */
-  const baseFltRef = useRef<NView>({ ...EMPTY_VIEW })
-  /** 탭을 고르면 열 배치와 **필터 한 벌**을 얹는다(승인). flt 가 없는
-      옛 탭은 지금 필터를 그대로 두어 여태 동작과 같다. */
-  const applyView = (v: ViewDef | null) => {
-    if (!nvId) baseFltRef.current = nview
-    setNvId(v?.id ?? '')
-    const hid = new Set(v?.body?.hidden ?? [])
-    const w = v?.body?.widths ?? {}
-    const ord = v?.body?.order ?? []
-    for (const c of nCols) {
-      prefSet(`utop.ntb.hide.${nkey(c.key)}`, hid.has(c.key) ? '1' : '0')
-      if (w[c.key]) prefSet(`utop.ntb.w.${nkey(c.key)}`, String(w[c.key]))
-    }
-    prefSet(mode === 'req' ? 'utop.ntb.order.r' : 'utop.ntb.order', ord.join(','))
-    setNColRev((n) => n + 1)
-    if (v) {
-      if (v.body?.flt) setNview({ ...EMPTY_VIEW, ...(v.body.flt as Partial<NView>) })
-    } else {
-      setNview(baseFltRef.current)
-    }
-  }
-  /** 예전 표(NTable)로 보기 — 새 표(Effort 양식)로 바꾸는 동안 돌아갈 길(승인). 계정을 따라간다 */
-  const [efOld, setEfOldRaw] = useState(() => prefGet('utop.reqtc.oldTable') === '1')
-  const setEfOld = (v: boolean) => {
-    setEfOldRaw(v)
-    prefSet('utop.reqtc.oldTable', v ? '1' : '0')
-  }
-  const oldTableBtn = (
-    <button type="button" className="ef-btn gh" title="바꾸는 동안 예전 표로 돌아가 볼 수 있습니다" onClick={() => setEfOld(true)}>
-      예전 표로
-    </button>
-  )
-  /** 새 표의 열 차례·폭·기본 탭 숨긴 열을 예전 표 설정(utop.ntb.*)에도 — 둘을 오가도 같은 배치 */
+  /** 표의 열 차례·폭·기본 탭 숨긴 열을 열 설정(utop.ntb.*)에 — 열 목록(nColsBase)이 처음 폭·차례를 여기서 읽는다 */
   const efLayout = (pre: string, orderKey: string) => (lay: { order: string[]; widths: Record<string, number>; hidden: string[] }) => {
     for (const [k, w] of Object.entries(lay.widths)) prefSet(`utop.ntb.w.${pre}${k}`, String(Math.round(w)))
     const hid = new Set(lay.hidden)
     for (const k of lay.order) prefSet(`utop.ntb.hide.${pre}${k}`, hid.has(k) ? '1' : '0')
     prefSet(orderKey, lay.order.join(','))
   }
-  /** 요구사항 열은 앞에 r_ 를 붙여 시험 열과 안 섞이게 */
-  const nkey = (k: string) => (mode === 'req' ? `r_${k}` : k)
 
   /** 노션 표의 줄 — 지금 폴더·프로젝트로 좁힌 시험들 */
   const nRows = useMemo<NRow[]>(
@@ -2971,132 +2910,15 @@ export default function ReqTc({ me }: Props) {
               />
             </div>
           ) : (
-          <div className={`rqtc-tbl${efOld ? '' : ' rqtc-ef'}`}>
-            {/* 바꾸는 동안 예전 표로 돌아갈 길(승인 — 일주일쯤 뒤 지운다) */}
-            {efOld && (
-              <div className="rqtc-efbar">
-                <button type="button" className="btn small" onClick={() => setEfOld(false)}>
-                  새 표(Effort 양식)로 보기
-                </button>
-              </div>
-            )}
+          <div className="rqtc-tbl rqtc-ef">
             {mode === 'req' ? (
               /* 요구사항도 노션 꼴로(지시) — 켰을 때만. 옛 표는 그대로 있다 */
-              efOld ? (
-<NTable
-                columns={nReqCols}
-                calcs={nCalc}
-                onCalcs={(v) => {
-                  setNCalc(v)
-                  prefSet('utop.ntb.calc', JSON.stringify(v))
-                }}
-                perPage={nPer}
-                onPerPage={(n) => {
-                  setNPer(n)
-                  prefSet('utop.ntb.per', String(n))
-                }}
-                rows={nReqRows}
-                view={nview}
-                onView={setNview}
-                toolbarLeft={
-                  <NViews
-                    scope="reqtc.req"
-                    curId={nvId}
-                    onPick={applyView}
-                    current={nBody}
-                    meName={me?.username || me?.name || ''}
-                    isAdmin={isAdminUser(me)}
-                  />
-                }
-                onNew={() => setEditReq(null)}
-                onColumns={(cs) => void applyCols(nReqCols, cs, 'r_', 'utop.ntb.order.r')}
-                onCell={(id, key, v) => void setOneField('req', id, { [key]: v })}
-                readOnlyKeys={['model_group', 'model', 'cov', 'tcmap', 'mapb']}
-                idKey="rid"
-                titleKey="title"
-                onOpen={(id) => {
-                  setOpenReq(id)
-                  setOpenTab('info')
-                }}
-                onPeek={(id) => setPop({ kind: 'req', id })}
-                exportTitle="REQ-Coverage · 요구사항"
-                exportScope={exportScope}
-                /* 화면이 **계산해 그리는 열**은 여기서 글자를 만들어 준다 —
-                   안 주면 엑셀에 빈칸으로 나간다(지적). Map 은 누르는 단추라
-                   적을 값이 없다. */
-                exportCell={(r, key) => {
-                  const ts = tcOf.get(String(r.__id ?? '')) ?? []
-                  if (key === 'cov') return ts.length ? `TC ${ts.length}` : '미커버'
-                  if (key === 'tcmap') return ts.map((t) => t.tcid).join(', ')
-                  /* Map 은 누르는 단추라 적을 값이 없다 — 열은 **그대로 두고**
-                     칸만 비운다(지시). 화면의 열 구성과 엑셀이 어긋나지 않는다. */
-                  if (key === 'mapb') return ''
-                  return undefined
-                }}
-                /* 시험 항목 표와 같은 자리에 「복제」 를 세운다(지시) */
-                bulk={[
-                  { k: 'clone', label: '복제' },
-                  { k: 'edit', label: '일괄 편집' },
-                  { k: 'csv', label: '엑셀' },
-                  { k: 'del', label: '삭제', danger: true },
-                ]}
-                onBulk={(a, ids) => {
-                  if (a === 'del') void deletePicked(ids)
-                  else if (a === 'clone') void cloneReqPicked(ids)
-                  else if (a === 'edit') {
-                    setBulkIds(ids)
-                    setBulkEdit(true)
-                  } else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
-                }}
-                renderCell={(r, c) => {
-                  if (c.key === 'mapb') {
-                    const rq = reqs.find((x) => reqPk(x) === r.__id)
-                    return (
-                      <button
-                        type="button"
-                        className="rqtc-mapb"
-                        title="시험 연결 — 체크해서 붙였다 뗍니다"
-                        onClick={() => rq && setMapFor(rq)}
-                      >
-                        Map
-                      </button>
-                    )
-                  }
-                  if (c.key === 'cov') {
-                    const n = (tcOf.get(r.__id) ?? []).length
-                    return <span className={`rqtc-cov ${n ? 'ok' : 'no'}`}>{n ? `TC ${n}` : '미커버'}</span>
-                  }
-                  if (c.key === 'tcmap') {
-                    const ts = tcOf.get(r.__id) ?? []
-                    if (!ts.length) return <span className="ntb-empty">–</span>
-                    return (
-                      <span>
-                        <button
-                          type="button"
-                          className="rqtc-rid tc"
-                          onClick={() => setPop({ kind: 'tc', id: ts[0]!.tcid })}
-                        >
-                          {ts[0]!.tcid}
-                        </button>
-                        {ts.length > 1 && (
-                          <button type="button" className="rqtc-more-n" onClick={() => goTcOf(r.__id)}>
-                            +{ts.length - 1}
-                          </button>
-                        )}
-                      </span>
-                    )
-                  }
-                  return undefined
-                }}
-              />
-) : (
-<EfNTable
+              <EfNTable
                 scope="reqtc.req"
                 layoutKey="utop.reqtc.ef.req"
                 meName={me?.username || me?.name || ''}
                 isAdmin={isAdminUser(me)}
                 onLayout={efLayout('r_', 'utop.ntb.order.r')}
-                toolRight={oldTableBtn}
                 onColumns={(cs) => void applyCols(nReqCols, cs, 'r_', 'utop.ntb.order.r')}
                 codeKeys={Object.keys(KIND_OF)}
                 columns={nReqCols}
@@ -3181,112 +3003,15 @@ export default function ReqTc({ me }: Props) {
                   return undefined
                 }}
               />
-)
             ) : (
               /* 시험항목 표 — Map·REQ Map·최근 결과처럼 특별한 칸은
                  renderCell 로 이 화면이 직접 그린다 */
-              efOld ? (
-<NTable
-                columns={nCols}
-                calcs={nCalc}
-                onCalcs={(v) => {
-                  setNCalc(v)
-                  prefSet('utop.ntb.calc', JSON.stringify(v))
-                }}
-                perPage={nPer}
-                onPerPage={(n) => {
-                  setNPer(n)
-                  prefSet('utop.ntb.per', String(n))
-                }}
-                rows={nRows}
-                view={nview}
-                onView={setNview}
-                toolbarLeft={
-                  <NViews
-                    scope="reqtc.tc"
-                    curId={nvId}
-                    onPick={applyView}
-                    current={nBody}
-                    meName={me?.username || me?.name || ''}
-                    isAdmin={isAdminUser(me)}
-                  />
-                }
-                onNew={() => setEditTc(null)}
-                onColumns={(cs) => void applyCols(nCols, cs, '', 'utop.ntb.order')}
-                onCell={(id, key, v) => void setOneField('tc', id, { [key]: v })}
-                /* 체크한 것을 상단 「내보내기」 가 쓴다(지시) — 표의 자체
-                   선택은 그대로 두고 사본만 받는다 */
-                onSelect={setTcSel}
-                readOnlyKeys={['model_group', 'model', 'last', 'req']}
-                idKey="tcid"
-                titleKey="name"
-                onOpen={(id) => setOpenTc(id)}
-                onPeek={(id) => setPop({ kind: 'tc', id })}
-                exportTitle="REQ-Coverage · 시험 항목"
-                exportScope={exportScope}
-                /* REQ Map 은 요구사항 번호를 그려 주는 열이다 — 행 자료에는
-                   내부 키(req_id)만 있어 그냥 뽑으면 엉뚱한 값이 나간다 */
-                exportCell={(r, key) => {
-                  if (key === 'req') {
-                    const t = tcRows.find((x) => x.tcid === String(r.__id ?? ''))
-                    const rq = t ? reqById.get(String(t.req_id ?? '')) : undefined
-                    return rq ? reqLabel(rq) : ''
-                  }
-                  return undefined
-                }}
-                /* 「복제」 를 앞에 세운다(지시) — 나머지는 기본 그대로 */
-                bulk={[
-                  { k: 'clone', label: '복제' },
-                  { k: 'edit', label: '일괄 편집' },
-                  { k: 'csv', label: '엑셀' },
-                  { k: 'del', label: '삭제', danger: true },
-                ]}
-                onBulk={(a, ids) => {
-                  /* 이 표는 제 선택을 스스로 들고 있다 — sel 에 옮겨 담으면
-                     아래 일괄 바가 둘이 되어 서로를 덮었다(검증).
-                     삭제는 ids 를 그대로 넘긴다(확인창은 deletePicked 몫). */
-                  if (a === 'del') void deletePicked(ids)
-                  else if (a === 'clone') void clonePicked(ids)
-                  else if (a === 'edit') {
-                    setBulkIds(ids)
-                    setBulkEdit(true)
-                  } else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
-                }}
-                renderCell={(r, c) => {
-                  if (c.key === 'req') {
-                    const t = tcRows.find((x) => x.tcid === r.__id)
-                    const rq = t ? reqById.get(String(t.req_id ?? '')) : undefined
-                    return rq ? (
-                      <button
-                        type="button"
-                        className="rqtc-rid"
-                        onClick={() => setPop({ kind: 'req', id: reqPk(rq) })}
-                      >
-                        {reqLabel(rq)}
-                      </button>
-                    ) : (
-                      <span className="ntb-empty">–</span>
-                    )
-                  }
-                  if (c.key === 'last') {
-                    const v = String(r.last ?? '')
-                    return v ? (
-                      <span className={`rqtc-lastv ${statusClass(v)}`}>{v}</span>
-                    ) : (
-                      <span className="ntb-empty">–</span>
-                    )
-                  }
-                  return undefined
-                }}
-              />
-) : (
-<EfNTable
+              <EfNTable
                 scope="reqtc.tc"
                 layoutKey="utop.reqtc.ef.tc"
                 meName={me?.username || me?.name || ''}
                 isAdmin={isAdminUser(me)}
                 onLayout={efLayout('', 'utop.ntb.order')}
-                toolRight={oldTableBtn}
                 onColumns={(cs) => void applyCols(nCols, cs, '', 'utop.ntb.order')}
                 codeKeys={Object.keys(KIND_OF)}
                 columns={nCols}
@@ -3358,7 +3083,6 @@ export default function ReqTc({ me }: Props) {
                   return undefined
                 }}
               />
-)
             )}
           </div>
           )}

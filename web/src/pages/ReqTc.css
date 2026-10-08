@@ -1332,7 +1332,5 @@
    기본 13px 로는 곁의 16px 집과 층이 안 맞아 작고 어둡게 떴다(지적). */
 .rqtc-fico.big { font-size: 16px; }
 
-/* 새 표(Effort 양식, 승인) — 표가 제 스크롤·도구 줄을 가진다. 바깥 칸은 틀만 */
+/* 표(Effort 양식) — 표가 제 스크롤·도구 줄을 가진다. 바깥 칸은 틀만 */
 .rqtc-tbl.rqtc-ef { overflow: hidden; display: flex; flex-direction: column; border: 0; border-radius: 0; }
-/* 예전 표로 볼 때 「새 표로 보기」 줄 */
-.rqtc-efbar { display: flex; justify-content: flex-end; padding: 4px 6px; border-bottom: 1px solid var(--c-border-soft, #e6eaee); }
