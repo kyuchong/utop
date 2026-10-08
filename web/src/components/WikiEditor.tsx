@@ -104,6 +104,11 @@ html, body { height: auto !important; margin: 0 !important; background: #fff !im
 /* **다만 표의 칸은 남긴다.** 표는 ID·제목 칸을 단추로 그리므로, 위에서 단추를
    통째로 숨기면 그 칸들이 종이에서 빈 채로 나간다. */
 .ntb-cellb { display: inline !important; }
+/* 데이터베이스 표(Effort 양식) — 화면에서는 정해 둔 높이 안에서 굴리던 표를 **펼쳐** 찍는다.
+   그대로 두면 보이던 몇 줄만 종이에 나간다. 도구 줄·고르기 칸·끌기 손잡이는 뺀다 */
+.wtb .efn, .wtb .ef-main, .wtb .ef-gbox, .wtb .ef-gmain { height: auto !important; flex: none !important; }
+.wtb .ef-scroll { position: static !important; }
+.wtb .ef-toolbar, .wtb .ef-selbar, .wtb .ef-hint, .wtb .ef-newrow, .wtb .ef-sink, .wtb .ef-rck, .wtb .ef-rgrip { display: none !important; }
 
 /* 제목은 **태그로** 집는다. 클래스 이름으로 집었더니 그 이름이 늘 붙는 게
    아니어서, 바깥 크기(26px)는 먹고 안쪽 h1 은 그 2배로 남았다. */

@@ -3,19 +3,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { parseTable } from '@/lib/parseTable'
-import NTable from './ntable/NTable'
-import NViews, { type ViewBody, type ViewDef } from './ntable/NViews'
+import EfNTable from './effort/EfNTable'
 import { useIsAdmin, useMeName } from './ntable/useAdmin'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from './ntable/types'
-import { useUserPeople } from '@/pages/qaBits'
 import './wikiTable.css'
 
 /**
  * 문서 안의 **표** — 노션식 데이터베이스(지시: 위키에서 인원 투입 현황을 관리한다).
  *
- * 표를 그리고 거르고 세는 일은 **이미 있는 부품**(ntable)이 그대로 한다. 결함·
- * 사이클·지라 이슈 화면이 쓰는 그 표다. 여기서 하는 일은 그 부품에 자료를 대 주고,
- * 사람이 고친 것을 서버에 싣는 것뿐이다.
+ * 표를 그리고 거르고 세는 일은 **이미 있는 부품**(Effort 양식 표 — EfNTable)이 그대로 한다
+ * (지시: Effort Plan 표 형태로). REQ-Coverage·Cycles·결함·지라 이슈 화면이 쓰는 그 표다.
+ * 여기서 하는 일은 그 부품에 자료를 대 주고, 사람이 고친 것을 서버에 싣는 것뿐이다.
  *
  * **블록에는 표의 열쇠(tid)만 담는다.** 열·행을 블록에 담으면
  *   · 칸 하나를 고칠 때마다 문서 전체가 다시 저장되고(행 500 이면 저장 한 번에
@@ -49,19 +47,11 @@ export function newTableId(): string {
 function TableBody({ tid }: { tid: string }) {
   const qc = useQueryClient()
   const [imp, setImp] = useState(false)
-  /* ── 보기 탭(지적: 탭 기능이 없다) ─────────────────────────────────
-     결함·사이클·시험항목 화면이 쓰는 그 부품을 그대로 단다. 탭은 **열을
-     보이게/숨기게·폭·차례**만 담는다(거르기·정렬은 탭에 안 매인다).
-
-     탭이 담는 것을 서버의 열 정의에 쓰지 않는 까닭: 열 정의는 **모두가 같이**
-     보는 것이고 탭은 **사람마다** 다르다. 내가 열을 숨겼다고 남의 화면에서도
-     사라지면 안 된다. 그래서 탭이 주는 것은 화면에서만 덧입힌다. */
-  const [nvId, setNvId] = useState('')
-  const [nvBody, setNvBody] = useState<ViewBody | null>(null)
+  /** 열 지우기를 취소하면 표를 다시 세운다 */
+  const [rev, setRev] = useState(0)
   const isAdmin = useIsAdmin()
   const meName = useMeName()
   const key = ['wiki-tbl', tid]
-  const people = useUserPeople()
 
   const q = useQuery({
     queryKey: key,
@@ -142,31 +132,6 @@ function TableBody({ tid }: { tid: string }) {
     [cols, rows],
   )
 
-  /** 고른 탭을 덧입힌 열 — 탭이 없으면 그대로 */
-  const colsShown = useMemo(() => {
-    if (!nvBody) return colsView
-    const hid = new Set(nvBody.hidden ?? [])
-    const w = nvBody.widths ?? {}
-    const out = colsView.map((c) => ({ ...c, hidden: hid.has(c.key), width: w[c.key] ?? c.width }))
-    const ord = nvBody.order
-    if (ord?.length) {
-      const at = new Map(ord.map((k, n) => [k, n]))
-      /* 탭이 모르는 열(탭을 만든 뒤에 생긴 열)은 뒤에 그대로 둔다 */
-      out.sort((a, b) => (at.get(a.key) ?? 1e6) - (at.get(b.key) ?? 1e6))
-    }
-    return out
-  }, [colsView, nvBody])
-
-  /** 지금 열 상태 — 탭을 새로 만들거나 고칠 때 이것이 담긴다 */
-  const nBody: ViewBody = useMemo(
-    () => ({
-      hidden: colsShown.filter((c) => c.hidden).map((c) => c.key),
-      widths: Object.fromEntries(colsShown.filter((c) => c.width).map((c) => [c.key, c.width!])),
-      order: colsShown.map((c) => c.key),
-    }),
-    [colsShown],
-  )
-
   if (q.isLoading) return <div className="wtb-msg">표를 읽는 중…</div>
   if (q.isError) return <div className="wtb-msg">표를 읽지 못했습니다.</div>
 
@@ -180,55 +145,51 @@ function TableBody({ tid }: { tid: string }) {
           onClose={() => setImp(false)}
         />
       )}
-    <NTable
-      columns={colsShown}
+    <EfNTable
+      key={rev}
+      columns={colsView}
       rows={rows}
-      view={d?.view ?? EMPTY_VIEW}
-      onView={(v) => head.mutate({ view: v })}
-      onColumns={(c) => head.mutate({ cols: c })}
-      onCell={(rid, k, v) => cell.mutate({ rid, key: k, value: v })}
-      calcs={d?.calcs ?? {}}
-      onCalcs={(v) => head.mutate({ calcs: v })}
-      people={people}
-      onNew={(seed) =>
-        void post('/rows', seed ? { seed: { [seed.key]: seed.value } } : {})
+      /* 보기 탭은 표마다 따로 — 한 문서에 표가 둘이면 탭도 둘이다. 예전 탭(wtbl:)을 그대로 이어 받는다 */
+      scope={`wtbl:${tid}`}
+      layoutKey={`utop.efn.wtbl.${tid}`}
+      meName={meName}
+      isAdmin={isAdmin}
+      /* 사람이 만드는 자유 표 — 어느 열이든 이름·유형·옵션·복제·삭제, 칸에서 새 값 만들기 */
+      freeDefs
+      /* 열 정의는 **모두가 같이 보는 것**이라 서버 머리에. 숨김은 보기마다라 싣지 않는다 */
+      onColumns={(c) => {
+        /* 열을 지웠으면 묻는다 — 지운 열의 값은 줄마다 남지만 표에서는 사라진다. 안 지우면 서버 것으로 되돌린다 */
+        const gone = cols.filter((x) => !c.some((y) => y.key === x.key))
+        if (gone.length && !window.confirm(`「${gone.map((x) => x.label).join('」, 「')}」 열을 지웁니다.`)) {
+          setRev((n) => n + 1) // 표를 서버 것으로 다시 세운다(지운 열이 돌아온다)
+          return
+        }
+        head.mutate({ cols: c.map(({ hidden: _h, ...x }) => x) })
+      }}
+      onCell={(rid, k, v) =>
+        cell
+          .mutateAsync({ rid, key: k, value: v })
+          .then(() => true)
+          .catch(() => false)
       }
-      /* 엑셀은 기본 목록에 있던 것을 되살린다 — 내가 덮어써서 사라졌다 */
+      onNew={() => void post('/rows', {})}
       bulk={[{ k: 'csv', label: '내보내기' }, { k: 'del', label: '삭제', danger: true }]}
-      /* 줄을 안 골라도 통째로 내려받는 단추(지시) */
-      showExport
-      /* 가져오기는 **내보내기 바로 오른쪽**에 선다(지시) — 짝이라 나란히 있어야 한다 */
-      onImport={() => setImp(true)}
-      /* 닮은 열을 여럿 만드는 표라 복제가 필요하다(지시: 열·필드 복사) */
-      canDupCol
       onBulk={(a, ids) => {
-        /* csv 는 NTable 이 제 방식(/api/export/xlsx)으로 낸다 — 여기서 가로채면
-           우리가 엑셀을 다시 만들어야 한다 */
-        if (a === 'del') void post('/rows', { ids }, 'DELETE')
+        /* 「내보내기」 는 표가 제 방식(/api/export/xlsx)으로 낸다 */
+        if (a === 'del' && window.confirm(`고른 ${ids.length}줄을 지웁니다.`)) void post('/rows', { ids }, 'DELETE')
       }}
       onReorder={(ids) => void post('/rows', { order: ids })}
-      /* **첫 열을 제목 열로 못박지 않는다**(지적: 부서는 고르는 칸인데 글자를
-         입력하게 되어 있다). 제목 열은 제 유형을 무시하고 늘 글자 상자로 열리고
-         「(제목 없음)」·「열기」 를 달고 나온다 — 여는 상세 화면이 없는 이 표에서는
-         죽은 단추이고, 첫 열을 「부서(선택)」 로 바꾸면 고를 수가 없어진다.
-         빈 이름을 주어 어느 열도 제목 취급을 받지 않게 한다. */
-      /* 보기 탭은 표마다 따로 — 한 문서에 표가 둘이면 탭도 둘이다 */
-      toolbarLeft={
-        <NViews
-          scope={`wtbl:${tid}`}
-          curId={nvId}
-          onPick={(v: ViewDef | null) => {
-            setNvId(v?.id ?? '')
-            setNvBody(v?.body ?? null)
-          }}
-          current={nBody}
-          meName={meName}
-          isAdmin={isAdmin}
-        />
+      /* 가져오기는 내보내기(엑셀) 바로 왼쪽 — 짝이라 나란히(지시) */
+      toolRight={
+        <button type="button" className="ef-btn gh" title="엑셀·CSV·붙여넣기로 줄을 들입니다" onClick={() => setImp(true)}>
+          가져오기
+        </button>
       }
+      idKey=""
       titleKey=""
       exportTitle={d?.title || '표'}
-      perPage={100}
+      /* 문서 안의 표라 바깥이 높이를 안 준다 — 줄 수만큼(머리·도구 줄 몫 160), 너무 길면 굴린다 */
+      height={Math.max(260, Math.min(640, 160 + Math.max(rows.length, 3) * 32))}
     />
     </>
   )

@@ -1061,7 +1061,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         nc.id = newId()
         nc.title = c.title + ' 복사'
         doc.columns.splice(i + 1, 0, nc)
-        allRows().forEach((r) => r[c.id] != null && (r[nc.id] = r[c.id]))
+        // 잠근 표(위키 데이터베이스)는 정의만 — 값은 바깥(서버)에 있다(예전 표의 열 복제와 같다)
+        if (!lock) allRows().forEach((r) => r[c.id] != null && (r[nc.id] = r[c.id]))
         touch()
       },
       remove: () => {

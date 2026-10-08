@@ -760,7 +760,7 @@ export function HeadMenu({
     type: !lock || (!!col.defs?.type && !!defs),
     opts: !lock || !!col.defs?.opts,
     add: !lock || !!defs?.add,
-    dup: !lock,
+    dup: !lock || !!col.defs?.dup,
     del: !lock || !!col.defs?.del,
   }
   const typeList = lock && defs ? TYPES.filter((t) => defs.types.includes(t.t)) : TYPES

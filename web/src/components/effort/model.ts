@@ -38,7 +38,7 @@ export interface EfColumn {
    * 잠근 표에서도 이 열의 정의를 고칠 수 있나(REQ-Coverage: 만든 칸은 이름·유형·옵션·삭제, 코드 칸은 이름·옵션).
    * 고친 결과는 바깥이 받아 서버 정의로 옮긴다(EfNTable → onColumns)
    */
-  defs?: { rename?: boolean; type?: boolean; opts?: boolean; del?: boolean }
+  defs?: { rename?: boolean; type?: boolean; opts?: boolean; del?: boolean; dup?: boolean }
   [k: string]: unknown
 }
 export type EfRow = Record<string, unknown>

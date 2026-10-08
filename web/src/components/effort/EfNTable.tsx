@@ -81,13 +81,20 @@ export interface EfNTableProps {
   baseView?: { sorts: Array<{ key: string; dir: 'asc' | 'desc' }>; groupBy: string }
   /** 보기 탭 없이 「기본」 하나로만(Cycles 시험 항목 — 정렬·묶기는 사이클 문서가 쥔다). 서버 보기는 안 읽는다 */
   noViews?: boolean
+  /**
+   * 사람이 만드는 자유 표(위키 데이터베이스) — 모든 열이 이름·유형·옵션·복제·삭제, 사람 칸도 고를 수 있고,
+   * 칸에서 새 선택지를 만든다(설정이 정본인 표가 아니다)
+   */
+  freeDefs?: boolean
+  /** 표 높이(px) — 문서 안에 끼우는 표처럼 바깥이 높이를 안 주는 자리 */
+  height?: number
   onBaseView?: (v: { sorts: Array<{ key: string; dir: 'asc' | 'desc' }>; groupBy: string }) => void
 }
 
 /** 머리 메뉴에서 고를 수 있는 유형 — 서버 정의(사용자 정의 칸)가 받는 것만 */
 const DEF_TYPES: EfColumn['type'][] = ['text', 'number', 'date', 'select', 'multiselect']
 const toNType = (t: EfColumn['type']): NCol['type'] =>
-  t === 'number' || t === 'date' || t === 'select' || t === 'multiselect' ? t : 'text'
+  t === 'number' || t === 'date' || t === 'select' || t === 'multiselect' || t === 'person' ? t : 'text'
 
 const BASE = 'base'
 const EMPTY_ST: EfViewState = { q: '', filters: [], sorting: [], group: null }
@@ -176,9 +183,10 @@ export default function EfNTable(p: EfNTableProps) {
         // 편집기 칩 색 — 설정의 색 이름(palette)·hex 를 점 색으로
         nc.optColors = Object.fromEntries(c.options.map((o) => [o.value, paintOfAny(o.color).dot]))
       }
-      if (ty === 'select' || ty === 'multiselect') nc.fixedOptions = true
+      if ((ty === 'select' || ty === 'multiselect') && !p.freeDefs) nc.fixedOptions = true
       // 머리 메뉴 허용 — 만든 칸은 이름·유형·옵션·삭제, 코드 칸은 이름·옵션, ID·제목·계산 칸은 잠금
-      if (p.onColumns && !c.fixed && !ro.has(c.key)) {
+      if (p.freeDefs && p.onColumns) nc.defs = { rename: true, type: true, opts: true, del: true, dup: true }
+      else if (p.onColumns && !c.fixed && !ro.has(c.key)) {
         if (c.key.startsWith('cf_')) nc.defs = { rename: true, type: true, opts: true, del: true }
         else if ((p.codeKeys ?? []).includes(c.key)) nc.defs = { rename: true, opts: true }
       }
@@ -289,7 +297,7 @@ export default function EfNTable(p: EfNTableProps) {
         if (nById.has(c.id)) continue
         const key = `cf_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`
         c.id = key
-        c.defs = { rename: true, type: true, opts: true, del: true }
+        c.defs = { rename: true, type: true, opts: true, del: true, dup: !!p.freeDefs }
       }
       const hid = new Set(base?.ef?.hidden ?? [])
       const after: NCol[] = d.columns.map((c) => {
@@ -514,7 +522,7 @@ export default function EfNTable(p: EfNTableProps) {
   )
 
   return (
-    <div className="ef efn">
+    <div className="ef efn" style={p.height ? { height: p.height, flex: 'none' } : undefined}>
       {!!msg && <div className="ef-toast">{msg}</div>}
       <EffortBody
         d={doc}
@@ -543,7 +551,7 @@ export default function EfNTable(p: EfNTableProps) {
           onBulk,
           renderCell,
           onExport: (rs, vc) => void exportXlsx(rs, vc),
-          colDefs: p.onColumns ? { types: DEF_TYPES, add: true } : undefined,
+          colDefs: p.onColumns ? { types: p.freeDefs ? [...DEF_TYPES, 'person'] : DEF_TYPES, add: true } : undefined,
           toolLeft: p.toolbarLeft,
           noTabs: p.noViews,
           rowClass: p.rowClass ? (r) => p.rowClass!(r as NRow) : undefined,
