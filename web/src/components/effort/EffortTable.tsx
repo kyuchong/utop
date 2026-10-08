@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   getCoreRowModel,
   getExpandedRowModel,
@@ -317,6 +317,27 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const lock = !!ctx.lock
   /** 줄을 표 폭 끝까지 채운다 — 빌려 쓰는 표(예전 노션식 표가 그랬다). Effort Plan 은 열 폭 그대로 */
   const fill = lock
+  /**
+   * 계산 줄은 표 칸 **맨 아래**(지시) — 행이 적어 표가 짧으면 행과 계산 줄 사이를 빈 칸으로 채운다.
+   * 행이 많아 굴릴 때는 계산 줄이 바닥에 붙어(sticky) 따라온다. 안내 줄은 표 상자 밖 아래로 뺐다
+   */
+  const [padH, setPadH] = useState(0)
+  const padRef = useRef(0)
+  padRef.current = padH
+  useLayoutEffect(() => {
+    const tbl = tblRef.current
+    const box = tbl?.closest<HTMLElement>('.ef-scroll')
+    if (!tbl || !box) return
+    const fit = () => {
+      const need = Math.max(0, Math.floor(box.clientHeight - (tbl.offsetHeight - padRef.current)))
+      if (Math.abs(need - padRef.current) > 1) setPadH(need)
+    }
+    const ro = new ResizeObserver(fit)
+    ro.observe(box)
+    ro.observe(tbl)
+    fit()
+    return () => ro.disconnect()
+  }, [])
   /** 그릴 행 수(더 보기로 늘린다) — 표가 바뀌면(행 배열이 달라지면) 처음 수로 */
   const [limit, setLimit] = useState(ctx.pageSize ?? Infinity)
   const { table, max, sizing, setSizing, markFresh } = api
@@ -1523,6 +1544,13 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               </>
             )}
           </tbody>
+          {padH > 0 && (
+            <tbody className="ef-padb" aria-hidden="true">
+              <tr>
+                <td colSpan={ordered.length + 1 + (fill ? 1 : 0)} style={{ height: padH }} />
+              </tr>
+            </tbody>
+          )}
           <tfoot>
             <tr>
               <td className="ef-rh" />
@@ -1708,10 +1736,6 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         </thead>
         {painted}
       </table>
-      <div className="ef-hint">
-        <b>머리글 클릭=메뉴</b>(유형·필터·정렬·수식 설정) · <b>바닥줄 클릭=계산 고르기</b> · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
-        <b>셀 두 번 클릭·Enter·F2·바로 입력=수정</b> · 방향키=이동 · Shift+Enter=줄 바꿈 · <b>행 우클릭=행 추가·복제·삭제</b>
-      </div>
 
       {edit && edit.col.type === 'multiselect' && (
         <MultiPicker
@@ -1878,6 +1902,11 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         })()}
     </div>
     </div>
+    {/* 안내 줄은 표 상자 밖 아래 — 계산 줄이 표 칸 맨 아래(스크롤 막대 바로 위)에 오게(지시) */}
+    <div className="ef-hint">
+        <b>머리글 클릭=메뉴</b>(유형·필터·정렬·수식 설정) · <b>바닥줄 클릭=계산 고르기</b> · <b>머리글 끌기=열 이동</b> · 셀 클릭=선택, 끌면 범위 · 오른쪽 아래 점 끌기=채우기 ·{' '}
+        <b>셀 두 번 클릭·Enter·F2·바로 입력=수정</b> · 방향키=이동 · Shift+Enter=줄 바꿈 · <b>행 우클릭=행 추가·복제·삭제</b>
+      </div>
     </div>
   )
 }

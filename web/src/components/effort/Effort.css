@@ -1258,3 +1258,6 @@ input.ef-fsel { cursor: text; }
 .ef-t tbody tr.ntb-live:hover td { background: #e7f7ec; }
 /* 맨 끝 채움 칸 — 줄 선·바탕만 이어 가고 아무 일도 안 한다 */
 .ef-t th.ef-fillc, .ef-t td.ef-fillc { padding: 0; border-right: 0; }
+/* 행과 계산 줄 사이 빈 칸 — 계산 줄을 표 칸 맨 아래로 민다 */
+.ef-t tbody.ef-padb td { padding: 0; border: 0; background: transparent; }
+.ef-gbox > .ef-hint { flex: none; position: static; }
