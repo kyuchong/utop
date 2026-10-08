@@ -1260,4 +1260,6 @@ input.ef-fsel { cursor: text; }
 .ef-t th.ef-fillc, .ef-t td.ef-fillc { padding: 0; border-right: 0; }
 /* 행과 계산 줄 사이 빈 칸 — 계산 줄을 표 칸 맨 아래로 민다 */
 .ef-t tbody.ef-padb td { padding: 0; border: 0; background: transparent; }
+/* 빈 칸은 행이 아니다 — 마우스를 올려도 칠하지 않는다(지적: 표 여백에 올리면 색이 변한다) */
+.ef-t tbody.ef-padb tr:hover td { background: transparent; }
 .ef-gbox > .ef-hint { flex: none; position: static; }
