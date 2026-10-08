@@ -306,6 +306,8 @@ export function IssueDrawer({
         stale?: boolean
         stale_error?: string
         fetched_at?: string
+        /** UTOP 이 지라에 묻는 계정 */
+        as_user?: string
         fields?: Record<string, unknown>
         renderedFields?: Record<string, unknown>
         /** 칸 id → 보이는 이름. Traceability 처럼 **이름으로 찾는** 칸에 쓴다 */
@@ -595,7 +597,15 @@ export function IssueDrawer({
                 </button>
               ))}
 
-              <h4 className="rls-dh">이슈연결 {links.length || ''}</h4>
+              <h4 className="rls-dh">
+                이슈연결 {links.length || ''}
+                {/* 지라는 조회 계정이 못 보는 이슈를 연결에서 빼고 보낸다 — 어느 계정으로 봤는지 밝힌다(지적: clones 가 빠짐) */}
+                {!!q.data?.as_user && (
+                  <em className="rls-dhnote" title="지라는 이 계정이 볼 수 없는 프로젝트의 이슈를 연결 목록에서 빼고 보냅니다">
+                    지라 계정 {String(q.data.as_user)} 기준
+                  </em>
+                )}
+              </h4>
               {!links.length && <div className="rls-dtext">(연결된 이슈 없음)</div>}
               {links.map((l, i) => {
                 const other = (l.outwardIssue ?? l.inwardIssue) as Record<string, unknown> | undefined

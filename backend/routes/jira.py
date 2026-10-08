@@ -1100,10 +1100,53 @@ def _jira_cache_read(p):
     return None
 
 
+_JIRA_ME = {"ts": 0.0, "name": ""}
+
+
+def _jira_me_sync() -> str:
+    """UTOP 이 지라에 묻는 계정 — 10분 기억. PAT 면 설정에 이름이 없어 지라에 묻는다(/myself).
+
+    지라는 **이 계정이 못 보는 이슈를 이슈연결에서 빼고** 보낸다(지적: clones CP16-229 가 안 보임).
+    서랍이 이 이름을 보여 줘야 「UTOP 이 못 그린 것」 과 「계정이 못 보는 것」 을 가른다."""
+    import time as _t
+    if _JIRA_ME["name"] and _t.time() - _JIRA_ME["ts"] < 600:
+        return _JIRA_ME["name"]
+    cfg = _jira_cfg()
+    name = str(cfg.get("user") or "")
+    r, err = _jira_call("GET", "/rest/api/2/myself", cfg=cfg)
+    if not err and r is not None and r.is_success:
+        j = r.json() or {}
+        name = str(j.get("name") or j.get("displayName") or name)
+    _JIRA_ME.update(ts=_t.time(), name=name)
+    return name
+
+
 async def _jira_cache_reply(j: dict, cached: bool) -> dict:
     names = await db.kv_get("jira.cache.names") or {}
     out = {k: v for k, v in j.items() if k != "_fetched_at"}
-    return {"ok": True, "cached": cached, "fetched_at": j.get("_fetched_at", ""), "names": names, **out}
+    me = await asyncio.to_thread(_jira_me_sync)
+    return {"ok": True, "cached": cached, "fetched_at": j.get("_fetched_at", ""), "names": names, "as_user": me, **out}
+
+
+async def _jira_cache_outdated(key: str, j: dict) -> bool:
+    """저장본을 새로 받아야 하나 — 6시간이 지났거나, Sync 로 받은 갱신 시각이 저장본보다 늦으면.
+
+    저장본의 아침 갱신은 Releases 의 프로젝트만 돈다. Jira Issue 에서 연 이슈는 「지금 갱신」 을
+    누르기 전까지 처음 받은 그대로였다(지적: 지라엔 있는 연결이 UTOP 엔 없다)."""
+    from datetime import timezone as _tz, timedelta as _td
+    try:
+        at = datetime.fromisoformat(str(j.get("_fetched_at") or ""))
+    except Exception:
+        return True
+    if datetime.now(_tz.utc) - at > _td(hours=6):
+        return True
+    try:
+        async with db.pool().acquire() as c:
+            up = await c.fetchval("SELECT updated FROM jira_issue WHERE key=$1", key)
+    except Exception:
+        up = None
+    mine = _iso_ts(str(((j.get("fields") or {}).get("updated")) or ""))
+    return bool(up and mine and up > mine)
 
 
 def _jira_issue_fetch_sync(key: str):
@@ -1284,7 +1327,7 @@ async def jira_issue_detail(key: str, fresh: int = 0):
     # 지라가 죽었을 때는 저장본이 있으면 그것을 stale 표시와 함께 낸다.
     if not fresh:
         j0 = _jira_cache_read(_jira_cache_path(key))
-        if j0 is not None:
+        if j0 is not None and not await _jira_cache_outdated(key, j0):
             return await _jira_cache_reply(j0, cached=True)
     j1, err1 = await _jira_issue_fetch_store(key)
     if j1 is not None:

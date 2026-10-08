@@ -358,3 +358,6 @@
   color: #a8213f;
   font-size: 12px;
 }
+
+/* 이슈연결 머리 옆 — 어느 지라 계정으로 본 것인가(그 계정이 못 보는 연결은 지라가 뺀다) */
+.rls-dhnote { margin-left: 8px; font-style: normal; font-size: 11px; font-weight: 500; color: #8a949a; }
