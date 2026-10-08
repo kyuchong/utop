@@ -783,7 +783,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     if (ths.length < 2) return
     ev.preventDefault()
     const trs = [...tbl.rows]
-    const n = ths.length + 1 // 행 번호 한 칸 + 열들
+    // 행 번호 한 칸 + 열들 (+ 빌려 쓰는 표의 맨 끝 채움 칸 — 빠뜨리면 어느 줄도 안 골라져 끄는 열이 안 따라온다)
+    const n = ths.length + 1 + (fill ? 1 : 0)
     const cs = ths.map((th) => {
       const ci = th.cellIndex
       const r = th.getBoundingClientRect()
