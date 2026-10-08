@@ -16,7 +16,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { onWs } from '@/api/wsBus'
-import { apiFetch } from '@/api/client'
+import { apiFetch, isAdminUser } from '@/api/client'
 import { goto, onGoto, reflectUrl } from '@/api/goto'
 import { prefGet, prefRemove, prefSet } from '@/lib/prefs'
 import { isManualTc } from '@/lib/runMode'
@@ -33,7 +33,7 @@ import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useMailBook } from '@/lib/mailPeople'
 import MailViewDialog from '@/components/cycle/MailViewDialog'
 import CycleReport from '@/components/cycle/CycleReport'
-import NTable from '@/components/ntable/NTable'
+import EfNTable from '@/components/effort/EfNTable'
 import { JiraStatusChip, jiraIssueUrl, jiraStatusText, useJiraBase, useJiraStatus } from '@/lib/jiraStatus'
 import { EMPTY_VIEW } from '@/components/ntable/types'
 import { autoColor } from '@/components/ntable/palette'
@@ -46,7 +46,7 @@ import { MakePlanRun } from '@/components/cycle/PlanRunPopup'
 import AssigneePicker from '@/components/AssigneePicker'
 import PresenceBar from '@/components/PresenceBar'
 import { usePresence } from '@/components/usePresence'
-import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex, useUserPeople } from '@/pages/qaBits'
+import { Donut, StatBar, ago, orderTcIds, sumRuns, useNCols, useReqIndex } from '@/pages/qaBits'
 import { useVerdictsState, vDef, vGroup, vLetter } from '@/lib/verdicts'
 import type { RunLite } from '@/pages/qaBits'
 import './QaShared.css'
@@ -348,7 +348,6 @@ export default function CyclesBoard({
       return (await r.json()) as { items: Array<Record<string, unknown>> }
     },
   })
-  const people = useUserPeople()
   /** 실행 판정 기준 — 셋업이 정본. 막대 색과 판정 알약이 쓴다 */
   const { defs: verds } = useVerdictsState()
   const verdPal = useMemo(
@@ -505,7 +504,6 @@ export default function CyclesBoard({
   const [itColsRaw, setItCols] = useNCols('utop.ntb.cycit.cols', IT_DEFS)
 
   /* 목록의 노션 표 */
-  const [lsView, setLsView] = useState<NView>({ ...EMPTY_VIEW })
   const LS_DEFS: NCol[] = [
     { key: 'id', label: 'ID', type: 'text', width: 122, fixed: true },
     { key: 'title', label: '제목', type: 'text', width: 240, fixed: true },
@@ -2165,14 +2163,13 @@ export default function CyclesBoard({
           </button>
         </div>
         <div className="cyb-ntb">
-          <NTable
+          <EfNTable
+            scope="cycles.list"
+            layoutKey="utop.efn.cycles.list"
+            meName={meName}
+            isAdmin={isAdminUser(me)}
             columns={lsCols}
             rows={listRows}
-            view={lsView}
-            onView={setLsView}
-            onColumns={setLsCols}
-            people={people}
-            meName={meName}
             onCell={(rowId, key, v) => {
               if (key === 'assignee') void saveAssigneeOf(rowId, v)
               /* 제목 두 번 누르면 고친다(지시) — 빈 이름·무변경은 안 보낸다 */
@@ -2182,7 +2179,6 @@ export default function CyclesBoard({
             /* 돌고 있는 사이클은 **줄째로** 두드러진다(지시) — 알약 하나만으로는
                스무 줄 가운데서 찾아 훑어야 한다 */
             rowClass={(r) => ((liveByPlan.get(String(r.__id)) ?? 0) > 0 ? 'ntb-live' : '')}
-            lockDefs
             idKey="id"
             titleKey="title"
             onOpen={(id) => openPlanId(id)}
@@ -2240,7 +2236,6 @@ export default function CyclesBoard({
               if ((col.key === 'run_start' || col.key === 'run_end') && !row[col.key]) return <span className="cu-m">—</span>
               return undefined
             }}
-          perPage={100}
           />
         </div>
       </section>
@@ -2497,7 +2492,7 @@ export default function CyclesBoard({
   }
 
   /** 메일 이력 표 — 다른 목록과 같은 노션 표(지시) */
-  const [mailCols, setMailCols] = useState<NCol[]>([
+  const [mailCols] = useState<NCol[]>([
     { key: 'at', label: '보낸 시간', type: 'text', width: 130, fixed: true },
     { key: 'who', label: '보낸 사람', type: 'text', width: 110 },
     { key: 'to', label: '받는 사람', type: 'text', width: 230 },
@@ -2506,7 +2501,6 @@ export default function CyclesBoard({
     { key: 'att', label: '첨부', type: 'text', width: 70 },
     { key: 'ok', label: '결과', type: 'text', width: 80 },
   ])
-  const [mailView, setMailView] = useState<NView>({ ...EMPTY_VIEW })
 
   /** **지금 도는 일감**(지시: 다른 사람이 들어와도 분간이 안 된다).
    *
@@ -2652,21 +2646,18 @@ export default function CyclesBoard({
       )
     return (
       <div className="cu-fill">
-        <NTable
+        <EfNTable
+          scope="cycles.mail"
+          layoutKey="utop.efn.cycles.mail"
+          meName={meName}
+          isAdmin={isAdminUser(me)}
           columns={mailCols}
           rows={rows}
-          view={mailView}
-          onView={setMailView}
-          onColumns={setMailCols}
-          people={people}
-          meName={meName}
           /* 보낸 자취는 **고칠 것이 없다** — 읽기만 한다 */
           onCell={() => {}}
           readOnlyKeys={['at', 'to', 'cc', 'subject', 'att', 'who', 'ok']}
-          lockDefs
           idKey="id"
           titleKey="subject"
-          perPage={50}
           /* 줄을 누르면 **그때 나간 본문**을 편다(지시) — 표는 제목까지만
              말하고, 정작 알고 싶은 것은 무엇을 적어 보냈나다 */
           onOpen={(id) => setMailOpen((mailQ.data?.items ?? []).find((x) => String(x.id) === id) ?? null)}
@@ -2782,15 +2773,18 @@ export default function CyclesBoard({
         {/* 스크롤은 이 판이 맡는다 — cu-fill 은 overflow:hidden 이라
             표가 길면 잘린 채 내릴 길이 없었다(지적) */}
         <div className="cyb-ntb">
-        <NTable
+        <EfNTable
+          scope="cycles.items"
+          layoutKey="utop.efn.cycles.items"
+          meName={meName}
+          isAdmin={isAdminUser(me)}
+          /* 정렬·묶기는 사이클 문서(itView)에 — 차례가 곧 시험 차례라 사람·PC 마다 같아야 한다 */
+          baseView={{ sorts: itView.sorts, groupBy: itView.groupBy }}
+          onBaseView={(v) => setItView((x) => ({ ...x, sorts: v.sorts, groupBy: v.groupBy }))}
           columns={itCols}
           rows={rows}
-          view={itView}
-          onView={setItView}
-          onColumns={setItCols}
           onCell={() => {}}
           readOnlyKeys={itCols.map((c) => c.key)}
-          lockDefs
           idKey="id"
           titleKey="title"
           rowIcon={(r) => (
@@ -2942,7 +2936,6 @@ export default function CyclesBoard({
           /* 실행 화면에 다녀오면 이 표는 통째로 사라졌다 다시 선다 —
              그때 체크를 되살린다(지적: 실행할 때마다 다시 골라야 한다) */
           initSelected={picked}
-          perPage={100}
         />
         </div>
       </div>
@@ -3442,8 +3435,7 @@ export default function CyclesBoard({
     ],
     [],
   )
-  const [defCols, setDefCols] = useNCols('utop.ntb.cyc.def', defDefs)
-  const [defView, setDefView] = useState<NView>({ ...EMPTY_VIEW })
+  const [defCols] = useNCols('utop.ntb.cyc.def', defDefs)
   /** 고를 값은 **지금 자료에서** — 열 정의에 박아 두면 없는 값이 목록에 선다 */
   /** 올라간 이슈들의 **지금 지라 상태** — 표의 「상태」 칸이 이것을 쓴다 */
   const defJbase = useJiraBase()
@@ -3488,18 +3480,19 @@ export default function CyclesBoard({
 
   function renderDefects() {
     return (
-      <div className="cu-scroll">
+      /* 표(Effort 양식)가 제 스크롤을 가진다 — 높이를 받게 cu-fill(메일 이력 표와 같다) */
+      <div className="cu-fill">
         <div className="cyb-ntb">
-          <NTable
+          <EfNTable
+            scope="cycles.defects"
+            layoutKey="utop.efn.cycles.defects"
+            meName={meName}
+            isAdmin={isAdminUser(me)}
             columns={defColsView}
             rows={defRows}
-            view={defView}
-            onView={setDefView}
-            onColumns={setDefCols}
             /* 결함은 여기서 고치지 않는다 — 결함 화면이 정본이다 */
             onCell={() => {}}
             readOnlyKeys={defDefs.map((c) => c.key)}
-            lockDefs
             idKey="id"
             titleKey="title"
             /* **여기서 바로 고친다**(지시). 여태는 Defects 화면으로
@@ -3557,7 +3550,6 @@ export default function CyclesBoard({
               })()
             }}
             exportTitle="결함 내역"
-            perPage={100}
           />
         </div>
       </div>

@@ -94,7 +94,8 @@
 /* 노션 표의 스크롤은 **이 판**이 맡는다(NTable 설계) — 자식 높이를 판에
    맞춰 누르면 넘친 줄이 잘린 채 스크롤바도 없다(지적: 62건인데 못 내림). */
 /* 바닥 안쪽 여백을 주면 붙박이 발판 아래 그 여백만큼 줄이 비쳐 보인다(지적: 버그) */
-.cyb .cyb-ntb { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--sp-2); }
+/* 표(Effort 양식)를 담는 칸 — 표가 제 스크롤을 가지므로 칸은 세로로 늘려 높이만 준다 */
+.cyb .cyb-ntb { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 0 var(--sp-2); }
 
 /* 빵부스러기 — REQ-Coverage 와 같은 꼴(지시) */
 .cyb .cyb-crumb { display: flex; align-items: center; gap: 2px; font-size: var(--fs-md); min-width: 0; overflow: hidden; }

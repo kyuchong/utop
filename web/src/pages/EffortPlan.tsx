@@ -93,6 +93,12 @@ export interface EfHost {
   onExport?: (rows: EfRow[], cols: EfColumn[]) => void
   /** 잠근 표에서도 열 정의를 고치게(유형 목록 · 열 추가) — 열마다 허락은 EfColumn.defs, 결과는 바깥이 touch 에서 받는다 */
   colDefs?: { types: EfType[]; add: boolean }
+  /** 도구 줄 보기 탭 오른쪽에 넣을 것(Cycles: Add TC · Test Start …) */
+  toolLeft?: ReactNode
+  rowClass?: (r: EfRow) => string
+  reorder?: { key?: string; on: (rs: EfRow[]) => void }
+  initChecked?: string[]
+  hideBulk?: boolean
 }
 /** 한 줄에 세우는 보기 탭 수(정책) — 넘치면 「⋯ 더보기」 */
 const TABS_ON_ROW = 8
@@ -298,7 +304,7 @@ export function EffortBody({
     touch,
     toast,
     ver,
-    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, onDelete: host.onDelete, pageSize: host.pageSize, renderCell: host.renderCell, bulk: host.bulk, onBulk: host.onBulk, onNew: host.onNew, onShown: host.onShown, defs: host.colDefs } : {}),
+    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, onDelete: host.onDelete, pageSize: host.pageSize, renderCell: host.renderCell, bulk: host.bulk, onBulk: host.onBulk, onNew: host.onNew, onShown: host.onShown, defs: host.colDefs, rowClass: host.rowClass, reorder: host.reorder, initChecked: host.initChecked, hideBulk: host.hideBulk } : {}),
   }
   const api = useEfTable(ctx)
   const { table } = api
@@ -492,6 +498,7 @@ export function EffortBody({
                 <TI n="plus" />
               </button>
             </div>
+            {host?.toolLeft}
             <span className="ef-sp" />
             {isTable ? (
               <>

@@ -60,7 +60,7 @@ const SYNC = new Set([
    SYNC 는 정확히 맞는 열쇠만 봐서 utop.ntb.* 가 서버로 못 갔다(검증). */
 /* 열쇠가 프로젝트마다 생기는 것 — Jira 필드 구성(utop.jf.pick.<프로젝트>) */
 /* 결함 창 모양은 **부른 화면마다** 따로다 — utop.dfx.host.side · .modal */
-const SYNC_PRE = ['utop.ntb.', 'utop.jf.pick.', 'utop.dfx.host.']
+const SYNC_PRE = ['utop.ntb.', 'utop.jf.pick.', 'utop.dfx.host.', 'utop.efn.']
 const isSync = (k: string) => SYNC.has(k) || SYNC_PRE.some((p) => k.startsWith(p))
 /** 이 PC 거울에 있는 동기화 대상 열쇠 전부 — 접두어 것까지 */
 const mirrorKeys = (): string[] => {

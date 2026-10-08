@@ -59,6 +59,27 @@ export interface EfNTableProps {
   onColumns?: (after: NCol[]) => void
   /** 선택지가 설정 코드에 사는 기본 칸(유형·상태 …) — 이름·옵션만 고친다 */
   codeKeys?: string[]
+  /** 행 줄 클래스(Cycles: 돌고 있는 사이클) */
+  rowClass?: (row: NRow) => string
+  /** ID 앞 그림(Cycles 시험 항목: 수동 ✎ · 자동 ▶) */
+  rowIcon?: (row: NRow) => ReactNode
+  /** 끌어서 차례 바꾸기 — 새 차례의 ID 전부. reorderKey 열 오름차순 정렬일 때도 끌 수 있다 */
+  onReorder?: (ids: string[]) => void
+  reorderKey?: string
+  /** 처음 고른 행 — 표가 다시 서도 고른 것을 되살린다 */
+  initSelected?: string[]
+  /** 선택 줄에 단추·건수를 안 세운다(바깥 도구 줄이 맡는다) */
+  hideBulk?: boolean
+  /** 보기 탭 오른쪽 도구(Add TC · Test Start …) */
+  toolbarLeft?: ReactNode
+  /** 보이는 행(검색·필터 뒤, 차례대로)의 ID */
+  onShown?: (ids: string[]) => void
+  /**
+   * 「기본」 탭의 정렬·묶기를 바깥이 쥔다(Cycles 시험 항목: 사이클 문서 itView — 차례가 곧 시험 차례라
+   * 사람·PC 마다 달라지면 안 된다). 바뀌면 onBaseView 로 돌려준다. 예전 표와 같은 꼴(sorts·groupBy)
+   */
+  baseView?: { sorts: Array<{ key: string; dir: 'asc' | 'desc' }>; groupBy: string }
+  onBaseView?: (v: { sorts: Array<{ key: string; dir: 'asc' | 'desc' }>; groupBy: string }) => void
 }
 
 /** 머리 메뉴에서 고를 수 있는 유형 — 서버 정의(사용자 정의 칸)가 받는 것만 */
@@ -144,7 +165,7 @@ export default function EfNTable(p: EfNTableProps) {
     const ro = new Set([...(p.readOnlyKeys ?? []), p.idKey])
     const made: EfColumn[] = p.columns.map((c) => {
       const ty: EfColumn['type'] =
-        c.type === 'select' ? 'select' : c.type === 'multiselect' ? 'multiselect' : c.type === 'number' ? 'number' : c.type === 'date' ? 'date' : 'text'
+        c.type === 'select' ? 'select' : c.type === 'multiselect' ? 'multiselect' : c.type === 'number' ? 'number' : c.type === 'date' ? 'date' : c.type === 'person' ? 'person' : 'text'
       const nc: EfColumn = { id: c.key, title: c.label, type: ty, width: c.width, readOnly: ro.has(c.key) }
       if (c.key === p.idKey) nc.link = true
       if (c.options?.length) {
@@ -163,7 +184,10 @@ export default function EfNTable(p: EfNTableProps) {
       else if (c.width) nc.efWidth = c.width
       return nc
     })
-    const order = doc.columns.length ? doc.columns.map((c) => c.id) : p.columns.map((c) => c.key)
+    // 차례 — 지금 문서(끌어 바꾼 것) → 계정 설정에 기억해 둔 것 → 바깥 열 차례
+    const saved = doc.columns.length ? null : prefJson<{ order?: string[]; widths?: Record<string, number> } | null>(`${p.layoutKey}.cols`, null)
+    if (saved?.widths) for (const c of made) if (saved.widths[c.id]) c.efWidth = saved.widths[c.id]
+    const order = doc.columns.length ? doc.columns.map((c) => c.id) : (saved?.order ?? p.columns.map((c) => c.key))
     const at = new Map(order.map((k, i) => [k, i]))
     const pos = (c: EfColumn) => at.get(c.id) ?? 900 + p.columns.findIndex((x) => x.key === c.id)
     made.sort((a, b) => pos(a) - pos(b))
@@ -201,6 +225,18 @@ export default function EfNTable(p: EfNTableProps) {
     doc.curBetaView = out.some((v) => v.id === want) ? want : BASE
   }
   ensureViews(doc)
+  /* 바깥이 쥔 기본 탭 정렬·묶기 — 바뀌었을 때만 얹는다(얹은 값을 sync 가 도로 돌려주지 않게 글로 기억) */
+  const bvSig = useRef('')
+  const bvOf = (st?: EfViewState) =>
+    JSON.stringify({ s: (st?.sorting ?? []).map((x) => ({ key: x.id, dir: x.desc ? 'desc' : 'asc' })), g: st?.group ?? '' })
+  if (p.baseView) {
+    const want = JSON.stringify({ s: p.baseView.sorts ?? [], g: p.baseView.groupBy ?? '' })
+    if (want !== bvSig.current) {
+      bvSig.current = want
+      const base = (doc.betaViews ?? []).find((v) => v.id === BASE)
+      if (base) base.ef = { ...(base.ef ?? EMPTY_ST), sorting: (p.baseView.sorts ?? []).map((x) => ({ id: x.key, desc: x.dir === 'desc' })), group: p.baseView.groupBy || null }
+    }
+  }
 
   /** 서버에 한 탭 저장 — 예전 표가 읽는 칸은 그대로 두고 efv·hidden 만 */
   const saveView = useCallback(
@@ -228,6 +264,15 @@ export default function EfNTable(p: EfNTableProps) {
     const views = d.betaViews ?? []
     const base = views.find((v) => v.id === BASE)
     if (base) prefSet(`${p.layoutKey}.base`, JSON.stringify({ type: base.type, ef: base.ef, nchart: base.nchart, chartCol: base.chartCol }))
+    // 기본 탭 정렬·묶기를 바깥이 쥐었으면 바뀐 것을 돌려준다
+    if (base && p.onBaseView && p.baseView) {
+      const now = bvOf(base.ef)
+      if (now !== bvSig.current) {
+        bvSig.current = now
+        const st = base.ef
+        p.onBaseView({ sorts: (st?.sorting ?? []).map((x) => ({ key: x.id, dir: x.desc ? 'desc' : 'asc' })), groupBy: st?.group ?? '' })
+      }
+    }
     prefSet(`${p.layoutKey}.cur`, d.curBetaView ?? BASE)
     // 열 차례·폭·기본 탭 숨긴 열 — 예전 표 설정에도(바뀐 때만)
     const lay = {
@@ -265,6 +310,7 @@ export default function EfNTable(p: EfNTableProps) {
     const ls = JSON.stringify(lay)
     if (ls !== layoutSig.current) {
       layoutSig.current = ls
+      prefSet(`${p.layoutKey}.cols`, JSON.stringify({ order: lay.order, widths: lay.widths }))
       p.onLayout?.(lay)
     }
     window.clearTimeout(timer.current)
@@ -319,9 +365,13 @@ export default function EfNTable(p: EfNTableProps) {
 
   // ── 보이는 행 · 고른 행 ──
   const shown = useRef<EfRow[]>([])
-  const onShown = useCallback((rs: EfRow[]) => {
-    shown.current = rs
-  }, [])
+  const onShown = useCallback(
+    (rs: EfRow[]) => {
+      shown.current = rs
+      p.onShown?.(rs.map((r) => String(r.__id ?? '')))
+    },
+    [p],
+  )
   const onCheck = useCallback((rs: EfRow[]) => p.onSelect?.(rs.map((r) => String(r.__id ?? ''))), [p])
 
   /** 엑셀 — 보이는 열 차례 그대로, 값 색은 설정 색(예전 표와 같은 서버 xlsx) */
@@ -386,6 +436,15 @@ export default function EfNTable(p: EfNTableProps) {
       const own = p.renderCell?.(r as NRow, n)
       if (own !== undefined) return own
       const v = r[c.id] == null ? '' : String(r[c.id])
+      if (c.id === p.idKey && p.rowIcon) {
+        // 그림 + 여는 글자(.ef-link — 표가 누름을 받아 연다)
+        return (
+          <span className="efn-idw">
+            {p.rowIcon(r as NRow)}
+            <span className="ef-link">{v}</span>
+          </span>
+        )
+      }
       if (c.id === p.titleKey) {
         return (
           <span className="efn-ttl">
@@ -482,6 +541,11 @@ export default function EfNTable(p: EfNTableProps) {
           renderCell,
           onExport: (rs, vc) => void exportXlsx(rs, vc),
           colDefs: p.onColumns ? { types: DEF_TYPES, add: true } : undefined,
+          toolLeft: p.toolbarLeft,
+          rowClass: p.rowClass ? (r) => p.rowClass!(r as NRow) : undefined,
+          reorder: p.onReorder ? { key: p.reorderKey, on: (rs) => p.onReorder!(rs.map((r) => String(r.__id ?? ''))) } : undefined,
+          initChecked: p.initSelected,
+          hideBulk: p.hideBulk,
           toolRight: p.toolRight,
           pageSize: 200,
         }}

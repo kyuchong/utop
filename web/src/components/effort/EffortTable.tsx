@@ -112,6 +112,17 @@ export interface EfCtx {
   onShown?: (rs: EfRow[]) => void
   /** 잠근 표에서 열 정의를 고치게 한다 — 고를 수 있는 유형 · 열 추가(왼쪽/오른쪽). 열마다 무엇을 고치는지는 EfColumn.defs */
   defs?: { types: EfType[]; add: boolean }
+  /** 행 줄에 붙일 클래스(Cycles: 돌고 있는 사이클 줄을 두드러지게) */
+  rowClass?: (r: EfRow) => string
+  /**
+   * 잠근 표에서도 행을 끌어 차례를 바꾼다(Cycles: 시험 차례) — 표는 행을 옮기지 않고 새 차례(행 전부)를 바깥에 넘긴다.
+   * key 열로 오름차순 정렬돼 있을 때도 끌 수 있다(그 열이 곧 차례)
+   */
+  reorder?: { key?: string; on: (rs: EfRow[]) => void }
+  /** 처음 고른 행(__id) — 다른 화면에 다녀와 표가 다시 서도 고른 것을 되살린다 */
+  initChecked?: string[]
+  /** 선택 줄에 단추·건수를 세우지 않는다 — 바깥 도구 줄이 「N개 선택」 과 일을 맡는다 */
+  hideBulk?: boolean
 }
 
 const cellText = (v: unknown) => (v == null ? '' : String(v))
@@ -336,12 +347,22 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const [fx, setFx] = useState<{ fn: FxFn; cells: Array<{ row: EfRow; col: string }> } | null>(null)
   const fxRef = useRef(fx)
   fxRef.current = fx
-  const [checked, setChecked] = useState<Set<EfRow>>(() => new Set())
+  const [checked, setChecked] = useState<Set<EfRow>>(() => {
+    const want = new Set(ctx.initChecked ?? [])
+    return new Set(want.size ? rows.filter((r) => want.has(String(r.__id ?? ''))) : [])
+  })
   const [ckOf, setCkOf] = useState(rows)
   if (ckOf !== rows) {
     setCkOf(rows)
-    setChecked(new Set())
-    setLimit(ctx.pageSize ?? Infinity) // 다른 행 묶음(프로젝트·연도)이면 그릴 수도 처음부터
+    // 빌려 쓰는 표는 바깥이 자료를 다시 받으면 행을 새로 만든다 — 같은 __id 면 고른 것을 이어 받는다
+    // (Cycles: 고른 항목만 돌린다 — 조용히 풀리면 도구 줄 「N개 선택」 과 표가 어긋난다)
+    if (lock && checked.size) {
+      const ids = new Set([...checked].map((r) => String(r.__id ?? '')))
+      setChecked(new Set(rows.filter((r) => ids.has(String(r.__id ?? '')))))
+    } else {
+      setChecked(new Set())
+      setLimit(ctx.pageSize ?? Infinity) // 다른 행 묶음(프로젝트·연도)이면 그릴 수도 처음부터
+    }
   }
   // 체크한 행을 바깥에 알린다(Jira — LLM 분류 대상)
   const onCheck = ctx.onCheck
@@ -808,11 +829,18 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
    * 정렬이 걸려 있으면 차례를 정렬이 정하므로 옮기지 않는다. 그룹으로 보면 그 그룹 안에서만 옮긴다.
    * 놓으면 실제 행 배열(rows)에서 자리를 바꾼다 — 필터로 숨은 행은 보이는 이웃 기준으로 자리를 잡는다.
    */
+  /** 행을 끌어 옮길 수 있나 — 잠근 표는 바깥이 차례를 받을 때만(reorder) */
+  const canMove = !lock || !!ctx.reorder
+  /** 정렬이 끌기를 막나 — 정렬 없음, 또는 차례 열(reorder.key) 오름차순 하나뿐이면 된다 */
+  const sortOk = () => {
+    const s0 = table.getState().sorting
+    return !s0.length || (s0.length === 1 && !!ctx.reorder?.key && s0[0]!.id === ctx.reorder.key && !s0[0]!.desc)
+  }
   const rowDrag = (ev: React.MouseEvent, r: EfRow) => {
     if (ev.button !== 0) return
     ev.preventDefault()
     ev.stopPropagation()
-    if (table.getState().sorting.length) {
+    if (!sortOk()) {
       toast('정렬이 걸려 있으면 행을 옮길 수 없습니다 — 정렬을 풀고 끌어 주세요')
       return
     }
@@ -898,6 +926,13 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       tbl.classList.remove('ef-rdragging')
       lane.forEach((x) => set(x.tr, ''))
       if (!moved || ti === f) return
+      // 잠근 표 — 행은 바깥 것이라 옮기지 않고 새 차례만 넘긴다
+      if (lock && ctx.reorder) {
+        const next = [...rows]
+        placeRow(next, r, others.map((x) => x.row), ti)
+        ctx.reorder.on(next)
+        return
+      }
       const was = rows.indexOf(r)
       placeRow(rows, r, others.map((x) => x.row), ti)
       if (rows.indexOf(r) === was) return
@@ -1151,6 +1186,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     return (
       <tr
         key={row.id}
+        className={ctx.rowClass?.(src) || undefined}
         onContextMenu={(e) => {
           if (lock) return // 빌려 쓰는 표(Jira)는 행 추가·복제·삭제가 없다 — 브라우저 메뉴 그대로
           e.preventDefault()
@@ -1164,10 +1200,10 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           className={`ef-rh ef-rnum${n0 && n >= n0.r1 && n <= n0.r2 && n0.c1 === 0 && n0.c2 === ordered.length - 1 ? ' ef-rsel' : ''}${rowOnly(n) ? ' ef-rmov' : ''}`}
           data-r={n}
           data-c={-1}
-          title={rowOnly(n) && !lock ? '끌면 행 옮기기' : '누르면 행 선택 · 끌면 여러 행'}
+          title={rowOnly(n) && canMove ? '끌면 행 옮기기' : '누르면 행 선택 · 끌면 여러 행'}
           onMouseDown={(e) => {
             if (e.button !== 0) return
-            if (!e.shiftKey && !lock && rowOnly(n) && !table.getState().sorting.length) {
+            if (!e.shiftKey && canMove && rowOnly(n) && sortOk()) {
               rowDrag(e, src)
               return
             }
@@ -1181,7 +1217,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           }}
         >
           <span className="ef-rnum-in">
-            {!lock && (
+            {canMove && (
               <i className="ef-rgrip" aria-label={`${n}행 끌어 옮기기`} onMouseDown={(e) => rowDrag(e, src)}>
                 <TI n="grip" />
               </i>
@@ -1590,7 +1626,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         />
         보이는 행 전체
       </label>
-      {ckList.length > 0 && (
+      {ckList.length > 0 && !ctx.hideBulk && (
         <>
           <span className="ef-selcnt">{ckList.length}행 선택</span>
           <button type="button" className="ef-btn gh" onClick={() => void selCopy()}>

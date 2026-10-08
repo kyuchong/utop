@@ -1250,3 +1250,9 @@ input.ef-fsel { cursor: text; }
 .efn-open:hover { color: #2d6fd4; border-color: #2d6fd4; }
 /* 선택 칸 알약(설정 색·그림) — 여러 개면 잇는다 */
 .efn-pills { display: inline-flex; gap: 4px; min-width: 0; overflow: hidden; }
+/* ID 앞 그림(사이클 시험 항목의 수동 ✎ · 자동 ▶) */
+.efn-idw { display: inline-flex; align-items: center; gap: 5px; }
+/* 돌고 있는 사이클 줄 — 예전 표(.ntb-live)와 같은 연초록 + 왼쪽 띠 */
+.ef-t tbody tr.ntb-live td { background: #f1fbf4; }
+.ef-t tbody tr.ntb-live td.ef-rh { box-shadow: inset 3px 0 0 #16a34a; }
+.ef-t tbody tr.ntb-live:hover td { background: #e7f7ec; }
