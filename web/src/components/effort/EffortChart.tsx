@@ -361,11 +361,6 @@ export function EfNotionChart({
   const xTitle = sp.x === MONTH ? '월' : (data.xCol?.title ?? '')
   /** 그룹 막대를 나란히 세우나 — 막대·가로 막대에 그룹이 있고 「쌓기」 가 아닐 때 */
   const side = !!data.gCol && (sp.kind === 'bar' || sp.kind === 'hbar') && sp.stack !== 'stack'
-  /** 막대가 다 들어갈 자리(px) — 칸마다 나란히면 선 막대 수 × 16 + 18, 아니면 30. 화면보다 크면 넓혀 굴린다 */
-  const span =
-    sp.kind === 'bar' || sp.kind === 'hbar'
-      ? data.labels.reduce((a, _, i) => a + (side ? Math.max(1, data.series.filter((x) => x.data[i]).length) * 16 + 18 : 30), 0)
-      : 0
 
   useEffect(() => {
     const el = ref.current
@@ -491,15 +486,9 @@ export function EfNotionChart({
             {yTitle} <span>· {xTitle}{data.gCol ? ` · ${data.gCol.title}별` : ''}</span>
           </div>
           {data.labels.length ? (
-            /* 막대가 많으면 칸을 줄이지 않고 자리를 넓힌다(지적: 차트를 잘 보이게) — 세로 막대는 옆으로 굴리고,
-               가로 막대는 아래로 늘린다. 한 칸 폭 = 나란히면 (그 칸에 선 막대 수 × 16 + 18)px, 아니면 30px */
-            <div
-              className={`ef-nc-box${sp.kind === 'bar' && span > 0 ? ' ef-nc-scroll' : ''}`}
-              style={{ height: sp.kind === 'hbar' ? Math.max(H[sp.height], span) : H[sp.height] }}
-            >
-              <div className="ef-nc-cv" style={sp.kind === 'bar' ? { width: `max(100%, ${span}px)` } : undefined}>
-                <canvas ref={ref} />
-              </div>
+            /* 한 화면 폭에 맞춘다 — 넓혀 옆으로 굴려 봤더니 스크롤바가 불편하다(지적) */
+            <div className="ef-nc-box" style={{ height: H[sp.height] }}>
+              <canvas ref={ref} />
             </div>
           ) : (
             <div className="ef-nc-none">그릴 자료가 없습니다 — 오른쪽 설정에서 X축을 고르거나 필터를 풀어 보세요</div>
