@@ -1229,7 +1229,9 @@ input.ef-fsel { cursor: text; }
 
 /* ── 빌려 쓰는 화면이 제 머리줄을 가진 경우(REQ-Coverage) — 제목 줄·카드 테두리 없이 ── */
 /* 여백은 남긴다(지적: 도구 줄이 위 머리줄에 붙고 오른쪽 「엑셀」 이 끝에 걸렸다) — 본문 카드와 같은 결로 위·옆만 */
-.ef-main.bare { border: 0; border-radius: 0; padding: 10px 12px 0; background: transparent; }
+.ef-main.bare { border: 0; border-radius: 0; padding: 6px 8px 0; background: transparent; }
+/* 끼운 표는 도구 줄 아래도 촘촘히(지적: 공백을 줄여라) */
+.ef-main.bare .ef-toolbar { padding-bottom: 6px; margin-bottom: 8px; }
 /* 정책 표의 보기 탭 — 나만 보는 탭 점, 넘친 탭 「⋯ 더보기」, 메뉴의 작은 꼬리말 */
 .ef-tab-priv { font-style: normal; font-size: 8px; color: #8a96a3; margin-left: 5px; vertical-align: 2px; }
 .ef-tab.ef-tab-more { color: var(--c-text-muted); }
