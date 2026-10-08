@@ -68,13 +68,32 @@ export interface EfHost {
   viewTypes: string[]
   csvName: string
   onOpen?: (r: EfRow) => void
-  onPut?: (r: EfRow, c: EfColumn, v: unknown) => void
+  onPut?: (r: EfRow, c: EfColumn, v: unknown, prev?: unknown) => void
   onCheck?: (rs: EfRow[]) => void
   onDelete?: (rs: EfRow[]) => void
   pageSize?: number
   /** 칸을 직접 그린다 — undefined 를 돌려주면 표가 그린다 */
   renderCell?: (r: EfRow, c: EfColumn) => ReactNode | undefined
+  /** 선택 줄 단추(복제·일괄 편집·엑셀·삭제) — 누르면 onBulk(열쇠, 고른 행) */
+  bulk?: Array<{ k: string; label: string; danger?: boolean }>
+  onBulk?: (k: string, rs: EfRow[]) => void
+  /** 「+ 새로 만들기」 를 바깥(작성 창)이 받는다 */
+  onNew?: () => void
+  /** 보이는 행(검색·필터 뒤, 차례대로)이 바뀌었다 */
+  onShown?: (rs: EfRow[]) => void
+  /** 제목 줄·카드 테두리 없이 — 빌려 쓰는 화면이 제 머리줄을 가졌다(REQ-Coverage) */
+  bare?: boolean
+  /**
+   * 보기 탭이 서버 공용 정책을 따른다(REQ-Coverage, 승인된 정책) — 만들면 나만 보기(●),
+   * 「모두에게 보이기」 는 관리자만, 지우기는 만든 사람 또는 관리자, 「기본」 탭(fixed)은 못 지우고 이름도 그대로.
+   * 탭 줄은 한 줄 — 넘치면 「⋯ 더보기」. 실제 저장·상한은 바깥(서버)이 한다
+   */
+  viewPolicy?: { me: string; isAdmin: boolean }
+  /** 내보내기를 바깥이 한다 — 도구 줄 단추가 「CSV」 대신 「엑셀」 이 되고, 보이는 행·보이는 열 차례 그대로 넘긴다 */
+  onExport?: (rows: EfRow[], cols: EfColumn[]) => void
 }
+/** 한 줄에 세우는 보기 탭 수(정책) — 넘치면 「⋯ 더보기」 */
+const TABS_ON_ROW = 8
 /** 이 PC 의 보던 자리(항해 상태 — 계정 동기화 목록 SYNC 에 넣지 않는다) */
 const NAV_KEY = 'utop.ef.nav'
 
@@ -277,7 +296,7 @@ export function EffortBody({
     touch,
     toast,
     ver,
-    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, onDelete: host.onDelete, pageSize: host.pageSize, renderCell: host.renderCell } : {}),
+    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, onDelete: host.onDelete, pageSize: host.pageSize, renderCell: host.renderCell, bulk: host.bulk, onBulk: host.onBulk, onNew: host.onNew, onShown: host.onShown } : {}),
   }
   const api = useEfTable(ctx)
   const { table } = api
@@ -346,6 +365,7 @@ export function EffortBody({
     let nm = base
     for (let k = 2; views.some((x) => x.name === nm); k++) nm = `${base} ${k}`
     const v: EfView = { id: newId(), name: nm, type }
+    if (host?.viewPolicy) Object.assign(v, { owner: host.viewPolicy.me, shared: false }) // 만들면 나만 보기(정책)
     views.push(v)
     d.curBetaView = v.id
     if (type === 'chart') setNcPanel(true) // 새 차트 — 무엇을 그릴지 고르게 설정 패널을 연다(노션처럼)
@@ -366,6 +386,12 @@ export function EffortBody({
   const gId = table.getState().grouping[0]
   const gName = cols.find((c) => c.id === gId)?.title ?? ''
   const isTable = (view.type || 'table') === 'table'
+  /* 정책 표 — 탭 줄은 한 줄(TABS_ON_ROW 개). 고른 탭이 뒤에 있으면 앞줄 끝에 끌어 세운다 */
+  const tabsOnRow = (() => {
+    const head = views.slice(0, TABS_ON_ROW)
+    return head.includes(view) ? head : [...head.slice(0, TABS_ON_ROW - 1), view]
+  })()
+  const tabsRest = views.filter((v) => !tabsOnRow.includes(v))
   const hidCols = cols.filter((c) => (st.hidden ?? []).includes(c.id))
   // 숨긴 그룹 — 지금 묶은 열에서 숨긴 값들(묶음을 바꾸면 그 열 것만)
   const hidGroups = gId ? (st.hiddenGroups?.[gId] ?? []) : []
@@ -389,7 +415,8 @@ export function EffortBody({
 
   return (
     <>
-        <div className="ef-main">
+        <div className={`ef-main${host?.bare ? ' bare' : ''}`}>
+          {!host?.bare && (
           <div className="ef-head">
             {/* 목록 접기·펴기 — REQ-Coverage 접기 단추와 같은 모양·같은 아이콘(지시) */}
             <button
@@ -429,10 +456,11 @@ export function EffortBody({
             </>
             )}
           </div>
+          )}
 
           <div className="ef-toolbar">
             <div className="ef-tabs">
-              {views.map((v) => (
+              {(host?.viewPolicy ? tabsOnRow : views).map((v) => (
                 <button
                   key={v.id}
                   type="button"
@@ -447,8 +475,17 @@ export function EffortBody({
                 >
                   <span className="ef-tab-ic">{viewIcon(v.type)}</span>
                   {v.name}
+                  {/* 나만 보는 탭 — 정책 표(서버 보기)에서만 */}
+                  {!!host?.viewPolicy && !v.fixed && !v.shared && (
+                    <i className="ef-tab-priv" title={`나만 봅니다 · 만든이 ${String(v.owner ?? '')}`}>●</i>
+                  )}
                 </button>
               ))}
+              {!!host?.viewPolicy && tabsRest.length > 0 && (
+                <button type="button" className="ef-tab ef-tab-more" title="더 있는 보기" onClick={open('moreviews')}>
+                  ⋯ 더보기 {tabsRest.length}
+                </button>
+              )}
               <button type="button" className="ef-tab ef-tab-add" title="보기 추가 — 표·보드·차트·타임라인" onClick={open('addview')}>
                 <TI n="plus" />
               </button>
@@ -497,11 +534,13 @@ export function EffortBody({
                   className="ef-btn"
                   onClick={() => {
                     const out = leafRows(table)
-                    downloadCsv(host ? host.csvName : `EffortPlan_${name || '표'}_${year}.csv`, table.getVisibleLeafColumns().map((c) => (c.columnDef.meta as { col: EfColumn }).col), out)
+                    const vc = table.getVisibleLeafColumns().map((c) => (c.columnDef.meta as { col: EfColumn }).col)
+                    if (host?.onExport) return host.onExport(out, vc) // 바깥(엑셀) — REQ-Coverage
+                    downloadCsv(host ? host.csvName : `EffortPlan_${name || '표'}_${year}.csv`, vc, out)
                     toast('CSV 내려받음 — ' + out.length + '행')
                   }}
                 >
-                  <TI n="download" /> CSV
+                  <TI n="download" /> {host?.onExport ? '엑셀' : 'CSV'}
                 </button>
               </>
             ) : view.type === 'board' ? (
@@ -656,7 +695,29 @@ export function EffortBody({
         <ViewMenu
           anchor={pop.anchor}
           view={views.find((v) => v.id === pop.id)!}
-          canDelete={views.length > 1}
+          canDelete={(() => {
+            const v = views.find((x) => x.id === pop.id)!
+            const pol = host?.viewPolicy
+            // 정책 표 — 기본 탭은 못 지우고, 그 밖은 만든 사람 또는 관리자
+            if (pol) return !v.fixed && (v.owner === pol.me || pol.isAdmin)
+            return views.length > 1
+          })()}
+          canRename={!views.find((x) => x.id === pop.id)?.fixed}
+          share={(() => {
+            const v = views.find((x) => x.id === pop.id)!
+            const pol = host?.viewPolicy
+            if (!pol || v.fixed) return undefined
+            return {
+              on: !!v.shared,
+              // 공용으로 올리는 것은 관리자만 — 내리는 것은 막지 않는다(예전 보기 줄과 같다)
+              can: !!v.shared || pol.isAdmin,
+              onToggle: () => {
+                v.shared = !v.shared
+                close()
+                touch()
+              },
+            }
+          })()}
           onClose={close}
           onRename={(nm) => {
             const v = views.find((x) => x.id === pop.id)
@@ -670,6 +731,11 @@ export function EffortBody({
             const nv = JSON.parse(JSON.stringify(views[i])) as EfView
             nv.id = newId()
             nv.name = views[i]!.name + ' 복사'
+            // 정책 표 — 복제본은 내 것, 나만 보기로
+            if (host?.viewPolicy) {
+              delete nv.fixed
+              Object.assign(nv, { owner: host.viewPolicy.me, shared: false })
+            }
             views.splice(i + 1, 0, nv)
             d.curBetaView = nv.id
             close()
@@ -715,6 +781,29 @@ export function EffortBody({
       )}
       {pop?.kind === 'filter' && <CondPanel anchor={pop.anchor} cols={cols} rows={rows} st={st} setSt={setSt} onClose={close} />}
       {pop?.kind === 'sort' && <SortPanel anchor={pop.anchor} cols={cols} st={st} setSt={setSt} onClose={close} />}
+      {pop?.kind === 'moreviews' && (
+        <Pop anchor={pop.anchor} cls="ef-menu" onClose={close}>
+          <div className="ef-lbl">더 있는 보기</div>
+          <div className="ef-mlist">
+            {tabsRest.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                className="ef-mi"
+                onClick={() => {
+                  close()
+                  d.curBetaView = v.id
+                  redraw()
+                }}
+              >
+                <i className="ef-mi-ic">{viewIcon(v.type)}</i>
+                <span>{v.name}</span>
+                {!v.shared && <em className="ef-mi-sub">나만</em>}
+              </button>
+            ))}
+          </div>
+        </Pop>
+      )}
       {pop?.kind === 'addview' && (
         <Pop anchor={pop.anchor} cls="ef-menu ef-addview" onClose={close}>
           <div className="ef-lbl">보기 추가</div>
@@ -915,6 +1004,8 @@ function ViewMenu({
   anchor,
   view,
   canDelete,
+  canRename = true,
+  share,
   onRename,
   onDup,
   onDelete,
@@ -923,6 +1014,10 @@ function ViewMenu({
   anchor: HTMLElement
   view: EfView
   canDelete: boolean
+  /** 이름 바꾸기 — 기본 탭(fixed)은 못 바꾼다 */
+  canRename?: boolean
+  /** 정책 표의 「모두에게 보이기 / 나만 보기로 되돌리기」 — can 이 아니면 잠그고 까닭을 붙인다 */
+  share?: { on: boolean; can: boolean; onToggle: () => void }
   onRename: (n: string) => void
   onDup: () => void
   onDelete: () => void
@@ -949,14 +1044,29 @@ function ViewMenu({
         />
       ) : (
         <div className="ef-mlist">
-          <button type="button" className="ef-mi" onClick={() => setRenaming(true)}>
-            <i className="ef-mi-ic"><TI n="pencil" /></i>
-            <span>이름 변경</span>
-          </button>
+          {canRename && (
+            <button type="button" className="ef-mi" onClick={() => setRenaming(true)}>
+              <i className="ef-mi-ic"><TI n="pencil" /></i>
+              <span>이름 변경</span>
+            </button>
+          )}
           <button type="button" className="ef-mi" onClick={onDup}>
             <i className="ef-mi-ic"><TI n="copy" /></i>
             <span>보기 복사</span>
           </button>
+          {share && (
+            <button
+              type="button"
+              className={`ef-mi${share.can ? '' : ' off'}`}
+              disabled={!share.can}
+              title={share.can ? '' : '공용으로 올리는 것은 관리자가 승인합니다'}
+              onClick={share.onToggle}
+            >
+              <i className="ef-mi-ic"><TI n={share.on ? 'eye-off' : 'eye'} /></i>
+              <span>{share.on ? '나만 보기로 되돌리기' : '모두에게 보이기'}</span>
+              {!share.on && !share.can && <em className="ef-mi-sub">관리자</em>}
+            </button>
+          )}
           {canDelete && (
             <button type="button" className="ef-mi del" onClick={onDelete}>
               <i className="ef-mi-ic"><TI n="trash" /></i>

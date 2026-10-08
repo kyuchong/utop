@@ -1226,3 +1226,24 @@ input.ef-fsel { cursor: text; }
 
 /* 목록이 비었을 때 — 빌려 쓰는 화면(Jira Issue)은 페이지를 다 지울 수 있다 */
 .ef-tree-empty { padding: 14px 8px; font-size: 12px; color: var(--c-text-faint); line-height: 1.6; }
+
+/* ── 빌려 쓰는 화면이 제 머리줄을 가진 경우(REQ-Coverage) — 제목 줄·카드 테두리 없이 ── */
+.ef-main.bare { border: 0; border-radius: 0; padding: 0; background: transparent; }
+/* 정책 표의 보기 탭 — 나만 보는 탭 점, 넘친 탭 「⋯ 더보기」, 메뉴의 작은 꼬리말 */
+.ef-tab-priv { font-style: normal; font-size: 8px; color: #8a96a3; margin-left: 5px; vertical-align: 2px; }
+.ef-tab.ef-tab-more { color: var(--c-text-muted); }
+.ef-mi-sub { margin-left: auto; font-style: normal; font-size: 10.5px; color: var(--c-text-faint); }
+
+/* ── NTable 자리에 끼운 Effort 표(EfNTable — REQ-Coverage) ── */
+.efn { flex: 1; min-height: 0; }
+/* 제목 칸 — 글자 + 오른쪽 「열기」(마우스를 올렸을 때) */
+.efn-ttl { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.efn-ttltxt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.efn-open {
+  flex: none; display: none; border: 1px solid var(--c-border); border-radius: 5px; background: #fff;
+  font: inherit; font-size: 11px; color: var(--c-text-muted); padding: 1px 7px; cursor: pointer;
+}
+.ef-t tbody tr:hover .efn-open { display: inline-flex; }
+.efn-open:hover { color: #2d6fd4; border-color: #2d6fd4; }
+/* 선택 칸 알약(설정 색·그림) — 여러 개면 잇는다 */
+.efn-pills { display: inline-flex; gap: 4px; min-width: 0; overflow: hidden; }

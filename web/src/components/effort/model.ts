@@ -32,6 +32,8 @@ export interface EfColumn {
   readOnly?: boolean
   /** 누르면 그 행을 여는 열(Jira 키 → 오른쪽 상세 창) — 표 바깥 EfCtx.onOpen 이 연다 */
   link?: boolean
+  /** 선택지를 표에서 못 늘린다 — 바깥(설정 화면)이 정본인 열(REQ-Coverage 의 코드·만든 칸) */
+  fixedOptions?: boolean
   [k: string]: unknown
 }
 export type EfRow = Record<string, unknown>

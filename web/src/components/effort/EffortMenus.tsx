@@ -129,7 +129,8 @@ export function SelectPicker({
   const first = useRef(true)
   const t = q.trim()
   let items = options.filter((o) => !t || o.toLowerCase().includes(t.toLowerCase())).map((v) => ({ v, create: false }))
-  if (t && !options.includes(t)) items = [...items, { v: t, create: true }]
+  // 선택지가 바깥(설정)에 정해진 열은 새 값을 못 만든다(fixedOptions — REQ-Coverage 코드·만든 칸)
+  if (t && !options.includes(t) && !col.fixedOptions) items = [...items, { v: t, create: true }]
   useEffect(() => {
     if (first.current) {
       first.current = false
@@ -163,7 +164,7 @@ export function SelectPicker({
             }}
           />
         </div>
-        <div className="ef-pick-lbl">옵션을 고르거나 새로 만드세요</div>
+        <div className="ef-pick-lbl">{col.fixedOptions ? '옵션을 고르세요 — 선택지는 설정에서 정합니다' : '옵션을 고르거나 새로 만드세요'}</div>
         <div role="listbox" className="ef-pick-list">
           {items.map((it, i) => (
             <button
@@ -247,7 +248,7 @@ export function MultiPicker({
               </button>
             )
           })}
-          {t && !all.includes(t) && (
+          {t && !all.includes(t) && !col.fixedOptions && (
             <button type="button" className="ef-pick-it" onClick={() => { set([...cur, t]); setQ('') }}>
               <span className="ef-pick-new">만들기</span>
               <Chip col={col} v={t} />

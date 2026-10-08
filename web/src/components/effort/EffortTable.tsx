@@ -93,8 +93,8 @@ export interface EfCtx {
   lock?: boolean
   /** link 열을 누르면(또는 그 칸에서 Enter) — 그 행을 연다 */
   onOpen?: (r: EfRow) => void
-  /** 칸 하나를 고쳤다(put 이 실제로 바꾼 뒤) */
-  onPut?: (r: EfRow, c: EfColumn, v: unknown) => void
+  /** 칸 하나를 고쳤다(put 이 실제로 바꾼 뒤) — prev 는 고치기 전 값(바깥 저장이 실패하면 되돌린다) */
+  onPut?: (r: EfRow, c: EfColumn, v: unknown, prev?: unknown) => void
   /** 체크한 행이 바뀌었다 */
   onCheck?: (rs: EfRow[]) => void
   /** 잠근 표에서도 고른 행을 지우게 한다(Jira — 받아 둔 복사본만 지운다). 지우는 일은 바깥이 한다 */
@@ -103,6 +103,13 @@ export interface EfCtx {
   pageSize?: number
   /** 칸을 빌려 쓰는 화면이 직접 그린다(Defects: 지라 이슈 링크·지라 상태 칩). undefined 면 표가 그린다 */
   renderCell?: (r: EfRow, c: EfColumn) => ReactNode | undefined
+  /** 잠근 표의 선택 줄 단추(REQ-Coverage: 복제·일괄 편집·엑셀·삭제) — 누르면 onBulk(열쇠, 고른 행). danger 는 해제 오른쪽 */
+  bulk?: Array<{ k: string; label: string; danger?: boolean }>
+  onBulk?: (k: string, rs: EfRow[]) => void
+  /** 잠근 표의 「+ 새로 만들기」 — 빈 행 대신 바깥(작성 창)이 연다 */
+  onNew?: () => void
+  /** 검색·필터를 지나 보이는 행이 바뀌었다(차례대로) — 바깥 「내보내기」 가 쓴다 */
+  onShown?: (rs: EfRow[]) => void
 }
 
 const cellText = (v: unknown) => (v == null ? '' : String(v))
@@ -382,9 +389,10 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       }
     } else v = cellText(raw)
     if (!hadFx && cellText(src[c.id]) === String(v)) return false // 안 바뀌었으면 저장도 안 함(수식을 지웠으면 저장)
+    const prev = src[c.id]
     if (v === '') delete src[c.id]
     else src[c.id] = v
-    ctx.onPut?.(src, c, v)
+    ctx.onPut?.(src, c, v, prev)
     return true
   }
   const commit = (src: EfRow, c: EfColumn, raw: unknown) => {
@@ -1398,6 +1406,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
     // 그룹 끝 — 노션처럼 「+ 새로 만들기」(그 그룹 값으로) 다음 소계
     const closeGroup = (g: Row<EfRow>) => {
       if (!lock) body.push(newRowTr('new-' + g.id, () => addToGroup(String(g.groupingValue ?? ''))))
+      else if (ctx.onNew) body.push(newRowTr('new-' + g.id, ctx.onNew))
       body.push(subRow(g))
     }
     // 한 번에 그릴 행 수(pageSize) — 넘으면 거기서 멈추고 아래에 「더 보기」. 바닥줄 계산은 그대로 전체로 센다
@@ -1444,7 +1453,10 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       )
     }
     // 묶지 않았으면 표 맨 아래에 하나
-    if (body.length && !lock && !cut && !table.getState().grouping.length) body.push(newRowTr('new-end', addAtEnd))
+    if (body.length && !cut && !table.getState().grouping.length) {
+      if (!lock) body.push(newRowTr('new-end', addAtEnd))
+      else if (ctx.onNew) body.push(newRowTr('new-end', ctx.onNew)) // 잠근 표 — 빈 행 대신 작성 창(바깥)
+    }
     leafRef.current = leaf
     painted = (
       <>
@@ -1462,7 +1474,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                     </td>
                   </tr>
                 )}
-                {!lock && newRowTr('new-end', addAtEnd)}
+                {!lock ? newRowTr('new-end', addAtEnd) : ctx.onNew ? newRowTr('new-end', ctx.onNew) : null}
               </>
             )}
           </tbody>
@@ -1515,6 +1527,13 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   // ── 체크한 행 줄(예전 _rscSelBar) — 보이는 행 전체 · N행 선택 · 복사 · 복제 · 삭제 · 해제 ──
   const shown = table.getFilteredRowModel().rows.map((r) => r.original)
   const ckList = rows.filter((r) => checked.has(r)) // 표 차례대로
+  // 보이는 행을 바깥에 알린다(바뀌었을 때만) — 정렬 차례대로
+  const shownSig = ctx.onShown ? leafRows(table).map((r) => String(r.__id ?? '')).join('\u0001') : ''
+  const onShown = ctx.onShown
+  useEffect(() => {
+    if (onShown) onShown(leafRows(table))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownSig])
   const allOn = shown.length > 0 && shown.every((r) => checked.has(r))
   const someOn = !allOn && shown.some((r) => checked.has(r))
   const selCopy = async () => {
@@ -1574,6 +1593,15 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           <button type="button" className="ef-btn gh" onClick={() => void selCopy()}>
             <TI n="copy" /> 복사
           </button>
+          {/* 잠근 표의 바깥 일괄 단추 — 지우기처럼 되돌릴 수 없는 것(danger)은 해제 오른쪽 끝에 */}
+          {lock &&
+            (ctx.bulk ?? [])
+              .filter((b) => !b.danger)
+              .map((b) => (
+                <button key={b.k} type="button" className="ef-btn gh" onClick={() => ctx.onBulk?.(b.k, ckList)}>
+                  {b.label}
+                </button>
+              ))}
           {!lock && (
             <>
               <button type="button" className="ef-btn gh" onClick={selDup}>
@@ -1593,6 +1621,14 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               <TI n="trash" /> 삭제
             </button>
           )}
+          {lock &&
+            (ctx.bulk ?? [])
+              .filter((b) => b.danger)
+              .map((b) => (
+                <button key={b.k} type="button" className="ef-btn gh ef-danger" onClick={() => ctx.onBulk?.(b.k, ckList)}>
+                  <TI n="trash" /> {b.label}
+                </button>
+              ))}
         </>
       )}
     </div>

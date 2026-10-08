@@ -34,6 +34,8 @@ const SYNC = new Set([
   'utop.jira.ef', 'utop.jira.sideW', 'utop.jira.sideHide', 'utop.jira.types', 'utop.jira.tree', 'utop.jira.drawerWide',
   // Defects(Effort 양식) — 열 배치·폭·보기 한 벌, 목록 판 폭·접어 둠
   'utop.defects.ef', 'utop.defects.sideW', 'utop.defects.sideHide',
+  // REQ-Coverage 새 표(Effort 양식) — 기본 탭 상태 · 예전 표로 보기. 보던 탭(.cur)은 이 PC 자리라 안 넣는다
+  'utop.reqtc.ef.tc.base', 'utop.reqtc.ef.req.base', 'utop.reqtc.oldTable',
   // 자동 스텝 표에서 사람이 끌어 정한 칸 폭
   'utop.tc.sq.sumw', 'utop.tc.sq.dscw',
   'utop.nav.dock', 'utop.drawer.side',
