@@ -54,6 +54,11 @@
 .wtb {
   margin-left: -46px;
   margin-right: -46px;
+  /* **블록 폭을 다 쓴다**(지적: 표가 글 단 안쪽에만 차고 오른쪽이 빈다).
+     블록 칸(bn-block-content)이 flex 라 그냥 두면 내용 폭만큼 줄어든다 — 되민 여백(46px×2)까지 채운다 */
+  flex: none;
+  width: calc(100% + 92px);
+  box-sizing: border-box;
 }
 /* 자료 들이기 */
 .wtb-imb {
