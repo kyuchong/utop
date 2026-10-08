@@ -101,6 +101,8 @@ export interface EfCtx {
   onDelete?: (rs: EfRow[]) => void
   /** 한 번에 그릴 행 수 — 많으면 「더 보기」(수천 행을 다 그리면 무겁다). 없으면 전부 */
   pageSize?: number
+  /** 칸을 빌려 쓰는 화면이 직접 그린다(Defects: 지라 이슈 링크·지라 상태 칩). undefined 면 표가 그린다 */
+  renderCell?: (r: EfRow, c: EfColumn) => ReactNode | undefined
 }
 
 const cellText = (v: unknown) => (v == null ? '' : String(v))
@@ -1298,7 +1300,9 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               }
             >
               {/* 묶은 열(기본 인원)은 그룹 머리에만 쓰고 행에서는 비운다(예전과 같다) */}
-              {cell.getIsPlaceholder() ? null : (
+              {cell.getIsPlaceholder() ? null : ctx.renderCell?.(src, c) !== undefined ? (
+                ctx.renderCell!(src, c)
+              ) : (
                 <CellView
                   c={c}
                   v={

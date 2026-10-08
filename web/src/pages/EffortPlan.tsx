@@ -72,6 +72,8 @@ export interface EfHost {
   onCheck?: (rs: EfRow[]) => void
   onDelete?: (rs: EfRow[]) => void
   pageSize?: number
+  /** 칸을 직접 그린다 — undefined 를 돌려주면 표가 그린다 */
+  renderCell?: (r: EfRow, c: EfColumn) => ReactNode | undefined
 }
 /** 이 PC 의 보던 자리(항해 상태 — 계정 동기화 목록 SYNC 에 넣지 않는다) */
 const NAV_KEY = 'utop.ef.nav'
@@ -275,7 +277,7 @@ export function EffortBody({
     touch,
     toast,
     ver,
-    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, onDelete: host.onDelete, pageSize: host.pageSize } : {}),
+    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, onDelete: host.onDelete, pageSize: host.pageSize, renderCell: host.renderCell } : {}),
   }
   const api = useEfTable(ctx)
   const { table } = api

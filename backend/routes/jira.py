@@ -2236,8 +2236,9 @@ def _rj_load():
 # ══════════════════════════════════════════════════════════════════════
 
 @router.get("/api/defects")
-async def defect_list_api(status: str = "", cycle_id: str = ""):
-    return {"defects": await db.defect_list(status, cycle_id)}
+async def defect_list_api(status: str = "", cycle_id: str = "", limit: int = 300):
+    # Defects 화면은 왼쪽 상태 목록의 숫자를 세려고 전부 받는다(limit) — 기본 300 은 예전 그대로
+    return {"defects": await db.defect_list(status, cycle_id, max(1, min(int(limit or 300), 5000)))}
 
 
 @router.get("/api/defects/for-item")

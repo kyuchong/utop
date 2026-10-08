@@ -32,6 +32,8 @@ const SYNC = new Set([
   'utop.jira.projects', 'utop.jira.cols', 'utop.jira.w', 'utop.jira.order',
   // Jira Issue(Effort 양식) — 열 배치·폭·보기 한 벌, 목록 판 폭·접어 둠
   'utop.jira.ef', 'utop.jira.sideW', 'utop.jira.sideHide', 'utop.jira.types', 'utop.jira.tree', 'utop.jira.drawerWide',
+  // Defects(Effort 양식) — 열 배치·폭·보기 한 벌, 목록 판 폭·접어 둠
+  'utop.defects.ef', 'utop.defects.sideW', 'utop.defects.sideHide',
   // 자동 스텝 표에서 사람이 끌어 정한 칸 폭
   'utop.tc.sq.sumw', 'utop.tc.sq.dscw',
   'utop.nav.dock', 'utop.drawer.side',
