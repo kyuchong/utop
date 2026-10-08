@@ -91,6 +91,8 @@ export interface EfHost {
   viewPolicy?: { me: string; isAdmin: boolean }
   /** 내보내기를 바깥이 한다 — 도구 줄 단추가 「CSV」 대신 「엑셀」 이 되고, 보이는 행·보이는 열 차례 그대로 넘긴다 */
   onExport?: (rows: EfRow[], cols: EfColumn[]) => void
+  /** 잠근 표에서도 열 정의를 고치게(유형 목록 · 열 추가) — 열마다 허락은 EfColumn.defs, 결과는 바깥이 touch 에서 받는다 */
+  colDefs?: { types: EfType[]; add: boolean }
 }
 /** 한 줄에 세우는 보기 탭 수(정책) — 넘치면 「⋯ 더보기」 */
 const TABS_ON_ROW = 8
@@ -296,7 +298,7 @@ export function EffortBody({
     touch,
     toast,
     ver,
-    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, onDelete: host.onDelete, pageSize: host.pageSize, renderCell: host.renderCell, bulk: host.bulk, onBulk: host.onBulk, onNew: host.onNew, onShown: host.onShown } : {}),
+    ...(host ? { lock: true, onOpen: host.onOpen, onPut: host.onPut, onCheck: host.onCheck, onDelete: host.onDelete, pageSize: host.pageSize, renderCell: host.renderCell, bulk: host.bulk, onBulk: host.onBulk, onNew: host.onNew, onShown: host.onShown, defs: host.colDefs } : {}),
   }
   const api = useEfTable(ctx)
   const { table } = api

@@ -52,7 +52,19 @@ export interface EfNTableProps {
   onLayout?: (p: { order: string[]; widths: Record<string, number>; hidden: string[] }) => void
   /** 도구 줄 오른쪽(엑셀 왼쪽)에 더 넣을 것 — 「예전 표로 보기」 등 */
   toolRight?: ReactNode
+  /**
+   * 머리 메뉴로 열 정의를 고쳤다 — 예전 표의 onColumns 와 같은 꼴(바뀐 뒤 열 목록 전부).
+   * 만든 칸(cf_)은 이름·유형·옵션·삭제, codeKeys 의 칸은 이름·옵션, 나머지는 잠근다. 새 열은 cf_ 열쇠로 선다
+   */
+  onColumns?: (after: NCol[]) => void
+  /** 선택지가 설정 코드에 사는 기본 칸(유형·상태 …) — 이름·옵션만 고친다 */
+  codeKeys?: string[]
 }
+
+/** 머리 메뉴에서 고를 수 있는 유형 — 서버 정의(사용자 정의 칸)가 받는 것만 */
+const DEF_TYPES: EfColumn['type'][] = ['text', 'number', 'date', 'select', 'multiselect']
+const toNType = (t: EfColumn['type']): NCol['type'] =>
+  t === 'number' || t === 'date' || t === 'select' || t === 'multiselect' ? t : 'text'
 
 const BASE = 'base'
 const EMPTY_ST: EfViewState = { q: '', filters: [], sorting: [], group: null }
@@ -109,6 +121,10 @@ export default function EfNTable(p: EfNTableProps) {
     staleTime: 30_000,
   })
 
+  /** 열 정의 글(이름·유형·옵션·색·차례) — 바깥 열에서 세운 직후 값과 견주어 머리 메뉴로 고쳤는지 안다 */
+  const defsSigOf = (cs: EfColumn[]) =>
+    JSON.stringify(cs.map((c) => [c.id, c.title, c.type, c.options ?? [], c.optColors ?? {}]))
+  const defsSig = useRef('')
   // ── 표 문서 — 열은 바깥 NCol 에서, 행은 바깥 행 그대로(같은 객체 — 체크·더 보기가 안 풀린다) ──
   const docRef = useRef<EfDoc | null>(null)
   if (!docRef.current) {
@@ -137,6 +153,11 @@ export default function EfNTable(p: EfNTableProps) {
         nc.optColors = Object.fromEntries(c.options.map((o) => [o.value, paintOfAny(o.color).dot]))
       }
       if (ty === 'select' || ty === 'multiselect') nc.fixedOptions = true
+      // 머리 메뉴 허용 — 만든 칸은 이름·유형·옵션·삭제, 코드 칸은 이름·옵션, ID·제목·계산 칸은 잠금
+      if (p.onColumns && !c.fixed && !ro.has(c.key)) {
+        if (c.key.startsWith('cf_')) nc.defs = { rename: true, type: true, opts: true, del: true }
+        else if ((p.codeKeys ?? []).includes(c.key)) nc.defs = { rename: true, opts: true }
+      }
       const old = prev.get(c.key)
       if (old?.efWidth) nc.efWidth = old.efWidth
       else if (c.width) nc.efWidth = c.width
@@ -147,6 +168,7 @@ export default function EfNTable(p: EfNTableProps) {
     const pos = (c: EfColumn) => at.get(c.id) ?? 900 + p.columns.findIndex((x) => x.key === c.id)
     made.sort((a, b) => pos(a) - pos(b))
     doc.columns = made
+    defsSig.current = defsSigOf(made)
   }
   doc.pages.all!.rows = p.rows as EfRow[]
 
@@ -212,6 +234,33 @@ export default function EfNTable(p: EfNTableProps) {
       order: d.columns.map((c) => c.id),
       widths: Object.fromEntries(d.columns.filter((c) => c.efWidth).map((c) => [c.id, Number(c.efWidth)])),
       hidden: base?.ef?.hidden ?? [],
+    }
+    // 머리 메뉴로 열 정의를 고쳤다 → 바깥(사용자 정의 칸·코드 저장)으로. 새 열은 cf_ 열쇠로 바꿔 세운다
+    if (p.onColumns && defsSigOf(d.columns) !== defsSig.current) {
+      for (const c of d.columns) {
+        if (nById.has(c.id)) continue
+        const key = `cf_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`
+        c.id = key
+        c.defs = { rename: true, type: true, opts: true, del: true }
+      }
+      const hid = new Set(base?.ef?.hidden ?? [])
+      const after: NCol[] = d.columns.map((c) => {
+        const n = nById.get(c.id)
+        const ty = toNType(c.type)
+        const out: NCol = { ...(n ?? {}), key: c.id, label: c.title, type: ty, width: c.efWidth ? Number(c.efWidth) : n?.width, hidden: hid.has(c.id) }
+        if (ty === 'select' || ty === 'multiselect') {
+          // 색 — 편집기에서 새로 고른 색(hex)이면 그것, 아니면 설정에 있던 그대로(이름 색 보존). 그림·보이기도 그대로
+          out.options = (c.options ?? []).map((v) => {
+            const o = n?.options?.find((x) => x.value === v)
+            const hex = c.optColors?.[v]
+            const keepOld = o && (!hex || hex === paintOfAny(o.color).dot)
+            return { value: v, color: keepOld ? o!.color : (hex ?? ''), icon: o?.icon, show: o?.show }
+          })
+        } else delete out.options
+        return out
+      })
+      defsSig.current = defsSigOf(d.columns)
+      p.onColumns(after)
     }
     const ls = JSON.stringify(lay)
     if (ls !== layoutSig.current) {
@@ -432,6 +481,7 @@ export default function EfNTable(p: EfNTableProps) {
           onBulk,
           renderCell,
           onExport: (rs, vc) => void exportXlsx(rs, vc),
+          colDefs: p.onColumns ? { types: DEF_TYPES, add: true } : undefined,
           toolRight: p.toolRight,
           pageSize: 200,
         }}

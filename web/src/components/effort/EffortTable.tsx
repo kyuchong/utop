@@ -110,6 +110,8 @@ export interface EfCtx {
   onNew?: () => void
   /** 검색·필터를 지나 보이는 행이 바뀌었다(차례대로) — 바깥 「내보내기」 가 쓴다 */
   onShown?: (rs: EfRow[]) => void
+  /** 잠근 표에서 열 정의를 고치게 한다 — 고를 수 있는 유형 · 열 추가(왼쪽/오른쪽). 열마다 무엇을 고치는지는 EfColumn.defs */
+  defs?: { types: EfType[]; add: boolean }
 }
 
 const cellText = (v: unknown) => (v == null ? '' : String(v))
@@ -1032,7 +1034,8 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           toast('마지막 열은 삭제할 수 없습니다')
           return
         }
-        if (!window.confirm(`「${c.title}」 열을 삭제할까요?`)) return
+        // 잠근 표(REQ-Coverage)의 만든 칸 — 묻는 것은 바깥(서버 정의를 지우는 쪽, 값 든 건수까지 말한다)이 한다
+        if (!(lock && c.defs?.del) && !window.confirm(`「${c.title}」 열을 삭제할까요?`)) return
         doc.columns.splice(doc.columns.indexOf(c), 1)
         if (c.autoSum) Object.values(doc.pages).forEach((p) => p.rows.forEach((r) => delete r[c.id]))
         touch()
@@ -1715,6 +1718,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           ops={opsFor(menuEf)}
           allCols={cols}
           lock={lock}
+          defs={ctx.defs}
           onClose={() => setMenu(null)}
         />
       )}

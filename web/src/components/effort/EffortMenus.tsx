@@ -703,11 +703,14 @@ export function HeadMenu({
   ops,
   allCols,
   lock,
+  defs,
   onClose,
 }: {
   anchor: HTMLElement
   column: Column<EfRow, unknown>
   col: EfColumn
+  /** 잠근 표에서 열 정의 고치기(REQ-Coverage) — 고를 수 있는 유형 · 열 추가. 이 열이 무엇을 고치는지는 col.defs */
+  defs?: { types: EfType[]; add: boolean }
   /** 빌려 쓰는 표(Jira) — 필터·정렬·그룹·열 숨기기만(유형·옵션·이름·추가·복제·삭제 없음) */
   lock?: boolean
   /** 표의 모든 열 — 남은 일수가 볼 기간 열 목록 */
@@ -750,7 +753,17 @@ export function HeadMenu({
     </button>
   )
 
-  const miss = hasOptions(col.type) ? missingOptions(rows, col) : []
+  const miss = hasOptions(col.type) && !col.fixedOptions ? missingOptions(rows, col) : []
+  // 잠근 표는 열마다 허락된 것만(col.defs) — 잠그지 않은 표(Effort Plan)는 전부
+  const can = {
+    rename: !lock || !!col.defs?.rename,
+    type: !lock || (!!col.defs?.type && !!defs),
+    opts: !lock || !!col.defs?.opts,
+    add: !lock || !!defs?.add,
+    dup: !lock,
+    del: !lock || !!col.defs?.del,
+  }
+  const typeList = lock && defs ? TYPES.filter((t) => defs.types.includes(t.t)) : TYPES
   return (
     <>
       <Pop anchor={anchor} cls="ef-menu" onClose={close}>
@@ -759,14 +772,14 @@ export function HeadMenu({
           className="ef-menu-name"
           value={title}
           aria-label="열 이름"
-          readOnly={lock}
+          readOnly={!can.rename}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           onBlur={() => title.trim() && title.trim() !== col.title && ops.rename(title.trim())}
         />
         <div className="ef-mlist">
-          {!lock && item('type', typeIcon(col), '유형', false)}
-          {!lock && hasOptions(col.type) && item('opts', 'tags', '옵션', false)}
+          {can.type && item('type', typeIcon(col), '유형', false)}
+          {can.opts && hasOptions(col.type) && item('opts', 'tags', '옵션', false)}
           {item('filter', 'filter', '필터', column.getIsFiltered())}
           {item('sort', 'arrows-sort', '정렬', !!sorted)}
           {!lock && col.type === 'formula' && (
@@ -793,7 +806,7 @@ export function HeadMenu({
         <div className="ef-sep" />
         <div className="ef-mlist">
           {/* 메뉴는 열어 둔 채 맨 위 이름 칸으로 간다(예전과 같다) */}
-          {!lock && (<>
+          {can.rename && (
           <button
             type="button"
             className="ef-mi"
@@ -806,6 +819,8 @@ export function HeadMenu({
             <i className="ef-mi-ic"><TI n="pencil" /></i>
             <span>이름 바꾸기</span>
           </button>
+          )}
+          {can.add && (<>
           <button type="button" className="ef-mi" onClick={() => { setSub(null); ops.insert(false); close() }}>
             <i className="ef-mi-ic"><TI n="arrow-bar-to-left" /></i>
             <span>왼쪽에 열 추가</span>
@@ -814,16 +829,18 @@ export function HeadMenu({
             <i className="ef-mi-ic"><TI n="arrow-bar-to-right" /></i>
             <span>오른쪽에 열 추가</span>
           </button>
+          </>)}
+          {can.dup && (
           <button type="button" className="ef-mi" onClick={() => { setSub(null); ops.duplicate(); close() }}>
             <i className="ef-mi-ic"><TI n="copy" /></i>
             <span>열 복제</span>
           </button>
-          </>)}
+          )}
           <button type="button" className="ef-mi" onClick={() => { setSub(null); close(); ops.hide() }}>
             <i className="ef-mi-ic"><TI n="eye-off" /></i>
             <span>열 숨기기</span>
           </button>
-          {!lock && (
+          {can.del && (
             <button type="button" className="ef-mi del" onClick={() => { setSub(null); ops.remove(); close() }}>
               <i className="ef-mi-ic"><TI n="trash" /></i>
               <span>열 삭제</span>
@@ -836,7 +853,7 @@ export function HeadMenu({
         <Pop anchor={sub.anchor} side cls="ef-menu ef-submenu" onClose={() => setSub(null)}>
           <div className="ef-lbl">유형</div>
           <div className="ef-mlist">
-            {TYPES.map((t) =>
+            {typeList.map((t) =>
               t.t === 'datediff' ? (
                 // 남은 일수 — 옆에 어느 기간 열로 셀지 고르는 목록을 펼친다(지시)
                 <button

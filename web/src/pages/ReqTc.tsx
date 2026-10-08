@@ -3097,6 +3097,8 @@ export default function ReqTc({ me }: Props) {
                 isAdmin={isAdminUser(me)}
                 onLayout={efLayout('r_', 'utop.ntb.order.r')}
                 toolRight={oldTableBtn}
+                onColumns={(cs) => void applyCols(nReqCols, cs, 'r_', 'utop.ntb.order.r')}
+                codeKeys={Object.keys(KIND_OF)}
                 columns={nReqCols}
                 rows={nReqRows}
                 onNew={() => setEditReq(null)}
@@ -3285,6 +3287,8 @@ export default function ReqTc({ me }: Props) {
                 isAdmin={isAdminUser(me)}
                 onLayout={efLayout('', 'utop.ntb.order')}
                 toolRight={oldTableBtn}
+                onColumns={(cs) => void applyCols(nCols, cs, '', 'utop.ntb.order')}
+                codeKeys={Object.keys(KIND_OF)}
                 columns={nCols}
                 rows={nRows}
                 onNew={() => setEditTc(null)}
