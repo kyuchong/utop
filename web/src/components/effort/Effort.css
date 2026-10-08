@@ -1105,6 +1105,9 @@ input.ef-fsel { cursor: text; }
 .ef-nc-title > span:not(.ef-sp) { font-size: 12px; font-weight: 600; color: var(--c-text-faint); }
 .ef-nc-title .ef-btn { font-size: 11px; padding: 4px 10px; }
 .ef-nc-box { position: relative; }
+/* 차트 그림판 — 막대가 많으면 넓혀(인라인 width) 상자 안에서 옆으로 굴린다 */
+.ef-nc-cv { position: relative; width: 100%; height: 100%; }
+.ef-nc-box.ef-nc-scroll { overflow-x: auto; overflow-y: hidden; }
 .ef-nc-none { padding: 60px 10px; text-align: center; font-size: 12px; color: var(--c-text-faint); }
 .ef-nc-panel { flex: 0 0 268px; border-left: 1px solid var(--c-border); background: #fbfcfe; overflow-y: auto; padding: 12px 14px 20px; }
 .ef-nc-ph { display: flex; align-items: center; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }

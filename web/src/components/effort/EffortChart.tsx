@@ -359,6 +359,13 @@ export function EfNotionChart({
   const ofName = sp.x === MONTH ? '그 달 공수' : sp.of === MM ? '공수(M/M)' : (cols.find((c) => c.id === sp.of)?.title ?? '')
   const yTitle = sp.agg === 'count' ? '개수' : `${ofName} ${AGG_NAME[sp.agg]}`
   const xTitle = sp.x === MONTH ? '월' : (data.xCol?.title ?? '')
+  /** 그룹 막대를 나란히 세우나 — 막대·가로 막대에 그룹이 있고 「쌓기」 가 아닐 때 */
+  const side = !!data.gCol && (sp.kind === 'bar' || sp.kind === 'hbar') && sp.stack !== 'stack'
+  /** 막대가 다 들어갈 자리(px) — 칸마다 나란히면 선 막대 수 × 16 + 18, 아니면 30. 화면보다 크면 넓혀 굴린다 */
+  const span =
+    sp.kind === 'bar' || sp.kind === 'hbar'
+      ? data.labels.reduce((a, _, i) => a + (side ? Math.max(1, data.series.filter((x) => x.data[i]).length) * 16 + 18 : 30), 0)
+      : 0
 
   useEffect(() => {
     const el = ref.current
@@ -412,7 +419,16 @@ export function EfNotionChart({
               pointRadius: 3,
               borderWidth: 2,
             }
-          : { label: s.name || yTitle, data: s.data, backgroundColor: perBar ?? c, borderRadius: 4, maxBarThickness: 48 }
+          : {
+              label: s.name || yTitle,
+              // 나란히면 0 은 비운다(null) — skipNull 로 그 그룹 자리를 안 잡아, 있는 막대만 붙어 굵게 선다
+              data: side ? s.data.map((v) => (v ? v : null)) : s.data,
+              backgroundColor: perBar ?? c,
+              borderRadius: 4,
+              maxBarThickness: 48,
+              // 나란히 — 빈 그룹 자리를 안 잡고(skipNull), 한 칸 안의 막대는 붙여 넓게(지적: 막대가 실처럼 가늘다)
+              ...(side ? ({ skipNull: true, categoryPercentage: 0.88, barPercentage: 0.94 } as object) : {}),
+            }
       })
       const ax = (title: string, isVal: boolean) => ({
         stacked: multi && !line && sp.stack === 'stack',
@@ -441,7 +457,7 @@ export function EfNotionChart({
       })
     }
     return () => ch.destroy()
-  }, [data, sp.kind, sp.color, sp.legend, sp.labels, sp.grid, sp.axisNames, sp.smooth, sp.fill, sp.yMin, sp.yMax, sp.ref, sp.refLabel, sp.stack, yTitle, xTitle])
+  }, [data, side, sp.kind, sp.color, sp.legend, sp.labels, sp.grid, sp.axisNames, sp.smooth, sp.fill, sp.yMin, sp.yMax, sp.ref, sp.refLabel, sp.stack, yTitle, xTitle])
 
   const xs = xCols(cols)
   const nums = monthCols(cols)
@@ -475,8 +491,15 @@ export function EfNotionChart({
             {yTitle} <span>· {xTitle}{data.gCol ? ` · ${data.gCol.title}별` : ''}</span>
           </div>
           {data.labels.length ? (
-            <div className="ef-nc-box" style={{ height: H[sp.height] }}>
-              <canvas ref={ref} />
+            /* 막대가 많으면 칸을 줄이지 않고 자리를 넓힌다(지적: 차트를 잘 보이게) — 세로 막대는 옆으로 굴리고,
+               가로 막대는 아래로 늘린다. 한 칸 폭 = 나란히면 (그 칸에 선 막대 수 × 16 + 18)px, 아니면 30px */
+            <div
+              className={`ef-nc-box${sp.kind === 'bar' && span > 0 ? ' ef-nc-scroll' : ''}`}
+              style={{ height: sp.kind === 'hbar' ? Math.max(H[sp.height], span) : H[sp.height] }}
+            >
+              <div className="ef-nc-cv" style={sp.kind === 'bar' ? { width: `max(100%, ${span}px)` } : undefined}>
+                <canvas ref={ref} />
+              </div>
             </div>
           ) : (
             <div className="ef-nc-none">그릴 자료가 없습니다 — 오른쪽 설정에서 X축을 고르거나 필터를 풀어 보세요</div>
