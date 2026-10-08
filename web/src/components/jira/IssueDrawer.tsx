@@ -14,7 +14,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type WheelEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import { prefGet, prefSet } from '@/lib/prefs'
 import './IssueDrawer.css'
+
+/** 서랍 넓게 보기 — 계정 설정(SYNC) */
+const WIDE_KEY = 'utop.jira.drawerWide'
 
 /** Jira 가 준 HTML 을 화면에 놓기 전에 손본다 — 옛 화면(_rlsJiraHtml)과 같은 규칙.
  *
@@ -395,11 +399,18 @@ export function IssueDrawer({
 
   /** 활동 탭 — 지라와 같이 모두·댓글·이력 */
   const [act, setAct] = useState<'all' | 'cmt' | 'his'>('cmt')
+  /** 넓게 보기(지시: ✕ 왼쪽 단추로 왼쪽으로 더 크게) — 계정을 따라간다 */
+  const [wide, setWide] = useState(() => prefGet(WIDE_KEY) === '1')
+  const toggleWide = () =>
+    setWide((w) => {
+      prefSet(WIDE_KEY, w ? '0' : '1')
+      return !w
+    })
 
 
   return (
     <div className="rls-ovl" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="rls-drawer" role="dialog" aria-modal="true" aria-label={`${ikey} 세부`}>
+      <div className={`rls-drawer${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={`${ikey} 세부`}>
         <header>
           <b>{ikey}</b>
           <span className={`rls-stat ${scat}`}>{pick(f.status, 'name')}</span>
@@ -409,6 +420,26 @@ export function IssueDrawer({
               Jira 에서 열기 ↗
             </a>
           )}
+          <button
+            type="button"
+            className="rls-dwide"
+            onClick={toggleWide}
+            title={wide ? '원래 폭으로' : '넓게 보기 — 왼쪽으로 더 크게'}
+            aria-label={wide ? '원래 폭으로' : '넓게 보기'}
+            aria-pressed={wide}
+          >
+            {/* 넓히면 → 줄이기, 아니면 ← 넓히기 */}
+            <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+              <path
+                d={wide ? 'M9 4l4 4-4 4M13 8H5M2.5 3v10' : 'M7 4L3 8l4 4M3 8h8M13.5 3v10'}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
           <button type="button" className="rls-dx" onClick={onClose} title="닫기 (Esc)">
             ✕
           </button>
