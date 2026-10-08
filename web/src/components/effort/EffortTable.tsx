@@ -315,6 +315,8 @@ let draggedAt = 0 // 끌고 나서 바로 뒤따라오는 click(= 메뉴 열기)
 export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const { rows, cols, doc, touch, toast } = ctx
   const lock = !!ctx.lock
+  /** 줄을 표 폭 끝까지 채운다 — 빌려 쓰는 표(예전 노션식 표가 그랬다). Effort Plan 은 열 폭 그대로 */
+  const fill = lock
   /** 그릴 행 수(더 보기로 늘린다) — 표가 바뀌면(행 배열이 달라지면) 처음 수로 */
   const [limit, setLimit] = useState(ctx.pageSize ?? Infinity)
   const { table, max, sizing, setSizing, markFresh } = api
@@ -1180,6 +1182,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
               <td key={cell.id} />
             ),
           )}
+          {fill && <td className="ef-fillc" />}
         </tr>
       )
     }
@@ -1383,6 +1386,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
             </td>
           )
         })}
+        {fill && <td className="ef-fillc" />}
       </tr>
     )
   }
@@ -1419,6 +1423,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
           </td>
         )
       })}
+      {fill && <td className="ef-fillc" />}
     </tr>
   )
 
@@ -1426,7 +1431,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
   const newRowTr = (key: string, on: () => void) => (
     <tr key={key} className="ef-newrow">
       <td className="ef-rh" />
-      <td colSpan={ordered.length}>
+      <td colSpan={ordered.length + (fill ? 1 : 0)}>
         <button type="button" className="ef-newrow-btn" onClick={on}>
           <TI n="plus" /> 새로 만들기
         </button>
@@ -1475,7 +1480,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
       body.push(
         <tr key="more" className="ef-newrow ef-morerow">
           <td className="ef-rh" />
-          <td colSpan={ordered.length}>
+          <td colSpan={ordered.length + (fill ? 1 : 0)}>
             {/* 한 묶음으로 왼쪽에 붙인다 — 글자·단추를 따로 붙이면 같은 자리로 밀려 겹쳤다(지적) */}
             <span className="ef-more-in">
               <span className="ef-more-n">
@@ -1509,7 +1514,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                 {(rows.length > 0 || lock) && (
                   <tr>
                     <td className="ef-rh" />
-                    <td colSpan={ordered.length} className="ef-none">
+                    <td colSpan={ordered.length + (fill ? 1 : 0)} className="ef-none">
                       <span className="ef-none-msg">{rows.length ? '조건에 맞는 행이 없습니다' : '행이 없습니다'}</span>
                     </td>
                   </tr>
@@ -1555,6 +1560,7 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
                   </td>
                 )
               })}
+              {fill && <td className="ef-fillc" />}
             </tr>
           </tfoot>
       </>
@@ -1689,12 +1695,14 @@ export function EfGrid({ ctx, api }: { ctx: EfCtx; api: EfTableApi }) {
         }}
         onBlur={() => typingRef.current && endTyping(true)}
       />
-      <table className="ef-t" ref={tblRef} style={{ width: table.getTotalSize() + 62 }}>
+      {/* 빌려 쓰는 표는 줄이 오른쪽 끝까지(지시: 예전 표처럼) — 맨 끝 빈 채움 칸이 남는 폭을 받는다 */}
+      <table className="ef-t" ref={tblRef} style={{ width: fill ? `max(100%, ${table.getTotalSize() + 62}px)` : table.getTotalSize() + 62 }}>
         <thead>
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
               <th className="ef-rh" />
               {hg.headers.map(headCell)}
+              {fill && <th className="ef-fillc" />}
             </tr>
           ))}
         </thead>

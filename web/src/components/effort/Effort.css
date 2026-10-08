@@ -1256,3 +1256,5 @@ input.ef-fsel { cursor: text; }
 .ef-t tbody tr.ntb-live td { background: #f1fbf4; }
 .ef-t tbody tr.ntb-live td.ef-rh { box-shadow: inset 3px 0 0 #16a34a; }
 .ef-t tbody tr.ntb-live:hover td { background: #e7f7ec; }
+/* 맨 끝 채움 칸 — 줄 선·바탕만 이어 가고 아무 일도 안 한다 */
+.ef-t th.ef-fillc, .ef-t td.ef-fillc { padding: 0; border-right: 0; }
